@@ -12,6 +12,46 @@ from apps.billing.models import Invoice, InvoiceStatus
 from .models import Subscription, SubscriptionPlan, SubscriptionStatus
 
 
+def _subscription_status_to_unified(status: str) -> str:
+    # Unified engine keeps a generalized status set; map GRACE to active lifecycle.
+    if status == SubscriptionStatus.GRACE:
+        return "active"
+    return status
+
+
+def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None):
+    try:
+        from apps.unified_requests.services import upsert_unified_request
+        from apps.unified_requests.models import UnifiedRequestType
+    except Exception:
+        return
+
+    upsert_unified_request(
+        request_type=UnifiedRequestType.SUBSCRIPTION,
+        requester=sub.user,
+        source_app="subscriptions",
+        source_model="Subscription",
+        source_object_id=sub.id,
+        status=_subscription_status_to_unified(sub.status),
+        priority="normal",
+        summary=f"اشتراك {getattr(sub.plan, 'title', getattr(sub.plan, 'code', ''))}".strip(),
+        metadata={
+            "subscription_id": sub.id,
+            "plan_id": sub.plan_id,
+            "plan_code": getattr(getattr(sub, "plan", None), "code", "") or "",
+            "subscription_status": sub.status,
+            "invoice_id": sub.invoice_id,
+            "start_at": sub.start_at.isoformat() if sub.start_at else None,
+            "end_at": sub.end_at.isoformat() if sub.end_at else None,
+            "grace_end_at": sub.grace_end_at.isoformat() if sub.grace_end_at else None,
+        },
+        assigned_team_code="subs",
+        assigned_team_name="الاشتراكات",
+        assigned_user=None,
+        changed_by=changed_by,
+    )
+
+
 def _grace_days() -> int:
     return int(getattr(settings, "SUBS_GRACE_DAYS", 7))
 
@@ -41,6 +81,7 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription
 
     sub.invoice = inv
     sub.save(update_fields=["invoice", "updated_at"])
+    _sync_subscription_to_unified(sub=sub, changed_by=user)
     return sub
 
 
@@ -79,6 +120,7 @@ def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
     except Exception:
         pass
 
+    _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
     return sub
 
 
@@ -97,11 +139,13 @@ def refresh_subscription_status(*, sub: Subscription) -> Subscription:
     if sub.end_at and now > sub.end_at and sub.status == SubscriptionStatus.ACTIVE:
         sub.status = SubscriptionStatus.GRACE
         sub.save(update_fields=["status", "updated_at"])
+        _sync_subscription_to_unified(sub=sub, changed_by=None)
         return sub
 
     if sub.grace_end_at and now > sub.grace_end_at and sub.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE):
         sub.status = SubscriptionStatus.EXPIRED
         sub.save(update_fields=["status", "updated_at"])
+        _sync_subscription_to_unified(sub=sub, changed_by=None)
         return sub
 
     return sub

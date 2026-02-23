@@ -44,7 +44,16 @@ class SupportStatusLogSerializer(serializers.ModelSerializer):
 class SupportTicketCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportTicket
-        fields = ["id", "code", "ticket_type", "description", "priority"]
+        fields = [
+            "id",
+            "code",
+            "ticket_type",
+            "description",
+            "priority",
+            "reported_kind",
+            "reported_object_id",
+            "reported_user",
+        ]
         read_only_fields = ["id", "code"]
 
     def validate_description(self, value):
@@ -58,14 +67,21 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         user = self.context["request"].user
         from apps.features.support import support_priority
+        from .services import _sync_ticket_to_unified
 
         # أولوية التذكرة حسب ميزة Priority Support
         validated_data.pop("priority", None)
-        return SupportTicket.objects.create(
+        reported_kind = (validated_data.get("reported_kind") or "").strip()[:30]
+        reported_object_id = (validated_data.get("reported_object_id") or "").strip()[:50]
+        validated_data["reported_kind"] = reported_kind
+        validated_data["reported_object_id"] = reported_object_id
+        ticket = SupportTicket.objects.create(
             requester=user,
             priority=support_priority(user),
             **validated_data,
         )
+        _sync_ticket_to_unified(ticket=ticket, changed_by=user)
+        return ticket
 
 
 class SupportTicketDetailSerializer(serializers.ModelSerializer):
@@ -84,6 +100,7 @@ class SupportTicketDetailSerializer(serializers.ModelSerializer):
             "requester", "requester_name",
             "ticket_type", "status", "priority",
             "description",
+            "reported_kind", "reported_object_id", "reported_user",
             "assigned_team", "assigned_team_obj",
             "assigned_to", "assigned_to_name",
             "assigned_at", "returned_at", "closed_at",

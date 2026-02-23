@@ -7,6 +7,37 @@ from .models import SupportTicket, SupportStatusLog, SupportTicketStatus
 from apps.notifications.services import create_notification
 
 
+def _sync_ticket_to_unified(*, ticket: SupportTicket, changed_by=None):
+    """
+    مزامنة تذكرة الدعم مع محرك الطلبات الموحد (تكامل تدريجي غير معطّل).
+    """
+    try:
+        from apps.unified_requests.services import upsert_unified_request
+        from apps.unified_requests.models import UnifiedRequestType
+    except Exception:
+        return
+
+    team = getattr(ticket, "assigned_team", None)
+    upsert_unified_request(
+        request_type=UnifiedRequestType.HELPDESK,
+        requester=ticket.requester,
+        source_app="support",
+        source_model="SupportTicket",
+        source_object_id=ticket.id,
+        status=ticket.status,
+        priority=ticket.priority or "normal",
+        summary=(ticket.description or "")[:300],
+        metadata={
+            "ticket_type": ticket.ticket_type,
+            "ticket_code": ticket.code or "",
+        },
+        assigned_team_code=getattr(team, "code", "") or "",
+        assigned_team_name=getattr(team, "name_ar", "") or "",
+        assigned_user=ticket.assigned_to,
+        changed_by=changed_by,
+    )
+
+
 def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, note: str = ""):
     """
     تغيير الحالة + تسجيل Log
@@ -38,6 +69,7 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
         changed_by=by_user,
         note=(note or "")[:200],
     )
+    _sync_ticket_to_unified(ticket=ticket, changed_by=by_user)
 
     # Notify ticket requester immediately when support status changes.
     status_labels = {
@@ -94,5 +126,7 @@ def assign_ticket(*, ticket: SupportTicket, team_id, user_id, by_user, note: str
     # لو كانت جديدة نحولها لمعالجة
     if ticket.status == SupportTicketStatus.NEW:
         change_ticket_status(ticket=ticket, new_status=SupportTicketStatus.IN_PROGRESS, by_user=by_user, note=note)
+    else:
+        _sync_ticket_to_unified(ticket=ticket, changed_by=by_user)
 
     return ticket

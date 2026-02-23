@@ -5,6 +5,7 @@ from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.support.models import SupportTeam, SupportTicket
+from apps.unified_requests.models import UnifiedRequest
 
 
 pytestmark = pytest.mark.django_db
@@ -66,6 +67,34 @@ def test_create_ticket(api, client_user):
     }, format="json")
     assert r.status_code == 201
     assert r.data["code"].startswith("HD")
+    t = SupportTicket.objects.get(pk=r.data["id"])
+    ur = UnifiedRequest.objects.get(source_app="support", source_model="SupportTicket", source_object_id=str(t.id))
+    assert ur.code.startswith("HD")
+    assert ur.status == t.status
+    assert ur.request_type == "helpdesk"
+
+
+def test_create_complaint_ticket_accepts_reported_target(api, client_user):
+    reported_user = User.objects.create_user(phone="0599999999", password="Pass12345!")
+
+    api.force_authenticate(user=client_user)
+    r = api.post(
+        "/api/support/tickets/create/",
+        data={
+            "ticket_type": "complaint",
+            "description": "بلاغ اختبار",
+            "reported_kind": "review",
+            "reported_object_id": "123",
+            "reported_user": reported_user.id,
+        },
+        format="json",
+    )
+    assert r.status_code == 201
+    t = SupportTicket.objects.get(pk=r.data["id"])
+    assert t.ticket_type == "complaint"
+    assert (t.reported_kind or "").strip() == "review"
+    assert (t.reported_object_id or "").strip() == "123"
+    assert t.reported_user_id == reported_user.id
 
 
 def test_backoffice_list(api, staff_user, client_user):
@@ -91,3 +120,34 @@ def test_user_operator_cannot_assign_to_other(api, support_operator_user, other_
 
     r2 = api.patch(f"/api/support/backoffice/tickets/{t.id}/assign/", data={"assigned_to": support_operator_user.id}, format="json")
     assert r2.status_code == 200
+
+
+def test_support_ticket_syncs_to_unified_on_assign_and_status(api, support_operator_user, client_user, teams):
+    t = SupportTicket.objects.create(requester=client_user, ticket_type="tech", description="test sync")
+    api.force_authenticate(user=support_operator_user)
+
+    team = SupportTeam.objects.get(code="tech")
+    r_assign = api.patch(
+        f"/api/support/backoffice/tickets/{t.id}/assign/",
+        data={"assigned_team": team.id, "assigned_to": support_operator_user.id, "note": "claim"},
+        format="json",
+    )
+    assert r_assign.status_code == 200
+
+    ur = UnifiedRequest.objects.get(source_app="support", source_model="SupportTicket", source_object_id=str(t.id))
+    assert ur.assigned_user_id == support_operator_user.id
+    assert ur.assigned_team_code == "tech"
+    # assign on NEW auto-transitions to in_progress
+    assert ur.status == "in_progress"
+
+    r_status = api.patch(
+        f"/api/support/backoffice/tickets/{t.id}/status/",
+        data={"status": "closed", "note": "done"},
+        format="json",
+    )
+    assert r_status.status_code == 200
+
+    ur.refresh_from_db()
+    assert ur.status == "closed"
+    assert ur.status_logs.count() >= 2
+    assert ur.assignment_logs.count() >= 1

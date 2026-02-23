@@ -96,6 +96,17 @@ class SupportTicket(models.Model):
         related_name="support_actions",
     )
 
+    # Complaint/Report target (optional)
+    reported_kind = models.CharField(max_length=30, blank=True, default="")
+    reported_object_id = models.CharField(max_length=50, blank=True, default="")
+    reported_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reported_support_tickets",
+    )
+
     def __str__(self) -> str:
         return self.code or f"HD-ticket-{self.pk}"
 

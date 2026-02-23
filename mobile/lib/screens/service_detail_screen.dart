@@ -82,6 +82,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
           ..clear()
           ..addAll(
             reviews.map((r) => {
+                  'reviewId': r['id'],
                   'name': (r['client_name'] ?? r['client_phone'] ?? 'مستخدم').toString(),
                   'comment': (r['comment'] ?? '').toString(),
                   'rating': _asDouble(r['rating']),
@@ -131,6 +132,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     required String reportedEntity,
     String? contextLabel,
     String? contextValue,
+    String? reportedKind,
+    String? reportedObjectId,
   }) async {
     if (!await checkAuth(context)) return;
     try {
@@ -140,6 +143,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         reportedEntityValue: reportedEntity,
         contextLabel: contextLabel,
         contextValue: contextValue,
+        reportedKind: reportedKind,
+        reportedObjectId: reportedObjectId,
       );
       if (!mounted) return;
       final code = (res['code'] ?? '').toString().trim();
@@ -571,6 +576,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               if (value == 'like') {
                 setState(() => c['isLiked'] = !isLiked);
               } else if (value == 'report') {
+                final rawReviewId = c['reviewId'];
+                final reviewId = (rawReviewId is int)
+                    ? rawReviewId
+                    : int.tryParse(rawReviewId?.toString() ?? '');
                 showPlatformReportDialog(
                   context: context,
                   title: 'إبلاغ عن تعليق',
@@ -585,6 +594,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       reportedEntity: '${c['name'] ?? ''}: ${c['comment'] ?? ''}',
                       contextLabel: 'الخدمة',
                       contextValue: widget.title,
+                      reportedKind: reviewId == null ? null : 'review',
+                      reportedObjectId: reviewId == null ? null : reviewId.toString(),
                     );
                   },
                 );

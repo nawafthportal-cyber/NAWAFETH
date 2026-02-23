@@ -9,8 +9,16 @@
   </div>
   <div class="flex items-center gap-2">
     <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=csv" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير CSV</a>
+    <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=xlsx" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير Excel</a>
+    <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=pdf" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير PDF</a>
     <a href="{% url 'admin:promo_promorequest_changelist' %}" class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white font-semibold">فتح Admin</a>
   </div>
+</div>
+
+<div class="flex items-center gap-2 mb-5">
+  <a href="{% url 'dashboard:promo_requests_list' %}" class="px-4 py-2 rounded-lg border {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200{% endif %}">طلبات الترويج</a>
+  <a href="{% url 'dashboard:promo_inquiries_list' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">استفسارات الترويج</a>
+  <a href="{% url 'dashboard:promo_pricing' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">الأسعار</a>
 </div>
 
 <form method="get" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">

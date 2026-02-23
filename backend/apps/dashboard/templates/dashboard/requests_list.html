@@ -10,8 +10,14 @@
       </div>
       <p class="text-gray-500 text-sm">استعراض الطلبات مع فلاتر وتشغيل يومي.</p>
     </div>
-    <a href="?q={{ q }}&status={{ status_val }}&type={{ type_val }}&city={{ city }}&from={{ from }}&to={{ to }}&export=csv"
-       class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold hover:bg-gray-50">تصدير CSV</a>
+     <div class="flex items-center gap-2">
+      <a href="?q={{ q }}&status={{ status_val }}&type={{ type_val }}&city={{ city }}&from={{ from }}&to={{ to }}&export=csv"
+        class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold hover:bg-gray-50">تصدير CSV</a>
+      <a href="?q={{ q }}&status={{ status_val }}&type={{ type_val }}&city={{ city }}&from={{ from }}&to={{ to }}&export=xlsx"
+        class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold hover:bg-gray-50">تصدير Excel</a>
+      <a href="?q={{ q }}&status={{ status_val }}&type={{ type_val }}&city={{ city }}&from={{ from }}&to={{ to }}&export=pdf"
+        class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-sm font-semibold hover:bg-gray-50">تصدير PDF</a>
+     </div>
   </div>
 
   <form method="get" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">

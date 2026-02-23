@@ -3,8 +3,10 @@ import '../widgets/bottom_nav.dart';
 import 'provider_profile_screen.dart';
 import '../widgets/custom_drawer.dart';
 import '../services/providers_api.dart';
+import '../services/home_feed_service.dart';
 import '../models/category.dart';
 import '../models/provider.dart';
+import '../widgets/banner_widget.dart';
 
 class SearchProviderScreen extends StatefulWidget {
   final int? initialCategoryId;
@@ -34,6 +36,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   String? _selectedCity;
 
   final ProvidersApi _providersApi = ProvidersApi();
+  final HomeFeedService _feed = HomeFeedService.instance;
   List<Category> _categories = [];
   List<ProviderProfile> _providers = [];
   bool _loading = false;
@@ -110,10 +113,27 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         // تحميل جميع المزودين عند عدم وجود فلاتر
         list = await _providersApi.getProviders();
       }
+
+      // Apply paid promo boosts/featured ordering (admin-managed) using /api/promo/active/.
+      String? categoryName;
+      if (_selectedCategoryId != null) {
+        for (final c in _categories) {
+          if (c.id == _selectedCategoryId) {
+            categoryName = c.name;
+            break;
+          }
+        }
+      }
+
+      final reordered = await _feed.reorderProvidersForPromos(
+        providers: list,
+        city: _selectedCity,
+        categoryName: categoryName,
+      );
       
       if (!mounted) return;
       setState(() {
-        _providers = list;
+        _providers = reordered;
         _loading = false;
       });
     } catch (_) {
@@ -469,16 +489,35 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                         color: Color(0xFF6366F1),
                       ),
                     )
-                  : _providers.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
+                  : Column(
+                      children: [
+                        Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _providers.length,
-                          itemBuilder: (_, index) {
-                            final provider = _providers[index];
-                            return _buildProviderCard(provider, isDark);
-                          },
+                          child: SizedBox(
+                            height: 180,
+                            child: BannerWidget(
+                              placement: BannerPlacement.search,
+                              city: _selectedCity,
+                              categoryName: selectedCategory?.name,
+                              limit: 3,
+                            ),
+                          ),
                         ),
+                        const SizedBox(height: 12),
+                        Expanded(
+                          child: _providers.isEmpty
+                              ? _buildEmptyState()
+                              : ListView.builder(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  itemCount: _providers.length,
+                                  itemBuilder: (_, index) {
+                                    final provider = _providers[index];
+                                    return _buildProviderCard(provider, isDark);
+                                  },
+                                ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),

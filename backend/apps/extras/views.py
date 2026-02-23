@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import generics
 
+from .permissions import IsOwnerOrBackofficeExtras
 from .serializers import ExtraCatalogItemSerializer, ExtraPurchaseSerializer
 from .services import get_extra_catalog, create_extra_purchase_checkout
 from .models import ExtraPurchase
@@ -14,6 +15,8 @@ class ExtrasCatalogView(APIView):
     """
     عرض كتالوج الإضافات
     """
+    permission_classes = [IsOwnerOrBackofficeExtras]
+
     def get(self, request):
         catalog = get_extra_catalog()
         items = []
@@ -28,6 +31,7 @@ class ExtrasCatalogView(APIView):
 
 
 class MyExtrasListView(generics.ListAPIView):
+    permission_classes = [IsOwnerOrBackofficeExtras]
     serializer_class = ExtraPurchaseSerializer
 
     def get_queryset(self):
@@ -38,6 +42,8 @@ class BuyExtraView(APIView):
     """
     شراء إضافة -> ينشئ purchase + invoice
     """
+    permission_classes = [IsOwnerOrBackofficeExtras]
+
     def post(self, request, sku: str):
         try:
             purchase = create_extra_purchase_checkout(user=request.user, sku=sku)

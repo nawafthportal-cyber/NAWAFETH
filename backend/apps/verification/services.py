@@ -13,6 +13,37 @@ from .models import (
 )
 
 
+def _sync_verification_to_unified(*, vr: VerificationRequest, changed_by=None):
+    """
+    مزامنة طلب التوثيق مع محرك الطلبات الموحد (تكامل تدريجي غير معطّل).
+    """
+    try:
+        from apps.unified_requests.services import upsert_unified_request
+        from apps.unified_requests.models import UnifiedRequestType
+    except Exception:
+        return
+
+    upsert_unified_request(
+        request_type=UnifiedRequestType.VERIFICATION,
+        requester=vr.requester,
+        source_app="verification",
+        source_model="VerificationRequest",
+        source_object_id=vr.id,
+        status=vr.status,
+        priority="normal",
+        summary=f"طلب توثيق {vr.get_badge_type_display()}",
+        metadata={
+            "badge_type": vr.badge_type,
+            "verification_code": vr.code or "",
+            "invoice_id": vr.invoice_id,
+        },
+        assigned_team_code="verify",
+        assigned_team_name="التوثيق",
+        assigned_user=vr.assigned_to,
+        changed_by=changed_by,
+    )
+
+
 def _safe_set_profile_flags(user, badge_type: str, active: bool):
     """
     محاولة تحديث ProviderProfile flags إن كانت موجودة في مشروعك.
@@ -52,6 +83,46 @@ def _fee_for_badge(badge_type: str) -> Decimal:
     return Decimal(str(blue_fee))
 
 
+def _fee_for_request(vr: VerificationRequest) -> Decimal:
+    """
+    رسوم التوثيق حسب الباقة (إن وُجدت) مع fallback للرسوم الثابتة.
+
+    settings.VERIFY_FEES_BY_PLAN مثال:
+    {
+        "BASIC": {"blue": "120.00", "green": "60.00"},
+        "PRO": {"blue": "80.00", "green": "40.00"},
+    }
+    """
+    try:
+        from apps.subscriptions.models import Subscription, SubscriptionStatus
+    except Exception:
+        return _fee_for_badge(vr.badge_type)
+
+    active_sub = (
+        Subscription.objects.filter(user=vr.requester, status=SubscriptionStatus.ACTIVE)
+        .select_related("plan")
+        .order_by("-id")
+        .first()
+    )
+    if not active_sub or not getattr(active_sub, "plan", None):
+        return _fee_for_badge(vr.badge_type)
+
+    plan_code = ((active_sub.plan.code or "") if active_sub.plan else "").strip().upper()
+    if not plan_code:
+        return _fee_for_badge(vr.badge_type)
+
+    raw_matrix = getattr(settings, "VERIFY_FEES_BY_PLAN", {}) or {}
+    # Normalize top-level keys to uppercase for safer matching.
+    matrix = {str(k).strip().upper(): (v or {}) for k, v in raw_matrix.items()}
+    plan_fees = matrix.get(plan_code, {}) or {}
+    amount = plan_fees.get(vr.badge_type)
+    if amount is None:
+        amount = plan_fees.get(str(vr.badge_type).lower())
+    if amount is None:
+        return _fee_for_badge(vr.badge_type)
+    return Decimal(str(amount))
+
+
 @transaction.atomic
 def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, by_user):
     doc = VerificationDocument.objects.select_for_update().get(pk=doc.pk)
@@ -88,6 +159,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         vr.reject_reason = "تم رفض بعض المستندات. الرجاء مراجعة البنود وإعادة الرفع."
         vr.reviewed_at = timezone.now()
         vr.save(update_fields=["status", "reject_reason", "reviewed_at", "updated_at"])
+        _sync_verification_to_unified(vr=vr, changed_by=by_user)
         return vr
 
     # كل شيء مقبول
@@ -98,7 +170,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
 
     # إنشاء فاتورة
     if not vr.invoice_id:
-        fee = _fee_for_badge(vr.badge_type)
+        fee = _fee_for_request(vr)
         inv = Invoice.objects.create(
             user=vr.requester,
             title="رسوم التوثيق",
@@ -114,6 +186,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         vr.status = VerificationStatus.PENDING_PAYMENT
         vr.save(update_fields=["invoice", "status", "updated_at"])
 
+    _sync_verification_to_unified(vr=vr, changed_by=by_user)
     return vr
 
 
@@ -153,5 +226,6 @@ def activate_after_payment(*, vr: VerificationRequest):
     )
 
     _safe_set_profile_flags(vr.requester, vr.badge_type, True)
+    _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
 
     return vr

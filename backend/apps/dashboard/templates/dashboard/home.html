@@ -232,11 +232,85 @@
     </div>
   </div>
 
-  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
-    <div class="flex items-center justify-between mb-4">
-      <h2 class="font-bold text-lg text-gray-800">اتجاهات التشغيل (14 يوم)</h2>
-      <span class="text-sm text-gray-500">Requests / Invoices / Support</span>
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+    <div class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 card-hover">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg">🗂️</div>
+          <div class="text-sm font-bold text-gray-700">الطلبات التشغيلية الموحدة</div>
+        </div>
+        <a href="{% url 'dashboard:unified_requests_list' %}" class="text-blue-700 text-sm font-semibold hover:underline">عرض القائمة ←</a>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center justify-between p-2 rounded-lg bg-blue-50">
+          <span class="text-blue-700">إجمالي السجلات</span>
+          <span class="font-bold text-blue-800">{{ unified_total_requests }}</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-lg bg-amber-50">
+          <span class="text-amber-700">مفتوحة تشغيليًا</span>
+          <span class="font-bold text-amber-800">{{ unified_open_requests }}</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-lg bg-emerald-50">
+          <span class="text-emerald-700">بانتظار دفع</span>
+          <span class="font-bold text-emerald-800">{{ unified_pending_payment_requests }}</span>
+        </div>
+        <div class="flex items-center justify-between p-2 rounded-lg bg-indigo-50">
+          <span class="text-indigo-700">نشطة</span>
+          <span class="font-bold text-indigo-800">{{ unified_active_requests }}</span>
+        </div>
+      </div>
     </div>
+
+    <div class="xl:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div class="px-6 py-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg">🧭</div>
+          <h2 class="font-bold text-lg text-gray-800">آخر سجلات الطلبات الموحدة</h2>
+        </div>
+        <a class="px-4 py-2 rounded-lg bg-blue-700 text-white hover:shadow-lg transition-all text-sm font-semibold" href="{% url 'dashboard:unified_requests_list' %}">فتح القائمة ←</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-right px-6 py-4 text-gray-600 font-bold">الكود</th>
+              <th class="text-right px-6 py-4 text-gray-600 font-bold">النوع</th>
+              <th class="text-right px-6 py-4 text-gray-600 font-bold">الحالة</th>
+              <th class="text-right px-6 py-4 text-gray-600 font-bold">الطالب</th>
+              <th class="text-right px-6 py-4 text-gray-600 font-bold">المرجع</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for r in unified_recent_requests %}
+              <tr class="hover:bg-blue-50 transition-all">
+                <td class="px-6 py-4">
+                  {% if r.dashboard_detail_url %}
+                    <a href="{{ r.dashboard_detail_url }}" class="font-bold text-blue-700 hover:underline">{{ r.code|default:r.id }}</a>
+                  {% else %}
+                    <span class="font-bold text-blue-700">{{ r.code|default:r.id }}</span>
+                  {% endif %}
+                </td>
+                <td class="px-6 py-4">{{ r.get_request_type_display }}</td>
+                <td class="px-6 py-4">{{ r.get_status_display }}</td>
+                <td class="px-6 py-4">{{ r.requester.phone|default:"—" }}</td>
+                <td class="px-6 py-4 text-xs text-gray-500">{{ r.source_app }}.{{ r.source_model }}#{{ r.source_object_id }}</td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td class="px-6 py-10 text-gray-400 text-center" colspan="5">لا توجد سجلات موحدة بعد.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-bold text-lg text-gray-800">اتجاهات التشغيل (14 يوم)</h2>
+      <span class="text-sm text-gray-500">Requests / Invoices / Support / Unified</span>
+      </div>
     <canvas id="opsChart" height="90"></canvas>
   </div>
 
@@ -247,6 +321,7 @@
       const req = {{ request_series_json|safe }};
       const inv = {{ invoice_series_json|safe }};
       const sup = {{ support_series_json|safe }};
+      const uni = {{ unified_request_series_json|safe }};
       const el = document.getElementById('opsChart');
       if (!el) return;
       new Chart(el, {
@@ -256,7 +331,8 @@
           datasets: [
             { label: 'الطلبات', data: req, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.12)', fill: true, tension: .3 },
             { label: 'الفواتير', data: inv, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.10)', fill: true, tension: .3 },
-            { label: 'تذاكر الدعم', data: sup, borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.10)', fill: true, tension: .3 }
+            { label: 'تذاكر الدعم', data: sup, borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.10)', fill: true, tension: .3 },
+            { label: 'الطلبات الموحدة', data: uni, borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,.08)', fill: false, tension: .25 }
           ]
         },
         options: {

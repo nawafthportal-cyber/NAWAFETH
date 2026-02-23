@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import generics, status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
@@ -9,16 +10,107 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import PromoRequest, PromoAsset, PromoRequestStatus
+from .models import PromoRequest, PromoAsset, PromoRequestStatus, PromoAdType
 from .serializers import (
     PromoRequestCreateSerializer,
     PromoRequestDetailSerializer,
     PromoAssetSerializer,
     PromoQuoteSerializer,
     PromoRejectSerializer,
+    PromoHomeBannerAssetSerializer,
+    PromoActivePlacementSerializer,
 )
 from .permissions import IsOwnerOrBackofficePromo
-from .services import quote_and_create_invoice, reject_request
+from .services import quote_and_create_invoice, reject_request, _sync_promo_to_unified
+
+
+class PublicHomeBannersView(generics.ListAPIView):
+    """Public list of active home banner assets.
+
+    Only returns banner assets from activated promo requests managed by admin.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = PromoHomeBannerAssetSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        now = timezone.now()
+        qs = (
+            PromoAsset.objects.select_related(
+                "request",
+                "request__requester",
+                "request__requester__provider_profile",
+            )
+            .filter(
+                request__status=PromoRequestStatus.ACTIVE,
+                request__ad_type=PromoAdType.BANNER_HOME,
+                request__start_at__lte=now,
+                request__end_at__gte=now,
+            )
+            .order_by("request__position", "-request__activated_at", "-uploaded_at", "-id")
+        )
+
+        limit_raw = self.request.query_params.get("limit")
+        if limit_raw not in (None, ""):
+            try:
+                limit = int(limit_raw)
+            except Exception:
+                limit = 6
+            limit = max(1, min(limit, 20))
+            qs = qs[:limit]
+
+        return qs
+
+
+class PublicActivePromosView(generics.ListAPIView):
+    """Public list of active promo placements.
+
+    This is a generalized endpoint for all promo ad types.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = PromoActivePlacementSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        now = timezone.now()
+        qs = (
+            PromoRequest.objects.select_related(
+                "target_provider",
+                "target_portfolio_item",
+            )
+            .prefetch_related("assets")
+            .filter(
+                status=PromoRequestStatus.ACTIVE,
+                start_at__lte=now,
+                end_at__gte=now,
+            )
+            .order_by("position", "-activated_at", "-id")
+        )
+
+        ad_type = (self.request.query_params.get("ad_type") or "").strip()
+        if ad_type:
+            qs = qs.filter(ad_type=ad_type)
+
+        city = (self.request.query_params.get("city") or "").strip()
+        if city:
+            qs = qs.filter(Q(target_city__iexact=city) | Q(target_city=""))
+
+        category = (self.request.query_params.get("category") or "").strip()
+        if category:
+            qs = qs.filter(Q(target_category__iexact=category) | Q(target_category=""))
+
+        limit_raw = self.request.query_params.get("limit")
+        if limit_raw not in (None, ""):
+            try:
+                limit = int(limit_raw)
+            except Exception:
+                limit = 20
+            limit = max(1, min(limit, 50))
+            qs = qs[:limit]
+
+        return qs
 
 
 # ---------- Client ----------
@@ -94,6 +186,7 @@ class PromoAddAssetView(generics.CreateAPIView):
         if pr.status == PromoRequestStatus.REJECTED:
             pr.status = PromoRequestStatus.IN_REVIEW
             pr.save(update_fields=["status", "updated_at"])
+            _sync_promo_to_unified(pr=pr, changed_by=request.user)
 
         return Response(PromoAssetSerializer(asset).data, status=status.HTTP_201_CREATED)
 
@@ -160,6 +253,7 @@ class BackofficePromoAssignView(APIView):
         pr.assigned_to = assigned_user
         pr.assigned_at = timezone.now() if assigned_user else None
         pr.save(update_fields=["assigned_to", "assigned_at", "updated_at"])
+        _sync_promo_to_unified(pr=pr, changed_by=request.user)
 
         return Response(PromoRequestDetailSerializer(pr).data, status=status.HTTP_200_OK)
 

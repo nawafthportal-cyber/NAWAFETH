@@ -7,11 +7,13 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
 from .models import SubscriptionPlan, Subscription
+from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
 from .services import start_subscription_checkout
 
 
 class PlansListView(generics.ListAPIView):
+    permission_classes = [IsOwnerOrBackofficeSubscriptions]
     serializer_class = PlanSerializer
 
     def get_queryset(self):
@@ -19,6 +21,7 @@ class PlansListView(generics.ListAPIView):
 
 
 class MySubscriptionsView(generics.ListAPIView):
+    permission_classes = [IsOwnerOrBackofficeSubscriptions]
     serializer_class = SubscriptionSerializer
 
     def get_queryset(self):
@@ -29,6 +32,8 @@ class SubscribeView(APIView):
     """
     إنشاء اشتراك + فاتورة
     """
+    permission_classes = [IsOwnerOrBackofficeSubscriptions]
+
     def post(self, request, plan_id: int):
         plan = get_object_or_404(SubscriptionPlan, pk=plan_id, is_active=True)
 

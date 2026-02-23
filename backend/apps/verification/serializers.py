@@ -33,6 +33,7 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
+        from .services import _sync_verification_to_unified
 
         from apps.features.checks import has_feature
 
@@ -53,7 +54,9 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         if exists:
             raise serializers.ValidationError("يوجد طلب توثيق قائم لنفس نوع الشارة.")
 
-        return VerificationRequest.objects.create(requester=user, **validated_data)
+        vr = VerificationRequest.objects.create(requester=user, **validated_data)
+        _sync_verification_to_unified(vr=vr, changed_by=user)
+        return vr
 
 
 class VerificationRequestDetailSerializer(serializers.ModelSerializer):

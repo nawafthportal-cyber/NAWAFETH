@@ -1,9 +1,13 @@
 from django.urls import path
 from . import views
+from . import auth_views
 
 app_name = "dashboard"
 
 urlpatterns = [
+    path("login/", auth_views.dashboard_login, name="login"),
+    path("otp/", auth_views.dashboard_otp, name="otp"),
+    path("logout/", auth_views.dashboard_logout, name="logout"),
     path("", views.dashboard_home, name="home"),
     path("requests/", views.requests_list, name="requests_list"),
     path("requests/<int:request_id>/", views.request_detail, name="request_detail"),
@@ -13,6 +17,8 @@ urlpatterns = [
 
     path("services/", views.services_list, name="services_list"),
     path("billing/", views.billing_invoices_list, name="billing_invoices_list"),
+    path("unified-requests/", views.unified_requests_list, name="unified_requests_list"),
+    path("unified-requests/<int:unified_request_id>/", views.unified_request_detail, name="unified_request_detail"),
     path(
         "billing/<int:invoice_id>/actions/set-status/",
         views.billing_invoice_set_status_action,
@@ -22,6 +28,11 @@ urlpatterns = [
     path("support/<int:ticket_id>/", views.support_ticket_detail, name="support_ticket_detail"),
     path("support/<int:ticket_id>/actions/assign/", views.support_ticket_assign_action, name="support_ticket_assign_action"),
     path("support/<int:ticket_id>/actions/status/", views.support_ticket_status_action, name="support_ticket_status_action"),
+    path(
+        "support/<int:ticket_id>/actions/delete-reported/",
+        views.support_ticket_delete_reported_object_action,
+        name="support_ticket_delete_reported_object_action",
+    ),
 
     path("verification/", views.verification_requests_list, name="verification_requests_list"),
     path("verification/<int:verification_id>/", views.verification_request_detail, name="verification_request_detail"),
@@ -29,6 +40,9 @@ urlpatterns = [
     path("verification/<int:verification_id>/actions/activate/", views.verification_activate_action, name="verification_activate_action"),
 
     path("promo/", views.promo_requests_list, name="promo_requests_list"),
+    path("promo/inquiries/", views.promo_inquiries_list, name="promo_inquiries_list"),
+    path("promo/pricing/", views.promo_pricing, name="promo_pricing"),
+    path("promo/pricing/actions/update/", views.promo_pricing_update_action, name="promo_pricing_update_action"),
     path("promo/<int:promo_id>/", views.promo_request_detail, name="promo_request_detail"),
     path("promo/<int:promo_id>/actions/quote/", views.promo_quote_action, name="promo_quote_action"),
     path("promo/<int:promo_id>/actions/reject/", views.promo_reject_action, name="promo_reject_action"),

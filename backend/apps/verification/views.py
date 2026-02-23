@@ -17,7 +17,7 @@ from .serializers import (
     VerificationDocDecisionSerializer,
 )
 from .permissions import IsOwnerOrBackofficeVerify
-from .services import decide_document, finalize_request_and_create_invoice
+from .services import decide_document, finalize_request_and_create_invoice, _sync_verification_to_unified
 
 
 class VerificationRequestCreateView(generics.CreateAPIView):
@@ -94,6 +94,7 @@ class VerificationAddDocumentView(generics.CreateAPIView):
         if vr.status == VerificationStatus.REJECTED:
             vr.status = VerificationStatus.IN_REVIEW
             vr.save(update_fields=["status", "updated_at"])
+            _sync_verification_to_unified(vr=vr, changed_by=request.user)
 
         return Response(VerificationDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -155,6 +156,7 @@ class BackofficeVerificationAssignView(APIView):
         vr.assigned_to = assigned_user
         vr.assigned_at = timezone.now() if assigned_user else None
         vr.save(update_fields=["assigned_to", "assigned_at", "updated_at"])
+        _sync_verification_to_unified(vr=vr, changed_by=request.user)
 
         return Response(VerificationRequestDetailSerializer(vr).data, status=status.HTTP_200_OK)
 

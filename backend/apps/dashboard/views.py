@@ -7,8 +7,10 @@ import json
 import logging
 from functools import wraps
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required
+
+# Dashboard auth (OTP + staff) — keep legacy decorator names used in this file.
+from .auth import dashboard_staff_required as staff_member_required
+from .auth import dashboard_login_required as login_required
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
@@ -16,6 +18,7 @@ from django.db.models.functions import TruncDate
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.shortcuts import redirect
+from django.urls import reverse
 from django.utils.timezone import make_aware
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -23,8 +26,12 @@ from django.views.decorators.http import require_POST
 from apps.marketplace.models import ServiceRequest
 from apps.marketplace.services.actions import allowed_actions, execute_action
 from apps.providers.models import ProviderProfile, ProviderService, Category, SubCategory
+from apps.providers.models import ProviderPortfolioItem
 from apps.accounts.models import User
+from apps.messaging.models import Message
+from apps.reviews.models import Review
 from apps.support.models import SupportTicket, SupportTicketStatus, SupportTeam
+from apps.support.models import SupportTicketType
 from apps.support.services import change_ticket_status, assign_ticket
 from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt
 from apps.verification.models import VerificationRequest, VerificationStatus, VerificationDocument
@@ -32,6 +39,7 @@ from apps.verification.services import finalize_request_and_create_invoice, acti
 from apps.subscriptions.models import Subscription, SubscriptionStatus
 from apps.subscriptions.services import refresh_subscription_status, activate_subscription_after_payment
 from apps.promo.models import PromoRequest, PromoRequestStatus
+from apps.promo.models import PromoAdPrice, PromoAdType
 from apps.promo.services import quote_and_create_invoice, reject_request, activate_after_payment as activate_promo_after_payment
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.extras.services import activate_extra_after_payment
@@ -40,6 +48,7 @@ from apps.features.upload_limits import user_max_upload_mb
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.unified_requests.models import UnifiedRequest, UnifiedRequestStatus, UnifiedRequestType
 from .forms import AcceptAssignProviderForm, CategoryForm, SubCategoryForm
 
 # إن كانت عندك Enums استوردها (عدّل حسب مشروعك)
@@ -70,7 +79,7 @@ def _parse_date_yyyy_mm_dd(value: str | None):
         return None
     try:
         dt = datetime.strptime(value.strip(), "%Y-%m-%d")
-        return make_aware(dt)
+        return timezone.make_aware(dt, timezone.get_current_timezone())
     except Exception:
         return None
 
@@ -104,6 +113,17 @@ def _csv_response(filename: str, headers: list[str], rows: list[list]):
 
 def _want_csv(request: HttpRequest) -> bool:
     return (request.GET.get("export") or "").strip().lower() == "csv"
+
+
+def _want_xlsx(request: HttpRequest) -> bool:
+    v = (request.GET.get("export") or "").strip().lower()
+    return v in {"xlsx", "excel"}
+
+
+def _want_pdf(request: HttpRequest) -> bool:
+    return (request.GET.get("export") or "").strip().lower() == "pdf"
+
+
 
 
 def _dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
@@ -191,6 +211,348 @@ def _type_value(name: str, fallback: str) -> str:
     if RequestType:
         return getattr(RequestType, name, fallback)
     return fallback
+
+
+def _unified_request_dashboard_link(obj: UnifiedRequest) -> str:
+    source_app = (obj.source_app or "").strip().lower()
+    source_model = (obj.source_model or "").strip().lower()
+    source_id = (obj.source_object_id or "").strip()
+    if not source_id:
+        return ""
+    try:
+        sid = int(source_id)
+    except Exception:
+        sid = None
+
+    if source_app == "support" and source_model == "supportticket" and sid is not None:
+        return reverse("dashboard:support_ticket_detail", args=[sid])
+    if source_app == "verification" and source_model == "verificationrequest" and sid is not None:
+        return reverse("dashboard:verification_request_detail", args=[sid])
+    if source_app == "promo" and source_model == "promorequest" and sid is not None:
+        return reverse("dashboard:promo_request_detail", args=[sid])
+    if source_app == "subscriptions":
+        q = getattr(getattr(obj, "requester", None), "phone", "") or ""
+        return f"{reverse('dashboard:subscriptions_list')}?q={q}" if q else reverse("dashboard:subscriptions_list")
+    if source_app == "extras":
+        q = getattr(getattr(obj, "requester", None), "phone", "") or ""
+        return f"{reverse('dashboard:extras_list')}?q={q}" if q else reverse("dashboard:extras_list")
+    return ""
+
+
+def _unified_request_source_dashboard_code(obj: UnifiedRequest) -> str:
+    return {
+        "support": "support",
+        "verification": "verify",
+        "promo": "promo",
+        "subscriptions": "subs",
+        "extras": "extras",
+    }.get((obj.source_app or "").strip().lower(), "")
+
+
+def _unified_request_quick_links(user, obj: UnifiedRequest, metadata_payload: dict) -> list[dict]:
+    links: list[dict] = []
+    source_url = _unified_request_dashboard_link(obj)
+    source_dashboard_code = _unified_request_source_dashboard_code(obj)
+    if source_url and source_dashboard_code:
+        ap = getattr(user, "access_profile", None)
+        allowed = bool(
+            getattr(user, "is_superuser", False)
+            or (
+                ap
+                and not ap.is_revoked()
+                and not ap.is_expired()
+                and (
+                    ap.level in (AccessLevel.ADMIN, AccessLevel.POWER)
+                    or ap.allowed_dashboards.filter(code=source_dashboard_code, is_active=True).exists()
+                )
+            )
+        )
+        if allowed:
+            links.append({"label": "المصدر الأصلي", "url": source_url})
+    elif source_url:
+        links.append({"label": "المصدر الأصلي", "url": source_url})
+
+    invoice_id = metadata_payload.get("invoice_id") if isinstance(metadata_payload, dict) else None
+    if invoice_id not in (None, "") and _dashboard_allowed(user, "billing", write=False):
+        try:
+            inv = Invoice.objects.filter(id=int(invoice_id)).only("id", "code").first()
+            if inv:
+                q = (inv.code or str(inv.id)).strip()
+                url = reverse("dashboard:billing_invoices_list")
+                if q:
+                    url = f"{url}?q={q}"
+                links.append({"label": "الفاتورة", "url": url, "value": inv.code or str(inv.id)})
+        except Exception:
+            pass
+
+    requester = getattr(obj, "requester", None)
+    if requester and getattr(requester, "phone", None):
+        phone = requester.phone
+        if _dashboard_allowed(user, "content", write=False):
+            links.append({
+                "label": "طلبات العميل",
+                "url": f"{reverse('dashboard:requests_list')}?q={phone}",
+                "value": phone,
+            })
+            provider_profile = ProviderProfile.objects.filter(user_id=requester.id).only("id").first()
+            if provider_profile:
+                links.append({
+                    "label": "ملف مقدم الخدمة",
+                    "url": reverse("dashboard:provider_detail", args=[provider_profile.id]),
+                })
+        if _dashboard_allowed(user, "billing", write=False):
+            links.append({
+                "label": "فوترة العميل",
+                "url": f"{reverse('dashboard:billing_invoices_list')}?q={phone}",
+                "value": phone,
+            })
+        if obj.request_type == UnifiedRequestType.SUBSCRIPTION and _dashboard_allowed(user, "subs", write=False):
+            links.append({
+                "label": "اشتراكات العميل",
+                "url": f"{reverse('dashboard:subscriptions_list')}?q={phone}",
+            })
+        if obj.request_type == UnifiedRequestType.EXTRAS and _dashboard_allowed(user, "extras", write=False):
+            links.append({
+                "label": "خدمات إضافية للعميل",
+                "url": f"{reverse('dashboard:extras_list')}?q={phone}",
+            })
+
+    # Keep deterministic output and avoid duplicate URLs.
+    seen = set()
+    uniq = []
+    for link in links:
+        key = (link.get("label"), link.get("url"))
+        if not link.get("url") or key in seen:
+            continue
+        seen.add(key)
+        uniq.append(link)
+    return uniq
+
+
+@staff_member_required
+@dashboard_access_required("analytics")
+def unified_request_detail(request: HttpRequest, unified_request_id: int) -> HttpResponse:
+    obj = get_object_or_404(
+        UnifiedRequest.objects.select_related("requester", "assigned_user")
+        .prefetch_related(
+            "status_logs__changed_by",
+            "assignment_logs__from_user",
+            "assignment_logs__to_user",
+            "assignment_logs__changed_by",
+        ),
+        id=unified_request_id,
+    )
+    metadata_record = getattr(obj, "metadata_record", None)
+    metadata_payload = getattr(metadata_record, "payload", {}) or {}
+    source_url = _unified_request_dashboard_link(obj)
+    source_dashboard_code = _unified_request_source_dashboard_code(obj)
+    if source_url and source_dashboard_code:
+        ap = getattr(request.user, "access_profile", None)
+        allowed = bool(
+            getattr(request.user, "is_superuser", False)
+            or (
+                ap
+                and not ap.is_revoked()
+                and not ap.is_expired()
+                and (
+                    ap.level in (AccessLevel.ADMIN, AccessLevel.POWER)
+                    or ap.allowed_dashboards.filter(code=source_dashboard_code, is_active=True).exists()
+                )
+            )
+        )
+        if not allowed:
+            source_url = ""
+    quick_links = _unified_request_quick_links(request.user, obj, metadata_payload)
+    return render(
+        request,
+        "dashboard/unified_request_detail.html",
+        {
+            "ur": obj,
+            "metadata_payload": metadata_payload,
+            "metadata_record": metadata_record,
+            "source_url": source_url,
+            "quick_links": quick_links,
+            "status_logs": obj.status_logs.all(),
+            "assignment_logs": obj.assignment_logs.all(),
+        },
+    )
+
+
+@staff_member_required
+@dashboard_access_required("analytics")
+def unified_requests_list(request: HttpRequest) -> HttpResponse:
+    qs = UnifiedRequest.objects.select_related("requester", "assigned_user").all().order_by("-id")
+    q = (request.GET.get("q") or "").strip()
+    type_val = (request.GET.get("type") or "").strip()
+    status_val = (request.GET.get("status") or "").strip()
+    team_val = (request.GET.get("team") or "").strip()
+    assignee_val = (request.GET.get("assignee") or "").strip()
+    has_invoice_val = (request.GET.get("has_invoice") or "").strip()
+    has_assignee_val = (request.GET.get("has_assignee") or "").strip()
+    open_only_val = (request.GET.get("open_only") or "").strip()
+    preset_val = (request.GET.get("preset") or "").strip().lower()
+    date_from = _parse_date_yyyy_mm_dd(request.GET.get("from"))
+    date_to = _parse_date_yyyy_mm_dd(request.GET.get("to"))
+
+    if q:
+        qs = qs.filter(
+            Q(code__icontains=q)
+            | Q(summary__icontains=q)
+            | Q(requester__phone__icontains=q)
+            | Q(source_object_id__icontains=q)
+        )
+    if type_val:
+        qs = qs.filter(request_type=type_val)
+    if status_val:
+        qs = qs.filter(status=status_val)
+    if team_val:
+        qs = qs.filter(assigned_team_code=team_val)
+    if assignee_val == "__unassigned__":
+        qs = qs.filter(assigned_user__isnull=True)
+    elif assignee_val:
+        try:
+            qs = qs.filter(assigned_user_id=int(assignee_val))
+        except Exception:
+            pass
+    if preset_val == "pending_payment":
+        qs = qs.filter(status=UnifiedRequestStatus.PENDING_PAYMENT)
+    elif preset_val == "unassigned":
+        qs = qs.filter(assigned_user__isnull=True)
+    elif preset_val == "open_unassigned":
+        qs = qs.filter(
+            assigned_user__isnull=True,
+            status__in=[
+                UnifiedRequestStatus.NEW,
+                UnifiedRequestStatus.IN_PROGRESS,
+                UnifiedRequestStatus.RETURNED,
+            ],
+        )
+    has_invoice_bool = _bool_param(has_invoice_val)
+    if has_invoice_bool is True:
+        qs = qs.filter(metadata_record__payload__invoice_id__isnull=False).exclude(metadata_record__payload__invoice_id="")
+    elif has_invoice_bool is False:
+        qs = qs.filter(
+            Q(metadata_record__isnull=True)
+            | Q(metadata_record__payload__invoice_id__isnull=True)
+            | Q(metadata_record__payload__invoice_id="")
+        )
+    has_assignee_bool = _bool_param(has_assignee_val)
+    if has_assignee_bool is True:
+        qs = qs.filter(assigned_user__isnull=False)
+    elif has_assignee_bool is False:
+        qs = qs.filter(assigned_user__isnull=True)
+    if _bool_param(open_only_val) is True:
+        qs = qs.filter(
+            status__in=[
+                UnifiedRequestStatus.NEW,
+                UnifiedRequestStatus.IN_PROGRESS,
+                UnifiedRequestStatus.RETURNED,
+            ]
+        )
+    if date_from:
+        qs = qs.filter(created_at__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__lt=(date_to + timedelta(days=1)))
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user":
+        qs = qs.filter(Q(assigned_user=request.user) | Q(assigned_user__isnull=True))
+
+    filtered_summary = {
+        "total": qs.count(),
+        "open": qs.filter(
+            status__in=[
+                UnifiedRequestStatus.NEW,
+                UnifiedRequestStatus.IN_PROGRESS,
+                UnifiedRequestStatus.RETURNED,
+            ]
+        ).count(),
+        "pending_payment": qs.filter(status=UnifiedRequestStatus.PENDING_PAYMENT).count(),
+        "active": qs.filter(status=UnifiedRequestStatus.ACTIVE).count(),
+        "unassigned": qs.filter(assigned_user__isnull=True).count(),
+    }
+    filtered_type_counts = {
+        "helpdesk": qs.filter(request_type=UnifiedRequestType.HELPDESK).count(),
+        "verification": qs.filter(request_type=UnifiedRequestType.VERIFICATION).count(),
+        "promo": qs.filter(request_type=UnifiedRequestType.PROMO).count(),
+        "subscription": qs.filter(request_type=UnifiedRequestType.SUBSCRIPTION).count(),
+        "extras": qs.filter(request_type=UnifiedRequestType.EXTRAS).count(),
+    }
+
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = [
+            "الكود",
+            "النوع",
+            "الحالة",
+            "الأولوية",
+            "الطالب",
+            "الفريق",
+            "المكلّف",
+            "المرجع",
+            "الملخص",
+            "إجراءات",
+        ]
+        export_rows = []
+        for r in qs[:5000]:
+            unified_detail_path = reverse("dashboard:unified_request_detail", args=[r.id])
+            source_path = _unified_request_dashboard_link(r)
+            reference = f"{r.source_app}.{r.source_model}#{r.source_object_id}" if r.source_app else "—"
+            actions = f"تفاصيل موحدة: {unified_detail_path}"
+            if source_path:
+                actions = f"{actions} | فتح المصدر: {source_path}"
+            export_rows.append(
+                [
+                    r.code or r.id,
+                    r.get_request_type_display(),
+                    r.get_status_display(),
+                    r.get_priority_display(),
+                    getattr(getattr(r, "requester", None), "phone", "—") or "—",
+                    r.assigned_team_name or r.assigned_team_code or "—",
+                    getattr(getattr(r, "assigned_user", None), "phone", "—") or "—",
+                    reference,
+                    r.summary or "—",
+                    actions,
+                ]
+            )
+
+        if _want_csv(request):
+            return _csv_response("unified_requests.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("unified_requests.xlsx", "الطلبات الموحدة", headers_ar, export_rows)
+        return pdf_response("unified_requests.pdf", "الطلبات الموحدة", headers_ar, export_rows, landscape=True)
+
+    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or "1")
+    for row in page_obj.object_list:
+        row.dashboard_detail_url = _unified_request_dashboard_link(row)
+        row.unified_detail_url = reverse("dashboard:unified_request_detail", args=[row.id])
+    return render(
+        request,
+        "dashboard/unified_requests_list.html",
+        {
+            "page_obj": page_obj,
+            "q": q,
+            "type_val": type_val,
+            "status_val": status_val,
+            "team_val": team_val,
+              "assignee_val": assignee_val,
+              "has_invoice_val": has_invoice_val,
+              "has_assignee_val": has_assignee_val,
+              "open_only_val": open_only_val,
+              "preset_val": preset_val,
+              "date_from_val": (request.GET.get("from") or "").strip(),
+            "date_to_val": (request.GET.get("to") or "").strip(),
+              "type_choices": UnifiedRequestType.choices,
+              "status_choices": UnifiedRequestStatus.choices,
+              "staff_users": staff_users,
+              "filtered_summary": filtered_summary,
+              "filtered_type_counts": filtered_type_counts,
+          },
+      )
 
 
 def _compute_actions(user, obj) -> dict:
@@ -310,6 +672,24 @@ def dashboard_home(request):
     except Exception:
         pass
 
+    # KPIs الطلبات الموحدة (الطبقة التشغيلية الموحدة)
+    unified_qs = UnifiedRequest.objects.select_related("requester", "assigned_user").all()
+    unified_total = unified_qs.count()
+    unified_open = unified_qs.exclude(
+        status__in=[
+            UnifiedRequestStatus.CLOSED,
+            UnifiedRequestStatus.COMPLETED,
+            UnifiedRequestStatus.REJECTED,
+            UnifiedRequestStatus.EXPIRED,
+            UnifiedRequestStatus.CANCELLED,
+        ]
+    ).count()
+    unified_pending_payment = unified_qs.filter(status=UnifiedRequestStatus.PENDING_PAYMENT).count()
+    unified_active = unified_qs.filter(status=UnifiedRequestStatus.ACTIVE).count()
+    unified_recent = list(unified_qs.order_by("-id")[:8])
+    for ur in unified_recent:
+        ur.dashboard_detail_url = _unified_request_dashboard_link(ur)
+
     status_labels = dict(getattr(RequestStatus, "choices", []) or [])
     type_labels = dict(getattr(RequestType, "choices", []) or [])
 
@@ -352,10 +732,21 @@ def dashboard_home(request):
             .order_by("day")
         )
     }
+    unified_by_day = {
+        str(row["day"]): row["c"]
+        for row in (
+            UnifiedRequest.objects.filter(created_at__date__gte=start_date)
+            .annotate(day=TruncDate("created_at"))
+            .values("day")
+            .annotate(c=Count("id"))
+            .order_by("day")
+        )
+    }
 
     request_series = [req_by_day.get(d, 0) for d in labels]
     invoice_series = [inv_by_day.get(d, 0) for d in labels]
     support_series = [sup_by_day.get(d, 0) for d in labels]
+    unified_request_series = [unified_by_day.get(d, 0) for d in labels]
 
     ctx = {
         "total_requests": total,
@@ -377,11 +768,17 @@ def dashboard_home(request):
         "pending_verifications": pending_verifications,
         "active_promos": active_promos,
         "active_extras": active_extras,
+        "unified_total_requests": unified_total,
+        "unified_open_requests": unified_open,
+        "unified_pending_payment_requests": unified_pending_payment,
+        "unified_active_requests": unified_active,
+        "unified_recent_requests": unified_recent,
         "dashboard_now": timezone.now(),
         "chart_labels_json": json.dumps(labels, ensure_ascii=False),
         "request_series_json": json.dumps(request_series),
         "invoice_series_json": json.dumps(invoice_series),
         "support_series_json": json.dumps(support_series),
+        "unified_request_series_json": json.dumps(unified_request_series),
         "can_content": _dashboard_allowed(request.user, "content", write=False),
         "can_billing": _dashboard_allowed(request.user, "billing", write=False),
         "can_support": _dashboard_allowed(request.user, "support", write=False),
@@ -435,25 +832,34 @@ def requests_list(request):
         # Inclusive end-date: include full selected day.
         qs = qs.filter(created_at__lt=(date_to + timedelta(days=1)))
 
-    if _want_csv(request):
-        rows = [
-            [
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["#", "العنوان", "النوع", "الحالة", "المدينة", "العميل", "المزوّد", "إجراءات"]
+
+        def _row(r: ServiceRequest):
+            provider_name = getattr(getattr(r, "provider", None), "display_name", "")
+            detail_path = f"/dashboard/requests/{r.id}/"
+            return [
                 r.id,
-                r.title or "",
-                r.request_type,
-                r.status,
-                r.city or "",
-                getattr(getattr(r, "client", None), "phone", ""),
-                getattr(getattr(r, "provider", None), "display_name", ""),
-                r.created_at.isoformat(),
+                (r.title or "—"),
+                getattr(r, "request_type", "") or "—",
+                getattr(r, "status", "") or "—",
+                (r.city or "—"),
+                getattr(getattr(r, "client", None), "phone", "—") or "—",
+                (provider_name or "—"),
+                detail_path,
             ]
-            for r in qs[:2000]
-        ]
-        return _csv_response(
-            "requests.csv",
-            ["id", "title", "type", "status", "city", "client_phone", "provider", "created_at"],
-            rows,
-        )
+
+        export_rows = [_row(r) for r in qs[:2000]]
+
+        if _want_csv(request):
+            return _csv_response("requests.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("requests.xlsx", "الطلبات", headers_ar, export_rows)
+
+        return pdf_response("requests.pdf", "الطلبات", headers_ar, export_rows, landscape=True)
 
     # -------- Pagination --------
     page_size = 20
@@ -1148,27 +1554,46 @@ def billing_invoices_list(request: HttpRequest) -> HttpResponse:
     if ref_type:
         qs = qs.filter(reference_type__icontains=ref_type)
 
-    if _want_csv(request):
-        rows = [
-            [
-                inv.id,
-                inv.code or "",
-                getattr(getattr(inv, "user", None), "phone", ""),
-                inv.title or "",
-                inv.total,
-                inv.currency,
-                inv.status,
-                inv.reference_type or "",
-                inv.reference_id or "",
-                inv.created_at.isoformat(),
-            ]
-            for inv in qs[:2000]
-        ]
-        return _csv_response(
-            "billing_invoices.csv",
-            ["id", "code", "user_phone", "title", "total", "currency", "status", "reference_type", "reference_id", "created_at"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["الكود", "العميل", "العنوان", "الإجمالي", "الحالة", "المرجع", "محاولات", "إجراءات", "تاريخ"]
+
+        export_rows = []
+        for inv in qs[:2000]:
+            code = inv.code or inv.id
+            phone = getattr(getattr(inv, "user", None), "phone", "—") or "—"
+            total_str = f"{inv.total} {inv.currency}".strip()
+            status_label = getattr(inv, "get_status_display", lambda: inv.status)()
+            ref_str = f"{inv.reference_type or '—'} / {inv.reference_id or '—'}"
+            attempts = 0
+            try:
+                attempts = inv.attempts.count()
+            except Exception:
+                attempts = 0
+            detail_action = "—"
+            created = inv.created_at
+            created_str = created.strftime("%Y-%m-%d %H:%M") if created else "—"
+            export_rows.append(
+                [
+                    code,
+                    phone,
+                    inv.title or "—",
+                    total_str or "—",
+                    status_label or "—",
+                    ref_str,
+                    attempts,
+                    detail_action,
+                    created_str,
+                ]
+            )
+
+        if _want_csv(request):
+            return _csv_response("billing_invoices.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("billing_invoices.xlsx", "الفوترة", headers_ar, export_rows)
+        return pdf_response("billing_invoices.pdf", "إدارة الفوترة", headers_ar, export_rows, landscape=True)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
@@ -1238,26 +1663,28 @@ def support_tickets_list(request: HttpRequest) -> HttpResponse:
     if ap and ap.level == "user":
         qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
 
-    if _want_csv(request):
-        rows = [
-            [
-                t.id,
-                t.code or "",
-                getattr(getattr(t, "requester", None), "phone", ""),
-                t.ticket_type,
-                t.priority,
-                t.status,
-                getattr(getattr(t, "assigned_team", None), "name_ar", ""),
-                getattr(getattr(t, "assigned_to", None), "phone", ""),
-                t.created_at.isoformat(),
-            ]
-            for t in qs[:2000]
-        ]
-        return _csv_response(
-            "support_tickets.csv",
-            ["id", "code", "requester_phone", "type", "priority", "status", "assigned_team", "assigned_to", "created_at"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["الكود", "العميل", "النوع", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
+        export_rows = []
+        for t in qs[:2000]:
+            code = t.code or t.id
+            phone = getattr(getattr(t, "requester", None), "phone", "—") or "—"
+            type_label = getattr(t, "get_ticket_type_display", lambda: t.ticket_type)() or "—"
+            priority_label = getattr(t, "get_priority_display", lambda: t.priority)() or "—"
+            status_label = getattr(t, "get_status_display", lambda: t.status)() or "—"
+            team = getattr(getattr(t, "assigned_team", None), "name_ar", "—") or "—"
+            assignee = getattr(getattr(t, "assigned_to", None), "phone", "—") or "—"
+            detail_path = f"/dashboard/support/{t.id}/"
+            export_rows.append([code, phone, type_label, priority_label, status_label, team, assignee, detail_path])
+
+        if _want_csv(request):
+            return _csv_response("support_tickets.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("support_tickets.xlsx", "الدعم", headers_ar, export_rows)
+        return pdf_response("support_tickets.pdf", "إدارة الدعم", headers_ar, export_rows, landscape=True)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
@@ -1292,6 +1719,46 @@ def support_ticket_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
     staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+
+    can_write = _dashboard_allowed(request.user, "support", write=True)
+
+    reported_user_profile_url = ""
+    reported_user = getattr(ticket, "reported_user", None)
+    if reported_user:
+        provider_profile = ProviderProfile.objects.filter(user_id=reported_user.id).only("id").first()
+        if provider_profile:
+            reported_user_profile_url = reverse("dashboard:provider_detail", args=[provider_profile.id])
+
+    reported_target_label = ""
+    reported_target_url = ""
+    reported_kind = (getattr(ticket, "reported_kind", "") or "").strip().lower()
+    reported_object_id = (getattr(ticket, "reported_object_id", "") or "").strip()
+    try:
+        reported_pk = int(reported_object_id) if reported_object_id else None
+    except Exception:
+        reported_pk = None
+
+    if reported_kind and reported_pk is not None:
+        if reported_kind == "review":
+            r = Review.objects.filter(id=reported_pk).select_related("request").only("id", "request_id").first()
+            reported_target_label = f"تقييم #{reported_pk}"
+            if r and r.request_id:
+                reported_target_url = reverse("dashboard:request_detail", args=[r.request_id])
+        elif reported_kind == "message":
+            reported_target_label = f"تعليق/رسالة #{reported_pk}"
+        elif reported_kind == "portfolio_item":
+            item = ProviderPortfolioItem.objects.filter(id=reported_pk).only("id", "provider_id").first()
+            reported_target_label = f"محتوى (Portfolio) #{reported_pk}"
+            if item and item.provider_id:
+                reported_target_url = reverse("dashboard:provider_detail", args=[item.provider_id])
+        elif reported_kind == "service":
+            svc = ProviderService.objects.filter(id=reported_pk).only("id", "provider_id").first()
+            reported_target_label = f"محتوى (خدمة) #{reported_pk}"
+            if svc and svc.provider_id:
+                reported_target_url = reverse("dashboard:provider_detail", args=[svc.provider_id])
+        else:
+            reported_target_label = f"{reported_kind} #{reported_pk}"
+
     return render(
         request,
         "dashboard/support_ticket_detail.html",
@@ -1302,8 +1769,199 @@ def support_ticket_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
             "teams": teams,
             "staff_users": staff_users,
             "status_choices": SupportTicketStatus.choices,
+            "can_write": can_write,
+            "reported_user_profile_url": reported_user_profile_url,
+            "reported_target_label": reported_target_label,
+            "reported_target_url": reported_target_url,
         },
     )
+
+
+@staff_member_required
+@dashboard_access_required("promo")
+def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
+    """Promo inquiries are SupportTickets of type ADS.
+
+    This is intentionally separate from promo requests (PromoRequest).
+    """
+
+    qs = (
+        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to")
+        .filter(ticket_type=SupportTicketType.ADS)
+        .order_by("-id")
+    )
+    q = (request.GET.get("q") or "").strip()
+    status_val = (request.GET.get("status") or "").strip()
+    priority_val = (request.GET.get("priority") or "").strip()
+    if q:
+        qs = qs.filter(Q(code__icontains=q) | Q(requester__phone__icontains=q) | Q(description__icontains=q))
+    if status_val:
+        qs = qs.filter(status=status_val)
+    if priority_val:
+        qs = qs.filter(priority=priority_val)
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user":
+        qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["الكود", "العميل", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
+        export_rows = []
+        for t in qs[:2000]:
+            code = t.code or t.id
+            phone = getattr(getattr(t, "requester", None), "phone", "—") or "—"
+            priority_label = getattr(t, "get_priority_display", lambda: t.priority)() or "—"
+            status_label = getattr(t, "get_status_display", lambda: t.status)() or "—"
+            team = getattr(getattr(t, "assigned_team", None), "name_ar", "—") or "—"
+            assignee = getattr(getattr(t, "assigned_to", None), "phone", "—") or "—"
+            detail_path = f"/dashboard/support/{t.id}/"
+            export_rows.append([code, phone, priority_label, status_label, team, assignee, detail_path])
+
+        if _want_csv(request):
+            return _csv_response("promo_inquiries.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("promo_inquiries.xlsx", "استفسارات الترويج", headers_ar, export_rows)
+        return pdf_response("promo_inquiries.pdf", "استفسارات الترويج", headers_ar, export_rows, landscape=True)
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or "1")
+    return render(
+        request,
+        "dashboard/promo_inquiries_list.html",
+        {
+            "page_obj": page_obj,
+            "q": q,
+            "status_val": status_val,
+            "priority_val": priority_val,
+            "status_choices": SupportTicketStatus.choices,
+            "priority_choices": SupportTicket._meta.get_field("priority").choices,
+        },
+    )
+
+
+@staff_member_required
+@dashboard_access_required("promo")
+def promo_pricing(request: HttpRequest) -> HttpResponse:
+    rows = {p.ad_type: p for p in PromoAdPrice.objects.all()}
+    data = []
+    for ad_type, label in PromoAdType.choices:
+        obj = rows.get(ad_type)
+        data.append(
+            {
+                "ad_type": ad_type,
+                "label": label,
+                "price_per_day": getattr(obj, "price_per_day", None),
+                "is_active": bool(getattr(obj, "is_active", True)) if obj else True,
+            }
+        )
+    return render(request, "dashboard/promo_pricing.html", {"rows": data})
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_pricing_update_action(request: HttpRequest) -> HttpResponse:
+    ad_type = (request.POST.get("ad_type") or "").strip()
+    raw_price = (request.POST.get("price_per_day") or "").strip()
+    is_active = (request.POST.get("is_active") or "").strip().lower() in {"1", "true", "on", "yes"}
+
+    if ad_type not in PromoAdType.values:
+        messages.error(request, "نوع الإعلان غير صحيح")
+        return redirect("dashboard:promo_pricing")
+
+    try:
+        from decimal import Decimal
+
+        price = Decimal(raw_price)
+        if price < 0:
+            raise ValueError
+    except Exception:
+        messages.error(request, "السعر غير صحيح")
+        return redirect("dashboard:promo_pricing")
+
+    PromoAdPrice.objects.update_or_create(ad_type=ad_type, defaults={"price_per_day": price, "is_active": is_active})
+    messages.success(request, "تم حفظ التسعير")
+    return redirect("dashboard:promo_pricing")
+
+
+@staff_member_required
+@dashboard_access_required("support", write=True)
+@require_POST
+def support_ticket_delete_reported_object_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(SupportTicket.objects.select_related("reported_user"), id=ticket_id)
+
+    reported_kind = (getattr(ticket, "reported_kind", "") or "").strip().lower()
+    reported_object_id = (getattr(ticket, "reported_object_id", "") or "").strip()
+    try:
+        reported_pk = int(reported_object_id) if reported_object_id else None
+    except Exception:
+        reported_pk = None
+
+    if ticket.ticket_type != "complaint":
+        messages.error(request, "هذه التذكرة ليست شكوى/بلاغ")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+    if not reported_kind or reported_pk is None:
+        messages.error(request, "لا توجد بيانات للعنصر محل الشكوى")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+    deleted = False
+    try:
+        if reported_kind == "review":
+            obj = Review.objects.filter(id=reported_pk).first()
+            if obj:
+                obj.delete()
+                deleted = True
+        elif reported_kind == "message":
+            obj = Message.objects.filter(id=reported_pk).first()
+            if obj:
+                obj.delete()
+                deleted = True
+        elif reported_kind == "portfolio_item":
+            obj = ProviderPortfolioItem.objects.filter(id=reported_pk).first()
+            if obj:
+                obj.delete()
+                deleted = True
+        elif reported_kind == "service":
+            obj = ProviderService.objects.filter(id=reported_pk).first()
+            if obj:
+                obj.delete()
+                deleted = True
+        else:
+            messages.error(request, "نوع العنصر محل الشكوى غير مدعوم")
+            return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+    except Exception:
+        logger.exception("support_ticket_delete_reported_object_action error")
+        messages.error(request, "تعذر حذف المحتوى محل الشكوى")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+    if not deleted:
+        messages.warning(request, "العنصر غير موجود أو تم حذفه مسبقًا")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+    # Keep an internal trail on the ticket.
+    try:
+        from apps.support.models import SupportComment
+
+        SupportComment.objects.create(
+            ticket=ticket,
+            text=f"تم حذف المحتوى محل الشكوى: {reported_kind}#{reported_pk}",
+            is_internal=True,
+            created_by=request.user,
+        )
+    except Exception:
+        logger.exception("support_ticket_delete_reported_object_action comment error")
+
+    # Clear reported target to prevent accidental re-delete attempts.
+    ticket.reported_kind = ""
+    ticket.reported_object_id = ""
+    ticket.save(update_fields=["reported_kind", "reported_object_id", "updated_at"])
+
+    messages.success(request, "تم حذف المحتوى محل الشكوى نهائيًا")
+    return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
 
 @staff_member_required
@@ -1384,24 +2042,26 @@ def verification_requests_list(request: HttpRequest) -> HttpResponse:
     if ap and ap.level == "user":
         qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
 
-    if _want_csv(request):
-        rows = [
-            [
-                vr.id,
-                vr.code or "",
-                getattr(getattr(vr, "requester", None), "phone", ""),
-                vr.badge_type,
-                vr.status,
-                getattr(getattr(vr, "invoice", None), "code", ""),
-                vr.requested_at.isoformat(),
-            ]
-            for vr in qs[:2000]
-        ]
-        return _csv_response(
-            "verification_requests.csv",
-            ["id", "code", "requester_phone", "badge_type", "status", "invoice_code", "requested_at"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["الكود", "المستخدم", "نوع الشارة", "الحالة", "فاتورة", "إجراءات"]
+        export_rows = []
+        for vr in qs[:2000]:
+            code = vr.code or vr.id
+            phone = getattr(getattr(vr, "requester", None), "phone", "—") or "—"
+            badge = getattr(vr, "get_badge_type_display", lambda: getattr(vr, "badge_type", ""))() or "—"
+            status_label = getattr(vr, "get_status_display", lambda: vr.status)() or "—"
+            invoice_code = getattr(getattr(vr, "invoice", None), "code", "—") or "—"
+            detail_path = f"/dashboard/verification/{vr.id}/"
+            export_rows.append([code, phone, badge, status_label, invoice_code, detail_path])
+
+        if _want_csv(request):
+            return _csv_response("verification_requests.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("verification_requests.xlsx", "التوثيق", headers_ar, export_rows)
+        return pdf_response("verification_requests.pdf", "إدارة التوثيق", headers_ar, export_rows, landscape=False)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
@@ -1488,26 +2148,26 @@ def promo_requests_list(request: HttpRequest) -> HttpResponse:
     if ap and ap.level == "user":
         qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
 
-    if _want_csv(request):
-        rows = [
-            [
-                pr.id,
-                pr.code or "",
-                getattr(getattr(pr, "requester", None), "phone", ""),
-                pr.title or "",
-                pr.ad_type,
-                pr.status,
-                pr.subtotal,
-                getattr(getattr(pr, "invoice", None), "code", ""),
-                pr.created_at.isoformat(),
-            ]
-            for pr in qs[:2000]
-        ]
-        return _csv_response(
-            "promo_requests.csv",
-            ["id", "code", "requester_phone", "title", "ad_type", "status", "subtotal", "invoice_code", "created_at"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["الكود", "العميل", "العنوان", "النوع", "الحالة", "الفاتورة", "إجراءات"]
+        export_rows = []
+        for pr in qs[:2000]:
+            code = pr.code or pr.id
+            phone = getattr(getattr(pr, "requester", None), "phone", "—") or "—"
+            ad_label = getattr(pr, "get_ad_type_display", lambda: pr.ad_type)() or "—"
+            status_label = getattr(pr, "get_status_display", lambda: pr.status)() or "—"
+            invoice_code = getattr(getattr(pr, "invoice", None), "code", "—") or "—"
+            detail_path = f"/dashboard/promo/{pr.id}/"
+            export_rows.append([code, phone, pr.title or "—", ad_label, status_label, invoice_code, detail_path])
+
+        if _want_csv(request):
+            return _csv_response("promo_requests.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("promo_requests.xlsx", "الترويج", headers_ar, export_rows)
+        return pdf_response("promo_requests.pdf", "إدارة الترويج", headers_ar, export_rows, landscape=True)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
@@ -1529,7 +2189,13 @@ def promo_requests_list(request: HttpRequest) -> HttpResponse:
 @dashboard_access_required("promo")
 def promo_request_detail(request: HttpRequest, promo_id: int) -> HttpResponse:
     pr = get_object_or_404(
-        PromoRequest.objects.select_related("requester", "invoice", "assigned_to"),
+        PromoRequest.objects.select_related(
+            "requester",
+            "invoice",
+            "assigned_to",
+            "target_provider",
+            "target_portfolio_item",
+        ),
         id=promo_id,
     )
 
@@ -1611,24 +2277,29 @@ def subscriptions_list(request: HttpRequest) -> HttpResponse:
     if status_val:
         qs = qs.filter(status=status_val)
 
-    if _want_csv(request):
-        rows = [
-            [
-                s.id,
-                getattr(getattr(s, "user", None), "phone", ""),
-                getattr(getattr(s, "plan", None), "code", ""),
-                s.status,
-                s.start_at.isoformat() if s.start_at else "",
-                s.end_at.isoformat() if s.end_at else "",
-                getattr(getattr(s, "invoice", None), "code", ""),
-            ]
-            for s in qs[:2000]
-        ]
-        return _csv_response(
-            "subscriptions.csv",
-            ["id", "user_phone", "plan_code", "status", "start_at", "end_at", "invoice_code"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["#", "المستخدم", "الخطة", "الحالة", "البداية/النهاية", "الفاتورة", "تشغيل"]
+        export_rows = []
+        for s in qs[:2000]:
+            phone = getattr(getattr(s, "user", None), "phone", "—") or "—"
+            plan_title = getattr(getattr(s, "plan", None), "title", "—") or "—"
+            plan_code = getattr(getattr(s, "plan", None), "code", "—") or "—"
+            plan_str = f"{plan_title} ({plan_code})"
+            status_label = getattr(s, "get_status_display", lambda: s.status)() or "—"
+            start_str = s.start_at.strftime("%Y-%m-%d %H:%M") if s.start_at else "—"
+            end_str = s.end_at.strftime("%Y-%m-%d %H:%M") if s.end_at else "—"
+            invoice_code = getattr(getattr(s, "invoice", None), "code", "—") or "—"
+            ops = "Refresh / Activate"
+            export_rows.append([s.id, phone, plan_str, status_label, f"{start_str} / {end_str}", invoice_code, ops])
+
+        if _want_csv(request):
+            return _csv_response("subscriptions.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("subscriptions.xlsx", "الاشتراكات", headers_ar, export_rows)
+        return pdf_response("subscriptions.pdf", "إدارة الاشتراكات", headers_ar, export_rows, landscape=True)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
@@ -1681,25 +2352,25 @@ def extras_list(request: HttpRequest) -> HttpResponse:
     if status_val:
         qs = qs.filter(status=status_val)
 
-    if _want_csv(request):
-        rows = [
-            [
-                e.id,
-                getattr(getattr(e, "user", None), "phone", ""),
-                e.sku,
-                e.extra_type,
-                e.status,
-                e.subtotal,
-                getattr(getattr(e, "invoice", None), "code", ""),
-                e.created_at.isoformat(),
-            ]
-            for e in qs[:2000]
-        ]
-        return _csv_response(
-            "extras.csv",
-            ["id", "user_phone", "sku", "extra_type", "status", "subtotal", "invoice_code", "created_at"],
-            rows,
-        )
+    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
+        headers_ar = ["#", "المستخدم", "SKU", "النوع", "الحالة", "الفاتورة", "إجراءات"]
+        export_rows = []
+        for e in qs[:2000]:
+            phone = getattr(getattr(e, "user", None), "phone", "—") or "—"
+            type_label = getattr(e, "get_extra_type_display", lambda: e.extra_type)() or "—"
+            status_label = getattr(e, "get_status_display", lambda: e.status)() or "—"
+            invoice_code = getattr(getattr(e, "invoice", None), "code", "—") or "—"
+            action_path = f"/dashboard/extras/{e.id}/actions/activate/"
+            export_rows.append([e.id, phone, e.sku or "—", type_label, status_label, invoice_code, action_path])
+
+        if _want_csv(request):
+            return _csv_response("extras.csv", headers_ar, export_rows)
+
+        from .exports import pdf_response, xlsx_response
+
+        if _want_xlsx(request):
+            return xlsx_response("extras.xlsx", "الإضافات", headers_ar, export_rows)
+        return pdf_response("extras.pdf", "إدارة الإضافات", headers_ar, export_rows, landscape=True)
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")

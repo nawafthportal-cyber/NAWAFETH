@@ -9,6 +9,8 @@
   </div>
   <div class="flex items-center gap-2">
     <a href="?q={{ q }}&status={{ status_val }}&export=csv" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير CSV</a>
+    <a href="?q={{ q }}&status={{ status_val }}&export=xlsx" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير Excel</a>
+    <a href="?q={{ q }}&status={{ status_val }}&export=pdf" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير PDF</a>
     <a href="{% url 'admin:verification_verificationrequest_changelist' %}" class="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold">فتح Admin</a>
   </div>
 </div>

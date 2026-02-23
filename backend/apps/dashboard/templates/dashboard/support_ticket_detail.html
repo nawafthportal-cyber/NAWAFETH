@@ -20,6 +20,25 @@
       <div>الحالة: <b>{{ ticket.get_status_display }}</b></div>
       <div>الفريق: <b>{{ ticket.assigned_team.name_ar|default:"—" }}</b></div>
       <div>المكلّف: <b>{{ ticket.assigned_to.phone|default:"—" }}</b></div>
+      {% if ticket.ticket_type == "complaint" and ticket.reported_kind and ticket.reported_object_id %}
+        <div class="pt-2 border-t border-gray-100"></div>
+        <div>المُشتكى عليه: <b>{{ ticket.reported_user.phone|default:"—" }}</b>
+          {% if reported_user_profile_url %}
+            <a href="{{ reported_user_profile_url }}" class="text-cyan-700 font-semibold hover:underline">(فتح الملف)</a>
+          {% endif %}
+        </div>
+        <div>المحتوى محل الشكوى: <b>{{ reported_target_label|default:ticket.reported_kind }}</b>
+          {% if reported_target_url %}
+            <a href="{{ reported_target_url }}" class="text-cyan-700 font-semibold hover:underline">(فتح)</a>
+          {% endif %}
+        </div>
+        {% if can_write %}
+          <form method="post" action="{% url 'dashboard:support_ticket_delete_reported_object_action' ticket.id %}" class="pt-2">
+            {% csrf_token %}
+            <button class="rounded-lg bg-red-600 text-white px-4 py-2 font-semibold">حذف المحتوى محل الشكوى نهائيًا</button>
+          </form>
+        {% endif %}
+      {% endif %}
     </div>
 
     <form method="post" action="{% url 'dashboard:support_ticket_assign_action' ticket.id %}" class="mt-4 space-y-2">

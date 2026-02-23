@@ -5,6 +5,8 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from apps.providers.models import ProviderProfile, ProviderPortfolioItem
+
 from .validators import validate_file_size, validate_extension
 
 
@@ -90,6 +92,26 @@ class PromoRequest(models.Model):
     target_category = models.CharField(max_length=80, blank=True)  # مثال: "صالات", "كهرباء"...
     target_city = models.CharField(max_length=80, blank=True)
 
+    # Target entities (optional; used for featured strips / boosts / sponsored content)
+    target_provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_requests",
+    )
+    target_portfolio_item = models.ForeignKey(
+        ProviderPortfolioItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_requests",
+    )
+
+    # Promo message/push payload (optional)
+    message_title = models.CharField(max_length=160, blank=True, default="")
+    message_body = models.CharField(max_length=500, blank=True, default="")
+
     # رابط توجيه (اختياري)
     redirect_url = models.URLField(blank=True)
 
@@ -149,3 +171,22 @@ class PromoAsset(models.Model):
 
     def __str__(self):
         return f"{self.request.code} asset#{self.pk}"
+
+
+class PromoAdPrice(models.Model):
+    """DB-backed base price per day for each promo ad type.
+
+    Used by dashboard pricing screen. When present, it overrides
+    settings.PROMO_BASE_PRICES for that ad_type.
+    """
+
+    ad_type = models.CharField(max_length=30, choices=PromoAdType.choices, unique=True)
+    price_per_day = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    is_active = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["ad_type"]
+
+    def __str__(self):
+        return f"{self.ad_type}: {self.price_per_day}"

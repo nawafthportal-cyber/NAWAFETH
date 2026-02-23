@@ -23,12 +23,18 @@ class SupportApi {
   Future<Map<String, dynamic>> createTicket({
     required String ticketType,
     required String description,
+    String? reportedKind,
+    String? reportedObjectId,
+    int? reportedUserId,
   }) async {
     final res = await _dio.post(
       '${ApiConfig.apiPrefix}/support/tickets/create/',
       data: {
         'ticket_type': ticketType,
         'description': description,
+        if ((reportedKind ?? '').trim().isNotEmpty) 'reported_kind': reportedKind!.trim(),
+        if ((reportedObjectId ?? '').trim().isNotEmpty) 'reported_object_id': reportedObjectId!.trim(),
+        if (reportedUserId != null) 'reported_user': reportedUserId,
       },
     );
     return _asMap(res.data);
@@ -40,6 +46,9 @@ class SupportApi {
     String? contextLabel,
     String? contextValue,
     String? reportedEntityValue,
+    String? reportedKind,
+    String? reportedObjectId,
+    int? reportedUserId,
   }) async {
     final parts = <String>[
       'بلاغ من التطبيق',
@@ -60,6 +69,9 @@ class SupportApi {
     return createTicket(
       ticketType: 'complaint',
       description: description,
+      reportedKind: reportedKind,
+      reportedObjectId: reportedObjectId,
+      reportedUserId: reportedUserId,
     );
   }
 

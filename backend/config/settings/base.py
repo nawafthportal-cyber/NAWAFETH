@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.messaging",
     "apps.dashboard",
     "apps.backoffice",
+    "apps.unified_requests.apps.UnifiedRequestsConfig",
     "apps.support",
     "apps.billing",
     "apps.verification",

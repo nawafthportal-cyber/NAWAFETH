@@ -13,6 +13,10 @@ htmlcov/
 *.sqlite3
 backend/db.sqlite3
 
+# Django generated files
+backend/media/
+backend/staticfiles/
+
 # Virtual environments
 .venv/
 venv/

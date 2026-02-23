@@ -1,4 +1,6 @@
 from django.conf import settings
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -71,8 +73,17 @@ class Review(models.Model):
 			raise ValidationError("rating_out_of_range")
 
 		if self.request_id:
-			if self.request.status != RequestStatus.COMPLETED:
-				raise ValidationError("request_not_completed")
+			status = self.request.status
+			if status == RequestStatus.COMPLETED:
+				pass
+			elif status == RequestStatus.CANCELLED:
+				pass
+			elif status == RequestStatus.IN_PROGRESS:
+				deadline = getattr(self.request, "expected_delivery_at", None)
+				if not deadline or timezone.now() < (deadline + timedelta(hours=48)):
+					raise ValidationError("request_not_reviewable_yet")
+			else:
+				raise ValidationError("request_not_reviewable")
 			if self.client_id and self.request.client_id != self.client_id:
 				raise ValidationError("client_mismatch")
 			if self.provider_id and self.request.provider_id != self.provider_id:

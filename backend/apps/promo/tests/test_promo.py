@@ -1,6 +1,9 @@
 import pytest
 from datetime import timedelta
+from io import StringIO
+from django.core.management import call_command
 from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from django.utils import timezone
 
@@ -8,7 +11,13 @@ from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.promo.models import PromoRequest
+from apps.promo.models import PromoAsset, PromoRequestStatus
+from apps.promo.models import PromoAdPrice
+from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import SubscriptionPlan, Subscription, SubscriptionStatus
+from apps.promo.services import quote_and_create_invoice
+from apps.promo.services import calc_promo_quote
+from apps.unified_requests.models import UnifiedRequest
 
 
 pytestmark = pytest.mark.django_db
@@ -80,6 +89,41 @@ def test_create_promo_request(api, user):
     }, format="json")
     assert r.status_code == 201
     assert r.data["code"].startswith("MD")
+    pr = PromoRequest.objects.get(pk=r.data["id"])
+    ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
+    assert ur.request_type == "promo"
+    assert ur.code.startswith("MD")
+    assert ur.status == pr.status
+
+
+def test_create_promo_request_rejects_duration_less_than_24h(api, user):
+    plan = SubscriptionPlan.objects.create(code="PRO24", title="Pro", features=["promo_ads"])
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now(),
+    )
+
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = start_at + timedelta(hours=23)
+    api.force_authenticate(user=user)
+    r = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "short-campaign",
+            "ad_type": "banner_home",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+            "target_city": "Riyadh",
+            "redirect_url": "",
+        },
+        format="json",
+    )
+    assert r.status_code == 400
 
 
 def test_backoffice_list(api, admin_user, user):
@@ -132,3 +176,237 @@ def test_user_operator_cannot_assign_to_other(api, promo_operator_user, other_st
     r2 = api.patch(f"/api/promo/backoffice/requests/{pr.id}/assign/", data={"assigned_to": promo_operator_user.id}, format="json")
     assert r2.status_code == 200
     assert r2.data.get("assigned_to") in (promo_operator_user.id, None)
+    ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
+    assert ur.assigned_user_id == promo_operator_user.id
+
+
+def test_public_home_banners_only_from_active_promo(api, user):
+    # Create provider profile for the requester to populate provider fields.
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود تجريبي",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+
+    now = timezone.now()
+    pr_inactive = PromoRequest.objects.create(
+        requester=user,
+        title="inactive",
+        ad_type="banner_home",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=pr_inactive,
+        asset_type="image",
+        title="should not show",
+        file=SimpleUploadedFile(
+            "x.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    pr_active = PromoRequest.objects.create(
+        requester=user,
+        title="active banner",
+        ad_type="banner_home",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    asset = PromoAsset.objects.create(
+        request=pr_active,
+        asset_type="image",
+        title="",
+        file=SimpleUploadedFile(
+            "banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    r = api.get("/api/promo/banners/home/?limit=10")
+    assert r.status_code == 200
+    assert isinstance(r.data, list)
+    assert any(item["id"] == asset.id for item in r.data)
+    # Ensure inactive request assets are not included.
+    assert all(item.get("caption") != "should not show" for item in r.data)
+
+
+def test_management_command_expires_due_active_promos(user):
+    now = timezone.now()
+    due = PromoRequest.objects.create(
+        requester=user,
+        title="due",
+        ad_type="banner_home",
+        start_at=now - timedelta(days=2),
+        end_at=now - timedelta(minutes=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now - timedelta(days=1),
+    )
+    still_active = PromoRequest.objects.create(
+        requester=user,
+        title="still active",
+        ad_type="banner_home",
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(hours=10),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now - timedelta(hours=1),
+    )
+
+    out = StringIO()
+    call_command("expire_promo_requests", stdout=out)
+
+    due.refresh_from_db()
+    still_active.refresh_from_db()
+    assert due.status == PromoRequestStatus.EXPIRED
+    assert still_active.status == PromoRequestStatus.ACTIVE
+    assert "Expired promo requests: 1" in out.getvalue()
+    due_ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(due.id))
+    assert due_ur.status == "expired"
+
+
+def test_quote_updates_unified_request_pending_payment(user):
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="quote me",
+        ad_type="banner_home",
+        start_at=timezone.now() + timedelta(days=1),
+        end_at=timezone.now() + timedelta(days=3),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    # Create initial unified record by syncing via create path equivalent.
+    from apps.promo.services import _sync_promo_to_unified
+
+    _sync_promo_to_unified(pr=pr, changed_by=user)
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="asset",
+        file=SimpleUploadedFile(
+            "quote.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="ok")
+    ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+    assert ur.status == "pending_payment"
+    assert ur.metadata_record.payload.get("invoice_id") == pr.invoice_id
+
+
+def test_calc_quote_uses_db_price_override(user):
+    PromoAdPrice.objects.update_or_create(ad_type="banner_home", defaults={"price_per_day": "123.45", "is_active": True})
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="priced",
+        ad_type="banner_home",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+
+    q = calc_promo_quote(pr=pr)
+    assert q["days"] == 2
+    assert str(q["subtotal"]) == "246.90"
+
+
+def test_calc_quote_ignores_zero_db_price(user):
+    # price_per_day=0 should not accidentally override to free pricing.
+    PromoAdPrice.objects.update_or_create(ad_type="banner_home", defaults={"price_per_day": "0", "is_active": True})
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="priced",
+        ad_type="banner_home",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+
+    from django.conf import settings
+
+    settings.PROMO_BASE_PRICES = {"banner_home": 300}
+    settings.PROMO_POSITION_MULTIPLIER = {"normal": 1.0}
+    settings.PROMO_FREQUENCY_MULTIPLIER = {"60s": 1.0}
+
+    q = calc_promo_quote(pr=pr)
+    assert q["days"] == 2
+    # Falls back to default base price (300) when settings has no override.
+    assert str(q["subtotal"]) == "600.00"
+
+
+def test_public_active_promos_returns_targeting_and_assets(api, user):
+    pp = ProviderProfile.objects.create(
+        user=user,
+        provider_type="company",
+        display_name="متجر تجريبي",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+
+    now = timezone.now()
+    pr_active = PromoRequest.objects.create(
+        requester=user,
+        title="active placement",
+        ad_type="banner_home",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+        target_provider=pp,
+        message_title="",
+        message_body="",
+    )
+    PromoAsset.objects.create(
+        request=pr_active,
+        asset_type="image",
+        title="",
+        file=SimpleUploadedFile(
+            "banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    r = api.get("/api/promo/active/?ad_type=banner_home&limit=10")
+    assert r.status_code == 200
+    assert isinstance(r.data, list)
+    assert any(item.get("id") == pr_active.id for item in r.data)
+    item = next(x for x in r.data if x.get("id") == pr_active.id)
+    assert item.get("target_provider_id") == pp.id
+    assert isinstance(item.get("assets"), list)

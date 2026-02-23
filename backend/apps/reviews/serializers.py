@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.marketplace.models import ServiceRequest, RequestStatus
@@ -61,9 +64,23 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         if request_obj.client_id != user.id:
             raise serializers.ValidationError({"detail": "غير مصرح"})
 
-        # لا تقييم إلا بعد الإكمال
-        if request_obj.status != RequestStatus.COMPLETED:
-            raise serializers.ValidationError({"detail": "لا يمكن التقييم قبل اكتمال الطلب"})
+        # السماح بالتقييم في الحالات التشغيلية المعتمدة:
+        # - مكتمل
+        # - ملغي
+        # - تحت التنفيذ بعد تجاوز الموعد المتوقع + 48 ساعة
+        status = request_obj.status
+        if status == RequestStatus.COMPLETED:
+            pass
+        elif status == RequestStatus.CANCELLED:
+            pass
+        elif status == RequestStatus.IN_PROGRESS:
+            deadline = getattr(request_obj, "expected_delivery_at", None)
+            if not deadline or timezone.now() < (deadline + timedelta(hours=48)):
+                raise serializers.ValidationError(
+                    {"detail": "لا يمكن التقييم إلا بعد تجاوز موعد التسليم المتوقع بـ 48 ساعة"}
+                )
+        else:
+            raise serializers.ValidationError({"detail": "لا يمكن التقييم في حالة الطلب الحالية"})
 
         # لازم يكون فيه مزود معيّن
         if not request_obj.provider_id:

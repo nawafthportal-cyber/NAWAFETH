@@ -162,6 +162,11 @@ class _ReviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final map = (review is Map<String, dynamic>) ? (review as Map<String, dynamic>) : <String, dynamic>{};
 
+    final reviewIdRaw = map['id'];
+    final reviewId = (reviewIdRaw is int)
+        ? reviewIdRaw
+        : int.tryParse(reviewIdRaw?.toString() ?? '');
+
     final authorPhone = (map['client_phone'] ?? '').toString().trim();
     final authorName = (map['client_name'] ?? '').toString().trim();
     final authorLabel = authorName.isNotEmpty
@@ -197,6 +202,7 @@ class _ReviewCard extends StatelessWidget {
                 _ReviewOptions(
                   comment: comment.toString(),
                   clientPhone: authorPhone,
+                  reviewId: reviewId,
                 ),
               ],
             ),
@@ -526,8 +532,9 @@ enum _ReviewAction { copyText, copyPhone, report }
 class _ReviewOptions extends StatelessWidget {
   final String comment;
   final String clientPhone;
+  final int? reviewId;
 
-  const _ReviewOptions({required this.comment, required this.clientPhone});
+  const _ReviewOptions({required this.comment, required this.clientPhone, required this.reviewId});
 
   @override
   Widget build(BuildContext context) {
@@ -562,6 +569,8 @@ class _ReviewOptions extends StatelessWidget {
                 contextLabel: 'رقم العميل',
                 contextValue: clientPhone.trim().isEmpty ? 'غير متوفر' : clientPhone.trim(),
                 reportedEntityValue: 'مراجعة على ملف المزود',
+                reportedKind: (reviewId == null) ? null : 'review',
+                reportedObjectId: (reviewId == null) ? null : reviewId.toString(),
               );
               if (!context.mounted) return;
               final code = (res['code'] ?? '').toString().trim();

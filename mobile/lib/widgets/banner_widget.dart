@@ -7,8 +7,21 @@ import '../models/provider_portfolio_item.dart';
 import '../screens/home_media_viewer_screen.dart';
 import '../services/home_feed_service.dart';
 
+enum BannerPlacement { home, search }
+
 class BannerWidget extends StatefulWidget {
-  const BannerWidget({super.key});
+  final BannerPlacement placement;
+  final String? city;
+  final String? categoryName;
+  final int limit;
+
+  const BannerWidget({
+    super.key,
+    this.placement = BannerPlacement.home,
+    this.city,
+    this.categoryName,
+    this.limit = 6,
+  });
 
   @override
   State<BannerWidget> createState() => _BannerWidgetState();
@@ -38,7 +51,19 @@ class _BannerWidgetState extends State<BannerWidget> {
 
   Future<void> _load() async {
     try {
-      final banners = await _feed.getBannerItems(limit: 6);
+      final List<ProviderPortfolioItem> banners;
+      switch (widget.placement) {
+        case BannerPlacement.search:
+          banners = await _feed.getSearchBannerItems(
+            limit: widget.limit,
+            city: widget.city,
+            categoryName: widget.categoryName,
+          );
+          break;
+        case BannerPlacement.home:
+          banners = await _feed.getBannerItems(limit: widget.limit);
+          break;
+      }
 
       if (!mounted) return;
       setState(() {

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../core/network/api_dio.dart';
+import '../models/provider_portfolio_item.dart';
 import 'api_config.dart';
 import 'dio_proxy.dart';
 
@@ -50,6 +51,65 @@ class PromoApi {
       data: formData,
     );
     return _asMap(res.data);
+  }
+
+  /// Public home banner assets (admin-managed).
+  ///
+  /// Returns a list shaped like `ProviderPortfolioItem` to reuse existing
+  /// banner UI widgets.
+  Future<List<ProviderPortfolioItem>> getHomeBanners({int limit = 6}) async {
+    try {
+      final res = await _dio.get(
+        '${ApiConfig.apiPrefix}/promo/banners/home/',
+        queryParameters: {'limit': limit},
+      );
+
+      final data = res.data;
+      if (data is List) {
+        return data
+            .whereType<dynamic>()
+            .map((e) => ProviderPortfolioItem.fromJson(_asMap(e)))
+            .toList();
+      }
+      return const [];
+    } on DioException {
+      // Endpoint might not exist yet on older deployments.
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Public active promo placements.
+  ///
+  /// This is a generalized endpoint for any promo `ad_type`.
+  Future<List<Map<String, dynamic>>> getActivePromos({
+    String? adType,
+    String? city,
+    String? category,
+    int limit = 20,
+  }) async {
+    try {
+      final qp = <String, dynamic>{'limit': limit};
+      if ((adType ?? '').trim().isNotEmpty) qp['ad_type'] = adType;
+      if ((city ?? '').trim().isNotEmpty) qp['city'] = city;
+      if ((category ?? '').trim().isNotEmpty) qp['category'] = category;
+
+      final res = await _dio.get(
+        '${ApiConfig.apiPrefix}/promo/active/',
+        queryParameters: qp,
+      );
+      final data = res.data;
+      if (data is List) {
+        return data.map((e) => _asMap(e)).toList();
+      }
+      return const [];
+    } on DioException {
+      // Endpoint might not exist yet on older deployments.
+      return const [];
+    } catch (_) {
+      return const [];
+    }
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

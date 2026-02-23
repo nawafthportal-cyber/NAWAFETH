@@ -12,6 +12,46 @@ from apps.billing.models import Invoice, InvoiceStatus
 from .models import ExtraPurchase, ExtraPurchaseStatus, ExtraType
 
 
+def _extra_status_to_unified(status: str) -> str:
+    if status == ExtraPurchaseStatus.CONSUMED:
+        return "completed"
+    return status
+
+
+def _sync_extra_to_unified(*, purchase: ExtraPurchase, changed_by=None):
+    try:
+        from apps.unified_requests.services import upsert_unified_request
+        from apps.unified_requests.models import UnifiedRequestType
+    except Exception:
+        return
+
+    upsert_unified_request(
+        request_type=UnifiedRequestType.EXTRAS,
+        requester=purchase.user,
+        source_app="extras",
+        source_model="ExtraPurchase",
+        source_object_id=purchase.id,
+        status=_extra_status_to_unified(purchase.status),
+        priority="normal",
+        summary=(purchase.title or purchase.sku or "")[:300],
+        metadata={
+            "purchase_id": purchase.id,
+            "sku": purchase.sku,
+            "extra_type": purchase.extra_type,
+            "purchase_status": purchase.status,
+            "invoice_id": purchase.invoice_id,
+            "credits_total": purchase.credits_total,
+            "credits_used": purchase.credits_used,
+            "start_at": purchase.start_at.isoformat() if purchase.start_at else None,
+            "end_at": purchase.end_at.isoformat() if purchase.end_at else None,
+        },
+        assigned_team_code="extras",
+        assigned_team_name="الخدمات الإضافية",
+        assigned_user=None,
+        changed_by=changed_by,
+    )
+
+
 def get_extra_catalog() -> dict:
     """
     كتالوج الإضافات من settings (مبدئي)
@@ -102,6 +142,7 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
 
     purchase.invoice = inv
     purchase.save(update_fields=["invoice", "updated_at"])
+    _sync_extra_to_unified(purchase=purchase, changed_by=user)
     return purchase
 
 
@@ -123,14 +164,17 @@ def activate_extra_after_payment(*, purchase: ExtraPurchase) -> ExtraPurchase:
         purchase.end_at = now + dur
         purchase.status = ExtraPurchaseStatus.ACTIVE
         purchase.save(update_fields=["start_at", "end_at", "status", "updated_at"])
+        _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
         return purchase
 
     # credit based
     if purchase.extra_type == ExtraType.CREDIT_BASED:
         purchase.status = ExtraPurchaseStatus.ACTIVE
         purchase.save(update_fields=["status", "updated_at"])
+        _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
         return purchase
 
+    _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
     return purchase
 
 
@@ -160,6 +204,7 @@ def consume_credit(*, user, sku: str, amount: int = 1) -> bool:
         p.status = ExtraPurchaseStatus.CONSUMED
 
     p.save(update_fields=["credits_used", "status", "updated_at"])
+    _sync_extra_to_unified(purchase=p, changed_by=user)
     return True
 
 

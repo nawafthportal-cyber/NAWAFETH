@@ -113,6 +113,16 @@
         </a>
         {% endif %}
 
+        {% if can_analytics %}
+        <a href="{% url 'dashboard:unified_requests_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'unified_requests_list' %}bg-gradient-to-r from-blue-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            🗂️
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'unified_requests_list' %}text-blue-700{% else %}text-gray-700 group-hover:text-blue-700{% endif %}">الطلبات الموحدة</span>
+        </a>
+        {% endif %}
+
         {% if can_support %}
         <a href="{% url 'dashboard:support_tickets_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'support_tickets_list' or request.resolver_match.url_name == 'support_ticket_detail' %}bg-gradient-to-r from-cyan-50 to-teal-50{% else %}hover:bg-gradient-to-r hover:from-cyan-50 hover:to-teal-50{% endif %}">
@@ -135,11 +145,11 @@
 
         {% if can_promo %}
         <a href="{% url 'dashboard:promo_requests_list' %}"
-           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' %}bg-gradient-to-r from-fuchsia-50 to-pink-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-pink-50{% endif %}">
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' or request.resolver_match.url_name == 'promo_inquiries_list' or request.resolver_match.url_name == 'promo_pricing' %}bg-gradient-to-r from-fuchsia-50 to-pink-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-pink-50{% endif %}">
           <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
             📢
           </div>
-          <span class="font-semibold {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' %}text-fuchsia-700{% else %}text-gray-700 group-hover:text-fuchsia-700{% endif %}">الترويج</span>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' or request.resolver_match.url_name == 'promo_inquiries_list' or request.resolver_match.url_name == 'promo_pricing' %}text-fuchsia-700{% else %}text-gray-700 group-hover:text-fuchsia-700{% endif %}">الترويج</span>
         </a>
         {% endif %}
 
@@ -206,7 +216,7 @@
             </div>
           </div>
           <a class="block w-full text-center px-4 py-2 rounded-lg bg-white hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors" 
-             href="{% url 'admin:logout' %}">
+             href="{% url 'dashboard:logout' %}">
             تسجيل الخروج 👋
           </a>
         </div>
