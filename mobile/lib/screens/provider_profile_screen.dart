@@ -438,7 +438,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Future<void> _loadProviderData() async {
     try {
-      final id = int.tryParse(widget.providerId!);
+      final id = int.tryParse((widget.providerId ?? '').trim());
       if (id == null) return;
       
       final api = ProvidersApi();
@@ -1268,11 +1268,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     final isSelected = _selectedTabIndex == index;
                     final bg = isSelected
                         ? mainColor.withValues(alpha: 0.14)
-                        : (isDark ? Colors.grey[850]! : Colors.grey.shade100);
+                      : (isDark ? Colors.grey.shade800 : Colors.grey.shade100);
                     final border = isSelected
                         ? mainColor.withValues(alpha: 0.35)
-                        : (isDark ? Colors.grey[750]! : Colors.grey.shade200);
-                    final iconColor = isSelected ? mainColor : (isDark ? Colors.grey[300]! : Colors.grey.shade700);
+                      : (isDark ? Colors.grey.shade700 : Colors.grey.shade200);
+                    final iconColor = isSelected ? mainColor : (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
                     final titleColor = isSelected ? mainColor : textColor;
 
                     return InkWell(
@@ -1375,7 +1375,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     required VoidCallback onTap,
     required bool isDark,
   }) {
-    final ring = isDark ? Colors.grey[750]! : Colors.grey.shade300;
+    final ring = isDark ? Colors.grey.shade700 : Colors.grey.shade300;
 
     return InkWell(
       onTap: onTap,
@@ -1424,7 +1424,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Widget _highlightsRow({required bool isDark}) {
     final items = _highlightItems;
     final textColor = isDark ? Colors.white : Colors.black;
-    final sub = isDark ? Colors.grey[400]! : Colors.grey.shade700;
+    final sub = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
     if (_spotlightsLoading) {
       return const SizedBox(
         height: 82,
@@ -1624,11 +1624,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Widget _profileTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? Colors.grey[850]! : Colors.white;
-    final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
+    final cardColor = isDark ? Colors.grey.shade800 : Colors.white;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade200;
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey[700];
-    final subtleColor = isDark ? Colors.grey[800]! : const Color(0xFFF7F4FB);
+    final subtleColor = isDark ? Colors.grey.shade800 : const Color(0xFFF7F4FB);
 
     final hasPhone = providerPhone.trim().isNotEmpty;
     final hasWhatsApp =
@@ -2091,8 +2091,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.white,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[700]!
+                    color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey.shade700
                       : Colors.grey.shade200,
                 ),
               ),
@@ -2153,8 +2153,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Widget _galleryTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? Colors.grey[850]! : Colors.white;
-    final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
+    final cardColor = isDark ? Colors.grey.shade800 : Colors.white;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade200;
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey[600];
     final videosCount = _portfolioItems
