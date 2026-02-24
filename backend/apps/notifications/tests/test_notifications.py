@@ -40,12 +40,18 @@ def test_notifications_created_on_offer_and_message():
 
     # إنشاء Offer => إشعار للعميل
     Offer.objects.create(request=sr, provider=provider, price="100.00", duration_days=3, note="عرض")
-    assert Notification.objects.filter(user=client_user).count() == 1
+    offer_notif = Notification.objects.filter(user=client_user).order_by("-id").first()
+    assert offer_notif is not None
+    assert offer_notif.kind == "offer_created"
+    assert offer_notif.url == f"/requests/{sr.id}"
 
     # رسالة جديدة => إشعار للطرف الآخر
     thread, _ = Thread.objects.get_or_create(request=sr)
     Message.objects.create(thread=thread, sender=client_user, body="مرحبا")
-    assert Notification.objects.filter(user=provider_user).exists()
+    msg_notif = Notification.objects.filter(user=provider_user).order_by("-id").first()
+    assert msg_notif is not None
+    assert msg_notif.kind == "message_new"
+    assert f"/requests/{sr.id}/chat" in (msg_notif.url or "")
 
 
 @pytest.mark.django_db
@@ -106,6 +112,8 @@ def test_status_log_creates_notification_for_counterparty():
     notif = Notification.objects.filter(user=client_user, title="تحديث على الطلب").first()
     assert notif is not None
     assert "تحت التنفيذ" in notif.body
+    assert notif.kind == "request_status_change"
+    assert notif.url == f"/requests/{sr.id}"
 
 
 @pytest.mark.django_db

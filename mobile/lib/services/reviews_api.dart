@@ -90,4 +90,30 @@ class ReviewsApi {
     }
     throw StateError('Missing review_id in create review response');
   }
+
+  Future<Map<String, dynamic>> replyToReviewAsProvider({
+    required int reviewId,
+    required String reply,
+  }) async {
+    final trimmed = reply.trim();
+    if (trimmed.isEmpty) {
+      throw StateError('الرد مطلوب');
+    }
+
+    final res = await _dio.post(
+      '${ApiConfig.apiPrefix}/reviews/reviews/$reviewId/provider-reply/',
+      data: {'provider_reply': trimmed},
+    );
+
+    final data = res.data;
+    if (data is Map<String, dynamic>) return data;
+    if (data is Map) return Map<String, dynamic>.from(data);
+    throw StateError('Unexpected provider reply response');
+  }
+
+  Future<void> deleteReviewReplyAsProvider({required int reviewId}) async {
+    await _dio.delete(
+      '${ApiConfig.apiPrefix}/reviews/reviews/$reviewId/provider-reply/',
+    );
+  }
 }

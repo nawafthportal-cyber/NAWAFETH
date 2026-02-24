@@ -109,6 +109,7 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 class ReviewListSerializer(serializers.ModelSerializer):
     client_phone = serializers.CharField(source="client.phone", read_only=True)
     client_name = serializers.SerializerMethodField()
+    provider_reply_is_edited = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -121,6 +122,10 @@ class ReviewListSerializer(serializers.ModelSerializer):
             "credibility",
             "on_time",
             "comment",
+            "provider_reply",
+            "provider_reply_at",
+            "provider_reply_edited_at",
+            "provider_reply_is_edited",
             "client_name",
             "client_phone",
             "created_at",
@@ -136,6 +141,21 @@ class ReviewListSerializer(serializers.ModelSerializer):
         if username:
             return username
         return "عميل"
+
+    def get_provider_reply_is_edited(self, obj):
+        return bool(getattr(obj, "provider_reply_edited_at", None))
+
+
+class ProviderReviewReplySerializer(serializers.Serializer):
+    provider_reply = serializers.CharField(required=True, allow_blank=False, max_length=500)
+
+    def validate_provider_reply(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("الرد مطلوب")
+        if len(value) > 500:
+            raise serializers.ValidationError("الرد طويل جدًا")
+        return value
 
 
 class ProviderRatingSummarySerializer(serializers.Serializer):

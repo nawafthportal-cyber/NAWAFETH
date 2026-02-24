@@ -7,6 +7,7 @@ from apps.accounts.models import User, UserRole
 from apps.providers.models import Category, SubCategory, ProviderProfile, ProviderCategory
 from apps.marketplace.models import ServiceRequest, RequestType, RequestStatus
 from apps.reviews.models import Review
+from apps.notifications.models import Notification
 
 
 @pytest.mark.django_db
@@ -217,6 +218,132 @@ def test_review_allowed_for_cancelled_request():
         format="json",
     )
     assert r.status_code == 201
+
+
+@pytest.mark.django_db
+def test_provider_can_reply_to_own_review_and_reply_appears_in_list():
+    client_user = User.objects.create_user(phone="0510000301", role_state=UserRole.CLIENT)
+    provider_user = User.objects.create_user(
+        phone="0510000302",
+        role_state=UserRole.PROVIDER,
+    )
+    other_provider_user = User.objects.create_user(
+        phone="0510000303",
+        role_state=UserRole.PROVIDER,
+    )
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    other_provider = ProviderProfile.objects.create(
+        user=other_provider_user,
+        provider_type="individual",
+        display_name="مزود آخر",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    cat = Category.objects.create(name="تصميم")
+    sub = SubCategory.objects.create(category=cat, name="هوية")
+    ProviderCategory.objects.create(provider=provider, subcategory=sub)
+    ProviderCategory.objects.create(provider=other_provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.NORMAL,
+        status=RequestStatus.COMPLETED,
+        city="الرياض",
+    )
+
+    api_client = APIClient()
+    api_client.force_authenticate(user=client_user)
+    r_create = api_client.post(
+        f"/api/reviews/requests/{sr.id}/review/",
+        {
+            "response_speed": 5,
+            "cost_value": 4,
+            "quality": 5,
+            "credibility": 5,
+            "on_time": 4,
+            "comment": "خدمة ممتازة",
+        },
+        format="json",
+    )
+    assert r_create.status_code == 201
+    review_id = int(r_create.data["review_id"])
+
+    api_other = APIClient()
+    api_other.force_authenticate(user=other_provider_user)
+    r_forbidden = api_other.post(
+        f"/api/reviews/reviews/{review_id}/provider-reply/",
+        {"provider_reply": "رد غير مصرح"},
+        format="json",
+    )
+    assert r_forbidden.status_code == 403
+
+    api_provider = APIClient()
+    api_provider.force_authenticate(user=provider_user)
+    r_reply = api_provider.post(
+        f"/api/reviews/reviews/{review_id}/provider-reply/",
+        {"provider_reply": "شكرًا لك، نسعد بخدمتك دائمًا"},
+        format="json",
+    )
+    assert r_reply.status_code == 200
+    assert r_reply.data["provider_reply"] == "شكرًا لك، نسعد بخدمتك دائمًا"
+    assert r_reply.data["provider_reply_is_edited"] is False
+
+    review = Review.objects.get(id=review_id)
+    assert review.provider_reply == "شكرًا لك، نسعد بخدمتك دائمًا"
+    assert review.provider_reply_at is not None
+    assert review.provider_reply_edited_at is None
+
+    r_edit = api_provider.post(
+        f"/api/reviews/reviews/{review_id}/provider-reply/",
+        {"provider_reply": "شكرًا لك، تم تحديث الرد"},
+        format="json",
+    )
+    assert r_edit.status_code == 200
+    assert r_edit.data["provider_reply_is_edited"] is True
+
+    review.refresh_from_db()
+    assert review.provider_reply == "شكرًا لك، تم تحديث الرد"
+    assert review.provider_reply_edited_at is not None
+
+    r_list = APIClient().get(f"/api/reviews/providers/{provider.id}/reviews/")
+    assert r_list.status_code == 200
+    assert len(r_list.data) >= 1
+    first = r_list.data[0]
+    assert first["provider_reply"] == "شكرًا لك، تم تحديث الرد"
+    assert first["provider_reply_is_edited"] is True
+
+    r_delete = api_provider.delete(f"/api/reviews/reviews/{review_id}/provider-reply/")
+    assert r_delete.status_code == 200
+    review.refresh_from_db()
+    assert review.provider_reply == ""
+    assert review.provider_reply_at is None
+    assert review.provider_reply_edited_at is None
+
+    # إشعارات للعميل: إنشاء رد + تعديل + حذف
+    notes = Notification.objects.filter(user=client_user).order_by("id")
+    assert notes.count() == 3
+    assert "رد مقدم الخدمة" in notes[0].title
+    assert "تعديل" in notes[1].title
+    assert "حذف" in notes[2].title
+    assert notes[0].kind == "review_reply"
+    assert notes[1].kind == "review_reply"
+    assert notes[2].kind == "review_reply"
+    assert notes[0].url == f"/requests/{sr.id}/"
 
 
 @pytest.mark.django_db

@@ -8,12 +8,14 @@ import '../../services/support_api.dart';
 class ReviewsTab extends StatefulWidget {
   final int? providerId;
   final bool embedded;
+  final bool allowProviderReply;
   final Future<void> Function(String customerName)? onOpenChat;
 
   const ReviewsTab({
     super.key,
     this.providerId,
     this.embedded = false,
+    this.allowProviderReply = false,
     this.onOpenChat,
   });
 
@@ -64,6 +66,136 @@ class _ReviewsTabState extends State<ReviewsTab> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _replyToReview(Map<String, dynamic> review) async {
+    final reviewIdRaw = review['id'];
+    final reviewId = (reviewIdRaw is int)
+        ? reviewIdRaw
+        : int.tryParse(reviewIdRaw?.toString() ?? '');
+    if (reviewId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر تحديد رقم المراجعة')),
+      );
+      return;
+    }
+
+    final existingReply = (review['provider_reply'] ?? '').toString().trim();
+    final controller = TextEditingController(text: existingReply);
+    try {
+      final reply = await showDialog<String>(
+        context: context,
+        builder: (ctx) {
+          return Directionality(
+            textDirection: TextDirection.rtl,
+            child: AlertDialog(
+              title: const Text('رد على المراجعة', style: TextStyle(fontFamily: 'Cairo')),
+              content: TextField(
+                controller: controller,
+                maxLength: 500,
+                minLines: 3,
+                maxLines: 6,
+                decoration: const InputDecoration(
+                  hintText: 'اكتب ردك على مراجعة العميل',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+                  child: Text(
+                    existingReply.isEmpty ? 'إرسال الرد' : 'تحديث الرد',
+                    style: const TextStyle(fontFamily: 'Cairo'),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      if (reply == null) return;
+      if (reply.trim().isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('الرد مطلوب')),
+        );
+        return;
+      }
+
+      await ReviewsApi().replyToReviewAsProvider(reviewId: reviewId, reply: reply);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حفظ الرد على المراجعة')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_friendlyErrorMessage(e))),
+      );
+    } finally {
+      controller.dispose();
+    }
+  }
+
+  Future<void> _clearReplyForReview(Map<String, dynamic> review) async {
+    final reviewIdRaw = review['id'];
+    final reviewId = (reviewIdRaw is int)
+        ? reviewIdRaw
+        : int.tryParse(reviewIdRaw?.toString() ?? '');
+    if (reviewId == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: const Text('حذف رد المراجعة', style: TextStyle(fontFamily: 'Cairo')),
+          content: const Text(
+            'هل تريد حذف ردك على هذه المراجعة؟',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('حذف', style: TextStyle(fontFamily: 'Cairo')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ReviewsApi().deleteReviewReplyAsProvider(reviewId: reviewId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم حذف رد المراجعة')),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_friendlyErrorMessage(e))),
+      );
+    }
+  }
+
+  String _friendlyErrorMessage(Object e) {
+    if (e is StateError && e.message.trim().isNotEmpty) {
+      return e.message;
+    }
+    return 'تعذر حفظ الرد حالياً';
   }
 
   Future<int> _resolveProviderId() async {
@@ -133,6 +265,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
               review: r,
               providerId: _providerId,
               onOpenChat: widget.onOpenChat,
+              onReply: widget.allowProviderReply ? () => _replyToReview(r) : null,
+              onClearReply: widget.allowProviderReply ? () => _clearReplyForReview(r) : null,
             ),
           ),
       ],
@@ -160,11 +294,15 @@ class _ReviewCard extends StatelessWidget {
   final dynamic review;
   final int? providerId;
   final Future<void> Function(String customerName)? onOpenChat;
+  final Future<void> Function()? onReply;
+  final Future<void> Function()? onClearReply;
 
   const _ReviewCard({
     required this.review,
     required this.providerId,
     required this.onOpenChat,
+    required this.onReply,
+    required this.onClearReply,
   });
 
   @override
@@ -184,6 +322,10 @@ class _ReviewCard extends StatelessWidget {
 
     final rating = map['rating'] ?? map['stars'];
     final comment = map['comment'] ?? map['text'] ?? map['review'] ?? '';
+    final providerReply = (map['provider_reply'] ?? '').toString();
+    final providerReplyAt = map['provider_reply_at'] ?? map['providerReplyAt'];
+    final providerReplyEditedAt = map['provider_reply_edited_at'] ?? map['providerReplyEditedAt'];
+    final providerReplyIsEdited = map['provider_reply_is_edited'] == true || providerReplyEditedAt != null;
     final createdAt = map['created_at'] ?? map['createdAt'];
 
     final ratingValue = _asDouble(rating).clamp(0.0, 5.0).toDouble();
@@ -212,6 +354,9 @@ class _ReviewCard extends StatelessWidget {
                   comment: comment.toString(),
                   clientPhone: authorPhone,
                   reviewId: reviewId,
+                  onReply: onReply,
+                  hasProviderReply: providerReply.trim().isNotEmpty,
+                  onClearReply: onClearReply,
                 ),
               ],
             ),
@@ -246,14 +391,68 @@ class _ReviewCard extends StatelessWidget {
                 style: const TextStyle(fontFamily: 'Cairo'),
               ),
             ],
-            if (onOpenChat != null) ...[
+            if (providerReply.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => onOpenChat?.call(authorLabel),
-                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                  label: const Text('محادثة', style: TextStyle(fontFamily: 'Cairo')),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.deepPurple.withOpacity(0.15)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.reply, size: 16, color: Colors.deepPurple),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'رد مقدم الخدمة',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w700,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                        const Spacer(),
+                        if (providerReplyAt != null)
+                          Text(
+                            providerReplyAt.toString(),
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 11,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (providerReplyIsEdited) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          'تم تعديل الرد',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            color: Colors.orange.shade900,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      providerReply,
+                      style: const TextStyle(fontFamily: 'Cairo'),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -536,14 +735,24 @@ class _CriteriaRow extends StatelessWidget {
   }
 }
 
-enum _ReviewAction { copyText, copyPhone, report }
+enum _ReviewAction { reply, clearReply, copyText, copyPhone, report }
 
 class _ReviewOptions extends StatelessWidget {
   final String comment;
   final String clientPhone;
   final int? reviewId;
+  final Future<void> Function()? onReply;
+  final bool hasProviderReply;
+  final Future<void> Function()? onClearReply;
 
-  const _ReviewOptions({required this.comment, required this.clientPhone, required this.reviewId});
+  const _ReviewOptions({
+    required this.comment,
+    required this.clientPhone,
+    required this.reviewId,
+    required this.onReply,
+    required this.hasProviderReply,
+    required this.onClearReply,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -552,6 +761,12 @@ class _ReviewOptions extends StatelessWidget {
       position: PopupMenuPosition.under,
       onSelected: (action) async {
         switch (action) {
+          case _ReviewAction.reply:
+            await onReply?.call();
+            return;
+          case _ReviewAction.clearReply:
+            await onClearReply?.call();
+            return;
           case _ReviewAction.copyText:
             if (comment.trim().isEmpty) return;
             await Clipboard.setData(ClipboardData(text: comment));
@@ -600,6 +815,22 @@ class _ReviewOptions extends StatelessWidget {
         }
       },
       itemBuilder: (_) => [
+        PopupMenuItem(
+          value: _ReviewAction.reply,
+          enabled: reviewId != null && onReply != null,
+          child: Text(
+            hasProviderReply ? 'تعديل الرد' : 'رد على المراجعة',
+            style: const TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+        PopupMenuItem(
+          value: _ReviewAction.clearReply,
+          enabled: reviewId != null && onClearReply != null && hasProviderReply,
+          child: const Text(
+            'حذف الرد',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
         PopupMenuItem(
           value: _ReviewAction.copyText,
           enabled: comment.trim().isNotEmpty,

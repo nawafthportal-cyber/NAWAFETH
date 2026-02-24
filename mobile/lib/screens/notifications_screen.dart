@@ -4,6 +4,7 @@ import '../utils/auth_guard.dart';
 import '../models/app_notification.dart';
 import '../services/notifications_api.dart';
 import '../services/notifications_badge_controller.dart';
+import '../services/notification_link_handler.dart';
 import '../services/role_controller.dart';
 import '../services/session_storage.dart';
 import 'notification_details_screen.dart';
@@ -181,16 +182,55 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   IconData _iconForKind(String kind) {
-    switch (kind) {
+    switch (kind.trim().toLowerCase()) {
+      case 'review_reply':
+        return Icons.rate_review_outlined;
+      case 'urgent_request':
+        return Icons.bolt_rounded;
+      case 'offer_created':
+        return Icons.local_offer_outlined;
+      case 'offer_selected':
+        return Icons.task_alt_rounded;
+      case 'request_status_change':
+        return Icons.sync_alt_rounded;
+      case 'report_status_change':
+        return Icons.support_agent_rounded;
+      case 'message_new':
+      case 'message':
+      case 'chat':
+      case 'chat_message':
+        return Icons.chat_bubble_outline;
       case 'urgent':
         return Icons.warning_amber_rounded;
-      case 'offer':
-        return Icons.local_offer_outlined;
-      case 'message':
-        return Icons.chat_bubble_outline;
       case 'info':
       default:
         return Icons.notifications_none;
+    }
+  }
+
+  String? _kindLabel(String kind) {
+    switch (kind.trim().toLowerCase()) {
+      case 'review_reply':
+        return 'رد على مراجعتك';
+      case 'urgent_request':
+        return 'طلب عاجل';
+      case 'offer_created':
+        return 'عرض جديد';
+      case 'offer_selected':
+        return 'تم اختيار عرضك';
+      case 'request_status_change':
+        return 'تحديث الطلب';
+      case 'report_status_change':
+        return 'تحديث البلاغ';
+      case 'message':
+      case 'message_new':
+      case 'chat':
+      case 'chat_message':
+        return 'رسالة';
+      case 'urgent':
+        return 'عاجل';
+      default:
+        return null;
     }
   }
 
@@ -422,11 +462,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           await _markReadIfNeeded(notification);
           if (!mounted) return;
 
-          await Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => NotificationDetailsScreen(notification: notification),
-            ),
+          final opened = await NotificationLinkHandler.openFromNotification(
+            context,
+            notification,
           );
+          if (!mounted) return;
+          if (!opened) {
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => NotificationDetailsScreen(notification: notification),
+              ),
+            );
+          }
         } catch (_) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -546,6 +593,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           _flagChip('مثبّت', theme.colorScheme.primary),
                         if (notification.isFollowUp)
                           _flagChip('للمتابعة', Colors.orange),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  if ((_kindLabel(notification.kind) ?? '').isNotEmpty) ...[
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        _flagChip(
+                          _kindLabel(notification.kind)!,
+                          theme.colorScheme.primary,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),

@@ -1,17 +1,20 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg
+from django.utils import timezone
 from rest_framework import permissions, status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
+from apps.notifications.services import create_notification
 from .models import Review
 from .serializers import (
-	ReviewCreateSerializer, ReviewListSerializer, ProviderRatingSummarySerializer
+	ReviewCreateSerializer, ReviewListSerializer, ProviderRatingSummarySerializer,
+	ProviderReviewReplySerializer,
 )
 
-from apps.accounts.permissions import IsAtLeastClient
+from apps.accounts.permissions import IsAtLeastClient, IsAtLeastProvider
 
 
 class CreateReviewView(APIView):
@@ -52,6 +55,96 @@ class ProviderReviewsListView(generics.ListAPIView):
 	def get_queryset(self):
 		provider_id = self.kwargs["provider_id"]
 		return Review.objects.filter(provider_id=provider_id).select_related("client").order_by("-id")
+
+
+class ProviderReviewReplyView(APIView):
+	permission_classes = [IsAtLeastProvider]
+
+	def post(self, request, review_id):
+		review = get_object_or_404(Review.objects.select_related("provider__user"), id=review_id)
+		if review.provider.user_id != request.user.id:
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+		s = ProviderReviewReplySerializer(data=request.data)
+		s.is_valid(raise_exception=True)
+
+		now = timezone.now()
+		new_reply = s.validated_data["provider_reply"]
+		had_existing = bool((review.provider_reply or "").strip())
+		previous_reply = (review.provider_reply or "").strip()
+
+		is_edit = had_existing and previous_reply != new_reply
+		review.provider_reply = new_reply
+		if is_edit:
+			review.provider_reply_edited_at = now
+		elif not had_existing:
+			review.provider_reply_edited_at = None
+		review.provider_reply_at = now
+		review.save(update_fields=["provider_reply", "provider_reply_at", "provider_reply_edited_at"])
+
+		if review.client_id and (not had_existing or is_edit):
+			create_notification(
+				user=review.client,
+				title="رد مقدم الخدمة على مراجعتك" if not is_edit else "تم تعديل رد مقدم الخدمة على مراجعتك",
+				body=(
+					"قام مقدم الخدمة بالرد على مراجعتك."
+					if not is_edit
+					else "قام مقدم الخدمة بتعديل رده على مراجعتك."
+				),
+				kind="review_reply",
+				url=f"/requests/{review.request_id}/",
+				actor=request.user,
+				request_id=review.request_id,
+				meta={
+					"review_id": review.id,
+					"provider_id": review.provider_id,
+					"reply_action": "edit" if is_edit else "create",
+				},
+			)
+
+		return Response(
+			{
+				"ok": True,
+				"review_id": review.id,
+				"provider_reply": review.provider_reply,
+				"provider_reply_at": review.provider_reply_at,
+				"provider_reply_edited_at": review.provider_reply_edited_at,
+				"provider_reply_is_edited": bool(review.provider_reply_edited_at),
+			},
+			status=status.HTTP_200_OK,
+		)
+
+	def delete(self, request, review_id):
+		review = get_object_or_404(Review.objects.select_related("provider__user", "client"), id=review_id)
+		if review.provider.user_id != request.user.id:
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+		had_reply = bool((review.provider_reply or "").strip())
+		if not had_reply:
+			return Response({"detail": "لا يوجد رد لحذفه"}, status=status.HTTP_400_BAD_REQUEST)
+
+		review.provider_reply = ""
+		review.provider_reply_at = None
+		review.provider_reply_edited_at = None
+		review.save(update_fields=["provider_reply", "provider_reply_at", "provider_reply_edited_at"])
+
+		if review.client_id:
+			create_notification(
+				user=review.client,
+				title="تم حذف رد مقدم الخدمة على مراجعتك",
+				body="قام مقدم الخدمة بحذف رده السابق على مراجعتك.",
+				kind="review_reply",
+				url=f"/requests/{review.request_id}/",
+				actor=request.user,
+				request_id=review.request_id,
+				meta={
+					"review_id": review.id,
+					"provider_id": review.provider_id,
+					"reply_action": "delete",
+				},
+			)
+
+		return Response({"ok": True, "review_id": review.id}, status=status.HTTP_200_OK)
 
 
 class ProviderRatingSummaryView(APIView):

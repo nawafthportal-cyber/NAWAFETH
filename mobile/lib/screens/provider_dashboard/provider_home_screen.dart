@@ -1586,6 +1586,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       body: ReviewsTab(
         embedded: true,
         providerId: _providerId,
+        allowProviderReply: true,
       ),
     )));
     if (!mounted) return;

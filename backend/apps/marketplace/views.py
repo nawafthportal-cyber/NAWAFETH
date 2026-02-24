@@ -121,7 +121,7 @@ def _notify_urgent_request_to_matching_providers(service_request: ServiceRequest
 			user=provider.user,
 			title="طلب خدمة عاجلة جديد",
 			body=f"يوجد طلب عاجل جديد في تخصصك: {service_request.title}",
-			kind="urgent",
+			kind="urgent_request",
 			url=f"/requests/{service_request.id}",
 			actor=service_request.client,
 			event_type=EventType.REQUEST_CREATED,
