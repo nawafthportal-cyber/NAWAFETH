@@ -123,6 +123,7 @@ class _VideoReelsState extends State<VideoReels> {
                     child: HomeMediaViewerScreen(
                       items: _items,
                       initialIndex: index,
+                      favoritesEnabled: false,
                     ),
                   ),
                 ),

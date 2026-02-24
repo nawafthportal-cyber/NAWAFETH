@@ -6,16 +6,19 @@ import 'package:video_player/video_player.dart';
 import '../constants/colors.dart';
 import '../models/provider_portfolio_item.dart';
 import '../services/providers_api.dart';
+import '../utils/auth_guard.dart';
 import 'provider_profile_screen.dart';
 
 class HomeMediaViewerScreen extends StatefulWidget {
   final List<ProviderPortfolioItem> items;
   final int initialIndex;
+  final bool favoritesEnabled;
 
   const HomeMediaViewerScreen({
     super.key,
     required this.items,
     this.initialIndex = 0,
+    this.favoritesEnabled = true,
   });
 
   @override
@@ -125,6 +128,13 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
   }
 
   Future<void> _openProvider(ProviderPortfolioItem item) async {
+    if (item.providerId <= 0) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('بيانات المزود غير متاحة حالياً')),
+      );
+      return;
+    }
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -137,6 +147,17 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
   }
 
   Future<void> _toggleFavorite(ProviderPortfolioItem item) async {
+    final authed = await checkAuth(context);
+    if (!authed || !mounted) return;
+
+    if (!widget.favoritesEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('المفضلة متاحة في معرض الخدمات فقط')),
+      );
+      return;
+    }
+
     final itemId = item.id;
     if (_favoriteBusy.contains(itemId)) return;
 
@@ -175,7 +196,16 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
   }
 
   Future<void> _toggleProviderLike(ProviderPortfolioItem item) async {
+    final authed = await checkAuth(context);
+    if (!authed || !mounted) return;
+
     final providerId = item.providerId;
+    if (providerId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('بيانات المزود غير متاحة حالياً')),
+      );
+      return;
+    }
     if (_providerLikeBusy.contains(providerId)) return;
 
     final wasLiked = _likedProviderIds.contains(providerId);
@@ -286,6 +316,7 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
             child: Builder(
               builder: (context) {
                 final current = widget.items[_index];
+                final hasProviderTarget = current.providerId > 0;
                 final liked = _likedProviderIds.contains(current.providerId);
                 final saved = _favoritePortfolioIds.contains(current.id);
                 final likeBusy = _providerLikeBusy.contains(current.providerId);
@@ -293,31 +324,48 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
                 return Column(
                   children: [
                     GestureDetector(
-                      onTap: () => _openProvider(current),
+                      onTap: hasProviderTarget ? () => _openProvider(current) : null,
                       child: Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.deepPurple, width: 2.5),
+                          border: Border.all(
+                            color: hasProviderTarget
+                                ? AppColors.deepPurple
+                                : Colors.white54,
+                            width: 2.5,
+                          ),
                         ),
-                        child: const CircleAvatar(
+                        child: CircleAvatar(
                           radius: 25,
-                          child: Icon(Icons.person),
+                          backgroundColor: hasProviderTarget
+                              ? null
+                              : Colors.grey.shade300,
+                          child: Icon(
+                            Icons.person,
+                            color: hasProviderTarget
+                                ? AppColors.deepPurple
+                                : Colors.grey.shade600,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(height: 16),
                     _CircleAction(
                       icon: liked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                      onTap: likeBusy ? null : () => _toggleProviderLike(current),
+                      onTap: (!hasProviderTarget || likeBusy)
+                          ? null
+                          : () => _toggleProviderLike(current),
                       loading: likeBusy,
                     ),
-                    const SizedBox(height: 14),
-                    _CircleAction(
-                      icon: saved ? Icons.bookmark : Icons.bookmark_border,
-                      onTap: saveBusy ? null : () => _toggleFavorite(current),
-                      loading: saveBusy,
-                    ),
+                    if (widget.favoritesEnabled) ...[
+                      const SizedBox(height: 14),
+                      _CircleAction(
+                        icon: saved ? Icons.bookmark : Icons.bookmark_border,
+                        onTap: saveBusy ? null : () => _toggleFavorite(current),
+                        loading: saveBusy,
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     _CircleAction(
                       icon: Icons.home_rounded,
@@ -402,6 +450,8 @@ class _CircleAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final disabled = onTap == null && !loading;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(99),
@@ -409,7 +459,7 @@ class _CircleAction extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: disabled ? Colors.white70 : Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
@@ -427,7 +477,10 @@ class _CircleAction extends StatelessWidget {
                   color: AppColors.deepPurple,
                 ),
               )
-            : Icon(icon, color: AppColors.deepPurple),
+            : Icon(
+                icon,
+                color: disabled ? Colors.grey : AppColors.deepPurple,
+              ),
       ),
     );
   }
