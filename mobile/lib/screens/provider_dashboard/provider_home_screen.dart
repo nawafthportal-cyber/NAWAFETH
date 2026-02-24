@@ -35,7 +35,8 @@ import 'provider_portfolio_manage_screen.dart';
 import 'paid_services_hub_screen.dart';
 import '../verification_screen.dart';
 import '../plans_screen.dart';
-import '../additional_services_screen.dart';
+import '../extra_services_screen.dart';
+import '../promo_requests_screen.dart';
 import '../../screens/network_video_player_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
@@ -611,7 +612,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   Future<void> _openExtrasSection() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AdditionalServicesScreen(initialTabIndex: 0)),
+      MaterialPageRoute(builder: (_) => const ExtraServicesScreen()),
     );
     if (!mounted) return;
     await _loadPaidServicesBadge();
@@ -620,7 +621,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   Future<void> _openPromoSection() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AdditionalServicesScreen(initialTabIndex: 2)),
+      MaterialPageRoute(builder: (_) => const PromoRequestsScreen()),
     );
     if (!mounted) return;
     await _loadPaidServicesBadge();

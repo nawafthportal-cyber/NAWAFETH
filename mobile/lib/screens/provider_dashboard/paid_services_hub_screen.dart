@@ -7,8 +7,9 @@ import '../../services/providers_api.dart';
 import '../../services/subscriptions_api.dart';
 import '../../services/verification_api.dart';
 import '../../utils/auth_guard.dart';
-import '../additional_services_screen.dart';
+import '../extra_services_screen.dart';
 import '../plans_screen.dart';
+import '../promo_requests_screen.dart';
 import '../verification_screen.dart';
 
 class PaidServicesHubScreen extends StatefulWidget {
@@ -258,7 +259,7 @@ class _PaidServicesHubScreenState extends State<PaidServicesHubScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AdditionalServicesScreen(initialTabIndex: 2),
+                                builder: (_) => const PromoRequestsScreen(),
                               ),
                             );
                           },
@@ -274,7 +275,7 @@ class _PaidServicesHubScreenState extends State<PaidServicesHubScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => const AdditionalServicesScreen(initialTabIndex: 0),
+                                builder: (_) => const ExtraServicesScreen(),
                               ),
                             );
                           },
