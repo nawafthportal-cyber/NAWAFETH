@@ -34,6 +34,11 @@ class AuditAction(models.TextChoices):
 	ACCESS_PROFILE_CREATED = "access_profile_created", "إنشاء صلاحيات تشغيل"
 	ACCESS_PROFILE_REVOKED = "access_profile_revoked", "سحب صلاحيات تشغيل"
 	ACCESS_PROFILE_UNREVOKED = "access_profile_unrevoked", "إلغاء سحب صلاحيات تشغيل"
+	CONTENT_BLOCK_UPDATED = "content_block_updated", "تحديث بلوك محتوى"
+	CONTENT_DOCUMENT_UPLOADED = "content_document_uploaded", "رفع مستند قانوني"
+	CONTENT_LINKS_UPDATED = "content_links_updated", "تحديث روابط المنصة"
+	REVIEW_MODERATED = "review_moderated", "تعديل حالة مراجعة"
+	REVIEW_RESPONSE_ADDED = "review_response_added", "إضافة رد إداري على مراجعة"
 
 	LOGIN_OTP_SENT = "login_otp_sent", "إرسال OTP"
 	LOGIN_OTP_VERIFIED = "login_otp_verified", "تأكيد OTP"

@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
 from apps.notifications.services import create_notification
-from .models import Review
+from .models import Review, ReviewModerationStatus
 from .serializers import (
 	ReviewCreateSerializer, ReviewListSerializer, ProviderRatingSummarySerializer,
 	ProviderReviewReplySerializer,
@@ -54,7 +54,14 @@ class ProviderReviewsListView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider_id = self.kwargs["provider_id"]
-		return Review.objects.filter(provider_id=provider_id).select_related("client").order_by("-id")
+		return (
+			Review.objects.filter(
+				provider_id=provider_id,
+				moderation_status=ReviewModerationStatus.APPROVED,
+			)
+			.select_related("client")
+			.order_by("-id")
+		)
 
 
 class ProviderReviewReplyView(APIView):
@@ -156,7 +163,10 @@ class ProviderRatingSummaryView(APIView):
 		provider = get_object_or_404(ProviderProfile, id=provider_id)
 
 		# تفصيل متوسطات التقييم من جدول المراجعات (قد تكون None إذا لم تُستخدم المحاور)
-		breakdown = Review.objects.filter(provider_id=provider_id).aggregate(
+		breakdown = Review.objects.filter(
+			provider_id=provider_id,
+			moderation_status=ReviewModerationStatus.APPROVED,
+		).aggregate(
 			response_speed_avg=Avg("response_speed"),
 			cost_value_avg=Avg("cost_value"),
 			quality_avg=Avg("quality"),

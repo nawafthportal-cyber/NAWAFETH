@@ -1,0 +1,90 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load dashboard_dict %}
+{% block title %}إدارة المحتوى{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-700 to-cyan-700 bg-clip-text text-transparent">إدارة المحتوى</h1>
+    <p class="text-gray-500 mt-1">إدارة محتوى صفحات التطبيق، المستندات القانونية، وروابط المنصة.</p>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <h2 class="text-xl font-bold text-gray-800 mb-4">بلوكات المحتوى</h2>
+    <div class="space-y-4">
+      {% for key, label in block_choices %}
+      {% with block=blocks|get_item:key %}
+      <form method="post" action="{% url 'dashboard:content_block_update_action' key %}" class="rounded-xl border border-gray-200 p-4 bg-gray-50/70 space-y-3">
+        {% csrf_token %}
+        <div class="text-sm font-bold text-gray-700">{{ label }} <span class="text-xs text-gray-400">({{ key }})</span></div>
+        <input name="title_ar" value="{% if block %}{{ block.title_ar }}{% endif %}" placeholder="العنوان" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <textarea name="body_ar" rows="3" placeholder="النص" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{% if block %}{{ block.body_ar }}{% endif %}</textarea>
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" name="is_active" {% if not block or block.is_active %}checked{% endif %} {% if not can_write %}disabled{% endif %}>
+          <span>مفعّل</span>
+        </label>
+        {% if can_write %}
+        <button class="block w-full rounded-lg bg-blue-600 text-white px-4 py-2 font-semibold">حفظ</button>
+        {% else %}
+        <div class="text-xs text-gray-500">صلاحية القراءة فقط</div>
+        {% endif %}
+      </form>
+      {% endwith %}
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="space-y-6">
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="text-xl font-bold text-gray-800 mb-4">المستندات القانونية</h2>
+      <div class="space-y-4">
+        {% for doc_type, doc_label in doc_choices %}
+        {% with latest=latest_docs|get_item:doc_type %}
+        <form method="post" enctype="multipart/form-data" action="{% url 'dashboard:content_doc_upload_action' doc_type %}" class="rounded-xl border border-gray-200 p-4 bg-gray-50/70 space-y-2">
+          {% csrf_token %}
+          <div class="text-sm font-bold text-gray-700">{{ doc_label }}</div>
+          {% if latest %}
+          <div class="text-xs text-gray-500">الإصدار الحالي: {{ latest.version }} — {{ latest.published_at|date:"Y-m-d H:i" }}</div>
+          {% endif %}
+          <input type="file" name="file" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <input name="version" value="{% if latest %}{{ latest.version }}{% else %}1.0{% endif %}" placeholder="الإصدار" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+            <input type="datetime-local" name="published_at" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="is_active" checked {% if not can_write %}disabled{% endif %}>
+            <span>تفعيل هذا الإصدار</span>
+          </label>
+          {% if can_write %}
+          <button class="block w-full rounded-lg bg-indigo-600 text-white px-4 py-2 font-semibold">رفع المستند</button>
+          {% else %}
+          <div class="text-xs text-gray-500">صلاحية القراءة فقط</div>
+          {% endif %}
+        </form>
+        {% endwith %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'dashboard:content_links_update_action' %}" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      {% csrf_token %}
+      <h2 class="text-xl font-bold text-gray-800 mb-4">روابط المنصة</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <input name="x_url" value="{% if links %}{{ links.x_url }}{% endif %}" placeholder="رابط X" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <input name="whatsapp_url" value="{% if links %}{{ links.whatsapp_url }}{% endif %}" placeholder="رابط واتساب" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <input name="email" value="{% if links %}{{ links.email }}{% endif %}" placeholder="البريد الإلكتروني" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <input name="android_store" value="{% if links %}{{ links.android_store }}{% endif %}" placeholder="رابط متجر Android" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <input name="ios_store" value="{% if links %}{{ links.ios_store }}{% endif %}" placeholder="رابط متجر iOS" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+        <input name="website_url" value="{% if links %}{{ links.website_url }}{% endif %}" placeholder="رابط الموقع العام" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+      </div>
+      {% if can_write %}
+      <button class="mt-4 w-full rounded-lg bg-emerald-600 text-white px-4 py-2 font-semibold">حفظ الروابط</button>
+      {% else %}
+      <div class="text-xs text-gray-500 mt-3">صلاحية القراءة فقط</div>
+      {% endif %}
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}تفاصيل المراجعة{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-800">المراجعة #{{ review.id }}</h1>
+    <p class="text-gray-500 mt-1">تفاصيل التقييم وإجراءات الإدارة.</p>
+  </div>
+  <a href="{% url 'dashboard:reviews_dashboard_list' %}" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">رجوع للقائمة</a>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
+    <h2 class="text-lg font-bold text-gray-800">بيانات المراجعة</h2>
+    <div><span class="font-semibold">الطلب:</span> #{{ review.request_id }}</div>
+    <div><span class="font-semibold">المزوّد:</span> {{ review.provider.display_name }}</div>
+    <div><span class="font-semibold">العميل:</span> {{ review.client.phone }}</div>
+    <div><span class="font-semibold">التقييم:</span> {{ review.rating }}/5</div>
+    <div><span class="font-semibold">الحالة:</span> {{ review.get_moderation_status_display }}</div>
+    <div><span class="font-semibold">التعليق:</span> {{ review.comment|default:"—" }}</div>
+    <div><span class="font-semibold">رد المزود:</span> {{ review.provider_reply|default:"—" }}</div>
+    <div><span class="font-semibold">رد الإدارة:</span> {{ review.management_reply|default:"—" }}</div>
+  </section>
+
+  <section class="space-y-6">
+    <form method="post" action="{% url 'dashboard:reviews_dashboard_moderate_action' review.id %}" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
+      {% csrf_token %}
+      <h2 class="text-lg font-bold text-gray-800">تغيير الحالة</h2>
+      <textarea name="moderation_note" rows="3" placeholder="ملاحظة الإجراء" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.moderation_note }}</textarea>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
+        <button name="action" value="approve" class="rounded-lg bg-emerald-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>اعتماد</button>
+        <button name="action" value="reject" class="rounded-lg bg-amber-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>رفض</button>
+        <button name="action" value="hide" class="rounded-lg bg-rose-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>إخفاء</button>
+      </div>
+      {% if not can_write %}<div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>{% endif %}
+    </form>
+
+    <form method="post" action="{% url 'dashboard:reviews_dashboard_respond_action' review.id %}" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
+      {% csrf_token %}
+      <h2 class="text-lg font-bold text-gray-800">رد إداري (اختياري)</h2>
+      <textarea name="management_reply" rows="4" placeholder="اكتب رد الإدارة" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.management_reply }}</textarea>
+      <button class="rounded-lg bg-indigo-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>حفظ الرد</button>
+      {% if not can_write %}<div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>{% endif %}
+    </form>
+  </section>
+</div>
+{% endblock %}

@@ -10,6 +10,12 @@ from apps.marketplace.models import ServiceRequest, RequestStatus
 from apps.providers.models import ProviderProfile
 
 
+class ReviewModerationStatus(models.TextChoices):
+	APPROVED = "approved", "معتمد"
+	REJECTED = "rejected", "مرفوض"
+	HIDDEN = "hidden", "مخفي"
+
+
 class Review(models.Model):
 	request = models.OneToOneField(
 		ServiceRequest,
@@ -61,6 +67,29 @@ class Review(models.Model):
 	provider_reply = models.CharField(max_length=500, blank=True)
 	provider_reply_at = models.DateTimeField(null=True, blank=True)
 	provider_reply_edited_at = models.DateTimeField(null=True, blank=True)
+	moderation_status = models.CharField(
+		max_length=20,
+		choices=ReviewModerationStatus.choices,
+		default=ReviewModerationStatus.APPROVED,
+	)
+	moderation_note = models.CharField(max_length=500, blank=True)
+	moderated_at = models.DateTimeField(null=True, blank=True)
+	moderated_by = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="reviews_moderated",
+	)
+	management_reply = models.CharField(max_length=500, blank=True)
+	management_reply_at = models.DateTimeField(null=True, blank=True)
+	management_reply_by = models.ForeignKey(
+		settings.AUTH_USER_MODEL,
+		on_delete=models.SET_NULL,
+		null=True,
+		blank=True,
+		related_name="reviews_management_replies",
+	)
 
 	created_at = models.DateTimeField(default=timezone.now)
 
@@ -68,6 +97,7 @@ class Review(models.Model):
 		ordering = ("-id",)
 		indexes = [
 			models.Index(fields=["provider", "created_at"]),
+			models.Index(fields=["moderation_status", "created_at"]),
 		]
 
 	def clean(self):

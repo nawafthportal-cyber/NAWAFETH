@@ -71,6 +71,26 @@
         {% endif %}
 
         {% if can_content %}
+        <a href="{% url 'dashboard:content_management' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'content_management' %}bg-gradient-to-r from-cyan-50 to-blue-50{% else %}hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            🧾
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'content_management' %}text-cyan-700{% else %}text-gray-700 group-hover:text-cyan-700{% endif %}">محتوى المنصة</span>
+        </a>
+        {% endif %}
+
+        {% if can_content %}
+        <a href="{% url 'dashboard:reviews_dashboard_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'reviews_dashboard_list' or request.resolver_match.url_name == 'reviews_dashboard_detail' %}bg-gradient-to-r from-fuchsia-50 to-purple-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-purple-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            ⭐
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'reviews_dashboard_list' or request.resolver_match.url_name == 'reviews_dashboard_detail' %}text-fuchsia-700{% else %}text-gray-700 group-hover:text-fuchsia-700{% endif %}">المراجعات</span>
+        </a>
+        {% endif %}
+
+        {% if can_content %}
         <a href="{% url 'dashboard:providers_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'providers_list' or request.resolver_match.url_name == 'provider_detail' %}bg-gradient-to-r from-emerald-50 to-teal-50{% else %}hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50{% endif %}">
           <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">

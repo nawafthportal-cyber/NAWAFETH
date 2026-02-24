@@ -5,7 +5,7 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-3xl font-bold bg-gradient-to-r from-slate-700 to-gray-900 bg-clip-text text-transparent">إدارة صلاحيات التشغيل</h1>
-    <p class="text-gray-500 mt-1">مراجعة مستويات الوصول واللوحات المسموحة لكل موظف.</p>
+    <p class="text-gray-500 mt-1">مراجعة مستويات الوصول واللوحات المسموحة لكل موظف. (انتهاء الوصول هنا يخص دخول الداشبورد وليس كلمة المرور)</p>
   </div>
   <div class="flex items-center gap-2">
     <a href="?q={{ q }}&level={{ level }}&export=csv" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير CSV</a>
@@ -108,7 +108,7 @@
                   </select>
                 </div>
                 <div>
-                  <label class="block text-xs text-gray-600 mb-1">انتهاء الصلاحية (اختياري)</label>
+                  <label class="block text-xs text-gray-600 mb-1">انتهاء صلاحية الوصول (اختياري)</label>
                   <input
                     type="datetime-local"
                     name="expires_at"

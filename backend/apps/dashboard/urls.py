@@ -1,6 +1,8 @@
 from django.urls import path
 from . import views
 from . import auth_views
+from . import content_views
+from . import reviews_views
 
 app_name = "dashboard"
 
@@ -11,6 +13,15 @@ urlpatterns = [
     path("", views.dashboard_home, name="home"),
     path("requests/", views.requests_list, name="requests_list"),
     path("requests/<int:request_id>/", views.request_detail, name="request_detail"),
+    path("content/", content_views.content_management, name="content_management"),
+    path("content/blocks/<str:key>/update/", content_views.content_block_update_action, name="content_block_update_action"),
+    path("content/docs/<str:doc_type>/upload/", content_views.content_doc_upload_action, name="content_doc_upload_action"),
+    path("content/links/update/", content_views.content_links_update_action, name="content_links_update_action"),
+
+    path("reviews/", reviews_views.reviews_dashboard_list, name="reviews_dashboard_list"),
+    path("reviews/<int:review_id>/", reviews_views.reviews_dashboard_detail, name="reviews_dashboard_detail"),
+    path("reviews/<int:review_id>/actions/moderate/", reviews_views.reviews_dashboard_moderate_action, name="reviews_dashboard_moderate_action"),
+    path("reviews/<int:review_id>/actions/respond/", reviews_views.reviews_dashboard_respond_action, name="reviews_dashboard_respond_action"),
 
     path("providers/", views.providers_list, name="providers_list"),
     path("providers/<int:provider_id>/", views.provider_detail, name="provider_detail"),

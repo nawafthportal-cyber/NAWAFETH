@@ -36,6 +36,7 @@ urlpatterns = [
         include(("apps.notifications.urls", "notifications"), namespace="notifications"),
     ),
     path("api/reviews/", include(("apps.reviews.urls", "reviews"), namespace="reviews")),
+    path("api/content/", include(("apps.content.urls", "content"), namespace="content")),
 
     path(
         "dashboard/",
