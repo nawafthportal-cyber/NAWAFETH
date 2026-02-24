@@ -432,9 +432,13 @@ class MyProviderFollowersView(generics.ListAPIView):
 		if not provider_profile:
 			return User.objects.none()
 
-		return (
-			User.objects.filter(provider_follows__provider=provider_profile)
+		user_ids = (
+			ProviderFollow.objects.filter(provider=provider_profile)
+			.values_list("user_id", flat=True)
 			.distinct()
+		)
+		return (
+			User.objects.filter(id__in=user_ids)
 			.order_by("-id")
 		)
 
@@ -463,9 +467,13 @@ class ProviderFollowersView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		return (
-			User.objects.filter(provider_follows__provider_id=provider_id)
+		user_ids = (
+			ProviderFollow.objects.filter(provider_id=provider_id)
+			.values_list("user_id", flat=True)
 			.distinct()
+		)
+		return (
+			User.objects.filter(id__in=user_ids)
 			.order_by("-id")
 		)
 

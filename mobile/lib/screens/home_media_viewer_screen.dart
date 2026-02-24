@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 
 import '../constants/colors.dart';
 import '../models/provider_portfolio_item.dart';
+import '../services/providers_api.dart';
 import 'provider_profile_screen.dart';
 
 class HomeMediaViewerScreen extends StatefulWidget {
@@ -25,10 +26,14 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
   late final PageController _pageController;
   late int _index;
 
+  final ProvidersApi _providersApi = ProvidersApi();
+
   VideoPlayerController? _video;
   bool _videoReady = false;
-  final Set<int> _liked = <int>{};
-  final Set<int> _saved = <int>{};
+  final Set<int> _favoritePortfolioIds = <int>{};
+  final Set<int> _followingProviderIds = <int>{};
+  final Set<int> _favoriteBusy = <int>{};
+  final Set<int> _followBusy = <int>{};
   bool _showSwipeHint = true;
   Timer? _hintTimer;
 
@@ -38,10 +43,41 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
     _index = widget.initialIndex.clamp(0, widget.items.length - 1);
     _pageController = PageController(initialPage: _index);
     _loadCurrentVideo();
+    _primeSocialState();
     _hintTimer = Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() => _showSwipeHint = false);
     });
+  }
+
+  Future<void> _primeSocialState() async {
+    if (widget.items.isEmpty) return;
+
+    // Favorites == liked portfolio items (backend: /providers/me/favorites/).
+    try {
+      final favorites = await _providersApi.getMyFavoriteMedia();
+      if (!mounted) return;
+      setState(() {
+        _favoritePortfolioIds
+          ..clear()
+          ..addAll(favorites.map((e) => e.id));
+      });
+    } catch (_) {
+      // Unauthenticated / network failure: ignore.
+    }
+
+    // Following providers (backend: /providers/me/following/).
+    try {
+      final following = await _providersApi.getMyFollowingProviders();
+      if (!mounted) return;
+      setState(() {
+        _followingProviderIds
+          ..clear()
+          ..addAll(following.map((e) => e.id));
+      });
+    } catch (_) {
+      // Unauthenticated / network failure: ignore.
+    }
   }
 
   @override
@@ -98,6 +134,70 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggleFavorite(ProviderPortfolioItem item) async {
+    final itemId = item.id;
+    if (_favoriteBusy.contains(itemId)) return;
+
+    final wasFav = _favoritePortfolioIds.contains(itemId);
+    setState(() {
+      _favoriteBusy.add(itemId);
+      if (wasFav) {
+        _favoritePortfolioIds.remove(itemId);
+      } else {
+        _favoritePortfolioIds.add(itemId);
+      }
+    });
+
+    final ok = wasFav
+        ? await _providersApi.unlikePortfolioItem(itemId)
+        : await _providersApi.likePortfolioItem(itemId);
+
+    if (!mounted) return;
+    setState(() {
+      _favoriteBusy.remove(itemId);
+      if (!ok) {
+        // Revert on failure.
+        if (wasFav) {
+          _favoritePortfolioIds.add(itemId);
+        } else {
+          _favoritePortfolioIds.remove(itemId);
+        }
+      }
+    });
+  }
+
+  Future<void> _toggleFollowProvider(ProviderPortfolioItem item) async {
+    final providerId = item.providerId;
+    if (_followBusy.contains(providerId)) return;
+
+    final wasFollowing = _followingProviderIds.contains(providerId);
+    setState(() {
+      _followBusy.add(providerId);
+      if (wasFollowing) {
+        _followingProviderIds.remove(providerId);
+      } else {
+        _followingProviderIds.add(providerId);
+      }
+    });
+
+    final ok = wasFollowing
+        ? await _providersApi.unfollowProvider(providerId)
+        : await _providersApi.followProvider(providerId);
+
+    if (!mounted) return;
+    setState(() {
+      _followBusy.remove(providerId);
+      if (!ok) {
+        // Revert on failure.
+        if (wasFollowing) {
+          _followingProviderIds.add(providerId);
+        } else {
+          _followingProviderIds.remove(providerId);
+        }
+      }
+    });
   }
 
   @override
@@ -169,21 +269,13 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
             ),
           ),
           Positioned(
-            top: MediaQuery.of(context).padding.top + 6,
-            left: 10,
-            child: IconButton(
-              icon: const Icon(Icons.more_horiz_rounded, color: Colors.white, size: 28),
-              onPressed: () {},
-            ),
-          ),
-          Positioned(
             right: 12,
             bottom: 110,
             child: Builder(
               builder: (context) {
                 final current = widget.items[_index];
-                final liked = _liked.contains(current.id);
-                final saved = _saved.contains(current.id);
+                final liked = _favoritePortfolioIds.contains(current.id);
+                final saved = _followingProviderIds.contains(current.providerId);
                 return Column(
                   children: [
                     GestureDetector(
@@ -203,28 +295,12 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
                     const SizedBox(height: 16),
                     _CircleAction(
                       icon: liked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                      onTap: () {
-                        setState(() {
-                          if (liked) {
-                            _liked.remove(current.id);
-                          } else {
-                            _liked.add(current.id);
-                          }
-                        });
-                      },
+                      onTap: () => _toggleFavorite(current),
                     ),
                     const SizedBox(height: 14),
                     _CircleAction(
                       icon: saved ? Icons.bookmark : Icons.bookmark_border,
-                      onTap: () {
-                        setState(() {
-                          if (saved) {
-                            _saved.remove(current.id);
-                          } else {
-                            _saved.add(current.id);
-                          }
-                        });
-                      },
+                      onTap: () => _toggleFollowProvider(current),
                     ),
                     const SizedBox(height: 14),
                     _CircleAction(

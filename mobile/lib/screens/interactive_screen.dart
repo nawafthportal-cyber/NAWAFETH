@@ -71,7 +71,11 @@ class _InteractiveScreenState extends State<InteractiveScreen>
   }
 
   List<UserSummary> _sortFollowers(List<UserSummary> items) {
-    final out = List<UserSummary>.from(items);
+    final seen = <int>{};
+    final out = <UserSummary>[];
+    for (final item in items) {
+      if (seen.add(item.id)) out.add(item);
+    }
     out.sort((a, b) => b.id.compareTo(a.id));
     return out;
   }
