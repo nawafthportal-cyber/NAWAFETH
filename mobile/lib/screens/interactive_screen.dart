@@ -1024,9 +1024,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         ? '@${item.providerUsername!.trim()}'
         : '@${item.providerId}';
     final providerTitle = providerDisplayName.isNotEmpty ? providerDisplayName : providerTag;
-    final caption = item.caption.trim().isEmpty
-        ? 'اسم المشروع\nصورة المشروع الرئيسية\nأو لقطات مختصرة من ملفات المشروع'
-        : item.caption.trim();
+    final rawCaption = item.caption.trim();
+    final hasCaption = rawCaption.isNotEmpty;
+    final caption = hasCaption ? rawCaption : 'بدون وصف';
     
     return Container(
       decoration: BoxDecoration(
@@ -1215,8 +1215,9 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               style: TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: isNarrowCard ? 11 : 11.5,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: hasCaption ? FontWeight.w700 : FontWeight.w600,
                                 height: 1.25,
+                                color: hasCaption ? null : Colors.grey.shade500,
                               ),
                             ),
                           ),

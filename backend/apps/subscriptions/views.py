@@ -10,6 +10,7 @@ from .models import SubscriptionPlan, Subscription
 from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
 from .services import start_subscription_checkout
+from .bootstrap import ensure_subscription_plans_exist
 
 
 class PlansListView(generics.ListAPIView):
@@ -17,6 +18,7 @@ class PlansListView(generics.ListAPIView):
     serializer_class = PlanSerializer
 
     def get_queryset(self):
+        ensure_subscription_plans_exist()
         return SubscriptionPlan.objects.filter(is_active=True).order_by("price", "id")
 
 
