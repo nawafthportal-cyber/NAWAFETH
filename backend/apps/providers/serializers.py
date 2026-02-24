@@ -150,8 +150,8 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
-    file_url = serializers.FileField(source="file", read_only=True)
-    thumbnail_url = serializers.FileField(source="thumbnail", read_only=True)
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderPortfolioItem
@@ -166,6 +166,26 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "caption",
             "created_at",
         )
+
+    @staticmethod
+    def _safe_file_url(field_file):
+        if not field_file:
+            return ""
+        try:
+            name = (field_file.name or "").strip()
+            if not name:
+                return ""
+            if not field_file.storage.exists(name):
+                return ""
+            return field_file.url
+        except Exception:
+            return ""
+
+    def get_file_url(self, obj):
+        return self._safe_file_url(getattr(obj, "file", None))
+
+    def get_thumbnail_url(self, obj):
+        return self._safe_file_url(getattr(obj, "thumbnail", None))
 
 
 class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
@@ -185,8 +205,8 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
-    file_url = serializers.FileField(source="file", read_only=True)
-    thumbnail_url = serializers.FileField(source="thumbnail", read_only=True)
+    file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderSpotlightItem
@@ -201,6 +221,26 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             "caption",
             "created_at",
         )
+
+    @staticmethod
+    def _safe_file_url(field_file):
+        if not field_file:
+            return ""
+        try:
+            name = (field_file.name or "").strip()
+            if not name:
+                return ""
+            if not field_file.storage.exists(name):
+                return ""
+            return field_file.url
+        except Exception:
+            return ""
+
+    def get_file_url(self, obj):
+        return self._safe_file_url(getattr(obj, "file", None))
+
+    def get_thumbnail_url(self, obj):
+        return self._safe_file_url(getattr(obj, "thumbnail", None))
 
 
 class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):

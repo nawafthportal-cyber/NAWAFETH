@@ -21,7 +21,7 @@ class NotificationsBadgeController with WidgetsBindingObserver {
   Timer? _timer;
 
   /// Polling interval while app is in foreground.
-  static const Duration _interval = Duration(seconds: 10);
+  static const Duration _interval = Duration(seconds: 30);
 
   void initialize() {
     if (_initialized) return;
