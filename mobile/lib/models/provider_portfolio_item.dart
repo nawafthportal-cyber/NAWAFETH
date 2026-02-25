@@ -9,6 +9,7 @@ class ProviderPortfolioItem {
   final String fileUrl;
   final String? thumbnailUrl;
   final String caption;
+  final String? redirectUrl;
   final int likeCount;
   final int saveCount;
   final DateTime createdAt;
@@ -22,6 +23,7 @@ class ProviderPortfolioItem {
     required this.fileUrl,
     required this.thumbnailUrl,
     required this.caption,
+    this.redirectUrl,
     required this.likeCount,
     required this.saveCount,
     required this.createdAt,
@@ -54,6 +56,9 @@ class ProviderPortfolioItem {
         return normalized.isEmpty ? null : normalized;
       })(),
       caption: (json['caption'] ?? '').toString(),
+      redirectUrl: (json['redirect_url'] ?? '').toString().trim().isEmpty
+          ? null
+          : (json['redirect_url'] ?? '').toString().trim(),
       likeCount: json['likes_count'] is num
           ? (json['likes_count'] as num).toInt()
           : int.tryParse('${json['likes_count'] ?? ''}') ?? 0,

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 
-from django.db.models import Q
+from django.db.models import Q, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
@@ -22,6 +22,18 @@ from .serializers import (
 )
 from .permissions import IsOwnerOrBackofficePromo
 from .services import quote_and_create_invoice, reject_request, _sync_promo_to_unified
+
+
+def _position_rank_case(field_name: str = "position"):
+    return Case(
+        When(**{field_name: "first"}, then=Value(0)),
+        When(**{field_name: "second"}, then=Value(1)),
+        When(**{field_name: "top5"}, then=Value(2)),
+        When(**{field_name: "top10"}, then=Value(3)),
+        When(**{field_name: "normal"}, then=Value(4)),
+        default=Value(9),
+        output_field=IntegerField(),
+    )
 
 
 class PublicHomeBannersView(generics.ListAPIView):
@@ -48,7 +60,10 @@ class PublicHomeBannersView(generics.ListAPIView):
                 request__start_at__lte=now,
                 request__end_at__gte=now,
             )
-            .order_by("request__position", "-request__activated_at", "-uploaded_at", "-id")
+            .annotate(
+                _position_rank=_position_rank_case("request__position"),
+            )
+            .order_by("_position_rank", "-request__activated_at", "-uploaded_at", "-id")
         )
 
         limit_raw = self.request.query_params.get("limit")
@@ -86,7 +101,8 @@ class PublicActivePromosView(generics.ListAPIView):
                 start_at__lte=now,
                 end_at__gte=now,
             )
-            .order_by("position", "-activated_at", "-id")
+            .annotate(_position_rank=_position_rank_case("position"))
+            .order_by("_position_rank", "-activated_at", "-id")
         )
 
         ad_type = (self.request.query_params.get("ad_type") or "").strip()

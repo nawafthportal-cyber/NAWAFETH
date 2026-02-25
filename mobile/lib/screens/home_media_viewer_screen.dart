@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
 import '../constants/colors.dart';
@@ -284,6 +285,31 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
     }
   }
 
+  Future<void> _openAdLink(ProviderPortfolioItem item) async {
+    final raw = (item.redirectUrl ?? '').trim();
+    if (raw.isEmpty) return;
+
+    final uri = Uri.tryParse(raw);
+    if (uri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('رابط الإعلان غير صالح')),
+      );
+      return;
+    }
+
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (ok || !mounted) return;
+    } catch (_) {
+      if (!mounted) return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر فتح رابط الإعلان حالياً')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) {
@@ -365,6 +391,7 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
                 final saveBusy = _saveBusy.contains(current.id);
                 final likesCount = _formatCounter(_displayLikeCount(current));
                 final savesCount = _formatCounter(_displaySaveCount(current));
+                final hasRedirect = (current.redirectUrl ?? '').trim().isNotEmpty;
                 return Column(
                   children: [
                     GestureDetector(
@@ -413,6 +440,13 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
                       icon: Icons.home_rounded,
                       onTap: () => Navigator.pop(context),
                     ),
+                    if (hasRedirect) ...[
+                      const SizedBox(height: 14),
+                      _CircleAction(
+                        icon: Icons.open_in_new_rounded,
+                        onTap: () => _openAdLink(current),
+                      ),
+                    ],
                   ],
                 );
               },
@@ -429,8 +463,10 @@ class _HomeMediaViewerScreenState extends State<HomeMediaViewerScreen> {
                     ? current.providerDisplayName
                     : current.caption;
                 return Text(
-                  title,
-                  maxLines: 2,
+                  (current.redirectUrl ?? '').trim().isNotEmpty
+                      ? '$title  •  إعلان قابل للفتح'
+                      : title,
+                  maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,

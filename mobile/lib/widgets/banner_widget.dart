@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/colors.dart';
 import '../models/provider_portfolio_item.dart';
@@ -96,6 +97,36 @@ class _BannerWidgetState extends State<BannerWidget> {
         curve: Curves.easeInOut,
       );
     });
+  }
+
+  Future<void> _openBanner(BuildContext context, int index) async {
+    final item = _banners[index];
+    final rawRedirect = (item.redirectUrl ?? '').trim();
+    if (rawRedirect.isNotEmpty) {
+      final uri = Uri.tryParse(rawRedirect);
+      if (uri != null) {
+        try {
+          final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (launched) return;
+        } catch (_) {
+          // Fall back to in-app viewer below.
+        }
+      }
+    }
+
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+          opacity: animation,
+          child: HomeMediaViewerScreen(
+            items: _banners,
+            initialIndex: index,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -236,18 +267,7 @@ class _BannerWidgetState extends State<BannerWidget> {
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () async {
-                        await Navigator.of(context).push(
-                          PageRouteBuilder(
-                            transitionDuration: const Duration(milliseconds: 280),
-                            pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
-                              opacity: animation,
-                              child: HomeMediaViewerScreen(
-                                items: _banners,
-                                initialIndex: i,
-                              ),
-                            ),
-                          ),
-                        );
+                        await _openBanner(context, i);
                       },
                     ),
                   ),

@@ -1,5 +1,6 @@
 
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -223,7 +224,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   ImageProvider<Object>? _avatarImageProvider() {
     if (_profileImage != null) return FileImage(_profileImage!);
     if ((_profileImageUrl ?? '').trim().isNotEmpty) {
-      return NetworkImage(_profileImageUrl!);
+      return CachedNetworkImageProvider(_profileImageUrl!);
     }
     return null;
   }

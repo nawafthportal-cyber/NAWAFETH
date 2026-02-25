@@ -222,6 +222,7 @@ def test_public_home_banners_only_from_active_promo(api, user):
         end_at=now + timedelta(days=1),
         frequency="60s",
         position="normal",
+        redirect_url="https://example.com/promo",
         status=PromoRequestStatus.ACTIVE,
         activated_at=now,
     )
@@ -241,8 +242,56 @@ def test_public_home_banners_only_from_active_promo(api, user):
     assert r.status_code == 200
     assert isinstance(r.data, list)
     assert any(item["id"] == asset.id for item in r.data)
+    active_item = next(item for item in r.data if item["id"] == asset.id)
+    assert active_item.get("redirect_url") == "https://example.com/promo"
     # Ensure inactive request assets are not included.
     assert all(item.get("caption") != "should not show" for item in r.data)
+
+
+def test_public_home_banners_respect_position_order(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+
+    def _create_banner(title: str, position: str):
+        pr = PromoRequest.objects.create(
+            requester=user,
+            title=title,
+            ad_type="banner_home",
+            start_at=now - timedelta(hours=1),
+            end_at=now + timedelta(days=1),
+            frequency="60s",
+            position=position,
+            status=PromoRequestStatus.ACTIVE,
+            activated_at=now,
+        )
+        return PromoAsset.objects.create(
+            request=pr,
+            asset_type="image",
+            title=title,
+            file=SimpleUploadedFile(
+                f"{title}.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+            uploaded_by=user,
+        )
+
+    first_asset = _create_banner("first", "first")
+    normal_asset = _create_banner("normal", "normal")
+    second_asset = _create_banner("second", "second")
+
+    r = api.get("/api/promo/banners/home/?limit=10")
+    assert r.status_code == 200
+
+    ids = [item["id"] for item in r.data]
+    assert ids.index(first_asset.id) < ids.index(second_asset.id) < ids.index(normal_asset.id)
 
 
 def test_management_command_expires_due_active_promos(user):

@@ -47,6 +47,9 @@ class NotificationsBadgeController with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _active = true;
+      // Restart the timer so the 120-s cycle begins from NOW, not from a
+      // stale pre-pause tick that could fire seconds after the manual refresh.
+      _stopTimer();
       _startTimer();
       refresh();
     } else if (state == AppLifecycleState.paused ||

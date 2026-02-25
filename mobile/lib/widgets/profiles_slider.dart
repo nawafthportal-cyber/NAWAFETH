@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../screens/provider_profile_screen.dart';
@@ -101,7 +102,7 @@ class _ProfilesSliderState extends State<ProfilesSlider> {
     final raw = (provider.imageUrl ?? '').trim();
     if (raw.isEmpty) return null;
     if (raw.startsWith('http://') || raw.startsWith('https://')) {
-      return NetworkImage(raw);
+      return CachedNetworkImageProvider(raw);
     }
     return null;
   }

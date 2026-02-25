@@ -81,7 +81,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     _didSubmitReview = _hasReview(_order);
 
     _refreshFromBackend();
-    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _refreshFromBackend(silent: true);
     });
   }

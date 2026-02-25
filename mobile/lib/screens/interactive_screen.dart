@@ -714,7 +714,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                       radius: 24,
                       backgroundColor: AppColors.primaryLight,
                       backgroundImage: (p.imageUrl ?? '').trim().isNotEmpty
-                          ? NetworkImage(p.imageUrl!.trim())
+                          ? CachedNetworkImageProvider(p.imageUrl!.trim())
                           : null,
                       child: (p.imageUrl ?? '').trim().isNotEmpty
                           ? null

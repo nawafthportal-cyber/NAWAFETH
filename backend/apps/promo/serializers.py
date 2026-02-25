@@ -23,6 +23,7 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
     file_type = serializers.SerializerMethodField()
     file_url = serializers.FileField(source="file", read_only=True)
     caption = serializers.SerializerMethodField()
+    redirect_url = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField(source="uploaded_at", read_only=True)
 
     class Meta:
@@ -35,6 +36,7 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
             "file_type",
             "file_url",
             "caption",
+            "redirect_url",
             "created_at",
         ]
 
@@ -78,6 +80,9 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
         if title:
             return title
         return str(getattr(obj.request, "title", "") or "")
+
+    def get_redirect_url(self, obj: PromoAsset) -> str:
+        return str(getattr(obj.request, "redirect_url", "") or "")
 
 
 class PromoAssetSerializer(serializers.ModelSerializer):

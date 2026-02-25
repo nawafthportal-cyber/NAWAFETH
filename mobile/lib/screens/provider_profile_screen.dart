@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -946,7 +947,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           return ListTile(
                             leading: CircleAvatar(
                               backgroundImage: provider.imageUrl != null && provider.imageUrl!.trim().isNotEmpty
-                                  ? NetworkImage(provider.imageUrl!)
+                                  ? CachedNetworkImageProvider(provider.imageUrl!)
                                   : null,
                               child: provider.imageUrl == null || provider.imageUrl!.trim().isEmpty
                                   ? Text(displayName[0].toUpperCase())
@@ -1490,7 +1491,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         border: Border.all(color: Colors.white, width: 2),
                         image: hasPreview
                             ? DecorationImage(
-                                image: NetworkImage(previewUrl),
+                                image: CachedNetworkImageProvider(previewUrl),
                                 fit: BoxFit.cover,
                               )
                             : null,

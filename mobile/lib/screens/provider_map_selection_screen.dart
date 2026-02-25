@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -682,7 +683,7 @@ class _ProviderMapSelectionScreenState
                                             ? const Color(0xFFFF6B6B)
                                             : Colors.blue,
                                         backgroundImage: imageUrl != null
-                                            ? NetworkImage(imageUrl)
+                                            ? CachedNetworkImageProvider(imageUrl)
                                             : null,
                                         child: imageUrl == null
                                             ? Text(

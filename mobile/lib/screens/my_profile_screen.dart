@@ -91,19 +91,9 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           ? providerProfileIdRaw
           : int.tryParse((providerProfileIdRaw ?? '').toString());
 
-      bool hasProviderProfileFallback = false;
-      if (!hasProviderProfile && providerProfileId == null && !isProviderByRole) {
-        try {
-          final profile = await ProvidersApi().getMyProviderProfile();
-          final profileIdRaw = profile?['id'];
-          final profileId = profileIdRaw is int
-              ? profileIdRaw
-              : int.tryParse((profileIdRaw ?? '').toString());
-          hasProviderProfileFallback = profileId != null || (profile != null && profile.isNotEmpty);
-        } catch (_) {
-          hasProviderProfileFallback = false;
-        }
-      }
+      // Trust the /accounts/me/ response instead of making a fallback
+      // network call to /providers/me/profile/ which returns 404 for clients.
+      const bool hasProviderProfileFallback = false;
 
       final isProviderRegisteredBackend =
           hasProviderProfile ||
