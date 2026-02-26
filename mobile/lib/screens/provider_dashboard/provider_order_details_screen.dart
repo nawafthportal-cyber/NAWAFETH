@@ -1550,24 +1550,22 @@ class _ProviderOrderDetailsScreenState
               ),
             ],
           ),
-          body: Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned.fill(child: _responsiveOrderBody()),
-              if (_isLoadingDetail)
-                const Positioned(
-                  top: 8,
-                  left: 0,
-                  right: 0,
-                  child: Center(
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                if (_isLoadingDetail)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
                     child: SizedBox(
                       width: 22,
                       height: 22,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
-                ),
-            ],
+                Expanded(child: _responsiveOrderBody()),
+              ],
+            ),
           ),
           bottomNavigationBar: SafeArea(
             minimum: const EdgeInsets.fromLTRB(14, 0, 14, 12),
