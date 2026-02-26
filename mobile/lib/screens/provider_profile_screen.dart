@@ -1711,6 +1711,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         return ReviewsTab(
           providerId: providerId,
           embedded: true,
+          useDesktopEmbeddedLayout: false,
           onOpenChat: (customerName) async {
             if (!context.mounted) return;
             await ChatNav.openInbox(context);
@@ -2167,7 +2168,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       );
     }
 
-    if (_providerSubcategories.isEmpty) {
+    if (_providerSubcategories.isEmpty && _providerServices.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: Column(

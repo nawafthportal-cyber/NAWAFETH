@@ -14,6 +14,7 @@ class ReviewsTab extends StatefulWidget {
   final int? providerId;
   final bool embedded;
   final bool allowProviderReply;
+  final bool useDesktopEmbeddedLayout;
   final Future<void> Function(String customerName)? onOpenChat;
   final String? initialSearchQuery;
   final String? initialReplyFilter;
@@ -24,6 +25,7 @@ class ReviewsTab extends StatefulWidget {
     this.providerId,
     this.embedded = false,
     this.allowProviderReply = false,
+    this.useDesktopEmbeddedLayout = true,
     this.onOpenChat,
     this.initialSearchQuery,
     this.initialReplyFilter,
@@ -246,8 +248,9 @@ class _ReviewsTabState extends State<ReviewsTab> {
   Future<int> _resolveProviderId() async {
     final me = await AccountApi().me();
     final providerProfileId = me['provider_profile_id'];
-    if (providerProfileId is int && providerProfileId > 0)
+    if (providerProfileId is int && providerProfileId > 0) {
       return providerProfileId;
+    }
     if (providerProfileId is String) {
       final parsed = int.tryParse(providerProfileId);
       if (parsed != null && parsed > 0) return parsed;
@@ -591,7 +594,9 @@ class _ReviewsTabState extends State<ReviewsTab> {
         ? list
         : RefreshIndicator(onRefresh: _load, child: list);
 
-    if (widget.embedded && MediaQuery.of(context).size.width >= 980) {
+    if (widget.embedded &&
+        widget.useDesktopEmbeddedLayout &&
+        MediaQuery.of(context).size.width >= 980) {
       return Directionality(
         textDirection: TextDirection.rtl,
         child: _desktopEmbeddedLayout(),
