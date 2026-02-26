@@ -419,9 +419,6 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     final tabSurface = const Color(0xFFF2EEFF);
     final displayName = (_myDisplayName ?? 'تفاعلي').trim();
     final handle = (_myHandle ?? '').trim();
-    final identityLine = handle.isNotEmpty
-        ? '$displayName - $handle'
-        : displayName;
 
     // Elegant tab style
     final tabLabelStyle = TextStyle(
@@ -505,7 +502,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
           headerSliverBuilder: (context, innerBoxIsScrolled) {
             return [
               SliverAppBar(
-                expandedHeight: isTablet ? 260 : (isCompact ? 218 : 238),
+                expandedHeight: isTablet ? 230 : (isCompact ? 198 : 214),
                 floating: false,
                 pinned: true,
                 elevation: 0,
@@ -588,162 +585,68 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                             ),
                           ),
                         ),
-                        Positioned(
-                          top: kToolbarHeight + 14,
-                          right: 16,
-                          left: 16,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isCompact ? 12 : 14,
-                              vertical: isCompact ? 10 : 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.15),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  width: isCompact ? 40 : 46,
-                                  height: isCompact ? 40 : 46,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.14),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.auto_awesome_rounded,
-                                    color: Colors.white,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        'مساحة التفاعل الشخصي',
-                                        style: TextStyle(
-                                          fontFamily: 'Cairo',
-                                          fontSize: isCompact ? 12 : 13.2,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      Text(
-                                        'إدارة المتابعة والمفضلة من شاشة واحدة بشكل أسرع',
-                                        maxLines: isCompact ? 1 : 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontFamily: 'Cairo',
-                                          fontSize: isCompact ? 10.2 : 11.2,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.9,
-                                          ),
-                                          height: 1.25,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
                         Align(
                           alignment: Alignment.center,
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               SizedBox(
-                                height: isTablet ? 76 : (isCompact ? 70 : 78),
+                                height: isTablet ? 38 : (isCompact ? 28 : 34),
                               ),
                               Container(
-                                margin: EdgeInsets.symmetric(
-                                  horizontal: isCompact ? 18 : 12,
-                                ),
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isCompact ? 12 : 14,
-                                  vertical: isCompact ? 7 : 8,
-                                ),
+                                padding: const EdgeInsets.all(4),
                                 decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(14),
+                                  shape: BoxShape.circle,
+                                  color: Colors.white.withValues(alpha: 0.18),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.14),
+                                    color: Colors.white.withValues(alpha: 0.34),
                                   ),
                                 ),
+                                child: CircleAvatar(
+                                  radius: isCompact ? 26 : 30,
+                                  backgroundColor: Colors.white,
+                                  child: Icon(
+                                    Icons.person_rounded,
+                                    size: isCompact ? 28 : 32,
+                                    color: AppColors.deepPurple,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isCompact ? 14 : 20,
+                                ),
                                 child: Text(
-                                  identityLine,
+                                  displayName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: isTablet
                                         ? 24
-                                        : (isCompact ? 17 : 21),
+                                        : (isCompact ? 19 : 22),
                                     fontWeight: FontWeight.w900,
                                     fontFamily: 'Cairo',
                                     color: Colors.white,
-                                    letterSpacing: 0.1,
                                     height: 1.05,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              if (!isCompact)
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  alignment: WrapAlignment.center,
-                                  children: [
-                                    _headerPill(
-                                      'من أتابع',
-                                      Icons.bookmark_outline_rounded,
-                                      isCompact,
-                                    ),
-                                    _headerPill(
-                                      'مفضلتي',
-                                      Icons.favorite_border_rounded,
-                                      isCompact,
-                                    ),
-                                    _headerPill(
-                                      'تفاعل سريع',
-                                      Icons.bolt_rounded,
-                                      isCompact,
-                                    ),
-                                  ],
-                                )
-                              else
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    _headerPill(
-                                      'من أتابع',
-                                      Icons.bookmark_outline_rounded,
-                                      true,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    _headerPill(
-                                      'مفضلتي',
-                                      Icons.favorite_border_rounded,
-                                      true,
-                                    ),
-                                  ],
+                              if (handle.isNotEmpty) ...[
+                                const SizedBox(height: 3),
+                                Text(
+                                  handle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: isCompact ? 12 : 13,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Cairo',
+                                    color: Colors.white.withValues(alpha: 0.86),
+                                  ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
@@ -839,36 +742,6 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         ),
       ),
       child: child,
-    );
-  }
-
-  Widget _headerPill(String label, IconData icon, bool isCompact) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isCompact ? 10 : 12,
-        vertical: isCompact ? 5 : 6,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: isCompact ? 13 : 14, color: Colors.white),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontSize: isCompact ? 10.5 : 11,
-              fontWeight: FontWeight.w700,
-              color: Colors.white.withValues(alpha: 0.96),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

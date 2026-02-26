@@ -18,6 +18,7 @@ import '../services/session_storage.dart';
 import '../services/role_controller.dart';
 import '../services/account_switcher.dart';
 import '../constants/colors.dart';
+import '../widgets/app_bar.dart';
 import '../widgets/profile_account_modes_panel.dart';
 import '../widgets/account_switch_sheet.dart';
 import '../widgets/profile_action_card.dart';
@@ -444,9 +445,19 @@ class _MyProfileScreenState extends State<MyProfileScreen>
                 actions: [
                   Padding(
                     padding: const EdgeInsetsDirectional.only(end: 10),
-                    child: _headerActionButton(
-                      icon: Icons.qr_code_2_rounded,
-                      onTap: _showClientQrDialog,
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      child: const Center(
+                        child: NotificationsIconButton(iconColor: Colors.white),
+                      ),
                     ),
                   ),
                 ],
@@ -741,6 +752,12 @@ class _MyProfileScreenState extends State<MyProfileScreen>
           );
         },
       ),
+      Container(width: 1, height: 40, color: Colors.grey[300]),
+      _quickIconStatButton(
+        icon: Icons.qr_code_2_rounded,
+        label: 'QR',
+        onTap: _showClientQrDialog,
+      ),
     ];
 
     return Container(
@@ -788,6 +805,47 @@ class _MyProfileScreenState extends State<MyProfileScreen>
             border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           ),
           child: Icon(icon, size: 18, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickIconStatButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.deepPurple.withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.14 : 0.07,
+                ),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: AppColors.deepPurple, size: 20),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: cs.onSurface.withAlpha((0.7 * 255).toInt()),
+              ),
+            ),
+          ],
         ),
       ),
     );

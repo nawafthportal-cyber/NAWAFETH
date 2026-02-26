@@ -89,12 +89,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   final List<Map<String, dynamic>> tabs = const [
     {"title": "الملف الشخصي", "icon": Icons.person_outline},
-    {"title": "التصنيفات", "icon": Icons.work_outline},
+    {"title": "الخدمات", "icon": Icons.work_outline},
     {"title": "معرض خدماتي", "icon": Icons.photo_library},
     {"title": "المراجعات", "icon": Icons.reviews},
   ];
 
-  // تصنيفات مقدم الخدمة (API) (الخدمات = التصنيفات الرئيسية/الفرعية)
+  // خدمات مقدم الخدمة (API)
+  List<ProviderService> _providerServices = const [];
+  // تصنيفات مقدم الخدمة (مرجعية/فرعية عند الحاجة)
   List<ProviderServiceSubcategory> _providerSubcategories = const [];
   bool _servicesLoading = true;
 
@@ -104,31 +106,34 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   bool _spotlightsLoading = true;
   List<ProviderPortfolioItem> _spotlightItems = const [];
 
-  String get providerName => _fullProfile?.displayName ?? widget.providerName ?? '—';
+  String get providerName =>
+      _fullProfile?.displayName ?? widget.providerName ?? '—';
 
-    String get providerCategory => (widget.providerCategory ?? '').trim();
+  String get providerCategory => (widget.providerCategory ?? '').trim();
 
-  String get providerSubCategory =>
-      (widget.providerSubCategory ?? '').trim();
+  String get providerSubCategory => (widget.providerSubCategory ?? '').trim();
 
-  double get providerRating => _ratingAvgOverride ?? _fullProfile?.ratingAvg ?? widget.providerRating ?? 0.0;
+  double get providerRating =>
+      _ratingAvgOverride ??
+      _fullProfile?.ratingAvg ??
+      widget.providerRating ??
+      0.0;
 
-  int get providerOperations => _fullProfile?.ratingCount ?? widget.providerOperations ?? 0;
+  int get providerOperations =>
+      _fullProfile?.ratingCount ?? widget.providerOperations ?? 0;
 
-  String get providerImage =>
-      _fullProfile?.imageUrl?.trim().isNotEmpty == true
-          ? _fullProfile!.imageUrl!.trim()
-          : (widget.providerImage ?? '').trim();
+  String get providerImage => _fullProfile?.imageUrl?.trim().isNotEmpty == true
+      ? _fullProfile!.imageUrl!.trim()
+      : (widget.providerImage ?? '').trim();
 
-    bool get providerVerified =>
+  bool get providerVerified =>
       (_fullProfile?.isVerifiedBlue ?? false) ||
       (_fullProfile?.isVerifiedGreen ?? false) ||
       (widget.providerVerified ?? false);
 
-    String get providerPhone =>
-      _fullProfile?.phone?.trim().isNotEmpty == true
-        ? _fullProfile!.phone!.trim()
-        : (widget.providerPhone ?? '').trim();
+  String get providerPhone => _fullProfile?.phone?.trim().isNotEmpty == true
+      ? _fullProfile!.phone!.trim()
+      : (widget.providerPhone ?? '').trim();
 
   String get providerHandle {
     final raw = (_fullProfile?.username ?? '').trim();
@@ -169,7 +174,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (!_isRemoteImage(value)) return false;
     final uri = Uri.tryParse(value);
     if (uri == null) return false;
-    return (uri.scheme == 'http' || uri.scheme == 'https') && uri.host.isNotEmpty;
+    return (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
   }
 
   Widget _providerAvatar() {
@@ -180,13 +186,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return Image.network(
         providerImage,
         fit: BoxFit.cover,
-        errorBuilder: (_, error, stackTrace) => const Icon(Icons.person, size: 36),
+        errorBuilder: (_, error, stackTrace) =>
+            const Icon(Icons.person, size: 36),
       );
     }
     return Image.asset(
       providerImage,
       fit: BoxFit.cover,
-      errorBuilder: (_, error, stackTrace) => const Icon(Icons.person, size: 36),
+      errorBuilder: (_, error, stackTrace) =>
+          const Icon(Icons.person, size: 36),
     );
   }
 
@@ -220,7 +228,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     try {
       final me = await AccountApi().me();
       final raw = me['provider_profile_id'];
-      final int? myProviderId = raw is int ? raw : int.tryParse((raw ?? '').toString());
+      final int? myProviderId = raw is int
+          ? raw
+          : int.tryParse((raw ?? '').toString());
       if (!mounted) return;
       setState(() {
         _canManageGallery = myProviderId != null && myProviderId == providerId;
@@ -233,9 +243,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Future<void> _openManageGallery() async {
     if (!_canManageGallery) return;
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const ProviderPortfolioManageScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const ProviderPortfolioManageScreen()),
     );
     await _loadProviderPortfolio();
   }
@@ -352,9 +360,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (!mounted) return;
     setState(() => _portfolioFavoriteBusyIds.remove(item.id));
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تحديث التفضيل')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تعذر تحديث التفضيل')));
       return;
     }
     setState(() {
@@ -378,15 +386,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   // Highlights are separate from portfolio and loaded from dedicated API.
   List<ProviderPortfolioItem> get _highlightItems {
-    return _spotlightItems.where((item) {
-      final fileUrlOk = _isValidRemoteMediaUrl(item.fileUrl);
-      if (!fileUrlOk) return false;
-      final isVideo = item.fileType.toLowerCase() == 'video';
-      if (!isVideo) return true;
-      final thumb = (item.thumbnailUrl ?? '').trim();
-      // Video can still be valid without thumbnail; the player uses fileUrl.
-      return thumb.isEmpty || _isValidRemoteMediaUrl(thumb);
-    }).toList(growable: false);
+    return _spotlightItems
+        .where((item) {
+          final fileUrlOk = _isValidRemoteMediaUrl(item.fileUrl);
+          if (!fileUrlOk) return false;
+          final isVideo = item.fileType.toLowerCase() == 'video';
+          if (!isVideo) return true;
+          final thumb = (item.thumbnailUrl ?? '').trim();
+          // Video can still be valid without thumbnail; the player uses fileUrl.
+          return thumb.isEmpty || _isValidRemoteMediaUrl(thumb);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _loadProviderSpotlights() async {
@@ -441,7 +451,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     try {
       final id = int.tryParse((widget.providerId ?? '').trim());
       if (id == null) return;
-      
+
       final api = ProvidersApi();
       final results = await Future.wait<dynamic>([
         api.getProviderDetail(id),
@@ -529,9 +539,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return;
     }
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تعذر فتح الاتصال')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تعذر فتح الاتصال')));
   }
 
   String _buildWhatsAppMessage() {
@@ -591,7 +601,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   Future<void> _showShareAndReportSheet() async {
     final e164 = _formatPhoneE164(providerPhone);
-    final shareLink = '${ApiConfig.baseUrl}/provider/${widget.providerId ?? ''}';
+    final shareLink =
+        '${ApiConfig.baseUrl}/provider/${widget.providerId ?? ''}';
 
     await showModalBottomSheet(
       context: context,
@@ -618,7 +629,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    const Icon(Icons.qr_code_2, size: 22, color: Colors.black87),
+                    const Icon(
+                      Icons.qr_code_2,
+                      size: 22,
+                      color: Colors.black87,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
@@ -638,7 +653,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    border: Border.all(color: mainColor.withValues(alpha: 0.25)),
+                    border: Border.all(
+                      color: mainColor.withValues(alpha: 0.25),
+                    ),
                     borderRadius: BorderRadius.circular(14),
                     color: mainColor.withValues(alpha: 0.04),
                   ),
@@ -675,17 +692,24 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           Expanded(
                             child: OutlinedButton.icon(
                               onPressed: () async {
-                                await Clipboard.setData(ClipboardData(text: shareLink));
+                                await Clipboard.setData(
+                                  ClipboardData(text: shareLink),
+                                );
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('تم نسخ الرابط')),
+                                  const SnackBar(
+                                    content: Text('تم نسخ الرابط'),
+                                  ),
                                 );
                               },
                               icon: const Icon(Icons.copy, size: 18),
-                              label: const Text('نسخ الرابط', style: TextStyle(fontFamily: 'Cairo')),
+                              label: const Text(
+                                'نسخ الرابط',
+                                style: TextStyle(fontFamily: 'Cairo'),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -698,7 +722,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                 }
                               },
                               icon: const Icon(Icons.share, size: 18),
-                              label: const Text('مشاركة', style: TextStyle(fontFamily: 'Cairo')),
+                              label: const Text(
+                                'مشاركة',
+                                style: TextStyle(fontFamily: 'Cairo'),
+                              ),
                             ),
                           ),
                         ],
@@ -727,7 +754,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             details: details,
                             contextLabel: 'نوع البلاغ',
                             contextValue: 'مزود خدمة',
-                            reportedEntityValue: '$providerName ($providerHandle)',
+                            reportedEntityValue:
+                                '$providerName ($providerHandle)',
                           );
                           if (!mounted) return;
                           final code = (res['code'] ?? '').toString().trim();
@@ -743,14 +771,19 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         } catch (_) {
                           if (!mounted) return;
                           messenger.showSnackBar(
-                            const SnackBar(content: Text('تعذر إرسال البلاغ حالياً')),
+                            const SnackBar(
+                              content: Text('تعذر إرسال البلاغ حالياً'),
+                            ),
                           );
                         }
                       },
                     );
                   },
                   leading: const Icon(Icons.flag_outlined, color: Colors.red),
-                  title: const Text('الإبلاغ عن مقدم الخدمة', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text(
+                    'الإبلاغ عن مقدم الخدمة',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
                 ),
               ],
             ),
@@ -825,7 +858,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             padding: EdgeInsets.all(16),
                             child: Text(
                               'لا يوجد متابعون حالياً',
-                              style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         );
@@ -847,7 +883,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             subtitle: user.username != null
                                 ? Text(
                                     '@${user.username}',
-                                    style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12,
+                                    ),
                                   )
                                 : null,
                           );
@@ -932,7 +971,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             padding: EdgeInsets.all(16),
                             child: Text(
                               'لا يتابع أحداً حالياً',
-                              style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         );
@@ -946,10 +988,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           final displayName = provider.displayName ?? 'مزود';
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundImage: provider.imageUrl != null && provider.imageUrl!.trim().isNotEmpty
-                                  ? CachedNetworkImageProvider(provider.imageUrl!)
+                              backgroundImage:
+                                  provider.imageUrl != null &&
+                                      provider.imageUrl!.trim().isNotEmpty
+                                  ? CachedNetworkImageProvider(
+                                      provider.imageUrl!,
+                                    )
                                   : null,
-                              child: provider.imageUrl == null || provider.imageUrl!.trim().isEmpty
+                              child:
+                                  provider.imageUrl == null ||
+                                      provider.imageUrl!.trim().isEmpty
                                   ? Text(displayName[0].toUpperCase())
                                   : null,
                             ),
@@ -960,14 +1008,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             subtitle: provider.city != null
                                 ? Text(
                                     provider.city!,
-                                    style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12,
+                                    ),
                                   )
                                 : null,
-                            trailing: provider.isVerifiedBlue || provider.isVerifiedGreen
+                            trailing:
+                                provider.isVerifiedBlue ||
+                                    provider.isVerifiedGreen
                                 ? Icon(
                                     Icons.verified,
                                     size: 16,
-                                    color: provider.isVerifiedBlue ? Colors.blue : Colors.green,
+                                    color: provider.isVerifiedBlue
+                                        ? Colors.blue
+                                        : Colors.green,
                                   )
                                 : null,
                             onTap: () {
@@ -1039,7 +1094,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           tooltip: _isFollowingProvider
                               ? 'إلغاء المتابعة'
                               : 'متابعة',
-                          onPressed: _isFollowBusy ? null : _toggleFollowProvider,
+                          onPressed: _isFollowBusy
+                              ? null
+                              : _toggleFollowProvider,
                           icon: _isFollowBusy
                               ? const SizedBox(
                                   width: 18,
@@ -1060,7 +1117,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         IconButton(
                           tooltip: 'مشاركة/إبلاغ',
                           onPressed: _showShareAndReportSheet,
-                          icon: const Icon(Icons.ios_share, color: Colors.white),
+                          icon: const Icon(
+                            Icons.ios_share,
+                            color: Colors.white,
+                          ),
                         ),
                       ],
                     ),
@@ -1090,10 +1150,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          border: Border.all(color: mainColor.withValues(alpha: 0.25), width: 1),
+                          border: Border.all(
+                            color: mainColor.withValues(alpha: 0.25),
+                            width: 1,
+                          ),
                         ),
                         child: Center(
-                          child: Icon(Icons.check_circle, color: mainColor, size: 18),
+                          child: Icon(
+                            Icons.check_circle,
+                            color: mainColor,
+                            size: 18,
+                          ),
                         ),
                       ),
                     ),
@@ -1107,7 +1174,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
-                          border: Border.all(color: bgColor ?? Colors.white, width: 2),
+                          border: Border.all(
+                            color: bgColor ?? Colors.white,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -1134,7 +1204,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.qr_code_2, size: 14, color: secondaryTextColor),
+                        Icon(
+                          Icons.qr_code_2,
+                          size: 14,
+                          color: secondaryTextColor,
+                        ),
                         const SizedBox(width: 8),
                         Icon(
                           Icons.star,
@@ -1183,7 +1257,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   children: [
                     _circleStat(
                       icon: Icons.business_center_outlined,
-                      value: _completedRequests ?? widget.providerOperations ?? 0,
+                      value:
+                          _completedRequests ?? widget.providerOperations ?? 0,
                       onTap: () {},
                       isDark: isDark,
                     ),
@@ -1203,8 +1278,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       icon: _isLikeBusy
                           ? Icons.hourglass_top_rounded
                           : (_isProviderLiked
-                              ? Icons.thumb_up_alt
-                              : Icons.thumb_up_alt_outlined),
+                                ? Icons.thumb_up_alt
+                                : Icons.thumb_up_alt_outlined),
                       value: _likesCount,
                       onTap: _isLikeBusy ? () {} : _toggleProviderLike,
                       isDark: isDark,
@@ -1264,16 +1339,25 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: tabs.length,
-                  separatorBuilder: (context, index) => const SizedBox(width: 14),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(width: 14),
                   itemBuilder: (context, index) {
                     final isSelected = _selectedTabIndex == index;
                     final bg = isSelected
                         ? mainColor.withValues(alpha: 0.14)
-                      : (isDark ? Colors.grey.shade800 : Colors.grey.shade100);
+                        : (isDark
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade100);
                     final border = isSelected
                         ? mainColor.withValues(alpha: 0.35)
-                      : (isDark ? Colors.grey.shade700 : Colors.grey.shade200);
-                    final iconColor = isSelected ? mainColor : (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
+                        : (isDark
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade200);
+                    final iconColor = isSelected
+                        ? mainColor
+                        : (isDark
+                              ? Colors.grey.shade300
+                              : Colors.grey.shade700);
                     final titleColor = isSelected ? mainColor : textColor;
 
                     return InkWell(
@@ -1281,7 +1365,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       borderRadius: BorderRadius.circular(14),
                       child: Container(
                         constraints: const BoxConstraints(minWidth: 98),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 7,
+                        ),
                         decoration: BoxDecoration(
                           color: bg,
                           borderRadius: BorderRadius.circular(14),
@@ -1290,7 +1377,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(tabs[index]['icon'], size: 20, color: iconColor),
+                            Icon(
+                              tabs[index]['icon'],
+                              size: 20,
+                              color: iconColor,
+                            ),
                             const SizedBox(height: 3),
                             if (_canManageGallery && index == 2)
                               Row(
@@ -1473,8 +1564,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               final isVideo = item.fileType.toLowerCase() == 'video';
               final previewUrl = isVideo
                   ? ((item.thumbnailUrl ?? '').trim().isNotEmpty
-                      ? item.thumbnailUrl!.trim()
-                      : item.fileUrl)
+                        ? item.thumbnailUrl!.trim()
+                        : item.fileUrl)
                   : item.fileUrl;
               final hasPreview = _isValidRemoteMediaUrl(previewUrl);
               return InkWell(
@@ -1502,13 +1593,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           shape: BoxShape.circle,
                           color: Colors.black.withValues(alpha: 0.18),
                         ),
-                          child: Center(
-                            child: Icon(
+                        child: Center(
+                          child: Icon(
                             hasPreview
-                                ? (isVideo ? Icons.play_circle_fill : Icons.image_outlined)
+                                ? (isVideo
+                                      ? Icons.play_circle_fill
+                                      : Icons.image_outlined)
                                 : Icons.broken_image_outlined,
                             size: 34,
-                            color: hasPreview ? Colors.white : Colors.grey.shade600,
+                            color: hasPreview
+                                ? Colors.white
+                                : Colors.grey.shade600,
                           ),
                         ),
                       ),
@@ -1563,10 +1658,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (item.fileType.toLowerCase() == 'video') {
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => NetworkVideoPlayerScreen(
-            url: mediaUrl,
-            title: providerName,
-          ),
+          builder: (_) =>
+              NetworkVideoPlayerScreen(url: mediaUrl, title: providerName),
         ),
       );
       return;
@@ -1589,7 +1682,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 errorBuilder: (context, error, stackTrace) => Container(
                   color: Colors.black87,
                   alignment: Alignment.center,
-                  child: const Icon(Icons.broken_image_outlined, color: Colors.white70, size: 48),
+                  child: const Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white70,
+                    size: 48,
+                  ),
                 ),
               ),
             ),
@@ -1609,7 +1706,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         return _galleryTab();
       case 3:
         final int? providerId =
-            _fullProfile?.id ?? int.tryParse((widget.providerId ?? '').toString());
+            _fullProfile?.id ??
+            int.tryParse((widget.providerId ?? '').toString());
         return ReviewsTab(
           providerId: providerId,
           embedded: true,
@@ -1633,8 +1731,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
     final hasPhone = providerPhone.trim().isNotEmpty;
     final hasWhatsApp =
-        ((_fullProfile?.whatsapp ?? '').trim().isNotEmpty) ||
-        hasPhone;
+        ((_fullProfile?.whatsapp ?? '').trim().isNotEmpty) || hasPhone;
     final lat = providerLat;
     final lng = providerLng;
     final city = providerCityName.trim().isEmpty ? '—' : providerCityName;
@@ -1718,7 +1815,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           disabledBackgroundColor: Colors.grey.shade300,
           disabledForegroundColor: Colors.grey.shade600,
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
       );
@@ -1789,16 +1888,25 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ),
                         if (providerVerified)
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: mainColor.withValues(alpha: 0.35)),
+                              border: Border.all(
+                                color: mainColor.withValues(alpha: 0.35),
+                              ),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.verified_rounded, size: 13, color: mainColor),
+                                Icon(
+                                  Icons.verified_rounded,
+                                  size: 13,
+                                  color: mainColor,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   'موثق',
@@ -1916,7 +2024,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: mainColor.withValues(alpha: 0.35)),
               backgroundColor: mainColor.withValues(alpha: 0.06),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               padding: const EdgeInsets.symmetric(vertical: 12),
             ),
           ),
@@ -1955,12 +2065,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         initialCenter: LatLng(lat, lng),
                         initialZoom: 13,
                         interactionOptions: const InteractionOptions(
-                          flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag,
+                          flags:
+                              InteractiveFlag.pinchZoom | InteractiveFlag.drag,
                         ),
                       ),
                       children: [
                         TileLayer(
-                          urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          urlTemplate:
+                              'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                           subdomains: const ['a', 'b', 'c'],
                           userAgentPackageName: 'com.nawafeth.app',
                         ),
@@ -1970,7 +2082,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                               point: LatLng(lat, lng),
                               width: 40,
                               height: 40,
-                              child: const Icon(Icons.location_pin, size: 40, color: Colors.red),
+                              child: const Icon(
+                                Icons.location_pin,
+                                size: 40,
+                                color: Colors.red,
+                              ),
                             ),
                           ],
                         ),
@@ -2006,13 +2122,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Widget _servicesTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final textColor = isDark ? Colors.white : Colors.black;
+    final cardColor = isDark ? Colors.grey[850]! : Colors.white;
+    final borderColor = isDark ? Colors.grey.shade700 : Colors.grey.shade200;
 
     Widget header() {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            'التصنيفات',
+            'الخدمات',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 14,
@@ -2058,15 +2176,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             const SizedBox(height: 14),
             const Center(
               child: Text(
-                'لا توجد تصنيفات محددة حالياً',
-                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                'لا توجد خدمات مضافة حالياً',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _loadProviderSubcategories,
               icon: const Icon(Icons.refresh),
-              label: const Text('إعادة المحاولة', style: TextStyle(fontFamily: 'Cairo')),
+              label: const Text(
+                'إعادة المحاولة',
+                style: TextStyle(fontFamily: 'Cairo'),
+              ),
             ),
           ],
         ),
@@ -2077,47 +2201,139 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       children: [
         header(),
         const SizedBox(height: 8),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _providerSubcategories.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 10),
-          itemBuilder: (context, index) {
-            final s = _providerSubcategories[index];
-            final cat = (s.categoryName ?? '').trim();
-            final subtitle = cat.isNotEmpty ? cat : '—';
+        if (_providerServices.isNotEmpty)
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _providerServices.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final service = _providerServices[index];
+              final subName = (service.subcategory?.name ?? '').trim();
+              final catName = (service.subcategory?.categoryName ?? '').trim();
+              final categoryLine = [
+                catName,
+                subName,
+              ].where((e) => e.isNotEmpty).join(' • ');
 
-            return Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                    color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey.shade700
-                      : Colors.grey.shade200,
+              return Container(
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
                 ),
-              ),
-              child: ListTile(
-                title: Text(
-                  s.name,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  title: Text(
+                    service.title.trim().isEmpty
+                        ? 'خدمة'
+                        : service.title.trim(),
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (categoryLine.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          categoryLine,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: mainColor.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                      if (service.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          service.description.trim(),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            color: isDark ? Colors.grey[300] : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: mainColor.withValues(alpha: isDark ? 0.16 : 0.08),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: mainColor.withValues(alpha: 0.18),
+                      ),
+                    ),
+                    child: Text(
+                      service.priceText(),
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: mainColor,
+                      ),
+                    ),
                   ),
                 ),
-                subtitle: Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[300] : Colors.grey[700],
-                  ),
+              );
+            },
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _providerSubcategories.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final s = _providerSubcategories[index];
+              final cat = (s.categoryName ?? '').trim();
+              final subtitle = cat.isNotEmpty ? cat : '—';
+
+              return Container(
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor),
                 ),
-                trailing: const Icon(Icons.label_outline),
-              ),
-            );
-          },
-        ),
+                child: ListTile(
+                  title: Text(
+                    s.name,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
+                    ),
+                  ),
+                  subtitle: Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[300]
+                          : Colors.grey[700],
+                    ),
+                  ),
+                  trailing: const Icon(Icons.label_outline),
+                ),
+              );
+            },
+          ),
       ],
     );
   }
@@ -2137,15 +2353,22 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     setState(() => _servicesLoading = true);
 
     try {
-      final subs = await ProvidersApi().getProviderSubcategories(id);
+      final results = await Future.wait([
+        ProvidersApi().getProviderServices(id),
+        ProvidersApi().getProviderSubcategories(id),
+      ]);
+      final services = results[0] as List<ProviderService>;
+      final subs = results[1] as List<ProviderServiceSubcategory>;
       if (!mounted) return;
       setState(() {
+        _providerServices = services;
         _providerSubcategories = subs;
         _servicesLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
+        _providerServices = const [];
         _providerSubcategories = const [];
         _servicesLoading = false;
       });
@@ -2218,7 +2441,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   shape: BoxShape.circle,
                   color: Colors.white.withValues(alpha: isDark ? 0.10 : 0.8),
                 ),
-                child: Icon(Icons.photo_library_outlined, color: mainColor, size: 22),
+                child: Icon(
+                  Icons.photo_library_outlined,
+                  color: mainColor,
+                  size: 22,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -2321,7 +2548,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   icon: const Icon(Icons.refresh),
                   label: const Text(
                     'تحديث',
-                    style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ],
@@ -2395,7 +2625,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         border: Border.all(color: borderColor),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.10 : 0.06),
+                            color: Colors.black.withValues(
+                              alpha: isDark ? 0.10 : 0.06,
+                            ),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -2408,27 +2640,37 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                             child: Stack(
                               children: [
                                 ClipRRect(
-                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(14),
+                                  ),
                                   child: Image.network(
                                     item.fileUrl,
                                     fit: BoxFit.cover,
                                     width: double.infinity,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      color: Colors.grey.shade200,
-                                      child: Center(
-                                        child: Icon(
-                                          isVideo ? Icons.videocam_rounded : Icons.image,
-                                          size: 34,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
-                                    ),
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              color: Colors.grey.shade200,
+                                              child: Center(
+                                                child: Icon(
+                                                  isVideo
+                                                      ? Icons.videocam_rounded
+                                                      : Icons.image,
+                                                  size: 34,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
                                   ),
                                 ),
                                 if (isVideo)
                                   const Positioned.fill(
                                     child: Center(
-                                      child: Icon(Icons.play_circle_fill, size: 46, color: Colors.white),
+                                      child: Icon(
+                                        Icons.play_circle_fill,
+                                        size: 46,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 Positioned(
@@ -2437,25 +2679,34 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   child: Material(
                                     color: Colors.transparent,
                                     child: InkWell(
-                                      onTap: () => _togglePortfolioFavorite(item),
+                                      onTap: () =>
+                                          _togglePortfolioFavorite(item),
                                       borderRadius: BorderRadius.circular(999),
                                       child: Container(
                                         width: 30,
                                         height: 30,
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.45),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.45,
+                                          ),
                                           shape: BoxShape.circle,
                                         ),
-                                        child: _portfolioFavoriteBusyIds.contains(item.id)
+                                        child:
+                                            _portfolioFavoriteBusyIds.contains(
+                                              item.id,
+                                            )
                                             ? const Padding(
                                                 padding: EdgeInsets.all(8),
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.white,
-                                                ),
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Colors.white,
+                                                    ),
                                               )
                                             : Icon(
-                                                isFav ? Icons.favorite : Icons.favorite_border,
+                                                isFav
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
                                                 color: Colors.white,
                                                 size: 18,
                                               ),
@@ -2472,7 +2723,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.caption.trim().isEmpty ? (isVideo ? 'فيديو' : 'صورة') : item.caption,
+                                  item.caption.trim().isEmpty
+                                      ? (isVideo ? 'فيديو' : 'صورة')
+                                      : item.caption,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
@@ -2484,18 +2737,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                Container(
-                                  height: 1,
-                                  color: borderColor,
-                                ),
+                                Container(height: 1, color: borderColor),
                                 const SizedBox(height: 8),
                                 LayoutBuilder(
                                   builder: (context, actionConstraints) {
-                                    final compact = actionConstraints.maxWidth < 185;
+                                    final compact =
+                                        actionConstraints.maxWidth < 185;
                                     final columns = compact ? 2 : 3;
                                     final spacing = 6.0;
                                     final itemWidth =
-                                        (actionConstraints.maxWidth - (spacing * (columns - 1))) / columns;
+                                        (actionConstraints.maxWidth -
+                                            (spacing * (columns - 1))) /
+                                        columns;
 
                                     return Wrap(
                                       spacing: spacing,
@@ -2504,35 +2757,53 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                         SizedBox(
                                           width: itemWidth,
                                           child: InkWell(
-                                            onTap: _isLikeBusy ? null : _toggleProviderLike,
-                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: _isLikeBusy
+                                                ? null
+                                                : _toggleProviderLike,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                  ),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   if (_isLikeBusy)
                                                     const SizedBox(
                                                       width: 14,
                                                       height: 14,
-                                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
                                                     )
                                                   else
                                                     Icon(
-                                                      _isProviderLiked ? Icons.favorite : Icons.favorite_border,
+                                                      _isProviderLiked
+                                                          ? Icons.favorite
+                                                          : Icons
+                                                                .favorite_border,
                                                       size: 16,
-                                                      color: _isProviderLiked ? Colors.red : mainColor,
+                                                      color: _isProviderLiked
+                                                          ? Colors.red
+                                                          : mainColor,
                                                     ),
                                                   const SizedBox(width: 4),
                                                   Flexible(
                                                     child: Text(
                                                       'إعجاب',
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: TextStyle(
                                                         fontFamily: 'Cairo',
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         color: textColor,
                                                       ),
                                                     ),
@@ -2545,28 +2816,41 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                         SizedBox(
                                           width: itemWidth,
                                           child: InkWell(
-                                            onTap: () => _togglePortfolioFavorite(item),
-                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: () =>
+                                                _togglePortfolioFavorite(item),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                  ),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   Icon(
-                                                    isFav ? Icons.bookmark : Icons.bookmark_border,
+                                                    isFav
+                                                        ? Icons.bookmark
+                                                        : Icons.bookmark_border,
                                                     size: 16,
-                                                    color: isFav ? mainColor : secondaryTextColor,
+                                                    color: isFav
+                                                        ? mainColor
+                                                        : secondaryTextColor,
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Flexible(
                                                     child: Text(
                                                       'المفضلة',
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: TextStyle(
                                                         fontFamily: 'Cairo',
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         color: textColor,
                                                       ),
                                                     ),
@@ -2579,21 +2863,31 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                         SizedBox(
                                           width: itemWidth,
                                           child: InkWell(
-                                            onTap: () => setState(() => _selectedTabIndex = 0),
-                                            borderRadius: BorderRadius.circular(8),
+                                            onTap: () => setState(
+                                              () => _selectedTabIndex = 0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                             child: Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 4,
+                                                  ),
                                               child: Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   CircleAvatar(
                                                     radius: 8,
-                                                    backgroundColor: Colors.grey.shade200,
+                                                    backgroundColor:
+                                                        Colors.grey.shade200,
                                                     child: ClipOval(
                                                       child: SizedBox(
                                                         width: 16,
                                                         height: 16,
-                                                        child: _providerAvatar(),
+                                                        child:
+                                                            _providerAvatar(),
                                                       ),
                                                     ),
                                                   ),
@@ -2602,11 +2896,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                                     child: Text(
                                                       'حساب المزود',
                                                       maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
                                                       style: TextStyle(
                                                         fontFamily: 'Cairo',
-                                                        fontSize: compact ? 9 : 9.5,
-                                                        fontWeight: FontWeight.w700,
+                                                        fontSize: compact
+                                                            ? 9
+                                                            : 9.5,
+                                                        fontWeight:
+                                                            FontWeight.w700,
                                                         color: textColor,
                                                       ),
                                                     ),
@@ -2634,7 +2932,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       ],
     );
   }
-
 }
 
 class _DashedCirclePainter extends CustomPainter {
@@ -2660,8 +2957,10 @@ class _DashedCirclePainter extends CustomPainter {
     final radius = (size.shortestSide / 2) - strokeWidth;
     final center = Offset(size.width / 2, size.height / 2);
     final circumference = 2 * 3.141592653589793 * radius;
-    final dashCount =
-        (circumference / (dashLength + gapLength)).floor().clamp(8, 200);
+    final dashCount = (circumference / (dashLength + gapLength)).floor().clamp(
+      8,
+      200,
+    );
     final sweep = (2 * 3.141592653589793) / dashCount;
     final dashSweep = sweep * (dashLength / (dashLength + gapLength));
 

@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +28,7 @@ import '../../widgets/account_switch_sheet.dart';
 import '../../widgets/profile_quick_links_panel.dart';
 
 import 'services_tab.dart';
-import 'reviews_tab.dart'; 
+import 'reviews_tab.dart';
 import 'provider_completion_utils.dart';
 import 'provider_orders_screen.dart';
 import 'provider_profile_completion_screen.dart';
@@ -51,15 +50,14 @@ class ProviderHomeScreen extends StatefulWidget {
 
 class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     with SingleTickerProviderStateMixin {
-  
   final Color providerPrimary = AppColors.deepPurple;
   final Color providerAccent = AppColors.primaryDark;
-  
+
   File? _profileImage;
   File? _coverImage;
   String? _profileImageUrl;
   String? _coverImageUrl;
-  
+
   bool _isLoading = true;
   String? _providerDisplayName;
   String? _providerUsername;
@@ -70,6 +68,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   double _profileCompletion = 0.0;
   String _profileBio = '';
   String _profileAboutDetails = '';
+  String _providerType = '';
   String _accountFirstName = '';
   String _accountLastName = '';
 
@@ -102,7 +101,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     try {
       final me = await AccountApi().me();
       final id = me['provider_profile_id'];
-      final int? providerId = id is int ? id : int.tryParse((id ?? '').toString());
+      final int? providerId = id is int
+          ? id
+          : int.tryParse((id ?? '').toString());
 
       int? asInt(dynamic v) {
         if (v is int) return v;
@@ -124,12 +125,19 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
         subcategoryIds = <int>[];
       }
 
-      final providerDisplayName = (myProfile?['display_name'] ?? '').toString().trim();
+      final providerDisplayName = (myProfile?['display_name'] ?? '')
+          .toString()
+          .trim();
       final providerUsername = (me['username'] ?? '').toString().trim();
       final profileImageUrl = _normalizeMediaUrl(myProfile?['profile_image']);
       final coverImageUrl = _normalizeMediaUrl(myProfile?['cover_image']);
       final profileBio = (myProfile?['bio'] ?? '').toString().trim();
-      final profileAboutDetails = (myProfile?['about_details'] ?? '').toString().trim();
+      final profileAboutDetails = (myProfile?['about_details'] ?? '')
+          .toString()
+          .trim();
+      final providerType = (myProfile?['provider_type'] ?? '')
+          .toString()
+          .trim();
       final accountFirstName = (me['first_name'] ?? '').toString().trim();
       final accountLastName = (me['last_name'] ?? '').toString().trim();
 
@@ -154,22 +162,24 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       int ratingCount = 0;
       if (providerId != null) {
         try {
-          final rating = await ReviewsApi().getProviderRatingSummary(providerId);
+          final rating = await ReviewsApi().getProviderRatingSummary(
+            providerId,
+          );
           final avg = rating['rating_avg'] ?? 0;
           final count = rating['rating_count'] ?? 0;
 
-        double asDouble(dynamic v) {
-          if (v is double) return v;
-          if (v is int) return v.toDouble();
-          if (v is num) return v.toDouble();
-          return double.tryParse((v ?? '').toString()) ?? 0.0;
-        }
+          double asDouble(dynamic v) {
+            if (v is double) return v;
+            if (v is int) return v.toDouble();
+            if (v is num) return v.toDouble();
+            return double.tryParse((v ?? '').toString()) ?? 0.0;
+          }
 
-        int asIntSafe(dynamic v) {
-          if (v is int) return v;
-          if (v is num) return v.toInt();
-          return int.tryParse((v ?? '').toString()) ?? 0;
-        }
+          int asIntSafe(dynamic v) {
+            if (v is int) return v;
+            if (v is num) return v.toInt();
+            return int.tryParse((v ?? '').toString()) ?? 0;
+          }
 
           ratingAvg = asDouble(avg);
           ratingCount = asIntSafe(count);
@@ -188,12 +198,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
         _providerShareLink = link;
         _followersCount = followersCount;
         _likesReceivedCount = likesReceivedCount;
-        _providerDisplayName = providerDisplayName.isEmpty ? null : providerDisplayName;
+        _providerDisplayName = providerDisplayName.isEmpty
+            ? null
+            : providerDisplayName;
         _providerUsername = providerUsername.isEmpty ? null : providerUsername;
         _profileImageUrl = profileImageUrl;
         _coverImageUrl = coverImageUrl;
         _profileBio = profileBio;
         _profileAboutDetails = profileAboutDetails;
+        _providerType = providerType;
         _accountFirstName = accountFirstName;
         _accountLastName = accountLastName;
         _profileCompletion = completionPercent;
@@ -231,7 +244,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
 
   Future<void> _loadCompletedOrdersCount() async {
     try {
-      final list = await MarketplaceApi().getMyProviderRequests(statusGroup: 'completed');
+      final list = await MarketplaceApi().getMyProviderRequests(
+        statusGroup: 'completed',
+      );
       if (!mounted) return;
       setState(() => _completedOrdersCount = list.length);
     } catch (_) {
@@ -280,7 +295,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       final subscriptionsRejected = _countRejectedLike(subscriptions);
       final extrasRejected = _countRejectedLike(extras);
       final promoRejected = _countRejectedLike(promo);
-      final totalPending = verificationPending + subscriptionsPending + extrasPending + promoPending;
+      final totalPending =
+          verificationPending +
+          subscriptionsPending +
+          extrasPending +
+          promoPending;
 
       if (!mounted) return;
       setState(() {
@@ -366,11 +385,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
 
   Future<void> _showPaidServicesBadgeBreakdown() async {
     if (!mounted) return;
-    final total = _pendingVerificationCount +
+    final total =
+        _pendingVerificationCount +
         _pendingSubscriptionsCount +
         _pendingExtrasCount +
         _pendingPromoCount;
-    final totalRejected = _rejectedVerificationCount +
+    final totalRejected =
+        _rejectedVerificationCount +
         _rejectedSubscriptionsCount +
         _rejectedExtrasCount +
         _rejectedPromoCount;
@@ -397,8 +418,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           final bg = hasRejected
               ? Colors.red.withValues(alpha: 0.08)
               : (hasPending
-                  ? Colors.orange.withValues(alpha: 0.08)
-                  : Colors.green.withValues(alpha: 0.08));
+                    ? Colors.orange.withValues(alpha: 0.08)
+                    : Colors.green.withValues(alpha: 0.08));
           final stateLabel = hasRejected
               ? 'مرفوض ($rejectedCount)'
               : (hasPending ? 'معلّق' : 'سليم');
@@ -440,8 +461,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 color: hasRejected
                     ? Colors.red.withValues(alpha: 0.12)
                     : (hasPending
-                        ? Colors.orange.withValues(alpha: 0.12)
-                        : Colors.green.withValues(alpha: 0.12)),
+                          ? Colors.orange.withValues(alpha: 0.12)
+                          : Colors.green.withValues(alpha: 0.12)),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -452,7 +473,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   fontWeight: FontWeight.w800,
                   color: hasRejected
                       ? Colors.red.shade800
-                      : (hasPending ? Colors.orange.shade800 : Colors.green.shade800),
+                      : (hasPending
+                            ? Colors.orange.shade800
+                            : Colors.green.shade800),
                 ),
               ),
             ),
@@ -496,19 +519,24 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: totalRejected > 0
                               ? Colors.red.withValues(alpha: 0.12)
                               : (total > 0
-                                  ? Colors.orange.withValues(alpha: 0.12)
-                                  : Colors.green.withValues(alpha: 0.12)),
+                                    ? Colors.orange.withValues(alpha: 0.12)
+                                    : Colors.green.withValues(alpha: 0.12)),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           totalRejected > 0
                               ? 'مرفوض: $totalRejected | معلّق: $total'
-                              : (total > 0 ? 'المعلّق: $total' : 'لا يوجد معلّق'),
+                              : (total > 0
+                                    ? 'المعلّق: $total'
+                                    : 'لا يوجد معلّق'),
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             fontWeight: FontWeight.w800,
@@ -567,12 +595,19 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                       icon: const Icon(Icons.dashboard_customize_outlined),
                       label: const Text(
                         'فتح مركز الخدمات المدفوعة',
-                        style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.deepPurple,
-                        side: BorderSide(color: AppColors.deepPurple.withValues(alpha: 0.25)),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(
+                          color: AppColors.deepPurple.withValues(alpha: 0.25),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -651,14 +686,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
 
   String _detectFileType(String name) {
     final lower = name.toLowerCase();
-    const videoExt = [
-      '.mp4',
-      '.mov',
-      '.avi',
-      '.mkv',
-      '.webm',
-      '.m4v',
-    ];
+    const videoExt = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.m4v'];
     for (final ext in videoExt) {
       if (lower.endsWith(ext)) return 'video';
     }
@@ -676,16 +704,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       );
       if (!mounted) return;
       if (created == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذر حفظ اللمحة')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('تعذر حفظ اللمحة')));
         return;
       }
       await _loadMySpotlights();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حفظ اللمحة بنجاح')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تم حفظ اللمحة بنجاح')));
     } finally {
       if (mounted) setState(() => _savingSpotlight = false);
     }
@@ -721,8 +749,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       withData: true,
       type: FileType.custom,
       allowedExtensions: const [
-        'png', 'jpg', 'jpeg', 'webp',
-        'mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v',
+        'png',
+        'jpg',
+        'jpeg',
+        'webp',
+        'mp4',
+        'mov',
+        'avi',
+        'mkv',
+        'webm',
+        'm4v',
       ],
     );
     if (result == null || result.files.isEmpty) return;
@@ -747,7 +783,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.video_collection_outlined, color: AppColors.deepPurple),
+                    Icon(
+                      Icons.video_collection_outlined,
+                      color: AppColors.deepPurple,
+                    ),
                     SizedBox(width: 8),
                     Text(
                       'إضافة لمحة',
@@ -766,7 +805,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                     Navigator.pop(ctx);
                     await _pickSpotlightImageFromGallery();
                   },
-                  title: const Text('Photo Library', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text(
+                    'Photo Library',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
                   trailing: const Icon(Icons.photo_library_outlined),
                 ),
                 ListTile(
@@ -774,7 +816,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                     Navigator.pop(ctx);
                     await _pickSpotlightFromCamera();
                   },
-                  title: const Text('Take Photo', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text(
+                    'Take Photo',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
                   trailing: const Icon(Icons.camera_alt_outlined),
                 ),
                 ListTile(
@@ -782,7 +827,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                     Navigator.pop(ctx);
                     await _pickSpotlightFile();
                   },
-                  title: const Text('Choose File', style: TextStyle(fontFamily: 'Cairo')),
+                  title: const Text(
+                    'Choose File',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
                   trailing: const Icon(Icons.folder_open_outlined),
                 ),
                 const SizedBox(height: 8),
@@ -798,7 +846,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
-                        child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                        child: const Text(
+                          'إلغاء',
+                          style: TextStyle(fontFamily: 'Cairo'),
+                        ),
                       ),
                     ),
                   ],
@@ -815,24 +866,29 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     final ok = await ProvidersApi().deleteMySpotlightItem(item.id);
     if (!mounted) return;
     if (!ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر حذف اللمحة')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تعذر حذف اللمحة')));
       return;
     }
     await _loadMySpotlights();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم حذف اللمحة')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('تم حذف اللمحة')));
   }
 
-  Future<void> _pickImage({required bool isCover, ImageSource source = ImageSource.gallery}) async {
+  Future<void> _pickImage({
+    required bool isCover,
+    ImageSource source = ImageSource.gallery,
+  }) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source);
     if (picked != null) {
       setState(() {
-        isCover ? _coverImage = File(picked.path) : _profileImage = File(picked.path);
+        isCover
+            ? _coverImage = File(picked.path)
+            : _profileImage = File(picked.path);
       });
 
       final updated = await ProvidersApi().uploadMyProviderImages(
@@ -842,7 +898,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       if (!mounted) return;
       if (updated == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم التحديث محليًا فقط، تعذر حفظ الصورة في الخادم')),
+          const SnackBar(
+            content: Text('تم التحديث محليًا فقط، تعذر حفظ الصورة في الخادم'),
+          ),
         );
         return;
       }
@@ -884,18 +942,30 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   const SizedBox(height: 10),
                   ListTile(
                     leading: const Icon(Icons.photo_library_outlined),
-                    title: const Text('اختيار من المعرض', style: TextStyle(fontFamily: 'Cairo')),
+                    title: const Text(
+                      'اختيار من المعرض',
+                      style: TextStyle(fontFamily: 'Cairo'),
+                    ),
                     onTap: () async {
                       Navigator.pop(ctx);
-                      await _pickImage(isCover: true, source: ImageSource.gallery);
+                      await _pickImage(
+                        isCover: true,
+                        source: ImageSource.gallery,
+                      );
                     },
                   ),
                   ListTile(
                     leading: const Icon(Icons.camera_alt_outlined),
-                    title: const Text('التقاط صورة', style: TextStyle(fontFamily: 'Cairo')),
+                    title: const Text(
+                      'التقاط صورة',
+                      style: TextStyle(fontFamily: 'Cairo'),
+                    ),
                     onTap: () async {
                       Navigator.pop(ctx);
-                      await _pickImage(isCover: true, source: ImageSource.camera);
+                      await _pickImage(
+                        isCover: true,
+                        source: ImageSource.camera,
+                      );
                     },
                   ),
                 ],
@@ -918,40 +988,70 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('QR ملف المزود', style: TextStyle(fontFamily: 'Cairo', fontSize: 18, fontWeight: FontWeight.bold, color: providerPrimary)),
+              Text(
+                'QR ملف المزود',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: providerPrimary,
+                ),
+              ),
               const SizedBox(height: 20),
               SizedBox(
                 width: 200,
                 height: 200,
-                child: _providerShareLink == null 
-                  ? const Center(child: Text('الرابط غير متوفر'))
-                  : QrImageView(data: _providerShareLink!, padding: EdgeInsets.zero,),
+                child: _providerShareLink == null
+                    ? const Center(child: Text('الرابط غير متوفر'))
+                    : QrImageView(
+                        data: _providerShareLink!,
+                        padding: EdgeInsets.zero,
+                      ),
               ),
               const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _providerShareLink == null ? null : () async {
-                         final messenger = ScaffoldMessenger.of(rootContext);
-                         Navigator.pop(dialogContext);
-                         await Clipboard.setData(ClipboardData(text: _providerShareLink!));
-                         if (!mounted) return;
-                         messenger.showSnackBar(const SnackBar(content: Text('تم نسخ الرابط')));
-                      },
+                      onPressed: _providerShareLink == null
+                          ? null
+                          : () async {
+                              final messenger = ScaffoldMessenger.of(
+                                rootContext,
+                              );
+                              Navigator.pop(dialogContext);
+                              await Clipboard.setData(
+                                ClipboardData(text: _providerShareLink!),
+                              );
+                              if (!mounted) return;
+                              messenger.showSnackBar(
+                                const SnackBar(content: Text('تم نسخ الرابط')),
+                              );
+                            },
                       icon: const Icon(Icons.copy),
-                      label: const Text('نسخ الرابط', style: TextStyle(fontFamily: 'Cairo')),
-                      style: ElevatedButton.styleFrom(backgroundColor: providerPrimary, foregroundColor: Colors.white),
+                      label: const Text(
+                        'نسخ الرابط',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: providerPrimary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _providerShareLink == null ? null : () async {
-                        await Share.share(_providerShareLink!);
-                      },
+                      onPressed: _providerShareLink == null
+                          ? null
+                          : () async {
+                              await Share.share(_providerShareLink!);
+                            },
                       icon: const Icon(Icons.share_outlined),
-                      label: const Text('مشاركة', style: TextStyle(fontFamily: 'Cairo')),
+                      label: const Text(
+                        'مشاركة',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
                     ),
                   ),
                 ],
@@ -993,8 +1093,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.notifications_none_rounded, color: Colors.white),
-                    onPressed: () => Navigator.pushNamed(context, '/notifications'),
+                    icon: const Icon(
+                      Icons.notifications_none_rounded,
+                      color: Colors.white,
+                    ),
+                    onPressed: () =>
+                        Navigator.pushNamed(context, '/notifications'),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
@@ -1046,14 +1150,23 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 2),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 2,
+                                    ),
                                     color: Colors.white24,
                                   ),
                                   child: CircleAvatar(
                                     radius: 46,
                                     backgroundColor: Colors.white,
                                     backgroundImage: _avatarImageProvider(),
-                                    child: _profileImage == null ? Icon(Icons.storefront, size: 40, color: providerPrimary) : null,
+                                    child: _profileImage == null
+                                        ? Icon(
+                                            Icons.storefront,
+                                            size: 40,
+                                            color: providerPrimary,
+                                          )
+                                        : null,
                                   ),
                                 ),
                                 Positioned(
@@ -1063,8 +1176,15 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                                     onTap: () => _pickImage(isCover: false),
                                     child: Container(
                                       padding: const EdgeInsets.all(6),
-                                      decoration: const BoxDecoration(color: Colors.orange, shape: BoxShape.circle),
-                                      child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.camera_alt,
+                                        size: 14,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1098,7 +1218,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                         child: GestureDetector(
                           onTap: _showCoverEditSheet,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(20),
@@ -1109,7 +1232,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                                 SizedBox(width: 4),
                                 Text(
                                   'تعديل',
-                                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white, fontSize: 12),
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
@@ -1125,7 +1252,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                     height: 30,
                     decoration: const BoxDecoration(
                       color: AppColors.primaryLight,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(30),
+                      ),
                     ),
                   ),
                 ),
@@ -1138,18 +1267,18 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
             child: SingleChildScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  children: [
-                    _buildSpotlightsSection(),
-                    const SizedBox(height: 16),
-                    _buildCompletionCard(),
-                    const SizedBox(height: 14),
-                    _buildAccountModesSection(),
-                    const SizedBox(height: 18),
-                    _buildQuickLinks(),
-                    const SizedBox(height: 36),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  _buildSpotlightsSection(),
+                  const SizedBox(height: 16),
+                  _buildCompletionCard(),
+                  const SizedBox(height: 14),
+                  _buildAccountModesSection(),
+                  const SizedBox(height: 18),
+                  _buildQuickLinks(),
+                  const SizedBox(height: 36),
+                ],
+              ),
             ),
           ),
         ),
@@ -1178,7 +1307,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
             padding: EdgeInsets.symmetric(horizontal: 2, vertical: 2),
             child: Row(
               children: [
-                Icon(Icons.qr_code_2_rounded, color: AppColors.deepPurple, size: 18),
+                Icon(
+                  Icons.qr_code_2_rounded,
+                  color: AppColors.deepPurple,
+                  size: 18,
+                ),
                 SizedBox(width: 4),
                 Text(
                   'QR',
@@ -1222,12 +1355,22 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
             color: AppColors.deepPurple.withValues(alpha: 0.10),
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.camera_alt_rounded, size: 16, color: AppColors.deepPurple),
+          child: const Icon(
+            Icons.camera_alt_rounded,
+            size: 16,
+            color: AppColors.deepPurple,
+          ),
         ),
         const SizedBox(width: 8),
-        _miniCounter(icon: Icons.bookmark_border_rounded, value: _mySpotlights.length.toString()),
+        _miniCounter(
+          icon: Icons.bookmark_border_rounded,
+          value: _mySpotlights.length.toString(),
+        ),
         const SizedBox(width: 8),
-        _miniCounter(icon: Icons.person_add_alt_1_rounded, value: (_followersCount ?? 0).toString()),
+        _miniCounter(
+          icon: Icons.person_add_alt_1_rounded,
+          value: (_followersCount ?? 0).toString(),
+        ),
         const SizedBox(width: 8),
         _miniCounter(
           icon: Icons.thumb_up_alt_outlined,
@@ -1296,7 +1439,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      const Icon(Icons.thumb_up_alt_outlined, color: Colors.black87),
+                      const Icon(
+                        Icons.thumb_up_alt_outlined,
+                        color: Colors.black87,
+                      ),
                       const SizedBox(width: 10),
                       const Text(
                         'المعجبون بملفك',
@@ -1329,7 +1475,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                             padding: EdgeInsets.all(16),
                             child: Text(
                               'لا يوجد معجبون حالياً',
-                              style: TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         );
@@ -1342,16 +1491,27 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                           final user = list[i];
                           return ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: AppColors.deepPurple.withValues(alpha: 0.12),
-                              child: const Icon(Icons.person, color: AppColors.deepPurple),
+                              backgroundColor: AppColors.deepPurple.withValues(
+                                alpha: 0.12,
+                              ),
+                              child: const Icon(
+                                Icons.person,
+                                color: AppColors.deepPurple,
+                              ),
                             ),
                             title: Text(
                               user.displayName,
-                              style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                             subtitle: (user.username ?? '').trim().isEmpty
                                 ? null
-                                : Text('@${user.username}', style: const TextStyle(fontFamily: 'Cairo')),
+                                : Text(
+                                    '@${user.username}',
+                                    style: const TextStyle(fontFamily: 'Cairo'),
+                                  ),
                           );
                         },
                       );
@@ -1372,17 +1532,25 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       onTap: () async {
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => const ProviderProfileCompletionScreen()),
+          MaterialPageRoute(
+            builder: (_) => const ProviderProfileCompletionScreen(),
+          ),
         );
         await _loadProviderData();
       },
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [AppColors.primaryDark, AppColors.deepPurple]),
+          gradient: const LinearGradient(
+            colors: [AppColors.primaryDark, AppColors.deepPurple],
+          ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
-             BoxShadow(color: AppColors.deepPurple.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4)),
+            BoxShadow(
+              color: AppColors.deepPurple.withValues(alpha: 0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
           ],
         ),
         child: Row(
@@ -1396,7 +1564,14 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   valueColor: const AlwaysStoppedAnimation(Colors.white),
                   strokeWidth: 4,
                 ),
-                Text('$percent%', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                Text(
+                  '$percent%',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(width: 16),
@@ -1404,12 +1579,30 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('الملف التعريفي', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('زيادة اكتمال الملف تزيد من ظهورك في البحث', style: TextStyle(fontFamily: 'Cairo', color: Colors.white70, fontSize: 11)),
+                  Text(
+                    'الملف التعريفي',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    'زيادة اكتمال الملف تزيد من ظهورك في البحث',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      color: Colors.white70,
+                      fontSize: 11,
+                    ),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.person_outline_rounded, color: Colors.white, size: 18),
+            const Icon(
+              Icons.person_outline_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -1445,12 +1638,17 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   icon: const Icon(Icons.fact_check_outlined),
                   label: const Text(
                     'إدارة الطلبات',
-                    style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.deepPurple,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
@@ -1460,19 +1658,26 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 width: 46,
                 height: 46,
                 child: ElevatedButton.icon(
-                  onPressed: _savingSpotlight ? null : _showCreateSpotlightDialog,
+                  onPressed: _savingSpotlight
+                      ? null
+                      : _showCreateSpotlightDialog,
                   icon: _savingSpotlight
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.video_call_rounded),
                   label: const SizedBox.shrink(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryDark,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                 ),
@@ -1548,13 +1753,17 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   }
 
   Widget _buildProviderInfoEditorCard() {
-    final fullName = '${_accountFirstName.trim()} ${_accountLastName.trim()}'.trim();
+    final fullName = '${_accountFirstName.trim()} ${_accountLastName.trim()}'
+        .trim();
+    final providerTypeLabel = _providerTypeArLabel(_providerType);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primaryDark.withValues(alpha: 0.24)),
+        border: Border.all(
+          color: AppColors.primaryDark.withValues(alpha: 0.24),
+        ),
       ),
       child: Column(
         children: [
@@ -1566,19 +1775,30 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           const SizedBox(height: 8),
           _editableInfoRow(
             title: 'اسم المستخدم',
-            value: (_providerUsername ?? '').trim().isEmpty ? 'غير مضاف' : '@${_providerUsername!.trim()}',
+            value: (_providerUsername ?? '').trim().isEmpty
+                ? 'غير مضاف'
+                : '@${_providerUsername!.trim()}',
             onEdit: null,
           ),
           const SizedBox(height: 8),
           _editableInfoRow(
             title: 'صفة الحساب',
+            value: providerTypeLabel.isEmpty ? 'غير مضاف' : providerTypeLabel,
+            onEdit: _editProviderType,
+          ),
+          const SizedBox(height: 8),
+          _editableInfoRow(
+            title: 'نبذة مختصرة عنك كمقدم خدمة',
             value: _profileBio.isEmpty ? 'غير مضاف' : _profileBio,
+            maxLines: 3,
             onEdit: _editBio,
           ),
           const SizedBox(height: 8),
           _editableInfoRow(
-            title: 'نبذة عنك (منشأتك) كمقدم خدمة',
-            value: _profileAboutDetails.isEmpty ? 'غير مضاف' : _profileAboutDetails,
+            title: 'نبذة تفصيلية عنك (منشأتك) كمقدم خدمة',
+            value: _profileAboutDetails.isEmpty
+                ? 'غير مضاف'
+                : _profileAboutDetails,
             maxLines: 3,
             onEdit: _editAboutDetails,
           ),
@@ -1629,14 +1849,22 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
             onPressed: onEdit,
             style: OutlinedButton.styleFrom(
               foregroundColor: AppColors.deepPurple,
-              side: BorderSide(color: AppColors.deepPurple.withValues(alpha: 0.35)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
+              side: BorderSide(
+                color: AppColors.deepPurple.withValues(alpha: 0.35),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: const Size(68, 30),
             ),
             child: const Text(
               'تعديل',
-              style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700, fontSize: 12),
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
             ),
           ),
       ],
@@ -1658,7 +1886,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ProviderProfileCompletionScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ProviderProfileCompletionScreen(),
+                    ),
                   ).then((_) => _loadProviderData());
                 },
               ),
@@ -1679,7 +1909,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 onTap: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ProviderPortfolioManageScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ProviderPortfolioManageScreen(),
+                    ),
                   );
                   await _loadMySpotlights();
                 },
@@ -1763,14 +1995,19 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
             height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.deepPurple.withValues(alpha: 0.70), width: 2),
+              border: Border.all(
+                color: AppColors.deepPurple.withValues(alpha: 0.70),
+                width: 2,
+              ),
             ),
             child: Container(
               margin: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: AppColors.primaryLight,
-                border: Border.all(color: AppColors.deepPurple.withValues(alpha: 0.26)),
+                border: Border.all(
+                  color: AppColors.deepPurple.withValues(alpha: 0.26),
+                ),
               ),
               child: Icon(icon, color: AppColors.deepPurple, size: 26),
             ),
@@ -1805,16 +2042,20 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(title, style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontFamily: 'Cairo',
+            fontWeight: FontWeight.w800,
+          ),
+        ),
         content: TextField(
           controller: controller,
           minLines: minLines,
           maxLines: maxLines,
           keyboardType: keyboardType,
           textDirection: TextDirection.rtl,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-          ),
+          decoration: const InputDecoration(border: OutlineInputBorder()),
         ),
         actions: [
           TextButton(
@@ -1831,32 +2072,34 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   }
 
   Future<void> _editAccountFullName() async {
-    final current = '${_accountFirstName.trim()} ${_accountLastName.trim()}'.trim();
+    final current = '${_accountFirstName.trim()} ${_accountLastName.trim()}'
+        .trim();
     final value = await _showSimpleEditDialog(
       title: 'تعديل الاسم الكامل',
       initialValue: current,
     );
     if (value == null) return;
-    final parts = value.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final parts = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((e) => e.isNotEmpty)
+        .toList();
     final first = parts.isNotEmpty ? parts.first : '';
     final last = parts.length > 1 ? parts.sublist(1).join(' ') : '';
     try {
-      await AccountApi().updateMe({
-        'first_name': first,
-        'last_name': last,
-      });
+      await AccountApi().updateMe({'first_name': first, 'last_name': last});
       await _loadProviderData();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تحديث الاسم')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تعذر تحديث الاسم')));
     }
   }
 
   Future<void> _editBio() async {
     final value = await _showSimpleEditDialog(
-      title: 'تعديل صفة الحساب',
+      title: 'تعديل النبذة المختصرة',
       initialValue: _profileBio,
       minLines: 2,
       maxLines: 3,
@@ -1868,8 +2111,103 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تحديث صفة الحساب')),
+        const SnackBar(content: Text('تعذر تحديث النبذة المختصرة')),
       );
+    }
+  }
+
+  String _providerTypeArLabel(String raw) {
+    switch (raw.trim().toLowerCase()) {
+      case 'individual':
+      case 'فرد':
+        return 'فرد';
+      case 'company':
+      case 'منشأة':
+        return 'منشأة';
+      default:
+        return raw.trim();
+    }
+  }
+
+  Future<void> _editProviderType() async {
+    final current = _providerTypeArLabel(_providerType);
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        String local = current == 'منشأة' ? 'منشأة' : 'فرد';
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              title: const Text(
+                'تعديل صفة الحساب',
+                style: TextStyle(fontFamily: 'Cairo'),
+              ),
+              content: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    RadioListTile<String>(
+                      value: 'فرد',
+                      groupValue: local,
+                      onChanged: (v) {
+                        if (v != null) setLocalState(() => local = v);
+                      },
+                      title: const Text(
+                        'فرد',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    RadioListTile<String>(
+                      value: 'منشأة',
+                      groupValue: local,
+                      onChanged: (v) {
+                        if (v != null) setLocalState(() => local = v);
+                      },
+                      title: const Text(
+                        'منشأة',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text(
+                    'إلغاء',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, local),
+                  child: const Text(
+                    'حفظ',
+                    style: TextStyle(fontFamily: 'Cairo'),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (selected == null) return;
+
+    final backendValue = selected == 'منشأة' ? 'company' : 'individual';
+    try {
+      await ProvidersApi().updateMyProviderProfile({
+        'provider_type': backendValue,
+      });
+      await _loadProviderData();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تعذر تحديث صفة الحساب')));
     }
   }
 
@@ -1886,9 +2224,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       await _loadProviderData();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تعذر تحديث النبذة')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('تعذر تحديث النبذة')));
     }
   }
 
@@ -1962,7 +2300,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.red.shade200),
                       ),
-                      child: const Icon(Icons.close_rounded, size: 14, color: Colors.red),
+                      child: const Icon(
+                        Icons.close_rounded,
+                        size: 14,
+                        color: Colors.red,
+                      ),
                     ),
                   ),
                 ),
@@ -1985,7 +2327,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.thumb_up_alt_outlined, size: 12, color: AppColors.deepPurple),
+              const Icon(
+                Icons.thumb_up_alt_outlined,
+                size: 12,
+                color: AppColors.deepPurple,
+              ),
               const SizedBox(width: 3),
               Text(
                 item.likeCount.toString(),
@@ -2010,7 +2356,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
         MaterialPageRoute(
           builder: (_) => NetworkVideoPlayerScreen(
             url: item.fileUrl,
-            title: item.caption.trim().isEmpty ? 'لمحة فيديو' : item.caption.trim(),
+            title: item.caption.trim().isEmpty
+                ? 'لمحة فيديو'
+                : item.caption.trim(),
           ),
         ),
       );
@@ -2030,7 +2378,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   imageUrl: item.fileUrl,
                   fit: BoxFit.contain,
                   errorWidget: const Center(
-                    child: Icon(Icons.broken_image_outlined, color: Colors.white54, size: 52),
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: Colors.white54,
+                      size: 52,
+                    ),
                   ),
                 ),
               ),
@@ -2085,7 +2437,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   }
 
   Widget _buildQuickLinks() {
-    final totalRejected = _rejectedVerificationCount +
+    final totalRejected =
+        _rejectedVerificationCount +
         _rejectedSubscriptionsCount +
         _rejectedExtrasCount +
         _rejectedPromoCount;
@@ -2104,13 +2457,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           badgeBackgroundColor: hasRejected
               ? Colors.red.withValues(alpha: 0.12)
               : (_paidServicesPendingCount > 0
-                  ? Colors.orange.withValues(alpha: 0.12)
-                  : AppColors.deepPurple.withValues(alpha: 0.10)),
+                    ? Colors.orange.withValues(alpha: 0.12)
+                    : AppColors.deepPurple.withValues(alpha: 0.10)),
           badgeTextColor: hasRejected
               ? Colors.red.shade800
               : (_paidServicesPendingCount > 0
-                  ? Colors.orange.shade800
-                  : AppColors.deepPurple),
+                    ? Colors.orange.shade800
+                    : AppColors.deepPurple),
           onLongPress: _showPaidServicesBadgeBreakdown,
           onTap: () {
             _openPaidServicesHub();
@@ -2123,25 +2476,38 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   void _navToServices() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ServicesTab(),
-      ),
+      MaterialPageRoute(builder: (_) => const ServicesTab()),
     );
   }
 
   void _navToOrders() {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => const ProviderOrdersScreen()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProviderOrdersScreen()),
+    );
   }
 
   Future<void> _navToReviews() async {
-     await Navigator.push(context, MaterialPageRoute(builder: (_) => Scaffold(
-      appBar: AppBar(title: const Text('التقييمات', style: TextStyle(fontFamily: 'Cairo')), backgroundColor: providerPrimary, foregroundColor: Colors.white,),
-      body: ReviewsTab(
-        embedded: true,
-        providerId: _providerId,
-        allowProviderReply: true,
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => Scaffold(
+          appBar: AppBar(
+            title: const Text(
+              'التقييمات',
+              style: TextStyle(fontFamily: 'Cairo'),
+            ),
+            backgroundColor: providerPrimary,
+            foregroundColor: Colors.white,
+          ),
+          body: ReviewsTab(
+            embedded: true,
+            providerId: _providerId,
+            allowProviderReply: true,
+          ),
+        ),
       ),
-    )));
+    );
     if (!mounted) return;
     await _loadProviderData();
   }
