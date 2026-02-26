@@ -1551,6 +1551,7 @@ class _ProviderOrderDetailsScreenState
             ],
           ),
           body: Stack(
+            fit: StackFit.expand,
             children: [
               _responsiveOrderBody(),
               if (_isLoadingDetail)
