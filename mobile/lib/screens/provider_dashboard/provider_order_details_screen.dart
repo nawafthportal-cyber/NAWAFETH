@@ -89,6 +89,12 @@ class _ProviderOrderDetailsScreenState
 
     _status = widget.order.status;
     _initialRawStatus = widget.rawStatus.trim().toLowerCase();
+    if (_status.trim().isEmpty) {
+      _status = _mapRawToStatusAr(_initialRawStatus);
+    }
+    if (_status.trim().isEmpty) {
+      _status = 'جديد';
+    }
     _createdAt = widget.order.createdAt;
     _expectedDeliveryAt = widget.order.expectedDeliveryAt;
     _deliveredAt = widget.order.deliveredAt;
@@ -184,6 +190,12 @@ class _ProviderOrderDetailsScreenState
         _status = mappedStatus;
         if (raw.isNotEmpty) {
           _initialRawStatus = raw;
+        }
+        if (_status.trim().isEmpty) {
+          _status = _mapRawToStatusAr(_initialRawStatus);
+        }
+        if (_status.trim().isEmpty) {
+          _status = 'جديد';
         }
         _createdAt =
             DateTime.tryParse((data['created_at'] ?? '').toString()) ??
@@ -1336,30 +1348,62 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _mobileOrderContent() {
-    return ListView(
+    return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 120),
-      children: [
-        _readonlyField(title: 'عنوان الطلب', value: _titleController.text),
-        const SizedBox(height: 12),
-        _readonlyField(
-          title: 'تفاصيل الطلب',
-          value: _detailsController.text,
-          minLines: 3,
-        ),
-        const SizedBox(height: 12),
-        _attachmentsBox(),
-        const SizedBox(height: 12),
-        _executionUpdateSection(),
-        const SizedBox(height: 12),
-        _statusHeaderLabel(),
-        const SizedBox(height: 6),
-        _statusSelector(),
-        _statusSpecificCard(),
-        const SizedBox(height: 12),
-        _statusTimelineSection(),
-      ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _safeSection(_summaryCard),
+          const SizedBox(height: 12),
+          _safeSection(
+            () =>
+                _readonlyField(title: 'عنوان الطلب', value: _titleController.text),
+          ),
+          const SizedBox(height: 12),
+          _safeSection(
+            () => _readonlyField(
+              title: 'تفاصيل الطلب',
+              value: _detailsController.text,
+              minLines: 3,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _safeSection(_attachmentsBox),
+          const SizedBox(height: 12),
+          _safeSection(_executionUpdateSection),
+          const SizedBox(height: 12),
+          _statusHeaderLabel(),
+          const SizedBox(height: 6),
+          _safeSection(_statusSelector),
+          _safeSection(_statusSpecificCard),
+          const SizedBox(height: 12),
+          _safeSection(_statusTimelineSection),
+        ],
+      ),
     );
+  }
+
+  Widget _safeSection(Widget Function() builder) {
+    try {
+      return builder();
+    } catch (e, st) {
+      debugPrint('ProviderOrderDetails section error: $e');
+      debugPrint('$st');
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _mainColor.withValues(alpha: 0.18)),
+        ),
+        child: const Text(
+          'تعذر عرض هذا القسم حالياً.',
+          style: TextStyle(fontFamily: 'Cairo', fontSize: 13),
+        ),
+      );
+    }
   }
 
   Widget _desktopOrderContent() {
@@ -1422,18 +1466,7 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _responsiveOrderBody() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isDesktop = constraints.maxWidth >= 1180;
-        return RefreshIndicator(
-          color: _mainColor,
-          onRefresh: _loadRequestDetail,
-          child: isDesktop
-              ? _safeDetailedBody(_desktopOrderContent)
-              : _safeDetailedBody(_mobileOrderContent),
-        );
-      },
-    );
+    return _safeDetailedBody(_mobileOrderContent);
   }
 
   Widget _safeDetailedBody(Widget Function() builder) {
@@ -1609,10 +1642,6 @@ class _ProviderOrderDetailsScreenState
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                  child: _summaryCard(),
-                ),
                 Expanded(child: _responsiveOrderBody()),
               ],
             ),

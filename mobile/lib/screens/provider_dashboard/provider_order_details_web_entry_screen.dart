@@ -183,7 +183,7 @@ class _ProviderOrderDetailsWebEntryScreenState
     if (raw.isNotEmpty) return raw;
     final group = (req['status_group'] ?? '').toString().trim().toLowerCase();
     if (group == 'new') return 'new';
-    if (group == 'in_progress') return 'accepted';
+    if (group == 'in_progress') return 'in_progress';
     if (group == 'completed') return 'completed';
     if (group == 'cancelled') return 'cancelled';
     return '';
