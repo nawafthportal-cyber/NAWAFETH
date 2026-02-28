@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../services/marketplace_service.dart';
+import '../constants/saudi_cities.dart';
 
 /// شاشة إنشاء طلب خدمة جديد — مربوطة بالباكند
 class ServiceRequestFormScreen extends StatefulWidget {
@@ -33,7 +34,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _detailsController = TextEditingController();
-  final _cityController = TextEditingController();
+  String? _selectedCity;
 
   // ─── نوع الطلب ───
   String _requestType = 'normal'; // normal | competitive | urgent
@@ -71,7 +72,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   void dispose() {
     _titleController.dispose();
     _detailsController.dispose();
-    _cityController.dispose();
+    // _selectedCity — لا يحتاج dispose
     if (_recorderInitialized) _recorder.closeRecorder();
     super.dispose();
   }
@@ -238,11 +239,11 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       return;
     }
 
-    final city = _cityController.text.trim();
+    final city = _selectedCity ?? '';
     // المدينة مطلوبة إلا للعاجل مع dispatch_mode=all
     final cityRequired = !(_requestType == 'urgent');
     if (cityRequired && city.isEmpty) {
-      _snack('الرجاء كتابة المدينة');
+      _snack('الرجاء اختيار المدينة');
       return;
     }
 
@@ -351,12 +352,20 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
               // ─── المدينة ───
               _label('المدينة'),
               const SizedBox(height: 8),
-              TextFormField(
-                controller: _cityController,
-                decoration: _inputDeco(hint: 'مثال: الرياض'),
+              DropdownButtonFormField<String>(
+                value: _selectedCity,
+                decoration: _inputDeco(hint: 'اختر المدينة'),
+                isExpanded: true,
+                menuMaxHeight: 300,
+                items: SaudiCities.all
+                    .map((city) => DropdownMenuItem(
+                          value: city,
+                          child: Text(city, style: const TextStyle(fontFamily: 'Cairo')),
+                        ))
+                    .toList(),
+                onChanged: (v) => setState(() => _selectedCity = v),
                 validator: (v) {
-                  if (_requestType != 'urgent' &&
-                      (v == null || v.trim().isEmpty)) {
+                  if (_requestType != 'urgent' && (v == null || v.isEmpty)) {
                     return 'المدينة مطلوبة';
                   }
                   return null;

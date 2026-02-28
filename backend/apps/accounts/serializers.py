@@ -108,6 +108,12 @@ class CompleteRegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError({"password_confirm": "كلمة المرور وتأكيدها غير متطابقين"})
         return attrs
 
+    def validate_city(self, value: str | None):
+        if value is None:
+            return None
+        value = (value or "").strip()
+        return value or None
+
 
 class MeUpdateSerializer(serializers.Serializer):
     """Update the authenticated user's basic fields (no password change here)."""
@@ -117,6 +123,7 @@ class MeUpdateSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     first_name = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     last_name = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
+    city = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
 
     def validate_phone(self, value: str) -> str:
         value = (value or "").strip()
@@ -137,6 +144,12 @@ class MeUpdateSerializer(serializers.Serializer):
         return value or None
 
     def validate_last_name(self, value: str | None):
+        if value is None:
+            return None
+        value = (value or "").strip()
+        return value or None
+
+    def validate_city(self, value: str | None):
         if value is None:
             return None
         value = (value or "").strip()

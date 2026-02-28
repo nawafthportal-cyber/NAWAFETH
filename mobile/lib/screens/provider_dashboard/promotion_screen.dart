@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../constants/saudi_cities.dart';
 import 'package:nawafeth/services/promo_service.dart';
 
 /// صفحة الترويج / الإعلانات — مربوطة بالـ API
@@ -598,6 +599,43 @@ class _CreatePromoRequestFormState extends State<_CreatePromoRequestForm> {
                 'normal': 'عادي',
               },
               onChanged: (v) => setState(() => _position = v!),
+            ),
+            const SizedBox(height: 14),
+
+            // المدينة المستهدفة
+            _labelText('المدينة المستهدفة (اختياري)'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _targetCity.isNotEmpty ? _targetCity : null,
+              decoration: InputDecoration(
+                hintText: 'كل المدن',
+                hintStyle: const TextStyle(fontFamily: 'Cairo'),
+                prefixIcon: const Icon(Icons.location_city, color: Colors.deepPurple),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(color: Colors.deepPurple, width: 1.4),
+                ),
+              ),
+              isExpanded: true,
+              menuMaxHeight: 300,
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('كل المدن', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+                ...SaudiCities.all.map((city) => DropdownMenuItem(
+                      value: city,
+                      child: Text(city, style: const TextStyle(fontFamily: 'Cairo')),
+                    )),
+              ],
+              onChanged: (v) => setState(() => _targetCity = v ?? ''),
             ),
             const SizedBox(height: 14),
 

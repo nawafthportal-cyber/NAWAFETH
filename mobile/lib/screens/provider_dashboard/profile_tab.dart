@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:nawafeth/constants/saudi_cities.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/profile_service.dart';
@@ -321,22 +322,56 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 12),
             editing
-                ? TextField(
-                    controller: controllers[key],
-                    maxLines: maxLines,
-                    style: const TextStyle(fontFamily: 'Cairo'),
-                    decoration: InputDecoration(
-                      hintText: 'أدخل $label',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: mainColor),
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      isDense: true,
-                      contentPadding: const EdgeInsets.all(12),
-                    ),
-                  )
+                ? (key == 'location'
+                    ? DropdownButtonFormField<String>(
+                        value: SaudiCities.all.contains(controllers[key]?.text)
+                            ? controllers[key]!.text
+                            : null,
+                        decoration: InputDecoration(
+                          hintText: 'اختر المدينة',
+                          hintStyle: const TextStyle(fontFamily: 'Cairo'),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: mainColor),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          isDense: true,
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                        isExpanded: true,
+                        menuMaxHeight: 300,
+                        items: SaudiCities.all
+                            .map((city) => DropdownMenuItem(
+                                  value: city,
+                                  child: Text(city,
+                                      style: const TextStyle(fontFamily: 'Cairo')),
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() {
+                              controllers[key]!.text = v;
+                            });
+                          }
+                        },
+                      )
+                    : TextField(
+                        controller: controllers[key],
+                        maxLines: maxLines,
+                        style: const TextStyle(fontFamily: 'Cairo'),
+                        decoration: InputDecoration(
+                          hintText: 'أدخل $label',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: mainColor),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                          isDense: true,
+                          contentPadding: const EdgeInsets.all(12),
+                        ),
+                      ))
                 : Text(
                     (controllers[key]?.text ?? '').isEmpty
                         ? '—'

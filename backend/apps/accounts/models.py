@@ -41,6 +41,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     first_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
 
     role_state = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.VISITOR)
 

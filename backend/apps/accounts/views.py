@@ -129,6 +129,7 @@ def _me_payload(user: User) -> dict:
         "username": user.username,
         "first_name": getattr(user, "first_name", None),
         "last_name": getattr(user, "last_name", None),
+        "city": getattr(user, "city", None),
         "role_state": role_state,
         "has_provider_profile": has_provider_profile,
         "is_provider": is_provider,
@@ -262,7 +263,7 @@ def me_view(request):
                 user.phone = new_phone
 
         # Optional fields (allow clearing by sending empty string)
-        for field in ("email", "first_name", "last_name"):
+        for field in ("email", "first_name", "last_name", "city"):
             if field in data:
                 val = data.get(field)
                 setattr(user, field, val)
@@ -533,6 +534,7 @@ def complete_registration(request):
     user.first_name = s.validated_data["first_name"]
     user.last_name = s.validated_data["last_name"]
     user.email = s.validated_data["email"]
+    user.city = s.validated_data.get("city")
     user.set_password(s.validated_data["password"])
     user.terms_accepted_at = timezone.now()
 
@@ -546,6 +548,7 @@ def complete_registration(request):
             "first_name",
             "last_name",
             "email",
+            "city",
             "password",
             "terms_accepted_at",
             "role_state",
