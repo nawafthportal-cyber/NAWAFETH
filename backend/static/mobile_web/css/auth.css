@@ -1,45 +1,73 @@
+/* ═══════════════════════════════════
+   Auth Pages — Matching Flutter Mobile
+   ═══════════════════════════════════ */
+
 .nw-auth-shell {
   min-height: calc(100vh - 140px);
   display: grid;
   place-items: center;
   padding: 16px;
+  background: #f3f4f8;
 }
 
+/* ── Login Card ── */
 .nw-auth-card {
-  width: min(460px, 100%);
+  width: min(400px, 100%);
   background: #fff;
-  border: 1px solid #e7e7f0;
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 16px 30px rgba(16, 24, 40, 0.08);
+  border-radius: var(--nw-radius);
+  padding: 20px;
+  box-shadow: 0 6px 12px rgba(0,0,0,0.05);
   display: grid;
   gap: 14px;
 }
 
 .nw-auth-card-wide {
-  width: min(760px, 100%);
+  width: min(470px, 100%);
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.045);
+  padding: 18px;
 }
 
 .nw-auth-card h1 {
   margin: 0;
-  color: var(--nw-primary);
-  font-size: 1.45rem;
+  color: var(--nw-deep-purple);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .nw-auth-subtitle {
   margin: 0;
-  color: #475467;
-  font-size: 0.93rem;
+  color: rgba(0,0,0,0.54);
+  font-size: 13px;
 }
 
 .nw-auth-phone {
-  margin: -8px 0 0;
+  margin: -4px 0 0;
   font-weight: 700;
-  color: #101828;
+  font-size: 14px;
+  color: rgba(0,0,0,0.87);
   direction: ltr;
   text-align: center;
 }
 
+/* ── OTP Icon Header ── */
+.nw-auth-icon-box {
+  width: 46px;
+  height: 46px;
+  background: #efe7ff;
+  border-radius: var(--nw-radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+}
+
+.nw-auth-icon-box .material-icons-round {
+  font-size: 24px;
+  color: var(--nw-deep-purple);
+}
+
+/* ── Form Fields (matching Flutter InputDecoration) ── */
 .nw-auth-form {
   display: grid;
   gap: 10px;
@@ -47,35 +75,65 @@
 
 .nw-auth-form label {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   font-weight: 600;
-  color: #344054;
-  font-size: 0.9rem;
+  color: rgba(0,0,0,0.54);
+  font-size: 13px;
 }
 
 .nw-auth-form input,
 .nw-auth-form select {
   width: 100%;
-  border-radius: 11px;
-  border: 1px solid #d0d5dd;
-  background: #fff;
-  padding: 10px 12px;
+  border-radius: var(--nw-radius-sm);
+  border: 1px solid var(--nw-input-border);
+  background: var(--nw-input-bg);
+  padding: 12px 12px;
   font-family: inherit;
-  font-size: 0.92rem;
+  font-size: 14px;
+  color: #101828;
+  transition: var(--nw-transition);
 }
 
 .nw-auth-form input:focus,
 .nw-auth-form select:focus {
-  outline: 2px solid rgba(102, 61, 144, 0.22);
-  border-color: var(--nw-primary);
+  outline: none;
+  border-color: var(--nw-deep-purple);
+  border-width: 1.35px;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(102,61,144,0.08);
 }
 
+.nw-auth-form input::placeholder {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.nw-auth-form .field-with-icon {
+  position: relative;
+}
+
+.nw-auth-form .field-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nw-deep-purple);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.nw-auth-form .field-with-icon input {
+  padding-right: 40px;
+}
+
+/* ── Separator ── */
 .nw-separator {
   position: relative;
   text-align: center;
-  color: #98a2b3;
-  font-size: 0.82rem;
-  font-weight: 700;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 600;
+  margin: 4px 0;
 }
 
 .nw-separator::before {
@@ -84,69 +142,179 @@
   top: 50%;
   right: 0;
   left: 0;
-  border-top: 1px solid #eaecf0;
+  border-top: 1px solid #e5e7eb;
 }
 
 .nw-separator span {
   position: relative;
   display: inline-block;
   background: #fff;
-  padding-inline: 8px;
+  padding-inline: 10px;
 }
 
+/* ── OTP Grid (matching Flutter 62px boxes) ── */
 .nw-otp-grid {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   justify-content: center;
   direction: ltr;
+  padding: 8px 0;
 }
 
 .otp-digit {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
-  border: 1px solid #d0d5dd;
+  width: 62px;
+  height: 62px;
+  border-radius: var(--nw-radius-sm);
+  border: 1px solid var(--nw-input-border);
+  background: var(--nw-input-bg);
   text-align: center;
-  font-size: 1.4rem;
+  font-family: "Cairo", sans-serif;
+  font-size: 22px;
   font-weight: 700;
-  color: var(--nw-primary);
+  color: var(--nw-deep-purple);
+  transition: var(--nw-transition);
+  caret-color: var(--nw-deep-purple);
 }
 
+.otp-digit:focus {
+  outline: none;
+  border-color: var(--nw-deep-purple);
+  border-width: 1.5px;
+  background: #f4f0ff;
+  box-shadow: 0 0 0 3px rgba(102,61,144,0.1);
+}
+
+/* ── OTP Footer ── */
 .nw-otp-footer {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  color: #667085;
-  font-size: 0.9rem;
+  gap: 6px;
+  color: #374151;
+  font-size: 12.5px;
 }
 
+.nw-otp-footer .nw-link-btn {
+  font-size: 12.5px;
+}
+
+/* ── Countdown Pill ── */
+#resend-timer {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--nw-deep-purple);
+  background: #f4f1ff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  display: inline-block;
+  margin: 0 auto;
+}
+
+/* ── Guest Button (matches Flutter OutlinedButton) ── */
+#guest-btn {
+  width: 100%;
+  border: 1.1px solid rgba(102,61,144,0.35);
+  border-radius: var(--nw-radius-xs);
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  background: #f7f2ff;
+  color: var(--nw-deep-purple);
+  cursor: pointer;
+  transition: var(--nw-transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+#guest-btn:hover {
+  background: #efe7ff;
+}
+
+/* ── Signup Grid ── */
 .nw-signup-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.nw-signup-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
 .nw-signup-grid .nw-checkbox {
-  grid-column: 1 / -1;
   display: flex;
   gap: 8px;
   align-items: center;
+  background: var(--nw-input-bg);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--nw-radius-sm);
+  padding: 10px 12px;
 }
 
 .nw-signup-grid .nw-checkbox input {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--nw-deep-purple);
 }
 
+.nw-signup-grid .nw-checkbox span {
+  font-size: 12.5px;
+}
+
+.nw-signup-grid .nw-checkbox a {
+  color: var(--nw-deep-purple);
+  text-decoration: underline;
+}
+
+/* ── Username Hint ── */
 #username-hint {
   min-height: 16px;
-  font-size: 0.8rem;
+  font-size: 11.5px;
+  color: var(--nw-muted);
+}
+
+/* ── Password Validation Pills ── */
+.nw-password-rules {
+  background: #f8f8fc;
+  border: 1px solid #e9eaf0;
+  border-radius: var(--nw-radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.nw-password-rule {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
   color: #667085;
 }
 
-@media (max-width: 760px) {
-  .nw-signup-grid {
+.nw-password-rule .material-icons-round {
+  font-size: 14px;
+}
+
+.nw-password-rule.is-valid {
+  color: var(--nw-success);
+}
+
+.nw-password-rule.is-valid .material-icons-round {
+  color: var(--nw-success);
+}
+
+@media (max-width: 420px) {
+  .nw-signup-row {
     grid-template-columns: 1fr;
+  }
+  .otp-digit {
+    width: 56px;
+    height: 56px;
+    font-size: 20px;
   }
 }
 

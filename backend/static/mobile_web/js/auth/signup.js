@@ -125,6 +125,36 @@
     const passwordInput = document.getElementById("password");
     const passwordConfirmInput = document.getElementById("password-confirm");
     const termsInput = document.getElementById("terms");
+
+    /* ── Password rules visual feedback (matching Flutter pills) ── */
+    var passwordRulesBox = document.getElementById("password-rules");
+    function updatePasswordRulesUI() {
+      if (!passwordRulesBox || !passwordInput) return;
+      var pw = String(passwordInput.value || "");
+      var checks = {
+        length: pw.length >= 8,
+        lowercase: /[a-z]/.test(pw),
+        uppercase: /[A-Z]/.test(pw),
+        digit: /[0-9]/.test(pw),
+        special: /[!@#$&*~%^()\-_=+{};:,<.>]/.test(pw)
+      };
+      var pills = passwordRulesBox.querySelectorAll(".nw-password-rule");
+      pills.forEach(function(pill) {
+        var rule = pill.getAttribute("data-rule");
+        var icon = pill.querySelector(".material-icons-round");
+        if (checks[rule]) {
+          pill.classList.add("is-valid");
+          if (icon) icon.textContent = "check_circle";
+        } else {
+          pill.classList.remove("is-valid");
+          if (icon) icon.textContent = "radio_button_unchecked";
+        }
+      });
+    }
+    if (passwordInput) {
+      passwordInput.addEventListener("input", updatePasswordRulesUI);
+    }
+
     if (
       !citySelect ||
       !usernameInput ||

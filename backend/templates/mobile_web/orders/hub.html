@@ -3,28 +3,30 @@
 
 {% block title %}الطلبات | نوافذ{% endblock %}
 {% block page_id %}orders-hub{% endblock %}
+{% block nav_orders %}is-active{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'mobile_web/css/orders.css' %}">
 {% endblock %}
 
 {% block content %}
-  <section class="nw-container nw-orders-shell">
+  <section class="nw-orders-shell">
+    <!-- Header with mode toggle -->
     <header class="nw-orders-header">
-      <div>
-        <h1 id="orders-title">طلباتي</h1>
-        <p id="orders-subtitle">عرض وإدارة الطلبات بنفس منطق تطبيق الموبايل.</p>
-      </div>
+      <h1 id="orders-title">طلباتي</h1>
+      <p id="orders-subtitle"></p>
       <div class="nw-mode-toggle" role="group" aria-label="mode-toggle">
         <button type="button" id="mode-client-btn" class="nw-mode-btn is-active">عميل</button>
         <button type="button" id="mode-provider-btn" class="nw-mode-btn">مزود</button>
       </div>
     </header>
 
+    <!-- Search + filter chips -->
     <section class="nw-orders-controls">
-      <label class="nw-orders-search">
-        <input id="orders-search-input" type="search" placeholder="بحث بالعنوان أو الوصف">
-      </label>
+      <div class="nw-orders-search">
+        <span class="material-icons-round">search</span>
+        <input id="orders-search-input" type="search" placeholder="بحث">
+      </div>
       <div class="nw-status-filters" id="orders-status-filters">
         <button type="button" class="nw-status-chip is-active" data-status="">الكل</button>
         <button type="button" class="nw-status-chip" data-status="new">جديد</button>
@@ -36,10 +38,14 @@
 
     <p id="orders-error" class="nw-form-error" hidden></p>
 
+    <!-- List + detail -->
     <div class="nw-orders-layout">
       <div id="orders-list" class="nw-orders-list"></div>
       <aside class="nw-order-detail" id="order-detail-panel">
-        <div class="nw-order-detail-empty" id="order-detail-empty">اختر طلبًا لعرض التفاصيل.</div>
+        <button type="button" class="nw-detail-close-btn" id="detail-close-btn" style="display:none">
+          <span class="material-icons-round">arrow_forward</span> رجوع
+        </button>
+        <div class="nw-order-detail-empty" id="order-detail-empty">اختر طلبًا لعرض التفاصيل</div>
         <div id="order-detail-content" hidden>
           <h3 id="order-detail-title"></h3>
           <div id="order-detail-meta" class="nw-order-detail-meta"></div>

@@ -3,40 +3,59 @@
 
 {% block title %}الرئيسية | نوافذ{% endblock %}
 {% block page_id %}home-index{% endblock %}
+{% block nav_home %}is-active{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'mobile_web/css/home.css' %}">
 {% endblock %}
 
 {% block content %}
+  <!-- ═══ Hero Section (matches mobile 280px video hero) ═══ -->
   <section class="nw-home-hero">
-    <div class="nw-container">
-      <h1>اعثر على الخدمة المناسبة</h1>
-      <p>واجهة ويب متزامنة مع نفس API المستخدم في تطبيق الموبايل.</p>
-      <div class="nw-home-actions">
-        <a class="nw-primary-btn" href="{% url 'mobile_web:login' %}">تسجيل الدخول</a>
-        <a class="nw-secondary-btn" href="{% url 'mobile_web:provider_dashboard' %}">لوحة مزود الخدمة</a>
+    <div class="nw-hero-topbar">
+      <span class="nw-hero-logo">نوافــذ</span>
+      <div class="nw-hero-actions">
+        <a class="nw-hero-icon-btn" href="{% url 'mobile_web:profile' %}" title="الإشعارات">
+          <span class="material-icons-round" style="font-size:18px">notifications_none</span>
+        </a>
+        <a class="nw-hero-icon-btn" href="{% url 'mobile_web:profile' %}" title="المحادثات">
+          <span class="material-icons-round" style="font-size:18px">chat_bubble_outline</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="nw-hero-content">
+      <h1 class="nw-hero-tagline">اعثر على الخدمة المناسبة</h1>
+      <p class="nw-hero-subtitle" id="hero-provider-count">يمكنك تصفح مقدمي الخدمة واختيار الأنسب</p>
+
+      <div class="nw-hero-search">
+        <span class="material-icons-round">search</span>
+        <input type="text" placeholder="ابحث عن خدمة أو مقدم خدمة..." readonly>
       </div>
     </div>
   </section>
 
-  <section class="nw-container nw-home-section">
+  <!-- ═══ Categories Section ═══ -->
+  <section class="nw-home-section">
     <div class="nw-section-head">
-      <h2>التصنيفات</h2>
+      <h2 class="nw-section-title">التصنيفات</h2>
     </div>
     <div id="categories-list" class="nw-chip-list"></div>
   </section>
 
-  <section class="nw-container nw-home-section">
+  <!-- ═══ Featured Providers ═══ -->
+  <section class="nw-home-section">
     <div class="nw-section-head">
-      <h2>مقدمو الخدمة</h2>
+      <h2 class="nw-section-title">مقدمو الخدمة</h2>
+      <a class="nw-section-link" href="#">عرض الكل</a>
     </div>
-    <div id="providers-list" class="nw-provider-grid"></div>
+    <div id="providers-list" class="nw-provider-scroll"></div>
   </section>
 
-  <section class="nw-container nw-home-section">
+  <!-- ═══ Promo Banners ═══ -->
+  <section class="nw-home-section">
     <div class="nw-section-head">
-      <h2>العروض الترويجية</h2>
+      <h2 class="nw-section-title">عروض ترويجية</h2>
     </div>
     <div id="banners-list" class="nw-banner-row"></div>
   </section>

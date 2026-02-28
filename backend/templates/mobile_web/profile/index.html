@@ -3,51 +3,143 @@
 
 {% block title %}نافذتي | نوافذ{% endblock %}
 {% block page_id %}profile-index{% endblock %}
+{% block nav_profile %}is-active{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'mobile_web/css/profile.css' %}">
 {% endblock %}
 
 {% block content %}
-  <section class="nw-container nw-profile-shell">
+  <section class="nw-profile-shell">
+    <!-- Login required -->
     <div id="profile-login-required" class="nw-profile-login" hidden>
-      <p>يجب تسجيل الدخول أولاً.</p>
-      <a class="nw-primary-btn" href="{% url 'mobile_web:login' %}">تسجيل الدخول</a>
+      <div class="nw-profile-login-icon">
+        <span class="material-icons-round">cloud_off</span>
+      </div>
+      <h3>يجب تسجيل الدخول أولاً</h3>
+      <p>سجّل دخولك لعرض ملفك الشخصي</p>
+      <a class="nw-primary-btn" href="{% url 'mobile_web:login' %}">
+        <span class="material-icons-round" style="font-size:16px">login</span>
+        تسجيل الدخول
+      </a>
     </div>
 
     <div id="profile-content" hidden>
-      <header class="nw-profile-header">
-        <div class="nw-profile-avatar" id="profile-avatar"></div>
-        <div>
-          <h1 id="profile-display-name">-</h1>
-          <p id="profile-username">@---</p>
-          <p id="profile-contact"></p>
+      <!-- Header: cover + avatar + info + stats -->
+      <div class="nw-profile-header">
+        <div class="nw-profile-cover">
+          <div class="nw-profile-cover-actions">
+            <button type="button" class="nw-cover-icon-btn" title="المحادثات">
+              <span class="material-icons-round">chat_bubble_outline</span>
+            </button>
+            <button type="button" class="nw-cover-icon-btn" title="الإشعارات">
+              <span class="material-icons-round">notifications_none</span>
+            </button>
+          </div>
         </div>
-      </header>
-
-      <section class="nw-profile-stats">
-        <article class="nw-profile-stat"><span>أتابع</span><strong id="stat-following">0</strong></article>
-        <article class="nw-profile-stat"><span>إعجابات</span><strong id="stat-likes">0</strong></article>
-        <article class="nw-profile-stat"><span>مفضلتي</span><strong id="stat-favorites">0</strong></article>
-      </section>
-
-      <section class="nw-profile-mode">
-        <div>
-          <h2>وضع الحساب</h2>
-          <p id="profile-mode-hint">وضع العميل</p>
+        <div class="nw-profile-info">
+          <div class="nw-profile-avatar" id="profile-avatar">
+            <span class="material-icons-round">person</span>
+          </div>
+          <h2 class="nw-profile-display-name" id="profile-display-name">—</h2>
+          <p class="nw-profile-username" id="profile-username">@---</p>
+          <!-- Stats row -->
+          <div class="nw-profile-stats">
+            <div class="nw-profile-stat">
+              <strong id="stat-following">0</strong>
+              <span>أتابع</span>
+            </div>
+            <div class="nw-profile-stat-divider"></div>
+            <div class="nw-profile-stat">
+              <strong id="stat-likes">0</strong>
+              <span>إعجاب</span>
+            </div>
+            <div class="nw-profile-stat-divider"></div>
+            <div class="nw-profile-stat">
+              <strong id="stat-favorites">0</strong>
+              <span>مفضلتي</span>
+            </div>
+          </div>
         </div>
-        <button type="button" id="profile-mode-btn" class="nw-secondary-btn">تبديل الوضع</button>
-      </section>
+      </div>
 
-      <section class="nw-profile-actions">
-        <a href="{% url 'mobile_web:orders' %}" class="nw-profile-action">طلباتي</a>
-        <a href="{% url 'mobile_web:interactive' %}" class="nw-profile-action">تفاعلي</a>
-        <a href="{% url 'mobile_web:provider_dashboard' %}" class="nw-profile-action">لوحة المزود</a>
-        <a href="{% url 'mobile_web:home' %}" class="nw-profile-action">الرئيسية</a>
-      </section>
+      <!-- Account mode toggle -->
+      <div class="nw-profile-mode" id="profile-mode-toggle" hidden>
+        <button type="button" class="nw-profile-mode-btn is-active" id="profile-mode-client">
+          <span class="material-icons-round">person</span> عميل
+        </button>
+        <button type="button" class="nw-profile-mode-btn" id="profile-mode-provider">
+          <span class="material-icons-round">work_outline</span> مقدم خدمة
+        </button>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="nw-profile-quick-actions">
+        <a href="{% url 'mobile_web:orders' %}" class="nw-quick-action-card">
+          <div class="nw-quick-action-icon"><span class="material-icons-round">shopping_bag</span></div>
+          <span class="nw-quick-action-label">طلباتي</span>
+        </a>
+        <a href="{% url 'mobile_web:interactive' %}" class="nw-quick-action-card">
+          <div class="nw-quick-action-icon"><span class="material-icons-round">chat_bubble_outline</span></div>
+          <span class="nw-quick-action-label">محادثاتي</span>
+        </a>
+        <a href="{% url 'mobile_web:home' %}" class="nw-quick-action-card">
+          <div class="nw-quick-action-icon"><span class="material-icons-round">notifications_none</span></div>
+          <span class="nw-quick-action-label">الإشعارات</span>
+        </a>
+        <a href="{% url 'mobile_web:interactive' %}" class="nw-quick-action-card">
+          <div class="nw-quick-action-icon"><span class="material-icons-round">people_outline</span></div>
+          <span class="nw-quick-action-label">تفاعلي</span>
+        </a>
+      </div>
+
+      <!-- Menu section -->
+      <div class="nw-profile-menu">
+        <a class="nw-menu-tile" id="menu-settings">
+          <div class="nw-menu-tile-icon"><span class="material-icons-round">person_outline</span></div>
+          <div class="nw-menu-tile-text">
+            <p class="nw-menu-tile-label">إعدادات الحساب</p>
+            <p class="nw-menu-tile-subtitle" id="menu-settings-info"></p>
+          </div>
+          <span class="material-icons-round nw-menu-tile-chevron">chevron_left</span>
+        </a>
+        <div class="nw-menu-divider"></div>
+        <a class="nw-menu-tile">
+          <div class="nw-menu-tile-icon"><span class="material-icons-round">qr_code</span></div>
+          <div class="nw-menu-tile-text">
+            <p class="nw-menu-tile-label">QR نافذتي</p>
+          </div>
+          <span class="material-icons-round nw-menu-tile-chevron">chevron_left</span>
+        </a>
+        <div class="nw-menu-divider"></div>
+        <a class="nw-menu-tile" href="{% url 'mobile_web:interactive' %}">
+          <div class="nw-menu-tile-icon"><span class="material-icons-round">bookmark_border</span></div>
+          <div class="nw-menu-tile-text">
+            <p class="nw-menu-tile-label">المحفوظات</p>
+          </div>
+          <span class="nw-menu-tile-trailing" id="menu-favorites-count">0</span>
+          <span class="material-icons-round nw-menu-tile-chevron">chevron_left</span>
+        </a>
+      </div>
+
+      <!-- Provider CTA -->
+      <div class="nw-profile-provider-cta" id="profile-provider-cta" hidden>
+        <div class="nw-cta-icon"><span class="material-icons-round">rocket_launch</span></div>
+        <div class="nw-cta-text">
+          <h4>انضم كمقدم خدمة</h4>
+          <p>شارك مهاراتك وابدأ بتلقي الطلبات</p>
+        </div>
+        <button type="button" class="nw-cta-register-btn" id="provider-register-btn">سجّل الآن</button>
+      </div>
 
       <p id="profile-error" class="nw-form-error" hidden></p>
-      <button type="button" id="profile-logout-btn" class="nw-link-btn">تسجيل الخروج</button>
+
+      <!-- Logout -->
+      <div class="nw-profile-logout">
+        <button type="button" id="profile-logout-btn">
+          <span class="material-icons-round">logout</span> تسجيل الخروج
+        </button>
+      </div>
     </div>
   </section>
 {% endblock %}

@@ -28,6 +28,8 @@
     if (n.includes("ترجم")) return "🌐";
     if (n.includes("برمج") || n.includes("تقن")) return "💻";
     if (n.includes("صيان")) return "🛠️";
+    if (n.includes("تعليم") || n.includes("تدريب")) return "📚";
+    if (n.includes("محاسب") || n.includes("مال")) return "📊";
     return "📌";
   }
 
@@ -44,7 +46,12 @@
     const list = items.length ? items : fallback;
     root.innerHTML = list
       .map(function (cat) {
-        return '<div class="nw-chip">' + iconForCategory(cat.name) + " " + ui.safeText(cat.name) + "</div>";
+        return (
+          '<div class="nw-category-chip">' +
+          '<div class="nw-category-chip__icon">' + iconForCategory(cat.name) + '</div>' +
+          '<span class="nw-category-chip__name">' + ui.safeText(cat.name) + '</span>' +
+          '</div>'
+        );
       })
       .join("");
   }
@@ -53,7 +60,7 @@
     const root = document.getElementById("providers-list");
     if (!root) return;
     if (!items.length) {
-      root.innerHTML = '<div class="nw-list-item">لا توجد بيانات مزودين حالياً.</div>';
+      root.innerHTML = '<div style="padding:16px;color:#667085;font-size:12px">لا توجد بيانات مزودين حالياً.</div>';
       return;
     }
     root.innerHTML = items
@@ -62,22 +69,19 @@
         const avatar = mediaUrl(provider.profile_image || "");
         return (
           '<article class="nw-provider-card">' +
-          '<div class="nw-provider-cover" style="background-image:url(\'' + ui.safeText(cover) + '\')"></div>' +
+          '<div class="nw-provider-cover" style="' + (cover ? "background-image:url('" + ui.safeText(cover) + "')" : "") + '"></div>' +
           '<div class="nw-provider-body">' +
           '<div class="nw-provider-top">' +
-          '<div class="nw-provider-avatar" style="background-image:url(\'' + ui.safeText(avatar) + '\')"></div>' +
-          "<div>" +
-          '<p class="nw-provider-name">' + ui.safeText(provider.display_name || "مزود خدمة") + "</p>" +
-          '<p class="nw-provider-city">' + ui.safeText(provider.city || "—") + "</p>" +
-          "</div>" +
-          "</div>" +
+          '<div class="nw-provider-avatar" style="' + (avatar ? "background-image:url('" + ui.safeText(avatar) + "')" : "") + '"></div>' +
+          '<div style="min-width:0">' +
+          '<p class="nw-provider-name">' + ui.safeText(provider.display_name || "مزود خدمة") + '</p>' +
+          '<p class="nw-provider-city">' + ui.safeText(provider.city || "—") + '</p>' +
+          '</div></div>' +
           '<div class="nw-provider-stats">' +
-          "<span>⭐ " + ui.safeText(provider.rating_avg || "0") + "</span>" +
-          "<span>👥 " + ui.safeText(provider.followers_count || 0) + "</span>" +
-          "<span>❤ " + ui.safeText(provider.likes_count || 0) + "</span>" +
-          "</div>" +
-          "</div>" +
-          "</article>"
+          '<span><span class="material-icons-round" style="color:#f59e0b">star</span>' + ui.safeText(provider.rating_avg || "0") + '</span>' +
+          '<span><span class="material-icons-round">people</span>' + ui.safeText(provider.followers_count || 0) + '</span>' +
+          '<span><span class="material-icons-round" style="color:#ef4444">favorite</span>' + ui.safeText(provider.likes_count || 0) + '</span>' +
+          '</div></div></article>'
         );
       })
       .join("");
@@ -87,7 +91,7 @@
     const root = document.getElementById("banners-list");
     if (!root) return;
     if (!items.length) {
-      root.innerHTML = '<div class="nw-list-item">لا توجد حملات ترويجية مفعلة الآن.</div>';
+      root.innerHTML = '<div style="padding:16px;color:#667085;font-size:12px">لا توجد حملات ترويجية مفعلة الآن.</div>';
       return;
     }
     root.innerHTML = items
@@ -95,12 +99,11 @@
         const imageUrl = mediaUrl(banner.file_url || "");
         return (
           '<article class="nw-banner-card">' +
-          '<div class="nw-banner-image" style="background-image:url(\'' + ui.safeText(imageUrl) + '\')"></div>' +
-          '<div class="nw-banner-meta">' +
-          "<strong>" + ui.safeText(banner.caption || "عرض ترويجي") + "</strong>" +
-          "<span>" + ui.safeText(banner.provider_display_name || "") + "</span>" +
-          "</div>" +
-          "</article>"
+          '<div class="nw-banner-image" style="' + (imageUrl ? "background-image:url('" + ui.safeText(imageUrl) + "')" : "") + '"></div>' +
+          '<div class="nw-banner-overlay">' +
+          '<p class="nw-banner-caption">' + ui.safeText(banner.caption || "عرض ترويجي") + '</p>' +
+          '<p class="nw-banner-provider">' + ui.safeText(banner.provider_display_name || "") + '</p>' +
+          '</div></article>'
         );
       })
       .join("");
@@ -117,6 +120,15 @@
       renderCategories(asList(categoriesPayload));
       renderProviders(asList(providersPayload));
       renderBanners(asList(bannersPayload));
+
+      /* update provider count in hero */
+      var providerCount = 0;
+      if (providersPayload && providersPayload.count) providerCount = providersPayload.count;
+      else providerCount = asList(providersPayload).length;
+      var countEl = document.getElementById("hero-provider-count");
+      if (countEl && providerCount > 0) {
+        countEl.textContent = providerCount + " مقدم خدمة متاح حالياً";
+      }
     } catch (_error) {
       renderCategories([]);
       renderProviders([]);

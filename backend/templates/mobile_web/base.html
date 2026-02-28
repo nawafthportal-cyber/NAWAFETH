@@ -3,33 +3,76 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#663d90">
   <title>{% block title %}نوافذ ويب{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <link rel="stylesheet" href="{% static 'mobile_web/css/theme.css' %}">
   {% block styles %}{% endblock %}
 </head>
 <body data-page="{% block page_id %}base{% endblock %}">
+
+  <!-- ═══ Top Bar (matches mobile AppBar) ═══ -->
   <header class="nw-topbar">
-    <div class="nw-container nw-topbar-content">
-      <a class="nw-brand" href="{% url 'mobile_web:home' %}">نوافذ</a>
-      <nav class="nw-nav">
+    <div class="nw-topbar-content">
+      <a class="nw-brand" href="{% url 'mobile_web:home' %}">نوافــذ</a>
+
+      <!-- Desktop nav -->
+      <nav class="nw-nav-desktop">
         <a href="{% url 'mobile_web:home' %}">الرئيسية</a>
         <a href="{% url 'mobile_web:orders' %}">الطلبات</a>
         <a href="{% url 'mobile_web:interactive' %}">تفاعلي</a>
         <a href="{% url 'mobile_web:profile' %}">نافذتي</a>
         <a href="{% url 'mobile_web:provider_dashboard' %}">لوحة المزود</a>
         <a href="{% url 'mobile_web:login' %}" id="nav-auth-link">تسجيل الدخول</a>
-        <button id="nav-logout-btn" class="nw-link-btn" type="button" hidden>تسجيل الخروج</button>
+        <button id="nav-logout-btn" type="button" hidden>تسجيل الخروج</button>
       </nav>
+
+      <!-- Mobile top-right actions -->
+      <div class="nw-topbar-actions">
+        <a class="nw-topbar-btn" href="{% url 'mobile_web:login' %}" id="mobile-auth-link" title="تسجيل">
+          <span class="material-icons-round" style="font-size:18px">login</span>
+        </a>
+        <button class="nw-topbar-btn" id="mobile-logout-btn" type="button" hidden title="خروج">
+          <span class="material-icons-round" style="font-size:18px">logout</span>
+        </button>
+      </div>
     </div>
   </header>
 
+  <!-- ═══ Page Content ═══ -->
   <main class="nw-page">
     {% block content %}{% endblock %}
   </main>
+
+  <!-- ═══ Bottom Navigation (matches CustomBottomNav) ═══ -->
+  <nav class="nw-bottom-nav" id="bottom-nav">
+    <a href="{% url 'mobile_web:home' %}" class="nw-bottom-nav__item {% block nav_home %}{% endblock %}" data-nav="home">
+      <span class="material-icons-round">home</span>
+      <span>الرئيسية</span>
+    </a>
+    <a href="{% url 'mobile_web:orders' %}" class="nw-bottom-nav__item {% block nav_orders %}{% endblock %}" data-nav="orders">
+      <span class="material-icons-round">list_alt</span>
+      <span>طلباتي</span>
+    </a>
+    <div class="nw-bottom-nav__center">
+      <a href="{% url 'mobile_web:provider_dashboard' %}" class="nw-bottom-nav__fab" title="خدمة">
+        <span style="font-size:22px;line-height:1">+</span>
+        <span>خدمة</span>
+      </a>
+    </div>
+    <a href="{% url 'mobile_web:interactive' %}" class="nw-bottom-nav__item {% block nav_interactive %}{% endblock %}" data-nav="interactive">
+      <span class="material-icons-round">group</span>
+      <span>تفاعلي</span>
+    </a>
+    <a href="{% url 'mobile_web:profile' %}" class="nw-bottom-nav__item {% block nav_profile %}{% endblock %}" data-nav="profile">
+      <span class="material-icons-round">person</span>
+      <span>نافذتي</span>
+    </a>
+  </nav>
 
   <script>
     window.NAWAFETH_WEB_CONFIG = {

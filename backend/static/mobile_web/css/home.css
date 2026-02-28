@@ -1,49 +1,124 @@
+/* ═══════════════════════════════════
+   Home Page — Matching Flutter HomeScreen
+   ═══════════════════════════════════ */
+
+/* ── Hero Section (280px, gradient bg like mobile video hero) ── */
 .nw-home-hero {
-  background: linear-gradient(135deg, #4f2f70 0%, #663d90 46%, #8666ba 100%);
-  padding: 42px 0;
-  color: #fff;
+  position: relative;
+  min-height: 280px;
+  background: linear-gradient(to bottom right, #5b2d8e, #7b4daf);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 0;
+  overflow: hidden;
 }
 
-.nw-home-hero h1 {
+.nw-home-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.5), rgba(0,0,0,0.15), transparent);
+  pointer-events: none;
+}
+
+.nw-hero-content {
+  position: relative;
+  z-index: 2;
+  padding: 0 16px 16px;
+}
+
+.nw-hero-tagline {
   margin: 0;
-  font-size: clamp(1.5rem, 3.6vw, 2.4rem);
+  font-size: 16px;
   font-weight: 800;
-}
-
-.nw-home-hero p {
-  margin: 8px 0 0;
-  max-width: 650px;
-  color: rgba(255, 255, 255, 0.86);
-}
-
-.nw-home-actions {
-  margin-top: 18px;
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.nw-home-actions .nw-secondary-btn {
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.4);
-  background: transparent;
 }
 
-.nw-home-section {
-  margin-top: 24px;
+.nw-hero-subtitle {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.85);
 }
 
-.nw-section-head {
+/* ── Search Bar (inside hero, matches mobile) ── */
+.nw-hero-search {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  gap: 8px;
+  background: rgba(255,255,255,0.92);
+  border-radius: var(--nw-radius);
+  padding: 10px 14px;
+  margin-top: 12px;
+  box-shadow: var(--nw-shadow);
 }
 
-.nw-section-head h2 {
-  margin: 0;
-  font-size: 1.12rem;
-  color: #1d2939;
+.nw-hero-search .material-icons-round {
+  font-size: 18px;
+  color: #9ca3af;
+}
+
+.nw-hero-search input {
+  border: none;
+  background: transparent;
+  flex: 1;
+  font-family: inherit;
+  font-size: 12px;
+  color: #374151;
+  outline: none;
+}
+
+.nw-hero-search input::placeholder {
+  color: #9ca3af;
+}
+
+/* ── Top bar inside hero (matches mobile) ── */
+.nw-hero-topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 0;
+}
+
+.nw-hero-logo {
+  font-size: 20px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.38);
+  letter-spacing: 1px;
+}
+
+.nw-hero-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.nw-hero-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--nw-radius-xs);
+  background: rgba(255,255,255,0.15);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: var(--nw-transition);
+  text-decoration: none;
+}
+
+.nw-hero-icon-btn:hover {
+  background: rgba(255,255,255,0.25);
+}
+
+/* ── Categories (horizontal scroll chips) ── */
+.nw-home-section {
+  padding: 0 16px;
+  margin-top: 16px;
 }
 
 .nw-chip-list {
@@ -51,116 +126,194 @@
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
+  scrollbar-width: none;
 }
 
-.nw-chip {
+.nw-chip-list::-webkit-scrollbar { display: none; }
+
+.nw-category-chip {
   flex: 0 0 auto;
-  border-radius: 999px;
-  border: 1px solid #d0d5dd;
-  padding: 8px 12px;
-  background: #fff;
-  color: #344054;
-  font-size: 0.88rem;
-  font-weight: 700;
-}
-
-.nw-provider-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-}
-
-.nw-provider-card {
-  background: #fff;
-  border: 1px solid #eaecf0;
-  border-radius: 14px;
-  overflow: hidden;
-}
-
-.nw-provider-cover {
-  height: 82px;
-  background: linear-gradient(135deg, #c8b6e8 0%, #e2d9f5 100%);
-  background-size: cover;
-  background-position: center;
-}
-
-.nw-provider-body {
-  padding: 10px;
-  display: grid;
-  gap: 8px;
-}
-
-.nw-provider-top {
   display: flex;
-  gap: 10px;
+  flex-direction: column;
   align-items: center;
+  gap: 6px;
+  width: 76px;
 }
 
-.nw-provider-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #f4f2ff;
-  border: 2px solid #fff;
-  margin-top: -20px;
-  background-size: cover;
-  background-position: center;
-}
-
-.nw-provider-name {
-  margin: 0;
-  font-weight: 700;
-  color: #101828;
-}
-
-.nw-provider-city {
-  margin: 0;
-  color: #667085;
-  font-size: 0.84rem;
-}
-
-.nw-provider-stats {
+.nw-category-chip__icon {
+  width: 50px;
+  height: 50px;
+  border-radius: var(--nw-radius);
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
   display: flex;
-  gap: 10px;
-  font-size: 0.8rem;
-  color: #475467;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
 }
 
-.nw-banner-row {
+.nw-category-chip__name {
+  font-size: 10px;
+  font-weight: 600;
+  color: #374151;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ── Provider Cards (horizontal scroll) ── */
+.nw-provider-scroll {
   display: flex;
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 6px;
+  scrollbar-width: none;
 }
 
-.nw-banner-card {
-  min-width: 260px;
-  width: 260px;
-  border-radius: 14px;
-  border: 1px solid #eaecf0;
+.nw-provider-scroll::-webkit-scrollbar { display: none; }
+
+.nw-provider-card {
+  flex: 0 0 150px;
   background: #fff;
+  border-radius: var(--nw-radius);
   overflow: hidden;
+  box-shadow: var(--nw-shadow-card);
 }
 
-.nw-banner-image {
-  height: 130px;
-  background: linear-gradient(135deg, #bda6df 0%, #ede6fa 100%);
+.nw-provider-cover {
+  height: 70px;
+  background: linear-gradient(135deg, #c8b6e8 0%, #e2d9f5 100%);
   background-size: cover;
   background-position: center;
+  border-radius: var(--nw-radius) var(--nw-radius) 0 0;
 }
 
-.nw-banner-meta {
+.nw-provider-body {
   padding: 8px 10px;
   display: grid;
   gap: 4px;
 }
 
-.nw-banner-meta strong {
-  font-size: 0.9rem;
+.nw-provider-top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
-.nw-banner-meta span {
-  color: #667085;
-  font-size: 0.82rem;
+.nw-provider-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #f4f2ff;
+  border: 2px solid #fff;
+  margin-top: -18px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.nw-provider-name {
+  margin: 0;
+  font-weight: 700;
+  font-size: 10.5px;
+  color: #101828;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-provider-city {
+  margin: 0;
+  color: var(--nw-muted);
+  font-size: 9px;
+}
+
+.nw-provider-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: #475467;
+  align-items: center;
+}
+
+.nw-provider-stats span {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nw-provider-stats .material-icons-round {
+  font-size: 11px;
+}
+
+/* ── Banner Cards (horizontal scroll) ── */
+.nw-banner-row {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scrollbar-width: none;
+}
+
+.nw-banner-row::-webkit-scrollbar { display: none; }
+
+.nw-banner-card {
+  flex: 0 0 220px;
+  height: 130px;
+  border-radius: var(--nw-radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.nw-banner-image {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #bda6df 0%, #ede6fa 100%);
+  background-size: cover;
+  background-position: center;
+}
+
+.nw-banner-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
+}
+
+.nw-banner-caption {
+  margin: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nw-banner-provider {
+  margin: 2px 0 0;
+  font-size: 9px;
+  color: rgba(255,255,255,0.8);
+}
+
+/* ── Provider Grid (desktop) ── */
+.nw-provider-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+@media (min-width: 769px) {
+  .nw-home-hero { min-height: 340px; }
+  .nw-hero-tagline { font-size: 22px; }
+  .nw-home-section { padding: 0; margin-top: 24px; }
+  .nw-home-section,
+  .nw-hero-content,
+  .nw-hero-topbar {
+    max-width: 1120px;
+    margin-inline: auto;
+    width: calc(100% - 32px);
+  }
+  .nw-provider-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
 }
 

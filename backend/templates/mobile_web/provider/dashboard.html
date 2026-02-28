@@ -3,76 +3,235 @@
 
 {% block title %}لوحة مزود الخدمة | نوافذ{% endblock %}
 {% block page_id %}provider-dashboard{% endblock %}
+{% block nav_profile %}is-active{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'mobile_web/css/provider-dashboard.css' %}">
 {% endblock %}
 
 {% block content %}
-  <section class="nw-container nw-provider-hero">
-    <div class="nw-provider-header">
-      <div>
-        <h1 id="provider-name">لوحة مزود الخدمة</h1>
-        <p id="provider-meta">جاري تحميل البيانات...</p>
+<div class="nw-provider-page">
+
+  <!-- Loading state -->
+  <div id="provider-loading" class="nw-provider-loading">
+    <div class="nw-spinner"></div>
+  </div>
+
+  <!-- Error state -->
+  <div id="provider-error-state" class="nw-provider-error-state" hidden>
+    <span class="material-icons-round">cloud_off</span>
+    <p id="provider-error-msg">حدث خطأ في تحميل البيانات</p>
+    <button class="nw-primary-btn" id="provider-retry-btn" type="button">
+      <span class="material-icons-round" style="font-size:18px;vertical-align:middle">refresh</span>
+      إعادة المحاولة
+    </button>
+  </div>
+
+  <!-- Main content (hidden until loaded) -->
+  <div id="provider-main" hidden>
+
+    <!-- ── Cover + Avatar ── -->
+    <div class="nw-provider-cover-wrap">
+      <div class="nw-provider-cover" id="provider-cover">
+        <div class="nw-provider-cover-actions">
+          <button class="nw-switch-client-btn" id="switch-client-btn" type="button">
+            <span class="material-icons-round">person</span>
+            حساب عميل
+          </button>
+          <button class="nw-cover-cam-btn" id="cover-cam-btn" type="button">
+            <span class="material-icons-round">photo_camera_outlined</span>
+          </button>
+        </div>
       </div>
-      <div class="nw-provider-badges">
-        <span id="plan-badge" class="nw-badge">الباقة</span>
-        <span id="completion-badge" class="nw-badge nw-badge-soft">اكتمال الملف</span>
+      <div class="nw-provider-avatar-wrap">
+        <div class="nw-provider-avatar" id="provider-avatar">
+          <span class="material-icons-round">person</span>
+        </div>
+        <button class="nw-provider-avatar-edit" id="avatar-edit-btn" type="button">
+          <span class="material-icons-round">edit</span>
+        </button>
       </div>
     </div>
-    <div class="nw-stat-grid">
-      <div class="nw-stat-card"><span>المتابعون</span><strong id="followers-count">0</strong></div>
-      <div class="nw-stat-card"><span>الإعجابات</span><strong id="likes-count">0</strong></div>
-      <div class="nw-stat-card"><span>التقييم</span><strong id="rating-avg">-</strong></div>
-      <div class="nw-stat-card"><span>الخدمات</span><strong id="services-count">0</strong></div>
-    </div>
-    <p id="provider-error" class="nw-form-error" hidden></p>
-  </section>
 
-  <section class="nw-container nw-tabs-shell">
-    <div class="nw-tabs">
-      <button type="button" class="nw-tab is-active" data-tab="services">الخدمات</button>
-      <button type="button" class="nw-tab" data-tab="reviews">المراجعات</button>
-      <button type="button" class="nw-tab" data-tab="promo">الترويج</button>
-      <button type="button" class="nw-tab" data-tab="orders">الطلبات</button>
+    <!-- ── Identity ── -->
+    <div class="nw-provider-identity">
+      <h1 id="provider-name">لوحة مزود الخدمة</h1>
+      <p id="provider-meta">—</p>
     </div>
 
-    <div class="nw-tab-panel is-active" data-panel="services">
-      <form id="service-form" class="nw-inline-form">
-        <input id="service-title" type="text" placeholder="عنوان الخدمة" required>
-        <input id="service-price-from" type="number" step="0.01" min="0" placeholder="من سعر">
-        <input id="service-price-to" type="number" step="0.01" min="0" placeholder="إلى سعر">
-        <select id="service-subcategory"></select>
-        <button type="submit" class="nw-primary-btn">إضافة خدمة</button>
-      </form>
-      <div id="services-list" class="nw-list"></div>
+    <!-- ── Stats Card ── -->
+    <div class="nw-provider-stats-card">
+      <!-- Primary: followers + following -->
+      <div class="nw-provider-primary-stats">
+        <div class="nw-primary-stat">
+          <span class="material-icons-round">groups</span>
+          <span class="nw-primary-stat-value" id="followers-count">0</span>
+          <span class="nw-primary-stat-label">متابع</span>
+        </div>
+        <div class="nw-primary-stat">
+          <span class="material-icons-round">person_add_alt_1</span>
+          <span class="nw-primary-stat-value" id="following-count">0</span>
+          <span class="nw-primary-stat-label">يتابع</span>
+        </div>
+      </div>
+      <!-- Secondary: likes, clients, favorites, QR -->
+      <div class="nw-provider-secondary-stats">
+        <div class="nw-secondary-stat">
+          <span class="material-icons-round">thumb_up_alt</span>
+          <span class="nw-secondary-stat-value" id="likes-count">0</span>
+          <span class="nw-secondary-stat-label">إعجابات</span>
+        </div>
+        <div class="nw-secondary-stat">
+          <span class="material-icons-round">person_outline</span>
+          <span class="nw-secondary-stat-value" id="clients-count">0</span>
+          <span class="nw-secondary-stat-label">عملاء</span>
+        </div>
+        <div class="nw-secondary-stat">
+          <span class="material-icons-round">bookmark_border</span>
+          <span class="nw-secondary-stat-value" id="favorites-count">0</span>
+          <span class="nw-secondary-stat-label">محفوظ</span>
+        </div>
+        <div class="nw-secondary-stat" id="qr-btn" style="cursor:pointer">
+          <span class="material-icons-round">qr_code</span>
+          <span class="nw-secondary-stat-value">&nbsp;</span>
+          <span class="nw-secondary-stat-label">QR</span>
+        </div>
+      </div>
+
+      <!-- Plan card -->
+      <div class="nw-plan-card">
+        <span class="material-icons-round">workspace_premium</span>
+        <span class="nw-plan-card-name" id="plan-name">الباقة المجانية</span>
+        <button class="nw-plan-upgrade-btn" id="plan-upgrade-btn" type="button">ترقية</button>
+      </div>
+
+      <!-- Completion card -->
+      <div class="nw-completion-card" id="completion-card">
+        <div class="nw-completion-header">
+          <span>اكتمال الملف</span>
+          <div class="nw-completion-percent">
+            <span id="completion-percent">30%</span>
+            <span class="material-icons-round">arrow_forward_ios</span>
+          </div>
+        </div>
+        <div class="nw-completion-bar">
+          <div class="nw-completion-bar-fill" id="completion-bar-fill" style="width:30%"></div>
+        </div>
+        <span class="nw-completion-hint">اضغط هنا لإكمال بقية بيانات ملفك التعريفي.</span>
+      </div>
     </div>
 
-    <div class="nw-tab-panel" data-panel="reviews">
-      <div id="reviews-summary" class="nw-summary-box"></div>
-      <div id="reviews-list" class="nw-list"></div>
+    <!-- ── Orders management card ── -->
+    <a class="nw-orders-mgmt-card" id="orders-mgmt-card" href="/m/orders/">
+      <div class="nw-orders-mgmt-icon">
+        <span class="material-icons-round">list_alt</span>
+      </div>
+      <span class="nw-orders-mgmt-label">إدارة الطلبات</span>
+      <span class="nw-orders-badge urgent" id="urgent-badge">0 عاجلة</span>
+      <span class="nw-orders-badge new-orders" id="new-badge">0 جديدة</span>
+    </a>
+
+    <!-- ── Dashboard 2×2 grid ── -->
+    <div class="nw-dashboard-grid">
+      <button class="nw-dashboard-btn" data-tab-target="services" type="button">
+        <span class="material-icons-round">home_repair_service</span>
+        خدماتي
+      </button>
+      <button class="nw-dashboard-btn" data-tab-target="reviews" type="button">
+        <span class="material-icons-round">reviews</span>
+        المراجعات
+      </button>
+      <button class="nw-dashboard-btn" data-tab-target="promo" type="button">
+        <span class="material-icons-round">campaign</span>
+        الترويج
+      </button>
+      <button class="nw-dashboard-btn" data-tab-target="orders" type="button">
+        <span class="material-icons-round">shopping_bag</span>
+        الطلبات
+      </button>
     </div>
 
-    <div class="nw-tab-panel" data-panel="promo">
-      <form id="promo-form" class="nw-inline-form">
-        <input id="promo-title" type="text" placeholder="عنوان الحملة" required>
-        <select id="promo-type">
-          <option value="banner_home">Banner Home</option>
-          <option value="banner_category">Banner Category</option>
-          <option value="banner_search">Banner Search</option>
-          <option value="boost_profile">Boost Profile</option>
-        </select>
-        <input id="promo-start" type="datetime-local" required>
-        <input id="promo-end" type="datetime-local" required>
-        <button type="submit" class="nw-primary-btn">إرسال طلب ترويج</button>
-      </form>
-      <div id="promo-list" class="nw-list"></div>
+    <!-- ── Extra services ── -->
+    <div class="nw-extra-services">
+      <div class="nw-extra-services-title">خدمات إضافية لتعزيز ظهورك:</div>
+      <div class="nw-service-pills">
+        <button class="nw-service-pill green" type="button">
+          <span class="material-icons-round">campaign</span>
+          ترويج
+        </button>
+        <button class="nw-service-pill orange" type="button">
+          <span class="material-icons-round">monetization_on</span>
+          ترقية
+        </button>
+        <button class="nw-service-pill blue" type="button">
+          <span class="material-icons-round">verified</span>
+          توثيق
+        </button>
+      </div>
+      <button class="nw-extra-services-all-btn" type="button">عرض كل الخدمات الإضافية</button>
     </div>
 
-    <div class="nw-tab-panel" data-panel="orders">
-      <div id="orders-list" class="nw-list"></div>
-    </div>
-  </section>
+    <!-- ── Tabs management shell ── -->
+    <section class="nw-tabs-shell" id="tabs-shell">
+      <div class="nw-tabs">
+        <button type="button" class="nw-tab is-active" data-tab="services">
+          <span class="material-icons-round">home_repair_service</span>
+          الخدمات
+        </button>
+        <button type="button" class="nw-tab" data-tab="reviews">
+          <span class="material-icons-round">reviews</span>
+          المراجعات
+        </button>
+        <button type="button" class="nw-tab" data-tab="promo">
+          <span class="material-icons-round">campaign</span>
+          الترويج
+        </button>
+        <button type="button" class="nw-tab" data-tab="orders">
+          <span class="material-icons-round">shopping_bag</span>
+          الطلبات
+        </button>
+      </div>
+
+      <div class="nw-tab-panel is-active" data-panel="services">
+        <form id="service-form" class="nw-inline-form">
+          <input id="service-title" type="text" placeholder="عنوان الخدمة" required>
+          <input id="service-price-from" type="number" step="0.01" min="0" placeholder="من سعر">
+          <input id="service-price-to" type="number" step="0.01" min="0" placeholder="إلى سعر">
+          <select id="service-subcategory"></select>
+          <button type="submit" class="nw-primary-btn">إضافة خدمة</button>
+        </form>
+        <div id="services-list" class="nw-list"></div>
+      </div>
+
+      <div class="nw-tab-panel" data-panel="reviews">
+        <div id="reviews-summary" class="nw-summary-box"></div>
+        <div id="reviews-list" class="nw-list"></div>
+      </div>
+
+      <div class="nw-tab-panel" data-panel="promo">
+        <form id="promo-form" class="nw-inline-form">
+          <input id="promo-title" type="text" placeholder="عنوان الحملة" required>
+          <select id="promo-type">
+            <option value="banner_home">Banner Home</option>
+            <option value="banner_category">Banner Category</option>
+            <option value="banner_search">Banner Search</option>
+            <option value="boost_profile">Boost Profile</option>
+          </select>
+          <input id="promo-start" type="datetime-local" required>
+          <input id="promo-end" type="datetime-local" required>
+          <button type="submit" class="nw-primary-btn">إرسال طلب ترويج</button>
+        </form>
+        <div id="promo-list" class="nw-list"></div>
+      </div>
+
+      <div class="nw-tab-panel" data-panel="orders">
+        <div id="orders-list" class="nw-list"></div>
+      </div>
+    </section>
+
+  </div><!-- /provider-main -->
+
+</div><!-- /nw-provider-page -->
 {% endblock %}
 
 {% block scripts %}

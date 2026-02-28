@@ -1,143 +1,501 @@
+/* ─── Interactive page — matches Flutter InteractiveScreen ─── */
+
 .nw-interactive-shell {
-  display: grid;
-  gap: 12px;
-}
-
-.nw-interactive-header {
-  background: #fff;
-  border: 1px solid #e4e7ec;
-  border-radius: 16px;
-  padding: 14px;
-}
-
-.nw-interactive-header h1 {
-  margin: 0;
-  font-size: 1.22rem;
-  color: #1d2939;
-}
-
-.nw-interactive-header p {
-  margin: 6px 0 0;
-  color: #667085;
-  font-size: 0.9rem;
-}
-
-.nw-interactive-login {
-  border-radius: 14px;
-  border: 1px dashed #d0d5dd;
-  background: #fff;
-  padding: 24px;
-  text-align: center;
-  display: grid;
-  gap: 10px;
-}
-
-.nw-interactive-login p {
-  margin: 0;
-  color: #475467;
-}
-
-.nw-interactive-tabs {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  min-height: calc(100dvh - 112px);
+  background: var(--nw-scaffold-bg, #F5F5FA);
+}
+
+/* ── Tab bar — matches Flutter _buildTabBar ─── */
+.nw-interactive-tabbar {
+  margin: 12px 16px 4px;
+  padding: 3px;
+  background: #E5E7EB;
+  border-radius: 14px;
+  display: flex;
+  gap: 0;
 }
 
 .nw-interactive-tab {
-  border-radius: 999px;
-  border: 1px solid #d0d5dd;
-  background: #fff;
-  color: #344054;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  border-radius: 11px;
+  padding: 7px 6px;
   font-family: inherit;
-  font-size: 0.84rem;
-  font-weight: 700;
-  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
   cursor: pointer;
+  transition: all .18s;
+  white-space: nowrap;
+}
+
+.nw-interactive-tab .material-icons-round {
+  font-size: 15px;
 }
 
 .nw-interactive-tab.is-active {
-  border-color: #b8a5de;
-  background: #f1ecff;
-  color: var(--nw-primary);
+  background: #fff;
+  color: var(--nw-deep-purple);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
 
+/* ── Panels ─── */
 .nw-interactive-panel {
   display: none;
-  margin-top: 10px;
+  flex: 1;
 }
 
 .nw-interactive-panel.is-active {
-  display: grid;
-  gap: 8px;
+  display: block;
 }
 
-.nw-interactive-grid {
+/* ── Following grid — 2-column, matches Flutter crossAxisCount:2, childAspectRatio:0.72 ─── */
+.nw-following-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
+  padding: 12px;
 }
 
-.nw-interactive-card {
-  border: 1px solid #e4e7ec;
-  border-radius: 14px;
+/* Following card — matches Flutter _followingCard */
+.nw-following-card {
   background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.nw-interactive-cover {
-  height: 88px;
-  background: linear-gradient(135deg, #ccb9e8, #ebdefa);
+/* Header row: avatar + name + chat btn */
+.nw-following-header {
+  padding: 6px 8px 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nw-following-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(103,61,144,.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--nw-deep-purple);
+  flex-shrink: 0;
   background-size: cover;
   background-position: center;
 }
 
-.nw-interactive-body {
-  padding: 9px 10px;
-  display: grid;
-  gap: 6px;
+.nw-following-info {
+  flex: 1;
+  min-width: 0;
 }
 
-.nw-interactive-title {
+.nw-following-name {
   margin: 0;
-  font-size: 0.92rem;
-  color: #101828;
-}
-
-.nw-interactive-meta {
-  margin: 0;
-  color: #667085;
-  font-size: 0.8rem;
-}
-
-.nw-interactive-actions {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.nw-following-name .nw-verified-icon {
+  font-size: 12px;
+  color: #22c55e;
+}
+
+.nw-following-city {
+  margin: 0;
+  font-size: 9px;
+  color: #9ca3af;
+}
+
+.nw-following-chat-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: rgba(103,61,144,.08);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.nw-following-chat-btn .material-icons-round {
+  font-size: 14px;
+  color: var(--nw-deep-purple);
+}
+
+/* Cover image */
+.nw-following-cover {
+  flex: 1;
+  margin: 0 6px;
+  border-radius: 10px;
+  background: #f3f4f6;
+  background-size: cover;
+  background-position: center;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nw-following-cover .material-icons-round {
+  font-size: 28px;
+  color: #d1d5db;
+}
+
+/* Stats row */
+.nw-following-stats {
+  padding: 5px 8px;
+  display: flex;
+  justify-content: space-around;
+}
+
+.nw-following-stat {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.nw-following-stat .material-icons-round {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* Unfollow button overlay */
+.nw-following-actions {
+  padding: 0 8px 6px;
+  display: flex;
+  justify-content: center;
+}
+
+.nw-unfollow-btn {
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  background: rgba(239,68,68,.05);
+  color: #dc2626;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all .15s;
+}
+
+.nw-unfollow-btn:hover {
+  background: rgba(239,68,68,.12);
+}
+
+/* ── Followers list — matches Flutter _followerTile (ListView) ─── */
+.nw-followers-list {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
-.nw-interactive-actions button {
-  border: 1px solid #d0d5dd;
-  border-radius: 9px;
-  padding: 6px 10px;
-  font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
+.nw-follower-tile {
   background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 5px rgba(0,0,0,.04);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nw-follower-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(103,61,144,.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--nw-deep-purple);
+  flex-shrink: 0;
+}
+
+.nw-follower-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.nw-follower-name {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.nw-follower-username {
+  margin: 0;
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+.nw-follower-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--nw-deep-purple);
+  border: none;
+  border-radius: 16px;
+  padding: 5px 10px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.nw-interactive-actions button.danger {
-  border-color: #fda29b;
-  color: #b42318;
-  background: #fef3f2;
+.nw-follower-chat-btn .material-icons-round {
+  font-size: 12px;
 }
 
-.nw-interactive-empty {
-  border: 1px dashed #d0d5dd;
-  border-radius: 12px;
-  background: #fff;
-  padding: 16px;
-  color: #667085;
-  font-size: 0.88rem;
+/* ── Favorites grid — 2-column, matches Flutter crossAxisCount:2, childAspectRatio:0.85 ─── */
+.nw-favorites-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 12px;
+}
+
+.nw-favorite-card {
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: .85;
+  background: #f3f4f6;
+}
+
+.nw-favorite-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.nw-favorite-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+}
+
+.nw-favorite-placeholder .material-icons-round {
+  font-size: 32px;
+  color: #d1d5db;
+}
+
+/* Video icon */
+.nw-favorite-video-icon {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0,0,0,.5);
+  border-radius: 6px;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nw-favorite-video-icon .material-icons-round {
+  font-size: 14px;
+  color: #fff;
+}
+
+/* Source badge */
+.nw-favorite-source {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nw-favorite-source.source-spotlight {
+  background: #d97706;
+}
+
+.nw-favorite-source.source-portfolio {
+  background: var(--nw-deep-purple);
+}
+
+/* Bottom overlay */
+.nw-favorite-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24px 8px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,.6));
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.nw-favorite-provider-name {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-favorite-remove-btn {
+  border: none;
+  background: rgba(255,255,255,.2);
+  border-radius: 8px;
+  padding: 4px 8px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.nw-favorite-remove-btn .material-icons-round {
+  font-size: 12px;
+}
+
+/* ── Login required state ─── */
+.nw-interactive-login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
   text-align: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.nw-interactive-login-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(103,61,144,.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nw-interactive-login-icon .material-icons-round {
+  font-size: 44px;
+  color: #d1d5db;
+}
+
+.nw-interactive-login h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0,0,0,.54);
+}
+
+.nw-interactive-login p {
+  margin: 0;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ── Empty state ─── */
+.nw-interactive-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  gap: 12px;
+  text-align: center;
+}
+
+.nw-interactive-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(103,61,144,.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nw-interactive-empty-icon .material-icons-round {
+  font-size: 36px;
+  color: #d1d5db;
+}
+
+.nw-interactive-empty p {
+  margin: 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.nw-interactive-empty .nw-retry-btn {
+  background: var(--nw-deep-purple);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 20px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nw-interactive-empty .nw-retry-btn .material-icons-round {
+  font-size: 15px;
+}
+
+/* ── Desktop: wider cards ─── */
+@media (min-width: 769px) {
+  .nw-following-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .nw-favorites-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 

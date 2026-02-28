@@ -184,16 +184,19 @@
   function syncTopbarAuthState() {
     const authLink = document.getElementById("nav-auth-link");
     const logoutBtn = document.getElementById("nav-logout-btn");
-    if (!authLink || !logoutBtn) {
-      return;
-    }
+    const mobileAuthLink = document.getElementById("mobile-auth-link");
+    const mobileLogoutBtn = document.getElementById("mobile-logout-btn");
 
     if (isAuthenticated()) {
-      authLink.hidden = true;
-      logoutBtn.hidden = false;
+      if (authLink) authLink.hidden = true;
+      if (logoutBtn) logoutBtn.hidden = false;
+      if (mobileAuthLink) mobileAuthLink.hidden = true;
+      if (mobileLogoutBtn) mobileLogoutBtn.hidden = false;
     } else {
-      authLink.hidden = false;
-      logoutBtn.hidden = true;
+      if (authLink) authLink.hidden = false;
+      if (logoutBtn) logoutBtn.hidden = true;
+      if (mobileAuthLink) mobileAuthLink.hidden = false;
+      if (mobileLogoutBtn) mobileLogoutBtn.hidden = true;
     }
   }
 
@@ -223,13 +226,17 @@
 
   document.addEventListener("DOMContentLoaded", function () {
     syncTopbarAuthState();
-    const logoutBtn = document.getElementById("nav-logout-btn");
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", function () {
-        clearSession();
-        window.location.href = urls.home || "/";
-      });
+
+    function doLogout() {
+      clearSession();
+      window.location.href = urls.home || "/";
     }
+
+    var logoutBtn = document.getElementById("nav-logout-btn");
+    if (logoutBtn) logoutBtn.addEventListener("click", doLogout);
+
+    var mobileLogoutBtn = document.getElementById("mobile-logout-btn");
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener("click", doLogout);
   });
 
   window.NawafethApi = Object.freeze({

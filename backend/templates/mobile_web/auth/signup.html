@@ -11,49 +11,97 @@
 {% block content %}
   <section class="nw-auth-shell">
     <div class="nw-auth-card nw-auth-card-wide">
-      <h1>إكمال بيانات التسجيل</h1>
-      <p class="nw-auth-subtitle">هذه المرحلة مطلوبة لتحويل الحساب من `phone_only` إلى `client`.</p>
+      <h1 style="font-size:16px">أكمل بياناتك لتفعيل حسابك</h1>
+      <p class="nw-auth-subtitle">هذه البيانات مطلوبة مرة واحدة فقط</p>
 
       <form id="signup-form" class="nw-auth-form nw-signup-grid" novalidate>
-        <label>الاسم الأول
-          <input id="first-name" name="first_name" type="text" required>
-        </label>
+        <div class="nw-signup-row">
+          <label>
+            <span>الاسم الأول</span>
+            <div class="field-with-icon">
+              <span class="material-icons-round field-icon">person</span>
+              <input id="first-name" name="first_name" type="text" required>
+            </div>
+          </label>
+          <label>
+            <span>الاسم الأخير</span>
+            <div class="field-with-icon">
+              <span class="material-icons-round field-icon">person_outline</span>
+              <input id="last-name" name="last_name" type="text" required>
+            </div>
+          </label>
+        </div>
 
-        <label>الاسم الأخير
-          <input id="last-name" name="last_name" type="text" required>
-        </label>
-
-        <label>اسم المستخدم
-          <input id="username" name="username" type="text" required>
+        <label>
+          <span>اسم المستخدم</span>
+          <div class="field-with-icon">
+            <span class="material-icons-round field-icon">alternate_email</span>
+            <input id="username" name="username" type="text" required dir="ltr" style="text-align:left">
+          </div>
           <small id="username-hint"></small>
         </label>
 
-        <label>البريد الإلكتروني
-          <input id="email" name="email" type="email" required>
+        <label>
+          <span>البريد الإلكتروني</span>
+          <div class="field-with-icon">
+            <span class="material-icons-round field-icon">email</span>
+            <input id="email" name="email" type="email" required dir="ltr" style="text-align:left">
+          </div>
         </label>
 
-        <label>المدينة
-          <select id="city" name="city" required>
-            <option value="">اختر المدينة</option>
-          </select>
+        <label>
+          <span>المدينة</span>
+          <div class="field-with-icon">
+            <span class="material-icons-round field-icon">location_city</span>
+            <select id="city" name="city" required style="padding-right:40px">
+              <option value="">اختر المدينة</option>
+            </select>
+          </div>
         </label>
 
-        <label>كلمة المرور
-          <input id="password" name="password" type="password" minlength="8" required>
+        <label>
+          <span>كلمة المرور</span>
+          <div class="field-with-icon">
+            <span class="material-icons-round field-icon">lock</span>
+            <input id="password" name="password" type="password" minlength="8" required>
+          </div>
         </label>
 
-        <label>تأكيد كلمة المرور
-          <input id="password-confirm" name="password_confirm" type="password" minlength="8" required>
+        <!-- Password validation pills (matching Flutter pills) -->
+        <div class="nw-password-rules" id="password-rules">
+          <div class="nw-password-rule" data-rule="length">
+            <span class="material-icons-round">radio_button_unchecked</span> 8 أحرف
+          </div>
+          <div class="nw-password-rule" data-rule="lowercase">
+            <span class="material-icons-round">radio_button_unchecked</span> حرف صغير
+          </div>
+          <div class="nw-password-rule" data-rule="uppercase">
+            <span class="material-icons-round">radio_button_unchecked</span> حرف كبير
+          </div>
+          <div class="nw-password-rule" data-rule="digit">
+            <span class="material-icons-round">radio_button_unchecked</span> رقم
+          </div>
+          <div class="nw-password-rule" data-rule="special">
+            <span class="material-icons-round">radio_button_unchecked</span> رمز خاص
+          </div>
+        </div>
+
+        <label>
+          <span>تأكيد كلمة المرور</span>
+          <div class="field-with-icon">
+            <span class="material-icons-round field-icon">lock_outline</span>
+            <input id="password-confirm" name="password_confirm" type="password" minlength="8" required>
+          </div>
         </label>
 
-        <label class="nw-checkbox">
+        <div class="nw-checkbox">
           <input id="terms" name="terms" type="checkbox" required>
-          <span>أوافق على الشروط والأحكام</span>
-        </label>
+          <span>أوافق على <a href="#">الشروط والأحكام</a></span>
+        </div>
       </form>
 
       <p id="signup-error" class="nw-form-error" hidden></p>
-      <button id="signup-btn" class="nw-primary-btn" type="button">إكمال التسجيل</button>
+      <button id="signup-btn" class="nw-primary-btn" type="button" style="width:100%">إكمال التسجيل</button>
     </div>
   </section>
 {% endblock %}

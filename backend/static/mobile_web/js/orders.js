@@ -195,6 +195,10 @@
           ui.safeText(requestTypeLabel(type)) +
           "</span>";
 
+    const providerInfo = order.provider_name
+      ? '<p class="nw-order-card-provider">' + ui.safeText(order.provider_name) + '</p>'
+      : '';
+
     const isActive = Number(order.id) === Number(state.selectedOrderId);
     return (
       '<article class="nw-order-card' +
@@ -202,23 +206,19 @@
       '" data-order-id="' +
       ui.safeText(order.id) +
       '">' +
-      "<h3>" +
-      ui.safeText(displayId(order)) +
-      " - " +
-      ui.safeText(order.title || "طلب") +
-      "</h3>" +
-      '<div class="nw-order-card-meta">' +
-      '<span class="nw-pill ' +
-      toStatusClass(statusGroup) +
-      '">' +
-      ui.safeText(statusLabel) +
-      "</span>" +
+      '<div class="nw-order-card-info">' +
+      '<div class="nw-order-card-row1">' +
+      '<span class="nw-order-card-id">' + ui.safeText(displayId(order)) + '</span>' +
       requestTypePill +
-      '<span class="nw-pill">' +
-      ui.safeText(ui.formatDateTime(order.created_at)) +
-      "</span>" +
-      "</div>" +
-      "</article>"
+      '</div>' +
+      '<p class="nw-order-card-title">' + ui.safeText(order.title || "طلب") + '</p>' +
+      providerInfo +
+      '<p class="nw-order-card-date">' + ui.safeText(ui.formatDateTime(order.created_at)) + '</p>' +
+      '</div>' +
+      '<span class="nw-order-status-badge ' + toStatusClass(statusGroup) + '">' +
+      ui.safeText(statusLabel) +
+      '</span>' +
+      '</article>'
     );
   }
 
@@ -226,7 +226,7 @@
     if (!dom.list) return;
     if (!state.filteredOrders.length) {
       dom.list.innerHTML =
-        '<div class="nw-order-card"><h3>لا توجد طلبات مطابقة.</h3><p class="nw-interactive-meta">غيّر الفلتر أو نص البحث.</p></div>';
+        '<div class="nw-order-card nw-order-card-empty"><h3>لا توجد طلبات</h3><p>غيّر الفلتر أو نص البحث</p></div>';
       return;
     }
     dom.list.innerHTML = state.filteredOrders.map(buildOrderCard).join("");
@@ -499,6 +499,14 @@
     renderDetailAttachments(order);
     renderDetailLogs(order);
     renderDetailOffers(order);
+
+    /* On mobile, open the detail panel as overlay */
+    var panel = document.getElementById("order-detail-panel");
+    var closeBtn = document.getElementById("detail-close-btn");
+    if (panel && window.innerWidth < 769) {
+      panel.classList.add("is-open");
+      if (closeBtn) closeBtn.style.display = "";
+    }
   }
 
   async function loadOrderDetail(orderId) {
@@ -892,8 +900,17 @@
       dom.list.addEventListener("click", onListClick);
     }
     if (dom.detailActions || dom.detailOffers) {
-      const detailRoot = document.getElementById("order-detail-panel");
+      var detailRoot = document.getElementById("order-detail-panel");
       if (detailRoot) detailRoot.addEventListener("click", onDetailClick);
+    }
+
+    /* Mobile: close detail panel overlay */
+    var detailCloseBtn = document.getElementById("detail-close-btn");
+    if (detailCloseBtn) {
+      detailCloseBtn.addEventListener("click", function () {
+        var panel = document.getElementById("order-detail-panel");
+        if (panel) panel.classList.remove("is-open");
+      });
     }
   }
 

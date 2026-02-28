@@ -1,34 +1,38 @@
+/* ─── Orders page — matches Flutter ClientOrdersScreen / ProviderOrdersScreen ─── */
+
 .nw-orders-shell {
-  display: grid;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--nw-scaffold-bg, #F5F5FA);
+  min-height: calc(100dvh - 112px);
 }
 
+/* ── Page header (client/provider toggle) ─── */
 .nw-orders-header {
-  background: linear-gradient(135deg, #4f2f70, #6c3b9f);
-  border-radius: 18px;
-  color: #fff;
-  padding: 16px;
+  background: var(--nw-deep-purple);
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 12px;
 }
 
 .nw-orders-header h1 {
   margin: 0;
-  font-size: 1.3rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
 }
 
 .nw-orders-header p {
-  margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.9rem;
+  display: none; /* Flutter doesn't show subtitle */
 }
 
 .nw-mode-toggle {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.25);
   border-radius: 999px;
   padding: 2px;
 }
@@ -36,151 +40,263 @@
 .nw-mode-btn {
   border: 0;
   background: transparent;
-  color: #fff;
+  color: rgba(255,255,255,.8);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: .78rem;
   font-weight: 700;
-  padding: 6px 12px;
+  padding: 5px 14px;
   border-radius: 999px;
   cursor: pointer;
+  transition: all .18s;
 }
 
 .nw-mode-btn.is-active {
   background: #fff;
-  color: var(--nw-primary);
+  color: var(--nw-deep-purple);
 }
 
+.nw-mode-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* ── Controls: search + filter chips ─── */
 .nw-orders-controls {
-  display: grid;
+  padding: 16px 16px 10px;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
-.nw-orders-search input {
-  width: 100%;
-  border: 1px solid #d0d5dd;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-family: inherit;
-  font-size: 0.9rem;
+/* Search field — matches Flutter Container + Row + TextField */
+.nw-orders-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #fff;
+  border: 1px solid #E5E7EB;
+  border-radius: 14px;
+  padding: 0 12px;
+  height: 46px;
 }
 
+.nw-orders-search .material-icons-round {
+  font-size: 20px;
+  color: #9ca3af;
+}
+
+.nw-orders-search input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: .88rem;
+  color: #1f2937;
+  height: 100%;
+}
+
+.nw-orders-search input::placeholder {
+  color: #9ca3af;
+}
+
+/* Status filter chips — matches Flutter _filterChip */
 .nw-status-filters {
   display: flex;
   gap: 8px;
   overflow-x: auto;
   padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nw-status-chip {
-  border-radius: 999px;
-  border: 1px solid #d0d5dd;
-  background: #fff;
-  color: #344054;
+  border-radius: 22px;
+  border: 1px solid #d1d5db;
+  background: transparent;
+  color: rgba(0,0,0,.54);
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: 12px;
   font-weight: 700;
-  padding: 8px 12px;
+  padding: 8px 14px;
   white-space: nowrap;
   cursor: pointer;
+  transition: all .16s;
 }
 
 .nw-status-chip.is-active {
-  border-color: #b8a5de;
-  background: #f1ecff;
-  color: var(--nw-primary);
+  border-color: var(--nw-deep-purple);
+  background: rgba(103,61,144,.12);
+  color: var(--nw-deep-purple);
 }
 
+/* ── Page error ─── */
+.nw-orders-shell .nw-form-error {
+  margin: 0 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fef3f2;
+  color: #b42318;
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+/* ── Layout: list + detail ─── */
 .nw-orders-layout {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 0 16px 16px;
+  flex: 1;
 }
 
 .nw-orders-list {
-  display: grid;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
+/* ── Order card — matches Flutter _orderCard ─── */
 .nw-order-card {
-  border: 1px solid #e4e7ec;
-  border-radius: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
   background: #fff;
-  padding: 11px;
+  padding: 14px;
   cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.nw-order-card:active {
+  background: #faf9ff;
 }
 
 .nw-order-card.is-active {
-  border-color: #b8a5de;
-  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.08);
+  border-color: var(--nw-deep-purple);
+  box-shadow: 0 4px 16px rgba(103,61,144,.10);
 }
 
-.nw-order-card h3 {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #101828;
-}
-
-.nw-order-card-meta {
-  margin-top: 6px;
+.nw-order-card-info {
+  flex: 1;
+  min-width: 0;
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nw-order-card-row1 {
+  display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
+.nw-order-card-id {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.nw-order-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nw-order-card-provider {
+  font-size: 12px;
+  color: rgba(0,0,0,.45);
+  margin: 0;
+}
+
+.nw-order-card-date {
+  font-size: 12px;
+  color: rgba(0,0,0,.54);
+  margin: 0;
+}
+
+/* Status badge — matches Flutter statusColor container */
+.nw-order-status-badge {
+  flex-shrink: 0;
+  border-radius: 22px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.nw-order-status-badge.status-new {
+  background: rgba(217,119,6,.11);
+  color: #b45309;
+  border: 1px solid rgba(217,119,6,.31);
+}
+
+.nw-order-status-badge.status-in-progress {
+  background: rgba(249,115,22,.11);
+  color: #c2410c;
+  border: 1px solid rgba(249,115,22,.31);
+}
+
+.nw-order-status-badge.status-completed {
+  background: rgba(34,197,94,.11);
+  color: #15803d;
+  border: 1px solid rgba(34,197,94,.31);
+}
+
+.nw-order-status-badge.status-cancelled {
+  background: rgba(239,68,68,.11);
+  color: #dc2626;
+  border: 1px solid rgba(239,68,68,.31);
+}
+
+/* Request type mini pill */
 .nw-pill {
-  border-radius: 999px;
-  padding: 4px 8px;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 10px;
   font-weight: 700;
 }
 
-.nw-pill.status-new {
-  background: #fff6dd;
-  color: #b54708;
-}
-
-.nw-pill.status-in-progress {
-  background: #fff4e5;
-  color: #b54708;
-}
-
-.nw-pill.status-completed {
-  background: #ecfdf3;
-  color: #067647;
-}
-
-.nw-pill.status-cancelled {
-  background: #fef3f2;
-  color: #b42318;
-}
-
 .nw-pill.request-urgent {
-  background: #fee4e2;
-  color: #b42318;
+  background: rgba(239,68,68,.10);
+  color: #dc2626;
 }
 
 .nw-pill.request-competitive {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: rgba(59,130,246,.10);
+  color: #2563eb;
 }
 
+/* ── Detail panel ─── */
 .nw-order-detail {
-  border: 1px solid #e4e7ec;
-  border-radius: 14px;
+  border: 1px solid #E5E7EB;
+  border-radius: 16px;
   background: #fff;
-  padding: 12px;
-  min-height: 320px;
+  padding: 16px;
+  min-height: 200px;
 }
 
 .nw-order-detail-empty {
-  color: #667085;
-  font-size: 0.9rem;
+  color: #9ca3af;
+  font-size: .88rem;
+  text-align: center;
+  padding: 40px 0;
 }
 
 .nw-order-detail h3 {
   margin: 0;
-  color: #1d2939;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .nw-order-detail-meta,
@@ -190,24 +306,43 @@
 .nw-order-detail-attachments,
 .nw-order-detail-logs,
 .nw-order-detail-offers {
-  margin-top: 10px;
-  display: grid;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
+}
+
+.nw-order-detail-meta > strong,
+.nw-order-detail-description > strong,
+.nw-order-detail-finance > strong,
+.nw-order-detail-actions > strong,
+.nw-order-detail-attachments > strong,
+.nw-order-detail-logs > strong,
+.nw-order-detail-offers > strong {
+  font-size: .82rem;
+  color: var(--nw-deep-purple);
+  margin-bottom: 2px;
 }
 
 .nw-order-kv {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  border-bottom: 1px dashed #eaecf0;
-  padding-bottom: 4px;
-  font-size: 0.84rem;
+  border-bottom: 1px solid #f3f4f6;
+  padding-bottom: 5px;
+  font-size: .84rem;
 }
 
 .nw-order-kv strong {
-  color: #344054;
+  color: #6b7280;
+  font-weight: 600;
 }
 
+.nw-order-kv span {
+  color: #1f2937;
+}
+
+/* Action buttons */
 .nw-order-actions-row {
   display: flex;
   gap: 8px;
@@ -215,40 +350,134 @@
 }
 
 .nw-order-actions-row button {
-  border-radius: 10px;
-  border: 1px solid #d0d5dd;
-  padding: 7px 11px;
+  border-radius: 12px;
+  border: 1px solid #d1d5db;
+  padding: 8px 14px;
   font-family: inherit;
-  font-size: 0.82rem;
+  font-size: .82rem;
   font-weight: 700;
   background: #fff;
   cursor: pointer;
+  transition: all .15s;
 }
 
 .nw-order-actions-row button.primary {
-  border-color: var(--nw-primary);
-  background: #f4f1ff;
-  color: var(--nw-primary);
+  border-color: var(--nw-deep-purple);
+  background: rgba(103,61,144,.06);
+  color: var(--nw-deep-purple);
+}
+
+.nw-order-actions-row button.primary:hover {
+  background: rgba(103,61,144,.14);
 }
 
 .nw-order-actions-row button.danger {
-  border-color: #fda29b;
-  background: #fef3f2;
-  color: #b42318;
+  border-color: #fca5a5;
+  background: rgba(239,68,68,.05);
+  color: #dc2626;
 }
 
+.nw-order-actions-row button.danger:hover {
+  background: rgba(239,68,68,.12);
+}
+
+/* Offer cards */
 .nw-order-offer {
-  border: 1px solid #e4e7ec;
-  border-radius: 10px;
-  padding: 8px;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 10px;
   background: #fafafa;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 4px;
+  font-size: .84rem;
 }
 
-@media (max-width: 980px) {
+.nw-order-offer strong {
+  color: #1f2937;
+}
+
+.nw-order-offer button.primary {
+  align-self: flex-start;
+  margin-top: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--nw-deep-purple);
+  background: rgba(103,61,144,.06);
+  color: var(--nw-deep-purple);
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: .8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ── Empty / no-orders card ─── */
+.nw-order-card-empty {
+  text-align: center;
+  padding: 32px 16px;
+  color: #9ca3af;
+}
+
+.nw-order-card-empty h3 {
+  margin: 0 0 4px;
+  font-size: .95rem;
+  color: #6b7280;
+}
+
+/* ── Desktop: side-by-side layout ─── */
+@media (min-width: 769px) {
   .nw-orders-layout {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1.1fr .9fr;
+  }
+
+  .nw-orders-list {
+    max-height: calc(100dvh - 260px);
+    overflow-y: auto;
+  }
+
+  .nw-order-detail {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100dvh - 200px);
+    overflow-y: auto;
+  }
+}
+
+/* Mobile: hide detail panel by default (show on card click) */
+@media (max-width: 768px) {
+  .nw-order-detail {
+    display: none;
+  }
+
+  .nw-order-detail.is-open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    border-radius: 0;
+    padding: 16px;
+    overflow-y: auto;
+    animation: slideUp .25s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  .nw-detail-close-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--nw-deep-purple);
+    font-family: inherit;
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-bottom: 12px;
+    padding: 0;
   }
 }
 

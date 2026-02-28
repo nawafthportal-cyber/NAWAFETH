@@ -11,19 +11,24 @@
 {% block content %}
   <section class="nw-auth-shell">
     <div class="nw-auth-card">
-      <h1>تسجيل الدخول</h1>
-      <p class="nw-auth-subtitle">أدخل رقم الجوال وسيصلك رمز تحقق عبر OTP.</p>
+      <h1>أدخل رقم الجوال لتسجيل الدخول</h1>
+      <p class="nw-auth-subtitle">سيتم إرسال رمز تحقق إلى جوالك</p>
 
       <form id="login-form" class="nw-auth-form" novalidate>
-        <label for="phone-input">رقم الجوال</label>
-        <input id="phone-input" name="phone" type="tel" inputmode="numeric" placeholder="05XXXXXXXX" maxlength="14" required>
+        <div class="field-with-icon">
+          <span class="material-icons-round field-icon">phone_android</span>
+          <input id="phone-input" name="phone" type="tel" inputmode="numeric"
+                 placeholder="05XXXXXXXX" maxlength="14" required
+                 dir="ltr" style="text-align:left">
+        </div>
         <p id="login-error" class="nw-form-error" hidden></p>
-        <button id="send-otp-btn" type="submit" class="nw-primary-btn">إرسال رمز التحقق</button>
+        <button id="send-otp-btn" type="submit" class="nw-primary-btn" style="width:100%">إرسال رمز التحقق</button>
       </form>
 
       <div class="nw-separator"><span>أو</span></div>
 
-      <button id="guest-btn" type="button" class="nw-secondary-btn">
+      <button id="guest-btn" type="button">
+        <span class="material-icons-round" style="font-size:18px">person_outline</span>
         المتابعة كزائر بدون تسجيل
       </button>
 

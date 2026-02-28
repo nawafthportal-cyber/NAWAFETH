@@ -3,27 +3,34 @@
 
 {% block title %}تفاعلي | نوافذ{% endblock %}
 {% block page_id %}interactive-index{% endblock %}
+{% block nav_interactive %}is-active{% endblock %}
 
 {% block styles %}
   <link rel="stylesheet" href="{% static 'mobile_web/css/interactive.css' %}">
 {% endblock %}
 
 {% block content %}
-  <section class="nw-container nw-interactive-shell">
-    <header class="nw-interactive-header">
-      <h1>تفاعلي</h1>
-      <p>متابعة المزودين، المتابعون، والمحفوظات.</p>
-    </header>
-
+  <section class="nw-interactive-shell">
+    <!-- Login required state -->
     <div id="interactive-login-required" class="nw-interactive-login" hidden>
-      <p>يجب تسجيل الدخول لعرض هذه الصفحة.</p>
-      <a href="{% url 'mobile_web:login' %}" class="nw-primary-btn">تسجيل الدخول</a>
+      <div class="nw-interactive-login-icon">
+        <span class="material-icons-round">lock_outline</span>
+      </div>
+      <h3>يجب تسجيل الدخول لعرض هذه الصفحة</h3>
+      <p>سجّل دخولك لمتابعة مزودي الخدمة وحفظ المفضلة</p>
+      <a href="{% url 'mobile_web:login' %}" class="nw-primary-btn">
+        <span class="material-icons-round" style="font-size:16px">login</span>
+        تسجيل الدخول
+      </a>
     </div>
 
+    <!-- Main content -->
     <div id="interactive-content" hidden>
-      <div class="nw-interactive-tabs" id="interactive-tabs"></div>
-      <p id="interactive-error" class="nw-form-error" hidden></p>
-      <div id="interactive-panels"></div>
+      <!-- Tab bar -->
+      <div class="nw-interactive-tabbar" id="interactive-tabs"></div>
+      <p id="interactive-error" class="nw-form-error" style="margin:0 16px" hidden></p>
+      <!-- Panels rendered by JS -->
+      <div id="interactive-panels" style="flex:1;display:flex;flex-direction:column"></div>
     </div>
   </section>
 {% endblock %}

@@ -10,9 +10,16 @@
 
 {% block content %}
   <section class="nw-auth-shell">
-    <div class="nw-auth-card">
-      <h1>التحقق من الرمز</h1>
-      <p class="nw-auth-subtitle">أدخل رمز OTP المكوّن من 4 أرقام المرسل إلى:</p>
+    <div class="nw-auth-card" style="border-radius:22px;box-shadow:0 8px 20px rgba(0,0,0,0.04)">
+
+      <div class="nw-auth-icon-box">
+        <span class="material-icons-round">verified_user</span>
+      </div>
+
+      <h1 style="text-align:center;font-size:17px">أدخل رمز التحقق</h1>
+      <p class="nw-auth-subtitle" style="text-align:center">
+        تم إرسال رمز مكوّن من 4 أرقام إلى
+      </p>
       <p id="otp-phone" class="nw-auth-phone">-</p>
 
       <div class="nw-otp-grid" id="otp-grid">
@@ -25,13 +32,15 @@
       <p id="otp-error" class="nw-form-error" hidden></p>
       <p id="otp-info" class="nw-form-info" hidden></p>
 
-      <button id="verify-btn" class="nw-primary-btn" type="button">تأكيد الرمز</button>
+      <button id="verify-btn" class="nw-primary-btn" type="button" style="width:100%">تأكيد الرمز</button>
 
       <div class="nw-otp-footer">
         <span>لم يصلك الرمز؟</span>
         <button id="resend-btn" class="nw-link-btn" type="button">إعادة الإرسال</button>
       </div>
-      <p id="resend-timer" class="nw-auth-subtitle"></p>
+      <div style="text-align:center">
+        <p id="resend-timer"></p>
+      </div>
     </div>
   </section>
 {% endblock %}
