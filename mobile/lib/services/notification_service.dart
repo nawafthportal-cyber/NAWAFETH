@@ -6,6 +6,11 @@ import 'api_client.dart';
 class NotificationService {
   static const _base = '/api/notifications';
 
+  static String _withMode(String path, String? mode) {
+    if (mode == null || mode.isEmpty) return path;
+    return path.contains('?') ? '$path&mode=$mode' : '$path?mode=$mode';
+  }
+
   // ─── 1. قائمة الإشعارات (مع صفحة) ───
   static Future<NotificationsPage> fetchNotifications({
     String? mode, // client | provider
@@ -40,9 +45,9 @@ class NotificationService {
   }
 
   // ─── 3. تمييز كمقروء ───
-  static Future<bool> markRead(int notifId) async {
+  static Future<bool> markRead(int notifId, {String? mode}) async {
     try {
-      final res = await ApiClient.post('$_base/mark-read/$notifId/');
+      final res = await ApiClient.post(_withMode('$_base/mark-read/$notifId/', mode));
       return res.isSuccess;
     } catch (_) {
       return false;
@@ -50,9 +55,9 @@ class NotificationService {
   }
 
   // ─── 4. تمييز الكل كمقروء ───
-  static Future<bool> markAllRead() async {
+  static Future<bool> markAllRead({String? mode}) async {
     try {
-      final res = await ApiClient.post('$_base/mark-all-read/');
+      final res = await ApiClient.post(_withMode('$_base/mark-all-read/', mode));
       return res.isSuccess;
     } catch (_) {
       return false;
@@ -60,9 +65,9 @@ class NotificationService {
   }
 
   // ─── 5. تبديل التثبيت ───
-  static Future<bool> togglePin(int notifId) async {
+  static Future<bool> togglePin(int notifId, {String? mode}) async {
     try {
-      final res = await ApiClient.post('$_base/actions/$notifId/', body: {'action': 'pin'});
+      final res = await ApiClient.post(_withMode('$_base/actions/$notifId/', mode), body: {'action': 'pin'});
       if (!res.isSuccess) return false;
       final data = res.dataAsMap ?? {};
       return data['is_pinned'] as bool? ?? false;
@@ -72,9 +77,9 @@ class NotificationService {
   }
 
   // ─── 6. تبديل المتابعة ───
-  static Future<bool> toggleFollowUp(int notifId) async {
+  static Future<bool> toggleFollowUp(int notifId, {String? mode}) async {
     try {
-      final res = await ApiClient.post('$_base/actions/$notifId/', body: {'action': 'follow_up'});
+      final res = await ApiClient.post(_withMode('$_base/actions/$notifId/', mode), body: {'action': 'follow_up'});
       if (!res.isSuccess) return false;
       final data = res.dataAsMap ?? {};
       return data['is_follow_up'] as bool? ?? false;
@@ -84,9 +89,9 @@ class NotificationService {
   }
 
   // ─── 7. حذف إشعار ───
-  static Future<bool> deleteNotification(int notifId) async {
+  static Future<bool> deleteNotification(int notifId, {String? mode}) async {
     try {
-      final res = await ApiClient.delete('$_base/actions/$notifId/');
+      final res = await ApiClient.delete(_withMode('$_base/actions/$notifId/', mode));
       return res.isSuccess;
     } catch (_) {
       return false;
@@ -94,8 +99,8 @@ class NotificationService {
   }
 
   // ─── 8. جلب إعدادات التفضيلات ───
-  static Future<List<NotificationPreference>> fetchPreferences() async {
-    final res = await ApiClient.get('$_base/preferences/');
+  static Future<List<NotificationPreference>> fetchPreferences({String? mode}) async {
+    final res = await ApiClient.get(_withMode('$_base/preferences/', mode));
     if (!res.isSuccess) return [];
     final data = res.dataAsMap ?? {};
     final results = data['results'] as List? ?? [];
@@ -104,9 +109,11 @@ class NotificationService {
 
   // ─── 9. تحديث إعدادات التفضيلات (batch) ───
   static Future<PreferencesUpdateResult> updatePreferences(
-      List<Map<String, dynamic>> updates) async {
+      List<Map<String, dynamic>> updates, {
+        String? mode,
+      }) async {
     try {
-      final res = await ApiClient.patch('$_base/preferences/', body: {'updates': updates});
+      final res = await ApiClient.patch(_withMode('$_base/preferences/', mode), body: {'updates': updates});
       if (!res.isSuccess) {
         return PreferencesUpdateResult(success: false, changed: 0, preferences: []);
       }
@@ -138,9 +145,9 @@ class NotificationService {
   }
 
   // ─── 11. حذف الأقدم ───
-  static Future<DeleteOldResult> deleteOld() async {
+  static Future<DeleteOldResult> deleteOld({String? mode}) async {
     try {
-      final res = await ApiClient.post('$_base/delete-old/');
+      final res = await ApiClient.post(_withMode('$_base/delete-old/', mode));
       if (!res.isSuccess) return DeleteOldResult(success: false, deleted: 0, retentionDays: 90);
       final data = res.dataAsMap ?? {};
       return DeleteOldResult(

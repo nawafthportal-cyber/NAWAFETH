@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
+import '../services/account_mode_service.dart';
 import 'notification_settings_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -12,6 +13,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<NotificationModel> _notifications = [];
+  String _activeMode = 'client';
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -23,6 +25,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _initModeAndLoad();
+  }
+
+  Future<void> _initModeAndLoad() async {
+    final mode = await AccountModeService.apiMode();
+    if (!mounted) return;
+    setState(() => _activeMode = mode);
     _loadNotifications();
   }
 
@@ -39,7 +48,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      final page = await NotificationService.fetchNotifications();
+      final page = await NotificationService.fetchNotifications(mode: _activeMode);
       if (!mounted) return;
       setState(() {
         _notifications = page.notifications;
@@ -69,6 +78,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _isLoadingMore = true);
     try {
       final page = await NotificationService.fetchNotifications(
+        mode: _activeMode,
         offset: _notifications.length,
       );
       if (!mounted) return;
@@ -85,7 +95,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   // ─── تمييز الكل كمقروء ───
   Future<void> _markAllRead() async {
-    final success = await NotificationService.markAllRead();
+    final success = await NotificationService.markAllRead(mode: _activeMode);
     if (!mounted) return;
     if (success) {
       setState(() {
@@ -101,7 +111,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   // ─── حذف القديمة ───
   Future<void> _deleteOld() async {
-    final result = await NotificationService.deleteOld();
+    final result = await NotificationService.deleteOld(mode: _activeMode);
     if (!mounted) return;
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -203,7 +213,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         onTap: () async {
           // تمييز كمقروء عند النقر
           if (!notif.isRead) {
-            await NotificationService.markRead(notif.id);
+            await NotificationService.markRead(notif.id, mode: _activeMode);
             setState(() {
               _notifications[index] = notif.copyWith(isRead: true);
             });
@@ -297,22 +307,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               onSelected: (value) async {
                 if (value == 'follow') {
-                  final newVal = await NotificationService.toggleFollowUp(notif.id);
+                  final newVal = await NotificationService.toggleFollowUp(notif.id, mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isFollowUp: newVal);
                   });
                 } else if (value == 'pin' || value == 'unpin') {
-                  final newVal = await NotificationService.togglePin(notif.id);
+                  final newVal = await NotificationService.togglePin(notif.id, mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isPinned: newVal);
                   });
                 } else if (value == 'read') {
-                  await NotificationService.markRead(notif.id);
+                  await NotificationService.markRead(notif.id, mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isRead: true);
                   });
                 } else if (value == 'delete') {
-                  final success = await NotificationService.deleteNotification(notif.id);
+                  final success = await NotificationService.deleteNotification(notif.id, mode: _activeMode);
                   if (success) {
                     setState(() {
                       _notifications.removeAt(index);

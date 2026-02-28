@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import 'chat_detail_screen.dart';
@@ -7,6 +6,7 @@ import 'provider_profile_screen.dart';
 
 import '../services/api_client.dart';
 import '../services/auth_service.dart';
+import '../services/account_mode_service.dart';
 import '../services/interactive_service.dart';
 import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
@@ -51,8 +51,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
     setState(() { _isLoggedIn = loggedIn; _authChecked = true; });
     if (!loggedIn) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final isProviderMode = prefs.getBool('isProvider') ?? false;
+    final isProviderMode = await AccountModeService.isProviderMode();
 
     if (mounted) {
       setState(() => _isProviderMode = isProviderMode);

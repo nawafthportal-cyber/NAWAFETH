@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nawafeth/services/account_mode_service.dart';
 
 // استيراد الخطوات
 import 'steps/personal_info_step.dart';
@@ -468,7 +469,7 @@ class _RegisterServiceProviderPageState
                   onPressed: () async {
                     // ✅ حفظ نوع المستخدم كمقدم خدمة
                     final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('isProvider', true);
+                    await AccountModeService.setProviderMode(true);
                     await prefs.setBool('isProviderRegistered', true);
                     
                     Navigator.pushReplacement(
@@ -496,7 +497,7 @@ class _RegisterServiceProviderPageState
                   onPressed: () async {
                     // ✅ حفظ نوع المستخدم كمقدم خدمة حتى لو أغلق الآن
                     final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('isProvider', true);
+                      await AccountModeService.setProviderMode(true);
                     await prefs.setBool('isProviderRegistered', true);
                     
                     setState(() => _showSuccessOverlay = false);

@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:nawafeth/widgets/app_bar.dart';
 import 'package:nawafeth/widgets/bottom_nav.dart';
 import 'package:nawafeth/widgets/custom_drawer.dart';
 import 'package:nawafeth/services/api_client.dart';
+import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
@@ -536,8 +536,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 color: Colors.transparent,
                 child: InkWell(
                   onTap: () async {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('isProvider', false);
+                    await AccountModeService.setProviderMode(false);
                     
                     if (mounted) {
                       // إظهار إشعار التبديل

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
+import '../services/account_mode_service.dart';
 import '../models/category_model.dart';
 import '../widgets/bottom_nav.dart';
 
@@ -20,6 +21,8 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   // ── API data ──
   List<CategoryModel> _categories = [];
   bool _loadingCats = true;
+  bool _accountChecked = false;
+  bool _isProviderMode = false;
 
   // ── Form state ──
   CategoryModel? _selectedCat;
@@ -35,6 +38,25 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   @override
   void initState() {
     super.initState();
+    _ensureClientMode();
+  }
+
+  Future<void> _ensureClientMode() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    if (!mounted) return;
+    setState(() {
+      _isProviderMode = isProvider;
+      _accountChecked = true;
+    });
+
+    if (_isProviderMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/profile');
+      });
+      return;
+    }
+
     _loadCategories();
   }
 
@@ -115,6 +137,17 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const purple = Colors.deepPurple;
+
+    if (!_accountChecked) {
+      return const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(color: Colors.deepPurple),
+          ),
+        ),
+      );
+    }
 
     return Directionality(
       textDirection: TextDirection.rtl,

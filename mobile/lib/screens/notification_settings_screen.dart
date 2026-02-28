@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
+import '../services/account_mode_service.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -13,6 +14,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 class _NotificationSettingsScreenState
     extends State<NotificationSettingsScreen> {
   List<NotificationPreference> _preferences = [];
+  String _activeMode = 'client';
   bool _isLoading = true;
   String? _errorMessage;
   final Set<String> _savingKeys = {};
@@ -37,6 +39,13 @@ class _NotificationSettingsScreenState
   @override
   void initState() {
     super.initState();
+    _initModeAndLoad();
+  }
+
+  Future<void> _initModeAndLoad() async {
+    final mode = await AccountModeService.apiMode();
+    if (!mounted) return;
+    setState(() => _activeMode = mode);
     _loadPreferences();
   }
 
@@ -47,7 +56,7 @@ class _NotificationSettingsScreenState
     });
 
     try {
-      final prefs = await NotificationService.fetchPreferences();
+      final prefs = await NotificationService.fetchPreferences(mode: _activeMode);
       if (!mounted) return;
       setState(() {
         _preferences = prefs;
@@ -73,7 +82,7 @@ class _NotificationSettingsScreenState
 
     final result = await NotificationService.updatePreferences([
       {'key': pref.key, 'enabled': newVal},
-    ]);
+    ], mode: _activeMode);
 
     if (!mounted) return;
     setState(() => _savingKeys.remove(pref.key));

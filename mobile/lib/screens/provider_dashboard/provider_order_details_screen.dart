@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:nawafeth/services/account_mode_service.dart';
 
 import '../../models/service_request_model.dart';
 import '../../services/marketplace_service.dart';
@@ -53,8 +53,7 @@ class _ProviderOrderDetailsScreenState
   }
 
   Future<void> _ensureProviderAccount() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isProvider = prefs.getBool('isProvider') ?? false;
+    final isProvider = await AccountModeService.isProviderMode();
     if (!mounted) return;
     setState(() {
       _isProviderAccount = isProvider;

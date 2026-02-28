@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../models/chat_thread_model.dart';
 import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
+import '../services/account_mode_service.dart';
 import 'chat_detail_screen.dart';
 
 class MyChatsScreen extends StatefulWidget {
@@ -33,8 +33,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
   }
 
   Future<void> _loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isProvider = prefs.getBool('isProvider') ?? false;
+    final isProvider = await AccountModeService.isProviderMode();
     _myUserId = await AuthService.getUserId();
 
     if (mounted) {

@@ -1,13 +1,33 @@
 import 'package:flutter/material.dart';
+import '../services/account_mode_service.dart';
 import '../constants/colors.dart';
 
-class CustomBottomNav extends StatelessWidget {
+class CustomBottomNav extends StatefulWidget {
   final int currentIndex;
 
   const CustomBottomNav({required this.currentIndex, super.key});
 
+  @override
+  State<CustomBottomNav> createState() => _CustomBottomNavState();
+}
+
+class _CustomBottomNavState extends State<CustomBottomNav> {
+  bool _isProviderMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMode();
+  }
+
+  Future<void> _loadMode() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    if (!mounted) return;
+    setState(() => _isProviderMode = isProvider);
+  }
+
   void _navigate(BuildContext context, int index) {
-    if (currentIndex >= 0 && index == currentIndex) return;
+    if (widget.currentIndex >= 0 && index == widget.currentIndex) return;
 
     switch (index) {
       case 0:
@@ -61,17 +81,20 @@ class CustomBottomNav extends StatelessWidget {
                 IconWithLabel(
                   icon: Icons.home,
                   label: "الرئيسية",
-                  selected: currentIndex == 0,
+                  selected: widget.currentIndex == 0,
                   onTap: () => _navigate(context, 0),
                 ),
 
                 // ✅ طلباتي
-                IconWithLabel(
-                  icon: Icons.list_alt,
-                  label: "طلباتي",
-                  selected: currentIndex == 1,
-                  onTap: () => _navigate(context, 1),
-                ),
+                if (!_isProviderMode)
+                  IconWithLabel(
+                    icon: Icons.list_alt,
+                    label: "طلباتي",
+                    selected: widget.currentIndex == 1,
+                    onTap: () => _navigate(context, 1),
+                  )
+                else
+                  const SizedBox(width: 52),
 
                 // ✅ زر الخدمة في المنتصف
                 const SizedBox(width: 40),
@@ -80,7 +103,7 @@ class CustomBottomNav extends StatelessWidget {
                 IconWithLabel(
                   icon: Icons.group,
                   label: "تفاعلي",
-                  selected: currentIndex == 2,
+                  selected: widget.currentIndex == 2,
                   onTap: () => _navigate(context, 2),
                 ),
 
@@ -88,7 +111,7 @@ class CustomBottomNav extends StatelessWidget {
                 IconWithLabel(
                   icon: Icons.person,
                   label: "نافذتي",
-                  selected: currentIndex == 3,
+                  selected: widget.currentIndex == 3,
                   onTap: () => _navigate(context, 3),
                 ),
               ],
@@ -97,7 +120,7 @@ class CustomBottomNav extends StatelessWidget {
         ),
 
         // ✅ زر "خدمة" العائم في المنتصف - يظهر فقط في الصفحة الرئيسية
-        if (currentIndex == 0)
+        if (widget.currentIndex == 0)
           Positioned(
             bottom: 28,
             child: GestureDetector(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'services/account_mode_service.dart';
 
 // 🟣 الشاشات الرئيسية
 import 'screens/home_screen.dart';
@@ -128,15 +129,96 @@ class _NawafethAppState extends State<NawafethApp> {
           '/orders': (context) => const OrdersHubScreen(),
           '/interactive': (context) => const InteractiveScreen(),
           '/profile': (context) => const MyProfileScreen(),
-          '/add_service': (context) => const AddServiceScreen(),
+          '/add_service': (context) => const _ModeRouteGuard(
+                allowProviderMode: false,
+                redirectRoute: '/profile',
+                child: AddServiceScreen(),
+              ),
 
           // ✅ الشاشات الجديدة
           '/login': (context) => const LoginScreen(),
-          '/search_provider': (context) => const SearchProviderScreen(),
-          '/urgent_request': (context) => const UrgentRequestScreen(),
-          '/request_quote': (context) => const RequestQuoteScreen(),
+          '/search_provider': (context) => const _ModeRouteGuard(
+                allowProviderMode: false,
+                redirectRoute: '/profile',
+                child: SearchProviderScreen(),
+              ),
+          '/urgent_request': (context) => const _ModeRouteGuard(
+                allowProviderMode: false,
+                redirectRoute: '/profile',
+                child: UrgentRequestScreen(),
+              ),
+          '/request_quote': (context) => const _ModeRouteGuard(
+                allowProviderMode: false,
+                redirectRoute: '/profile',
+                child: RequestQuoteScreen(),
+              ),
         },
       ),
     );
+  }
+}
+
+class _ModeRouteGuard extends StatefulWidget {
+  final bool allowProviderMode;
+  final String redirectRoute;
+  final Widget child;
+
+  const _ModeRouteGuard({
+    required this.allowProviderMode,
+    required this.redirectRoute,
+    required this.child,
+  });
+
+  @override
+  State<_ModeRouteGuard> createState() => _ModeRouteGuardState();
+}
+
+class _ModeRouteGuardState extends State<_ModeRouteGuard> {
+  bool _loading = true;
+  bool _allowed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAccess();
+  }
+
+  Future<void> _checkAccess() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    if (!mounted) return;
+
+    final allowed = widget.allowProviderMode ? isProvider : !isProvider;
+    if (!allowed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, widget.redirectRoute);
+      });
+    }
+
+    setState(() {
+      _allowed = allowed;
+      _loading = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.deepPurple),
+        ),
+      );
+    }
+
+    if (!_allowed) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Colors.deepPurple),
+        ),
+      );
+    }
+
+    return widget.child;
   }
 }

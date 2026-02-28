@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../models/service_request_model.dart';
+import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
 import 'client_order_details_screen.dart';
+import 'provider_dashboard/provider_orders_screen.dart';
 
 class ClientOrdersScreen extends StatefulWidget {
   final bool embedded;
@@ -23,14 +25,39 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   List<ServiceRequest> _orders = [];
   bool _loading = true;
   String? _error;
+  bool _accountChecked = false;
+  bool _isProviderMode = false;
 
   @override
   void initState() {
     super.initState();
-    _loadOrders();
+    _ensureClientAccount();
     _searchController.addListener(() {
       if (mounted) setState(() {});
     });
+  }
+
+  Future<void> _ensureClientAccount() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    if (!mounted) return;
+
+    setState(() {
+      _isProviderMode = isProvider;
+      _accountChecked = true;
+    });
+
+    if (_isProviderMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ProviderOrdersScreen()),
+        );
+      });
+      return;
+    }
+
+    _loadOrders();
   }
 
   @override
@@ -154,6 +181,17 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (!_accountChecked) {
+      return const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(color: _mainColor),
+          ),
+        ),
+      );
+    }
 
     if (widget.embedded) {
       return Directionality(

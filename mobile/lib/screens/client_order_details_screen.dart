@@ -3,6 +3,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 
 import '../models/service_request_model.dart';
+import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
 
 class ClientOrderDetailsScreen extends StatefulWidget {
@@ -25,6 +26,8 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   bool _loading = true;
   String? _error;
   bool _saving = false;
+  bool _accountChecked = false;
+  bool _isProviderMode = false;
 
   late final TextEditingController _titleController;
   late final TextEditingController _detailsController;
@@ -48,6 +51,25 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     super.initState();
     _titleController = TextEditingController();
     _detailsController = TextEditingController();
+    _ensureClientAccount();
+  }
+
+  Future<void> _ensureClientAccount() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    if (!mounted) return;
+    setState(() {
+      _isProviderMode = isProvider;
+      _accountChecked = true;
+    });
+
+    if (_isProviderMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/orders');
+      });
+      return;
+    }
+
     _loadDetail();
   }
 
@@ -257,6 +279,17 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    if (!_accountChecked) {
+      return const Directionality(
+        textDirection: TextDirection.rtl,
+        child: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(color: _mainColor),
+          ),
+        ),
+      );
+    }
 
     return Directionality(
       textDirection: TextDirection.rtl,

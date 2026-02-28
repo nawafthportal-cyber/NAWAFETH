@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../services/auth_service.dart';
+import '../services/account_mode_service.dart';
 import '../services/profile_service.dart';
 import '../models/user_profile.dart';
 import 'registration/register_service_provider.dart';
@@ -13,7 +14,7 @@ import 'login_settings_screen.dart';
 import 'plans_screen.dart';
 import 'notifications_screen.dart';
 import 'my_chats_screen.dart';
-import 'client_orders_screen.dart';
+import 'orders_hub_screen.dart';
 import 'interactive_screen.dart';
 
 class MyProfileScreen extends StatefulWidget {
@@ -58,9 +59,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       await prefs.setBool('isProviderRegistered', profile.hasProviderProfile);
 
       final canSwitch = profile.isProvider || profile.hasProviderProfile;
-      final saved = prefs.getBool('isProvider');
-      final effectiveMode = canSwitch ? (saved ?? true) : false;
-      await prefs.setBool('isProvider', effectiveMode);
+      final saved = await AccountModeService.isProviderMode();
+      final effectiveMode = canSwitch ? saved : false;
+      await AccountModeService.setProviderMode(effectiveMode);
 
       setState(() { _userProfile = profile; _isProviderMode = effectiveMode; _isLoading = false; });
     } else {
@@ -265,8 +266,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget _switchModeChip(Color purple) {
     return GestureDetector(
       onTap: () async {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('isProvider', true);
+        await AccountModeService.setProviderMode(true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -350,7 +350,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget _buildQuickActions(bool isDark, Color purple) {
     final actions = [
       _QuickAction(Icons.shopping_bag_outlined, 'طلباتي', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const ClientOrdersScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersHubScreen()));
       }),
       _QuickAction(Icons.chat_bubble_outline_rounded, 'محادثاتي', () {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChatsScreen()));
