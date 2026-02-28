@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
+import '../services/auth_service.dart';
 import '../widgets/custom_drawer.dart';
 import 'twofa_screen.dart';
 
@@ -17,6 +18,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
+  bool _isGuestLoading = false;
   String? _errorMessage;
 
   @override
@@ -81,6 +83,17 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _continueAsGuest() async {
+    if (_isGuestLoading || _isLoading) return;
+
+    setState(() => _isGuestLoading = true);
+    await AuthService.logout();
+    if (!mounted) return;
+    setState(() => _isGuestLoading = false);
+
+    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -89,10 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.deepPurple,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           "تسجيل الدخول",
           style: TextStyle(
@@ -203,6 +213,70 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: Colors.grey.shade300,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Text(
+                        "أو",
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          color: Colors.grey.shade500,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: Colors.grey.shade300,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed:
+                        (_isLoading || _isGuestLoading) ? null : _continueAsGuest,
+                    icon: _isGuestLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.person_outline_rounded, size: 18),
+                    label: const Text(
+                      "الاستمرار كزائر بدون تسجيل دخول",
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.deepPurple,
+                      backgroundColor: const Color(0xFFF7F2FF),
+                      side: BorderSide(
+                        color: AppColors.deepPurple.withAlpha(90),
+                        width: 1.1,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
                   ),
                 ),
               ],
