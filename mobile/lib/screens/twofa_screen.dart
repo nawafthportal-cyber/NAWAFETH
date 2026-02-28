@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
 import 'signup_screen.dart';
 
 class TwoFAScreen extends StatefulWidget {
   final String phone;
   final Widget? redirectTo;
-  /// للتوافق مع الأماكن القديمة التي تستخدم nextPage
   final Widget? nextPage;
 
   const TwoFAScreen({
@@ -20,14 +24,21 @@ class TwoFAScreen extends StatefulWidget {
 }
 
 class _TwoFAScreenState extends State<TwoFAScreen> {
-  final _codeController = TextEditingController();
+  final List<TextEditingController> _digitControllers =
+      List.generate(4, (_) => TextEditingController());
+  final List<FocusNode> _digitFocusNodes = List.generate(4, (_) => FocusNode());
+
+  Timer? _countdownTimer;
+
   bool _isLoading = false;
   bool _isResending = false;
   String? _errorMessage;
 
-  /// العد التنازلي لإعادة الإرسال (60 ثانية)
   int _resendCountdown = 60;
   bool _canResend = false;
+
+  String get _code => _digitControllers.map((c) => c.text).join();
+  bool get _isCodeComplete => RegExp(r'^\d{4}$').hasMatch(_code);
 
   @override
   void initState() {
@@ -35,33 +46,96 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     _startCountdown();
   }
 
-  void _startCountdown() {
-    _resendCountdown = 60;
-    _canResend = false;
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
-      setState(() {
-        _resendCountdown--;
-        if (_resendCountdown <= 0) {
-          _canResend = true;
-        }
-      });
-      return _resendCountdown > 0;
-    });
-  }
-
   @override
   void dispose() {
-    _codeController.dispose();
+    _countdownTimer?.cancel();
+    for (final c in _digitControllers) {
+      c.dispose();
+    }
+    for (final f in _digitFocusNodes) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  /// ✅ التحقق من الرمز عبر الـ API
+  void _setError(String? value) {
+    if (!mounted) return;
+    setState(() => _errorMessage = value);
+  }
+
+  void _clearError() {
+    if (_errorMessage == null) return;
+    _setError(null);
+  }
+
+  void _setCode(String code) {
+    final digits = code.replaceAll(RegExp(r'[^\d]'), '');
+    for (var i = 0; i < 4; i++) {
+      _digitControllers[i].text = i < digits.length ? digits[i] : '';
+    }
+  }
+
+  void _onDigitChanged(int index, String value) {
+    _clearError();
+
+    final normalized = value.replaceAll(RegExp(r'[^\d]'), '');
+    if (normalized.length > 1) {
+      _setCode(normalized);
+      if (_isCodeComplete) {
+        FocusScope.of(context).unfocus();
+      }
+      setState(() {});
+      return;
+    }
+
+    if (normalized.isEmpty) {
+      if (index > 0) {
+        _digitFocusNodes[index - 1].requestFocus();
+      }
+      setState(() {});
+      return;
+    }
+
+    _digitControllers[index].text = normalized;
+    _digitControllers[index].selection = TextSelection.fromPosition(
+      TextPosition(offset: _digitControllers[index].text.length),
+    );
+
+    if (index < 3) {
+      _digitFocusNodes[index + 1].requestFocus();
+    } else {
+      FocusScope.of(context).unfocus();
+    }
+    setState(() {});
+  }
+
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _resendCountdown = 60;
+      _canResend = false;
+    });
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_resendCountdown <= 1) {
+        timer.cancel();
+        setState(() {
+          _resendCountdown = 0;
+          _canResend = true;
+        });
+        return;
+      }
+      setState(() => _resendCountdown -= 1);
+    });
+  }
+
   Future<void> _onVerifyOtp() async {
-    final code = _codeController.text.trim();
-    if (code.length != 4) {
-      setState(() => _errorMessage = 'أدخل رمز التحقق المكون من 4 أرقام');
+    if (!_isCodeComplete) {
+      _setError('أدخل رمز التحقق المكوّن من 4 أرقام');
       return;
     }
 
@@ -70,15 +144,13 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
       _errorMessage = null;
     });
 
-    final result = await AuthApiService.verifyOtp(widget.phone, code);
+    final result = await AuthApiService.verifyOtp(widget.phone, _code);
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result.success) {
-      // ✅ هل يحتاج إكمال البيانات؟
       if (result.needsCompletion) {
-        // الانتقال لشاشة إكمال البيانات
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -88,15 +160,14 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
           ),
         );
       } else {
-        // تسجيل الدخول ناجح — التوجيه
         _navigateAfterLogin();
       }
-    } else {
-      setState(() => _errorMessage = result.error ?? 'الرمز غير صحيح');
+      return;
     }
+
+    _setError(result.error ?? 'الرمز غير صحيح');
   }
 
-  /// ✅ إعادة إرسال الرمز
   Future<void> _onResendOtp() async {
     if (!_canResend || _isResending) return;
 
@@ -112,21 +183,20 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
 
     if (result.success) {
       _startCountdown();
+      final text = result.devCode != null
+          ? 'تم الإرسال - رمز التطوير: ${result.devCode}'
+          : 'تم إرسال رمز جديد';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            result.devCode != null
-                ? 'تم الإرسال — رمز التطوير: ${result.devCode}'
-                : 'تم إرسال رمز جديد',
-            style: const TextStyle(fontFamily: 'Cairo'),
-          ),
+          content: Text(text, style: const TextStyle(fontFamily: 'Cairo')),
           backgroundColor: Colors.green,
           duration: const Duration(seconds: 3),
         ),
       );
-    } else {
-      setState(() => _errorMessage = result.error ?? 'فشل إعادة الإرسال');
+      return;
     }
+
+    _setError(result.error ?? 'فشل إعادة الإرسال');
   }
 
   void _navigateAfterLogin() {
@@ -142,146 +212,259 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     }
   }
 
+  Widget _buildOtpBox(int index) {
+    final hasValue = _digitControllers[index].text.isNotEmpty;
+
+    return SizedBox(
+      width: 62,
+      child: TextField(
+        controller: _digitControllers[index],
+        focusNode: _digitFocusNodes[index],
+        textAlign: TextAlign.center,
+        keyboardType: TextInputType.number,
+        textInputAction: index == 3 ? TextInputAction.done : TextInputAction.next,
+        autofillHints: const [AutofillHints.oneTimeCode],
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(1),
+        ],
+        onSubmitted: (_) {
+          if (index == 3 && _isCodeComplete && !_isLoading) {
+            _onVerifyOtp();
+          }
+        },
+        onChanged: (value) => _onDigitChanged(index, value),
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: AppColors.deepPurple,
+        ),
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+          filled: true,
+          fillColor: hasValue ? const Color(0xFFF4F0FF) : const Color(0xFFF9FAFB),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: hasValue ? AppColors.deepPurple : const Color(0xFFD9DCE3),
+              width: hasValue ? 1.3 : 1.0,
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.deepPurple, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF3F4F8),
       appBar: AppBar(
-        title: const Text("التحقق من الرمز"),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back, color: AppColors.deepPurple),
+        ),
+        title: const Text(
+          'التحقق من الرمز',
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: AppColors.deepPurple,
+          ),
+        ),
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Card(
-            color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-            elevation: 6,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // العنوان
-                  const Text(
-                    "🔐 رمز التحقق",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Cairo',
-                      color: Colors.deepPurple,
+      body: SafeArea(
+        top: false,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-
-                  Text(
-                    "أدخل رمز التحقق المرسل إلى\n${widget.phone}",
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14, fontFamily: 'Cairo'),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // إدخال الكود
-                  TextField(
-                    controller: _codeController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    textAlign: TextAlign.center,
-                    onChanged: (_) => setState(() => _errorMessage = null),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      letterSpacing: 8,
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.bold,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: "••••",
-                      counterText: "",
-                      filled: true,
-                      fillColor: isDark ? Colors.grey[850] : Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Colors.deepPurple,
-                          width: 1.5,
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFE7FF),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.verified_user_outlined,
+                          color: AppColors.deepPurple,
+                          size: 24,
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: Colors.deepPurple,
-                          width: 2,
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'أدخل رمز التحقق',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.deepPurple,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'تم إرسال رمز مكوّن من 4 أرقام إلى',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.phone,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Directionality(
+                      textDirection: TextDirection.ltr,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: List.generate(4, _buildOtpBox),
+                      ),
+                    ),
+                    if (_errorMessage != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12.5,
+                          color: Colors.redAccent,
                         ),
                       ),
-                      errorText: _errorMessage,
-                      errorStyle: const TextStyle(fontFamily: 'Cairo'),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // زر التأكيد
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
+                    ],
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _onVerifyOtp,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: AppColors.deepPurple,
+                        disabledBackgroundColor:
+                            AppColors.deepPurple.withValues(alpha: 0.45),
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      onPressed: _isLoading ? null : _onVerifyOtp,
                       child: _isLoading
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
+                              width: 18,
+                              height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 color: Colors.white,
                               ),
                             )
                           : const Text(
-                              "تأكيد",
+                              'تأكيد الرمز',
                               style: TextStyle(
-                                fontSize: 16,
                                 fontFamily: 'Cairo',
-                                fontWeight: FontWeight.bold,
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
                               ),
                             ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // إعادة الإرسال
-                  TextButton(
-                    onPressed: _canResend ? _onResendOtp : null,
-                    child: _isResending
-                        ? const SizedBox(
-                            height: 16,
-                            width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            _canResend
-                                ? "إعادة إرسال الرمز"
-                                : "إعادة الإرسال بعد $_resendCountdown ثانية",
-                            style: TextStyle(
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'لم يصلك الرمز؟',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12.5,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _canResend && !_isResending ? _onResendOtp : null,
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            minimumSize: const Size(20, 24),
+                          ),
+                          child: _isResending
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text(
+                                  'إعادة الإرسال',
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                    if (!_canResend)
+                      Center(
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF4F1FF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'يمكنك إعادة الإرسال بعد $_resendCountdown ثانية',
+                            style: const TextStyle(
                               fontFamily: 'Cairo',
-                              fontSize: 13,
-                              color: _canResend
-                                  ? Colors.deepPurple
-                                  : Colors.grey,
+                              fontSize: 11.5,
+                              color: AppColors.deepPurple,
                             ),
                           ),
-                  ),
-                ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

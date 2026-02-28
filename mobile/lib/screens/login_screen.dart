@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
 import '../widgets/custom_drawer.dart';
@@ -145,6 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   textDirection: TextDirection.ltr,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
+                  maxLength: 10,
+                  buildCounter:
+                      (
+                        BuildContext context, {
+                        required int currentLength,
+                        required bool isFocused,
+                        required int? maxLength,
+                      }) => null,
                   onChanged: (_) => setState(() => _errorMessage = null),
                   decoration: InputDecoration(
                     labelText: "رقم الجوال",

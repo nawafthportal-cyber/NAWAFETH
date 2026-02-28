@@ -110,6 +110,103 @@ class InteractiveService {
   }
 
   // ────────────────────────────────────────
+  // 📷 البورتفوليو والأضواء — CRUD
+  // ────────────────────────────────────────
+
+  /// جلب معرض أعمالي
+  static Future<ApiResponse> fetchMyPortfolio() {
+    return ApiClient.get('/api/providers/me/portfolio/');
+  }
+
+  /// جلب أضوائي
+  static Future<ApiResponse> fetchMySpotlights() {
+    return ApiClient.get('/api/providers/me/spotlights/');
+  }
+
+  /// جلب معرض أعمال مزود آخر
+  static Future<ApiResponse> fetchProviderPortfolio(int providerId) {
+    return ApiClient.get('/api/providers/$providerId/portfolio/');
+  }
+
+  /// جلب أضواء مزود آخر
+  static Future<ApiResponse> fetchProviderSpotlights(int providerId) {
+    return ApiClient.get('/api/providers/$providerId/spotlights/');
+  }
+
+  /// حذف عنصر من المعرض
+  static Future<ApiResponse> deletePortfolioItem(int itemId) {
+    return ApiClient.delete('/api/providers/me/portfolio/$itemId/');
+  }
+
+  /// حذف عنصر من الأضواء
+  static Future<ApiResponse> deleteSpotlightItem(int itemId) {
+    return ApiClient.delete('/api/providers/me/spotlights/$itemId/');
+  }
+
+  /// إعجاب بعنصر معرض
+  static Future<bool> likePortfolio(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/like/');
+    return resp.isSuccess;
+  }
+
+  /// إلغاء إعجاب بعنصر معرض
+  static Future<bool> unlikePortfolio(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/unlike/');
+    return resp.isSuccess;
+  }
+
+  /// حفظ عنصر معرض
+  static Future<bool> savePortfolio(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/save/');
+    return resp.isSuccess;
+  }
+
+  /// إعجاب بعنصر أضواء
+  static Future<bool> likeSpotlight(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/like/');
+    return resp.isSuccess;
+  }
+
+  /// إلغاء إعجاب بعنصر أضواء
+  static Future<bool> unlikeSpotlight(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/unlike/');
+    return resp.isSuccess;
+  }
+
+  /// حفظ عنصر أضواء
+  static Future<bool> saveSpotlight(int itemId) async {
+    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/save/');
+    return resp.isSuccess;
+  }
+
+  /// إعجاب بمزود
+  static Future<bool> likeProvider(int providerId) async {
+    final resp = await ApiClient.post('/api/providers/$providerId/like/');
+    return resp.isSuccess;
+  }
+
+  /// إلغاء إعجاب بمزود
+  static Future<bool> unlikeProvider(int providerId) async {
+    final resp = await ApiClient.post('/api/providers/$providerId/unlike/');
+    return resp.isSuccess;
+  }
+
+  /// جلب تفاصيل مزود
+  static Future<ApiResponse> fetchProviderDetail(int providerId) {
+    return ApiClient.get('/api/providers/$providerId/');
+  }
+
+  /// جلب خدمات مزود
+  static Future<ApiResponse> fetchProviderServices(int providerId) {
+    return ApiClient.get('/api/providers/$providerId/services/');
+  }
+
+  /// جلب إحصائيات مزود
+  static Future<ApiResponse> fetchProviderStats(int providerId) {
+    return ApiClient.get('/api/providers/$providerId/stats/');
+  }
+
+  // ────────────────────────────────────────
   // 🛠️ مساعدات داخلية
   // ────────────────────────────────────────
 

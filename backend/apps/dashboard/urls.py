@@ -3,6 +3,7 @@ from . import views
 from . import auth_views
 from . import content_views
 from . import reviews_views
+from . import admin_views
 
 app_name = "dashboard"
 
@@ -44,6 +45,12 @@ urlpatterns = [
         views.support_ticket_delete_reported_object_action,
         name="support_ticket_delete_reported_object_action",
     ),
+    path(
+        "support/<int:ticket_id>/actions/add-comment/",
+        admin_views.support_ticket_add_comment,
+        name="support_ticket_add_comment",
+    ),
+    path("support/create/", admin_views.support_ticket_create, name="support_ticket_create"),
 
     path("verification/ops/", views.verification_ops, name="verification_ops"),
     path("verification/inquiries/<int:ticket_id>/", views.verification_inquiry_detail, name="verification_inquiry_detail"),
@@ -147,6 +154,18 @@ urlpatterns = [
     path("extras/<int:extra_id>/actions/activate/", views.extra_activate_action, name="extra_activate_action"),
 
     path("features/", views.features_overview, name="features_overview"),
+
+    # ── Admin views (gap features) ──
+    path("audit-logs/", admin_views.audit_log_list, name="audit_log_list"),
+    path("users/", admin_views.users_list, name="users_list"),
+    path("users/<int:user_id>/", admin_views.user_detail, name="user_detail"),
+    path("users/<int:user_id>/actions/toggle-active/", admin_views.user_toggle_active, name="user_toggle_active"),
+    path("users/<int:user_id>/actions/update-role/", admin_views.user_update_role, name="user_update_role"),
+    path("plans/", admin_views.plans_list, name="plans_list"),
+    path("plans/create/", admin_views.plan_form, name="plan_create"),
+    path("plans/<int:plan_id>/edit/", admin_views.plan_form, name="plan_edit"),
+    path("plans/<int:plan_id>/actions/toggle-active/", admin_views.plan_toggle_active, name="plan_toggle_active"),
+
     path("access-profiles/", views.access_profiles_list, name="access_profiles_list"),
     path(
         "access-profiles/actions/create/",

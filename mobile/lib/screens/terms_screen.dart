@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/content_service.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({super.key});
@@ -8,9 +9,10 @@ class TermsScreen extends StatefulWidget {
 }
 
 class _TermsScreenState extends State<TermsScreen> {
-  final List<bool> _expanded = [false, false, false, false];
+  List<bool> _expanded = [false, false, false, false];
+  bool _isLoading = true;
 
-  final List<Map<String, dynamic>> _terms = [
+  List<Map<String, dynamic>> _terms = [
     {
       "title": "اتفاقية الاستخدام",
       "lastUpdate": "آخر تحديث: 10-08-2025",
@@ -44,6 +46,50 @@ class _TermsScreenState extends State<TermsScreen> {
       "icon": Icons.block_outlined,
     },
   ];
+
+  // Map API doc_type → icon and fallback title
+  static const Map<String, Map<String, dynamic>> _docMeta = {
+    'terms': {'icon': Icons.article_outlined, 'title': 'اتفاقية الاستخدام'},
+    'privacy': {'icon': Icons.privacy_tip_outlined, 'title': 'سياسة الخصوصية'},
+    'regulations': {'icon': Icons.gavel_outlined, 'title': 'الأنظمة والتشريعات المتبعة'},
+    'prohibited_services': {'icon': Icons.block_outlined, 'title': 'الخدمات الممنوعة'},
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContent();
+  }
+
+  Future<void> _loadContent() async {
+    final result = await ContentService.fetchPublicContent();
+    if (!mounted) return;
+    if (result.isSuccess && result.dataAsMap != null) {
+      final data = result.dataAsMap!;
+      final documents = data['documents'] as Map<String, dynamic>?;
+      if (documents != null && documents.isNotEmpty) {
+        final List<Map<String, dynamic>> apiTerms = [];
+        for (final entry in documents.entries) {
+          final docType = entry.key;
+          final doc = entry.value as Map<String, dynamic>? ?? {};
+          final meta = _docMeta[docType] ?? {'icon': Icons.description_outlined, 'title': docType};
+          apiTerms.add({
+            'title': meta['title'],
+            'lastUpdate': doc['published_at'] != null ? 'آخر تحديث: ${doc['published_at']}' : '',
+            'content': doc['file_url']?.toString() ?? '',
+            'icon': meta['icon'],
+          });
+        }
+        if (apiTerms.isNotEmpty) {
+          setState(() {
+            _terms = apiTerms;
+            _expanded = List.filled(apiTerms.length, false);
+          });
+        }
+      }
+    }
+    setState(() => _isLoading = false);
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -1,0 +1,13 @@
+.............................................                            [100%]
+============================== warnings summary ===============================
+apps/dashboard/test_content_reviews_dashboard.py: 5 warnings
+apps/dashboard/tests.py: 35 warnings
+  C:\Users\manso\nawafeth\.venv\Lib\site-packages\django\core\handlers\base.py:62: UserWarning: No directory at: C:\Users\manso\nawafeth\backend\staticfiles\
+    mw_instance = middleware(adapted_handler)
+
+apps/dashboard/tests.py::test_requests_list_export_pdf_returns_pdf_file
+  C:\Users\manso\nawafeth\.venv\Lib\site-packages\reportlab\lib\rl_safe_eval.py:12: DeprecationWarning: ast.NameConstant is deprecated and will be removed in Python 3.14; use ast.Constant instead
+    haveNameConstant = hasattr(ast,'NameConstant')
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+45 passed, 41 warnings in 70.87s (0:01:10)

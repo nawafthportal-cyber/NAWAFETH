@@ -33,7 +33,6 @@ from apps.accounts.models import User
 from apps.messaging.models import Message
 from apps.reviews.models import Review
 from apps.support.models import SupportTicket, SupportTicketStatus, SupportTeam, SupportTicketType
-from apps.support.models import SupportTicketType
 from apps.support.services import change_ticket_status, assign_ticket
 from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, money_round
 from apps.billing.services import init_payment, handle_webhook
@@ -628,7 +627,7 @@ def _compute_actions(user, obj) -> dict:
     status = (obj.status or "").lower()
 
     has_profile = False
-    if status == "sent" and user_id:
+    if status in ("sent", "new") and user_id:
         is_staff = bool(getattr(user, "is_staff", False))
         is_client = obj.client_id == user_id
         if not is_staff and not is_client:

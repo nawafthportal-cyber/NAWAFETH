@@ -1,0 +1,37 @@
+/* Nawafeth admin Arabic polish */
+
+html[dir="rtl"] body,
+html[dir="rtl"] .breadcrumbs,
+html[dir="rtl"] .module h2,
+html[dir="rtl"] .module caption,
+html[dir="rtl"] .submit-row input,
+html[dir="rtl"] .button,
+html[dir="rtl"] input,
+html[dir="rtl"] select,
+html[dir="rtl"] textarea {
+  font-family: "Cairo", Tahoma, "Segoe UI", Arial, sans-serif;
+}
+
+#header {
+  background: #673ab7;
+  color: #fff;
+}
+
+#branding h1,
+#branding h1 a:link,
+#branding h1 a:visited {
+  color: #fff;
+  font-weight: 700;
+}
+
+.nawafeth-admin-subtitle {
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+}
+
+.breadcrumbs {
+  background: #f2f3f8;
+  color: #222;
+  border-bottom: 1px solid #e7e8ef;
+}

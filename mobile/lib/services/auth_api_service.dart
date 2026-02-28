@@ -108,7 +108,28 @@ class AuthApiService {
     );
 
     final data = resp.dataAsMap;
-    if (resp.isSuccess && data != null) {
+    if (resp.statusCode == 0) {
+      return UsernameAvailabilityResult(
+        available: false,
+        message: 'تعذر الاتصال بالخادم أثناء فحص اسم المستخدم',
+      );
+    }
+
+    if (resp.statusCode == 404) {
+      return UsernameAvailabilityResult(
+        available: false,
+        message: 'خدمة فحص اسم المستخدم غير مفعلة على الخادم الحالي',
+      );
+    }
+
+    if (data == null) {
+      return UsernameAvailabilityResult(
+        available: false,
+        message: 'تعذر قراءة استجابة الخادم لفحص اسم المستخدم',
+      );
+    }
+
+    if (resp.isSuccess) {
       return UsernameAvailabilityResult(
         available: data['available'] == true,
         message:
@@ -121,7 +142,7 @@ class AuthApiService {
 
     return UsernameAvailabilityResult(
       available: false,
-      message: (data?['detail'] as String?) ?? _extractError(resp),
+      message: (data['detail'] as String?) ?? _extractError(resp),
     );
   }
 

@@ -1,0 +1,62 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}إدارة خطط الاشتراكات{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-violet-700">📦 خطط الاشتراكات</h1>
+    <p class="text-gray-500 mt-1">إدارة وإنشاء خطط الاشتراكات المتاحة</p>
+  </div>
+  <a href="{% url 'dashboard:plan_create' %}" class="px-5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 text-white font-bold hover:shadow-lg transition">
+    + إنشاء خطة جديدة
+  </a>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+  {% for plan in plans %}
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden card-hover">
+      <div class="bg-gradient-to-r {% if plan.is_active %}from-violet-500 to-indigo-600{% else %}from-gray-400 to-gray-500{% endif %} px-6 py-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white">{{ plan.title }}</h3>
+          {% if not plan.is_active %}
+            <span class="px-2 py-1 rounded bg-white/20 text-white text-xs font-semibold">معطّل</span>
+          {% endif %}
+        </div>
+        <div class="text-white/80 text-sm mt-1">الكود: {{ plan.code }}</div>
+      </div>
+      <div class="p-5 space-y-3">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">السعر</span>
+          <span class="font-bold text-lg">{{ plan.price }} ر.س</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">الفترة</span>
+          <span class="font-semibold">{{ plan.get_period_display }}</span>
+        </div>
+        {% if plan.features %}
+          <div class="border-t border-gray-100 pt-3">
+            <div class="text-xs font-semibold text-gray-500 mb-2">المميزات</div>
+            {% for key, val in plan.features.items %}
+              <div class="flex justify-between text-xs text-gray-600">
+                <span>{{ key }}</span>
+                <span class="font-semibold">{{ val }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+        <div class="flex gap-2 pt-3">
+          <a href="{% url 'dashboard:plan_edit' plan.id %}" class="flex-1 text-center rounded-lg bg-indigo-50 text-indigo-700 px-3 py-2 font-semibold text-sm hover:bg-indigo-100 transition">تعديل</a>
+          <form method="post" action="{% url 'dashboard:plan_toggle_active' plan.id %}" class="flex-1">
+            {% csrf_token %}
+            <button class="w-full rounded-lg {% if plan.is_active %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %} px-3 py-2 font-semibold text-sm hover:opacity-80 transition">
+              {% if plan.is_active %}تعطيل{% else %}تفعيل{% endif %}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="col-span-3 text-center text-gray-400 py-12">لا توجد خطط مسجلة</div>
+  {% endfor %}
+</div>
+{% endblock %}

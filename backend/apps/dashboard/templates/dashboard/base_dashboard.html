@@ -211,6 +211,32 @@
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'access_profiles_list' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">صلاحيات التشغيل</span>
         </a>
+
+        <a href="{% url 'dashboard:users_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'users_list' or request.resolver_match.url_name == 'user_detail' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-500 to-slate-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            👥
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'users_list' or request.resolver_match.url_name == 'user_detail' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">إدارة المستخدمين</span>
+        </a>
+
+        <a href="{% url 'dashboard:audit_log_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'audit_log_list' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            🔍
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'audit_log_list' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">سجل التدقيق</span>
+        </a>
+        {% endif %}
+
+        {% if can_subs %}
+        <a href="{% url 'dashboard:plans_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'plans_list' or request.resolver_match.url_name == 'plan_create' or request.resolver_match.url_name == 'plan_edit' %}bg-gradient-to-r from-violet-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-violet-50 hover:to-indigo-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            💎
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'plans_list' or request.resolver_match.url_name == 'plan_create' or request.resolver_match.url_name == 'plan_edit' %}text-violet-700{% else %}text-gray-700 group-hover:text-violet-700{% endif %}">إدارة الخطط</span>
+        </a>
         {% endif %}
 
         <div class="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4"></div>

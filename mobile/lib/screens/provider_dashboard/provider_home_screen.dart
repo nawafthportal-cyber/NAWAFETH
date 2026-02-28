@@ -10,6 +10,7 @@ import 'package:nawafeth/widgets/custom_drawer.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
+import 'package:nawafeth/services/subscriptions_service.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
 
@@ -50,9 +51,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   // ────── بيانات من الـ API ──────
   UserProfile? _userProfile;
   ProviderProfileModel? _providerProfile;
+  String? _subscriptionPlanName;
 
   // ────── بيانات محسوبة ──────
-  String get _currentPlanName => "الباقة المجانية"; // TODO: ربط بـ subscriptions API
+  String get _currentPlanName => _subscriptionPlanName ?? "الباقة المجانية";
   int get _followersCount => _userProfile?.providerFollowersCount ?? 0;
   int get _followingCount => _userProfile?.followingCount ?? 0;
   int get _likesReceivedCount => _userProfile?.providerLikesReceivedCount ?? 0;
@@ -103,9 +105,37 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     }
     // نستمر حتى لو فشل جلب ملف المزود — نعرض البيانات المتاحة
 
+    // جلب بيانات الاشتراك الحالي
+    _loadSubscriptionPlan();
+
     setState(() {
       _isLoading = false;
     });
+  }
+
+  /// ✅ جلب اسم الباقة الحالية من الـ API
+  Future<void> _loadSubscriptionPlan() async {
+    final subs = await SubscriptionsService.mySubscriptions();
+    if (!mounted) return;
+    if (subs.isEmpty) return;
+
+    // Get the active/latest subscription plan name
+    for (final sub in subs) {
+      final status = sub['status'];
+      if (status == 'active' || subs.indexOf(sub) == 0) {
+        final planObj = sub['plan'];
+        if (planObj is Map) {
+          setState(() {
+            _subscriptionPlanName = planObj['title'] as String? ?? 'الباقة المجانية';
+          });
+        } else {
+          setState(() {
+            _subscriptionPlanName = sub['plan_title'] as String? ?? 'الباقة المجانية';
+          });
+        }
+        break;
+      }
+    }
   }
 
   @override
@@ -1136,7 +1166,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                               _statItem(
                                 icon: Icons.person_outline,
                                 label: "عملاء",
-                                value: "0", // TODO: ربط بـ endpoint عدد العملاء
+                                value: "0", // TODO: يحتاج endpoint إحصائيات العملاء الفعلية
                               ),
                               const SizedBox(width: 6),
                               _statItem(

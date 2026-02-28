@@ -1,0 +1,16 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/nawafeth_admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+  <a href="{% url 'admin:index' %}">لوحة إدارة نوافذ</a>
+</h1>
+<p class="nawafeth-admin-subtitle">إدارة المنصة والتشغيل اليومي</p>
+{% endblock %}
+
+{% block nav-global %}{% endblock %}

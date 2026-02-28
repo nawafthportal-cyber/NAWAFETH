@@ -117,6 +117,20 @@
 
     <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
       <h2 class="font-bold text-lg mb-3">التعليقات</h2>
+      {% if can_write %}
+        <form method="post" action="{% url 'dashboard:support_ticket_add_comment' ticket.id %}" class="mb-4 space-y-2">
+          {% csrf_token %}
+          <textarea name="text" rows="2" maxlength="300" required placeholder="أضف تعليق..."
+                    class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-cyan-300"></textarea>
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 text-xs text-gray-500">
+              <input type="checkbox" name="is_internal" value="1">
+              <span>تعليق داخلي (فريق فقط)</span>
+            </label>
+            <button class="rounded-lg bg-cyan-600 text-white px-4 py-2 font-semibold text-sm">إضافة تعليق</button>
+          </div>
+        </form>
+      {% endif %}
       <div class="space-y-2">
         {% for c in comments %}
           <div class="rounded-lg bg-gray-50 p-3 text-sm">

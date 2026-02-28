@@ -18,15 +18,20 @@ from django.urls import include, path
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView
+
+admin.site.site_header = _("إدارة منصة نوافذ")
+admin.site.site_title = _("لوحة إدارة نوافذ")
+admin.site.index_title = _("مرحبًا بك في لوحة التحكم")
 
 urlpatterns = [
     path("", HealthLiveView.as_view(), name="root"),
     path("health/", HealthCheckView.as_view(), name="health"),
     path("health/live/", HealthLiveView.as_view(), name="health_live"),
     path("health/ready/", HealthReadyView.as_view(), name="health_ready"),
-    path("admin/", admin.site.urls),
+    path("admin-panel/", admin.site.urls),
     path("api/accounts/", include(("apps.accounts.urls", "accounts"), namespace="accounts")),
     path("api/providers/", include(("apps.providers.urls", "providers"), namespace="providers")),
     path("api/marketplace/", include(("apps.marketplace.urls", "marketplace"), namespace="marketplace")),

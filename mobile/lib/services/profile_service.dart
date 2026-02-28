@@ -83,6 +83,11 @@ class ProfileService {
 
     return ProfileResult.failure(response.error ?? 'خطأ في التحديث');
   }
+
+  /// جلب بيانات المحفظة
+  static Future<ApiResponse> fetchWallet() {
+    return ApiClient.get('/api/accounts/wallet/');
+  }
 }
 
 /// نتيجة عملية البروفايل

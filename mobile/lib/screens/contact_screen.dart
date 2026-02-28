@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../models/ticket_model.dart';
+import '../services/support_service.dart';
 
 class ContactScreen extends StatefulWidget {
   final bool startNewTicketForm;
@@ -21,34 +22,10 @@ class ContactScreen extends StatefulWidget {
 }
 
 class _ContactScreenState extends State<ContactScreen> {
-  // البيانات التجريبية
-  List<Ticket> tickets = [
-    Ticket(
-      id: 'HD0002',
-      createdAt: DateTime(2024, 10, 25, 19, 40),
-      status: 'جديد',
-      supportTeam: 'الدعم الفني',
-      title: 'شكاوى التعليقات',
-      description: 'وجود تعليق مسيء يحتاج إجراء الإزالة',
-      lastUpdate: DateTime(2024, 10, 25, 19, 40),
-      replies: [
-        TicketReply(
-          from: 'platform',
-          message: 'تعليق منصة نوافذ (300 حرف)',
-          timestamp: DateTime(2024, 10, 25, 20, 15),
-        ),
-      ],
-    ),
-    Ticket(
-      id: 'HD0003',
-      createdAt: DateTime(2024, 10, 25, 19, 40),
-      status: 'تحت المعالجة',
-      supportTeam: 'الاشتراكات',
-      title: 'مشكلة في الاشتراك',
-      description: 'لم يتم تفعيل الاشتراك بعد الدفع',
-      lastUpdate: DateTime(2024, 10, 25, 20, 0),
-    ),
-  ];
+  // البيانات من الـ API
+  List<Ticket> tickets = [];
+  bool _isLoadingTickets = true;
+  String? _ticketsError;
 
   Ticket? selectedTicket;
   bool showNewTicketForm = false;
@@ -60,15 +37,20 @@ class _ContactScreenState extends State<ContactScreen> {
   String? selectedSupportTeam;
   List<String> attachments = [];
 
-  // قائمة فرق الدعم
-  final List<String> supportTeams = [
-    'الدعم الفني',
-    'الاشتراكات',
-    'التوثيق',
-    'الاقتراحات',
-    'الإعلانات',
-    'الشكاوى والبلاغات',
-  ];
+  // قائمة فرق الدعم (تُحمّل من الـ API)
+  List<Map<String, dynamic>> _apiTeams = [];
+  List<String> supportTeams = [];
+
+  // تحويل اسم الفريق العربي إلى ticket_type
+  static const Map<String, String> _teamToTicketType = {
+    'الدعم الفني': 'tech',
+    'الاشتراكات': 'subs',
+    'التوثيق': 'verify',
+    'الاقتراحات': 'suggest',
+    'الإعلانات': 'ads',
+    'الشكاوى والبلاغات': 'complaint',
+    'الخدمات الإضافية': 'extras',
+  };
 
   @override
   void initState() {
@@ -79,14 +61,75 @@ class _ContactScreenState extends State<ContactScreen> {
       selectedTicket = null;
     }
 
-    final team = widget.initialSupportTeam;
-    if (team != null && supportTeams.contains(team)) {
-      selectedSupportTeam = team;
-    }
+    _loadTeams();
+    _loadTickets();
 
     final desc = widget.initialDescription;
     if (desc != null && desc.trim().isNotEmpty) {
       _descriptionController.text = desc;
+    }
+  }
+
+  /// تحميل فرق الدعم من الـ API
+  Future<void> _loadTeams() async {
+    final result = await SupportService.fetchTeams();
+    if (!mounted) return;
+    if (result.isSuccess && result.data is List) {
+      final teamsList = (result.data as List).cast<Map<String, dynamic>>();
+      setState(() {
+        _apiTeams = teamsList;
+        supportTeams = teamsList
+            .map((t) => t['name_ar'] as String? ?? '')
+            .where((n) => n.isNotEmpty)
+            .toList();
+      });
+      // Apply initial support team after teams are loaded
+      final team = widget.initialSupportTeam;
+      if (team != null && supportTeams.contains(team)) {
+        setState(() => selectedSupportTeam = team);
+      }
+    } else {
+      // fallback to static list
+      setState(() {
+        supportTeams = ['الدعم الفني', 'الاشتراكات', 'التوثيق', 'الاقتراحات', 'الإعلانات', 'الشكاوى والبلاغات'];
+      });
+      final team = widget.initialSupportTeam;
+      if (team != null && supportTeams.contains(team)) {
+        setState(() => selectedSupportTeam = team);
+      }
+    }
+  }
+
+  /// تحميل التذاكر من الـ API
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoadingTickets = true;
+      _ticketsError = null;
+    });
+
+    final result = await SupportService.fetchMyTickets();
+    if (!mounted) return;
+
+    if (result.isSuccess && result.data != null) {
+      final List rawList;
+      if (result.data is List) {
+        rawList = result.data as List;
+      } else if (result.data is Map && result.data['results'] is List) {
+        rawList = result.data['results'] as List;
+      } else {
+        rawList = [];
+      }
+      setState(() {
+        tickets = rawList
+            .map((j) => Ticket.fromJson(j as Map<String, dynamic>))
+            .toList();
+        _isLoadingTickets = false;
+      });
+    } else {
+      setState(() {
+        _ticketsError = result.error ?? 'خطأ في جلب التذاكر';
+        _isLoadingTickets = false;
+      });
     }
   }
 
@@ -104,10 +147,16 @@ class _ContactScreenState extends State<ContactScreen> {
   Color _getStatusColor(String status, bool isDark) {
     switch (status) {
       case 'جديد':
+      case 'new':
         return isDark ? Colors.blue.shade300 : Colors.blue.shade100;
       case 'تحت المعالجة':
+      case 'in_progress':
         return isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade100;
+      case 'مُعاد':
+      case 'returned':
+        return isDark ? Colors.orange.shade300 : Colors.orange.shade100;
       case 'مغلق':
+      case 'closed':
         return isDark ? Colors.grey.shade400 : Colors.grey.shade300;
       default:
         return isDark ? Colors.grey.shade400 : Colors.grey.shade200;
@@ -117,10 +166,16 @@ class _ContactScreenState extends State<ContactScreen> {
   Color _getStatusTextColor(String status, bool isDark) {
     switch (status) {
       case 'جديد':
+      case 'new':
         return isDark ? Colors.blue.shade900 : Colors.blue.shade700;
       case 'تحت المعالجة':
+      case 'in_progress':
         return isDark ? Colors.deepPurple.shade900 : Colors.deepPurple.shade700;
+      case 'مُعاد':
+      case 'returned':
+        return isDark ? Colors.orange.shade900 : Colors.orange.shade700;
       case 'مغلق':
+      case 'closed':
         return isDark ? Colors.grey.shade900 : Colors.grey.shade700;
       default:
         return isDark ? Colors.grey.shade900 : Colors.grey.shade600;
@@ -156,7 +211,9 @@ class _ContactScreenState extends State<ContactScreen> {
     }
   }
 
-  void _createNewTicket() {
+  bool _isSubmitting = false;
+
+  Future<void> _createNewTicket() async {
     if (selectedSupportTeam == null || _descriptionController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('الرجاء اختيار فريق الدعم وكتابة التفاصيل')),
@@ -164,40 +221,52 @@ class _ContactScreenState extends State<ContactScreen> {
       return;
     }
 
-    final newTicket = Ticket(
-      id: 'HD${(tickets.length + 1).toString().padLeft(4, '0')}',
-      createdAt: DateTime.now(),
-      status: 'جديد',
-      supportTeam: selectedSupportTeam!,
-      title: selectedSupportTeam!,
+    setState(() => _isSubmitting = true);
+
+    final ticketType = _teamToTicketType[selectedSupportTeam] ?? 'tech';
+    final result = await SupportService.createTicket(
+      ticketType: ticketType,
       description: _descriptionController.text.trim(),
-      attachments: List.from(attachments),
-      lastUpdate: DateTime.now(),
     );
 
-    setState(() {
-      tickets.insert(0, newTicket);
-      showNewTicketForm = false;
-      isSupportTeamDropdownOpen = false;
-      _descriptionController.clear();
-      selectedSupportTeam = null;
-      attachments.clear();
-    });
+    if (!mounted) return;
+    setState(() => _isSubmitting = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('تم إنشاء البلاغ بنجاح')),
-    );
+    if (result.isSuccess) {
+      setState(() {
+        showNewTicketForm = false;
+        isSupportTeamDropdownOpen = false;
+        _descriptionController.clear();
+        selectedSupportTeam = null;
+        attachments.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم إنشاء البلاغ بنجاح')),
+      );
+
+      // إعادة تحميل التذاكر من الـ API
+      _loadTickets();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'فشل إنشاء البلاغ')),
+      );
+    }
   }
 
-  void _sendReply() {
+  Future<void> _sendReply() async {
     if (_replyController.text.trim().isEmpty || selectedTicket == null) return;
+    if (selectedTicket!.serverId == null) return;
 
+    final text = _replyController.text.trim();
+    _replyController.clear();
+
+    // Optimistic: add locally first
     final reply = TicketReply(
       from: 'user',
-      message: _replyController.text.trim(),
+      message: text,
       timestamp: DateTime.now(),
     );
-
     setState(() {
       final index = tickets.indexWhere((t) => t.id == selectedTicket!.id);
       if (index != -1) {
@@ -207,8 +276,19 @@ class _ContactScreenState extends State<ContactScreen> {
         );
         selectedTicket = tickets[index];
       }
-      _replyController.clear();
     });
+
+    // Call API
+    final result = await SupportService.addComment(
+      ticketId: selectedTicket!.serverId!,
+      text: text,
+    );
+
+    if (!result.isSuccess && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'فشل إرسال التعليق')),
+      );
+    }
   }
 
   @override
@@ -357,7 +437,7 @@ class _ContactScreenState extends State<ContactScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          ticket.status,
+                          ticket.displayStatus,
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 11,

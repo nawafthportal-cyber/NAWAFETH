@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../widgets/bottom_nav.dart'; // ✅ استدعاء الشريط السفلي
+import '../widgets/bottom_nav.dart';
+import '../services/extras_service.dart';
 
 class AdditionalServicesScreen extends StatefulWidget {
   const AdditionalServicesScreen({super.key});
@@ -14,6 +15,51 @@ class _AdditionalServicesScreenState extends State<AdditionalServicesScreen> {
   String? selectedSub; // الفرعية
   bool inRequest = false; // شاشة الطلب
   bool inCheckout = false; // شاشة الدفع
+
+  // بيانات الكتالوج من الـ API
+  List<Map<String, dynamic>> _catalogItems = [];
+  bool _isCatalogLoading = true;
+  String? _selectedSku;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCatalog();
+  }
+
+  Future<void> _loadCatalog() async {
+    final result = await ExtrasService.fetchCatalog();
+    if (!mounted) return;
+    if (result.isSuccess && result.data is List) {
+      setState(() {
+        _catalogItems = (result.data as List).cast<Map<String, dynamic>>();
+        _isCatalogLoading = false;
+      });
+    } else {
+      setState(() => _isCatalogLoading = false);
+    }
+  }
+
+  Future<void> _buyExtra(String sku) async {
+    final result = await ExtrasService.buy(sku);
+    if (!mounted) return;
+    if (result.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تم الطلب بنجاح')),
+      );
+      setState(() {
+        inCheckout = false;
+        inRequest = false;
+        selectedSub = null;
+        selectedMain = null;
+        _selectedSku = null;
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.error ?? 'فشل الطلب')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

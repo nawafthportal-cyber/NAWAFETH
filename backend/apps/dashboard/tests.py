@@ -43,11 +43,11 @@ def test_compute_actions_provider_unassigned_can_accept_when_sent(django_assert_
 		title="طلب",
 		description="وصف",
 		request_type="competitive",
-		status=RequestStatus.SENT,
+		status=RequestStatus.NEW,
 		city="الرياض",
 	)
 
-	# 1 query only: ProviderProfile.exists() for the special-case accept.
+	# For status=NEW, ProviderProfile.exists() is checked once.
 	with django_assert_num_queries(1):
 		actions = _compute_actions(provider_user, sr)
 
@@ -68,7 +68,7 @@ def test_compute_actions_staff_does_not_query_providerprofile_when_sent(django_a
 		title="طلب",
 		description="وصف",
 		request_type="competitive",
-		status=RequestStatus.SENT,
+		status=RequestStatus.NEW,
 		city="الرياض",
 	)
 
@@ -1225,7 +1225,7 @@ def test_requests_list_export_xlsx_returns_xlsx_file():
 		title="طلب",
 		description="وصف",
 		request_type="competitive",
-		status=RequestStatus.SENT,
+		status=RequestStatus.NEW,
 		city="الرياض",
 	)
 
@@ -1258,7 +1258,7 @@ def test_requests_list_export_pdf_returns_pdf_file():
         title="طلب",
         description="وصف",
         request_type="competitive",
-        status=RequestStatus.SENT,
+        status=RequestStatus.NEW,
         city="الرياض",
     )
 

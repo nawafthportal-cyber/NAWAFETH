@@ -33,23 +33,23 @@ INSTALLED_APPS = [
     "channels",
 
     # Local apps (سنضيفها بعد قليل)
-    "apps.accounts",
-    "apps.providers",
-    "apps.marketplace",
-    "apps.messaging",
-    "apps.dashboard",
-    "apps.backoffice",
+    "apps.accounts.apps.AccountsConfig",
+    "apps.providers.apps.ProvidersConfig",
+    "apps.marketplace.apps.MarketplaceConfig",
+    "apps.messaging.apps.MessagingConfig",
+    "apps.dashboard.apps.DashboardConfig",
+    "apps.backoffice.apps.BackofficeConfig",
     "apps.unified_requests.apps.UnifiedRequestsConfig",
-    "apps.support",
-    "apps.billing",
-    "apps.verification",
-    "apps.promo",
-    "apps.subscriptions",
-    "apps.extras",
-    "apps.extras_portal",
-    "apps.features",
-    "apps.analytics",
-    "apps.audit",
+    "apps.support.apps.SupportConfig",
+    "apps.billing.apps.BillingConfig",
+    "apps.verification.apps.VerificationConfig",
+    "apps.promo.apps.PromoConfig",
+    "apps.subscriptions.apps.SubscriptionsConfig",
+    "apps.extras.apps.ExtrasConfig",
+    "apps.extras_portal.apps.ExtrasPortalConfig",
+    "apps.features.apps.FeaturesConfig",
+    "apps.analytics.apps.AnalyticsConfig",
+    "apps.audit.apps.AuditConfig",
     "apps.notifications.apps.NotificationsConfig",
     "apps.reviews.apps.ReviewsConfig",
     "apps.content.apps.ContentConfig",
@@ -61,6 +61,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -128,7 +129,12 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
-LANGUAGE_CODE = "ar"
+LANGUAGE_CODE = "ar-sa"
+LANGUAGES = [
+    ("ar", "العربية"),
+    ("en", "English"),
+]
+LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "Asia/Riyadh"
 USE_I18N = True
 USE_TZ = True

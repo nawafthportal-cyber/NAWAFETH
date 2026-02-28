@@ -335,4 +335,21 @@ class MarketplaceService {
   static Future<ApiResponse> acceptOffer(int offerId) async {
     return ApiClient.post('/api/marketplace/offers/$offerId/accept/');
   }
+
+  // ──────────────────────────────────────
+  // إلغاء / إعادة فتح الطلب
+  // ──────────────────────────────────────
+
+  /// إلغاء طلب
+  static Future<ApiResponse> cancelRequest(int requestId, {String? reason}) async {
+    return ApiClient.post(
+      '/api/marketplace/requests/$requestId/cancel/',
+      body: {if (reason != null) 'reason': reason},
+    );
+  }
+
+  /// إعادة فتح طلب ملغي
+  static Future<ApiResponse> reopenRequest(int requestId) async {
+    return ApiClient.post('/api/marketplace/requests/$requestId/reopen/');
+  }
 }
