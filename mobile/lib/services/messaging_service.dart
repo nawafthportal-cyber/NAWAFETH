@@ -17,13 +17,11 @@
 /// - POST /api/messaging/thread/{id}/client-label/   — تصنيف العميل
 library;
 
-import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/chat_thread_model.dart';
 import '../models/chat_message_model.dart';
 import 'api_client.dart';
-import 'auth_service.dart';
 import 'upload_optimizer.dart';
 
 class MessagingService {
@@ -130,46 +128,33 @@ class MessagingService {
     required File file,
     required String attachmentType, // audio | image | file
   }) async {
-    final token = await AuthService.getAccessToken();
-    final url = Uri.parse(
-      '${ApiClient.baseUrl}/api/messaging/direct/thread/$threadId/messages/send/',
-    );
-
-    final request = http.MultipartRequest('POST', url);
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
-    if (body != null && body.trim().isNotEmpty) {
-      request.fields['body'] = body.trim();
-    }
-    request.fields['attachment_type'] = attachmentType;
     final optimized = await UploadOptimizer.optimizeForUpload(
       file,
       declaredType: attachmentType,
     );
-    request.files.add(
-      await http.MultipartFile.fromPath('attachment', optimized.path),
+
+    final res = await ApiClient.sendMultipart(
+      'POST',
+      '/api/messaging/direct/thread/$threadId/messages/send/',
+      (request) async {
+        if (body != null && body.trim().isNotEmpty) {
+          request.fields['body'] = body.trim();
+        }
+        request.fields['attachment_type'] = attachmentType;
+        request.files.add(
+          await http.MultipartFile.fromPath('attachment', optimized.path),
+        );
+      },
+      timeout: const Duration(seconds: 60),
     );
 
-    try {
-      final streamedRes = await request.send().timeout(const Duration(seconds: 60));
-      final resBody = await streamedRes.stream.bytesToString();
-      final data = jsonDecode(resBody);
-
-      if (streamedRes.statusCode >= 200 && streamedRes.statusCode < 300) {
-        return SendResult(
-          success: true,
-          messageId: data['message_id'] as int?,
-        );
-      } else {
-        return SendResult(
-          success: false,
-          error: data['detail'] ?? data['error'] ?? 'فشل إرسال المرفق',
-        );
-      }
-    } catch (e) {
-      return SendResult(success: false, error: 'خطأ في الاتصال: $e');
+    if (res.isSuccess) {
+      return SendResult(
+        success: true,
+        messageId: res.dataAsMap?['message_id'] as int?,
+      );
     }
+    return SendResult(success: false, error: res.error ?? 'فشل إرسال المرفق');
   }
 
   // ──────────────────────────────────────────

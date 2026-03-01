@@ -10,6 +10,7 @@ import 'package:nawafeth/widgets/bottom_nav.dart';
 import 'package:nawafeth/widgets/custom_drawer.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:nawafeth/services/interactive_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/services/subscriptions_service.dart';
 import 'package:nawafeth/services/marketplace_service.dart';
@@ -48,6 +49,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
 
   // ────── حالات التحميل ──────
   bool _isLoading = true;
+  bool _isUploadingProfileMedia = false;
+  bool _isUploadingSpotlight = false;
   String? _errorMessage;
 
   // ────── بيانات من الـ API ──────
@@ -57,6 +60,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   int _urgentOrdersCount = 0;
   int _newOrdersCount = 0;
   int _clientsCount = 0;
+  bool _hasSpotlights = false;
 
   // ────── بيانات محسوبة ──────
   String get _currentPlanName => _subscriptionPlanName ?? "الباقة المجانية";
@@ -64,7 +68,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   int get _followingCount => _userProfile?.followingCount ?? 0;
   int get _likesReceivedCount => _userProfile?.providerLikesReceivedCount ?? 0;
   int get _favoritesCount => _userProfile?.favoritesMediaCount ?? 0;
-  String get _displayName => _providerProfile?.displayName ?? _userProfile?.providerDisplayName ?? '';
+  String get _displayName =>
+      _providerProfile?.displayName ?? _userProfile?.providerDisplayName ?? '';
 
   // ✅ نسبة إكمال الملف من البيانات الحقيقية
   double get _profileCompletion => _providerProfile?.profileCompletion ?? 0.30;
@@ -111,6 +116,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
     unawaited(_loadProviderProfile(providerFuture));
     unawaited(_loadSubscriptionPlan());
     unawaited(_loadOrderCounts());
+    unawaited(_loadMySpotlights());
   }
 
   Future<void> _loadProviderProfile(
@@ -161,11 +167,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
         final planObj = sub['plan'];
         if (planObj is Map) {
           setState(() {
-            _subscriptionPlanName = planObj['title'] as String? ?? 'الباقة المجانية';
+            _subscriptionPlanName =
+                planObj['title'] as String? ?? 'الباقة المجانية';
           });
         } else {
           setState(() {
-            _subscriptionPlanName = sub['plan_title'] as String? ?? 'الباقة المجانية';
+            _subscriptionPlanName =
+                sub['plan_title'] as String? ?? 'الباقة المجانية';
           });
         }
         break;
@@ -181,30 +189,119 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
 
   // اختيار صورة الغلاف / الصورة الشخصية
   Future<void> _pickImage({required bool isCover}) async {
+    if (_isUploadingProfileMedia) return;
+
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        if (isCover) {
-          _coverImage = File(picked.path);
-        } else {
-          _profileImage = File(picked.path);
-        }
-      });
+    if (picked == null || !mounted) return;
+
+    // عرض معاينة فورية أثناء الرفع.
+    setState(() {
+      _isUploadingProfileMedia = true;
+      if (isCover) {
+        _coverImage = File(picked.path);
+      } else {
+        _profileImage = File(picked.path);
+      }
+    });
+
+    final result = await ProfileService.uploadProviderProfileImages(
+      profileImagePath: isCover ? null : picked.path,
+      coverImagePath: isCover ? picked.path : null,
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _isUploadingProfileMedia = false;
+      if (isCover) {
+        _coverImage = null;
+      } else {
+        _profileImage = null;
+      }
+
+      if (result.isSuccess && result.data != null) {
+        _providerProfile = result.data;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.isSuccess
+              ? (isCover
+                  ? 'تم حفظ صورة الغلاف بنجاح'
+                  : 'تم حفظ صورة الحساب بنجاح')
+              : (result.error ?? 'تعذر حفظ الصورة'),
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+      ),
+    );
+
+    if (result.isSuccess) {
+      // تحديث البيانات العامة المرتبطة بالهيدر بعد الرفع.
+      unawaited(_loadProviderProfile(ProfileService.fetchProviderProfile()));
+    }
+  }
+
+  Future<void> _loadMySpotlights() async {
+    try {
+      final response = await InteractiveService.fetchMySpotlights();
+      if (!mounted) return;
+      final list = response.dataAsList ?? const <dynamic>[];
+      if (response.isSuccess) {
+        setState(() {
+          _hasSpotlights = list.isNotEmpty;
+        });
+      }
+    } catch (_) {
+      // non-critical
     }
   }
 
   // اختيار فيديو ريلز
   Future<void> _pickVideo() async {
+    if (_isUploadingSpotlight) return;
+
     final picker = ImagePicker();
     final picked = await picker.pickVideo(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() {
-        _reelVideo = File(picked.path);
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم اختيار فيديو ريلز بنجاح")),
-      );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      _isUploadingSpotlight = true;
+      _reelVideo = File(picked.path);
+    });
+
+    final result = await ProfileService.uploadProviderSpotlight(
+      filePath: picked.path,
+      fileType: 'video',
+      caption: 'لمحة',
+    );
+    if (!mounted) return;
+
+    setState(() {
+      _isUploadingSpotlight = false;
+      if (result.isSuccess) {
+        _hasSpotlights = true;
+      } else {
+        _reelVideo = null;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.isSuccess
+              ? "تم حفظ اللمحة بنجاح"
+              : (result.error ?? "تعذر حفظ اللمحة"),
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+        backgroundColor: result.isSuccess ? Colors.green : Colors.red,
+      ),
+    );
+
+    if (result.isSuccess) {
+      unawaited(_loadMySpotlights());
     }
   }
 
@@ -212,102 +309,101 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
   void _showQrDialog() {
     showDialog(
       context: context,
-      builder:
-          (_) => Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "رمز QR الخاص بك",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Cairo',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    "QR CODE",
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const Text(
-                      "رمز QR الخاص بك",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Cairo',
+                    IconButton(
+                      onPressed: () {
+                        Clipboard.setData(
+                          const ClipboardData(text: "QR-CODE-DATA"),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("تم نسخ الكود")),
+                        );
+                      },
+                      icon: const Icon(
+                        Icons.copy,
+                        color: Colors.deepPurple,
                       ),
+                      tooltip: "نسخ",
                     ),
-                    const SizedBox(height: 16),
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(16),
+                    IconButton(
+                      onPressed: () {
+                        Share.share("QR-CODE-DATA");
+                      },
+                      icon: const Icon(
+                        Icons.share,
+                        color: Colors.deepPurple,
                       ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        "QR CODE",
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.deepPurple,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        IconButton(
-                          onPressed: () {
-                            Clipboard.setData(
-                              const ClipboardData(text: "QR-CODE-DATA"),
-                            );
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text("تم نسخ الكود")),
-                            );
-                          },
-                          icon: const Icon(
-                            Icons.copy,
-                            color: Colors.deepPurple,
-                          ),
-                          tooltip: "نسخ",
-                        ),
-                        IconButton(
-                          onPressed: () {
-                            Share.share("QR-CODE-DATA");
-                          },
-                          icon: const Icon(
-                            Icons.share,
-                            color: Colors.deepPurple,
-                          ),
-                          tooltip: "مشاركة",
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text(
-                          "إغلاق",
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 15,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+                      tooltip: "مشاركة",
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text(
+                      "إغلاق",
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 15,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+      ),
     );
   }
 
@@ -532,29 +628,28 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
       clipBehavior: Clip.none,
       children: [
         GestureDetector(
-          onTap: () => _pickImage(isCover: true),
+          onTap:
+              _isUploadingProfileMedia ? null : () => _pickImage(isCover: true),
           child: Container(
             height: 190,
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient:
-                  coverImageProvider == null
-                      ? LinearGradient(
-                        colors: [
-                          mainColor,
-                          mainColor.withOpacity(0.6),
-                        ],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                      )
-                      : null,
-              image:
-                  coverImageProvider != null
-                      ? DecorationImage(
-                        image: coverImageProvider,
-                        fit: BoxFit.cover,
-                      )
-                      : null,
+              gradient: coverImageProvider == null
+                  ? LinearGradient(
+                      colors: [
+                        mainColor,
+                        mainColor.withOpacity(0.6),
+                      ],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    )
+                  : null,
+              image: coverImageProvider != null
+                  ? DecorationImage(
+                      image: coverImageProvider,
+                      fit: BoxFit.cover,
+                    )
+                  : null,
             ),
           ),
         ),
@@ -575,97 +670,24 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                   color: Colors.white,
                   size: 20,
                 ),
-                onPressed: () => _pickImage(isCover: true),
+                onPressed: _isUploadingProfileMedia
+                    ? null
+                    : () => _pickImage(isCover: true),
               ),
             ),
           ),
         ),
-        Positioned(
-          top: 8,
-          right: 16,
-          child: SafeArea(
-            bottom: false,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () async {
-                    await AccountModeService.setProviderMode(false);
-                    
-                    if (mounted) {
-                      // إظهار إشعار التبديل
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.white),
-                              SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'تم التبديل إلى حساب العميل بنجاح',
-                                  style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          backgroundColor: Colors.green,
-                          duration: const Duration(seconds: 5),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      );
-                      
-                      Navigator.pushReplacementNamed(context, '/profile');
-                    }
-                  },
-                  borderRadius: BorderRadius.circular(25),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(
-                          Icons.person,
-                          size: 18,
-                          color: Colors.deepPurple,
-                        ),
-                        SizedBox(width: 6),
-                        Text(
-                          'حساب عميل',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.deepPurple,
-                            fontFamily: 'Cairo',
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+        if (_isUploadingProfileMedia)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: Container(
+                color: Colors.black26,
+                alignment: Alignment.center,
+                child: const CircularProgressIndicator(color: Colors.white),
               ),
             ),
           ),
-        ),
+
         // صورة شخصية
         Positioned(
           bottom: -40,
@@ -673,7 +695,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           right: 0,
           child: Center(
             child: GestureDetector(
-              onTap: () => _pickImage(isCover: false),
+              onTap: _isUploadingProfileMedia
+                  ? null
+                  : () => _pickImage(isCover: false),
               child: Stack(
                 alignment: Alignment.bottomRight,
                 children: [
@@ -694,14 +718,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                       radius: 38,
                       backgroundColor: Colors.grey[300],
                       backgroundImage: profileImageProvider,
-                      child:
-                          profileImageProvider == null
-                              ? const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 38,
-                              )
-                              : null,
+                      child: profileImageProvider == null
+                          ? const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 38,
+                            )
+                          : null,
                     ),
                   ),
                   Positioned(
@@ -723,6 +746,96 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
           ),
         ),
       ],
+    );
+  }
+
+  /// زر التبديل بين حساب العميل وحساب مقدم الخدمة (نفس تصميم صفحة العميل)
+  Widget _buildModeToggle() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          // Client side (tappable)
+          Expanded(
+            child: GestureDetector(
+              onTap: () async {
+                await AccountModeService.setProviderMode(false);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('تم التبديل إلى حساب العميل',
+                          style: TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  );
+                  Navigator.pushReplacementNamed(context, '/profile');
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_rounded, size: 16, color: Colors.grey.shade500),
+                    const SizedBox(width: 5),
+                    Text(
+                      'عميل',
+                      style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          // Provider side (active)
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(13),
+                boxShadow: [
+                  BoxShadow(
+                    color: mainColor.withOpacity(0.12),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.work_rounded, size: 16, color: mainColor),
+                  const SizedBox(width: 5),
+                  Text(
+                    'مقدم خدمة',
+                    style: TextStyle(
+                      fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Cairo',
+                      color: mainColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -825,7 +938,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
         itemBuilder: (context, index) {
           if (index == 0) {
             return GestureDetector(
-              onTap: _pickVideo,
+              onTap: _isUploadingSpotlight ? null : _pickVideo,
               child: Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
@@ -836,11 +949,23 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                 child: CircleAvatar(
                   radius: 34,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    _reelVideo == null ? Icons.add : Icons.edit,
-                    color: mainColor,
-                    size: 26,
-                  ),
+                  child: _isUploadingSpotlight
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(mainColor),
+                          ),
+                        )
+                      : Icon(
+                          (_reelVideo == null && !_hasSpotlights)
+                              ? Icons.add
+                              : Icons.edit,
+                          color: mainColor,
+                          size: 26,
+                        ),
                 ),
               ),
             );
@@ -1052,7 +1177,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: mainColor,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -1087,218 +1213,232 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen>
                     color: mainColor,
                     child: SingleChildScrollView(
                       physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 52),
-              // بطاقة رئيسية تحت الغلاف
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    // الإحصائيات + الباقة + اكتمال الملف
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black12.withOpacity(0.04),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
                       child: Column(
                         children: [
-                          // ✅ إحصائيات المتابعين والمتابعون — من الـ API
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('قائمة المتابعين'),
-                                    ),
-                                  );
-                                },
-                                child: Column(
+                          _buildHeader(),
+                          const SizedBox(height: 52),
+                          // زر التبديل بين الحسابات
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+                            child: _buildModeToggle(),
+                          ),
+                          // بطاقة رئيسية تحت الغلاف
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Column(
+                              children: [
+                                // الإحصائيات + الباقة + اكتمال الملف
+                                Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black12.withOpacity(0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // ✅ إحصائيات المتابعين والمتابعون — من الـ API
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content:
+                                                      Text('قائمة المتابعين'),
+                                                ),
+                                              );
+                                            },
+                                            child: Column(
+                                              children: [
+                                                const Icon(
+                                                  Icons.groups_rounded,
+                                                  size: 18,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  '$_followersCount',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                const Text(
+                                                  'متابع',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 40),
+                                          GestureDetector(
+                                            onTap: () {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content:
+                                                      Text('قائمة المتابَعون'),
+                                                ),
+                                              );
+                                            },
+                                            child: Column(
+                                              children: [
+                                                const Icon(
+                                                  Icons
+                                                      .person_add_alt_1_rounded,
+                                                  size: 18,
+                                                  color: Colors.grey,
+                                                ),
+                                                const SizedBox(height: 6),
+                                                Text(
+                                                  '$_followingCount',
+                                                  style: const TextStyle(
+                                                    fontSize: 18,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 2),
+                                                const Text(
+                                                  'يتابع',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Row(
+                                        children: [
+                                          _statItem(
+                                            icon: Icons.thumb_up_alt_outlined,
+                                            label: "إعجابات",
+                                            value: '$_likesReceivedCount',
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _statItem(
+                                            icon: Icons.person_outline,
+                                            label: "عملاء",
+                                            value: '$_clientsCount',
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _statItem(
+                                            icon: Icons.bookmark_border,
+                                            label: "محفوظ",
+                                            value: '$_favoritesCount',
+                                          ),
+                                          const SizedBox(width: 6),
+                                          _statItem(
+                                            icon: Icons.qr_code,
+                                            label: "QR",
+                                            value: "",
+                                            onTap: _showQrDialog,
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      _planCard(),
+                                      const SizedBox(height: 10),
+                                      _profileCompletionCard(),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                _ordersCard(),
+                              ],
+                            ),
+                          ),
+                          _reelsRow(),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
                                   children: [
-                                    const Icon(
-                                      Icons.groups_rounded,
-                                      size: 18,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '$_followersCount',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'متابع',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
+                                    _dashboardButton(
+                                        Icons.person, "الملف الشخصي", () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const ProfileTab(),
+                                        ),
+                                      );
+                                    }),
+                                    _dashboardButton(
+                                      Icons.home_repair_service,
+                                      "خدماتي",
+                                      () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => const ServicesTab(),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 40),
-                              GestureDetector(
-                                onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('قائمة المتابَعون'),
-                                    ),
-                                  );
-                                },
-                                child: Column(
+                                const SizedBox(height: 8),
+                                Row(
                                   children: [
-                                    const Icon(
-                                      Icons.person_add_alt_1_rounded,
-                                      size: 18,
-                                      color: Colors.grey,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '$_followingCount',
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    const Text(
-                                      'يتابع',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey,
-                                      ),
+                                    _dashboardButton(Icons.reviews, "المراجعات",
+                                        () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => const ReviewsTab(),
+                                        ),
+                                      );
+                                    }),
+                                    _dashboardButton(
+                                      Icons.photo_library_outlined,
+                                      "معرض الأعمال",
+                                      () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ContentStep(
+                                              onBack: () =>
+                                                  Navigator.pop(context),
+                                              onNext: () =>
+                                                  Navigator.pop(context),
+                                            ),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              _statItem(
-                                icon: Icons.thumb_up_alt_outlined,
-                                label: "إعجابات",
-                                value: '$_likesReceivedCount',
-                              ),
-                              const SizedBox(width: 6),
-                              _statItem(
-                                icon: Icons.person_outline,
-                                label: "عملاء",
-                                value: '$_clientsCount',
-                              ),
-                              const SizedBox(width: 6),
-                              _statItem(
-                                icon: Icons.bookmark_border,
-                                label: "محفوظ",
-                                value: '$_favoritesCount',
-                              ),
-                              const SizedBox(width: 6),
-                              _statItem(
-                                icon: Icons.qr_code,
-                                label: "QR",
-                                value: "",
-                                onTap: _showQrDialog,
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          _planCard(),
-                          const SizedBox(height: 10),
-                          _profileCompletionCard(),
+                          _extraServicesSection(),
+                          const SizedBox(height: 60),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    _ordersCard(),
-                  ],
-                ),
-              ),
-              _reelsRow(),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 4,
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        _dashboardButton(Icons.person, "الملف الشخصي", () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ProfileTab(),
-                            ),
-                          );
-                        }),
-                        _dashboardButton(
-                          Icons.home_repair_service,
-                          "خدماتي",
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const ServicesTab(),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        _dashboardButton(Icons.reviews, "المراجعات", () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const ReviewsTab(),
-                            ),
-                          );
-                        }),
-                        _dashboardButton(
-                          Icons.photo_library_outlined,
-                          "معرض الأعمال",
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => ContentStep(
-                                      onBack: () => Navigator.pop(context),
-                                      onNext: () => Navigator.pop(context),
-                                    ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              _extraServicesSection(),
-              const SizedBox(height: 60),
-            ],
-          ),
-        ),
                   ),
       ),
     );

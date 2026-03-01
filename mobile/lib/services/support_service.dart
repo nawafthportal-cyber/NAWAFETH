@@ -4,7 +4,6 @@ library;
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
-import 'auth_service.dart';
 import 'upload_optimizer.dart';
 
 class SupportService {
@@ -73,23 +72,15 @@ class SupportService {
     required int ticketId,
     required File file,
   }) async {
-    final token = await AuthService.getAccessToken();
-    final uri = Uri.parse(
-      '${ApiClient.baseUrl}/api/support/tickets/$ticketId/attachments/',
-    );
-
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Authorization'] = 'Bearer $token';
     final optimized = await UploadOptimizer.optimizeForUpload(file);
-    request.files.add(await http.MultipartFile.fromPath('file', optimized.path));
-
-    try {
-      final streamed =
-          await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamed);
-      return ApiClient.parseResponse(response);
-    } catch (e) {
-      return ApiResponse(statusCode: 0, error: 'خطأ في رفع المرفق: $e');
-    }
+    return ApiClient.sendMultipart(
+      'POST',
+      '/api/support/tickets/$ticketId/attachments/',
+      (request) async {
+        request.files.add(
+          await http.MultipartFile.fromPath('file', optimized.path),
+        );
+      },
+    );
   }
 }

@@ -1,510 +1,321 @@
-/* Desktop parity: keep mobile-first UX across all mobile_web templates on wide screens. */
+/* ===================================================================
+   Nawafeth Web — desktop-parity.css  v2.0
+   Desktop Enhancements — NOT mobile forcing
+   Shows proper desktop navigation, full-width layouts, footer
+   =================================================================== */
 
+/* ── Desktop: Enhanced Navigation ── */
 @media (min-width: 769px) {
-  body.mobile-web-parity {
-    overflow-x: hidden;
-  }
-
-  body.mobile-web-parity .mobile-only {
-    display: flex !important;
-  }
-
-  body.mobile-web-parity .desktop-only {
-    display: none !important;
-  }
-
-  /* Non-home pages in Flutter don't use the branded top nav. */
-  body.mobile-web-parity:not(.home-mobile-layout) #top-navbar {
-    display: none;
-  }
-
-  body.mobile-web-parity #bottom-nav {
-    display: flex !important;
-    height: 64px;
-  }
-
-  body.mobile-web-parity .sidebar {
+  #top-navbar {
     display: block !important;
   }
 
-  body.mobile-web-parity .sidebar-overlay:not(.hidden) {
-    display: block !important;
+  .navbar-inner {
+    height: 72px;
   }
 
-  body.mobile-web-parity #site-footer {
-    display: none;
-  }
-
-  body.mobile-web-parity .offline-banner {
-    bottom: 80px;
-  }
-
-  body.mobile-web-parity .container {
-    max-width: none;
-    width: 100%;
-    padding: 0 16px;
-  }
-
-  body.mobile-web-parity .page-content {
-    padding: 24px 0 88px;
-  }
-
-  body.mobile-web-parity .page-header {
-    margin-bottom: 20px;
-  }
-
-  body.mobile-web-parity .page-header h1,
-  body.mobile-web-parity .page-title {
-    font-size: 20px;
-    font-weight: 800;
-  }
-
-  body.mobile-web-parity .tabs-row {
-    margin-bottom: 20px;
-    border-radius: 12px;
-    padding: 4px;
-  }
-
-  body.mobile-web-parity .tab-btn {
-    font-size: 13px;
-    padding: 10px 18px;
-    border-radius: 10px;
-  }
-
-  body.mobile-web-parity .categories-grid {
-    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    gap: 12px;
-  }
-
-  body.mobile-web-parity .cat-icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-  }
-
-  body.mobile-web-parity .cat-name {
-    font-size: 11px;
-  }
-
-  body.mobile-web-parity .providers-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  body.mobile-web-parity .provider-cover {
-    height: 80px;
-  }
-
-  body.mobile-web-parity .provider-avatar {
-    width: 36px;
-    height: 36px;
-    font-size: 12px;
-  }
-
-  body.mobile-web-parity .provider-name {
-    font-size: 12px;
-  }
-
-  body.mobile-web-parity .provider-city {
-    font-size: 10px;
-  }
-
-  body.mobile-web-parity .provider-stat {
-    font-size: 10.5px;
-  }
-
-  body.mobile-web-parity .banners-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-  }
-
-  body.mobile-web-parity .banner-card {
-    height: 160px;
-  }
-
-  body.mobile-web-parity .auth-page {
-    min-height: calc(100vh - 24px);
-    padding: 24px 0 88px;
-  }
-
-  body.mobile-web-parity .auth-card {
-    max-width: 400px;
-    padding: 32px 24px;
-    border-radius: 20px;
-  }
-
-  body.mobile-web-parity .auth-logo {
+  .navbar-brand {
     font-size: 28px;
   }
 
-  body.mobile-web-parity .auth-title {
-    font-size: 20px;
+  .nav-link {
+    font-size: 15px;
+    padding: 10px 20px;
   }
 
-  body.mobile-web-parity .auth-desc {
-    font-size: 13px;
+  /* Better icon buttons on desktop */
+  .nav-icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+}
+
+/* ── Desktop: Wider Content Areas ── */
+@media (min-width: 1024px) {
+  /* Two-column layout for provider detail */
+  .provider-detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: var(--space-xl);
+    align-items: start;
   }
 
-  body.mobile-web-parity .profile-cover {
-    height: 160px;
-    border-radius: 20px;
-  }
-
-  body.mobile-web-parity .profile-avatar {
-    width: 80px;
-    height: 80px;
-    bottom: -40px;
-    right: 24px;
-  }
-
-  body.mobile-web-parity .profile-hero {
-    margin-bottom: 60px;
-  }
-
-  body.mobile-web-parity .profile-actions {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-  }
-
-  body.mobile-web-parity .prov-cover {
-    height: 180px;
-    border-radius: 20px;
-  }
-
-  body.mobile-web-parity .prov-avatar {
-    width: 80px;
-    height: 80px;
-    bottom: -40px;
-    right: 24px;
-  }
-
-  body.mobile-web-parity .prov-detail-hero {
-    margin-bottom: 60px;
-  }
-
-  body.mobile-web-parity .prov-stats-bar {
-    gap: 16px;
-  }
-
-  body.mobile-web-parity .media-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-
-  /* Keep desktop hover effects from changing behavior versus mobile. */
-  body.mobile-web-parity .order-card:hover,
-  body.mobile-web-parity .action-card:hover,
-  body.mobile-web-parity .service-card:hover,
-  body.mobile-web-parity .thread-card:hover,
-  body.mobile-web-parity .notif-card:hover,
-  body.mobile-web-parity .service-action-card:hover,
-  body.mobile-web-parity .provider-card:hover,
-  body.mobile-web-parity .banner-card:hover,
-  body.mobile-web-parity .cat-item:hover,
-  body.mobile-web-parity .profile-menu-item:hover {
-    transform: none;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  }
-
-  /* Search page parity */
-  body.mobile-web-parity.page-search .search-hero {
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    margin-bottom: 10px;
-  }
-
-  body.mobile-web-parity.page-search .search-input-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    height: 40px;
-    border-radius: 12px;
-    background: #f2f2f7;
-    padding: 0 10px;
-  }
-
-  body.mobile-web-parity.page-search .search-input {
-    flex: 1;
+  .provider-detail-main {
     min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-family: "Cairo", sans-serif;
-    font-size: 13px;
-    color: #222;
   }
 
-  body.mobile-web-parity.page-search .search-input::placeholder {
-    color: #b8b8c2;
+  .provider-detail-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-lg));
   }
 
-  body.mobile-web-parity.page-search .search-filter-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+  /* Two-column for chat */
+  .chat-layout {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 0;
+    height: calc(100vh - var(--navbar-height));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    background: var(--color-surface);
   }
 
-  body.mobile-web-parity.page-search .search-clear {
-    width: 22px;
-    height: 22px;
-    border: none;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, 0.06);
-    color: #999;
-    cursor: pointer;
+  .chat-list-panel {
+    border-left: 1px solid var(--color-border);
+    overflow-y: auto;
   }
 
-  body.mobile-web-parity.page-search .filter-row {
-    margin-bottom: 10px;
+  [dir="rtl"] .chat-list-panel {
+    border-left: none;
+    border-right: 1px solid var(--color-border);
   }
 
-  body.mobile-web-parity.page-search .sort-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin: 8px 0 10px;
-  }
-
-  body.mobile-web-parity.page-search .sort-label {
-    font-size: 12px;
-    color: #8f8f98;
-  }
-
-  body.mobile-web-parity.page-search .sort-select {
-    font-size: 12px;
-    padding: 8px 12px;
-    border-radius: 10px;
-  }
-
-  body.mobile-web-parity.page-search .results-count {
-    margin-inline-start: auto;
-    font-size: 11px;
-    color: #9a9aa5;
-  }
-
-  body.mobile-web-parity.page-search #providers-list.providers-grid {
+  .chat-detail-panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    min-width: 0;
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-card {
-    width: 100%;
-    border-radius: 12px;
-    overflow: hidden;
+  /* Orders grid on desktop */
+  .orders-grid {
     display: grid;
-    grid-template-columns: 84px 1fr;
-    grid-template-rows: auto auto;
-    text-decoration: none;
-    color: inherit;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-lg);
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-cover {
-    grid-row: 1 / span 2;
-    height: 92px;
+  .orders-grid .order-card {
+    margin-bottom: 0;
+  }
+}
+
+@media (min-width: 1280px) {
+  .orders-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ── Desktop: Page-specific Enhancements ── */
+@media (min-width: 769px) {
+  /* Profile page - horizontal layout */
+  .profile-desktop-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: var(--space-xl);
+    align-items: start;
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-info {
-    padding: 8px 10px 0;
-    align-items: center;
+  .profile-sidebar-card {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-lg));
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 10px;
+  /* Search page - with sidebar filters */
+  .search-desktop-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: var(--space-xl);
+    align-items: start;
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-name {
-    font-size: 11.5px;
+  .search-filters-panel {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-lg));
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+    padding: var(--space-lg);
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-city {
-    font-size: 9.5px;
+  .search-results-panel {
+    min-width: 0;
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-stats {
-    padding: 0 10px 8px;
-    justify-content: flex-start;
-    gap: 12px;
+  /* Settings - max width */
+  .settings-desktop {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+}
+
+/* ── Desktop: Hover & Interaction Enhancements ── */
+@media (hover: hover) {
+  .provider-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--shadow-hover);
   }
 
-  body.mobile-web-parity.page-search #providers-list .provider-stat {
-    font-size: 9.5px;
+  .cat-item:hover {
+    transform: translateY(-4px);
   }
 
-  /* Add-service/forms parity */
-  body.mobile-web-parity.page-add-service .add-service-gradient-header {
-    border-radius: 20px;
-    padding: 32px 24px;
-    margin-bottom: 24px;
+  .banner-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
   }
 
-  body.mobile-web-parity.page-add-service .add-service-gradient-header h1 {
-    font-size: 22px;
-    margin-top: 12px;
+  .action-card:hover {
+    transform: translateY(-6px);
   }
 
-  body.mobile-web-parity.page-add-service .add-service-gradient-header .page-subtitle {
-    font-size: 13px;
+  .quick-action-card:hover {
+    transform: translateY(-4px);
+  }
+}
+
+/* ── Large Screen Tweaks ── */
+@media (min-width: 1400px) {
+  .container {
+    max-width: 1400px;
   }
 
-  body.mobile-web-parity.page-add-service .service-action-card {
-    padding: 18px 20px;
-    border-radius: 14px;
+  .section-title {
+    font-size: 28px;
   }
 
-  body.mobile-web-parity.page-add-service .sac-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
-    font-size: 22px;
+  .hero-tagline {
+    font-size: 52px;
+    max-width: 700px;
   }
 
-  body.mobile-web-parity.page-add-service .sac-body h3 {
-    font-size: 14px;
-    margin-bottom: 2px;
-  }
-
-  body.mobile-web-parity.page-add-service .sac-body p {
-    font-size: 12px;
-    color: #888;
-  }
-
-  body.mobile-web-parity.page-request-quote .page-header h1,
-  body.mobile-web-parity.page-urgent-request .page-header h1 {
+  .hero-subtitle {
     font-size: 20px;
   }
+}
 
-  body.mobile-web-parity.page-request-quote .page-subtitle,
-  body.mobile-web-parity.page-urgent-request .page-subtitle {
-    font-size: 13px;
-    color: #8f8f99;
+/* ── Ultra-wide Screens ── */
+@media (min-width: 1800px) {
+  .container {
+    max-width: 1600px;
   }
 
-  body.mobile-web-parity.page-request-quote .form-card,
-  body.mobile-web-parity.page-urgent-request .form-card {
-    border-radius: 16px;
-    padding: 20px;
+  .providers-grid {
+    grid-template-columns: repeat(6, 1fr);
   }
 
-  body.mobile-web-parity.page-request-quote .form-label,
-  body.mobile-web-parity.page-urgent-request .form-label {
-    font-size: 13px;
+  .interactive-grid {
+    grid-template-columns: repeat(6, 1fr);
   }
+}
 
-  body.mobile-web-parity.page-request-quote .form-input,
-  body.mobile-web-parity.page-request-quote .form-select,
-  body.mobile-web-parity.page-request-quote .form-textarea,
-  body.mobile-web-parity.page-urgent-request .form-input,
-  body.mobile-web-parity.page-urgent-request .form-select,
-  body.mobile-web-parity.page-urgent-request .form-textarea {
-    font-size: 13px;
-    border-radius: 12px;
-    padding: 10px 14px;
+/* ── Smooth Scroll Navbar Effect ── */
+#top-navbar.scrolled {
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Desktop CTA section ── */
+.cta-section {
+  display: none;
+}
+@media (min-width: 769px) {
+  .cta-section {
+    display: block;
+    background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+    border-radius: var(--radius-2xl);
+    padding: var(--space-3xl) var(--space-2xl);
+    text-align: center;
+    margin: var(--space-2xl) 0;
   }
-
-  body.mobile-web-parity.page-chats .search-input-large {
-    margin-bottom: 12px;
-    padding: 10px 14px;
-    border-radius: 12px;
+  .cta-title {
+    font-size: 28px;
+    font-weight: 900;
+    color: #fff;
+    margin-bottom: var(--space-md);
   }
-
-  body.mobile-web-parity.page-chats .thread-card {
-    border-radius: 14px;
-    padding: 12px 16px;
+  .cta-desc {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: var(--space-xl);
+    max-width: 500px;
+    margin-inline: auto;
+    line-height: 1.7;
   }
-
-  /* Chat detail page parity */
-  body.mobile-web-parity.page-chat-detail #top-navbar,
-  body.mobile-web-parity.page-chat-detail #bottom-nav {
-    display: none !important;
-  }
-
-  body.mobile-web-parity.page-chat-detail .chat-detail-page {
-    height: 100vh;
-    max-height: 100dvh;
-  }
-
-  body.mobile-web-parity.page-chat-detail .chat-back-btn {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+  .cta-btn {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    color: #666;
-    background: rgba(103, 58, 183, 0.06);
-    flex-shrink: 0;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-2xl);
+    background: #fff;
+    color: var(--color-primary);
+    border-radius: var(--radius-full);
+    font-size: 16px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
   }
-
-  body.mobile-web-parity.page-chat-detail .chat-peer-info {
-    min-width: 0;
-    flex: 1;
+  .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   }
+}
 
-  body.mobile-web-parity.page-chat-detail .chat-peer-status {
-    font-size: 10px;
-    color: #999;
-    margin-top: 1px;
+/* ── Stats section for homepage ── */
+.stats-section {
+  display: none;
+}
+@media (min-width: 769px) {
+  .stats-section {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-lg);
+    padding: var(--space-xl) 0;
+    margin: var(--space-lg) 0;
   }
+  .stat-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xl);
+    background: var(--color-surface);
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-border);
+    text-align: center;
+    transition: all var(--transition-fast);
+  }
+  .stat-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-primary);
+    transform: translateY(-2px);
+  }
+  .stat-number {
+    font-size: 32px;
+    font-weight: 900;
+    color: var(--color-primary);
+  }
+  .stat-text {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    font-weight: 600;
+  }
+}
 
-  body.mobile-web-parity.page-chat-detail .chat-header-actions {
+/* ── Breadcrumb (desktop) ── */
+.breadcrumb {
+  display: none;
+}
+@media (min-width: 769px) {
+  .breadcrumb {
     display: flex;
     align-items: center;
-    gap: 6px;
-  }
-
-  body.mobile-web-parity.page-chat-detail .chat-msg-input {
+    gap: var(--space-sm);
+    padding: var(--space-md) 0;
     font-size: 13px;
+    color: var(--color-text-tertiary);
   }
-
-  /* Pages without bottom nav in Flutter mobile. */
-  body.mobile-web-parity.page-login #bottom-nav,
-  body.mobile-web-parity.page-twofa #bottom-nav,
-  body.mobile-web-parity.page-signup #bottom-nav,
-  body.mobile-web-parity.page-onboarding #bottom-nav,
-  body.mobile-web-parity.page-terms #bottom-nav,
-  body.mobile-web-parity.page-about #bottom-nav,
-  body.mobile-web-parity.page-contact #bottom-nav,
-  body.mobile-web-parity.page-notification-settings #bottom-nav,
-  body.mobile-web-parity.page-order-detail #bottom-nav,
-  body.mobile-web-parity.page-notifications #bottom-nav,
-  body.mobile-web-parity.page-provider-detail #bottom-nav,
-  body.mobile-web-parity.page-chat-detail #bottom-nav,
-  body.mobile-web-parity.page-settings #bottom-nav {
-    display: none !important;
+  .breadcrumb a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: opacity var(--transition-fast);
   }
-
-  body.mobile-web-parity.page-login .auth-page,
-  body.mobile-web-parity.page-twofa .auth-page,
-  body.mobile-web-parity.page-signup .auth-page,
-  body.mobile-web-parity.page-onboarding .onboarding-page,
-  body.mobile-web-parity.page-terms .page-content,
-  body.mobile-web-parity.page-about .page-content,
-  body.mobile-web-parity.page-contact .page-content,
-  body.mobile-web-parity.page-notification-settings .page-content,
-  body.mobile-web-parity.page-order-detail .page-content,
-  body.mobile-web-parity.page-notifications .page-content,
-  body.mobile-web-parity.page-provider-detail .page-content,
-  body.mobile-web-parity.page-chat-detail .page-content,
-  body.mobile-web-parity.page-settings .page-content {
-    padding-bottom: 24px;
-  }
-
-  body.mobile-web-parity.page-login .offline-banner,
-  body.mobile-web-parity.page-twofa .offline-banner,
-  body.mobile-web-parity.page-signup .offline-banner,
-  body.mobile-web-parity.page-onboarding .offline-banner,
-  body.mobile-web-parity.page-terms .offline-banner,
-  body.mobile-web-parity.page-about .offline-banner,
-  body.mobile-web-parity.page-contact .offline-banner,
-  body.mobile-web-parity.page-notification-settings .offline-banner,
-  body.mobile-web-parity.page-order-detail .offline-banner,
-  body.mobile-web-parity.page-notifications .offline-banner,
-  body.mobile-web-parity.page-provider-detail .offline-banner,
-  body.mobile-web-parity.page-chat-detail .offline-banner,
-  body.mobile-web-parity.page-settings .offline-banner {
-    bottom: 24px;
+  .breadcrumb a:hover { opacity: 0.7; }
+  .breadcrumb-sep {
+    color: var(--color-text-tertiary);
   }
 }

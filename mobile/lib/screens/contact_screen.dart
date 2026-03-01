@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -230,10 +231,22 @@ class _ContactScreenState extends State<ContactScreen> {
     );
 
     if (!mounted) return;
-    setState(() => _isSubmitting = false);
 
     if (result.isSuccess) {
+      // رفع المرفقات بعد إنشاء التذكرة بنجاح
+      final ticketId = result.dataAsMap?['id'] as int?;
+      if (ticketId != null && attachments.isNotEmpty) {
+        for (final path in attachments) {
+          await SupportService.uploadAttachment(
+            ticketId: ticketId,
+            file: File(path),
+          );
+        }
+      }
+
+      if (!mounted) return;
       setState(() {
+        _isSubmitting = false;
         showNewTicketForm = false;
         isSupportTeamDropdownOpen = false;
         _descriptionController.clear();
@@ -248,6 +261,7 @@ class _ContactScreenState extends State<ContactScreen> {
       // إعادة تحميل التذاكر من الـ API
       _loadTickets();
     } else {
+      setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(result.error ?? 'فشل إنشاء البلاغ')),
       );

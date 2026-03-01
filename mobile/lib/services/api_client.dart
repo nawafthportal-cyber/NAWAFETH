@@ -194,6 +194,59 @@ class ApiClient {
     if (path.startsWith('http')) return path;
     return _buildUri(path).toString();
   }
+
+  /// إرسال طلب multipart مع مصادقة + تجديد توكن تلقائي
+  ///
+  /// [method] عادة 'POST' أو 'PATCH'.
+  /// [path] مسار الـ API مثل '/api/support/tickets/5/attachments/'.
+  /// [prepareRequest] دالة تضيف الحقول والملفات على الـ MultipartRequest.
+  /// يعيد [ApiResponse] كأي طلب آخر.
+  static Future<ApiResponse> sendMultipart(
+    String method,
+    String path,
+    Future<void> Function(http.MultipartRequest request) prepareRequest, {
+    Duration timeout = const Duration(seconds: 30),
+    bool isRetry = false,
+  }) async {
+    final uri = _buildUri(path);
+    final token = await AuthService.getAccessToken();
+
+    final request = http.MultipartRequest(method, uri);
+    request.headers['Accept'] = 'application/json';
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    await prepareRequest(request);
+
+    try {
+      final streamed = await request.send().timeout(timeout);
+      final response = await http.Response.fromStream(streamed);
+
+      // تجديد التوكن عند 401
+      if (response.statusCode == 401 && !isRetry) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          return sendMultipart(method, path, prepareRequest,
+              timeout: timeout, isRetry: true);
+        }
+      }
+
+      return parseResponse(response);
+    } on TimeoutException {
+      return ApiResponse(
+        statusCode: 0,
+        error: 'انتهت مهلة الاتصال بالخادم.',
+      );
+    } on SocketException {
+      return ApiResponse(
+        statusCode: 0,
+        error: 'تعذر الوصول إلى الخادم. تحقق من الاتصال.',
+      );
+    } catch (e) {
+      return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
+    }
+  }
 }
 
 /// نموذج الاستجابة الموحد

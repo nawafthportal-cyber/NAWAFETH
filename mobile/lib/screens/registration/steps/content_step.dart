@@ -20,6 +20,7 @@ class _ContentStepState extends State<ContentStep> {
   final DebouncedSaveRunner _autoSaveRunner = DebouncedSaveRunner();
 
   final List<SectionContent> sections = [];
+  final Set<String> _uploadedMediaPaths = <String>{};
 
   bool _isAddingNew = false;
   int? _editingIndex;
@@ -130,7 +131,8 @@ class _ContentStepState extends State<ContentStep> {
             'title': s.title.trim(),
             'description': s.description.trim(),
             'has_main_image': s.mainImage != null,
-            'images_count': s.contentImages.length + (s.mainImage != null ? 1 : 0),
+            'images_count':
+                s.contentImages.length + (s.mainImage != null ? 1 : 0),
             'videos_count': s.contentVideos.length,
           },
         )
@@ -142,6 +144,78 @@ class _ContentStepState extends State<ContentStep> {
     _autoSaveRunner.schedule(_saveSectionsToApi);
   }
 
+  String _sectionCaption(SectionContent section) {
+    final title = section.title.trim();
+    final description = section.description.trim();
+    final raw = (title.isNotEmpty && description.isNotEmpty)
+        ? '$title - $description'
+        : (title.isNotEmpty ? title : description);
+    if (raw.isEmpty) return 'معرض أعمال';
+    return raw.length > 180 ? raw.substring(0, 180) : raw;
+  }
+
+  Future<String?> _uploadPortfolioMediaFile(
+    XFile file, {
+    required String fileType,
+    required String caption,
+  }) async {
+    final path = file.path.trim();
+    if (path.isEmpty || _uploadedMediaPaths.contains(path)) return null;
+
+    final result = await ProfileService.uploadProviderPortfolioItem(
+      filePath: path,
+      fileType: fileType,
+      caption: caption,
+    );
+    if (result.isSuccess) {
+      _uploadedMediaPaths.add(path);
+      return null;
+    }
+    return result.error ?? 'فشل رفع ملف من المعرض';
+  }
+
+  Future<String?> _syncSectionMediaToApi(SectionContent section) async {
+    final caption = _sectionCaption(section);
+
+    final main = section.mainImage;
+    if (main != null) {
+      final error = await _uploadPortfolioMediaFile(
+        main,
+        fileType: 'image',
+        caption: caption,
+      );
+      if (error != null) return error;
+    }
+
+    for (final image in section.contentImages) {
+      final error = await _uploadPortfolioMediaFile(
+        image,
+        fileType: 'image',
+        caption: caption,
+      );
+      if (error != null) return error;
+    }
+
+    for (final video in section.contentVideos) {
+      final error = await _uploadPortfolioMediaFile(
+        video,
+        fileType: 'video',
+        caption: caption,
+      );
+      if (error != null) return error;
+    }
+
+    return null;
+  }
+
+  Future<String?> _syncAllSectionsMediaToApi() async {
+    for (final section in sections) {
+      final error = await _syncSectionMediaToApi(section);
+      if (error != null) return error;
+    }
+    return null;
+  }
+
   Future<void> _saveSectionsToApi() async {
     final payload = <String, dynamic>{
       'content_sections': _serializeSections(),
@@ -151,6 +225,16 @@ class _ContentStepState extends State<ContentStep> {
     setState(() {
       _isSaving = true;
     });
+
+    final mediaSyncError = await _syncAllSectionsMediaToApi();
+    if (!mounted) return;
+    if (mediaSyncError != null) {
+      setState(() {
+        _isSaving = false;
+        _saveError = mediaSyncError;
+      });
+      return;
+    }
 
     final result = await ProfileService.updateProviderProfile(payload);
     if (!mounted) return;
@@ -185,7 +269,8 @@ class _ContentStepState extends State<ContentStep> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: const Text(
             'تأكيد الحذف',
             style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
@@ -333,7 +418,8 @@ class _ContentStepState extends State<ContentStep> {
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 30),
                         child: Center(
-                          child: CircularProgressIndicator(color: Colors.deepPurple),
+                          child: CircularProgressIndicator(
+                              color: Colors.deepPurple),
                         ),
                       ),
                     if (!_isLoading && sections.isEmpty)
@@ -373,8 +459,7 @@ class _ContentStepState extends State<ContentStep> {
                       child: ElevatedButton.icon(
                         onPressed: _isLoading
                             ? null
-                            :
-                            (_isAddingNew || _editingIndex != null)
+                            : (_isAddingNew || _editingIndex != null)
                                 ? null
                                 : _startAddSection,
                         icon: const Icon(Icons.add),
@@ -401,15 +486,13 @@ class _ContentStepState extends State<ContentStep> {
                     // محرر القسم الجديد
                     if (_isAddingNew || _editingIndex != null)
                       NewSectionEditor(
-                        initialSection:
-                            _editingIndex != null
-                                ? sections[_editingIndex!]
-                                : null,
+                        initialSection: _editingIndex != null
+                            ? sections[_editingIndex!]
+                            : null,
                         onCancel: _cancelAddSection,
-                        onSave:
-                            _editingIndex != null
-                                ? _saveEditedSection
-                                : _saveNewSection,
+                        onSave: _editingIndex != null
+                            ? _saveEditedSection
+                            : _saveNewSection,
                       ),
                   ],
                 ),
@@ -462,7 +545,8 @@ class _ContentStepState extends State<ContentStep> {
           SizedBox(width: 8),
           Text(
             'جاري الحفظ التلقائي...',
-            style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+            style: TextStyle(
+                fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
           ),
         ],
       );
@@ -504,8 +588,8 @@ class SectionContent {
     this.mainImage,
     List<XFile>? contentVideos,
     List<XFile>? contentImages,
-  }) : contentVideos = contentVideos ?? [],
-       contentImages = contentImages ?? [];
+  })  : contentVideos = contentVideos ?? [],
+        contentImages = contentImages ?? [];
 }
 
 /// كرت مختصر لعرض القسم (عرض فقط)
@@ -549,19 +633,18 @@ class _SectionSummaryCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-          // صورة مصغرة
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child:
-                  hasImage
-                      ? Image.file(
+            // صورة مصغرة
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: hasImage
+                    ? Image.file(
                         File(section.mainImage!.path),
                         fit: BoxFit.cover,
                       )
-                      : Container(
+                    : Container(
                         color: Colors.deepPurple.shade50,
                         child: const Icon(
                           Icons.image_outlined,
@@ -569,69 +652,69 @@ class _SectionSummaryCard extends StatelessWidget {
                           size: 28,
                         ),
                       ),
+              ),
             ),
-          ),
-          const SizedBox(width: 10),
+            const SizedBox(width: 10),
 
-          // نصوص + شارات
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  section.title.isEmpty ? "عنوان قسم غير محدد" : section.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: "Cairo",
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  section.description.isEmpty
-                      ? "وصف قصير للقسم يظهر هنا."
-                      : section.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: "Cairo",
-                    fontSize: 11.5,
-                    color: Colors.black54,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: [
-                    hasImage
-                        ? _chip(icon: Icons.image, label: "صورة رئيسية مضافة")
-                        : _chip(
-                          icon: Icons.image_not_supported_outlined,
-                          label: "بدون صورة رئيسية",
-                          color: Colors.grey.shade400,
-                        ),
-                    _chip(
-                      icon: Icons.collections,
-                      label:
-                          totalContent == 0
-                              ? "لا يوجد محتوى"
-                              : "$totalContent محتوى ($videosCount فيديو، $imagesCount صورة)",
-                      color:
-                          totalContent == 0
-                              ? Colors.grey.shade400
-                              : Colors.deepPurple,
+            // نصوص + شارات
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    section.title.isEmpty
+                        ? "عنوان قسم غير محدد"
+                        : section.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: "Cairo",
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    section.description.isEmpty
+                        ? "وصف قصير للقسم يظهر هنا."
+                        : section.description,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: "Cairo",
+                      fontSize: 11.5,
+                      color: Colors.black54,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: [
+                      hasImage
+                          ? _chip(icon: Icons.image, label: "صورة رئيسية مضافة")
+                          : _chip(
+                              icon: Icons.image_not_supported_outlined,
+                              label: "بدون صورة رئيسية",
+                              color: Colors.grey.shade400,
+                            ),
+                      _chip(
+                        icon: Icons.collections,
+                        label: totalContent == 0
+                            ? "لا يوجد محتوى"
+                            : "$totalContent محتوى ($videosCount فيديو، $imagesCount صورة)",
+                        color: totalContent == 0
+                            ? Colors.grey.shade400
+                            : Colors.deepPurple,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // زر الحذف صغير على اليسار
+            // زر الحذف صغير على اليسار
             IconButton(
               onPressed: onDelete,
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
@@ -774,7 +857,8 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
             ),
             const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.photo_library, color: Colors.deepPurple),
+              leading:
+                  const Icon(Icons.photo_library, color: Colors.deepPurple),
               title: const Text(
                 'صورة من الألبوم',
                 style: TextStyle(fontFamily: 'Cairo'),
@@ -796,7 +880,8 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.video_library, color: Colors.deepPurple),
+              leading:
+                  const Icon(Icons.video_library, color: Colors.deepPurple),
               title: const Text(
                 'فيديو من الألبوم',
                 style: TextStyle(fontFamily: 'Cairo'),
@@ -1046,7 +1131,8 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
           ),
@@ -1078,7 +1164,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                 final file = isVideo ? _videos[i] : _images[i - _videos.length];
                 final name = file.name;
                 final removeIndex = isVideo ? i : (i - _videos.length);
-                
+
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: Stack(
@@ -1172,7 +1258,6 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                             ),
                           ),
                         ),
-
                       Positioned(
                         top: 4,
                         right: 4,

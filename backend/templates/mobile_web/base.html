@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'mobile_web/css/app.css' %}">
+<link rel="stylesheet" href="{% static 'mobile_web/css/pages.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/desktop-parity.css' %}">
 {% block extra_css %}{% endblock %}
 </head>
@@ -202,6 +203,20 @@
 <script src="{% static 'mobile_web/js/utils.js' %}"></script>
 <script src="{% static 'mobile_web/js/auth.js' %}"></script>
 <script src="{% static 'mobile_web/js/nav.js' %}"></script>
+<script>
+// Navbar scroll effect
+(function(){
+  var navbar = document.getElementById('top-navbar');
+  if (!navbar) return;
+  var last = 0;
+  window.addEventListener('scroll', function(){
+    var y = window.scrollY || window.pageYOffset;
+    if (y > 20) navbar.classList.add('scrolled');
+    else navbar.classList.remove('scrolled');
+    last = y;
+  }, {passive:true});
+})();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

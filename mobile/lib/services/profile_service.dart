@@ -1,13 +1,10 @@
 /// خدمة البروفايل — جلب وتحديث بيانات المستخدم والمزود
 library;
 
-import 'dart:io';
-import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
 import '../models/provider_profile_model.dart';
 import 'api_client.dart';
-import 'auth_service.dart';
 
 class ProfileService {
   /// جلب بيانات المستخدم الحالي (عميل أو مزود)
@@ -31,7 +28,8 @@ class ProfileService {
   }
 
   /// جلب بيانات ملف المزود (فقط إذا كان المستخدم مزود)
-  static Future<ProfileResult<ProviderProfileModel>> fetchProviderProfile() async {
+  static Future<ProfileResult<ProviderProfileModel>>
+      fetchProviderProfile() async {
     final response = await ApiClient.get('/api/providers/me/profile/');
 
     if (response.isSuccess && response.dataAsMap != null) {
@@ -55,7 +53,8 @@ class ProfileService {
   }
 
   /// تحديث بيانات المستخدم
-  static Future<ProfileResult<UserProfile>> updateMyProfile(Map<String, dynamic> data) async {
+  static Future<ProfileResult<UserProfile>> updateMyProfile(
+      Map<String, dynamic> data) async {
     final response = await ApiClient.patch('/api/accounts/me/', body: data);
 
     if (response.isSuccess && response.dataAsMap != null) {
@@ -80,89 +79,136 @@ class ProfileService {
       return ProfileResult.failure('لم يتم اختيار صورة للرفع');
     }
 
-    final token = await AuthService.getAccessToken();
-    if (token == null || token.isEmpty) {
-      return ProfileResult.failure('يجب تسجيل الدخول أولاً');
-    }
-
-    final uri = Uri.parse(ApiClient.baseUrl).resolve('/api/accounts/me/');
-    final request = http.MultipartRequest('PATCH', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-    request.headers['Accept'] = 'application/json';
-
-    if (profileImagePath != null && profileImagePath.isNotEmpty) {
-      request.files.add(await http.MultipartFile.fromPath('profile_image', profileImagePath));
-    }
-    if (coverImagePath != null && coverImagePath.isNotEmpty) {
-      request.files.add(await http.MultipartFile.fromPath('cover_image', coverImagePath));
-    }
-
-    try {
-      final streamed = await request.send();
-      final response = await http.Response.fromStream(streamed);
-
-      if (response.statusCode == 401) {
-        final refreshed = await _tryRefreshToken();
-        if (refreshed) {
-          return uploadMyProfileImages(
-            profileImagePath: profileImagePath,
-            coverImagePath: coverImagePath,
+    final res = await ApiClient.sendMultipart(
+      'PATCH',
+      '/api/accounts/me/',
+      (request) async {
+        if (profileImagePath != null && profileImagePath.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath('profile_image', profileImagePath),
           );
         }
-      }
-
-      final parsed = ApiClient.parseResponse(response);
-      if (parsed.isSuccess && parsed.dataAsMap != null) {
-        try {
-          final profile = UserProfile.fromJson(parsed.dataAsMap!);
-          return ProfileResult.success(profile);
-        } catch (_) {
-          return ProfileResult.failure('خطأ في تحليل الاستجابة');
+        if (coverImagePath != null && coverImagePath.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath('cover_image', coverImagePath),
+          );
         }
-      }
+      },
+    );
 
-      return ProfileResult.failure(parsed.error ?? 'فشل رفع الصور');
-    } on SocketException {
-      return ProfileResult.failure('تعذر الوصول إلى الخادم. تحقق من الاتصال.');
-    } catch (e) {
-      return ProfileResult.failure('خطأ أثناء الرفع: $e');
+    if (res.isSuccess && res.dataAsMap != null) {
+      try {
+        final profile = UserProfile.fromJson(res.dataAsMap!);
+        return ProfileResult.success(profile);
+      } catch (_) {
+        return ProfileResult.failure('خطأ في تحليل الاستجابة');
+      }
     }
+    return ProfileResult.failure(res.error ?? 'فشل رفع الصور');
   }
 
-  static Future<bool> _tryRefreshToken() async {
-    final refreshToken = await AuthService.getRefreshToken();
-    if (refreshToken == null || refreshToken.isEmpty) return false;
+  /// رفع صورة الملف الشخصي/الخلفية لملف المزود (multipart)
+  static Future<ProfileResult<ProviderProfileModel>>
+      uploadProviderProfileImages({
+    String? profileImagePath,
+    String? coverImagePath,
+  }) async {
+    if ((profileImagePath == null || profileImagePath.isEmpty) &&
+        (coverImagePath == null || coverImagePath.isEmpty)) {
+      return ProfileResult.failure('لم يتم اختيار صورة للرفع');
+    }
 
-    try {
-      final uri = Uri.parse(ApiClient.baseUrl).resolve('/api/accounts/token/refresh/');
-      final response = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'refresh': refreshToken}),
-      );
-
-      final parsed = ApiClient.parseResponse(response);
-      if (parsed.isSuccess && parsed.dataAsMap != null) {
-        final access = parsed.dataAsMap!['access'] as String?;
-        if (access != null && access.isNotEmpty) {
-          await AuthService.saveTokens(access: access, refresh: refreshToken);
-          return true;
+    final res = await ApiClient.sendMultipart(
+      'PATCH',
+      '/api/providers/me/profile/',
+      (request) async {
+        if (profileImagePath != null && profileImagePath.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath('profile_image', profileImagePath),
+          );
         }
-      }
-    } catch (_) {}
+        if (coverImagePath != null && coverImagePath.isNotEmpty) {
+          request.files.add(
+            await http.MultipartFile.fromPath('cover_image', coverImagePath),
+          );
+        }
+      },
+    );
 
-    await AuthService.logout();
-    return false;
+    if (res.isSuccess && res.dataAsMap != null) {
+      try {
+        final profile = ProviderProfileModel.fromJson(res.dataAsMap!);
+        return ProfileResult.success(profile);
+      } catch (_) {
+        return ProfileResult.failure('خطأ في تحليل الاستجابة');
+      }
+    }
+    return ProfileResult.failure(res.error ?? 'فشل رفع الصور');
+  }
+
+  /// رفع عنصر جديد إلى معرض أعمال المزود (Portfolio) (multipart)
+  static Future<ProfileResult<Map<String, dynamic>>>
+      uploadProviderPortfolioItem({
+    required String filePath,
+    String fileType = 'image',
+    String? caption,
+  }) async {
+    if (filePath.trim().isEmpty) {
+      return ProfileResult.failure('لم يتم اختيار ملف للرفع');
+    }
+
+    final res = await ApiClient.sendMultipart(
+      'POST',
+      '/api/providers/me/portfolio/',
+      (request) async {
+        request.fields['file_type'] = fileType;
+        if (caption != null && caption.trim().isNotEmpty) {
+          request.fields['caption'] = caption.trim();
+        }
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      },
+    );
+
+    if (res.isSuccess) {
+      return ProfileResult.success(res.dataAsMap ?? <String, dynamic>{});
+    }
+    return ProfileResult.failure(res.error ?? 'فشل رفع العنصر');
+  }
+
+  /// رفع لمحة (Spotlight) واحدة لملف المزود (multipart)
+  static Future<ProfileResult<Map<String, dynamic>>> uploadProviderSpotlight({
+    required String filePath,
+    String fileType = 'video',
+    String? caption,
+  }) async {
+    if (filePath.trim().isEmpty) {
+      return ProfileResult.failure('لم يتم اختيار ملف للرفع');
+    }
+
+    final res = await ApiClient.sendMultipart(
+      'POST',
+      '/api/providers/me/spotlights/',
+      (request) async {
+        request.fields['file_type'] = fileType;
+        if (caption != null && caption.trim().isNotEmpty) {
+          request.fields['caption'] = caption.trim();
+        }
+        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      },
+    );
+
+    if (res.isSuccess) {
+      return ProfileResult.success(res.dataAsMap ?? <String, dynamic>{});
+    }
+    return ProfileResult.failure(res.error ?? 'فشل رفع اللمحة');
   }
 
   /// تحديث بيانات ملف المزود
   static Future<ProfileResult<ProviderProfileModel>> updateProviderProfile(
     Map<String, dynamic> data,
   ) async {
-    final response = await ApiClient.patch('/api/providers/me/profile/', body: data);
+    final response =
+        await ApiClient.patch('/api/providers/me/profile/', body: data);
 
     if (response.isSuccess && response.dataAsMap != null) {
       try {
@@ -180,7 +226,8 @@ class ProfileService {
   static Future<ProfileResult<ProviderProfileModel>> registerProvider(
     Map<String, dynamic> data,
   ) async {
-    final response = await ApiClient.post('/api/providers/register/', body: data);
+    final response =
+        await ApiClient.post('/api/providers/register/', body: data);
 
     if (response.isSuccess && response.dataAsMap != null) {
       try {

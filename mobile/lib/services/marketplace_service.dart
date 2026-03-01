@@ -12,7 +12,6 @@ library;
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'api_client.dart';
-import 'auth_service.dart';
 import 'upload_optimizer.dart';
 import '../models/service_request_model.dart';
 
@@ -46,61 +45,63 @@ class MarketplaceService {
     List<File> files = const [],
     File? audio,
   }) async {
-    final token = await AuthService.getAccessToken();
-    final uri = Uri.parse('${ApiClient.baseUrl}/api/marketplace/requests/create/');
-
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-
-    request.fields['title'] = title;
-    request.fields['description'] = description;
-    request.fields['request_type'] = requestType;
-    request.fields['subcategory'] = subcategory.toString();
-
-    if (city != null && city.isNotEmpty) {
-      request.fields['city'] = city;
-    }
-    if (provider != null) {
-      request.fields['provider'] = provider.toString();
-    }
-    if (dispatchMode != null) {
-      request.fields['dispatch_mode'] = dispatchMode;
-    }
-    if (quoteDeadline != null) {
-      request.fields['quote_deadline'] = quoteDeadline;
-    }
-
+    // تحسين الصور والملفات قبل الرفع
+    final optimizedImages = <File>[];
     for (final img in images) {
-      final optimized = await UploadOptimizer.optimizeForUpload(
-        img,
-        declaredType: 'image',
-      );
-      request.files.add(
-        await http.MultipartFile.fromPath('images', optimized.path),
+      optimizedImages.add(
+        await UploadOptimizer.optimizeForUpload(img, declaredType: 'image'),
       );
     }
-    for (final vid in videos) {
-      request.files.add(await http.MultipartFile.fromPath('videos', vid.path));
-    }
+    final optimizedFiles = <File>[];
     for (final f in files) {
-      final optimized = await UploadOptimizer.optimizeForUpload(f);
-      request.files.add(
-        await http.MultipartFile.fromPath('files', optimized.path),
-      );
-    }
-    if (audio != null) {
-      request.files.add(await http.MultipartFile.fromPath('audio', audio.path));
+      optimizedFiles.add(await UploadOptimizer.optimizeForUpload(f));
     }
 
-    try {
-      final streamed = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamed);
+    return ApiClient.sendMultipart(
+      'POST',
+      '/api/marketplace/requests/create/',
+      (request) async {
+        request.fields['title'] = title;
+        request.fields['description'] = description;
+        request.fields['request_type'] = requestType;
+        request.fields['subcategory'] = subcategory.toString();
 
-      // re-use the same parser
-      return ApiClient.parseResponse(response);
-    } catch (e) {
-      return ApiResponse(statusCode: 0, error: 'خطأ في إرسال الطلب: $e');
-    }
+        if (city != null && city.isNotEmpty) {
+          request.fields['city'] = city;
+        }
+        if (provider != null) {
+          request.fields['provider'] = provider.toString();
+        }
+        if (dispatchMode != null) {
+          request.fields['dispatch_mode'] = dispatchMode;
+        }
+        if (quoteDeadline != null) {
+          request.fields['quote_deadline'] = quoteDeadline;
+        }
+
+        for (final img in optimizedImages) {
+          request.files.add(
+            await http.MultipartFile.fromPath('images', img.path),
+          );
+        }
+        for (final vid in videos) {
+          request.files.add(
+            await http.MultipartFile.fromPath('videos', vid.path),
+          );
+        }
+        for (final f in optimizedFiles) {
+          request.files.add(
+            await http.MultipartFile.fromPath('files', f.path),
+          );
+        }
+        if (audio != null) {
+          request.files.add(
+            await http.MultipartFile.fromPath('audio', audio.path),
+          );
+        }
+      },
+      timeout: const Duration(seconds: 60),
+    );
   }
 
   // ──────────────────────────────────────

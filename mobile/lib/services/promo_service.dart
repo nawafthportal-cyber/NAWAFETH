@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:nawafeth/services/api_client.dart';
-import 'package:nawafeth/services/auth_service.dart';
 import 'package:nawafeth/services/upload_optimizer.dart';
 
 class PromoService {
@@ -66,28 +65,20 @@ class PromoService {
     required String assetType,
     String title = '',
   }) async {
-    final token = await AuthService.getAccessToken();
-    final uri = Uri.parse(
-      '${ApiClient.baseUrl}/api/promo/requests/$requestId/assets/',
-    );
-
-    final request = http.MultipartRequest('POST', uri);
-    request.headers['Authorization'] = 'Bearer $token';
-    request.fields['asset_type'] = assetType;
-    if (title.isNotEmpty) request.fields['title'] = title;
     final optimized = await UploadOptimizer.optimizeForUpload(
       file,
       declaredType: assetType,
     );
-    request.files.add(await http.MultipartFile.fromPath('file', optimized.path));
-
-    try {
-      final streamed =
-          await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamed);
-      return ApiClient.parseResponse(response);
-    } catch (e) {
-      return ApiResponse(statusCode: 0, error: 'خطأ في رفع الملف: $e');
-    }
+    return ApiClient.sendMultipart(
+      'POST',
+      '/api/promo/requests/$requestId/assets/',
+      (request) async {
+        request.fields['asset_type'] = assetType;
+        if (title.isNotEmpty) request.fields['title'] = title;
+        request.files.add(
+          await http.MultipartFile.fromPath('file', optimized.path),
+        );
+      },
+    );
   }
 }
