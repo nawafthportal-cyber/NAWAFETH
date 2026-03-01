@@ -33,6 +33,7 @@ SECURE_SSL_REDIRECT = True
 # can succeed without being redirected to HTTPS.
 SECURE_REDIRECT_EXEMPT = [
 	r"^health/",
+	r"^healthz/?$",
 	r"^$",
 ]
 SESSION_COOKIE_SECURE = True

@@ -154,10 +154,9 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
-
-# عدم إلقاء خطأ 500 عند فقدان ملف من manifest (يُرجع المسار بدون hash بدلاً من الانهيار)
-WHITENOISE_MANIFEST_STRICT = False
+STATICFILES_BACKEND = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = STATICFILES_BACKEND
+WHITENOISE_MANIFEST_STRICT = env_bool("WHITENOISE_MANIFEST_STRICT", True)
 
 # Cloudflare R2 / S3-compatible media storage (optional)
 USE_R2_MEDIA = env_bool("USE_R2_MEDIA", False)
@@ -202,7 +201,7 @@ if _r2_media_ready:
             "BACKEND": "storages.backends.s3.S3Storage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            "BACKEND": STATICFILES_BACKEND,
         },
     }
 else:
@@ -225,7 +224,7 @@ else:
             "BACKEND": "django.core.files.storage.FileSystemStorage",
         },
         "staticfiles": {
-            "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+            "BACKEND": STATICFILES_BACKEND,
         },
     }
 
