@@ -443,7 +443,6 @@ body[data-page="home-index"] .nw-page {
     min-height: 340px;
   }
 
-  .nw-hero-topbar,
   .nw-hero-content,
   .nw-reels-section,
   .nw-home-section {
@@ -452,7 +451,7 @@ body[data-page="home-index"] .nw-page {
   }
 
   .nw-hero-topbar {
-    padding: 14px 0 0;
+    display: none;
   }
 
   .nw-hero-content {
