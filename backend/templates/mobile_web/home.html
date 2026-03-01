@@ -1,0 +1,134 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#673AB7">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<title>نوافــذ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'mobile_web/css/app.css' %}">
+</head>
+<body>
+<!-- ====== Mobile Frame Container ====== -->
+<div id="mobile-frame">
+  <div id="app-shell">
+
+    <!-- ====== HERO SECTION ====== -->
+    <section id="hero">
+      <!-- Gradient fallback (video can be added later) -->
+      <div class="hero-bg"></div>
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <!-- Top bar -->
+        <div class="hero-topbar">
+          <button class="hero-icon-btn" id="btn-menu" aria-label="القائمة">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <span class="hero-logo">نوافــذ</span>
+          <div class="hero-actions">
+            <button class="hero-icon-btn" id="btn-notifications" aria-label="الإشعارات">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+            </button>
+            <button class="hero-icon-btn" id="btn-chat" aria-label="المحادثات">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Tagline -->
+        <div class="hero-bottom">
+          <h1 class="hero-tagline">اعثر على الخدمة المناسبة</h1>
+          <p class="hero-subtitle" id="hero-subtitle">أكثر من 100 مقدم خدمة بين يديك</p>
+          <!-- Search bar (decorative - navigates to search) -->
+          <div class="search-bar" id="search-bar" role="button" tabindex="0" aria-label="بحث">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <span>ابحث عن خدمة أو مقدم خدمة...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== REELS CAROUSEL ====== -->
+    <section id="reels" class="section-reels">
+      <div class="reels-track" id="reels-track"></div>
+    </section>
+
+    <!-- ====== CATEGORIES ====== -->
+    <section id="categories" class="section-block">
+      <h2 class="section-title">التصنيفات</h2>
+      <div class="categories-scroll" id="categories-list">
+        <!-- Skeleton placeholders -->
+        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+      </div>
+    </section>
+
+    <!-- ====== PROVIDERS ====== -->
+    <section id="providers" class="section-block">
+      <div class="section-header">
+        <h2 class="section-title">مقدمو الخدمة</h2>
+        <button class="view-all-btn" id="btn-view-all-providers">عرض الكل</button>
+      </div>
+      <div class="providers-scroll" id="providers-list">
+        <!-- Skeleton placeholders -->
+        <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:10px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:8px;border-radius:4px;margin-top:6px"></div></div></div>
+        <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:10px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:8px;border-radius:4px;margin-top:6px"></div></div></div>
+        <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:10px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:8px;border-radius:4px;margin-top:6px"></div></div></div>
+      </div>
+    </section>
+
+    <!-- ====== BANNERS ====== -->
+    <section id="banners" class="section-block" style="display:none">
+      <h2 class="section-title">عروض ترويجية</h2>
+      <div class="banners-scroll" id="banners-list"></div>
+    </section>
+
+    <!-- Spacer -->
+    <div style="height:90px"></div>
+  </div>
+
+  <!-- ====== BOTTOM NAV ====== -->
+  <nav id="bottom-nav" aria-label="التنقل الرئيسي">
+    <a href="#" class="nav-item active" data-index="0">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>الرئيسية</span>
+    </a>
+    <a href="#" class="nav-item" data-index="1">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+      <span>طلباتي</span>
+    </a>
+    <div class="nav-center-spacer"></div>
+    <a href="#" class="nav-item" data-index="2">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      <span>تفاعلي</span>
+    </a>
+    <a href="#" class="nav-item" data-index="3">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>نافذتي</span>
+    </a>
+    <!-- FAB center button -->
+    <button class="nav-fab" id="nav-fab" aria-label="إضافة خدمة">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+    </button>
+  </nav>
+
+  <!-- ====== OFFLINE BANNER ====== -->
+  <div id="offline-banner" class="offline-banner" style="display:none">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0119 12.55"/><path d="M5 12.55a10.94 10.94 0 015.17-2.39"/><path d="M10.71 5.05A16 16 0 0122.56 9"/><path d="M1.42 9a15.91 15.91 0 014.7-2.88"/><path d="M8.53 16.11a6 6 0 016.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+    <span>أنت غير متصل — يتم عرض آخر نسخة محفوظة</span>
+  </div>
+</div>
+
+<script src="{% static 'mobile_web/js/cache.js' %}"></script>
+<script src="{% static 'mobile_web/js/apiClient.js' %}"></script>
+<script src="{% static 'mobile_web/js/utils.js' %}"></script>
+<script src="{% static 'mobile_web/js/homePage.js' %}"></script>
+</body>
+</html>

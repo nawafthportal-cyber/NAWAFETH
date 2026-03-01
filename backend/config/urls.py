@@ -64,6 +64,8 @@ urlpatterns = [
 
     path("api/analytics/", include(("apps.analytics.urls", "analytics"), namespace="analytics")),
 
+    # Mobile Web View
+    path("mobile-web/", include(("apps.mobile_web.urls", "mobile_web"), namespace="mobile_web")),
 ]
 
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
