@@ -347,23 +347,20 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     PULL-TO-REFRESH (simple imperative approach)
+     PULL-TO-REFRESH (touch on window for mobile)
   ---------------------------------------------------------- */
   function _initPullToRefresh() {
-    const shell = document.getElementById('app-shell');
-    if (!shell) return;
-
     let startY = 0;
     let pulling = false;
 
-    shell.addEventListener('touchstart', e => {
-      if (shell.scrollTop <= 0) {
+    window.addEventListener('touchstart', e => {
+      if (window.scrollY <= 0) {
         startY = e.touches[0].clientY;
         pulling = true;
       }
     }, { passive: true });
 
-    shell.addEventListener('touchmove', e => {
+    window.addEventListener('touchmove', e => {
       if (!pulling) return;
       const dy = e.touches[0].clientY - startY;
       if (dy > 80 && !_isLoading) {
@@ -372,7 +369,7 @@ const HomePage = (() => {
       }
     }, { passive: true });
 
-    shell.addEventListener('touchend', () => { pulling = false; }, { passive: true });
+    window.addEventListener('touchend', () => { pulling = false; }, { passive: true });
   }
 
   /* ----------------------------------------------------------

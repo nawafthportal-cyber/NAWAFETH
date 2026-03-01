@@ -21,6 +21,7 @@ from django.conf.urls.static import static
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView, healthz
+from apps.mobile_web.views import MobileWebHomeView
 
 admin.site.site_header = _("إدارة منصة نوافذ")
 admin.site.site_title = _("لوحة إدارة نوافذ")
@@ -66,6 +67,9 @@ urlpatterns = [
 
     # Mobile Web View
     path("mobile-web/", include(("apps.mobile_web.urls", "mobile_web"), namespace="mobile_web")),
+
+    # Root — serve responsive home page at /
+    path("", MobileWebHomeView.as_view(), name="home"),
 ]
 
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
