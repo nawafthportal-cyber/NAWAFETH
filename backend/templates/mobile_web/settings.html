@@ -21,55 +21,73 @@
 
       <!-- Profile Header -->
       <div class="settings-profile-header">
-        <div class="settings-avatar" id="settings-avatar"></div>
+        <div class="settings-avatar-wrap">
+          <img class="settings-avatar" id="settings-avatar" src="" alt="avatar">
+          <label class="avatar-upload-btn" for="avatar-file-input">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </label>
+          <input type="file" id="avatar-file-input" accept="image/*" hidden>
+        </div>
         <div class="settings-profile-info">
-          <div class="settings-username" id="settings-username"></div>
+          <div class="settings-name" id="settings-name"></div>
           <div class="settings-email" id="settings-email"></div>
         </div>
       </div>
 
       <!-- Account Info -->
-      <div class="form-card">
+      <form id="settings-form" class="form-card" autocomplete="off">
         <h3 class="form-card-title">معلومات الحساب</h3>
 
         <div class="form-group">
           <label class="form-label">اسم العضوية</label>
-          <input type="text" class="form-input" id="inp-username" disabled>
+          <input type="text" class="form-input" id="set-username" disabled>
         </div>
 
         <div class="form-group">
           <label class="form-label">الاسم الأول</label>
-          <input type="text" class="form-input" id="inp-first-name" placeholder="الاسم الأول">
+          <input type="text" class="form-input" id="set-first-name" placeholder="الاسم الأول">
         </div>
 
         <div class="form-group">
           <label class="form-label">الاسم الأخير</label>
-          <input type="text" class="form-input" id="inp-last-name" placeholder="الاسم الأخير">
+          <input type="text" class="form-input" id="set-last-name" placeholder="الاسم الأخير">
         </div>
 
         <div class="form-group">
           <label class="form-label">رقم الجوال</label>
-          <input type="tel" class="form-input" id="inp-phone" dir="ltr" disabled>
+          <input type="tel" class="form-input" id="set-phone" dir="ltr" disabled>
         </div>
 
         <div class="form-group">
           <label class="form-label">البريد الإلكتروني</label>
-          <input type="email" class="form-input" id="inp-email" placeholder="example@mail.com" dir="ltr">
+          <input type="email" class="form-input" id="set-email" placeholder="example@mail.com" dir="ltr">
         </div>
 
-        <button class="btn-primary" id="btn-save">
+        <button type="submit" class="btn-primary" id="settings-save-btn">
           <span id="save-text">حفظ التغييرات</span>
           <span class="spinner hidden" id="save-spinner"></span>
         </button>
         <div class="form-success hidden" id="save-success">تم حفظ التغييرات بنجاح ✓</div>
         <div class="form-error hidden" id="save-error"></div>
+      </form>
+
+      <!-- Security Section -->
+      <div class="form-card">
+        <h3 class="form-card-title">الأمان</h3>
+        <div class="security-item">
+          <div class="security-info">
+            <span class="security-label">تغيير كلمة المرور</span>
+            <span class="security-desc">قم بتعيين كلمة مرور جديدة لحسابك</span>
+          </div>
+          <button class="btn-sm" id="btn-change-password">تغيير</button>
+        </div>
       </div>
 
       <!-- Danger zone -->
       <div class="form-card danger-zone">
         <h3 class="form-card-title" style="color:#F44336">المنطقة الخطرة</h3>
         <p class="form-hint">سيتم حذف حسابك وجميع بياناتك نهائيًا ولا يمكن التراجع عن هذا الإجراء</p>
-        <button class="btn-danger-outline" id="btn-delete-account">حذف الحساب نهائيًا</button>
+        <button class="btn-danger-outline" id="delete-account-btn">حذف الحساب نهائيًا</button>
       </div>
     </div>
   </div>

@@ -13,7 +13,7 @@
 const ProviderDetailPage = (() => {
   let _providerId = null;
   let _isFollowing = false;
-  let _activeTab = 'services';
+  let _activeTab = 'profile';
 
   function init() {
     // Extract provider ID from URL: /provider/123/
@@ -33,6 +33,11 @@ const ProviderDetailPage = (() => {
 
     // Action buttons
     document.getElementById('btn-follow').addEventListener('click', _toggleFollow);
+    const msgBtn = document.getElementById('btn-message');
+    if (msgBtn) msgBtn.addEventListener('click', () => {
+      if (!Auth.isLoggedIn()) { Auth.requireLogin(window.location.pathname); return; }
+      window.location.href = '/chats/?start=' + _providerId;
+    });
     document.getElementById('btn-request').addEventListener('click', () => {
       window.location.href = '/search/?provider=' + _providerId;
     });
@@ -44,8 +49,8 @@ const ProviderDetailPage = (() => {
   }
 
   function _switchTab() {
-    ['services', 'portfolio', 'reviews'].forEach(t => {
-      const panel = document.getElementById(t + '-list');
+    ['profile', 'services', 'portfolio', 'reviews'].forEach(t => {
+      const panel = document.getElementById('tab-' + t);
       if (panel) panel.classList.toggle('hidden', t !== _activeTab);
     });
   }
@@ -79,7 +84,60 @@ const ProviderDetailPage = (() => {
     else if (p.is_verified_green) { badge.innerHTML = ''; badge.appendChild(UI.icon('verified_green', 18, '#4CAF50')); }
     else badge.classList.add('hidden');
 
+    // @handle
+    const handleEl = document.getElementById('prov-handle');
+    if (handleEl) handleEl.textContent = p.username ? ('@' + p.username) : '';
+
+    // Category label
+    const catEl = document.getElementById('prov-category');
+    if (catEl) catEl.textContent = p.category_name || p.main_category || '';
+
     document.getElementById('prov-city').textContent = p.city || '';
+
+    // Bio
+    const bioEl = document.getElementById('prov-bio');
+    if (bioEl) bioEl.textContent = p.bio || p.description || 'لا توجد نبذة';
+
+    // Contact info
+    const contactList = document.getElementById('prov-contact-list');
+    if (contactList) {
+      contactList.innerHTML = '';
+      if (p.city) _addContactRow(contactList, 'location_on', p.city);
+      if (p.phone && p.show_phone) _addContactRow(contactList, 'phone', p.phone);
+      if (p.email && p.show_email) _addContactRow(contactList, 'email', p.email);
+      if (p.website) _addContactRow(contactList, 'language', p.website);
+    }
+
+    // Working hours
+    if (p.working_hours && p.working_hours.length) {
+      const hoursCard = document.getElementById('prov-hours-card');
+      const hoursEl = document.getElementById('prov-hours');
+      if (hoursCard && hoursEl) {
+        hoursCard.style.display = '';
+        hoursEl.innerHTML = '';
+        p.working_hours.forEach(h => {
+          const row = UI.el('div', { className: 'prov-hours-row' });
+          row.appendChild(UI.el('span', { className: 'hours-day', textContent: h.day || '' }));
+          row.appendChild(UI.el('span', { className: 'hours-time', textContent: (h.open || '') + ' - ' + (h.close || '') }));
+          hoursEl.appendChild(row);
+        });
+      }
+    }
+
+    // Highlights
+    if (p.highlights && p.highlights.length) {
+      const hlSection = document.getElementById('prov-highlights-section');
+      const hlRow = document.getElementById('prov-highlights');
+      if (hlSection && hlRow) {
+        hlSection.style.display = '';
+        p.highlights.forEach(hl => {
+          const item = UI.el('div', { className: 'highlight-item' });
+          if (hl.image) item.appendChild(UI.lazyImg(ApiClient.mediaUrl(hl.image), ''));
+          if (hl.title) item.appendChild(UI.el('span', { textContent: hl.title }));
+          hlRow.appendChild(item);
+        });
+      }
+    }
 
     // Stats
     _setText('stat-rating', p.rating_avg ? parseFloat(p.rating_avg).toFixed(1) : '-');
@@ -240,6 +298,13 @@ const ProviderDetailPage = (() => {
 
       container.appendChild(card);
     });
+  }
+
+  function _addContactRow(container, icon, text) {
+    const row = UI.el('div', { className: 'prov-contact-row' });
+    row.appendChild(UI.icon(icon, 16, '#888'));
+    row.appendChild(UI.el('span', { textContent: text }));
+    container.appendChild(row);
   }
 
   function _setText(id, val) {

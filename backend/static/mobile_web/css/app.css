@@ -710,6 +710,28 @@ a{text-decoration:none;color:inherit}
 /* ====================================================================
    SEARCH PAGE
    ==================================================================== */
+.search-filter-btn{
+  width:36px;height:36px;border-radius:10px;border:none;
+  background:rgba(103,58,183,.06);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:background .2s;
+}
+.search-filter-btn:hover{background:rgba(103,58,183,.12)}
+.advanced-filter-panel{
+  background:#fff;border-radius:14px;padding:16px;
+  margin-top:12px;box-shadow:0 2px 10px rgba(0,0,0,.06);
+}
+.filter-panel-row{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+}
+@media(max-width:480px){.filter-panel-row{grid-template-columns:1fr}}
+.filter-panel-group{display:flex;flex-direction:column;gap:6px}
+.price-range-row{
+  display:flex;align-items:center;gap:8px;
+}
+.price-range-row input{flex:1;min-width:0}
+.price-range-row span{color:#999;font-size:14px}
+
 .search-input-large{
   display:flex;align-items:center;gap:10px;
   background:#fff;border:2px solid #e0e0e0;border-radius:14px;
@@ -1331,3 +1353,212 @@ a{text-decoration:none;color:inherit}
   vertical-align:middle;margin-inline-end:4px;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ====================================================================
+   PAGE HEADER ICON (forms)
+   ==================================================================== */
+.page-header-icon{
+  width:48px;height:48px;border-radius:14px;
+  display:inline-flex;align-items:center;justify-content:center;
+  margin-bottom:12px;
+}
+
+/* ====================================================================
+   FORM ACTIONS (cancel + submit row)
+   ==================================================================== */
+.form-actions{
+  display:flex;gap:12px;margin-top:16px;align-items:center;
+}
+.form-actions .btn-outlined{
+  flex:0 0 auto;padding:12px 24px;border-radius:12px;
+  border:2px solid #e0e0e0;background:#fff;
+  color:#666;font-size:14px;font-weight:600;
+  cursor:pointer;font-family:'Cairo',sans-serif;
+  transition:border-color .2s,color .2s;text-align:center;
+  text-decoration:none;
+}
+.form-actions .btn-outlined:hover{border-color:#673AB7;color:#673AB7}
+.form-actions .btn-primary-lg{flex:1}
+
+.btn-orange{
+  background:linear-gradient(135deg,#FF9800,#F57C00)!important;
+}
+
+/* ====================================================================
+   RADIO CHIPS (dispatch mode)
+   ==================================================================== */
+.radio-chip-label{cursor:pointer}
+.radio-chip{
+  display:inline-block;padding:8px 18px;border-radius:20px;
+  border:1.5px solid #e0e0e0;background:#fff;
+  font-size:13px;font-weight:600;color:#666;
+  transition:all .2s;
+}
+.radio-chip.active,
+.radio-chip-label input:checked + .radio-chip{
+  background:#673AB7;color:#fff;border-color:#673AB7;
+}
+
+/* ====================================================================
+   FILE UPLOAD TRIGGER
+   ==================================================================== */
+.file-upload-trigger{
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  padding:20px;cursor:pointer;color:#999;font-size:13px;
+}
+
+/* ====================================================================
+   CHAR COUNT
+   ==================================================================== */
+.form-char-count{
+  font-size:11px;color:#bbb;text-align:left;margin-top:4px;
+}
+
+/* ====================================================================
+   ORDERS SEARCH
+   ==================================================================== */
+.orders-search-wrap{
+  display:flex;align-items:center;gap:10px;
+  background:#fff;border:1.5px solid #eee;border-radius:12px;
+  padding:10px 14px;margin-bottom:14px;
+  transition:border-color .2s;
+}
+.orders-search-wrap:focus-within{border-color:#673AB7}
+.orders-search-input{
+  flex:1;border:none;outline:none;background:transparent;
+  font-size:14px;font-family:'Cairo',sans-serif;color:#222;
+}
+.orders-search-input::placeholder{color:#bbb}
+
+/* ====================================================================
+   PROFILE MENU SECTION (QR, Saved, Settings)
+   ==================================================================== */
+.profile-menu-section{
+  background:#fff;border-radius:16px;overflow:hidden;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);margin-bottom:24px;
+}
+.profile-menu-item{
+  display:flex;align-items:center;gap:14px;
+  padding:16px 20px;cursor:pointer;
+  transition:background .15s;border-bottom:1px solid #f5f5f5;
+  text-decoration:none;color:inherit;
+}
+.profile-menu-item:last-child{border-bottom:none}
+.profile-menu-item:hover{background:rgba(103,58,183,.03)}
+.profile-menu-icon{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(103,58,183,.06);
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+.profile-menu-item span{flex:1;font-size:14px;font-weight:600;color:#333}
+.menu-arrow{flex-shrink:0;transform:rotate(180deg)}
+
+/* ====================================================================
+   PROVIDER DETAIL — HANDLE & CATEGORY
+   ==================================================================== */
+.prov-handle{
+  font-size:13px;color:#673AB7;margin-bottom:2px;
+  direction:ltr;display:inline-block;
+}
+.prov-category-label{
+  display:inline-block;padding:3px 10px;border-radius:8px;
+  background:rgba(103,58,183,.06);color:#673AB7;
+  font-size:11px;font-weight:700;margin-bottom:8px;
+}
+
+/* Provider about card */
+.prov-about-card{
+  background:#fff;border-radius:14px;padding:20px;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);margin-bottom:14px;
+}
+.prov-about-card h3{
+  font-size:15px;font-weight:700;color:#222;margin-bottom:10px;
+}
+.prov-bio{font-size:13px;color:#666;line-height:1.8}
+
+/* Contact list */
+.prov-contact-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;font-size:13px;color:#555;
+  border-bottom:1px solid #f5f5f5;
+}
+.prov-contact-row:last-child{border-bottom:none}
+
+/* Working hours */
+.prov-hours-row{
+  display:flex;justify-content:space-between;
+  padding:6px 0;font-size:13px;color:#555;
+  border-bottom:1px solid #f5f5f5;
+}
+.prov-hours-row:last-child{border-bottom:none}
+.hours-day{font-weight:600;color:#333}
+.hours-time{color:#888}
+
+/* Highlights row */
+.prov-highlights-section{margin-top:16px}
+.prov-highlights-section h3{font-size:15px;font-weight:700;color:#222;margin-bottom:10px}
+.highlights-row{
+  display:flex;gap:12px;overflow-x:auto;padding:4px 0;
+  -webkit-overflow-scrolling:touch;
+}
+.highlights-row::-webkit-scrollbar{display:none}
+.highlight-item{
+  flex-shrink:0;width:70px;display:flex;flex-direction:column;
+  align-items:center;gap:6px;
+}
+.highlight-item img{
+  width:60px;height:60px;border-radius:50%;object-fit:cover;
+  border:2px solid #673AB7;
+}
+.highlight-item span{font-size:10px;color:#666;text-align:center}
+
+/* ====================================================================
+   ADD SERVICE GRADIENT HEADER
+   ==================================================================== */
+.add-service-gradient-header{
+  background:linear-gradient(135deg,#7E57C2,#512DA8);
+  border-radius:20px;padding:32px 24px;text-align:center;
+  color:#fff;margin-bottom:24px;
+}
+.add-service-gradient-header h1{color:#fff;font-size:22px;margin-top:12px}
+.add-service-gradient-header .page-subtitle{color:rgba(255,255,255,.8);margin-top:6px}
+
+/* ====================================================================
+   SETTINGS — AVATAR UPLOAD
+   ==================================================================== */
+.settings-avatar-wrap{
+  position:relative;display:inline-block;margin-bottom:10px;
+}
+.settings-avatar{
+  width:72px;height:72px;border-radius:50%;object-fit:cover;
+  background:#f0f0f5;border:3px solid #673AB7;
+  display:block;
+}
+.avatar-upload-btn{
+  position:absolute;bottom:0;right:0;
+  width:26px;height:26px;border-radius:50%;
+  background:#673AB7;border:2px solid #fff;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+}
+.settings-profile-header{
+  display:flex;flex-direction:column;align-items:center;
+  padding:24px 16px;margin-bottom:16px;
+}
+
+/* Security section */
+.security-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 0;
+}
+.security-info{display:flex;flex-direction:column;gap:2px}
+.security-label{font-size:14px;font-weight:600;color:#333}
+.security-desc{font-size:12px;color:#999}
+
+/* Form card title */
+.form-card-title{
+  font-size:15px;font-weight:700;color:#222;
+  margin-bottom:16px;padding-bottom:10px;
+  border-bottom:1px solid #f0f0f5;
+}

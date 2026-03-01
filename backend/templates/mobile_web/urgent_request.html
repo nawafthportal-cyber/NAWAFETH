@@ -16,24 +16,35 @@
 
     <div id="form-content" class="hidden">
       <div class="page-header">
-        <h1>طلب خدمة عاجلة ⚡</h1>
+        <div class="page-header-icon" style="background:rgba(255,152,0,.12);color:#FF9800">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2v11h3v9l7-12h-4l4-8z"/></svg>
+        </div>
+        <h1>طلب خدمة عاجلة</h1>
         <p class="page-subtitle">سيتم إشعار أقرب مزودي الخدمات في منطقتك فورًا</p>
       </div>
 
-      <div class="form-card">
+      <form id="ur-form" class="form-card" autocomplete="off">
         <!-- Category -->
         <div class="form-group">
-          <label class="form-label">التصنيف</label>
-          <select class="form-select" id="cat-select">
+          <label class="form-label">التصنيف الرئيسي *</label>
+          <select class="form-select" id="ur-category">
             <option value="">اختر التصنيف...</option>
           </select>
         </div>
 
         <!-- Subcategory -->
-        <div class="form-group hidden" id="sub-group">
+        <div class="form-group">
           <label class="form-label">التصنيف الفرعي</label>
-          <select class="form-select" id="sub-select">
-            <option value="">اختر التصنيف الفرعي...</option>
+          <select class="form-select" id="ur-subcategory">
+            <option value="">-- اختر التخصص --</option>
+          </select>
+        </div>
+
+        <!-- City -->
+        <div class="form-group">
+          <label class="form-label">المدينة</label>
+          <select class="form-select" id="ur-city">
+            <option value="">اختر المدينة...</option>
           </select>
         </div>
 
@@ -41,51 +52,54 @@
         <div class="form-group">
           <label class="form-label">طريقة الإرسال</label>
           <div class="radio-group">
-            <label class="radio-item active" data-val="nearest">
-              <input type="radio" name="dispatch" value="nearest" checked>
-              <span class="radio-label">أقرب مزود</span>
+            <label class="radio-chip-label">
+              <input type="radio" name="dispatch_mode" value="nearest" checked hidden>
+              <span class="radio-chip active">البحث عن الأقرب</span>
             </label>
-            <label class="radio-item" data-val="all">
-              <input type="radio" name="dispatch" value="all">
-              <span class="radio-label">جميع المزودين</span>
+            <label class="radio-chip-label">
+              <input type="radio" name="dispatch_mode" value="all" hidden>
+              <span class="radio-chip">إرسال للجميع</span>
             </label>
           </div>
         </div>
 
         <!-- Description -->
         <div class="form-group">
-          <label class="form-label">وصف الخدمة</label>
-          <textarea class="form-textarea" id="desc-input" placeholder="اوصف ما تحتاجه بالتفصيل..." rows="4"></textarea>
+          <label class="form-label">وصف الخدمة المطلوبة *</label>
+          <textarea class="form-textarea" id="ur-description" placeholder="اوصف ما تحتاجه بالتفصيل..." rows="4" maxlength="500"></textarea>
+          <div class="form-char-count"><span id="ur-desc-count">0</span>/500</div>
         </div>
 
         <!-- Attachments -->
         <div class="form-group">
           <label class="form-label">مرفقات (اختياري)</label>
-          <div class="file-upload-area" id="file-area">
-            <input type="file" id="file-input" multiple accept="image/*,.pdf,.doc,.docx" hidden>
-            <button class="btn-secondary" id="btn-attach" type="button">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H9.5v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S6.5 2.79 6.5 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
-              إرفاق ملفات
-            </button>
-            <div class="file-list" id="file-list"></div>
+          <div class="file-upload-area">
+            <input type="file" id="ur-files" multiple accept="image/*,.pdf,.doc,.docx" hidden>
+            <div class="file-upload-trigger" onclick="document.getElementById('ur-files').click()">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="#999"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H9.5v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S6.5 2.79 6.5 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+              <span>اضغط لإرفاق صور أو ملفات</span>
+            </div>
+            <div class="file-list" id="ur-file-list"></div>
           </div>
         </div>
 
-        <!-- Submit -->
-        <button class="btn-primary" id="btn-submit" style="margin-top:8px">
-          <span id="submit-text">إرسال الطلب</span>
-          <span class="spinner hidden" id="submit-spinner"></span>
-        </button>
-        <div class="form-error hidden" id="form-error"></div>
-      </div>
+        <!-- Buttons -->
+        <div class="form-actions">
+          <a href="/add-service/" class="btn-outlined">إلغاء</a>
+          <button type="submit" class="btn-primary-lg btn-orange" id="ur-submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-inline-end:4px"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            إرسال الطلب
+          </button>
+        </div>
+      </form>
 
       <!-- Success overlay -->
-      <div id="success-overlay" class="success-overlay hidden">
+      <div id="ur-success" class="success-overlay">
         <div class="success-card">
           <div class="success-icon">✅</div>
-          <h2>تم إرسال طلبك بنجاح!</h2>
-          <p>سيتم إشعار مقدمي الخدمات القريبين منك. يمكنك متابعة حالة الطلب من صفحة الطلبات</p>
-          <a href="/orders/" class="btn btn-primary">متابعة الطلبات</a>
+          <h2 class="success-title">تم إرسال طلبك بنجاح!</h2>
+          <p class="success-msg">سيتم إشعار مقدمي الخدمات القريبين منك. يمكنك متابعة حالة الطلب من صفحة الطلبات</p>
+          <a href="/orders/" class="btn btn-primary" style="margin-top:16px">متابعة الطلبات</a>
           <a href="/" class="btn-link" style="margin-top:8px">العودة للرئيسية</a>
         </div>
       </div>

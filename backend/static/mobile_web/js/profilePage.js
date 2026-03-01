@@ -56,11 +56,12 @@ const ProfilePage = (() => {
 
     // Stats
     _setText('stat-following', profile.following_count || 0);
-    _setText('stat-followers', profile.followers_count || 0);
     _setText('stat-likes', profile.likes_count || 0);
+    _setText('stat-favorites', profile.favorites_count || profile.bookmarks_count || 0);
 
-    // Wallet balance
-    _loadWallet();
+    // Settings click
+    const settingsBtn = document.getElementById('btn-settings');
+    if (settingsBtn) settingsBtn.addEventListener('click', () => { window.location.href = '/settings/'; });
 
     // Provider section
     if (profile.role_state === 'provider' || profile.is_provider) {

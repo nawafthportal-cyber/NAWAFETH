@@ -16,6 +16,8 @@
             <h1 class="prov-name" id="prov-name"></h1>
             <span id="prov-badge"></span>
           </div>
+          <p class="prov-handle" id="prov-handle"></p>
+          <p class="prov-category-label" id="prov-category"></p>
           <p class="prov-city" id="prov-city"></p>
         </div>
       </div>
@@ -38,13 +40,34 @@
 
     <!-- Tabs -->
     <div class="tabs-row" id="prov-tabs">
-      <button class="tab-btn active" data-tab="services">الخدمات</button>
+      <button class="tab-btn active" data-tab="profile">الملف الشخصي</button>
+      <button class="tab-btn" data-tab="services">الخدمات</button>
       <button class="tab-btn" data-tab="portfolio">الأعمال</button>
       <button class="tab-btn" data-tab="reviews">التقييمات</button>
     </div>
 
     <!-- Tab panels -->
-    <div id="tab-services" class="tab-panel">
+    <div id="tab-profile" class="tab-panel">
+      <div class="prov-about-card" id="prov-about">
+        <h3>نبذة</h3>
+        <p id="prov-bio" class="prov-bio">لا توجد نبذة</p>
+      </div>
+      <div class="prov-about-card" id="prov-contact-card">
+        <h3>معلومات التواصل</h3>
+        <div class="prov-contact-list" id="prov-contact-list"></div>
+      </div>
+      <div class="prov-about-card" id="prov-hours-card" style="display:none">
+        <h3>ساعات العمل</h3>
+        <div id="prov-hours"></div>
+      </div>
+      <!-- Highlights / Reels -->
+      <div class="prov-highlights-section" id="prov-highlights-section" style="display:none">
+        <h3>أبرز اللحظات</h3>
+        <div class="highlights-row" id="prov-highlights"></div>
+      </div>
+    </div>
+
+    <div id="tab-services" class="tab-panel hidden">
       <div class="services-list" id="services-list"></div>
       <div class="empty-state hidden" id="services-empty">
         <p>لم يتم إضافة خدمات بعد</p>

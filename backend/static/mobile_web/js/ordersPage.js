@@ -7,6 +7,7 @@
 const OrdersPage = (() => {
   let _all = [];
   let _activeTab = 'all';
+  let _searchQuery = '';
 
   function init() {
     // Auth gate
@@ -24,6 +25,15 @@ const OrdersPage = (() => {
       _activeTab = btn.dataset.status || 'all';
       _renderOrders();
     });
+
+    // Search
+    const searchInput = document.getElementById('orders-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', e => {
+        _searchQuery = e.target.value.trim().toLowerCase();
+        _renderOrders();
+      });
+    }
 
     _fetchOrders();
   }
@@ -60,6 +70,13 @@ const OrdersPage = (() => {
     if (_activeTab !== 'all') {
       list = _all.filter(o => _statusGroup(o.status) === _activeTab);
     }
+    // Search filter
+    if (_searchQuery) {
+      list = list.filter(o => {
+        const text = (o.title || '') + ' ' + (o.description || '') + ' ' + (o.provider_name || '') + ' ' + (o.service_name || '');
+        return text.toLowerCase().includes(_searchQuery);
+      });
+    }
 
     container.innerHTML = '';
     if (!list.length) { emptyEl.classList.remove('hidden'); return; }
@@ -72,12 +89,12 @@ const OrdersPage = (() => {
 
   function _statusGroup(status) {
     const map = {
-      pending: 'pending', submitted: 'pending', waiting: 'pending',
-      accepted: 'active', in_progress: 'active', ongoing: 'active',
+      pending: 'new', submitted: 'new', waiting: 'new', new: 'new',
+      accepted: 'in_progress', in_progress: 'in_progress', ongoing: 'in_progress',
       completed: 'completed', done: 'completed',
       cancelled: 'cancelled', rejected: 'cancelled', expired: 'cancelled'
     };
-    return map[(status || '').toLowerCase()] || 'active';
+    return map[(status || '').toLowerCase()] || 'in_progress';
   }
 
   function _statusLabel(status) {
@@ -93,8 +110,8 @@ const OrdersPage = (() => {
   function _statusColor(status) {
     const group = _statusGroup(status);
     switch (group) {
-      case 'pending': return '#FFA726';
-      case 'active': return '#42A5F5';
+      case 'new': return '#FFA726';
+      case 'in_progress': return '#42A5F5';
       case 'completed': return '#66BB6A';
       case 'cancelled': return '#EF5350';
       default: return '#9E9E9E';
