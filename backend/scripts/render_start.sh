@@ -5,34 +5,27 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${PROJECT_ROOT}"
 
-# Keep runtime settings aligned with build-time collectstatic.
 export DJANGO_ENV="${DJANGO_ENV:-prod}"
 
-STATIC_ROOT_PATH="$(python - <<'PY'
-import os
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-import django
-django.setup()
-from django.conf import settings
-print(settings.STATIC_ROOT)
-PY
-)"
-MANIFEST_PATH="${STATIC_ROOT_PATH%/}/staticfiles.json"
-
-if [ ! -f "${MANIFEST_PATH}" ]; then
-	echo "[start] Static manifest missing at ${MANIFEST_PATH} — running collectstatic..."
-	python manage.py collectstatic --noinput
-	if [ ! -f "${MANIFEST_PATH}" ]; then
-		echo "[start] WARNING: manifest still missing after collectstatic. Static files may not work."
-	fi
-else
-	echo "[start] Static manifest OK: ${MANIFEST_PATH}"
-fi
-
+# ── Migrations ──────────────────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START:-1}" = "1" ]; then
+	echo "[start] Running migrations..."
 	python manage.py migrate --noinput
 fi
 
+# ── Static files ────────────────────────────────────────────
+# On Render free plan build artifacts may not persist to runtime.
+# If the manifest is missing we regenerate it before starting gunicorn.
+# WHITENOISE_MANIFEST_STRICT=False (in settings) prevents 500 errors
+# even if something goes wrong here.
+if [ ! -f "staticfiles/staticfiles.json" ]; then
+	echo "[start] Static manifest missing — running collectstatic..."
+	python manage.py collectstatic --noinput || echo "[start] WARNING: collectstatic failed, continuing anyway."
+else
+	echo "[start] Static manifest OK."
+fi
+
+# ── Gunicorn ────────────────────────────────────────────────
 PORT_VALUE="${PORT:-8000}"
 WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY:-2}"
 LOG_LEVEL_VALUE="${GUNICORN_LOG_LEVEL:-info}"
