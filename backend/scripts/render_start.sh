@@ -20,9 +20,13 @@ PY
 MANIFEST_PATH="${STATIC_ROOT_PATH%/}/staticfiles.json"
 
 if [ ! -f "${MANIFEST_PATH}" ]; then
-	echo "[start] ERROR: missing static manifest at ${MANIFEST_PATH}"
-	echo "[start] Run collectstatic in build stage before starting the web process."
-	exit 1
+	echo "[start] Static manifest missing at ${MANIFEST_PATH} — running collectstatic..."
+	python manage.py collectstatic --noinput
+	if [ ! -f "${MANIFEST_PATH}" ]; then
+		echo "[start] WARNING: manifest still missing after collectstatic. Static files may not work."
+	fi
+else
+	echo "[start] Static manifest OK: ${MANIFEST_PATH}"
 fi
 
 if [ "${RUN_MIGRATIONS_ON_START:-1}" = "1" ]; then
