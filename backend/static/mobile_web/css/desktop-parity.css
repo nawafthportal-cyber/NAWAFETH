@@ -461,6 +461,14 @@
 
   /* Pages without bottom nav in Flutter mobile. */
   body.mobile-web-parity.page-login #bottom-nav,
+  body.mobile-web-parity.page-twofa #bottom-nav,
+  body.mobile-web-parity.page-signup #bottom-nav,
+  body.mobile-web-parity.page-onboarding #bottom-nav,
+  body.mobile-web-parity.page-terms #bottom-nav,
+  body.mobile-web-parity.page-about #bottom-nav,
+  body.mobile-web-parity.page-contact #bottom-nav,
+  body.mobile-web-parity.page-notification-settings #bottom-nav,
+  body.mobile-web-parity.page-order-detail #bottom-nav,
   body.mobile-web-parity.page-notifications #bottom-nav,
   body.mobile-web-parity.page-provider-detail #bottom-nav,
   body.mobile-web-parity.page-chat-detail #bottom-nav,
@@ -469,6 +477,14 @@
   }
 
   body.mobile-web-parity.page-login .auth-page,
+  body.mobile-web-parity.page-twofa .auth-page,
+  body.mobile-web-parity.page-signup .auth-page,
+  body.mobile-web-parity.page-onboarding .onboarding-page,
+  body.mobile-web-parity.page-terms .page-content,
+  body.mobile-web-parity.page-about .page-content,
+  body.mobile-web-parity.page-contact .page-content,
+  body.mobile-web-parity.page-notification-settings .page-content,
+  body.mobile-web-parity.page-order-detail .page-content,
   body.mobile-web-parity.page-notifications .page-content,
   body.mobile-web-parity.page-provider-detail .page-content,
   body.mobile-web-parity.page-chat-detail .page-content,
@@ -477,6 +493,14 @@
   }
 
   body.mobile-web-parity.page-login .offline-banner,
+  body.mobile-web-parity.page-twofa .offline-banner,
+  body.mobile-web-parity.page-signup .offline-banner,
+  body.mobile-web-parity.page-onboarding .offline-banner,
+  body.mobile-web-parity.page-terms .offline-banner,
+  body.mobile-web-parity.page-about .offline-banner,
+  body.mobile-web-parity.page-contact .offline-banner,
+  body.mobile-web-parity.page-notification-settings .offline-banner,
+  body.mobile-web-parity.page-order-detail .offline-banner,
   body.mobile-web-parity.page-notifications .offline-banner,
   body.mobile-web-parity.page-provider-detail .offline-banner,
   body.mobile-web-parity.page-chat-detail .offline-banner,

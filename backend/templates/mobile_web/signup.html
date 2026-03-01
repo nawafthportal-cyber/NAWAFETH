@@ -1,0 +1,82 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}نوافــذ — إكمال التسجيل{% endblock %}
+{% block body_class %}page-signup{% endblock %}
+
+{% block content %}
+<main class="auth-page">
+  <div class="container">
+    <div class="auth-card auth-card-wide">
+      <div class="auth-header">
+        <div class="auth-logo">نوافــذ</div>
+        <h1 class="auth-title">إكمال التسجيل</h1>
+        <p class="auth-desc">أكمل بياناتك لتفعيل الحساب</p>
+      </div>
+
+      <div class="form-error hidden" id="signup-general-error"></div>
+
+      <div class="auth-grid auth-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="first-name">الاسم الأول</label>
+          <input type="text" id="first-name" class="form-input" autocomplete="given-name">
+          <div class="form-error hidden" id="err-first-name"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="last-name">الاسم الأخير</label>
+          <input type="text" id="last-name" class="form-input" autocomplete="family-name">
+          <div class="form-error hidden" id="err-last-name"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="username">اسم المستخدم</label>
+        <input type="text" id="username" class="form-input" dir="ltr" autocomplete="username">
+        <div class="form-hint" id="username-hint"></div>
+        <div class="form-error hidden" id="err-username"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="email">البريد الإلكتروني</label>
+        <input type="email" id="email" class="form-input" dir="ltr" autocomplete="email">
+        <div class="form-error hidden" id="err-email"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="city">المدينة</label>
+        <select id="city" class="form-select"></select>
+        <div class="form-error hidden" id="err-city"></div>
+      </div>
+
+      <div class="auth-grid auth-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="password">كلمة المرور</label>
+          <input type="password" id="password" class="form-input" dir="ltr" autocomplete="new-password">
+          <div class="form-hint" id="password-hint">يجب أن تكون 8 أحرف على الأقل</div>
+          <div class="form-error hidden" id="err-password"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password-confirm">تأكيد كلمة المرور</label>
+          <input type="password" id="password-confirm" class="form-input" dir="ltr" autocomplete="new-password">
+          <div class="form-error hidden" id="err-password-confirm"></div>
+        </div>
+      </div>
+
+      <label class="terms-check">
+        <input type="checkbox" id="accept-terms">
+        <span>أوافق على <a href="/terms/" target="_blank" rel="noopener">الشروط والأحكام</a></span>
+      </label>
+      <div class="form-error hidden" id="err-accept-terms"></div>
+
+      <button class="btn-primary" id="btn-complete-signup">
+        <span id="complete-signup-text">إكمال التسجيل</span>
+        <span class="spinner hidden" id="complete-signup-spinner"></span>
+      </button>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/signupPage.js' %}"></script>
+{% endblock %}

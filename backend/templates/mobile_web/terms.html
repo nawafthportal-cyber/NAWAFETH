@@ -1,0 +1,30 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}نوافــذ — الشروط والأحكام{% endblock %}
+{% block body_class %}page-terms{% endblock %}
+
+{% block content %}
+<main class="page-content">
+  <div class="container">
+    <div class="page-header">
+      <h1>الشروط والأحكام</h1>
+    </div>
+
+    <div id="terms-loading" class="text-center">
+      <span class="spinner-inline"></span>
+    </div>
+
+    <div id="terms-list" class="expand-cards hidden"></div>
+
+    <div id="terms-empty" class="empty-hint hidden">
+      <div class="empty-icon">📄</div>
+      <p>لا توجد مستندات متاحة حالياً</p>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/termsPage.js' %}"></script>
+{% endblock %}

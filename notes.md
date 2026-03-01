@@ -7,8 +7,6 @@ cd C:\Users\manso\nawafeth\mobile
 flutter emulators
 flutter emulators --launch Medium_Phone
 adb devices
-```
-
 Expected device:
 - `emulator-5554`
 

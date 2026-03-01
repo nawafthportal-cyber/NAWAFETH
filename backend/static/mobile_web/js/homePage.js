@@ -13,6 +13,7 @@ const HomePage = (() => {
   const CACHE_CATEGORIES = 'home_categories';
   const CACHE_PROVIDERS  = 'home_providers';
   const CACHE_BANNERS    = 'home_banners';
+  const CACHE_SPOTLIGHTS = 'home_spotlights';
   const TTL = 90; // seconds
 
   // DOM refs (resolved once)
@@ -41,8 +42,7 @@ const HomePage = (() => {
     const chatBtn = document.getElementById('btn-chat');
     if (chatBtn) chatBtn.addEventListener('click', () => { window.location.href = '/chats/'; });
 
-    // Build static reels
-    _buildReels();
+    // Reels are rendered after cache/API load
 
     // Network listener
     window.addEventListener('online',  () => _setOffline(false));
@@ -82,6 +82,12 @@ const HomePage = (() => {
       any = true;
     }
 
+    const reels = NwCache.get(CACHE_SPOTLIGHTS);
+    if (reels && reels.data && reels.data.length) {
+      _renderReels(reels.data);
+      any = true;
+    }
+
     return any;
   }
 
@@ -93,10 +99,11 @@ const HomePage = (() => {
     _isLoading = true;
 
     // Fire all 3 requests in parallel
-    const [catsRes, provsRes, bansRes] = await Promise.allSettled([
+    const [catsRes, provsRes, bansRes, reelsRes] = await Promise.allSettled([
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
       ApiClient.get('/api/promo/banners/home/?limit=6'),
+      ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
     ]);
 
     // Categories
@@ -131,8 +138,23 @@ const HomePage = (() => {
       _renderBanners(list);
     }
 
+    // Spotlights (reels)
+    if (reelsRes.status === 'fulfilled' && reelsRes.value.ok && reelsRes.value.data) {
+      const list = Array.isArray(reelsRes.value.data)
+        ? reelsRes.value.data
+        : (reelsRes.value.data.results || []);
+      NwCache.set(CACHE_SPOTLIGHTS, list, TTL);
+      if (list.length) {
+        _renderReels(list);
+      } else {
+        _renderReelsEmpty();
+      }
+    } else if (!NwCache.get(CACHE_SPOTLIGHTS)) {
+      _renderReelsEmpty();
+    }
+
     // Check if all failed (offline)
-    const allFailed = [catsRes, provsRes, bansRes].every(
+    const allFailed = [catsRes, provsRes, bansRes, reelsRes].every(
       r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)
     );
     if (allFailed && !navigator.onLine) {
@@ -316,39 +338,64 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     REELS (static — local demo items, matching Flutter)
+     REELS (Spotlights feed)
   ---------------------------------------------------------- */
-  function _buildReels() {
+  function _renderReels(items) {
     if (!$reelsTrack) return;
-    // Since reels use local assets in the mobile app, we render placeholder circles
-    // that match the gradient ring aesthetic. Can be replaced with real API data later.
-    const colors = ['#9F57DB', '#F1A559', '#7E57C2', '#CE93D8', '#B39DDB'];
     const frag = document.createDocumentFragment();
 
-    // Double items for infinite scroll illusion
-    for (let i = 0; i < 16; i++) {
-      const c = colors[i % colors.length];
-      const item = UI.el('div', { className: 'reel-item' });
+    items.forEach(item => {
+      const thumb = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
+      const caption = (item.caption || '').trim() || 'لمحة';
+      const providerId = item.provider_id ? String(item.provider_id) : '';
+      const providerHref = providerId ? ('/provider/' + encodeURIComponent(providerId) + '/') : '';
+
+      const reel = UI.el(providerHref ? 'a' : 'div', {
+        className: 'reel-item',
+        href: providerHref || undefined,
+        role: 'button',
+        tabindex: '0',
+      });
       const ring = UI.el('div', { className: 'reel-ring' });
       const inner = UI.el('div', { className: 'reel-inner' });
 
-      // Placeholder with icon
-      const ph = UI.el('div', { className: 'reel-placeholder' });
-      ph.style.background = `linear-gradient(135deg, ${c}, ${colors[(i + 2) % colors.length]})`;
-      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.setAttribute('width', '20');
-      svg.setAttribute('height', '20');
-      svg.setAttribute('viewBox', '0 0 24 24');
-      svg.setAttribute('fill', 'rgba(255,255,255,0.6)');
-      svg.innerHTML = '<path d="M8 5v14l11-7z"/>';
-      ph.appendChild(svg);
-      inner.appendChild(ph);
+      if (thumb) {
+        inner.appendChild(UI.lazyImg(thumb, caption));
+      } else {
+        const ph = UI.el('div', { className: 'reel-placeholder' });
+        inner.appendChild(ph);
+      }
 
       ring.appendChild(inner);
-      item.appendChild(ring);
-      frag.appendChild(item);
-    }
+      reel.appendChild(ring);
+      reel.appendChild(UI.el('div', { className: 'reel-caption', textContent: caption }));
+
+      if (providerId) {
+        reel.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            window.location.href = providerHref;
+          }
+        });
+      } else {
+        reel.addEventListener('click', e => {
+          e.preventDefault();
+          alert('لا توجد لمحة متاحة حالياً');
+        });
+      }
+
+      frag.appendChild(reel);
+    });
+
+    $reelsTrack.textContent = '';
     $reelsTrack.appendChild(frag);
+  }
+
+  function _renderReelsEmpty() {
+    if (!$reelsTrack) return;
+    $reelsTrack.textContent = '';
+    const empty = UI.el('div', { className: 'reels-empty', textContent: 'لا توجد لمحات حالياً' });
+    $reelsTrack.appendChild(empty);
   }
 
   /* ----------------------------------------------------------

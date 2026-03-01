@@ -2,6 +2,7 @@
 {% load static %}
 
 {% block title %}نوافــذ — الإشعارات{% endblock %}
+{% block sidebar_notifications %}active{% endblock %}
 {% block body_class %}page-notifications{% endblock %}
 
 {% block content %}
@@ -19,6 +20,7 @@
       <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
         <h1>الإشعارات <span id="notif-total" class="notif-total-badge"></span></h1>
         <div class="notif-actions">
+          <a href="/notification-settings/" class="btn-sm">إعدادات الإشعارات</a>
           <button class="btn-sm" id="btn-mark-all">تمييز الكل كمقروء</button>
           <button class="btn-sm btn-danger" id="btn-delete-old">حذف القديم</button>
         </div>

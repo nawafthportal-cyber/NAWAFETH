@@ -2,6 +2,7 @@ import 'api_client.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
+import '../models/media_item_model.dart';
 
 /// خدمة الصفحة الرئيسية — تجلب البيانات من الـ API
 class HomeService {
@@ -10,15 +11,22 @@ class HomeService {
   static _CacheEntry<List<CategoryModel>>? _categoriesCache;
   static final Map<int, _CacheEntry<List<ProviderPublicModel>>> _featuredProvidersCache = {};
   static final Map<int, _CacheEntry<List<BannerModel>>> _homeBannersCache = {};
+  static final Map<int, _CacheEntry<List<MediaItemModel>>> _spotlightsCache = {};
 
-  static HomeCachedData getCachedHomeData({int providersLimit = 10, int bannersLimit = 6}) {
+  static HomeCachedData getCachedHomeData({
+    int providersLimit = 10,
+    int bannersLimit = 6,
+    int spotlightsLimit = 16,
+  }) {
     final categories = _categoriesCache?.data ?? const <CategoryModel>[];
     final providers = _featuredProvidersCache[providersLimit]?.data ?? const <ProviderPublicModel>[];
     final banners = _homeBannersCache[bannersLimit]?.data ?? const <BannerModel>[];
+    final spotlights = _spotlightsCache[spotlightsLimit]?.data ?? const <MediaItemModel>[];
     return HomeCachedData(
       categories: List<CategoryModel>.from(categories),
       providers: List<ProviderPublicModel>.from(providers),
       banners: List<BannerModel>.from(banners),
+      spotlights: List<MediaItemModel>.from(spotlights),
     );
   }
 
@@ -96,21 +104,51 @@ class HomeService {
     }
     return [];
   }
+
+  // ── لمحات الصفحة الرئيسية (Spotlights feed) ──
+  static Future<List<MediaItemModel>> fetchSpotlightFeed({
+    int limit = 16,
+    bool forceRefresh = false,
+  }) async {
+    final cached = _spotlightsCache[limit];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return List<MediaItemModel>.from(cached.data);
+    }
+
+    final res = await ApiClient.get('/api/providers/spotlights/feed/?limit=$limit');
+    if (res.isSuccess && res.data != null) {
+      final list = res.data is List ? res.data as List : (res.data['results'] as List?) ?? [];
+      final parsed = list
+          .map((e) => MediaItemModel.fromJson(e as Map<String, dynamic>, source: MediaItemSource.spotlight))
+          .toList();
+      _spotlightsCache[limit] = _CacheEntry<List<MediaItemModel>>(
+        List<MediaItemModel>.unmodifiable(parsed),
+        DateTime.now(),
+      );
+      return parsed;
+    }
+    if (cached != null) {
+      return List<MediaItemModel>.from(cached.data);
+    }
+    return [];
+  }
 }
 
 class HomeCachedData {
   final List<CategoryModel> categories;
   final List<ProviderPublicModel> providers;
   final List<BannerModel> banners;
+  final List<MediaItemModel> spotlights;
 
   const HomeCachedData({
     required this.categories,
     required this.providers,
     required this.banners,
+    required this.spotlights,
   });
 
   bool get hasAnyData =>
-      categories.isNotEmpty || providers.isNotEmpty || banners.isNotEmpty;
+      categories.isNotEmpty || providers.isNotEmpty || banners.isNotEmpty || spotlights.isNotEmpty;
 }
 
 class _CacheEntry<T> {

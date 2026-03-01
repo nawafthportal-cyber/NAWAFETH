@@ -119,7 +119,11 @@ const OrdersPage = (() => {
   }
 
   function _buildCard(order) {
-    const card = UI.el('div', { className: 'order-card' });
+    const orderId = order.id || order.request_id;
+    const card = UI.el(orderId ? 'a' : 'div', { className: 'order-card' });
+    if (orderId && card.tagName === 'A') {
+      card.setAttribute('href', '/orders/' + orderId + '/');
+    }
 
     // Header row: status badge + date
     const header = UI.el('div', { className: 'order-header' });

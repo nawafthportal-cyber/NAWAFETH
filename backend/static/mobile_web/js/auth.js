@@ -45,7 +45,12 @@ const Auth = (() => {
       sessionStorage.removeItem(KEY_REFRESH);
       sessionStorage.removeItem(KEY_USER_ID);
       sessionStorage.removeItem(KEY_ROLE);
+      _profileCache = null;
     } catch { /* ok */ }
+  }
+
+  function clearProfileCache() {
+    _profileCache = null;
   }
 
   /** Try to refresh the access token using the refresh token */
@@ -97,6 +102,6 @@ const Auth = (() => {
 
   return {
     isLoggedIn, getAccessToken, getRefreshToken, getUserId, getRoleState,
-    saveTokens, logout, refreshAccessToken, requireLogin, getProfile,
+    saveTokens, logout, clearProfileCache, refreshAccessToken, requireLogin, getProfile,
   };
 })();

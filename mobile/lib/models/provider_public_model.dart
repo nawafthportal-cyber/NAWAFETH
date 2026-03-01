@@ -16,8 +16,8 @@ class ProviderPublicModel {
   final String? phone;
   final String? whatsapp;
   final String? website;
-  final Map<String, dynamic>? socialLinks;
-  final String? languages;
+  final List<dynamic> socialLinks;
+  final List<dynamic> languages;
   final String? city;
   final double? lat;
   final double? lng;
@@ -25,7 +25,7 @@ class ProviderPublicModel {
   final bool acceptsUrgent;
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
-  final String? qualifications;
+  final List<dynamic> qualifications;
   final double ratingAvg;
   final int ratingCount;
   final String? createdAt;
@@ -48,8 +48,8 @@ class ProviderPublicModel {
     this.phone,
     this.whatsapp,
     this.website,
-    this.socialLinks,
-    this.languages,
+    this.socialLinks = const [],
+    this.languages = const [],
     this.city,
     this.lat,
     this.lng,
@@ -57,7 +57,7 @@ class ProviderPublicModel {
     this.acceptsUrgent = false,
     this.isVerifiedBlue = false,
     this.isVerifiedGreen = false,
-    this.qualifications,
+    this.qualifications = const [],
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
     this.createdAt,
@@ -80,10 +80,12 @@ class ProviderPublicModel {
       phone: _parseString(json['phone']),
       whatsapp: _parseString(json['whatsapp']),
       website: _parseString(json['website']),
-      socialLinks: json['social_links'] is Map<String, dynamic>
-          ? json['social_links'] as Map<String, dynamic>
-          : null,
-      languages: _parseString(json['languages']),
+      socialLinks: json['social_links'] is List
+          ? json['social_links'] as List<dynamic>
+          : [],
+      languages: json['languages'] is List
+          ? json['languages'] as List<dynamic>
+          : [],
       city: _parseString(json['city']),
       lat: _parseDouble(json['lat']),
       lng: _parseDouble(json['lng']),
@@ -91,7 +93,9 @@ class ProviderPublicModel {
       acceptsUrgent: _parseBool(json['accepts_urgent']),
       isVerifiedBlue: _parseBool(json['is_verified_blue']),
       isVerifiedGreen: _parseBool(json['is_verified_green']),
-      qualifications: _parseString(json['qualifications']),
+      qualifications: json['qualifications'] is List
+          ? json['qualifications'] as List<dynamic>
+          : [],
       ratingAvg: _parseDouble(json['rating_avg']) ?? 0.0,
       ratingCount: _parseInt(json['rating_count']) ?? 0,
       createdAt: _parseString(json['created_at']),

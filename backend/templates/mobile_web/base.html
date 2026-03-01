@@ -48,65 +48,95 @@
 </header>
 
 <!-- ====== MOBILE SIDEBAR ====== -->
-<div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
-<aside id="sidebar" class="sidebar">
+<div id="sidebar-overlay" class="sidebar-overlay hidden" aria-hidden="true"></div>
+<aside id="sidebar" class="sidebar" aria-label="القائمة الجانبية" aria-hidden="true">
   <div class="sidebar-header">
+    <button class="sidebar-close" id="sidebar-close" aria-label="إغلاق القائمة">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
     <div class="sidebar-user" id="sidebar-user">
-      <div class="sidebar-avatar" id="sidebar-avatar"></div>
       <div class="sidebar-user-info">
         <div class="sidebar-name" id="sidebar-name">زائر</div>
         <div class="sidebar-role" id="sidebar-role">تصفح كضيف</div>
       </div>
+      <div class="sidebar-avatar" id="sidebar-avatar"></div>
     </div>
-    <button class="sidebar-close" id="sidebar-close">✕</button>
   </div>
   <nav class="sidebar-nav">
     <a href="/" class="sidebar-link {% block sidebar_home %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-      الرئيسية
+      <span class="sidebar-label">الرئيسية</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      </span>
     </a>
-    <a href="/search/" class="sidebar-link">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="11" cy="11" r="8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2"/></svg>
-      بحث مقدمي الخدمة
+    <a href="/search/" class="sidebar-link {% block sidebar_search %}{% endblock %}">
+      <span class="sidebar-label">بحث مقدمي الخدمة</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      </span>
     </a>
     <a href="/orders/" class="sidebar-link {% block sidebar_orders %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
-      طلباتي
+      <span class="sidebar-label">طلباتي</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+      </span>
     </a>
     <a href="/interactive/" class="sidebar-link {% block sidebar_interactive %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-      تفاعلي
+      <span class="sidebar-label">تفاعلي</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+      </span>
     </a>
     <a href="/profile/" class="sidebar-link {% block sidebar_profile %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-      نافذتي
+      <span class="sidebar-label">نافذتي</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </span>
     </a>
     <a href="/notifications/" class="sidebar-link {% block sidebar_notifications %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-      الإشعارات
+      <span class="sidebar-label">الإشعارات</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 002 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+      </span>
     </a>
     <a href="/chats/" class="sidebar-link {% block sidebar_chats %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-      المحادثات
+      <span class="sidebar-label">المحادثات</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"></path></svg>
+      </span>
     </a>
     <a href="/add-service/" class="sidebar-link {% block sidebar_add_service %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-      إضافة خدمة
+      <span class="sidebar-label">إضافة خدمة</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+      </span>
     </a>
     <a href="/settings/" class="sidebar-link {% block sidebar_settings %}{% endblock %}">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
-      الإعدادات
+      <span class="sidebar-label">الإعدادات</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+      </span>
     </a>
-    <div class="sidebar-divider"></div>
-    <a href="/login/" class="sidebar-link" id="sidebar-login-link">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/></svg>
-      تسجيل الدخول
-    </a>
-    <button class="sidebar-link sidebar-logout hidden" id="sidebar-logout">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-      تسجيل خروج
-    </button>
   </nav>
+
+  <div class="sidebar-separator" aria-hidden="true"></div>
+  <div class="sidebar-footer">
+    <a href="/login/" class="sidebar-link sidebar-auth-link" id="sidebar-login-link">
+      <span class="sidebar-label">تسجيل الدخول</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/></svg>
+      </span>
+    </a>
+    <button class="sidebar-link sidebar-auth-link sidebar-logout hidden" id="sidebar-logout" type="button">
+      <span class="sidebar-label">تسجيل خروج</span>
+      <span class="sidebar-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+      </span>
+    </button>
+  </div>
 </aside>
 
 {% block content %}{% endblock %}
@@ -127,9 +157,9 @@
     </div>
     <div class="footer-links">
       <h4>الدعم</h4>
-      <a href="#">تواصل معنا</a>
-      <a href="#">الأسئلة الشائعة</a>
-      <a href="#">سياسة الخصوصية</a>
+      <a href="/contact/">تواصل معنا</a>
+      <a href="/terms/">الشروط والأحكام</a>
+      <a href="/about/">من نحن</a>
     </div>
   </div>
   <div class="footer-bottom">

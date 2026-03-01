@@ -185,12 +185,27 @@ body.home-mobile-layout .reels-track {
 
 body.home-mobile-layout .reel-item {
   width: 70px;
+}
+
+body.home-mobile-layout .reel-ring {
+  width: 70px;
   height: 70px;
 }
 
 body.home-mobile-layout .reel-inner {
   width: 62px;
   height: 62px;
+}
+
+body.home-mobile-layout .reel-caption {
+  max-width: 70px;
+  font-size: 10px;
+  color: #777;
+}
+
+body.home-mobile-layout .reels-empty {
+  font-size: 11px;
+  color: #777;
 }
 
 body.home-mobile-layout .section-block {

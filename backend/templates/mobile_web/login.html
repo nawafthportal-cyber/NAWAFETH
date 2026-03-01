@@ -11,43 +11,29 @@
       <div class="auth-header">
         <div class="auth-logo">نوافــذ</div>
         <h1 class="auth-title">تسجيل الدخول</h1>
-        <p class="auth-desc">أدخل رقم جوالك وسنرسل لك رمز تحقق</p>
+        <p class="auth-desc">أدخل رقم الجوال وسنرسل لك رمز تحقق</p>
       </div>
 
-      <!-- Step 1: Phone -->
-      <div id="step-phone">
-        <div class="form-group">
-          <label class="form-label" for="phone-input">رقم الجوال</label>
-          <input type="tel" id="phone-input" class="form-input" placeholder="05XXXXXXXX"
-                 maxlength="10" inputmode="numeric" autocomplete="tel" dir="ltr">
-          <div class="form-error hidden" id="phone-error"></div>
-        </div>
-        <button class="btn-primary" id="btn-send-otp">
-          <span id="send-otp-text">إرسال رمز التحقق</span>
-          <span class="spinner hidden" id="send-otp-spinner"></span>
-        </button>
+      <div class="form-group">
+        <label class="form-label" for="phone-input">رقم الجوال</label>
+        <input
+          type="tel"
+          id="phone-input"
+          class="form-input"
+          placeholder="05XXXXXXXX"
+          maxlength="14"
+          inputmode="numeric"
+          autocomplete="tel"
+          dir="ltr"
+        >
+        <div class="form-hint">يدعم الصيغ: `05XXXXXXXX` أو `5XXXXXXXX` أو `+9665XXXXXXXX`</div>
+        <div class="form-error hidden" id="phone-error"></div>
       </div>
 
-      <!-- Step 2: OTP -->
-      <div id="step-otp" class="hidden">
-        <div class="otp-info">
-          <p>تم إرسال رمز التحقق إلى <strong id="otp-phone-display"></strong></p>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="otp-input">رمز التحقق</label>
-          <input type="text" id="otp-input" class="form-input otp-field" placeholder="- - - -"
-                 maxlength="4" inputmode="numeric" autocomplete="one-time-code" dir="ltr">
-          <div class="form-error hidden" id="otp-error"></div>
-        </div>
-        <button class="btn-primary" id="btn-verify-otp">
-          <span id="verify-otp-text">تحقق</span>
-          <span class="spinner hidden" id="verify-otp-spinner"></span>
-        </button>
-        <button class="btn-link" id="btn-resend-otp">
-          إعادة إرسال الرمز (<span id="resend-timer">60</span>)
-        </button>
-        <button class="btn-link" id="btn-back-phone">تغيير الرقم</button>
-      </div>
+      <button class="btn-primary" id="btn-send-otp">
+        <span id="send-otp-text">إرسال رمز التحقق</span>
+        <span class="spinner hidden" id="send-otp-spinner"></span>
+      </button>
 
       <div class="auth-divider"><span>أو</span></div>
       <button class="btn-secondary" id="btn-guest">المتابعة كضيف</button>

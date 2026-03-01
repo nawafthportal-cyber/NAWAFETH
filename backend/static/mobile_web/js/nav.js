@@ -5,26 +5,74 @@
 'use strict';
 
 const Nav = (() => {
+  let _sidebarOpen = false;
+
   function init() {
-    _initSidebar();
+    _initSidebarController();
+    _initQuickNavButtons();
     _initAuthUI();
     _initLogout();
   }
 
   /* ---------- Sidebar ---------- */
-  function _initSidebar() {
+  function _initSidebarController() {
     const btn = document.getElementById('btn-menu');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     const close = document.getElementById('sidebar-close');
     if (!btn || !sidebar) return;
 
-    const open = () => { sidebar.classList.add('open'); overlay.classList.remove('hidden'); };
-    const shut = () => { sidebar.classList.remove('open'); overlay.classList.add('hidden'); };
+    const open = () => {
+      _sidebarOpen = true;
+      sidebar.classList.add('open');
+      sidebar.setAttribute('aria-hidden', 'false');
+      if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+      document.body.style.overflow = 'hidden';
+    };
+
+    const shut = () => {
+      _sidebarOpen = false;
+      sidebar.classList.remove('open');
+      sidebar.setAttribute('aria-hidden', 'true');
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+      document.body.style.overflow = '';
+    };
 
     btn.addEventListener('click', open);
     if (overlay) overlay.addEventListener('click', shut);
     if (close) close.addEventListener('click', shut);
+
+    sidebar.querySelectorAll('a.sidebar-link, button.sidebar-link').forEach(link => {
+      link.addEventListener('click', () => {
+        if (link.id !== 'sidebar-logout') shut();
+      });
+    });
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && _sidebarOpen) shut();
+    });
+  }
+
+  function _initQuickNavButtons() {
+    const notifBtn = document.getElementById('btn-notifications');
+    if (notifBtn) {
+      notifBtn.addEventListener('click', () => {
+        window.location.href = '/notifications/';
+      });
+    }
+
+    const chatBtn = document.getElementById('btn-chat');
+    if (chatBtn) {
+      chatBtn.addEventListener('click', () => {
+        window.location.href = '/chats/';
+      });
+    }
   }
 
   /* ---------- Auth-aware UI ---------- */
@@ -36,42 +84,64 @@ const Nav = (() => {
     const avatarEl = document.getElementById('sidebar-avatar');
     const navAvatar = document.getElementById('user-avatar-nav');
 
-    if (!Auth.isLoggedIn()) return; // guest mode — defaults are fine
+    if (loginLink) {
+      const returnPath = window.location.pathname === '/login/' ? '/' : window.location.pathname;
+      loginLink.href = '/login/?next=' + encodeURIComponent(returnPath);
+    }
 
-    // Hide login, show logout
+    if (!Auth.isLoggedIn()) {
+      if (loginLink) loginLink.classList.remove('hidden');
+      if (logoutBtn) logoutBtn.classList.add('hidden');
+      if (nameEl) nameEl.textContent = 'زائر';
+      if (roleEl) roleEl.textContent = 'تصفح كضيف';
+      if (avatarEl) avatarEl.textContent = '';
+      if (navAvatar) navAvatar.classList.add('hidden');
+      return;
+    }
+
     if (loginLink) loginLink.classList.add('hidden');
     if (logoutBtn) logoutBtn.classList.remove('hidden');
 
-    // Load profile
     const profile = await Auth.getProfile();
-    if (profile) {
-      const display = profile.display_name || profile.first_name || 'مستخدم';
-      if (nameEl) nameEl.textContent = display;
-      if (roleEl) roleEl.textContent = profile.role_state === 'provider' ? 'مقدم خدمة' :
-                                       profile.role_state === 'client' ? 'عميل' : 'مستخدم';
-      const initial = display.charAt(0);
-      if (avatarEl) {
-        if (profile.profile_image) {
-          avatarEl.innerHTML = '';
-          const img = document.createElement('img');
-          img.src = ApiClient.mediaUrl(profile.profile_image);
-          img.alt = display;
-          avatarEl.appendChild(img);
-        } else {
-          avatarEl.textContent = initial;
-        }
+    if (!profile) return;
+
+    const display = profile.display_name || profile.first_name || profile.username || 'مستخدم';
+    const role = profile.role_state === 'provider'
+      ? 'مقدم خدمة'
+      : profile.role_state === 'client'
+        ? 'عميل'
+        : 'حساب مستخدم';
+    const initial = (display || 'م').charAt(0);
+
+    if (nameEl) nameEl.textContent = display;
+    if (roleEl) roleEl.textContent = role;
+
+    if (avatarEl) {
+      if (profile.profile_image) {
+        avatarEl.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = ApiClient.mediaUrl(profile.profile_image);
+        img.alt = display;
+        avatarEl.appendChild(img);
+      } else {
+        avatarEl.textContent = initial;
       }
-      if (navAvatar) {
-        navAvatar.classList.remove('hidden');
-        if (profile.profile_image) {
-          navAvatar.innerHTML = '';
-          const img = document.createElement('img');
-          img.src = ApiClient.mediaUrl(profile.profile_image);
-          img.alt = display;
-          navAvatar.appendChild(img);
-        } else {
-          navAvatar.textContent = initial;
-        }
+    }
+
+    if (navAvatar) {
+      navAvatar.classList.remove('hidden');
+      navAvatar.title = 'الملف الشخصي';
+      navAvatar.addEventListener('click', () => {
+        window.location.href = '/profile/';
+      });
+      if (profile.profile_image) {
+        navAvatar.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = ApiClient.mediaUrl(profile.profile_image);
+        img.alt = display;
+        navAvatar.appendChild(img);
+      } else {
+        navAvatar.textContent = initial;
       }
     }
   }

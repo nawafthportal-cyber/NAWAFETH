@@ -4,12 +4,13 @@ import 'package:video_player/video_player.dart';
 
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
-import '../widgets/video_full_screen.dart';
 import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
+import '../models/media_item_model.dart';
+import '../widgets/spotlight_viewer.dart';
 
 import 'search_provider_screen.dart';
 import 'provider_profile_screen.dart';
@@ -30,6 +31,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<CategoryModel> _categories = [];
   List<ProviderPublicModel> _providers = [];
   List<BannerModel> _banners = [];
+  List<MediaItemModel> _spotlights = [];
   bool _isLoading = true;
 
   // -- Banner video --
@@ -41,16 +43,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Timer? _reelsTimer;
   double _reelsPos = 0;
 
-  static const _reelLogos = [
+  static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
     'assets/images/841015.jpeg',
     'assets/images/879797.jpeg',
-  ];
-  static const _reelVideoPaths = [
-    'assets/videos/1.mp4',
-    'assets/videos/2.mp4',
-    'assets/videos/3.mp4',
-    'assets/videos/4.mp4',
   ];
 
   @override
@@ -73,12 +69,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   bool _seedFromCachedData() {
-    final cached = HomeService.getCachedHomeData(providersLimit: 10, bannersLimit: 6);
+    final cached = HomeService.getCachedHomeData(
+      providersLimit: 10,
+      bannersLimit: 6,
+      spotlightsLimit: 16,
+    );
     if (!cached.hasAnyData) return false;
 
     _categories = cached.categories;
     _providers = cached.providers;
     _banners = cached.banners;
+    _spotlights = cached.spotlights;
     _isLoading = cached.providers.isEmpty;
     return true;
   }
@@ -100,6 +101,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       limit: 6,
       forceRefresh: forceRefresh,
     );
+    final spotlightsFuture = HomeService.fetchSpotlightFeed(
+      limit: 16,
+      forceRefresh: forceRefresh,
+    );
 
     categoriesFuture.then((categories) {
       if (!mounted) return;
@@ -111,6 +116,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       setState(() => _banners = banners);
     });
 
+    spotlightsFuture.then((spotlights) {
+      if (!mounted) return;
+      setState(() => _spotlights = spotlights);
+    });
+
     providersFuture.then((providers) {
       if (!mounted) return;
       setState(() {
@@ -120,7 +130,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
 
     try {
-      await Future.wait([categoriesFuture, providersFuture, bannersFuture]);
+      await Future.wait([categoriesFuture, providersFuture, bannersFuture, spotlightsFuture]);
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -355,45 +365,59 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // =============================================
 
   Widget _buildReels(bool isDark) {
-    final items = List.generate(20, (i) => i % _reelLogos.length);
+    final hasData = _spotlights.isNotEmpty;
+
+    if (!hasData) {
+      return Container(
+        height: 96,
+        margin: const EdgeInsets.only(top: 12),
+        alignment: Alignment.center,
+        child: Text(
+          'لا توجد لمحات حاليا',
+          style: TextStyle(
+            fontSize: 11,
+            fontFamily: 'Cairo',
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+      );
+    }
 
     return Container(
-      height: 90,
+      height: 108,
       margin: const EdgeInsets.only(top: 12),
       child: ListView.builder(
         controller: _reelsScroll,
         scrollDirection: Axis.horizontal,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: items.length,
+        itemCount: _spotlights.length,
         itemBuilder: (context, index) {
-          final logoPath = _reelLogos[items[index]];
-          final videoIdx = index % _reelVideoPaths.length;
+          final item = _spotlights[index];
+          final thumb = _spotlightThumbUrl(item);
+          final caption = (item.caption ?? '').trim();
+
           return GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => VideoFullScreenPage(videoPaths: _reelVideoPaths, initialIndex: videoIdx),
-            )),
-            child: Container(
-              width: 70, height: 70,
-              margin: const EdgeInsets.symmetric(horizontal: 6),
-              child: Stack(
-                alignment: Alignment.center,
+            onTap: () => _openSpotlightViewer(index),
+            child: SizedBox(
+              width: 78,
+              child: Column(
                 children: [
-                  // Animated ring
-                  Container(
-                    width: 70, height: 70,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: SweepGradient(colors: [Color(0xFF9F57DB), Color(0xFFF1A559), Color(0xFFC8A5FC), Color(0xFF9F57DB)]),
-                    ),
+                  _reelMediaRing(
+                    imageUrl: thumb,
+                    isDark: isDark,
+                    fallbackIcon: item.isVideo ? Icons.play_arrow_rounded : Icons.image_rounded,
                   ),
-                  // Logo
-                  Container(
-                    width: 62, height: 62,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                  const SizedBox(height: 6),
+                  Text(
+                    caption.isNotEmpty ? caption : 'لمحة',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white70 : Colors.black54,
                     ),
-                    child: ClipOval(child: Image.asset(logoPath, fit: BoxFit.cover)),
                   ),
                 ],
               ),
@@ -401,6 +425,101 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           );
         },
       ),
+    );
+  }
+
+  String? _spotlightThumbUrl(MediaItemModel item) {
+    final raw = item.thumbnailUrl?.trim().isNotEmpty == true
+        ? item.thumbnailUrl
+        : item.fileUrl;
+    return ApiClient.buildMediaUrl(raw);
+  }
+
+
+
+  Widget _reelMediaRing({
+    required bool isDark,
+    String? imageUrl,
+    String? assetPath,
+    required IconData fallbackIcon,
+  }) {
+    return Container(
+      width: 70,
+      height: 70,
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 70,
+            height: 70,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: SweepGradient(
+                colors: [Color(0xFF9F57DB), Color(0xFFF1A559), Color(0xFFC8A5FC), Color(0xFF9F57DB)],
+              ),
+            ),
+          ),
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+            ),
+            child: ClipOval(
+              child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _reelFallback(fallbackIcon),
+                    )
+                  : (assetPath != null
+                      ? Image.asset(
+                          assetPath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _reelFallback(fallbackIcon),
+                        )
+                      : _reelFallback(fallbackIcon)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reelFallback(IconData icon) {
+    return Container(
+      color: Colors.transparent,
+      alignment: Alignment.center,
+      child: Icon(icon, color: Colors.deepPurple, size: 22),
+    );
+  }
+
+  Future<void> _openSpotlightViewer(int index) async {
+    if (_spotlights.isEmpty) return;
+
+    _reelsTimer?.cancel();
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SpotlightViewerPage(
+          items: _spotlights,
+          initialIndex: index,
+        ),
+      ),
+    );
+
+    if (mounted) {
+      _startReelsScroll();
+    }
+  }
+
+  void _showNoSpotlights() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('لا توجد لمحات حالياً')),
     );
   }
 

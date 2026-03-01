@@ -1,0 +1,79 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}نوافــذ — تفاصيل الطلب{% endblock %}
+{% block body_class %}page-order-detail{% endblock %}
+{% block sidebar_orders %}active{% endblock %}
+
+{% block content %}
+<main class="page-content">
+  <div class="container">
+    <div id="auth-gate" class="auth-gate hidden">
+      <div class="auth-gate-icon">📦</div>
+      <h2>سجّل دخولك</h2>
+      <p>يجب تسجيل الدخول لعرض تفاصيل الطلب</p>
+      <a id="order-login-link" href="/login/" class="btn btn-primary">تسجيل الدخول</a>
+    </div>
+
+    <div id="order-content" class="hidden">
+      <div class="page-header order-detail-header">
+        <h1>تفاصيل الطلب</h1>
+        <a href="/orders/" class="btn-sm">رجوع</a>
+      </div>
+
+      <div id="order-loading" class="text-center">
+        <span class="spinner-inline"></span>
+      </div>
+      <div id="order-error" class="form-error hidden"></div>
+
+      <div id="order-detail" class="hidden">
+        <section class="order-detail-card">
+          <div class="order-detail-top">
+            <div id="order-display-id" class="order-display-id"></div>
+            <span id="order-status-badge" class="status-badge"></span>
+          </div>
+          <div id="order-meta" class="order-meta"></div>
+        </section>
+
+        <section class="order-detail-card">
+          <div class="order-field-head">
+            <h2>عنوان الطلب</h2>
+            <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
+          </div>
+          <input id="order-title" class="form-input" disabled>
+        </section>
+
+        <section class="order-detail-card">
+          <div class="order-field-head">
+            <h2>تفاصيل الطلب</h2>
+            <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
+          </div>
+          <textarea id="order-description" class="form-textarea" disabled></textarea>
+        </section>
+
+        <section class="order-detail-card">
+          <h2>المرفقات</h2>
+          <div id="order-attachments" class="order-lines"></div>
+        </section>
+
+        <section class="order-detail-card">
+          <h2>سجل الحالة</h2>
+          <div id="order-status-logs" class="order-lines"></div>
+        </section>
+
+        <div class="order-bottom-actions">
+          <a href="/orders/" class="btn-secondary">رجوع</a>
+          <button type="button" class="btn-primary hidden" id="btn-save-order">
+            <span id="save-order-text">حفظ</span>
+            <span class="spinner hidden" id="save-order-spinner"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/orderDetailPage.js' %}"></script>
+{% endblock %}

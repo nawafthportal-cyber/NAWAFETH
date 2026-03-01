@@ -1,0 +1,36 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}نوافــذ — إعدادات الإشعارات{% endblock %}
+{% block body_class %}page-notification-settings{% endblock %}
+{% block sidebar_notifications %}active{% endblock %}
+
+{% block content %}
+<main class="page-content">
+  <div class="container">
+    <div id="auth-gate" class="auth-gate hidden">
+      <div class="auth-gate-icon">🔔</div>
+      <h2>سجّل دخولك</h2>
+      <p>يجب تسجيل الدخول للوصول لإعدادات الإشعارات</p>
+      <a href="/login/?next=/notification-settings/" class="btn btn-primary">تسجيل الدخول</a>
+    </div>
+
+    <div id="notif-settings-content" class="hidden">
+      <div class="page-header">
+        <h1>إعدادات الإشعارات</h1>
+      </div>
+
+      <div id="notif-settings-loading" class="text-center">
+        <span class="spinner-inline"></span>
+      </div>
+
+      <div id="notif-settings-error" class="form-error hidden"></div>
+      <div id="notif-settings-list" class="tier-cards hidden"></div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/notificationSettingsPage.js' %}"></script>
+{% endblock %}

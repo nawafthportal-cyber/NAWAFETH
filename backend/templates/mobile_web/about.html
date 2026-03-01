@@ -1,0 +1,33 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}نوافــذ — من نحن{% endblock %}
+{% block body_class %}page-about{% endblock %}
+
+{% block content %}
+<main class="page-content">
+  <div class="container">
+    <div class="about-hero">
+      <div class="about-hero-icon">◫</div>
+      <h1>منصة نوافذ</h1>
+      <p>حلول تقنية مبتكرة تربط مزودي الخدمات بطالبيها</p>
+    </div>
+
+    <div id="about-loading" class="text-center">
+      <span class="spinner-inline"></span>
+    </div>
+
+    <div id="about-sections" class="expand-cards hidden"></div>
+
+    <div class="about-links hidden" id="about-links">
+      <a id="btn-android-store" class="store-pill hidden" href="#" target="_blank" rel="noopener">Google Play</a>
+      <a id="btn-ios-store" class="store-pill hidden" href="#" target="_blank" rel="noopener">App Store</a>
+      <a id="btn-website" class="store-pill store-pill-outline hidden" href="#" target="_blank" rel="noopener">الموقع الرسمي</a>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/aboutPage.js' %}"></script>
+{% endblock %}

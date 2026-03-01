@@ -374,6 +374,27 @@ class ProviderSpotlightListView(generics.ListAPIView):
 		)
 
 
+class ProviderSpotlightFeedView(generics.ListAPIView):
+	"""Public spotlight feed for the home page (latest across providers)."""
+
+	serializer_class = ProviderSpotlightItemSerializer
+	permission_classes = [permissions.AllowAny]
+
+	def get_queryset(self):
+		qs = (
+			ProviderSpotlightItem.objects.select_related("provider", "provider__user")
+			.annotate(likes_count=Count("likes", distinct=True))
+			.annotate(saves_count=Count("saves", distinct=True))
+			.order_by("-created_at", "-id")
+		)
+
+		limit_raw = (self.request.query_params.get("limit") or "").strip()
+		if limit_raw.isdigit():
+			limit = max(1, min(int(limit_raw), 100))
+			return qs[:limit]
+		return qs
+
+
 class MyProviderSpotlightListCreateView(generics.ListCreateAPIView):
 	"""Spotlight items for the authenticated provider (list + add)."""
 
