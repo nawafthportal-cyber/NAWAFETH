@@ -3,13 +3,6 @@ set -euo pipefail
 
 python manage.py migrate --noinput
 
-# Ensure static manifest exists. You can force collectstatic on boot with:
-# RUN_COLLECTSTATIC_ON_START=1
-if [ "${RUN_COLLECTSTATIC_ON_START:-0}" = "1" ] || [ ! -d "staticfiles" ] || [ ! -f "staticfiles/staticfiles.json" ]; then
-	echo "[start] staticfiles manifest missing (or forced) — running collectstatic..."
-	python manage.py collectstatic --noinput
-fi
-
 PORT_VALUE="${PORT:-8000}"
 WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY:-2}"
 LOG_LEVEL_VALUE="${GUNICORN_LOG_LEVEL:-info}"
