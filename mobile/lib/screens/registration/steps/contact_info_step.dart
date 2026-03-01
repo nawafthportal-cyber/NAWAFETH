@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/utils/debounced_save_runner.dart';
+import 'package:nawafeth/models/user_profile.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContactInfoStep extends StatefulWidget {
@@ -19,6 +20,9 @@ class ContactInfoStep extends StatefulWidget {
   
   final Function(double)? onValidationChanged;
 
+  /// بيانات المستخدم المسجلة مسبقًا للتعبئة التلقائية
+  final UserProfile? userProfile;
+
   const ContactInfoStep({
     super.key,
     required this.onNext,
@@ -26,6 +30,7 @@ class ContactInfoStep extends StatefulWidget {
     this.isInitialRegistration = false,
     this.isFinalStep = false,
     this.onValidationChanged,
+    this.userProfile,
   });
 
   @override
@@ -127,6 +132,8 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
 
     if (widget.isInitialRegistration) {
       _isProfileReady = true;
+      // تعبئة تلقائية من بيانات المستخدم المسجلة
+      _prefillFromUserProfile();
     } else {
       _loadProviderProfile();
     }
@@ -148,6 +155,33 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
 
   void _onProfileFieldChanged() {
     _queueAutoSave();
+  }
+
+  @override
+  void didUpdateWidget(covariant ContactInfoStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userProfile == null && widget.userProfile != null) {
+      _prefillFromUserProfile();
+      _validateForm();
+    }
+  }
+
+  /// سحب بيانات المستخدم المسجلة وتعبئتها في الحقول (قابلة للتعديل)
+  void _prefillFromUserProfile() {
+    final profile = widget.userProfile;
+    if (profile == null) return;
+
+    // تعبئة رقم الهاتف
+    if (profile.phone != null && profile.phone!.isNotEmpty && phoneController.text.isEmpty) {
+      phoneController.text = profile.phone!;
+    }
+
+    // تعبئة الواتساب بنفس رقم الهاتف إذا متوفر
+    if (profile.phone != null && profile.phone!.isNotEmpty && whatsappController.text.isEmpty) {
+      // تحويل الرقم لصيغة wa.me
+      final cleanPhone = profile.phone!.replaceAll(RegExp(r'[^0-9+]'), '');
+      whatsappController.text = 'https://wa.me/$cleanPhone';
+    }
   }
 
   Future<void> _loadProviderProfile() async {

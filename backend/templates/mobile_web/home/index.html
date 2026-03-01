@@ -10,9 +10,16 @@
 {% endblock %}
 
 {% block content %}
-  <!-- ═══ Hero Section (matches mobile 280px video hero) ═══ -->
+  <!-- ═══ Hero Section (mirrors Flutter HomeScreen hero) ═══ -->
   <section class="nw-home-hero">
+    <video class="nw-hero-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true">
+      <source src="{% static 'mobile_web/videos/home-hero.mp4' %}" type="video/mp4">
+    </video>
+
     <div class="nw-hero-topbar">
+      <a class="nw-hero-icon-btn nw-hero-menu-btn" href="{% url 'mobile_web:settings' %}" title="القائمة">
+        <span class="material-icons-round" style="font-size:20px">menu</span>
+      </a>
       <span class="nw-hero-logo">نوافــذ</span>
       <div class="nw-hero-actions">
         <a class="nw-hero-icon-btn" href="{% url 'mobile_web:notifications' %}" title="الإشعارات">
@@ -26,13 +33,18 @@
 
     <div class="nw-hero-content">
       <h1 class="nw-hero-tagline">اعثر على الخدمة المناسبة</h1>
-      <p class="nw-hero-subtitle" id="hero-provider-count">يمكنك تصفح مقدمي الخدمة واختيار الأنسب</p>
+      <p class="nw-hero-subtitle" id="hero-provider-count">أكثر من 100 مقدم خدمة بين يديك</p>
 
-      <div class="nw-hero-search">
+      <a class="nw-hero-search" href="{% url 'mobile_web:search_providers' %}">
         <span class="material-icons-round">search</span>
-        <input type="text" placeholder="ابحث عن خدمة أو مقدم خدمة..." readonly>
-      </div>
+        <span class="nw-hero-search-text">ابحث عن خدمة أو مقدم خدمة...</span>
+      </a>
     </div>
+  </section>
+
+  <!-- ═══ Auto Reels Strip ═══ -->
+  <section class="nw-reels-section">
+    <div id="reels-strip" class="nw-reels-strip" aria-label="شريط المقاطع القصيرة"></div>
   </section>
 
   <!-- ═══ Categories Section ═══ -->
@@ -47,7 +59,7 @@
   <section class="nw-home-section">
     <div class="nw-section-head">
       <h2 class="nw-section-title">مقدمو الخدمة</h2>
-      <a class="nw-section-link" href="#">عرض الكل</a>
+      <a class="nw-section-link" href="{% url 'mobile_web:search_providers' %}">عرض الكل</a>
     </div>
     <div id="providers-list" class="nw-provider-scroll"></div>
   </section>
@@ -64,4 +76,3 @@
 {% block scripts %}
   <script src="{% static 'mobile_web/js/home.js' %}"></script>
 {% endblock %}
-

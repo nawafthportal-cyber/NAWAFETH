@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import '../../../models/user_profile.dart';
 
 class PersonalInfoStep extends StatefulWidget {
   final VoidCallback onNext;
   final Function(double)? onValidationChanged;
+  final UserProfile? userProfile;
 
   const PersonalInfoStep({
     super.key,
     required this.onNext,
     this.onValidationChanged,
+    this.userProfile,
   });
 
   @override
@@ -52,6 +55,8 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
   @override
   void initState() {
     super.initState();
+    // تعبئة تلقائية من بيانات المستخدم المسجلة مسبقًا
+    _prefillFromUserProfile();
     nameController.addListener(_validateForm);
     engNameController.addListener(_validateForm);
     bioController.addListener(_validateForm);
@@ -59,6 +64,30 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _validateForm();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant PersonalInfoStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // إذا وصلت بيانات المستخدم متأخرة، نعبئ الحقول
+    if (oldWidget.userProfile == null && widget.userProfile != null) {
+      _prefillFromUserProfile();
+      _validateForm();
+    }
+  }
+
+  /// سحب بيانات المستخدم المسجلة وتعبئتها في الحقول (قابلة للتعديل)
+  void _prefillFromUserProfile() {
+    final profile = widget.userProfile;
+    if (profile == null) return;
+
+    // تعبئة الاسم الكامل من first_name + last_name
+    final fullName = [profile.firstName, profile.lastName]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+    if (fullName.isNotEmpty && nameController.text.isEmpty) {
+      nameController.text = fullName;
+    }
   }
 
   void _validateForm() {

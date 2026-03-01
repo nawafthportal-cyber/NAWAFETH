@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:nawafeth/services/profile_service.dart';
+import 'package:nawafeth/models/user_profile.dart';
 
 // استيراد الخطوات
 import 'steps/personal_info_step.dart';
@@ -33,6 +35,10 @@ class _RegisterServiceProviderPageState
   late AnimationController _animationController;
 
   bool _showSuccessOverlay = false;
+
+  // بيانات المستخدم المسحوبة تلقائيًا
+  UserProfile? _userProfile;
+  bool _isLoadingProfile = true;
   
   // تتبع نسبة إكمال كل صفحة (من 0.0 إلى 1.0)
   Map<int, double> _stepCompletion = {
@@ -49,6 +55,19 @@ class _RegisterServiceProviderPageState
       vsync: this,
       duration: const Duration(milliseconds: 300),
     )..forward();
+    _fetchUserProfile();
+  }
+
+  /// جلب بيانات المستخدم لتعبئة الحقول تلقائيًا
+  Future<void> _fetchUserProfile() async {
+    final result = await ProfileService.fetchMyProfile();
+    if (!mounted) return;
+    setState(() {
+      _isLoadingProfile = false;
+      if (result.isSuccess && result.data != null) {
+        _userProfile = result.data;
+      }
+    });
   }
 
   @override
@@ -293,6 +312,7 @@ class _RegisterServiceProviderPageState
       PersonalInfoStep(
         onNext: _goToNextStep,
         onValidationChanged: (percent) => _updateStepCompletion(0, percent),
+        userProfile: _userProfile,
       ),
       ServiceClassificationStep(
         onNext: _goToNextStep,
@@ -305,6 +325,7 @@ class _RegisterServiceProviderPageState
         isInitialRegistration: true,
         isFinalStep: true,
         onValidationChanged: (percent) => _updateStepCompletion(2, percent),
+        userProfile: _userProfile,
       ),
     ];
 
