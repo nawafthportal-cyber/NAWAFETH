@@ -1,9 +1,13 @@
 /// خدمة البروفايل — جلب وتحديث بيانات المستخدم والمزود
 library;
 
+import 'dart:io';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
 import '../models/provider_profile_model.dart';
 import 'api_client.dart';
+import 'auth_service.dart';
 
 class ProfileService {
   /// جلب بيانات المستخدم الحالي (عميل أو مزود)
@@ -64,6 +68,94 @@ class ProfileService {
     }
 
     return ProfileResult.failure(response.error ?? 'خطأ في التحديث');
+  }
+
+  /// رفع صورة الملف الشخصي/الخلفية للمستخدم (multipart)
+  static Future<ProfileResult<UserProfile>> uploadMyProfileImages({
+    String? profileImagePath,
+    String? coverImagePath,
+  }) async {
+    if ((profileImagePath == null || profileImagePath.isEmpty) &&
+        (coverImagePath == null || coverImagePath.isEmpty)) {
+      return ProfileResult.failure('لم يتم اختيار صورة للرفع');
+    }
+
+    final token = await AuthService.getAccessToken();
+    if (token == null || token.isEmpty) {
+      return ProfileResult.failure('يجب تسجيل الدخول أولاً');
+    }
+
+    final uri = Uri.parse(ApiClient.baseUrl).resolve('/api/accounts/me/');
+    final request = http.MultipartRequest('PATCH', uri);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.headers['Accept'] = 'application/json';
+
+    if (profileImagePath != null && profileImagePath.isNotEmpty) {
+      request.files.add(await http.MultipartFile.fromPath('profile_image', profileImagePath));
+    }
+    if (coverImagePath != null && coverImagePath.isNotEmpty) {
+      request.files.add(await http.MultipartFile.fromPath('cover_image', coverImagePath));
+    }
+
+    try {
+      final streamed = await request.send();
+      final response = await http.Response.fromStream(streamed);
+
+      if (response.statusCode == 401) {
+        final refreshed = await _tryRefreshToken();
+        if (refreshed) {
+          return uploadMyProfileImages(
+            profileImagePath: profileImagePath,
+            coverImagePath: coverImagePath,
+          );
+        }
+      }
+
+      final parsed = ApiClient.parseResponse(response);
+      if (parsed.isSuccess && parsed.dataAsMap != null) {
+        try {
+          final profile = UserProfile.fromJson(parsed.dataAsMap!);
+          return ProfileResult.success(profile);
+        } catch (_) {
+          return ProfileResult.failure('خطأ في تحليل الاستجابة');
+        }
+      }
+
+      return ProfileResult.failure(parsed.error ?? 'فشل رفع الصور');
+    } on SocketException {
+      return ProfileResult.failure('تعذر الوصول إلى الخادم. تحقق من الاتصال.');
+    } catch (e) {
+      return ProfileResult.failure('خطأ أثناء الرفع: $e');
+    }
+  }
+
+  static Future<bool> _tryRefreshToken() async {
+    final refreshToken = await AuthService.getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+
+    try {
+      final uri = Uri.parse(ApiClient.baseUrl).resolve('/api/accounts/token/refresh/');
+      final response = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({'refresh': refreshToken}),
+      );
+
+      final parsed = ApiClient.parseResponse(response);
+      if (parsed.isSuccess && parsed.dataAsMap != null) {
+        final access = parsed.dataAsMap!['access'] as String?;
+        if (access != null && access.isNotEmpty) {
+          await AuthService.saveTokens(access: access, refresh: refreshToken);
+          return true;
+        }
+      }
+    } catch (_) {}
+
+    await AuthService.logout();
+    return false;
   }
 
   /// تحديث بيانات ملف المزود

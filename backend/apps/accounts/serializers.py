@@ -137,6 +137,8 @@ class MeUpdateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     last_name = serializers.CharField(max_length=50, required=False, allow_blank=True, allow_null=True)
     city = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
+    profile_image = serializers.FileField(required=False, allow_null=True)
+    cover_image = serializers.FileField(required=False, allow_null=True)
 
     def validate_phone(self, value: str) -> str:
         value = (value or "").strip()

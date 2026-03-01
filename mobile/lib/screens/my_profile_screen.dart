@@ -7,6 +7,7 @@ import '../widgets/custom_drawer.dart';
 import '../services/auth_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/profile_service.dart';
+import '../services/api_client.dart';
 import '../models/user_profile.dart';
 import 'registration/register_service_provider.dart';
 import 'provider_dashboard/provider_home_screen.dart';
@@ -28,6 +29,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   File? _coverImage;
 
   bool _isLoading = true;
+  bool _isUploadingImage = false;
   String? _errorMessage;
   UserProfile? _userProfile;
   bool _isProviderMode = false;
@@ -71,7 +73,48 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Future<void> _pickImage({required bool isCover}) async {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked != null) {
-      setState(() { isCover ? _coverImage = File(picked.path) : _profileImage = File(picked.path); });
+      final selected = File(picked.path);
+      if (!mounted) return;
+
+      setState(() {
+        if (isCover) {
+          _coverImage = selected;
+        } else {
+          _profileImage = selected;
+        }
+      });
+
+      setState(() => _isUploadingImage = true);
+      final result = await ProfileService.uploadMyProfileImages(
+        profileImagePath: isCover ? null : selected.path,
+        coverImagePath: isCover ? selected.path : null,
+      );
+      if (!mounted) return;
+      setState(() => _isUploadingImage = false);
+
+      if (result.isSuccess && result.data != null) {
+        setState(() {
+          _userProfile = result.data;
+          if (isCover) {
+            _coverImage = null;
+          } else {
+            _profileImage = null;
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('تم حفظ الصورة بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error ?? 'تعذر حفظ الصورة', style: const TextStyle(fontFamily: 'Cairo')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -161,6 +204,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   // -- HEADER --
   Widget _buildHeader(UserProfile profile, bool isDark, Color purple) {
+    final coverImageUrl = ApiClient.buildMediaUrl(profile.coverImage);
+    final profileImageUrl = ApiClient.buildMediaUrl(profile.profileImage);
+    final ImageProvider? coverImageProvider = _coverImage != null
+        ? FileImage(_coverImage!)
+        : (coverImageUrl != null ? NetworkImage(coverImageUrl) : null);
+    final ImageProvider? profileImageProvider = _profileImage != null
+        ? FileImage(_profileImage!)
+        : (profileImageUrl != null ? NetworkImage(profileImageUrl) : null);
+
     return SizedBox(
       height: 320,
       child: Stack(
@@ -171,7 +223,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             height: 150,
             width: double.infinity,
             decoration: BoxDecoration(
-              gradient: _coverImage == null
+              gradient: coverImageProvider == null
                   ? LinearGradient(
                       colors: isDark
                           ? [Colors.deepPurple.shade900, Colors.deepPurple.shade700.withValues(alpha: 0.7)]
@@ -180,9 +232,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       end: Alignment.bottomLeft,
                     )
                   : null,
-              image: _coverImage != null
-                  ? DecorationImage(image: FileImage(_coverImage!), fit: BoxFit.cover)
-                  : null,
+              image: coverImageProvider != null
+                ? DecorationImage(image: coverImageProvider, fit: BoxFit.cover)
+                : null,
             ),
             child: SafeArea(
               bottom: false,
@@ -235,8 +287,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                     child: CircleAvatar(
                       radius: 40,
                       backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
-                      backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
-                      child: _profileImage == null
+                      backgroundImage: profileImageProvider,
+                      child: profileImageProvider == null
                           ? Icon(Icons.person, size: 36, color: isDark ? Colors.white54 : Colors.grey)
                           : null,
                     ),
@@ -260,6 +312,14 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 ),
                 const SizedBox(height: 10),
                 _buildStatsRow(profile, isDark, purple),
+                if (_isUploadingImage) ...[
+                  const SizedBox(height: 8),
+                  const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ],
               ],
             ),
           ),

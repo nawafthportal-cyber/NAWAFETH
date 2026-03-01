@@ -35,6 +35,12 @@ const HomePage = (() => {
     $reelsTrack     = document.getElementById('reels-track');
     $offlineBanner  = document.getElementById('offline-banner');
 
+    const notifBtn = document.getElementById('btn-notifications');
+    if (notifBtn) notifBtn.addEventListener('click', () => { window.location.href = '/notifications/'; });
+
+    const chatBtn = document.getElementById('btn-chat');
+    if (chatBtn) chatBtn.addEventListener('click', () => { window.location.href = '/chats/'; });
+
     // Build static reels
     _buildReels();
 
@@ -145,12 +151,20 @@ const HomePage = (() => {
     const frag = document.createDocumentFragment();
     categories.forEach(cat => {
       const iconKey = UI.categoryIconKey(cat.name);
+      const categoryUrl = cat.id ? '/search/?category=' + encodeURIComponent(String(cat.id)) : '/search/';
       const item = UI.el('div', { className: 'cat-item' }, [
         UI.el('div', { className: 'cat-icon' }, [UI.icon(iconKey, 22, '#673AB7')]),
         UI.el('div', { className: 'cat-name', textContent: cat.name }),
       ]);
       item.setAttribute('role', 'button');
       item.setAttribute('tabindex', '0');
+      item.addEventListener('click', () => { window.location.href = categoryUrl; });
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          window.location.href = categoryUrl;
+        }
+      });
       frag.appendChild(item);
     });
     $categoriesList.textContent = ''; // clear skeletons
@@ -184,9 +198,10 @@ const HomePage = (() => {
       const coverUrl = ApiClient.mediaUrl(p.cover_image);
       const displayName = p.display_name || '';
       const initial = displayName.charAt(0) || '؟';
+      const providerHref = p.id ? '/provider/' + encodeURIComponent(String(p.id)) + '/' : '/search/';
 
       // Card
-      const card = UI.el('div', { className: 'provider-card' });
+      const card = UI.el('a', { className: 'provider-card', href: providerHref });
 
       // Cover
       const cover = UI.el('div', { className: 'provider-cover' });
@@ -272,7 +287,11 @@ const HomePage = (() => {
     const frag = document.createDocumentFragment();
     banners.forEach(b => {
       const url = ApiClient.mediaUrl(b.file_url);
-      const card = UI.el('div', { className: 'banner-card' });
+      const providerId = parseInt(b.provider_id, 10);
+      const hasProvider = Number.isFinite(providerId) && providerId > 0;
+      const card = hasProvider
+        ? UI.el('a', { className: 'banner-card', href: '/provider/' + providerId + '/' })
+        : UI.el('div', { className: 'banner-card' });
 
       if (url) {
         card.appendChild(UI.lazyImg(url, b.caption || ''));

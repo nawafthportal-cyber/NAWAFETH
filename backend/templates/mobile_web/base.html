@@ -11,9 +11,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{% static 'mobile_web/css/app.css' %}">
+<link rel="stylesheet" href="{% static 'mobile_web/css/desktop-parity.css' %}">
 {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="mobile-web-parity {% block body_class %}{% endblock %}">
 
 <!-- ====== TOP NAVBAR ====== -->
 <header id="top-navbar">

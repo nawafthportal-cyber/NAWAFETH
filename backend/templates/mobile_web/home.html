@@ -5,10 +5,26 @@
 {% block nav_home %}active{% endblock %}
 {% block bnav_home %}active{% endblock %}
 {% block sidebar_home %}active{% endblock %}
+{% block body_class %}home-mobile-layout{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}">
+{% endblock %}
 
 {% block content %}
 <!-- ====== HERO SECTION ====== -->
 <section id="hero">
+  <video
+    class="hero-video"
+    autoplay
+    muted
+    loop
+    playsinline
+    preload="metadata"
+    aria-hidden="true"
+  >
+    <source src="{% static 'mobile_web/videos/V16.mp4' %}" type="video/mp4">
+  </video>
   <div class="hero-bg"></div>
   <div class="hero-overlay"></div>
   <div class="hero-content container">

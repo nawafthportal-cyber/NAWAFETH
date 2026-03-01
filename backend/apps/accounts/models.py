@@ -42,6 +42,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     first_name = models.CharField(max_length=50, blank=True, null=True)
     last_name = models.CharField(max_length=50, blank=True, null=True)
     city = models.CharField(max_length=100, blank=True, null=True)
+    profile_image = models.FileField(upload_to="accounts/profile/%Y/%m/", null=True, blank=True)
+    cover_image = models.FileField(upload_to="accounts/cover/%Y/%m/", null=True, blank=True)
 
     role_state = models.CharField(max_length=20, choices=UserRole.choices, default=UserRole.VISITOR)
 

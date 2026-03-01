@@ -1,4 +1,5 @@
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from apps.accounts.models import OTP, User
@@ -75,3 +76,43 @@ def test_me_view_allows_other_fields_update_while_username_locked():
 
     user = User.objects.get(phone=phone)
     assert user.username == "fixed_username_2"
+
+
+@pytest.mark.django_db
+def test_me_view_uploads_profile_and_cover_images(settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path)
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+    client = APIClient()
+    phone = "0500000813"
+    access = _login_via_otp(client, phone)
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+    _complete_registration(client, phone, "fixed_username_3")
+
+    profile_upload = SimpleUploadedFile("profile.jpg", b"profile-bytes", content_type="image/jpeg")
+    cover_upload = SimpleUploadedFile("cover.jpg", b"cover-bytes", content_type="image/jpeg")
+
+    res = client.patch(
+        "/api/accounts/me/",
+        {
+            "profile_image": profile_upload,
+            "cover_image": cover_upload,
+        },
+        format="multipart",
+    )
+
+    assert res.status_code == 200
+    payload = res.json()
+    assert payload.get("profile_image")
+    assert payload.get("cover_image")
+
+    user = User.objects.get(phone=phone)
+    assert bool(user.profile_image)
+    assert bool(user.cover_image)

@@ -6,6 +6,8 @@ class UserProfile {
   final String? username;
   final String? firstName;
   final String? lastName;
+  final String? profileImage;
+  final String? coverImage;
   final String roleState;
   final bool hasProviderProfile;
   final bool isProvider;
@@ -27,6 +29,8 @@ class UserProfile {
     this.username,
     this.firstName,
     this.lastName,
+    this.profileImage,
+    this.coverImage,
     required this.roleState,
     required this.hasProviderProfile,
     required this.isProvider,
@@ -51,6 +55,8 @@ class UserProfile {
       username: json['username'] as String?,
       firstName: json['first_name'] as String?,
       lastName: json['last_name'] as String?,
+      profileImage: json['profile_image'] as String?,
+      coverImage: json['cover_image'] as String?,
       roleState: json['role_state'] as String? ?? 'visitor',
       hasProviderProfile: json['has_provider_profile'] as bool? ?? false,
       isProvider: json['is_provider'] as bool? ?? false,

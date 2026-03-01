@@ -78,6 +78,20 @@ def _is_valid_username(username: str) -> bool:
     return bool(re.match(r"^[A-Za-z0-9_.]+$", username))
 
 
+def _safe_media_url(field_file):
+    if not field_file:
+        return None
+    try:
+        name = (field_file.name or "").strip()
+        if not name:
+            return None
+        if not field_file.storage.exists(name):
+            return None
+        return field_file.url
+    except Exception:
+        return None
+
+
 def _me_payload(user: User) -> dict:
     has_provider_profile = False
     try:
@@ -135,6 +149,8 @@ def _me_payload(user: User) -> dict:
         "first_name": getattr(user, "first_name", None),
         "last_name": getattr(user, "last_name", None),
         "city": getattr(user, "city", None),
+        "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
+        "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
         "role_state": role_state,
         "has_provider_profile": has_provider_profile,
         "is_provider": is_provider,
@@ -282,6 +298,10 @@ def me_view(request):
             if field in data:
                 val = data.get(field)
                 setattr(user, field, val)
+
+        for field in ("profile_image", "cover_image"):
+            if field in data:
+                setattr(user, field, data.get(field))
 
         user.save()
 

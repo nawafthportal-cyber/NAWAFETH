@@ -1,0 +1,113 @@
+/* Desktop parity: keep mobile-first UX across all mobile_web templates */
+
+@media (min-width: 769px) {
+  body.mobile-web-parity .mobile-only {
+    display: flex !important;
+  }
+
+  body.mobile-web-parity .desktop-only {
+    display: none !important;
+  }
+
+  body.mobile-web-parity #bottom-nav {
+    display: flex !important;
+  }
+
+  body.mobile-web-parity .sidebar {
+    display: block !important;
+  }
+
+  body.mobile-web-parity .sidebar-overlay:not(.hidden) {
+    display: block !important;
+  }
+
+  body.mobile-web-parity #site-footer {
+    display: none;
+  }
+
+  body.mobile-web-parity .offline-banner {
+    bottom: 80px;
+  }
+
+  body.mobile-web-parity .container {
+    max-width: 1200px;
+    padding: 0 24px;
+  }
+
+  body.mobile-web-parity .navbar-inner {
+    height: 56px;
+  }
+
+  body.mobile-web-parity .page-content {
+    padding: 24px 0 88px;
+  }
+
+  body.mobile-web-parity .page-header h1 {
+    font-size: 20px;
+  }
+
+  body.mobile-web-parity .auth-card {
+    padding: 32px 24px;
+  }
+
+  body.mobile-web-parity .providers-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  body.mobile-web-parity .categories-grid {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 12px;
+  }
+
+  body.mobile-web-parity .banners-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  body.mobile-web-parity .profile-cover {
+    height: 160px;
+    border-radius: 20px;
+  }
+
+  body.mobile-web-parity .profile-avatar {
+    width: 80px;
+    height: 80px;
+    bottom: -40px;
+    right: 24px;
+  }
+
+  body.mobile-web-parity .profile-hero {
+    margin-bottom: 60px;
+  }
+
+  body.mobile-web-parity .profile-actions {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  body.mobile-web-parity .prov-cover {
+    height: 180px;
+    border-radius: 20px;
+  }
+
+  body.mobile-web-parity .prov-avatar {
+    width: 80px;
+    height: 80px;
+    bottom: -40px;
+    right: 24px;
+  }
+
+  body.mobile-web-parity .prov-detail-hero {
+    margin-bottom: 60px;
+  }
+
+  body.mobile-web-parity .prov-stats-bar {
+    gap: 16px;
+  }
+
+  body.mobile-web-parity .media-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
