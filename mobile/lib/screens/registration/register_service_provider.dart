@@ -35,10 +35,15 @@ class _RegisterServiceProviderPageState
   late AnimationController _animationController;
 
   bool _showSuccessOverlay = false;
+  bool _isRegistering = false;
+  String? _registerError;
 
   // بيانات المستخدم المسحوبة تلقائيًا
   UserProfile? _userProfile;
   bool _isLoadingProfile = true;
+
+  /// خريطة بيانات التسجيل المشتركة بين جميع الخطوات
+  final Map<String, dynamic> _registrationData = {};
   
   // تتبع نسبة إكمال كل صفحة (من 0.0 إلى 1.0)
   Map<int, double> _stepCompletion = {
@@ -121,10 +126,40 @@ class _RegisterServiceProviderPageState
     });
   }
 
-  void _completeRegistration() {
+  void _completeRegistration() async {
+    if (_isRegistering) return;
+
     setState(() {
-      _showSuccessOverlay = true;
+      _isRegistering = true;
+      _registerError = null;
     });
+
+    final result = await ProfileService.registerProvider(_registrationData);
+
+    if (!mounted) return;
+
+    if (result.isSuccess) {
+      setState(() {
+        _isRegistering = false;
+        _showSuccessOverlay = true;
+      });
+    } else {
+      setState(() {
+        _isRegistering = false;
+        _registerError = result.error ?? 'فشل في إنشاء ملف المزود';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _registerError!,
+            style: const TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   double get _completionPercent {
@@ -313,11 +348,13 @@ class _RegisterServiceProviderPageState
         onNext: _goToNextStep,
         onValidationChanged: (percent) => _updateStepCompletion(0, percent),
         userProfile: _userProfile,
+        registrationData: _registrationData,
       ),
       ServiceClassificationStep(
         onNext: _goToNextStep,
         onBack: _goToPreviousStep,
         onValidationChanged: (percent) => _updateStepCompletion(1, percent),
+        registrationData: _registrationData,
       ),
       ContactInfoStep(
         onNext: _completeRegistration,
@@ -326,6 +363,7 @@ class _RegisterServiceProviderPageState
         isFinalStep: true,
         onValidationChanged: (percent) => _updateStepCompletion(2, percent),
         userProfile: _userProfile,
+        registrationData: _registrationData,
       ),
     ];
 
@@ -571,6 +609,32 @@ class _RegisterServiceProviderPageState
               child: Container(
                 color: Colors.black.withOpacity(0.55),
                 child: _buildSuccessCard(context),
+              ),
+            ),
+
+          // مؤشر تحميل أثناء إرسال طلب التسجيل
+          if (_isRegistering)
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.35),
+                child: const Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(color: Colors.white),
+                      SizedBox(height: 16),
+                      Text(
+                        "جاري إنشاء حساب المزود...",
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
         ],

@@ -23,6 +23,9 @@ class ContactInfoStep extends StatefulWidget {
   /// بيانات المستخدم المسجلة مسبقًا للتعبئة التلقائية
   final UserProfile? userProfile;
 
+  /// خريطة بيانات التسجيل المشتركة
+  final Map<String, dynamic>? registrationData;
+
   const ContactInfoStep({
     super.key,
     required this.onNext,
@@ -31,6 +34,7 @@ class ContactInfoStep extends StatefulWidget {
     this.isFinalStep = false,
     this.onValidationChanged,
     this.userProfile,
+    this.registrationData,
   });
 
   @override
@@ -879,6 +883,10 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
             onPressed: (!widget.isInitialRegistration && _isLoadingProfile)
                 ? null
                 : () async {
+                    // حفظ بيانات التواصل في خريطة التسجيل
+                    if (widget.isInitialRegistration) {
+                      widget.registrationData?['whatsapp'] = whatsappController.text.trim();
+                    }
                     if (!widget.isInitialRegistration) {
                       await _autoSaveRunner.flush();
                     }

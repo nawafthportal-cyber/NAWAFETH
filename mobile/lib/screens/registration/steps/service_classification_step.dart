@@ -6,12 +6,14 @@ class ServiceClassificationStep extends StatefulWidget {
   final VoidCallback onNext;
   final VoidCallback onBack;
   final Function(double)? onValidationChanged;
+  final Map<String, dynamic>? registrationData;
 
   const ServiceClassificationStep({
     super.key,
     required this.onNext,
     required this.onBack,
     this.onValidationChanged,
+    this.registrationData,
   });
 
   @override
@@ -978,7 +980,20 @@ class _ServiceClassificationStepState extends State<ServiceClassificationStep> {
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: widget.onNext,
+                  onPressed: () {
+                    // حفظ بيانات التصنيف في خريطة التسجيل
+                    final subcategoryIds = <int>[];
+                    for (final cat in _apiCategories) {
+                      for (final sub in cat.subcategories) {
+                        if (selectedSubCategories.contains(sub.name)) {
+                          subcategoryIds.add(sub.id);
+                        }
+                      }
+                    }
+                    widget.registrationData?['subcategory_ids'] = subcategoryIds;
+                    widget.registrationData?['accepts_urgent'] = urgentRequests;
+                    widget.onNext();
+                  },
                   icon: const Icon(Icons.arrow_forward_ios),
                   label: const Text("التالي"),
                   style: ElevatedButton.styleFrom(

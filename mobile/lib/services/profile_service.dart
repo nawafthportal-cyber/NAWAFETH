@@ -84,6 +84,40 @@ class ProfileService {
     return ProfileResult.failure(response.error ?? 'خطأ في التحديث');
   }
 
+  /// تسجيل ملف مزود جديد
+  static Future<ProfileResult<ProviderProfileModel>> registerProvider(
+    Map<String, dynamic> data,
+  ) async {
+    final response = await ApiClient.post('/api/providers/register/', body: data);
+
+    if (response.isSuccess && response.dataAsMap != null) {
+      try {
+        final profile = ProviderProfileModel.fromJson(response.dataAsMap!);
+        return ProfileResult.success(profile);
+      } catch (e) {
+        return ProfileResult.failure('خطأ في تحليل الاستجابة');
+      }
+    }
+
+    if (response.statusCode == 400) {
+      // حاول استخراج أول رسالة خطأ من الاستجابة
+      final errorMap = response.dataAsMap;
+      if (errorMap != null) {
+        for (final value in errorMap.values) {
+          if (value is List && value.isNotEmpty) {
+            return ProfileResult.failure(value.first.toString());
+          }
+          if (value is String) {
+            return ProfileResult.failure(value);
+          }
+        }
+      }
+      return ProfileResult.failure('بيانات غير مكتملة');
+    }
+
+    return ProfileResult.failure(response.error ?? 'فشل في تسجيل ملف المزود');
+  }
+
   /// جلب بيانات المحفظة
   static Future<ApiResponse> fetchWallet() {
     return ApiClient.get('/api/accounts/wallet/');

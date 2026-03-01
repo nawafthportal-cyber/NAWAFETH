@@ -5,12 +5,14 @@ class PersonalInfoStep extends StatefulWidget {
   final VoidCallback onNext;
   final Function(double)? onValidationChanged;
   final UserProfile? userProfile;
+  final Map<String, dynamic>? registrationData;
 
   const PersonalInfoStep({
     super.key,
     required this.onNext,
     this.onValidationChanged,
     this.userProfile,
+    this.registrationData,
   });
 
   @override
@@ -196,7 +198,13 @@ class _PersonalInfoStepState extends State<PersonalInfoStep> {
 
           const SizedBox(height: 24),
           ElevatedButton(
-            onPressed: widget.onNext,
+            onPressed: () {
+              // حفظ البيانات في خريطة التسجيل المشتركة
+              widget.registrationData?['display_name'] = nameController.text.trim();
+              widget.registrationData?['provider_type'] = accountType == 'فرد' ? 'individual' : 'company';
+              widget.registrationData?['bio'] = bioController.text.trim();
+              widget.onNext();
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.deepPurple,
               minimumSize: const Size.fromHeight(50),
