@@ -206,12 +206,19 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget _buildHeader(UserProfile profile, bool isDark, Color purple) {
     final coverImageUrl = ApiClient.buildMediaUrl(profile.coverImage);
     final profileImageUrl = ApiClient.buildMediaUrl(profile.profileImage);
-    final ImageProvider? coverImageProvider = _coverImage != null
-        ? FileImage(_coverImage!)
-        : (coverImageUrl != null ? NetworkImage(coverImageUrl) : null);
-    final ImageProvider? profileImageProvider = _profileImage != null
-        ? FileImage(_profileImage!)
-        : (profileImageUrl != null ? NetworkImage(profileImageUrl) : null);
+    ImageProvider<Object>? coverImageProvider;
+    if (_coverImage != null) {
+      coverImageProvider = FileImage(_coverImage!);
+    } else if (coverImageUrl != null) {
+      coverImageProvider = NetworkImage(coverImageUrl);
+    }
+
+    ImageProvider<Object>? profileImageProvider;
+    if (_profileImage != null) {
+      profileImageProvider = FileImage(_profileImage!);
+    } else if (profileImageUrl != null) {
+      profileImageProvider = NetworkImage(profileImageUrl);
+    }
 
     return SizedBox(
       height: 320,

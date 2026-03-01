@@ -151,7 +151,7 @@ const NotificationsPage = (() => {
 
   async function _deleteOld() {
     if (!confirm('هل أنت متأكد من حذف الإشعارات القديمة؟')) return;
-    const res = await ApiClient.request('/api/notifications/delete-old/', { method: 'DELETE' });
+    const res = await ApiClient.request('/api/notifications/delete-old/', { method: 'POST' });
     if (res.ok) {
       _fetchNotifications();
     }
