@@ -7,6 +7,7 @@ import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
 import '../models/category_model.dart';
+import '../constants/saudi_cities.dart';
 import '../widgets/bottom_nav.dart';
 
 class RequestQuoteScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
   // ── Form state ──
   CategoryModel? _selectedCat;
   SubCategoryModel? _selectedSub;
+  String? _selectedCity;
   DateTime? _deadline;
   bool _submitting = false;
   bool _showSuccess = false;
@@ -101,6 +103,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
     final details = _detailsCtrl.text.trim();
 
     if (_selectedSub == null) { _snack('اختر التصنيف الفرعي'); return; }
+    if ((_selectedCity ?? '').isEmpty) { _snack('اختر المدينة'); return; }
     if (title.isEmpty) { _snack('أدخل عنوان الطلب'); return; }
     if (details.isEmpty) { _snack('أدخل تفاصيل الطلب'); return; }
 
@@ -111,6 +114,7 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
       description: details,
       requestType: 'competitive',
       subcategory: _selectedSub!.id,
+      city: _selectedCity,
       quoteDeadline: _deadline != null ? DateFormat('yyyy-MM-dd').format(_deadline!) : null,
       files: _files,
     );
@@ -262,6 +266,19 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
           items: _selectedCat?.subcategories ?? [],
           labelFn: (s) => s.name,
           onChanged: (s) => setState(() => _selectedSub = s),
+        ),
+
+        const SizedBox(height: 14),
+
+        _label('المدينة', isDark),
+        const SizedBox(height: 6),
+        _dropdownWidget<String>(
+          isDark: isDark,
+          hint: 'اختر المدينة',
+          value: _selectedCity,
+          items: SaudiCities.all,
+          labelFn: (city) => city,
+          onChanged: (city) => setState(() => _selectedCity = city),
         ),
 
         const SizedBox(height: 14),

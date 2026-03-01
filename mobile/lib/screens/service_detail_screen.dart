@@ -6,7 +6,12 @@ import '../widgets/platform_report_dialog.dart';
 class ServiceDetailScreen extends StatefulWidget {
   final String title;
   final List<String> images;
-  final int likes; // ✅ عدد إعجابات القسم الابتدائي (وهمي)
+  final String description;
+  final int? providerId;
+  final String providerName;
+  final String providerHandle;
+  final String providerImage;
+  final int likes;
   final int filesCount;
   final int initialCommentsCount;
 
@@ -14,6 +19,11 @@ class ServiceDetailScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.images,
+    this.description = '',
+    this.providerId,
+    this.providerName = 'مزود خدمة',
+    this.providerHandle = '',
+    this.providerImage = '',
     this.likes = 0,
     this.filesCount = 0,
     this.initialCommentsCount = 0,
@@ -34,6 +44,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   bool isSectionLiked = false;
   late int sectionLikes; // ✅ عداد الإعجابات للقسم
 
+  late final List<String> _safeImages;
+  int _baseCommentsCount = 0;
   int _totalCommentsCount = 0;
 
   // 🔹 الردود
@@ -43,48 +55,15 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   int? replyingToReplyIndex; // فهرس الرد الفرعي
   final TextEditingController _commentController = TextEditingController();
 
-  // 🔹 بيانات افتراضية للتعليقات
-  final List<Map<String, dynamic>> comments = [
-    {
-      "name": "أحمد",
-      "comment": "خدمة رائعة جدًا 👌",
-      "isProvider": false,
-      "isOnline": true,
-      "isLiked": false,
-      "replies": [
-        {
-          "name": "مزود الخدمة",
-          "comment": "شكرًا لك 🌹",
-          "isProvider": true,
-          "isOnline": true,
-          "isLiked": false,
-        },
-      ],
-    },
-    {
-      "name": "ريم",
-      "comment": "مفيدة وسريعة التنفيذ 🌟",
-      "isProvider": false,
-      "isOnline": false,
-      "isLiked": false,
-      "replies": [
-        {
-          "name": "مزود الخدمة",
-          "comment": "سعيد جدًا إنها أفادتك 🙏",
-          "isProvider": true,
-          "isOnline": true,
-          "isLiked": false,
-        },
-      ],
-    },
-  ];
+  final List<Map<String, dynamic>> comments = [];
 
   @override
   void initState() {
     super.initState();
     sectionName = widget.title;
-    sectionLikes = widget.likes; // ✅ قيمة أولية وهمية قابلة للتحديث
-    _ensureInitialComments(widget.initialCommentsCount);
+    sectionLikes = widget.likes;
+    _safeImages = _resolveImages();
+    _baseCommentsCount = widget.initialCommentsCount;
     _recalculateCommentsCount();
   }
 
@@ -125,29 +104,62 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     });
   }
 
-  void _ensureInitialComments(int targetCount) {
-    if (targetCount <= comments.length) return;
-    final missing = targetCount - comments.length;
-    for (var i = 0; i < missing; i++) {
-      comments.add({
-        "name": "زائر ${comments.length + 1}",
-        "comment": "تعليق جديد (وهمي)",
-        "isProvider": false,
-        "isOnline": false,
-        "isLiked": false,
-        "replies": <Map<String, dynamic>>[],
-      });
-    }
-  }
-
   void _recalculateCommentsCount() {
-    int total = 0;
+    int total = _baseCommentsCount;
     for (final c in comments) {
       total += 1;
       final replies = (c["replies"] as List?) ?? const [];
       total += replies.length;
     }
     _totalCommentsCount = total;
+  }
+
+  List<String> _resolveImages() {
+    final images = widget.images
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (images.isNotEmpty) return images;
+
+    final providerImage = widget.providerImage.trim();
+    if (providerImage.isNotEmpty) return [providerImage];
+
+    return const ['assets/images/8410.jpeg'];
+  }
+
+  String get _providerDisplayName {
+    final name = widget.providerName.trim();
+    return name.isNotEmpty ? name : 'مزود خدمة';
+  }
+
+  String get _providerDisplayHandle {
+    final handle = widget.providerHandle.trim();
+    return handle.isNotEmpty ? handle : '';
+  }
+
+  String get _serviceDescription {
+    final value = widget.description.trim();
+    return value.isNotEmpty ? value : 'لا يوجد وصف للخدمة.';
+  }
+
+  void _openProviderChat() {
+    final providerId = widget.providerId;
+    if (providerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح المحادثة: معرف المزود غير متوفر')),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          peerName: _providerDisplayName,
+          peerProviderId: providerId,
+        ),
+      ),
+    );
   }
 
   @override
@@ -181,31 +193,36 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               // 🟪 معلومات المزود + زر الإبلاغ
               Row(
                 children: [
-                  const CircleAvatar(
+                  CircleAvatar(
                     radius: 26,
-                    backgroundImage: AssetImage("assets/images/1.png"),
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: _safeImages.first.startsWith('http')
+                        ? NetworkImage(_safeImages.first)
+                        : AssetImage(_safeImages.first) as ImageProvider,
                   ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Row(
                         children: [
                           Text(
-                            "خالد الحربي",
-                            style: TextStyle(
+                            _providerDisplayName,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(width: 4),
-                          Icon(Icons.verified, color: Colors.green, size: 18),
+                          const SizedBox(width: 4),
+                          if (widget.providerId != null)
+                            const Icon(Icons.verified, color: Colors.green, size: 18),
                         ],
                       ),
-                      Text(
-                        "@khaledlawyer",
-                        style: TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
+                      if (_providerDisplayHandle.isNotEmpty)
+                        Text(
+                          _providerDisplayHandle,
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
                     ],
                   ),
                   const Spacer(),
@@ -218,7 +235,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         reportedEntityLabel: 'الخدمة:',
                         reportedEntityValue: widget.title,
                         contextLabel: 'مزود الخدمة',
-                        contextValue: 'خالد الحربي (@khaledlawyer)',
+                        contextValue:
+                            '$_providerDisplayName ${_providerDisplayHandle.isNotEmpty ? "($_providerDisplayHandle)" : ""}'
+                                .trim(),
                       );
                     },
                     icon: const Icon(Icons.flag_outlined, size: 18),
@@ -330,9 +349,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: widget.images[currentIndex].startsWith('http')
+                    child: _safeImages[currentIndex].startsWith('http')
                         ? Image.network(
-                            widget.images[currentIndex],
+                            _safeImages[currentIndex],
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 220,
@@ -345,7 +364,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                             ),
                           )
                         : Image.asset(
-                            widget.images[currentIndex],
+                            _safeImages[currentIndex],
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 220,
@@ -363,8 +382,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     child: _navArrow(Icons.arrow_back_ios, () {
                       setState(() {
                         currentIndex =
-                            (currentIndex - 1 + widget.images.length) %
-                            widget.images.length;
+                            (currentIndex - 1 + _safeImages.length) %
+                            _safeImages.length;
                       });
                     }),
                   ),
@@ -373,7 +392,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     child: _navArrow(Icons.arrow_forward_ios, () {
                       setState(() {
                         currentIndex =
-                            (currentIndex + 1) % widget.images.length;
+                            (currentIndex + 1) % _safeImages.length;
                       });
                     }),
                   ),
@@ -386,7 +405,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 height: 60,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: widget.images.length,
+                  itemCount: _safeImages.length,
                   itemBuilder: (context, index) {
                     return GestureDetector(
                       onTap: () => setState(() => currentIndex = index),
@@ -404,9 +423,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
-                          child: widget.images[index].startsWith('http')
+                          child: _safeImages[index].startsWith('http')
                               ? Image.network(
-                                  widget.images[index],
+                                  _safeImages[index],
                                   width: 70,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
@@ -416,7 +435,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                                   ),
                                 )
                               : Image.asset(
-                                  widget.images[index],
+                                  _safeImages[index],
                                   width: 70,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => Container(
@@ -474,9 +493,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        showFullDescription
-                            ? "هذه الخدمة تتضمن شرحًا تفصيليًا لمجال الدعم القانوني، وصياغة العقود، ومتابعة الدعاوى..."
-                            : "اضغط لعرض تفاصيل الخدمة...",
+                        _serviceDescription,
+                        maxLines: showFullDescription ? null : 3,
+                        overflow: showFullDescription ? TextOverflow.visible : TextOverflow.ellipsis,
                         style: const TextStyle(fontSize: 14, height: 1.6),
                       ),
                     ],
@@ -493,9 +512,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ServiceRequestFormScreen(
-                          providerName: "خالد الحربي",
-                          providerId: "provider_001",
+                        builder: (context) => ServiceRequestFormScreen(
+                          providerName: _providerDisplayName,
+                          providerId: widget.providerId?.toString(),
                         ),
                       ),
                     );
@@ -786,15 +805,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     replyingToReplyIndex = replyIndex;
                   });
                 } else if (value == "chat") {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (_) => ChatDetailScreen(
-                            peerName: c["name"] ?? '',
-                          ),
-                    ),
-                  );
+                  _openProviderChat();
                 } else if (value == "report") {
                   showPlatformReportDialog(
                     context: context,
@@ -820,7 +831,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                       child: Text(isLiked ? 'إلغاء الإعجاب' : 'الإعجاب'),
                     ),
                     const PopupMenuItem(value: 'reply', child: Text('الرد تحت التعليق')),
-                    const PopupMenuItem(value: 'chat', child: Text('فتح محادثة مع الزائر')),
+                    const PopupMenuItem(value: 'chat', child: Text('محادثة مع مقدم الخدمة')),
                     const PopupMenuItem(value: 'report', child: Text('الإبلاغ عن التعليق')),
                   ],
             ),

@@ -200,6 +200,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   double get providerLat => _providerDetail?.lat ?? widget.providerLat ?? 0;
   double get providerLng => _providerDetail?.lng ?? widget.providerLng ?? 0;
+  int? get _resolvedProviderId {
+    final fromDetail = _providerDetail?.id;
+    if (fromDetail != null && fromDetail > 0) return fromDetail;
+    final fromWidget = int.tryParse(widget.providerId ?? '');
+    if (fromWidget != null && fromWidget > 0) return fromWidget;
+    return null;
+  }
 
   int get _serviceRangeKm =>
       (_providerDetail?.coverageRadiusKm?.toInt()) ?? 5;
@@ -357,12 +364,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final servicesResp = results[2];
       final portfolioResp = results[3];
       final spotlightsResp = results[4];
+      ProviderPublicModel? parsedDetail;
+      if (detailResp.isSuccess && detailResp.dataAsMap != null) {
+        parsedDetail = ProviderPublicModel.fromJson(detailResp.dataAsMap!);
+      }
 
       if (mounted) {
         setState(() {
           // Provider detail
-          if (detailResp.isSuccess && detailResp.dataAsMap != null) {
-            _providerDetail = ProviderPublicModel.fromJson(detailResp.dataAsMap!);
+          if (parsedDetail != null) {
+            _providerDetail = parsedDetail;
           }
 
           // Stats
@@ -373,15 +384,18 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           // Services
           if (servicesResp.isSuccess) {
             final list = _parseListResponse(servicesResp);
+            final fallbackImage = parsedDetail?.profileImage ?? widget.providerImage ?? '';
             _apiServices = list.map((e) {
+              final dynamic rawImage = e['image'] ?? e['thumbnail_url'] ?? fallbackImage;
+              final image = rawImage is String ? rawImage : '';
               return <String, dynamic>{
                 'id': e['id'],
                 'title': e['title'] ?? '',
                 'description': e['description'] ?? '',
-                'image': '',
-                'likes': 0,
-                'files': 0,
-                'comments': 0,
+                'image': image,
+                'likes': _asInt(e['likes_count']),
+                'files': _asInt(e['files_count']),
+                'comments': _asInt(e['comments_count']),
                 'price_from': e['price_from'],
                 'price_to': e['price_to'],
                 'price_unit': e['price_unit'] ?? '',
@@ -421,6 +435,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return (data['results'] as List).cast<Map<String, dynamic>>();
     }
     return [];
+  }
+
+  int _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim()) ?? 0;
+    return 0;
   }
 
   String _formatPhoneE164(String rawPhone) {
@@ -479,10 +500,19 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Future<void> _openInAppChat() async {
+    final providerId = _resolvedProviderId;
+    if (providerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح المحادثة: معرف المزود غير صالح')),
+      );
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
           peerName: providerName,
+          peerProviderId: providerId,
         ),
       ),
     );
@@ -1082,7 +1112,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         MaterialPageRoute(
                           builder: (_) => ServiceRequestFormScreen(
                             providerName: providerName,
-                            providerId: widget.providerId,
+                            providerId: _resolvedProviderId?.toString(),
                           ),
                         ),
                       );
@@ -1369,19 +1399,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       case 2:
         return _galleryTab();
       case 3:
-        return ReviewsTab(
-          embedded: true,
-          onOpenChat: (customerName) async {
-            if (!context.mounted) return;
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => ChatDetailScreen(
-                  peerName: customerName,
-                ),
-              ),
-            );
-          },
-        );
+        return const ReviewsTab(embedded: true);
       default:
         return const SizedBox.shrink();
     }
@@ -1922,9 +1940,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     if ((service["image"] as String?)?.isNotEmpty == true)
                       service["image"],
                   ],
+                  description: service["description"] ?? '',
                   likes: service["likes"] ?? 0,
                   filesCount: service["files"] ?? 0,
                   initialCommentsCount: service["comments"] ?? 0,
+                  providerId: _resolvedProviderId,
+                  providerName: providerName,
+                  providerHandle: providerHandle,
+                  providerImage: providerImage,
                 ),
               ),
             );

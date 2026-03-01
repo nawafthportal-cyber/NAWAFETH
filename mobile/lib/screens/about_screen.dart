@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/content_service.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -9,6 +11,35 @@ class AboutScreen extends StatefulWidget {
 }
 
 class _AboutScreenState extends State<AboutScreen> {
+  bool _isLoading = true;
+
+  static const Map<String, String> _defaultTitles = {
+    "about": "من نحن",
+    "vision": "رؤيتنا",
+    "goals": "هدفنا",
+    "values": "قيمنا",
+    "app": "عن التطبيق",
+  };
+
+  static const Map<String, String> _defaultBodies = {
+    "about":
+        "منصة نوافذ للخدمات لتقنية المعلومات هي مؤسسة سعودية مقرها الرياض، متخصصة في تقديم منصة رقمية تجمع مزوّدي الخدمات مع طالبيها في مختلف المجالات.",
+    "vision":
+        "أن نكون المنصة الأولى في المملكة العربية السعودية التي تمكّن الأفراد والشركات من الوصول إلى الخدمات بسهولة وسرعة وشفافية.",
+    "goals":
+        "تسهيل التواصل بين مزوّدي الخدمات وطالبيها دون فرض رسوم على العملاء، مع توفير باقات اشتراك مخصصة لمزوّدي الخدمات تتيح لهم عرض خدماتهم بشكل أوسع.",
+    "values":
+        "الشفافية – الموثوقية – الجودة – الابتكار.\nكل ما نقوم به يستند إلى هذه القيم لتقديم تجربة مستخدم مثالية.",
+    "app":
+        "يتيح تطبيق منصة نوافذ للمستخدمين استعراض الخدمات والتواصل مع مزوّديها بسهولة. يمكنك أيضًا تقييم التطبيق ودعمه عبر المتاجر الرسمية.",
+  };
+
+  final Map<String, String> _titles = Map<String, String>.from(_defaultTitles);
+  final Map<String, String> _bodies = Map<String, String>.from(_defaultBodies);
+  String _androidStoreUrl = '';
+  String _iosStoreUrl = '';
+  String _websiteUrl = '';
+
   /// 🔹 التحكم بفتح/إغلاق الكروت
   final Map<String, bool> _expanded = {
     "about": false,
@@ -17,6 +48,119 @@ class _AboutScreenState extends State<AboutScreen> {
     "values": false,
     "app": false,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPublicContent();
+  }
+
+  Map<String, dynamic>? _findBlock(
+    Map<String, dynamic> blocks,
+    List<String> candidateKeys,
+  ) {
+    for (final key in candidateKeys) {
+      final value = blocks[key];
+      if (value is Map<String, dynamic>) return value;
+    }
+
+    for (final entry in blocks.entries) {
+      final normalized = entry.key.trim().toLowerCase();
+      final matched = candidateKeys.any((k) => normalized.contains(k));
+      if (matched && entry.value is Map<String, dynamic>) {
+        return entry.value as Map<String, dynamic>;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadPublicContent() async {
+    final result = await ContentService.fetchPublicContent();
+    if (!mounted) return;
+
+    if (result.isSuccess && result.dataAsMap != null) {
+      final data = result.dataAsMap!;
+      final blocks = (data['blocks'] as Map<String, dynamic>?) ?? {};
+      final links = (data['links'] as Map<String, dynamic>?) ?? {};
+
+      final aboutBlock = _findBlock(blocks, ['about', 'about_us', 'company_about']);
+      final visionBlock = _findBlock(blocks, ['vision']);
+      final goalsBlock = _findBlock(blocks, ['goals', 'goal', 'objectives']);
+      final valuesBlock = _findBlock(blocks, ['values', 'value']);
+      final appBlock = _findBlock(blocks, ['app', 'application', 'about_app']);
+
+      setState(() {
+        if (aboutBlock != null) {
+          _titles['about'] = (aboutBlock['title_ar'] as String?)?.trim().isNotEmpty == true
+              ? aboutBlock['title_ar'] as String
+              : _titles['about']!;
+          _bodies['about'] = (aboutBlock['body_ar'] as String?)?.trim().isNotEmpty == true
+              ? aboutBlock['body_ar'] as String
+              : _bodies['about']!;
+        }
+        if (visionBlock != null) {
+          _titles['vision'] = (visionBlock['title_ar'] as String?)?.trim().isNotEmpty == true
+              ? visionBlock['title_ar'] as String
+              : _titles['vision']!;
+          _bodies['vision'] = (visionBlock['body_ar'] as String?)?.trim().isNotEmpty == true
+              ? visionBlock['body_ar'] as String
+              : _bodies['vision']!;
+        }
+        if (goalsBlock != null) {
+          _titles['goals'] = (goalsBlock['title_ar'] as String?)?.trim().isNotEmpty == true
+              ? goalsBlock['title_ar'] as String
+              : _titles['goals']!;
+          _bodies['goals'] = (goalsBlock['body_ar'] as String?)?.trim().isNotEmpty == true
+              ? goalsBlock['body_ar'] as String
+              : _bodies['goals']!;
+        }
+        if (valuesBlock != null) {
+          _titles['values'] = (valuesBlock['title_ar'] as String?)?.trim().isNotEmpty == true
+              ? valuesBlock['title_ar'] as String
+              : _titles['values']!;
+          _bodies['values'] = (valuesBlock['body_ar'] as String?)?.trim().isNotEmpty == true
+              ? valuesBlock['body_ar'] as String
+              : _bodies['values']!;
+        }
+        if (appBlock != null) {
+          _titles['app'] = (appBlock['title_ar'] as String?)?.trim().isNotEmpty == true
+              ? appBlock['title_ar'] as String
+              : _titles['app']!;
+          _bodies['app'] = (appBlock['body_ar'] as String?)?.trim().isNotEmpty == true
+              ? appBlock['body_ar'] as String
+              : _bodies['app']!;
+        }
+
+        _androidStoreUrl = (links['android_store'] as String? ?? '').trim();
+        _iosStoreUrl = (links['ios_store'] as String? ?? '').trim();
+        _websiteUrl = (links['website_url'] as String? ?? '').trim();
+      });
+    }
+
+    setState(() => _isLoading = false);
+  }
+
+  Future<void> _openExternalUrl(String rawUrl) async {
+    final url = rawUrl.trim();
+    if (url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الرابط غير متوفر حالياً')),
+      );
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر فتح الرابط')),
+    );
+  }
 
   /// 🔹 بناء الكرت القابل للتوسيع
   Widget _buildExpandableCard(
@@ -34,8 +178,8 @@ class _AboutScreenState extends State<AboutScreen> {
       child: Column(
         children: [
           ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Colors.deepPurple.withOpacity(0.1),
+              leading: CircleAvatar(
+              backgroundColor: Colors.deepPurple.withValues(alpha: 0.1),
               child: Icon(icon, color: Colors.deepPurple, size: 20),
             ),
             title: Text(
@@ -82,7 +226,7 @@ class _AboutScreenState extends State<AboutScreen> {
   }
 
   /// 🔹 زر متجر أنيق
-  Widget _buildStoreButton(IconData icon, String label, Color color) {
+  Widget _buildStoreButton(IconData icon, String label, Color color, String url) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -94,9 +238,7 @@ class _AboutScreenState extends State<AboutScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
           ),
-          onPressed: () {
-            // TODO: روابط المتاجر الحقيقية
-          },
+          onPressed: () => _openExternalUrl(url),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -134,7 +276,9 @@ class _AboutScreenState extends State<AboutScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
       ),
-      body: ListView(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+          : ListView(
         padding: const EdgeInsets.all(20),
         children: [
           // ✅ هيدر أنيق
@@ -180,37 +324,32 @@ class _AboutScreenState extends State<AboutScreen> {
           // ✅ الكروت القابلة للتوسيع
           _buildExpandableCard(
             "about",
-            "من نحن",
-            "منصة نوافذ للخدمات لتقنية المعلومات هي مؤسسة سعودية مقرها الرياض، "
-                "متخصصة في تقديم منصة رقمية تجمع مزوّدي الخدمات مع طالبيها في مختلف المجالات.",
+            _titles["about"] ?? _defaultTitles["about"]!,
+            _bodies["about"] ?? _defaultBodies["about"]!,
             Icons.info_outline,
           ),
           _buildExpandableCard(
             "vision",
-            "رؤيتنا",
-            "أن نكون المنصة الأولى في المملكة العربية السعودية التي تمكّن الأفراد والشركات "
-                "من الوصول إلى الخدمات بسهولة وسرعة وشفافية.",
+            _titles["vision"] ?? _defaultTitles["vision"]!,
+            _bodies["vision"] ?? _defaultBodies["vision"]!,
             Icons.visibility_outlined,
           ),
           _buildExpandableCard(
             "goals",
-            "هدفنا",
-            "تسهيل التواصل بين مزوّدي الخدمات وطالبيها دون فرض رسوم على العملاء، "
-                "مع توفير باقات اشتراك مخصصة لمزوّدي الخدمات تتيح لهم عرض خدماتهم بشكل أوسع.",
+            _titles["goals"] ?? _defaultTitles["goals"]!,
+            _bodies["goals"] ?? _defaultBodies["goals"]!,
             Icons.track_changes_outlined,
           ),
           _buildExpandableCard(
             "values",
-            "قيمنا",
-            "الشفافية – الموثوقية – الجودة – الابتكار.\n"
-                "كل ما نقوم به يستند إلى هذه القيم لتقديم تجربة مستخدم مثالية.",
+            _titles["values"] ?? _defaultTitles["values"]!,
+            _bodies["values"] ?? _defaultBodies["values"]!,
             Icons.star_border_outlined,
           ),
           _buildExpandableCard(
             "app",
-            "عن التطبيق",
-            "يتيح تطبيق منصة نوافذ للمستخدمين استعراض الخدمات والتواصل مع مزوّديها بسهولة. "
-                "يمكنك أيضًا تقييم التطبيق ودعمه عبر المتاجر الرسمية.",
+            _titles["app"] ?? _defaultTitles["app"]!,
+            _bodies["app"] ?? _defaultBodies["app"]!,
             Icons.mobile_screen_share_outlined,
           ),
 
@@ -223,14 +362,28 @@ class _AboutScreenState extends State<AboutScreen> {
                 FontAwesomeIcons.googlePlay,
                 "Google Play",
                 Colors.green,
+                _androidStoreUrl,
               ),
               _buildStoreButton(
                 FontAwesomeIcons.appStoreIos,
                 "App Store",
                 Colors.blue,
+                _iosStoreUrl,
               ),
             ],
           ),
+
+          if (_websiteUrl.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openExternalUrl(_websiteUrl),
+                icon: const Icon(Icons.public),
+                label: const Text('الموقع الرسمي'),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 30),
 

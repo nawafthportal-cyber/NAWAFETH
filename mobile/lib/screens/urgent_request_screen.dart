@@ -6,6 +6,7 @@ import '../services/home_service.dart';
 import '../services/marketplace_service.dart';
 import '../services/account_mode_service.dart';
 import '../models/category_model.dart';
+import '../constants/saudi_cities.dart';
 import '../widgets/bottom_nav.dart';
 
 class UrgentRequestScreen extends StatefulWidget {
@@ -27,7 +28,8 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   // ── Form state ──
   CategoryModel? _selectedCat;
   SubCategoryModel? _selectedSub;
-  String _dispatchMode = 'nearest'; // 'all' | 'nearest'
+  String? _selectedCity;
+  String _dispatchMode = 'all'; // 'all' | 'nearest'
   bool _submitting = false;
   bool _showSuccess = false;
 
@@ -94,6 +96,10 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
       _snack('أدخل وصفًا للخدمة');
       return;
     }
+    if (_dispatchMode == 'nearest' && (_selectedCity ?? '').isEmpty) {
+      _snack('اختر المدينة عند البحث عن الأقرب');
+      return;
+    }
 
     setState(() => _submitting = true);
     final res = await MarketplaceService.createRequest(
@@ -101,6 +107,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
       description: desc,
       requestType: 'urgent',
       subcategory: _selectedSub!.id,
+      city: _selectedCity,
       dispatchMode: _dispatchMode,
       images: _images,
       audio: _audio,
@@ -265,6 +272,21 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
             const SizedBox(width: 8),
             _radioChip('إرسال للجميع', 'all', isDark, purple),
           ],
+        ),
+
+        const SizedBox(height: 14),
+
+        _label('المدينة', isDark),
+        const SizedBox(height: 6),
+        _dropdown<String>(
+          isDark: isDark,
+          hint: _dispatchMode == 'nearest'
+              ? 'اختر المدينة (إلزامي)'
+              : 'اختر المدينة (اختياري)',
+          value: _selectedCity,
+          items: SaudiCities.all,
+          labelFn: (city) => city,
+          onChanged: (city) => setState(() => _selectedCity = city),
         ),
 
         const SizedBox(height: 14),

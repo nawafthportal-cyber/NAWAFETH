@@ -8,6 +8,8 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/service_provider_location.dart';
 import '../services/api_client.dart';
+import '../services/home_service.dart';
+import '../models/category_model.dart';
 import '../constants/colors.dart';
 import 'chat_detail_screen.dart';
 import 'provider_profile_screen.dart';
@@ -126,11 +128,20 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
   }
 
   void _openChat(ServiceProviderLocation provider) {
+    final peerProviderId = int.tryParse(provider.id);
+    if (peerProviderId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح المحادثة: معرف المزود غير صالح')),
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
           peerName: provider.name,
+          peerProviderId: peerProviderId,
         ),
       ),
     );
@@ -348,6 +359,51 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
     _mapController!.move(center, zoom);
   }
 
+  String _norm(String value) => value.trim().toLowerCase();
+
+  Future<Map<String, String>> _resolveCategoryFilters() async {
+    final category = widget.category.trim();
+    final subCategory = (widget.subCategory ?? '').trim();
+    if (category.isEmpty && subCategory.isEmpty) return {};
+
+    try {
+      final categories = await HomeService.fetchCategories();
+      final targetCategory = _norm(category);
+      final targetSub = _norm(subCategory);
+
+      CategoryModel? matchedCategory;
+      if (targetCategory.isNotEmpty) {
+        for (final cat in categories) {
+          if (_norm(cat.name) == targetCategory) {
+            matchedCategory = cat;
+            break;
+          }
+        }
+      }
+
+      if (targetSub.isNotEmpty) {
+        for (final cat in categories) {
+          for (final sub in cat.subcategories) {
+            if (_norm(sub.name) == targetSub) {
+              return {
+                'subcategory_id': sub.id.toString(),
+                'category_id': cat.id.toString(),
+              };
+            }
+          }
+        }
+      }
+
+      if (matchedCategory != null) {
+        return {'category_id': matchedCategory.id.toString()};
+      }
+    } catch (_) {}
+
+    final q = subCategory.isNotEmpty ? '$category $subCategory'.trim() : category;
+    if (q.isNotEmpty) return {'q': q};
+    return {};
+  }
+
   // ✅ تحميل المزودين من الـ API
   Future<void> _loadProviders() async {
     final queryParams = <String, String>{
@@ -358,6 +414,7 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
       queryParams['lat'] = _currentPosition!.latitude.toString();
       queryParams['lng'] = _currentPosition!.longitude.toString();
     }
+    queryParams.addAll(await _resolveCategoryFilters());
 
     final uri = Uri(
       path: '/api/providers/list/',
@@ -618,6 +675,51 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
     );
   }
 
+  Widget _providerImageWidget(
+    String? rawPath, {
+    double width = 60,
+    double height = 60,
+    double fallbackIconSize = 32,
+  }) {
+    final value = (rawPath ?? '').trim();
+    if (value.isEmpty) {
+      return Icon(Icons.person, size: fallbackIconSize);
+    }
+
+    final mediaUrl = value.startsWith('http') ? value : ApiClient.buildMediaUrl(value);
+    if (mediaUrl != null && mediaUrl.startsWith('http')) {
+      return Image.network(
+        mediaUrl,
+        fit: BoxFit.cover,
+        width: width,
+        height: height,
+        errorBuilder: (_, __, ___) {
+          if (value.startsWith('assets/')) {
+            return Image.asset(
+              value,
+              fit: BoxFit.cover,
+              width: width,
+              height: height,
+              errorBuilder: (_, __, ___) => Icon(Icons.person, size: fallbackIconSize),
+            );
+          }
+          return Icon(Icons.person, size: fallbackIconSize);
+        },
+      );
+    }
+
+    if (value.startsWith('assets/')) {
+      return Image.asset(
+        value,
+        fit: BoxFit.cover,
+        width: width,
+        height: height,
+        errorBuilder: (_, __, ___) => Icon(Icons.person, size: fallbackIconSize),
+      );
+    }
+    return Icon(Icons.person, size: fallbackIconSize);
+  }
+
   // ✅ عرض dialog تأكيد إرسال الطلب مع التفاصيل
   Future<void> _showSendRequestDialog(ServiceProviderLocation provider) async {
     final navigator = Navigator.of(context);
@@ -656,14 +758,12 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                           width: 50,
                           height: 50,
                           color: Colors.grey.shade300,
-                          child: provider.profileImage != null
-                              ? Image.asset(
-                                  provider.profileImage!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) =>
-                                      const Icon(Icons.person, size: 24),
-                                )
-                              : const Icon(Icons.person, size: 24),
+                          child: _providerImageWidget(
+                            provider.profileImage,
+                            width: 50,
+                            height: 50,
+                            fallbackIconSize: 24,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1159,14 +1259,12 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                     width: 60,
                     height: 60,
                     color: Colors.grey.shade200,
-                    child: provider.profileImage != null
-                        ? Image.asset(
-                            provider.profileImage!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                const Icon(Icons.person, size: 32),
-                          )
-                        : const Icon(Icons.person, size: 32),
+                    child: _providerImageWidget(
+                      provider.profileImage,
+                      width: 60,
+                      height: 60,
+                      fallbackIconSize: 32,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

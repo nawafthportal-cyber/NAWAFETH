@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/content_service.dart';
+import '../services/api_client.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({super.key});
@@ -76,7 +78,8 @@ class _TermsScreenState extends State<TermsScreen> {
           apiTerms.add({
             'title': meta['title'],
             'lastUpdate': doc['published_at'] != null ? 'آخر تحديث: ${doc['published_at']}' : '',
-            'content': doc['file_url']?.toString() ?? '',
+            'content': 'اضغط على "عرض المستند" لفتح النسخة الرسمية.',
+            'fileUrl': ApiClient.buildMediaUrl(doc['file_url']?.toString()),
             'icon': meta['icon'],
           });
         }
@@ -91,6 +94,22 @@ class _TermsScreenState extends State<TermsScreen> {
     setState(() => _isLoading = false);
   }
 
+  Future<void> _openDocument(String? fileUrl) async {
+    final url = (fileUrl ?? '').trim();
+    if (url.isEmpty) return;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('تعذر فتح المستند')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,116 +119,135 @@ class _TermsScreenState extends State<TermsScreen> {
         foregroundColor: Colors.white,
         elevation: 2,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _terms.length,
-        itemBuilder: (context, index) {
-          final item = _terms[index];
-          final expanded = _expanded[index];
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+          : ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _terms.length,
+              itemBuilder: (context, index) {
+                final item = _terms[index];
+                final expanded = _expanded[index];
+                final fileUrl = (item["fileUrl"] as String?)?.trim() ?? '';
 
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOut,
-            margin: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              onTap: () {
-                setState(() {
-                  _expanded[index] = !_expanded[index];
-                });
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ✅ العنوان + الأيقونة + السهم
-                    Row(
-                      children: [
-                        Icon(item["icon"], color: Colors.deepPurple),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            item["title"],
-                            style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          expanded ? Icons.expand_less : Icons.expand_more,
-                          color: Colors.deepPurple,
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // ✅ حالة الموافقة + آخر تحديث
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          "✅ تمت الموافقة مسبقًا",
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 13,
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          item["lastUpdate"],
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // ✅ النص التفصيلي عند التوسع
-                    AnimatedCrossFade(
-                      firstChild: const SizedBox.shrink(),
-                      secondChild: Padding(
-                        padding: const EdgeInsets.only(top: 12),
-                        child: Text(
-                          item["content"],
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 14,
-                            height: 1.5,
-                            color: Colors.black87,
-                          ),
-                        ),
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      crossFadeState:
-                          expanded
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                      duration: const Duration(milliseconds: 300),
+                    ],
+                  ),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () {
+                      setState(() {
+                        _expanded[index] = !_expanded[index];
+                      });
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ✅ العنوان + الأيقونة + السهم
+                          Row(
+                            children: [
+                              Icon(item["icon"], color: Colors.deepPurple),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  item["title"],
+                                  style: const TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              Icon(
+                                expanded ? Icons.expand_less : Icons.expand_more,
+                                color: Colors.deepPurple,
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          // ✅ حالة الموافقة + آخر تحديث
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                "✅ تمت الموافقة مسبقًا",
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Text(
+                                item["lastUpdate"],
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // ✅ النص التفصيلي عند التوسع
+                          AnimatedCrossFade(
+                            firstChild: const SizedBox.shrink(),
+                            secondChild: Padding(
+                              padding: const EdgeInsets.only(top: 12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item["content"],
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 14,
+                                      height: 1.5,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                  if (fileUrl.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton.icon(
+                                        onPressed: () => _openDocument(fileUrl),
+                                        icon: const Icon(Icons.open_in_new_rounded),
+                                        label: const Text('عرض المستند'),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            crossFadeState:
+                                expanded
+                                    ? CrossFadeState.showSecond
+                                    : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 300),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }
