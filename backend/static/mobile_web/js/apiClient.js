@@ -78,5 +78,40 @@ const ApiClient = (() => {
     return BASE + (path.startsWith('/') ? '' : '/') + path;
   }
 
+  /** POST helper (JSON body). */
+  function post(path, body) {
+    return request(path, { method: 'POST', body }).then(r => r.data);
+  }
+
+  /** PATCH helper (JSON body). */
+  function patch(path, body) {
+    return request(path, { method: 'PATCH', body }).then(r => r.data);
+  }
+
+  /** DELETE helper. */
+  function del(path) {
+    return request(path, { method: 'DELETE' });
+  }
+
+  /** Upload helper (FormData / multipart). */
+  function upload(path, formData) {
+    return request(path, { method: 'POST', body: formData, formData: true }).then(r => r.data);
+  }
+
+  /* Original ApiClient — get() returns { ok, status, data } for backward compat */
   return { get, request, mediaUrl, BASE };
 })();
+
+/**
+ * NwApiClient — convenience layer used by new pages.
+ * get() returns the parsed data directly (not the wrapper).
+ */
+window.NwApiClient = {
+  get:      function(p) { return ApiClient.get(p).then(function(r){ return r.data; }); },
+  post:     function(p, b) { return ApiClient.request(p, { method: 'POST', body: b }).then(function(r){ return r.data; }); },
+  patch:    function(p, b) { return ApiClient.request(p, { method: 'PATCH', body: b }).then(function(r){ return r.data; }); },
+  del:      function(p) { return ApiClient.request(p, { method: 'DELETE' }); },
+  upload:   function(p, fd) { return ApiClient.request(p, { method: 'POST', body: fd, formData: true }).then(function(r){ return r.data; }); },
+  mediaUrl: ApiClient.mediaUrl,
+  BASE:     ApiClient.BASE
+};

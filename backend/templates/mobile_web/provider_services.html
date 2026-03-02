@@ -1,0 +1,84 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}خدماتي — نوافــذ{% endblock %}
+{% block body_class %}page-provider-services{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>خدماتي</h1>
+    <button class="btn-icon btn-add" id="btn-add-service" title="إضافة خدمة"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+  </div>
+
+  <div id="ps-loading" class="loading-center"><div class="spinner"></div></div>
+  <div id="ps-error" class="empty-state" style="display:none"><p></p><button class="btn btn-outline" onclick="ProviderServicesPage.reload()">إعادة المحاولة</button></div>
+  <div id="ps-empty" class="empty-state" style="display:none">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    <p>لا توجد خدمات بعد</p>
+    <button class="btn btn-primary" id="btn-add-first">أضف خدمتك الأولى</button>
+  </div>
+
+  <div id="ps-list" class="services-list"></div>
+</main>
+
+<!-- Service Form Modal -->
+<div class="modal-overlay" id="svc-modal" style="display:none">
+  <div class="modal-sheet">
+    <div class="modal-header">
+      <h2 id="svc-modal-title">إضافة خدمة جديدة</h2>
+      <button class="btn-icon" id="svc-modal-close">×</button>
+    </div>
+    <form id="svc-form" class="modal-body">
+      <div class="form-group">
+        <label class="form-label">التصنيف الرئيسي</label>
+        <select id="svc-category" class="form-select" required><option value="">اختر القسم</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">التصنيف الفرعي</label>
+        <select id="svc-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">اسم الخدمة</label>
+        <input id="svc-title" type="text" class="form-input" placeholder="مثال: استشارة قانونية" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">وصف الخدمة</label>
+        <textarea id="svc-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">نوع التسعير</label>
+        <select id="svc-price-unit" class="form-select">
+          <option value="fixed">سعر ثابت</option>
+          <option value="starting_from">يبدأ من</option>
+          <option value="hour">بالساعة</option>
+          <option value="day">باليوم</option>
+          <option value="negotiable">قابل للتفاوض</option>
+        </select>
+      </div>
+      <div class="form-row" id="svc-price-row">
+        <div class="form-group half">
+          <label class="form-label">السعر من</label>
+          <input id="svc-price-from" type="number" class="form-input" placeholder="0.00" step="0.01">
+        </div>
+        <div class="form-group half">
+          <label class="form-label">السعر إلى</label>
+          <input id="svc-price-to" type="number" class="form-input" placeholder="0.00" step="0.01">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="toggle-label">
+          <input type="checkbox" id="svc-active" checked>
+          <span>الخدمة مفعلة</span>
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary btn-block" id="svc-submit-btn">حفظ</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/providerServicesPage.js' %}"></script>
+{% endblock %}

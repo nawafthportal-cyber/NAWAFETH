@@ -1,0 +1,111 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}التسجيل كمقدم خدمة — نوافــذ{% endblock %}
+{% block body_class %}page-provider-register{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>التسجيل كمقدم خدمة</h1>
+  </div>
+
+  <!-- Progress -->
+  <div class="wizard-progress">
+    <div class="wizard-step active" data-step="1"><span class="step-num">1</span><span class="step-label">معلومات شخصية</span></div>
+    <div class="wizard-line"></div>
+    <div class="wizard-step" data-step="2"><span class="step-num">2</span><span class="step-label">تصنيف الخدمة</span></div>
+    <div class="wizard-line"></div>
+    <div class="wizard-step" data-step="3"><span class="step-num">3</span><span class="step-label">معلومات التواصل</span></div>
+  </div>
+
+  <!-- Step 1: Personal Info -->
+  <div class="wizard-panel active" data-panel="1">
+    <div class="detail-card">
+      <div class="form-group">
+        <label class="form-label">صفة الحساب</label>
+        <div class="chip-group" id="reg-type-chips">
+          <button type="button" class="chip active" data-val="individual">فرد</button>
+          <button type="button" class="chip" data-val="company">مؤسسة / شركة</button>
+          <button type="button" class="chip" data-val="freelancer">مستقل</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">اسم العرض</label>
+        <input id="reg-display-name" type="text" class="form-input" placeholder="الاسم كما سيظهر للعملاء" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">نبذة عنك</label>
+        <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المدينة</label>
+        <select id="reg-city" class="form-select" required><option value="">اختر المدينة</option></select>
+      </div>
+      <button class="btn btn-primary btn-block" id="reg-next-1">التالي</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Service Classification -->
+  <div class="wizard-panel" data-panel="2">
+    <div class="detail-card">
+      <div class="form-group">
+        <label class="form-label">القسم الرئيسي</label>
+        <select id="reg-category" class="form-select" required><option value="">اختر القسم</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">التصنيف الفرعي</label>
+        <select id="reg-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">اسم الخدمة الأولى</label>
+        <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
+      </div>
+      <div class="form-group">
+        <label class="form-label">وصف الخدمة</label>
+        <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-outline" id="reg-back-2" style="flex:1">السابق</button>
+        <button class="btn btn-primary" id="reg-next-2" style="flex:1">التالي</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Contact Info -->
+  <div class="wizard-panel" data-panel="3">
+    <div class="detail-card">
+      <div class="form-group">
+        <label class="form-label">رقم الواتساب</label>
+        <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05xxxxxxxx">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الموقع الإلكتروني (اختياري)</label>
+        <input id="reg-website" type="url" class="form-input" placeholder="https://example.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">سنوات الخبرة</label>
+        <input id="reg-experience" type="number" class="form-input" placeholder="5" min="0">
+      </div>
+      <div class="form-row">
+        <button class="btn btn-outline" id="reg-back-3" style="flex:1">السابق</button>
+        <button class="btn btn-primary" id="reg-submit" style="flex:1">إنشاء الحساب</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div class="wizard-panel" data-panel="success" id="reg-success">
+    <div class="success-card">
+      <div class="success-icon">✓</div>
+      <h2>تم التسجيل بنجاح!</h2>
+      <p>تم إنشاء حساب مقدم الخدمة بنجاح. يمكنك الآن إكمال ملفك الشخصي وإضافة خدماتك.</p>
+      <a href="/provider-dashboard/" class="btn btn-primary btn-block">الانتقال للوحة التحكم</a>
+      <a href="/profile-completion/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/providerRegisterPage.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,33 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}الخدمات الإضافية — نوافــذ{% endblock %}
+{% block body_class %}page-additional-services{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" id="as-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1 id="as-title">الخدمات الإضافية</h1>
+  </div>
+
+  <div id="as-loading" class="loading-center"><div class="spinner"></div></div>
+
+  <!-- Level 1: Main Categories -->
+  <div id="as-main" class="as-list"></div>
+
+  <!-- Level 2: Sub-services -->
+  <div id="as-sub" class="as-list" style="display:none"></div>
+
+  <!-- Level 3: Service Detail + Buy -->
+  <div id="as-detail" style="display:none">
+    <div class="detail-card">
+      <h3 id="as-detail-title"></h3>
+      <p id="as-detail-desc" class="text-muted"></p>
+      <div id="as-catalog-items"></div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/additionalServicesPage.js' %}"></script>
+{% endblock %}

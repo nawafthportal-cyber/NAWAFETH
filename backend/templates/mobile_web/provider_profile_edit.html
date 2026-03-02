@@ -1,0 +1,45 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}الملف الشخصي — نوافــذ{% endblock %}
+{% block body_class %}page-provider-profile-edit{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>الملف الشخصي</h1>
+    <a href="/provider-portfolio/" class="btn-icon" title="معرض الأعمال"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></a>
+  </div>
+
+  <div id="pe-loading" class="loading-center"><div class="spinner"></div></div>
+
+  <div id="pe-content" style="display:none">
+    <!-- Tabs -->
+    <div class="tabs-row" id="pe-tabs">
+      <button class="tab active" data-tab="account">معلومات الحساب</button>
+      <button class="tab" data-tab="general">معلومات عامة</button>
+      <button class="tab" data-tab="extra">معلومات إضافية</button>
+    </div>
+
+    <!-- Portfolio Link -->
+    <a href="/provider-portfolio/" class="detail-card pe-portfolio-link">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      <div>
+        <strong>معرض الأعمال</strong>
+        <p class="text-muted">تحكم بمحتوى المعرض الذي يظهر للعملاء</p>
+      </div>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+
+    <!-- Tab: Account -->
+    <div class="tab-panel active" data-panel="account" id="pe-panel-account"></div>
+    <!-- Tab: General -->
+    <div class="tab-panel" data-panel="general" id="pe-panel-general"></div>
+    <!-- Tab: Extra -->
+    <div class="tab-panel" data-panel="extra" id="pe-panel-extra"></div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}"></script>
+{% endblock %}

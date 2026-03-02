@@ -9,6 +9,7 @@ import '../widgets/auto_scrolling_reels_row.dart';
 import '../widgets/platform_report_dialog.dart';
 import '../widgets/video_reels.dart';
 import '../widgets/video_full_screen.dart';
+import '../services/auth_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
 import '../models/provider_public_model.dart';
@@ -55,6 +56,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   int _selectedTabIndex = 0;
 
   bool _isBookmarked = false;
+  bool _isFollowing = false;
+  bool _isFollowLoading = false;
   final bool _isOnline = true;
   bool _isLoading = true;
 
@@ -502,8 +505,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final portfolioResp = results[3];
       final spotlightsResp = results[4];
       ProviderPublicModel? parsedDetail;
+      bool? isFollowingFromPayload;
       if (detailResp.isSuccess && detailResp.dataAsMap != null) {
         parsedDetail = ProviderPublicModel.fromJson(detailResp.dataAsMap!);
+        isFollowingFromPayload =
+            _readIsFollowingFromPayload(detailResp.dataAsMap);
       }
 
       if (mounted) {
@@ -511,6 +517,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           // Provider detail
           if (parsedDetail != null) {
             _providerDetail = parsedDetail;
+          }
+          if (isFollowingFromPayload != null) {
+            _isFollowing = isFollowingFromPayload;
           }
 
           // Stats
@@ -521,12 +530,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           // Services
           if (servicesResp.isSuccess) {
             final list = _parseListResponse(servicesResp);
-            final fallbackImage = _normalizeMediaUrl(
-              parsedDetail?.profileImage ?? widget.providerImage ?? '',
-            );
             _apiServices = list.map((e) {
-              final dynamic rawImage =
-                  e['image'] ?? e['thumbnail_url'] ?? fallbackImage;
+              final dynamic rawImage = e['image'] ?? e['thumbnail_url'];
               final image =
                   _normalizeMediaUrl(rawImage is String ? rawImage : '');
               return <String, dynamic>{
@@ -578,6 +583,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           _isLoading = false;
         });
       }
+
+      final resolvedProviderId = parsedDetail?.id ?? providerId;
+      if (resolvedProviderId > 0) {
+        _syncFollowState(resolvedProviderId);
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -601,6 +611,48 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value.trim()) ?? 0;
     return 0;
+  }
+
+  double? _asDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) {
+      final text = value.trim();
+      if (text.isEmpty) return null;
+      return double.tryParse(text);
+    }
+    return null;
+  }
+
+  String _formatCompactNumber(num value) {
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    final fixed = value.toStringAsFixed(2);
+    return fixed
+        .replaceFirst(RegExp(r'0+$'), '')
+        .replaceFirst(RegExp(r'\.$'), '');
+  }
+
+  String _servicePriceLabel(Map<String, dynamic> service) {
+    final from = _asDouble(service['price_from']);
+    final to = _asDouble(service['price_to']);
+    final unit = (service['price_unit'] ?? '').toString().trim();
+    final unitSuffix = unit.isEmpty ? '' : ' / $unit';
+
+    if (from == null && to == null) {
+      return 'السعر: حسب الاتفاق';
+    }
+    if (from != null && to != null) {
+      if ((from - to).abs() < 0.0001) {
+        return 'السعر: ${_formatCompactNumber(from)}$unitSuffix';
+      }
+      return 'السعر: ${_formatCompactNumber(from)} - ${_formatCompactNumber(to)}$unitSuffix';
+    }
+    final value = from ?? to!;
+    return 'السعر: ${_formatCompactNumber(value)}$unitSuffix';
   }
 
   String _formatPhoneE164(String rawPhone) {
@@ -676,6 +728,88 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         ),
       ),
     );
+  }
+
+  bool? _readIsFollowingFromPayload(Map<String, dynamic>? payload) {
+    if (payload == null || !payload.containsKey('is_following')) return null;
+    final raw = payload['is_following'];
+    if (raw is bool) return raw;
+    if (raw is num) return raw != 0;
+    if (raw is String) {
+      final v = raw.trim().toLowerCase();
+      if (v == 'true' || v == '1' || v == 'yes' || v == 'y' || v == 'on') {
+        return true;
+      }
+      if (v == 'false' || v == '0' || v == 'no' || v == 'n' || v == 'off') {
+        return false;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _syncFollowState(int providerId) async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) return;
+    final result = await InteractiveService.fetchFollowing();
+    if (!mounted || !result.isSuccess) return;
+
+    final isFollowing =
+        result.items.any((provider) => provider.id == providerId);
+    if (_isFollowing == isFollowing) return;
+    setState(() => _isFollowing = isFollowing);
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_isFollowLoading) return;
+
+    final providerId = _resolvedProviderId;
+    if (providerId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('تعذر تنفيذ المتابعة: معرف المزود غير صالح')),
+      );
+      return;
+    }
+
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('سجل دخولك أولًا للمتابعة')),
+      );
+      return;
+    }
+
+    setState(() => _isFollowLoading = true);
+
+    final success = _isFollowing
+        ? await InteractiveService.unfollowProvider(providerId)
+        : await InteractiveService.followProvider(providerId);
+
+    if (!mounted) return;
+    if (!success) {
+      setState(() => _isFollowLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر تحديث حالة المتابعة')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isFollowLoading = false;
+      _isFollowing = !_isFollowing;
+
+      final currentFollowers = _statsData?['followers_count'] as int? ??
+          _providerDetail?.followersCount ??
+          0;
+      final delta = _isFollowing ? 1 : -1;
+      final nextFollowers = currentFollowers + delta;
+      _statsData = {
+        ...?_statsData,
+        'followers_count': nextFollowers < 0 ? 0 : nextFollowers,
+      };
+    });
   }
 
   Future<void> _openExternalUrl(String rawUrl) async {
@@ -1439,9 +1573,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.18),
+          color: Colors.black.withValues(alpha: 0.42),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Icon(icon, color: Colors.white, size: 18),
       ),
@@ -1631,6 +1772,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         ),
         const SizedBox(width: 8),
         _actionIconBtn(
+          _isFollowing
+              ? Icons.person_remove_alt_1_rounded
+              : Icons.person_add_alt_1_rounded,
+          _toggleFollow,
+          isDark,
+          isActive: _isFollowing,
+          isLoading: _isFollowLoading,
+        ),
+        const SizedBox(width: 8),
+        _actionIconBtn(
             Icons.chat_bubble_outline_rounded, _openInAppChat, isDark),
         const SizedBox(width: 8),
         _actionIconBtn(Icons.call_outlined, _openPhoneCall, isDark),
@@ -1640,24 +1791,47 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
-  Widget _actionIconBtn(IconData icon, VoidCallback onTap, bool isDark) {
+  Widget _actionIconBtn(
+    IconData icon,
+    VoidCallback onTap,
+    bool isDark, {
+    bool isActive = false,
+    bool isLoading = false,
+  }) {
+    final bgColor = isActive
+        ? mainColor
+        : (isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white);
+    final iconColor = isActive ? Colors.white : mainColor;
+
     return GestureDetector(
-      onTap: onTap,
+      onTap: isLoading ? null : onTap,
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+          color: bgColor,
           borderRadius: BorderRadius.circular(12),
+          border: isActive
+              ? Border.all(color: mainColor.withValues(alpha: 0.45))
+              : null,
           boxShadow: isDark
               ? null
               : [
                   BoxShadow(
-                      color: mainColor.withValues(alpha: 0.06),
+                      color: mainColor.withValues(alpha: isActive ? 0.2 : 0.06),
                       blurRadius: 8,
                       offset: const Offset(0, 2)),
                 ],
         ),
-        child: Icon(icon, size: 18, color: mainColor),
+        child: isLoading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.1,
+                  color: iconColor,
+                ),
+              )
+            : Icon(icon, size: 18, color: iconColor),
       ),
     );
   }
@@ -2306,52 +2480,91 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       );
     }
 
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _servicesData.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.84,
-      ),
-      itemBuilder: (context, index) {
-        final service = _servicesData[index];
-        return InkWell(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ServiceDetailScreen(
-                  title: service["title"] ?? '',
-                  images: [
-                    if ((service["image"] as String?)?.isNotEmpty == true)
-                      service["image"],
-                  ],
-                  description: service["description"] ?? '',
-                  likes: service["likes"] ?? 0,
-                  filesCount: service["files"] ?? 0,
-                  initialCommentsCount: service["comments"] ?? 0,
-                  providerId: _resolvedProviderId,
-                  providerName: providerName,
-                  providerHandle: providerHandle,
-                  providerImage: providerImage,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final helperTextColor =
+        isDark ? Colors.grey.shade300 : Colors.grey.shade700;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : mainColor.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: mainColor.withValues(alpha: 0.2)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.work_outline, color: mainColor, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'الخدمات المعروضة هنا هي نفس الخدمات المُدخلة في ملف مقدم الخدمة.',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: helperTextColor,
+                    height: 1.45,
+                  ),
                 ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _servicesData.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final service = _servicesData[index];
+            final title = (service["title"] ?? '').toString().trim();
+            final description =
+                (service["description"] ?? '').toString().trim();
+            final image = (service["image"] ?? '').toString().trim();
+            final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
+            final categoryLabel = _serviceCategoryFromService(service);
+            final subCategoryLabel = _serviceSubCategoryFromService(service);
+
+            return InkWell(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ServiceDetailScreen(
+                      title: serviceTitle,
+                      images: image.isNotEmpty ? [image] : <String>[],
+                      description: description,
+                      likes: _asInt(service["likes"]),
+                      filesCount: _asInt(service["files"]),
+                      initialCommentsCount: _asInt(service["comments"]),
+                      providerId: _resolvedProviderId,
+                      providerName: providerName,
+                      providerHandle: providerHandle,
+                      providerImage: providerImage,
+                    ),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: _serviceCard(
+                index: index + 1,
+                title: serviceTitle,
+                description: description,
+                priceLabel: _servicePriceLabel(service),
+                categoryLabel: categoryLabel,
+                subCategoryLabel: subCategoryLabel,
               ),
             );
           },
-          borderRadius: BorderRadius.circular(12),
-          child: _serviceCard(
-            title: service["title"],
-            imagePath: service["image"],
-            likes: service["likes"],
-            files: service["files"],
-            comments: service["comments"],
-            isLiked: service['isLiked'] == true,
-          ),
-        );
-      },
+        ),
+      ],
     );
   }
 
@@ -2416,139 +2629,177 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Widget _serviceCard({
+    required int index,
     required String title,
-    required String imagePath,
-    required int likes,
-    required int files,
-    required int comments,
-    required bool isLiked,
+    required String description,
+    required String priceLabel,
+    required String categoryLabel,
+    required String subCategoryLabel,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? Colors.grey[850] : Colors.white;
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
-    final textColor = isDark ? Colors.white : Colors.black;
-    final iconColor = isDark ? Colors.grey[400]! : Colors.grey.shade700;
-
-    final normalizedImage = _normalizeMediaUrl(imagePath);
+    final titleColor = isDark ? Colors.white : Colors.black87;
+    final descColor = isDark ? Colors.grey[350]! : Colors.grey.shade700;
+    final hintColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
+    final hasDescription = description.isNotEmpty;
+    final hasCategory = categoryLabel.isNotEmpty;
+    final hasSubCategory = subCategoryLabel.isNotEmpty;
 
     return Container(
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cardColor,
         border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.035),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(12)),
-              child: normalizedImage.startsWith('http')
-                  ? Image.network(
-                      normalizedImage,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: Colors.grey.shade200,
-                        child: const Center(
-                          child: Icon(Icons.work_outline,
-                              size: 34, color: Colors.grey),
-                        ),
-                      ),
-                    )
-                  : normalizedImage.startsWith('assets/')
-                      ? Image.asset(
-                          normalizedImage,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (_, __, ___) => Container(
-                            color: Colors.grey.shade200,
-                            child: const Center(
-                              child: Icon(Icons.work_outline,
-                                  size: 34, color: Colors.grey),
-                            ),
-                          ),
-                        )
-                      : Container(
-                          color: Colors.grey.shade200,
-                          child: const Center(
-                            child: Icon(Icons.work_outline,
-                                size: 34, color: Colors.grey),
-                          ),
-                        ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: mainColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Text(
+                    '$index',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: mainColor,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
                   title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: titleColor,
+                    height: 1.35,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isLiked
-                                ? Icons.thumb_up_alt
-                                : Icons.thumb_up_alt_outlined,
-                            size: 16,
-                            color: isLiked ? mainColor : iconColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$likes',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 11,
-                              color: isLiked ? mainColor : iconColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.photo_library_outlined,
-                        size: 16, color: iconColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$files',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11,
-                        color: iconColor,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(Icons.chat_bubble_outline, size: 16, color: iconColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$comments',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11,
-                        color: iconColor,
-                      ),
-                    ),
-                  ],
+              ),
+              Icon(Icons.chevron_left_rounded, color: hintColor, size: 20),
+            ],
+          ),
+          if (hasDescription) ...[
+            const SizedBox(height: 10),
+            Text(
+              description,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                color: descColor,
+                height: 1.55,
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _serviceInfoChip(
+                icon: Icons.sell_outlined,
+                text: priceLabel,
+                isPrimary: true,
+              ),
+              if (hasCategory)
+                _serviceInfoChip(
+                  icon: Icons.category_outlined,
+                  text: categoryLabel,
                 ),
-              ],
+              if (hasSubCategory)
+                _serviceInfoChip(
+                  icon: Icons.tune_rounded,
+                  text: subCategoryLabel,
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 15, color: hintColor),
+              const SizedBox(width: 6),
+              Text(
+                'اضغط لعرض تفاصيل الخدمة',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: hintColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serviceInfoChip({
+    required IconData icon,
+    required String text,
+    bool isPrimary = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isPrimary
+        ? mainColor.withValues(alpha: isDark ? 0.26 : 0.12)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.grey.shade100);
+    final borderColor = isPrimary
+        ? mainColor.withValues(alpha: 0.35)
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.14)
+            : Colors.grey.shade300);
+    final textColor = isPrimary
+        ? (isDark ? Colors.white : mainColor)
+        : (isDark ? Colors.grey.shade300 : Colors.grey.shade700);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: textColor,
             ),
           ),
         ],

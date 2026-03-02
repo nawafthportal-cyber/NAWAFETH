@@ -1,0 +1,99 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}التوثيق — نوافــذ{% endblock %}
+{% block body_class %}page-verification{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div id="auth-gate" class="auth-gate" style="display:none">
+    <div class="auth-gate-inner">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <h2>تسجيل الدخول مطلوب</h2>
+      <a href="/login/?next=/verification/" class="btn btn-primary">تسجيل الدخول</a>
+    </div>
+  </div>
+
+  <div id="verify-content" style="display:none">
+    <div class="page-header">
+      <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <h1>التوثيق</h1>
+    </div>
+
+    <!-- Step Indicator -->
+    <div class="wizard-steps" id="verify-steps">
+      <div class="wizard-step active" data-step="1"><span>1</span><small>نوع الشارة</small></div>
+      <div class="wizard-step" data-step="2"><span>2</span><small>المتطلبات</small></div>
+      <div class="wizard-step" data-step="3"><span>3</span><small>الدفع</small></div>
+    </div>
+
+    <!-- Step 1: Badge Type -->
+    <section id="verify-step1" class="verify-step">
+      <h2>اختر نوع شارة التوثيق</h2>
+      <div class="badge-options">
+        <div class="badge-option" data-type="blue">
+          <div class="badge-icon" style="background:#2196F3">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+          </div>
+          <h3>الشارة الزرقاء</h3>
+          <p>للأفراد والمنشآت — هوية وطنية أو سجل تجاري</p>
+        </div>
+        <div class="badge-option" data-type="green">
+          <div class="badge-icon" style="background:#4CAF50">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+          </div>
+          <h3>الشارة الخضراء</h3>
+          <p>للمتخصصين — شهادات مهنية ومؤهلات</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 2: Requirements -->
+    <section id="verify-step2" class="verify-step" style="display:none">
+      <h2 id="verify-step2-title">المتطلبات</h2>
+      <div id="verify-requirements"></div>
+      <div class="form-group">
+        <label>رفع المستندات</label>
+        <input type="file" id="verify-files" class="form-input" multiple accept="image/*,.pdf">
+        <div id="verify-file-list" class="file-chips"></div>
+      </div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" id="verify-back1">السابق</button>
+        <button class="btn btn-primary" id="verify-next2">التالي</button>
+      </div>
+    </section>
+
+    <!-- Step 3: Payment -->
+    <section id="verify-step3" class="verify-step" style="display:none">
+      <h2>الدفع والتأكيد</h2>
+      <div class="payment-summary" id="verify-summary"></div>
+      <div class="payment-methods">
+        <button class="payment-btn" id="pay-apple">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+          Apple Pay
+        </button>
+        <button class="payment-btn" id="pay-card">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+          بطاقة مدى / فيزا
+        </button>
+      </div>
+      <div class="wizard-nav">
+        <button class="btn btn-outline" id="verify-back2">السابق</button>
+        <button class="btn btn-primary" id="verify-submit">تأكيد وإرسال</button>
+      </div>
+    </section>
+
+    <!-- Success -->
+    <section id="verify-success" class="verify-step" style="display:none">
+      <div class="success-card">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="#4CAF50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+        <h2>تم إرسال طلب التوثيق</h2>
+        <p>سيتم مراجعة مستنداتك خلال 3-5 أيام عمل</p>
+        <a href="/provider-dashboard/" class="btn btn-primary">العودة للوحة التحكم</a>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/verificationPage.js' %}"></script>
+{% endblock %}

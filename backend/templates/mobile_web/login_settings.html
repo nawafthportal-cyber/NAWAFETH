@@ -1,0 +1,70 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}إعدادات الدخول — نوافــذ{% endblock %}
+{% block body_class %}page-login-settings{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>إعدادات الدخول</h1>
+  </div>
+
+  <div id="ls-loading" class="loading-center"><div class="spinner"></div></div>
+
+  <div id="ls-content" style="display:none">
+    <!-- User Avatar -->
+    <div class="ls-avatar">
+      <div class="avatar-circle" id="ls-avatar"><svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+      <h2 id="ls-name"></h2>
+      <p class="text-muted" id="ls-phone-display"></p>
+    </div>
+
+    <!-- Account Info -->
+    <section class="detail-card">
+      <h3>معلومات الحساب</h3>
+      <div class="form-group">
+        <label class="form-label">الاسم الأول</label>
+        <input id="ls-first-name" type="text" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">الاسم الأخير</label>
+        <input id="ls-last-name" type="text" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم الجوال</label>
+        <input id="ls-phone" type="tel" class="form-input" dir="ltr">
+      </div>
+      <div class="form-group">
+        <label class="form-label">البريد الإلكتروني</label>
+        <input id="ls-email" type="email" class="form-input" dir="ltr">
+      </div>
+      <button class="btn btn-primary btn-block" id="ls-save">حفظ التغييرات</button>
+    </section>
+
+    <!-- Security -->
+    <section class="detail-card">
+      <h3>الأمان</h3>
+      <div class="form-group">
+        <label class="form-label">رمز الأمان (PIN)</label>
+        <input id="ls-pin" type="password" class="form-input" maxlength="6" placeholder="أدخل رمز مكون من 4-6 أرقام">
+      </div>
+      <div class="form-group">
+        <label class="form-label">تأكيد رمز الأمان</label>
+        <input id="ls-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="أعد إدخال الرمز">
+      </div>
+      <button class="btn btn-outline btn-block" id="ls-save-pin">حفظ رمز الأمان</button>
+    </section>
+
+    <!-- Danger Zone -->
+    <section class="detail-card ls-danger">
+      <h3>إجراءات الحساب</h3>
+      <button class="btn btn-outline btn-block" id="ls-logout">تسجيل الخروج</button>
+      <button class="btn btn-danger-outline btn-block" id="ls-delete" style="margin-top:8px">حذف الحساب</button>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/loginSettingsPage.js' %}"></script>
+{% endblock %}

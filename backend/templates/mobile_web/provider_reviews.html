@@ -1,0 +1,45 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}التقييمات — نوافــذ{% endblock %}
+{% block body_class %}page-provider-reviews{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>التقييمات</h1>
+  </div>
+
+  <div id="rv-loading" class="loading-center"><div class="spinner"></div></div>
+
+  <div id="rv-content" style="display:none">
+    <!-- Rating Summary -->
+    <section class="detail-card rv-summary">
+      <div class="rv-overall">
+        <span class="rv-score" id="rv-score">0.0</span>
+        <div class="rv-stars" id="rv-stars"></div>
+        <span class="rv-count" id="rv-count">0 تقييم</span>
+      </div>
+      <div class="rv-breakdown" id="rv-breakdown"></div>
+    </section>
+
+    <!-- Sort -->
+    <div class="rv-sort">
+      <select id="rv-sort" class="form-select form-select-sm">
+        <option value="newest">الأحدث</option>
+        <option value="highest">الأعلى تقييماً</option>
+        <option value="lowest">الأقل تقييماً</option>
+      </select>
+    </div>
+
+    <!-- Reviews List -->
+    <div id="rv-list"></div>
+    <div id="rv-empty" class="empty-state" style="display:none">
+      <p>لا توجد تقييمات حتى الآن</p>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/providerReviewsPage.js' %}"></script>
+{% endblock %}

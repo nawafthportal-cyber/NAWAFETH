@@ -1,0 +1,80 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}الترويج والإعلانات — نوافــذ{% endblock %}
+{% block body_class %}page-promotion{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div class="page-header">
+    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>الترويج والإعلانات</h1>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-row" id="promo-tabs">
+    <button class="tab active" data-tab="requests">طلباتي</button>
+    <button class="tab" data-tab="new">طلب جديد</button>
+  </div>
+
+  <!-- Tab: My Requests -->
+  <div class="tab-panel active" data-panel="requests" id="promo-requests-panel">
+    <div id="promo-loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="promo-list"></div>
+    <div id="promo-empty" class="empty-state" style="display:none">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M22 12h-9l-3 9L5.6 2.7 2 12h3"/></svg>
+      <p>لا توجد طلبات ترويج حتى الآن</p>
+      <button class="btn btn-primary" id="btn-go-new">أنشئ طلبك الأول</button>
+    </div>
+  </div>
+
+  <!-- Tab: New Request Form -->
+  <div class="tab-panel" data-panel="new">
+    <form id="promo-form" class="detail-card">
+      <div class="form-group">
+        <label class="form-label">عنوان الحملة</label>
+        <input id="promo-title" type="text" class="form-input" placeholder="عنوان الإعلان" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">نوع الإعلان</label>
+        <select id="promo-ad-type" class="form-select" required>
+          <option value="banner_home">بانر الصفحة الرئيسية</option>
+          <option value="banner_category">بانر صفحة القسم</option>
+          <option value="banner_search">بانر صفحة البحث</option>
+          <option value="popup_home">نافذة منبثقة رئيسية</option>
+          <option value="popup_category">نافذة منبثقة داخل قسم</option>
+          <option value="featured_top5">تمييز ضمن أول 5</option>
+          <option value="featured_top10">تمييز ضمن أول 10</option>
+          <option value="boost_profile">تعزيز ملف مقدم الخدمة</option>
+          <option value="push_notification">إشعار دفع (Push)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">رابط التوجيه (اختياري)</label>
+        <input id="promo-redirect" type="url" class="form-input" placeholder="https://...">
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label class="form-label">تاريخ البداية</label>
+          <input id="promo-start" type="date" class="form-input">
+        </div>
+        <div class="form-group half">
+          <label class="form-label">تاريخ النهاية</label>
+          <input id="promo-end" type="date" class="form-input">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">المدن المستهدفة</label>
+        <input id="promo-cities" type="text" class="form-input" placeholder="الرياض، جدة (اختياري)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">صورة الإعلان</label>
+        <input id="promo-image" type="file" accept="image/*" class="form-input">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="promo-submit">إرسال الطلب</button>
+    </form>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/promotionPage.js' %}"></script>
+{% endblock %}
