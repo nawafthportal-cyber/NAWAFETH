@@ -244,10 +244,13 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
+    provider_profile_image = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    is_saved = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderSpotlightItem
@@ -256,14 +259,20 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             "provider_id",
             "provider_display_name",
             "provider_username",
+            "provider_profile_image",
             "file_type",
             "file_url",
             "thumbnail_url",
             "caption",
             "likes_count",
             "saves_count",
+            "is_liked",
+            "is_saved",
             "created_at",
         )
+
+    def get_provider_profile_image(self, obj):
+        return _safe_file_url(getattr(obj.provider, "profile_image", None))
 
     def get_file_url(self, obj):
         return _safe_file_url(getattr(obj, "file", None))
@@ -282,6 +291,25 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             return int(getattr(obj, "saves_count", None) or obj.saves.count())
         except Exception:
             return 0
+
+    def get_is_liked(self, obj):
+        # Prefer annotated value to avoid N+1 queries
+        annotated = getattr(obj, "_is_liked", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False
+
+    def get_is_saved(self, obj):
+        annotated = getattr(obj, "_is_saved", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            return obj.saves.filter(user=request.user).exists()
+        return False
 
 
 class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):

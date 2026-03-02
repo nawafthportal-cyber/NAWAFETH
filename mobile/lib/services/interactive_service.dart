@@ -198,6 +198,13 @@ class InteractiveService {
     return resp.isSuccess;
   }
 
+  /// إلغاء حفظ عنصر أضواء (معزول حسب الوضع)
+  static Future<bool> unsaveSpotlight(int itemId) async {
+    final path = await _withMode('/api/providers/spotlights/$itemId/unsave/');
+    final resp = await ApiClient.post(path);
+    return resp.isSuccess;
+  }
+
   /// إعجاب بمزود (معزول حسب الوضع)
   static Future<bool> likeProvider(int providerId) async {
     final path = await _withMode('/api/providers/$providerId/like/');

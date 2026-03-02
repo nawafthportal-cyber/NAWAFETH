@@ -4,7 +4,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, F, Max, Q
+from django.db.models import Count, Exists, F, Max, OuterRef, Q
 from django.db.models.functions import Coalesce
 from django.db import transaction
 
@@ -431,12 +431,23 @@ class ProviderSpotlightListView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		return (
+		qs = (
 			ProviderSpotlightItem.objects.filter(provider_id=provider_id)
+			.select_related("provider", "provider__user")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
-			.order_by("-created_at", "-id")
 		)
+		user = self.request.user
+		if user.is_authenticated:
+			qs = qs.annotate(
+				_is_liked=Exists(
+					ProviderSpotlightLike.objects.filter(user=user, item=OuterRef("pk"))
+				),
+				_is_saved=Exists(
+					ProviderSpotlightSave.objects.filter(user=user, item=OuterRef("pk"))
+				),
+			)
+		return qs.order_by("-created_at", "-id")
 
 
 class ProviderSpotlightFeedView(generics.ListAPIView):
@@ -450,8 +461,21 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 			ProviderSpotlightItem.objects.select_related("provider", "provider__user")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
-			.order_by("-created_at", "-id")
 		)
+
+		# Annotate is_liked / is_saved for authenticated users
+		user = self.request.user
+		if user.is_authenticated:
+			qs = qs.annotate(
+				_is_liked=Exists(
+					ProviderSpotlightLike.objects.filter(user=user, item=OuterRef("pk"))
+				),
+				_is_saved=Exists(
+					ProviderSpotlightSave.objects.filter(user=user, item=OuterRef("pk"))
+				),
+			)
+
+		qs = qs.order_by("-created_at", "-id")
 
 		limit_raw = (self.request.query_params.get("limit") or "").strip()
 		if limit_raw.isdigit():
