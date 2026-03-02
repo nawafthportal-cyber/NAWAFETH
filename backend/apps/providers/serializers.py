@@ -13,14 +13,19 @@ from .models import (
 
 
 def _safe_file_url(field_file):
+    """Return the public URL for a file field, or empty string.
+
+    NOTE: We intentionally do NOT call ``storage.exists()`` here.
+    - For R2/S3 it would trigger a ``HeadObject`` API call per file (N+1).
+    - For local storage on Render the file may be on a persistent disk that
+      is not mounted during ``collectstatic`` / startup checks.
+    The client should handle 404 gracefully if the file was deleted.
+    """
     if not field_file:
         return ""
     try:
         name = (field_file.name or "").strip()
         if not name:
-            return ""
-        storage = getattr(field_file, "storage", None)
-        if storage and hasattr(storage, "exists") and not storage.exists(name):
             return ""
         return field_file.url
     except Exception:

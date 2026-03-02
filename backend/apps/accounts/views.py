@@ -79,13 +79,17 @@ def _is_valid_username(username: str) -> bool:
 
 
 def _safe_media_url(field_file):
+    """Return the URL for a media file field, or None.
+
+    NOTE: We intentionally skip ``storage.exists()`` — it causes
+    a remote HEAD request per file for R2/S3 and returns None for
+    files on ephemeral disks after a Render redeploy.
+    """
     if not field_file:
         return None
     try:
         name = (field_file.name or "").strip()
         if not name:
-            return None
-        if not field_file.storage.exists(name):
             return None
         return field_file.url
     except Exception:

@@ -311,6 +311,11 @@ def test_provider_can_upload_profile_and_cover_images(settings, tmp_path):
 
 @pytest.mark.django_db
 def test_provider_profile_hides_missing_media_urls(settings, tmp_path):
+    """When a file path is stored in DB but the file is missing from storage,
+    we still return the URL (no ``storage.exists()`` check) so that R2/S3
+    backends are not penalised with a HEAD request per file.  The client
+    handles 404 gracefully.
+    """
     settings.MEDIA_ROOT = tmp_path
     settings.STORAGES = {
         "default": {
@@ -331,11 +336,12 @@ def test_provider_profile_hides_missing_media_urls(settings, tmp_path):
     me = client.get("/api/providers/me/profile/")
     assert me.status_code == 200
     me_payload = me.json()
-    assert me_payload.get("profile_image") == ""
-    assert me_payload.get("cover_image") == ""
+    # URL is returned even if the file doesn't exist on disk
+    assert "missing_profile.jpg" in (me_payload.get("profile_image") or "")
+    assert "missing_cover.jpg" in (me_payload.get("cover_image") or "")
 
     public = client.get(f"/api/providers/{profile.id}/")
     assert public.status_code == 200
     public_payload = public.json()
-    assert public_payload.get("profile_image") == ""
-    assert public_payload.get("cover_image") == ""
+    assert "missing_profile.jpg" in (public_payload.get("profile_image") or "")
+    assert "missing_cover.jpg" in (public_payload.get("cover_image") or "")

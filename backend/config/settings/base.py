@@ -214,17 +214,34 @@ if _r2_media_ready:
         _r2_media_ready = False
 
 if _r2_media_ready:
-    _media_base_url = R2_PUBLIC_BASE_URL.rstrip("/")
-    if not _media_base_url:
-        _media_base_url = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}"
+    # ── Determine public base URL for media served from R2 ──
+    _r2_public_url = R2_PUBLIC_BASE_URL.rstrip("/") if R2_PUBLIC_BASE_URL else ""
 
-    MEDIA_URL = f"{_media_base_url}/"
+    # Storage options passed to django-storages S3Storage
+    _s3_options: dict = {}
+
+    if _r2_public_url:
+        # Public domain (r2.dev subdomain or custom domain) → unsigned URLs
+        # Strip the scheme for AWS_S3_CUSTOM_DOMAIN (django-storages expects host only)
+        _custom_domain = _r2_public_url.split("://", 1)[-1].rstrip("/")
+        _s3_options["custom_domain"] = _custom_domain
+        AWS_S3_CUSTOM_DOMAIN = _custom_domain
+        MEDIA_URL = f"{_r2_public_url}/"
+        AWS_QUERYSTRING_AUTH = env_bool("AWS_QUERYSTRING_AUTH", False)
+    else:
+        # No public URL configured → use pre-signed URLs so browsers can
+        # fetch objects directly from the R2 API endpoint.
+        AWS_QUERYSTRING_AUTH = env_bool("AWS_QUERYSTRING_AUTH", True)
+        AWS_QUERYSTRING_EXPIRE = int(os.getenv("AWS_QUERYSTRING_EXPIRE", "3600"))
+        MEDIA_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/"
+
     # Keep a local media root for admin/dev tools that may still touch local files.
     MEDIA_ROOT = BASE_DIR / "media"
     SERVE_MEDIA = False
     STORAGES = {
         "default": {
             "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": _s3_options,
         },
         "staticfiles": {
             "BACKEND": STATICFILES_BACKEND,
