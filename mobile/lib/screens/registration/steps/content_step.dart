@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:nawafeth/services/interactive_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/utils/debounced_save_runner.dart';
 
@@ -216,15 +217,76 @@ class _ContentStepState extends State<ContentStep> {
     return null;
   }
 
+  List<Map<String, dynamic>> _parseMapList(dynamic data) {
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    if (data is Map && data['results'] is List) {
+      final results = data['results'] as List;
+      return results
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .toList();
+    }
+    return const <Map<String, dynamic>>[];
+  }
+
+  int? _parseItemId(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
+  Future<String?> _cleanupPortfolioWhenSectionsEmpty(
+    List<Map<String, dynamic>> serializedSections,
+  ) async {
+    if (serializedSections.isNotEmpty) {
+      return null;
+    }
+
+    final listResp = await InteractiveService.fetchMyPortfolio();
+    if (!listResp.isSuccess) {
+      return listResp.error ?? 'تعذر مزامنة معرض الأعمال';
+    }
+
+    final items = _parseMapList(listResp.data);
+    for (final item in items) {
+      final itemId = _parseItemId(item['id']);
+      if (itemId == null || itemId <= 0) continue;
+
+      final deleteResp = await InteractiveService.deletePortfolioItem(itemId);
+      if (!deleteResp.isSuccess && deleteResp.statusCode != 404) {
+        return deleteResp.error ?? 'تعذر حذف عناصر المعرض القديمة';
+      }
+    }
+    return null;
+  }
+
   Future<void> _saveSectionsToApi() async {
+    final serializedSections = _serializeSections();
     final payload = <String, dynamic>{
-      'content_sections': _serializeSections(),
+      'content_sections': serializedSections,
     };
 
     if (!mounted) return;
     setState(() {
       _isSaving = true;
     });
+
+    final cleanupError =
+        await _cleanupPortfolioWhenSectionsEmpty(serializedSections);
+    if (!mounted) return;
+    if (cleanupError != null) {
+      setState(() {
+        _isSaving = false;
+        _saveError = cleanupError;
+      });
+      return;
+    }
 
     final mediaSyncError = await _syncAllSectionsMediaToApi();
     if (!mounted) return;
@@ -390,24 +452,24 @@ class _ContentStepState extends State<ContentStep> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      '🎬 محتوى خدماتك',
+                      'محتوى خدماتك',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.deepPurple,
                         fontFamily: "Cairo",
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4),
                     const Text(
                       'اعرض أعمالك السابقة بطريقة منظمة: كل قسم يمثل مشروعًا أو خدمة مع صورة رئيسية وفيديوهات مرتبطة.',
                       style: TextStyle(
                         color: Colors.grey,
                         fontFamily: "Cairo",
-                        fontSize: 13,
+                        fontSize: 11,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 10),
                     _buildSaveStatus(),
                     const SizedBox(height: 8),
                     _infoTip(),
@@ -425,7 +487,7 @@ class _ContentStepState extends State<ContentStep> {
                     if (!_isLoading && sections.isEmpty)
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
@@ -436,7 +498,7 @@ class _ContentStepState extends State<ContentStep> {
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             color: Colors.black54,
-                            fontSize: 12,
+                            fontSize: 10.5,
                           ),
                         ),
                       ),
@@ -465,14 +527,14 @@ class _ContentStepState extends State<ContentStep> {
                         icon: const Icon(Icons.add),
                         label: const Text(
                           "إضافة قسم جديد",
-                          style: TextStyle(fontFamily: "Cairo"),
+                          style: TextStyle(fontFamily: "Cairo", fontSize: 12),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.deepPurple,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 12,
+                            horizontal: 20,
+                            vertical: 10,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),
@@ -510,7 +572,7 @@ class _ContentStepState extends State<ContentStep> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F4FF),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -522,7 +584,7 @@ class _ContentStepState extends State<ContentStep> {
               "مثال: قسم لمحتوى فيديو تعريفي، قسم آخر لشرح لوحة التحكم، قسم ثالث يستعرض نتائج وتجارب عملاء.",
               style: TextStyle(
                 fontFamily: "Cairo",
-                fontSize: 11.5,
+                fontSize: 10.5,
                 color: Colors.black87,
                 height: 1.5,
               ),
@@ -546,7 +608,7 @@ class _ContentStepState extends State<ContentStep> {
           Text(
             'جاري الحفظ التلقائي...',
             style: TextStyle(
-                fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+                fontFamily: 'Cairo', fontSize: 10.5, color: Colors.black54),
           ),
         ],
       );
@@ -557,7 +619,7 @@ class _ContentStepState extends State<ContentStep> {
         _saveError!,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 12,
+          fontSize: 10.5,
           color: Colors.redAccent,
         ),
       );
@@ -622,7 +684,7 @@ class _SectionSummaryCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12.withOpacity(0.04),
+              color: Colors.black12.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -733,9 +795,9 @@ class _SectionSummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.08),
+        color: c.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: c.withOpacity(0.4)),
+        border: Border.all(color: c.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -784,14 +846,10 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
     super.initState();
     final initial = widget.initialSection;
     _titleController = TextEditingController(
-      text: initial?.title.isNotEmpty == true
-          ? initial!.title
-          : "فيديو تعريفي لخدمة الاستشارات التقنية",
+      text: initial?.title ?? '',
     );
     _descController = TextEditingController(
-      text: initial?.description.isNotEmpty == true
-          ? initial!.description
-          : "فيديو يشرح طريقة طلب الاستشارة، وكيف يتم التواصل مع العميل وتقديم الحلول.",
+      text: initial?.description ?? '',
     );
     _mainImage = initial?.mainImage;
     if (initial != null) {
@@ -851,17 +909,17 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               'إضافة المرفقات',
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 16,
+                fontSize: 13.5,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             ListTile(
               leading:
                   const Icon(Icons.photo_library, color: Colors.deepPurple),
               title: const Text(
                 'صورة من الألبوم',
-                style: TextStyle(fontFamily: 'Cairo'),
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -872,7 +930,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               leading: const Icon(Icons.camera_alt, color: Colors.deepPurple),
               title: const Text(
                 'تصوير صورة',
-                style: TextStyle(fontFamily: 'Cairo'),
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -884,7 +942,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                   const Icon(Icons.video_library, color: Colors.deepPurple),
               title: const Text(
                 'فيديو من الألبوم',
-                style: TextStyle(fontFamily: 'Cairo'),
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -895,7 +953,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               leading: const Icon(Icons.videocam, color: Colors.deepPurple),
               title: const Text(
                 'تصوير فيديو',
-                style: TextStyle(fontFamily: 'Cairo'),
+                style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -904,6 +962,26 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  InputDecoration _compactInputDecoration({
+    required String hintText,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        fontFamily: "Cairo",
+        fontSize: 11,
+        color: Colors.black45,
+      ),
+      prefixIcon: Icon(icon, size: 18),
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
       ),
     );
   }
@@ -936,13 +1014,13 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 4, bottom: 16),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -958,55 +1036,47 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               Icon(
                 _isEditing ? Icons.edit_outlined : Icons.add_circle_outline,
                 color: Colors.deepPurple,
-                size: 18,
+                size: 16,
               ),
               const SizedBox(width: 6),
               Text(
                 _isEditing ? "تعديل القسم" : "إضافة قسم محتوى جديد",
                 style: const TextStyle(
                   fontFamily: "Cairo",
-                  fontSize: 14,
+                  fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // عنوان القسم
           const Text(
             "عنوان القسم",
             style: TextStyle(
               fontFamily: "Cairo",
-              fontSize: 13,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 4),
           TextFormField(
             controller: _titleController,
-            decoration: InputDecoration(
-              hintText: "مثال: فيديو عرض رحلة العميل داخل المتجر الإلكتروني",
-              hintStyle: const TextStyle(fontFamily: "Cairo", fontSize: 13),
-              prefixIcon: const Icon(Icons.title),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 10,
-                horizontal: 16,
-              ),
+            decoration: _compactInputDecoration(
+              hintText: "اكتب عنوان القسم",
+              icon: Icons.title,
             ),
-            style: const TextStyle(fontSize: 14, fontFamily: "Cairo"),
+            style: const TextStyle(fontSize: 12, fontFamily: "Cairo"),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
           // وصف القسم
           const Text(
             "وصف قصير للقسم",
             style: TextStyle(
               fontFamily: "Cairo",
-              fontSize: 13,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -1014,41 +1084,32 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
           TextFormField(
             controller: _descController,
             maxLines: 2,
-            decoration: InputDecoration(
-              hintText:
-                  "مثال: فيديو يوضح خطوات استخدام الخدمة من أول زيارة حتى إتمام العملية.",
-              hintStyle: const TextStyle(fontFamily: "Cairo", fontSize: 13),
-              prefixIcon: const Icon(Icons.description),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 10,
-                horizontal: 16,
-              ),
+            decoration: _compactInputDecoration(
+              hintText: "اكتب وصفًا قصيرًا للقسم",
+              icon: Icons.description,
             ),
-            style: const TextStyle(fontSize: 14, fontFamily: "Cairo"),
+            style: const TextStyle(fontSize: 12, fontFamily: "Cairo"),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
 
           // صورة رئيسية
           const Text(
             "الصورة الرئيسية",
             style: TextStyle(
               fontFamily: "Cairo",
-              fontSize: 13,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           GestureDetector(
             onTap: _pickMainImage,
             child: Container(
               width: double.infinity,
-              height: 150,
+              height: 130,
               decoration: BoxDecoration(
                 color: Colors.deepPurple.shade50,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.deepPurple.shade200),
               ),
               child: _mainImage == null
@@ -1057,7 +1118,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                       children: const [
                         Icon(
                           Icons.image_outlined,
-                          size: 40,
+                          size: 30,
                           color: Colors.deepPurple,
                         ),
                         SizedBox(height: 6),
@@ -1065,14 +1126,14 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                           "اضغط لاختيار صورة رئيسية لهذا القسم",
                           style: TextStyle(
                             fontFamily: "Cairo",
-                            fontSize: 12.5,
+                            fontSize: 10.5,
                             color: Colors.deepPurple,
                           ),
                         ),
                       ],
                     )
                   : ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(12),
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -1112,31 +1173,39 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
             "محتوى القسم (فيديوهات وصور)",
             style: TextStyle(
               fontFamily: "Cairo",
-              fontSize: 13,
+              fontSize: 11.5,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _showAttachmentsPickerSheet,
-              icon: const Icon(Icons.attachment_rounded, color: Colors.white),
+              icon: const Icon(
+                Icons.attachment_rounded,
+                color: Colors.white,
+                size: 16,
+              ),
               label: const Text(
                 "إضافة المرفقات",
-                style: TextStyle(color: Colors.white, fontFamily: "Cairo"),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: "Cairo",
+                  fontSize: 11.5,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
           if (_videos.isNotEmpty || _images.isNotEmpty) ...[
             const SizedBox(height: 4),
@@ -1144,7 +1213,7 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
               "المحتوى المضاف:",
               style: TextStyle(
                 fontFamily: "Cairo",
-                fontSize: 12,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
               ),
@@ -1299,28 +1368,33 @@ class _NewSectionEditorState extends State<NewSectionEditor> {
                 onPressed: widget.onCancel,
                 child: const Text(
                   "إلغاء",
-                  style: TextStyle(fontFamily: "Cairo", color: Colors.black54),
+                  style: TextStyle(
+                    fontFamily: "Cairo",
+                    color: Colors.black54,
+                    fontSize: 11.5,
+                  ),
                 ),
               ),
               const Spacer(),
               ElevatedButton.icon(
                 onPressed: _save,
-                icon: const Icon(Icons.save, color: Colors.white, size: 18),
+                icon: const Icon(Icons.save, color: Colors.white, size: 16),
                 label: Text(
                   _isEditing ? "حفظ التعديلات" : "حفظ القسم",
                   style: const TextStyle(
                     color: Colors.white,
                     fontFamily: "Cairo",
+                    fontSize: 11.5,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 10,
+                    horizontal: 14,
+                    vertical: 8,
                   ),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),

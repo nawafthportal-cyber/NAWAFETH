@@ -78,7 +78,8 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
       }
 
       final hasLocation = profile.lat != null && profile.lng != null;
-      final radiusKm = profile.coverageRadiusKm > 0 ? profile.coverageRadiusKm : 10;
+      final radiusKm =
+          profile.coverageRadiusKm > 0 ? profile.coverageRadiusKm : 10;
 
       setState(() {
         _isInitialized = false;
@@ -89,7 +90,8 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
           ..clear()
           ..addAll(loadedCustom);
         _selectedDistanceKm = radiusKm;
-        _selectedCenter = hasLocation ? LatLng(profile.lat!, profile.lng!) : null;
+        _selectedCenter =
+            hasLocation ? LatLng(profile.lat!, profile.lng!) : null;
         serviceRange['ضمن نطاق محدد 📍'] = hasLocation;
         locationController.text = hasLocation
             ? '(${profile.lat!.toStringAsFixed(5)}, ${profile.lng!.toStringAsFixed(5)}) • $radiusKm كم'
@@ -109,8 +111,25 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
   }
 
   void _ensureDefaultDistance() {
-    if (_selectedDistanceKm == null) {
-      _selectedDistanceKm = 10;
+    _selectedDistanceKm ??= 10;
+  }
+
+  void _selectSingleServiceRange(String selectedKey) {
+    final wasSpecificRangeSelected = serviceRange['ضمن نطاق محدد 📍'] == true;
+
+    for (final key in serviceRange.keys.toList()) {
+      serviceRange[key] = key == selectedKey;
+    }
+
+    final isSpecificRangeSelected = selectedKey == 'ضمن نطاق محدد 📍';
+    if (isSpecificRangeSelected) {
+      _ensureDefaultDistance();
+      return;
+    }
+
+    if (wasSpecificRangeSelected) {
+      _selectedCenter = null;
+      locationController.clear();
     }
   }
 
@@ -134,7 +153,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
     setState(() {
       _selectedCenter = picked;
       locationController.text =
-          '(${picked.latitude.toStringAsFixed(5)}, ${picked.longitude.toStringAsFixed(5)}) • ${_selectedDistanceKm} كم';
+          '(${picked.latitude.toStringAsFixed(5)}, ${picked.longitude.toStringAsFixed(5)}) • $_selectedDistanceKm كم';
       serviceRange['ضمن نطاق محدد 📍'] = true;
     });
     _queueAutoSave();
@@ -231,7 +250,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
         const Text(
           "اللغة والموقع الجغرافي",
           style: TextStyle(
-            fontSize: 22,
+            fontSize: 19,
             fontWeight: FontWeight.bold,
             color: Colors.deepPurple,
             fontFamily: "Cairo",
@@ -242,7 +261,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
           "حدد اللغات التي يمكنك التعامل بها ونطاق تقديم خدماتك.",
           style: TextStyle(
             fontFamily: "Cairo",
-            fontSize: 13,
+            fontSize: 12,
             color: Colors.black54,
           ),
         ),
@@ -263,7 +282,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F4FF),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +294,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
               text,
               style: const TextStyle(
                 fontFamily: "Cairo",
-                fontSize: 11.5,
+                fontSize: 11,
                 color: Colors.black87,
                 height: 1.5,
               ),
@@ -298,7 +317,8 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
           SizedBox(width: 8),
           Text(
             'جاري الحفظ التلقائي...',
-            style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+            style: TextStyle(
+                fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
           ),
         ],
       );
@@ -334,28 +354,28 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
-                children:
-                    predefinedLanguages.map((lang) {
-                      final selected = selectedLanguages.contains(lang);
-                      return FilterChip(
-                        label: Text(lang),
-                        selected: selected,
-                        onSelected: (val) {
-                          setState(() {
-                            val
-                                ? selectedLanguages.add(lang)
-                                : selectedLanguages.remove(lang);
-                          });
-                          _queueAutoSave();
-                        },
-                        selectedColor: Colors.deepPurple,
-                        backgroundColor: Colors.grey.shade200,
-                        labelStyle: TextStyle(
-                          fontFamily: "Cairo",
-                          color: selected ? Colors.white : Colors.black,
-                        ),
-                      );
-                    }).toList(),
+                children: predefinedLanguages.map((lang) {
+                  final selected = selectedLanguages.contains(lang);
+                  return FilterChip(
+                    label: Text(lang),
+                    selected: selected,
+                    onSelected: (val) {
+                      setState(() {
+                        val
+                            ? selectedLanguages.add(lang)
+                            : selectedLanguages.remove(lang);
+                      });
+                      _queueAutoSave();
+                    },
+                    selectedColor: Colors.deepPurple,
+                    backgroundColor: Colors.grey.shade200,
+                    labelStyle: TextStyle(
+                      fontFamily: "Cairo",
+                      fontSize: 12,
+                      color: selected ? Colors.white : Colors.black,
+                    ),
+                  );
+                }).toList(),
               ),
               if (selectedLanguages.contains('أخرى'))
                 _buildCustomLanguageInput(),
@@ -364,65 +384,60 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
                   padding: const EdgeInsets.only(top: 10),
                   child: Wrap(
                     spacing: 8,
-                    children:
-                        customLanguages.map((lang) {
-                          return Chip(
-                            label: Text(
-                              lang,
-                              style: const TextStyle(fontFamily: "Cairo"),
-                            ),
-                            onDeleted: () {
-                              setState(() => customLanguages.remove(lang));
-                              _queueAutoSave();
-                            },
-                          );
-                        }).toList(),
+                    children: customLanguages.map((lang) {
+                      return Chip(
+                        label: Text(
+                          lang,
+                          style: const TextStyle(fontFamily: "Cairo"),
+                        ),
+                        onDeleted: () {
+                          setState(() => customLanguages.remove(lang));
+                          _queueAutoSave();
+                        },
+                      );
+                    }).toList(),
                   ),
                 ),
             ],
           ),
         ),
-
         _sectionCard(
-          icon: FontAwesomeIcons.mapMarkedAlt,
+          icon: FontAwesomeIcons.mapLocationDot,
           title: 'نطاق الخدمة الجغرافي',
           subtitle:
-              "حدد النطاق الذي يمكنك تقديم خدماتك فيه. يمكن اختيار أكثر من خيار حسب طبيعة عملك.",
+              "حدد النطاق الذي يمكنك تقديم خدماتك فيه. يمكن اختيار خيار واحد فقط.",
           child: Wrap(
             spacing: 10,
             runSpacing: 10,
-            children:
-                serviceRange.entries.map((entry) {
-                  final selected = entry.value;
-                  return FilterChip(
-                    label: Text(
-                      entry.key,
-                      style: const TextStyle(fontFamily: "Cairo"),
-                    ),
-                    selected: selected,
-                    onSelected: (val) {
-                      setState(() {
-                        serviceRange[entry.key] = val;
-                        if (entry.key == 'ضمن نطاق محدد 📍' && val) {
-                          _ensureDefaultDistance();
-                        }
-                        if (entry.key == 'ضمن نطاق محدد 📍' && !val) {
-                          _selectedCenter = null;
-                          locationController.clear();
-                        }
-                      });
-                      _queueAutoSave();
-                    },
-                    selectedColor: Colors.deepPurple,
-                    backgroundColor: Colors.grey.shade200,
-                    labelStyle: TextStyle(
-                      color: selected ? Colors.white : Colors.black,
-                    ),
-                  );
-                }).toList(),
+            children: serviceRange.entries.map((entry) {
+              final selected = entry.value;
+              return FilterChip(
+                label: Text(
+                  entry.key,
+                  style: const TextStyle(
+                    fontFamily: "Cairo",
+                    fontSize: 12,
+                  ),
+                ),
+                selected: selected,
+                onSelected: (val) {
+                  if (!val) return;
+                  setState(() {
+                    _selectSingleServiceRange(entry.key);
+                  });
+                  _queueAutoSave();
+                },
+                selectedColor: Colors.deepPurple,
+                backgroundColor: Colors.grey.shade200,
+                labelStyle: TextStyle(
+                  fontFamily: "Cairo",
+                  fontSize: 12,
+                  color: selected ? Colors.white : Colors.black,
+                ),
+              );
+            }).toList(),
           ),
         ),
-
         if (serviceRange['ضمن نطاق محدد 📍'] == true)
           _sectionCard(
             icon: FontAwesomeIcons.locationCrosshairs,
@@ -434,32 +449,36 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
               children: [
                 Wrap(
                   spacing: 10,
-                  children:
-                      _distanceOptionsKm.map((km) {
-                        final selected = _selectedDistanceKm == km;
-                        return FilterChip(
-                          label: Text(
-                            '$km كم',
-                            style: const TextStyle(fontFamily: 'Cairo'),
-                          ),
-                          selected: selected,
-                          onSelected: (_) {
-                            setState(() {
-                              _selectedDistanceKm = km;
-                              if (_selectedCenter != null) {
-                                locationController.text =
-                                    '(${_selectedCenter!.latitude.toStringAsFixed(5)}, ${_selectedCenter!.longitude.toStringAsFixed(5)}) • $_selectedDistanceKm كم';
-                              }
-                            });
-                            _queueAutoSave();
-                          },
-                          selectedColor: Colors.deepPurple,
-                          backgroundColor: Colors.grey.shade200,
-                          labelStyle: TextStyle(
-                            color: selected ? Colors.white : Colors.black87,
-                          ),
-                        );
-                      }).toList(),
+                  children: _distanceOptionsKm.map((km) {
+                    final selected = _selectedDistanceKm == km;
+                    return FilterChip(
+                      label: Text(
+                        '$km كم',
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                        ),
+                      ),
+                      selected: selected,
+                      onSelected: (_) {
+                        setState(() {
+                          _selectedDistanceKm = km;
+                          if (_selectedCenter != null) {
+                            locationController.text =
+                                '(${_selectedCenter!.latitude.toStringAsFixed(5)}, ${_selectedCenter!.longitude.toStringAsFixed(5)}) • $_selectedDistanceKm كم';
+                          }
+                        });
+                        _queueAutoSave();
+                      },
+                      selectedColor: Colors.deepPurple,
+                      backgroundColor: Colors.grey.shade200,
+                      labelStyle: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        color: selected ? Colors.white : Colors.black87,
+                      ),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
@@ -467,7 +486,7 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
                   icon: const Icon(Icons.my_location),
                   label: const Text(
                     "تحديد موقعي الجغرافي",
-                    style: TextStyle(fontFamily: "Cairo"),
+                    style: TextStyle(fontFamily: "Cairo", fontSize: 12),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
@@ -482,12 +501,12 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
                 TextFormField(
                   controller: locationController,
                   readOnly: true,
-                  style: const TextStyle(fontFamily: "Cairo", fontSize: 13),
+                  style: const TextStyle(fontFamily: "Cairo", fontSize: 12),
                   decoration: InputDecoration(
                     hintText: 'موقعي المختار والمسافة',
                     hintStyle: const TextStyle(
                       fontFamily: "Cairo",
-                      fontSize: 13,
+                      fontSize: 12,
                       color: Colors.grey,
                     ),
                     prefixIcon: const Icon(Icons.link),
@@ -520,12 +539,12 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
           Expanded(
             child: TextField(
               controller: customLanguageController,
-              style: const TextStyle(fontFamily: "Cairo", fontSize: 13),
+              style: const TextStyle(fontFamily: "Cairo", fontSize: 12),
               decoration: InputDecoration(
                 hintText: 'أدخل اللغة ثم اضغط "تم"',
                 hintStyle: const TextStyle(
                   fontFamily: "Cairo",
-                  fontSize: 13,
+                  fontSize: 12,
                   color: Colors.grey,
                 ),
                 border: OutlineInputBorder(
@@ -572,8 +591,8 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
     required Widget child,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
@@ -585,27 +604,33 @@ class _LanguageLocationStepState extends State<LanguageLocationStep> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: Colors.deepPurple),
+              Icon(icon, color: Colors.deepPurple, size: 20),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.deepPurple,
-                  fontFamily: "Cairo",
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.deepPurple,
+                    fontFamily: "Cairo",
+                    height: 1.3,
+                  ),
                 ),
               ),
             ],
           ),
           if (subtitle != null) ...[
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               subtitle,
               style: const TextStyle(
                 fontFamily: "Cairo",
-                fontSize: 11.5,
+                fontSize: 10.8,
                 color: Colors.black54,
                 height: 1.4,
               ),

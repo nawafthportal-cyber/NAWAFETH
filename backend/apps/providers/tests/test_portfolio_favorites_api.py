@@ -327,3 +327,44 @@ def test_spotlight_like_and_count_are_exposed(settings, tmp_path):
     assert public_spotlights.status_code == 200
     public_item = next(x for x in public_spotlights.json() if x["id"] == spotlight_id)
     assert public_item.get("likes_count") == 1
+
+
+@pytest.mark.django_db
+def test_spotlight_is_liked_is_scoped_by_mode(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    provider_api = APIClient()
+    provider_phone = "0500000743"
+    provider_access = _login_via_otp(provider_api, provider_phone)
+    _complete_registration(provider_api, provider_access, provider_phone)
+    provider_profile = _register_provider(provider_api)
+
+    video_bytes = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+    spotlight_upload = SimpleUploadedFile("spotlight_mode.mp4", video_bytes, content_type="video/mp4")
+
+    created = provider_api.post(
+        "/api/providers/me/spotlights/",
+        {"file_type": "video", "caption": "spotlight mode", "file": spotlight_upload},
+        format="multipart",
+    )
+    assert created.status_code == 201
+    spotlight_id = created.json()["id"]
+
+    dual_api = APIClient()
+    dual_phone = "0500000744"
+    dual_access = _login_via_otp(dual_api, dual_phone)
+    _complete_registration(dual_api, dual_access, dual_phone)
+
+    # Like using CLIENT mode only.
+    liked_client = dual_api.post(f"/api/providers/spotlights/{spotlight_id}/like/?mode=client")
+    assert liked_client.status_code == 200
+
+    client_view = dual_api.get(f"/api/providers/{provider_profile.id}/spotlights/?mode=client")
+    assert client_view.status_code == 200
+    client_item = next(x for x in client_view.json() if x["id"] == spotlight_id)
+    assert client_item.get("is_liked") is True
+
+    provider_view = dual_api.get(f"/api/providers/{provider_profile.id}/spotlights/?mode=provider")
+    assert provider_view.status_code == 200
+    provider_item = next(x for x in provider_view.json() if x["id"] == spotlight_id)
+    assert provider_item.get("is_liked") is False

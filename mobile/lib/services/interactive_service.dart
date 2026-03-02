@@ -114,7 +114,9 @@ class InteractiveService {
       ));
     }
 
-    if (allItems.isEmpty && !portfolioResp.isSuccess && !spotlightResp.isSuccess) {
+    if (allItems.isEmpty &&
+        !portfolioResp.isSuccess &&
+        !spotlightResp.isSuccess) {
       return ListResult(error: portfolioResp.error ?? 'خطأ في جلب المفضلة');
     }
 
@@ -167,13 +169,15 @@ class InteractiveService {
   }
 
   /// جلب معرض أعمال مزود آخر
-  static Future<ApiResponse> fetchProviderPortfolio(int providerId) {
-    return ApiClient.get('/api/providers/$providerId/portfolio/');
+  static Future<ApiResponse> fetchProviderPortfolio(int providerId) async {
+    final path = await _withMode('/api/providers/$providerId/portfolio/');
+    return ApiClient.get(path);
   }
 
   /// جلب أضواء مزود آخر
-  static Future<ApiResponse> fetchProviderSpotlights(int providerId) {
-    return ApiClient.get('/api/providers/$providerId/spotlights/');
+  static Future<ApiResponse> fetchProviderSpotlights(int providerId) async {
+    final path = await _withMode('/api/providers/$providerId/spotlights/');
+    return ApiClient.get(path);
   }
 
   /// حذف عنصر من المعرض
@@ -250,8 +254,9 @@ class InteractiveService {
   }
 
   /// جلب تفاصيل مزود
-  static Future<ApiResponse> fetchProviderDetail(int providerId) {
-    return ApiClient.get('/api/providers/$providerId/');
+  static Future<ApiResponse> fetchProviderDetail(int providerId) async {
+    final path = await _withMode('/api/providers/$providerId/');
+    return ApiClient.get(path);
   }
 
   /// جلب خدمات مزود
@@ -260,8 +265,9 @@ class InteractiveService {
   }
 
   /// جلب إحصائيات مزود
-  static Future<ApiResponse> fetchProviderStats(int providerId) {
-    return ApiClient.get('/api/providers/$providerId/stats/');
+  static Future<ApiResponse> fetchProviderStats(int providerId) async {
+    final path = await _withMode('/api/providers/$providerId/stats/');
+    return ApiClient.get(path);
   }
 
   // ────────────────────────────────────────

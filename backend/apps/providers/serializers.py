@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from apps.accounts.models import User
+from apps.accounts.role_context import get_active_role
 
 from .models import (
     Category,
@@ -175,9 +176,18 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
         )
 
     def get_following_count(self, obj):
-        # Count providers this provider's user follows (if any)
+        # Count providers this provider's user follows, scoped by active account mode.
         try:
-            return obj.user.provider_follows.count()
+            request = self.context.get("request")
+            if request is None:
+                return obj.user.provider_follows.count()
+            role = get_active_role(request, fallback="client")
+            return (
+                obj.user.provider_follows.filter(role_context=role)
+                .values("provider_id")
+                .distinct()
+                .count()
+            )
         except Exception:
             return 0
 
@@ -304,7 +314,8 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             return bool(annotated)
         request = self.context.get("request")
         if request and hasattr(request, "user") and request.user.is_authenticated:
-            return obj.likes.filter(user=request.user).exists()
+            role = get_active_role(request, fallback="client")
+            return obj.likes.filter(user=request.user, role_context=role).exists()
         return False
 
     def get_is_saved(self, obj):
@@ -313,7 +324,8 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             return bool(annotated)
         request = self.context.get("request")
         if request and hasattr(request, "user") and request.user.is_authenticated:
-            return obj.saves.filter(user=request.user).exists()
+            role = get_active_role(request, fallback="client")
+            return obj.saves.filter(user=request.user, role_context=role).exists()
         return False
 
 

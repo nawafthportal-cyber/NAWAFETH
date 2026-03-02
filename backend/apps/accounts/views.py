@@ -22,6 +22,7 @@ from .serializers import (
 )
 
 from .permissions import IsAtLeastPhoneOnly
+from .role_context import get_active_role
 from .otp import generate_otp_code, otp_expiry
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,9 @@ def _safe_media_url(field_file):
         return None
 
 
-def _me_payload(user: User) -> dict:
+def _me_payload(user: User, *, request=None) -> dict:
+    active_role = get_active_role(request) if request is not None else UserRole.CLIENT
+
     has_provider_profile = False
     try:
         # related_name on ProviderProfile.user is "provider_profile"
@@ -109,16 +112,47 @@ def _me_payload(user: User) -> dict:
     likes_count = 0
     favorites_media_count = 0
     try:
-        following_count = user.provider_follows.count()
+        following_count = (
+            user.provider_follows.filter(role_context=active_role)
+            .values("provider_id")
+            .distinct()
+            .count()
+        )
     except Exception:
         following_count = 0
     try:
-        likes_count = user.provider_likes.count()
+        likes_count = (
+            user.provider_likes.filter(role_context=active_role)
+            .values("provider_id")
+            .distinct()
+            .count()
+        )
     except Exception:
         likes_count = 0
     try:
-        # Source of truth for "مفضلتي" media in Interactive tab.
-        favorites_media_count = user.portfolio_likes.count()
+        portfolio_saved_ids = set(
+            user.portfolio_saves.filter(role_context=active_role).values_list(
+                "item_id", flat=True
+            )
+        )
+        portfolio_liked_ids = set(
+            user.portfolio_likes.filter(role_context=active_role).values_list(
+                "item_id", flat=True
+            )
+        )
+        spotlight_saved_ids = set(
+            user.spotlight_saves.filter(role_context=active_role).values_list(
+                "item_id", flat=True
+            )
+        )
+        spotlight_liked_ids = set(
+            user.spotlight_likes.filter(role_context=active_role).values_list(
+                "item_id", flat=True
+            )
+        )
+        favorites_media_count = len(portfolio_saved_ids | portfolio_liked_ids) + len(
+            spotlight_saved_ids | spotlight_liked_ids
+        )
     except Exception:
         favorites_media_count = 0
 
@@ -321,7 +355,7 @@ def me_view(request):
                 )
             raise
 
-    return Response(_me_payload(user))
+    return Response(_me_payload(user, request=request))
 
 
 @api_view(["POST"])

@@ -1,0 +1,143 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}تفاصيل الطلب — نوافــذ{% endblock %}
+{% block body_class %}page-provider-order-detail{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div id="auth-gate" class="auth-gate" style="display:none">
+    <div class="auth-gate-inner">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <h2>تسجيل الدخول مطلوب</h2>
+      <a href="/login/" class="btn btn-primary">تسجيل الدخول</a>
+    </div>
+  </div>
+
+  <div id="pod-content" style="display:none">
+    <div class="page-header">
+      <a href="/provider-orders/" class="btn-back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </a>
+      <h1>تفاصيل الطلب</h1>
+    </div>
+
+    <div id="pod-loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="pod-error" class="error-banner" style="display:none"></div>
+
+    <div id="pod-detail" style="display:none">
+      <!-- Client Info -->
+      <section class="detail-card" id="pod-client-card">
+        <h3>معلومات العميل</h3>
+        <div class="detail-row"><span>الاسم:</span><span id="pod-client-name"></span></div>
+        <div class="detail-row"><span>الهاتف:</span><span id="pod-client-phone"></span></div>
+        <div class="detail-row"><span>المدينة:</span><span id="pod-client-city"></span></div>
+      </section>
+
+      <!-- Order Header -->
+      <section class="detail-card">
+        <div class="detail-header-row">
+          <span class="order-id" id="pod-display-id"></span>
+          <span class="order-type-badge" id="pod-type"></span>
+          <span class="order-status" id="pod-status"></span>
+        </div>
+        <div class="detail-row"><span>التصنيف:</span><span id="pod-category"></span></div>
+        <div class="detail-row"><span>التاريخ:</span><span id="pod-date"></span></div>
+      </section>
+
+      <!-- Title & Description -->
+      <section class="detail-card">
+        <h3>تفاصيل الطلب</h3>
+        <div class="detail-field"><label>العنوان</label><p id="pod-title"></p></div>
+        <div class="detail-field"><label>الوصف</label><p id="pod-description"></p></div>
+      </section>
+
+      <!-- Attachments -->
+      <section class="detail-card" id="pod-attachments-section" style="display:none">
+        <h3>المرفقات</h3>
+        <div id="pod-attachments" class="attachments-list"></div>
+      </section>
+
+      <!-- Status Logs -->
+      <section class="detail-card" id="pod-logs-section" style="display:none">
+        <h3>سجل الحالة</h3>
+        <div id="pod-logs" class="status-timeline"></div>
+      </section>
+
+      <!-- Action Forms (dynamic per status) -->
+      <section id="pod-actions" class="detail-card" style="display:none">
+        <h3>الإجراءات</h3>
+
+        <!-- Accept + Start Form (for new orders) -->
+        <div id="action-new" style="display:none">
+          <button class="btn btn-primary btn-block" id="btn-accept">قبول الطلب</button>
+          <div id="start-form" style="display:none;margin-top:16px">
+            <div class="form-group">
+              <label>تاريخ التسليم المتوقع</label>
+              <input type="date" id="start-delivery-date" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>المبلغ المتوقع (ر.س)</label>
+              <input type="number" id="start-amount" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>المبلغ المستلم (ر.س)</label>
+              <input type="number" id="start-received" class="form-input" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>ملاحظات</label>
+              <textarea id="start-note" class="form-input" rows="3"></textarea>
+            </div>
+            <button class="btn btn-primary btn-block" id="btn-start">بدء التنفيذ</button>
+          </div>
+          <button class="btn btn-outline btn-danger btn-block mt-8" id="btn-reject-new">رفض الطلب</button>
+        </div>
+
+        <!-- In Progress Actions -->
+        <div id="action-progress" style="display:none">
+          <div class="form-group">
+            <label>تحديث التقدم</label>
+            <textarea id="progress-note" class="form-input" rows="3" placeholder="أضف ملاحظة تقدم..."></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" id="btn-update-progress">تحديث</button>
+          <hr class="separator">
+          <div class="form-group">
+            <label>تاريخ التسليم الفعلي</label>
+            <input type="date" id="complete-date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>المبلغ الفعلي (ر.س)</label>
+            <input type="number" id="complete-amount" class="form-input" placeholder="0.00">
+          </div>
+          <button class="btn btn-success btn-block" id="btn-complete">إكمال الطلب</button>
+          <button class="btn btn-outline btn-danger btn-block mt-8" id="btn-reject-progress">إلغاء / رفض</button>
+        </div>
+
+        <!-- Reject Form -->
+        <div id="reject-form" style="display:none">
+          <div class="form-group">
+            <label>سبب الرفض / الإلغاء</label>
+            <textarea id="reject-reason" class="form-input" rows="3" placeholder="اذكر السبب..."></textarea>
+          </div>
+          <button class="btn btn-danger btn-block" id="btn-confirm-reject">تأكيد الرفض</button>
+          <button class="btn btn-outline btn-block mt-8" id="btn-cancel-reject">إلغاء</button>
+        </div>
+
+        <!-- Completed Info -->
+        <div id="action-completed" style="display:none">
+          <div class="detail-row"><span>تاريخ التسليم:</span><span id="completed-date"></span></div>
+          <div class="detail-row"><span>المبلغ الفعلي:</span><span id="completed-amount"></span></div>
+        </div>
+
+        <!-- Cancelled Info -->
+        <div id="action-cancelled" style="display:none">
+          <div class="detail-row"><span>تاريخ الإلغاء:</span><span id="cancelled-date"></span></div>
+          <div class="detail-row"><span>سبب الإلغاء:</span><span id="cancelled-reason"></span></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}"></script>
+{% endblock %}

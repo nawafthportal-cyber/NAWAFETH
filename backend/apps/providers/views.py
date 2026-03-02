@@ -439,12 +439,21 @@ class ProviderSpotlightListView(generics.ListAPIView):
 		)
 		user = self.request.user
 		if user.is_authenticated:
+			role = get_active_role(self.request)
 			qs = qs.annotate(
 				_is_liked=Exists(
-					ProviderSpotlightLike.objects.filter(user=user, item=OuterRef("pk"))
+					ProviderSpotlightLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
 				),
 				_is_saved=Exists(
-					ProviderSpotlightSave.objects.filter(user=user, item=OuterRef("pk"))
+					ProviderSpotlightSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
 				),
 			)
 		return qs.order_by("-created_at", "-id")
@@ -466,12 +475,21 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 		# Annotate is_liked / is_saved for authenticated users
 		user = self.request.user
 		if user.is_authenticated:
+			role = get_active_role(self.request)
 			qs = qs.annotate(
 				_is_liked=Exists(
-					ProviderSpotlightLike.objects.filter(user=user, item=OuterRef("pk"))
+					ProviderSpotlightLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
 				),
 				_is_saved=Exists(
-					ProviderSpotlightSave.objects.filter(user=user, item=OuterRef("pk"))
+					ProviderSpotlightSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
 				),
 			)
 
@@ -806,6 +824,7 @@ class ProviderPublicStatsView(APIView):
 	permission_classes = [permissions.AllowAny]
 
 	def get(self, request, provider_id: int):
+		role = get_active_role(request, fallback="client")
 		provider = (
 			ProviderProfile.objects.select_related("user")
 			.filter(id=provider_id, user__is_active=True)
@@ -828,7 +847,10 @@ class ProviderPublicStatsView(APIView):
 			.count()
 		)
 		following_count = (
-			ProviderFollow.objects.filter(user=provider.user)
+			ProviderFollow.objects.filter(
+				user=provider.user,
+				role_context=role,
+			)
 			.values("provider_id")
 			.distinct()
 			.count()

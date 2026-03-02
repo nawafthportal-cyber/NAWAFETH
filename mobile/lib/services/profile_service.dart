@@ -5,11 +5,18 @@ import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
 import '../models/provider_profile_model.dart';
 import 'api_client.dart';
+import 'account_mode_service.dart';
 
 class ProfileService {
+  static Future<String> _mePathWithMode() async {
+    final mode = await AccountModeService.apiMode();
+    return '/api/accounts/me/?mode=$mode';
+  }
+
   /// جلب بيانات المستخدم الحالي (عميل أو مزود)
   static Future<ProfileResult<UserProfile>> fetchMyProfile() async {
-    final response = await ApiClient.get('/api/accounts/me/');
+    final mePath = await _mePathWithMode();
+    final response = await ApiClient.get(mePath);
 
     if (response.isSuccess && response.dataAsMap != null) {
       try {
@@ -55,7 +62,8 @@ class ProfileService {
   /// تحديث بيانات المستخدم
   static Future<ProfileResult<UserProfile>> updateMyProfile(
       Map<String, dynamic> data) async {
-    final response = await ApiClient.patch('/api/accounts/me/', body: data);
+    final mePath = await _mePathWithMode();
+    final response = await ApiClient.patch(mePath, body: data);
 
     if (response.isSuccess && response.dataAsMap != null) {
       try {
@@ -81,11 +89,12 @@ class ProfileService {
 
     final res = await ApiClient.sendMultipart(
       'PATCH',
-      '/api/accounts/me/',
+      await _mePathWithMode(),
       (request) async {
         if (profileImagePath != null && profileImagePath.isNotEmpty) {
           request.files.add(
-            await http.MultipartFile.fromPath('profile_image', profileImagePath),
+            await http.MultipartFile.fromPath(
+                'profile_image', profileImagePath),
           );
         }
         if (coverImagePath != null && coverImagePath.isNotEmpty) {
@@ -135,7 +144,8 @@ class ProfileService {
       (request) async {
         if (profileImagePath != null && profileImagePath.isNotEmpty) {
           request.files.add(
-            await http.MultipartFile.fromPath('profile_image', profileImagePath),
+            await http.MultipartFile.fromPath(
+                'profile_image', profileImagePath),
           );
         }
         if (coverImagePath != null && coverImagePath.isNotEmpty) {

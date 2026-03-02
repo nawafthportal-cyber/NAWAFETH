@@ -91,3 +91,69 @@ class MobileWebContactView(TemplateView):
 
 class MobileWebNotificationSettingsView(TemplateView):
     template_name = "mobile_web/notification_settings.html"
+
+
+# ── Missing screens (1:1 parity with Flutter mobile app) ──
+
+class MobileWebProviderDashboardView(TemplateView):
+    template_name = "mobile_web/provider_dashboard.html"
+
+
+class MobileWebProviderOrdersView(TemplateView):
+    template_name = "mobile_web/provider_orders.html"
+
+
+class MobileWebProviderOrderDetailView(TemplateView):
+    template_name = "mobile_web/provider_order_detail.html"
+
+
+class MobileWebPlansView(TemplateView):
+    template_name = "mobile_web/plans.html"
+
+
+class MobileWebVerificationView(TemplateView):
+    template_name = "mobile_web/verification.html"
+
+
+class MobileWebServiceDetailView(TemplateView):
+    template_name = "mobile_web/service_detail.html"
+
+
+class MobileWebServiceRequestFormView(TemplateView):
+    template_name = "mobile_web/service_request_form.html"
+
+
+class MobileWebProviderRegisterView(TemplateView):
+    template_name = "mobile_web/provider_register.html"
+
+
+class MobileWebLoginSettingsView(TemplateView):
+    template_name = "mobile_web/login_settings.html"
+
+
+class MobileWebPromotionView(TemplateView):
+    template_name = "mobile_web/promotion.html"
+
+
+class MobileWebAdditionalServicesView(TemplateView):
+    template_name = "mobile_web/additional_services.html"
+
+
+class MobileWebProviderServicesView(TemplateView):
+    template_name = "mobile_web/provider_services.html"
+
+
+class MobileWebProviderReviewsView(TemplateView):
+    template_name = "mobile_web/provider_reviews.html"
+
+
+class MobileWebProviderProfileEditView(TemplateView):
+    template_name = "mobile_web/provider_profile_edit.html"
+
+
+class MobileWebProviderPortfolioView(TemplateView):
+    template_name = "mobile_web/provider_portfolio.html"
+
+
+class MobileWebProfileCompletionView(TemplateView):
+    template_name = "mobile_web/profile_completion.html"

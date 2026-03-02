@@ -2,7 +2,14 @@ import pytest
 from rest_framework.test import APIClient
 
 from apps.accounts.models import OTP
-from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
+from apps.providers.models import (
+    Category,
+    ProviderCategory,
+    ProviderFollow,
+    ProviderProfile,
+    RoleContext,
+    SubCategory,
+)
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 
@@ -345,3 +352,67 @@ def test_provider_profile_hides_missing_media_urls(settings, tmp_path):
     public_payload = public.json()
     assert "missing_profile.jpg" in (public_payload.get("profile_image") or "")
     assert "missing_cover.jpg" in (public_payload.get("cover_image") or "")
+
+
+@pytest.mark.django_db
+def test_provider_following_count_in_detail_and_stats_is_scoped_by_mode():
+    from apps.accounts.models import User
+
+    owner_user = User.objects.create(phone="0500000111", username="owner_provider")
+    owner_provider = ProviderProfile.objects.create(
+        user=owner_user,
+        provider_type="individual",
+        display_name="Owner Provider",
+        bio="bio",
+        years_experience=2,
+        city="الرياض",
+    )
+
+    target_user_1 = User.objects.create(phone="0500000112", username="target_provider_1")
+    target_provider_1 = ProviderProfile.objects.create(
+        user=target_user_1,
+        provider_type="individual",
+        display_name="Target One",
+        bio="bio",
+        years_experience=2,
+        city="الرياض",
+    )
+
+    target_user_2 = User.objects.create(phone="0500000113", username="target_provider_2")
+    target_provider_2 = ProviderProfile.objects.create(
+        user=target_user_2,
+        provider_type="individual",
+        display_name="Target Two",
+        bio="bio",
+        years_experience=2,
+        city="جدة",
+    )
+
+    ProviderFollow.objects.create(
+        user=owner_user,
+        provider=target_provider_1,
+        role_context=RoleContext.CLIENT,
+    )
+    ProviderFollow.objects.create(
+        user=owner_user,
+        provider=target_provider_2,
+        role_context=RoleContext.PROVIDER,
+    )
+
+    client = APIClient()
+
+    detail_client = client.get(f"/api/providers/{owner_provider.id}/?mode=client")
+    assert detail_client.status_code == 200
+    assert detail_client.json().get("following_count") == 1
+
+    detail_provider = client.get(f"/api/providers/{owner_provider.id}/?mode=provider")
+    assert detail_provider.status_code == 200
+    assert detail_provider.json().get("following_count") == 1
+
+    stats_client = client.get(f"/api/providers/{owner_provider.id}/stats/?mode=client")
+    assert stats_client.status_code == 200
+    assert stats_client.json().get("following_count") == 1
+
+    stats_provider = client.get(f"/api/providers/{owner_provider.id}/stats/?mode=provider")
+    assert stats_provider.status_code == 200
+    assert stats_provider.json().get("following_count") == 1
