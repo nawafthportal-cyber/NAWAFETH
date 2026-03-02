@@ -12,7 +12,9 @@ import '../widgets/video_full_screen.dart';
 import '../services/auth_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
+import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
+import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
 import 'provider_dashboard/reviews_tab.dart';
 import 'service_request_form_screen.dart';
@@ -65,28 +67,30 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Map<String, dynamic>? _statsData;
   List<Map<String, dynamic>> _apiServices = [];
   List<Map<String, dynamic>> _apiPortfolio = [];
-  List<Map<String, dynamic>> _apiSpotlights = [];
+  List<MediaItemModel> _spotlightItems = [];
 
   // لمحات مقدم الخدمة
+  List<MediaItemModel> get _spotlightVideoItems {
+    return _spotlightItems
+        .where((item) => item.isVideo)
+        .where((item) => (item.fileUrl ?? '').trim().isNotEmpty)
+        .toList();
+  }
+
   List<String> get _highlightsVideos {
-    return _apiSpotlights
-        .where((s) {
-          final type = (s['file_type'] ?? '').toString().toLowerCase();
-          return type == 'video' || type.startsWith('video');
-        })
-        .map((s) => _normalizeMediaUrl((s['file_url'] ?? '').toString()))
-        .where((url) => url.isNotEmpty)
+    return _spotlightVideoItems
+        .map((item) => _normalizeMediaUrl((item.fileUrl ?? '').trim()))
+        .where((path) => path.isNotEmpty)
         .toList();
   }
 
   List<String> get _highlightsLogos {
-    return _apiSpotlights
-        .map(
-          (s) => _normalizeMediaUrl(
-            (s['thumbnail_url'] ?? s['file_url'] ?? '').toString(),
-          ),
-        )
-        .where((url) => url.isNotEmpty)
+    return _spotlightVideoItems
+        .map((item) {
+          final thumb = (item.thumbnailUrl ?? item.fileUrl ?? '').trim();
+          return _normalizeMediaUrl(thumb);
+        })
+        .where((logo) => logo.isNotEmpty)
         .toList();
   }
 
@@ -588,16 +592,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
           // Spotlights
           if (spotlightsResp.isSuccess) {
-            _apiSpotlights = _parseListResponse(spotlightsResp).map((item) {
-              final normalized = Map<String, dynamic>.from(item);
-              normalized['file_url'] = _normalizeMediaUrl(
-                (item['file_url'] ?? '').toString(),
-              );
-              normalized['thumbnail_url'] = _normalizeMediaUrl(
-                (item['thumbnail_url'] ?? '').toString(),
-              );
-              return normalized;
-            }).toList();
+            _spotlightItems = _parseListResponse(spotlightsResp)
+                .map(_mapSpotlightItem)
+                .where((item) => (item.fileUrl ?? '').trim().isNotEmpty)
+                .toList();
+          } else {
+            _spotlightItems = [];
           }
 
           _isLoading = false;
@@ -644,6 +644,71 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       return double.tryParse(text);
     }
     return null;
+  }
+
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final text = value.trim().toLowerCase();
+      if (text == 'true' ||
+          text == '1' ||
+          text == 'yes' ||
+          text == 'y' ||
+          text == 'on') {
+        return true;
+      }
+      if (text == 'false' ||
+          text == '0' ||
+          text == 'no' ||
+          text == 'n' ||
+          text == 'off' ||
+          text.isEmpty) {
+        return false;
+      }
+    }
+    return false;
+  }
+
+  MediaItemModel _mapSpotlightItem(Map<String, dynamic> item) {
+    final id = _asInt(item['id']);
+    final providerIdRaw = _asInt(item['provider_id']);
+    final providerId = providerIdRaw > 0 ? providerIdRaw : (_resolvedProviderId ?? 0);
+    final providerDisplayName = (item['provider_display_name'] ?? providerName)
+        .toString()
+        .trim();
+    final providerUsername = (item['provider_username'] ?? '')
+        .toString()
+        .trim();
+    final fileTypeRaw = (item['file_type'] ?? 'image').toString().toLowerCase();
+    final normalizedType = fileTypeRaw.startsWith('video') ? 'video' : 'image';
+    final fileUrl = _normalizeMediaUrl((item['file_url'] ?? '').toString());
+    final thumbnailUrl = _normalizeMediaUrl(
+      (item['thumbnail_url'] ?? item['file_url'] ?? '').toString(),
+    );
+    final profileImage = _normalizeMediaUrl(
+      (item['provider_profile_image'] ?? providerImage).toString(),
+    );
+    final createdAtRaw = (item['created_at'] ?? '').toString().trim();
+
+    return MediaItemModel(
+      id: id,
+      providerId: providerId,
+      providerDisplayName:
+          providerDisplayName.isEmpty ? providerName : providerDisplayName,
+      providerUsername: providerUsername.isEmpty ? null : providerUsername,
+      providerProfileImage: profileImage.isEmpty ? null : profileImage,
+      fileType: normalizedType,
+      fileUrl: fileUrl.isEmpty ? null : fileUrl,
+      thumbnailUrl: thumbnailUrl.isEmpty ? null : thumbnailUrl,
+      caption: (item['caption'] ?? '').toString(),
+      likesCount: _asInt(item['likes_count']),
+      savesCount: _asInt(item['saves_count']),
+      isLiked: _asBool(item['is_liked']),
+      isSaved: _asBool(item['is_saved']),
+      createdAt: createdAtRaw.isEmpty ? null : createdAtRaw,
+      source: MediaItemSource.spotlight,
+    );
   }
 
   String _formatCompactNumber(num value) {
@@ -1920,29 +1985,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   Future<void> _openHighlights(int initialIndex) async {
-    if (_highlightsVideos.isEmpty) return;
+    final spotlightItems = _spotlightVideoItems;
+    if (spotlightItems.isEmpty) return;
+    final safeIndex = initialIndex.clamp(0, spotlightItems.length - 1);
 
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => VideoFullScreenPage(
-          videoPaths: List<String>.from(_highlightsVideos),
-          initialIndex: initialIndex,
-          onReportContent: (index) async {
-            if (!mounted) return;
-
-            final safeIndex = index.clamp(0, _highlightsVideos.length - 1);
-            final videoPath =
-                _highlightsVideos.isEmpty ? '' : _highlightsVideos[safeIndex];
-
-            await showPlatformReportDialog(
-              context: context,
-              title: 'الإبلاغ عن المحتوى',
-              reportedEntityLabel: 'بيانات المبلغ عنه:',
-              reportedEntityValue: '$providerName ($providerHandle)',
-              contextLabel: 'اللمحة',
-              contextValue: '#${safeIndex + 1} • $videoPath',
-            );
-          },
+        builder: (_) => SpotlightViewerPage(
+          items: spotlightItems,
+          initialIndex: safeIndex,
         ),
       ),
     );

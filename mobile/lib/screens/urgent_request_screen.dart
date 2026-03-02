@@ -17,6 +17,38 @@ class UrgentRequestScreen extends StatefulWidget {
 }
 
 class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
+  static const Set<String> _imageExts = {
+    'jpg',
+    'jpeg',
+    'png',
+    'gif',
+    'webp',
+    'bmp',
+    'heic',
+    'heif',
+  };
+  static const Set<String> _videoExts = {
+    'mp4',
+    'mov',
+    'avi',
+    'mkv',
+    'webm',
+    'm4v',
+    '3gp',
+    'wmv',
+  };
+  static const Set<String> _audioExts = {
+    'mp3',
+    'wav',
+    'aac',
+    'm4a',
+    'ogg',
+    'flac',
+    'amr',
+    'opus',
+    'wma',
+  };
+
   final _descCtrl = TextEditingController();
 
   // ── API data ──
@@ -35,6 +67,8 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
 
   // ── Attachments ──
   final List<File> _images = [];
+  final List<File> _videos = [];
+  final List<File> _files = [];
   File? _audio;
 
   @override
@@ -80,9 +114,51 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.any);
-    if (result != null && result.files.single.path != null && mounted) {
-      setState(() => _images.add(File(result.files.single.path!)));
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      allowMultiple: true,
+    );
+    if (result == null || !mounted) return;
+
+    var added = 0;
+    var replacedAudio = false;
+
+    setState(() {
+      for (final picked in result.files) {
+        final path = picked.path;
+        if (path == null || path.isEmpty) continue;
+        if (_isAlreadyAttached(path)) continue;
+
+        final file = File(path);
+        final ext = _extractExt(picked.name.isNotEmpty ? picked.name : path);
+
+        if (_imageExts.contains(ext)) {
+          _images.add(file);
+          added++;
+          continue;
+        }
+        if (_videoExts.contains(ext)) {
+          _videos.add(file);
+          added++;
+          continue;
+        }
+        if (_audioExts.contains(ext)) {
+          _audio = file;
+          replacedAudio = true;
+          added++;
+          continue;
+        }
+        _files.add(file);
+        added++;
+      }
+    });
+
+    if (added == 0) {
+      _snack('لم يتم إضافة مرفقات جديدة');
+      return;
+    }
+    if (replacedAudio) {
+      _snack('تم تحديث المرفق الصوتي مع إضافة بقية المرفقات');
     }
   }
 
@@ -110,6 +186,8 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
       city: _selectedCity,
       dispatchMode: _dispatchMode,
       images: _images,
+      videos: _videos,
+      files: _files,
       audio: _audio,
     );
 
@@ -288,6 +366,26 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
           labelFn: (city) => city,
           onChanged: (city) => setState(() => _selectedCity = city),
         ),
+        if (_dispatchMode == 'all' && _selectedCity != null) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _selectedCity = null),
+              icon: const Icon(Icons.location_off_outlined, size: 14),
+              label: const Text(
+                'إلغاء المدينة (إرسال لجميع المدن)',
+                style: TextStyle(fontSize: 10, fontFamily: 'Cairo'),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: purple,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
 
         const SizedBox(height: 14),
 
@@ -305,7 +403,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
           children: [
             _attachBtn(Icons.camera_alt_rounded, 'صورة', _pickImages, isDark, purple),
             const SizedBox(width: 8),
-            _attachBtn(Icons.attach_file_rounded, 'ملف', _pickFile, isDark, purple),
+            _attachBtn(Icons.attach_file_rounded, 'ملف/وسائط', _pickFile, isDark, purple),
           ],
         ),
         if (_images.isNotEmpty) ...[
@@ -335,6 +433,42 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
                   )),
                 ],
               ),
+            ),
+          ),
+        ],
+        if (_videos.isNotEmpty || _files.isNotEmpty || _audio != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade300),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ..._videos.map((v) => _attachmentRow(
+                      icon: Icons.video_file_outlined,
+                      name: _fileName(v.path),
+                      onRemove: () => setState(() => _videos.remove(v)),
+                      isDark: isDark,
+                    )),
+                ..._files.map((f) => _attachmentRow(
+                      icon: Icons.insert_drive_file_outlined,
+                      name: _fileName(f.path),
+                      onRemove: () => setState(() => _files.remove(f)),
+                      isDark: isDark,
+                    )),
+                if (_audio != null)
+                  _attachmentRow(
+                    icon: Icons.audiotrack_outlined,
+                    name: _fileName(_audio!.path),
+                    onRemove: () => setState(() => _audio = null),
+                    isDark: isDark,
+                  ),
+              ],
             ),
           ),
         ],
@@ -549,5 +683,56 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
         ),
       ),
     );
+  }
+
+  Widget _attachmentRow({
+    required IconData icon,
+    required String name,
+    required VoidCallback onRemove,
+    required bool isDark,
+  }) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+      leading: Icon(icon, size: 16, color: Colors.deepPurple),
+      title: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontFamily: 'Cairo',
+          color: isDark ? Colors.white70 : Colors.black87,
+        ),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.close, size: 16, color: Colors.red),
+        onPressed: onRemove,
+      ),
+    );
+  }
+
+  bool _isAlreadyAttached(String path) {
+    final normalized = path.toLowerCase();
+    if (_images.any((f) => f.path.toLowerCase() == normalized)) return true;
+    if (_videos.any((f) => f.path.toLowerCase() == normalized)) return true;
+    if (_files.any((f) => f.path.toLowerCase() == normalized)) return true;
+    if ((_audio?.path.toLowerCase() ?? '') == normalized) return true;
+    return false;
+  }
+
+  String _extractExt(String input) {
+    final name = input.trim().toLowerCase();
+    final dot = name.lastIndexOf('.');
+    if (dot <= -1 || dot == name.length - 1) return '';
+    return name.substring(dot + 1);
+  }
+
+  String _fileName(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final idx = normalized.lastIndexOf('/');
+    if (idx < 0 || idx == normalized.length - 1) return normalized;
+    return normalized.substring(idx + 1);
   }
 }

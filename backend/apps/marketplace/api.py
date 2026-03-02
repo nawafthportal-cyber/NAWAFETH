@@ -410,9 +410,9 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 				request_type=RequestType.COMPETITIVE,
 				provider__isnull=True,
 				status=RequestStatus.NEW,
-				city=provider.city,
 				subcategory_id__in=provider_subcats,
 			)
+			.filter(Q(city=provider.city) | Q(city=""))
 			.order_by("-created_at")
 		)
 

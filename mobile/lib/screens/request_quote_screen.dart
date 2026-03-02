@@ -103,7 +103,6 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
     final details = _detailsCtrl.text.trim();
 
     if (_selectedSub == null) { _snack('اختر التصنيف الفرعي'); return; }
-    if ((_selectedCity ?? '').isEmpty) { _snack('اختر المدينة'); return; }
     if (title.isEmpty) { _snack('أدخل عنوان الطلب'); return; }
     if (details.isEmpty) { _snack('أدخل تفاصيل الطلب'); return; }
 
@@ -274,12 +273,32 @@ class _RequestQuoteScreenState extends State<RequestQuoteScreen> {
         const SizedBox(height: 6),
         _dropdownWidget<String>(
           isDark: isDark,
-          hint: 'اختر المدينة',
+          hint: 'اختر المدينة (اختياري)',
           value: _selectedCity,
           items: SaudiCities.all,
           labelFn: (city) => city,
           onChanged: (city) => setState(() => _selectedCity = city),
         ),
+        if (_selectedCity != null) ...[
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _selectedCity = null),
+              icon: const Icon(Icons.location_off_outlined, size: 14),
+              label: const Text(
+                'إلغاء المدينة (إرسال لجميع المدن)',
+                style: TextStyle(fontSize: 10, fontFamily: 'Cairo'),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: purple,
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
 
         const SizedBox(height: 14),
 

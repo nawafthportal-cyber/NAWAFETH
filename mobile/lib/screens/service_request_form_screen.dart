@@ -60,6 +60,10 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   bool _submitting = false;
 
+  bool get _isProviderRequest => widget.providerId != null;
+  String get _effectiveRequestType =>
+      _isProviderRequest ? 'normal' : _requestType;
+
   @override
   void initState() {
     super.initState();
@@ -89,8 +93,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   List<Map<String, dynamic>> get _subcategories {
     if (_selectedCategoryId == null) return [];
-    final cat = _categories.firstWhere(
-        (c) => c['id'] == _selectedCategoryId,
+    final cat = _categories.firstWhere((c) => c['id'] == _selectedCategoryId,
         orElse: () => {});
     final subs = cat['subcategories'];
     if (subs == null) return [];
@@ -115,7 +118,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'xlsx', 'xls'],
     );
-    if (result != null) setState(() => _files.add(File(result.files.single.path!)));
+    if (result != null)
+      setState(() => _files.add(File(result.files.single.path!)));
   }
 
   Future<void> _initRecorder() async {
@@ -225,8 +229,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
   }
 
   // ─── إرسال الطلب ───
@@ -241,7 +245,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
     final city = _selectedCity ?? '';
     // المدينة مطلوبة إلا للعاجل مع dispatch_mode=all
-    final cityRequired = !(_requestType == 'urgent');
+    final cityRequired = !(_effectiveRequestType == 'urgent');
     if (cityRequired && city.isEmpty) {
       _snack('الرجاء اختيار المدينة');
       return;
@@ -249,7 +253,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
     // الطلب العادي يحتاج provider
     int? providerId;
-    if (_requestType == 'normal') {
+    if (_effectiveRequestType == 'normal') {
       if (widget.providerId == null) {
         _snack('الطلب العادي يتطلب تحديد مزود خدمة');
         return;
@@ -262,7 +266,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     final res = await MarketplaceService.createRequest(
       title: _titleController.text.trim(),
       description: _detailsController.text.trim(),
-      requestType: _requestType,
+      requestType: _effectiveRequestType,
       subcategory: _selectedSubcategoryId!,
       city: city.isNotEmpty ? city : null,
       provider: providerId,
@@ -324,34 +328,34 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
             widget.providerName != null
                 ? 'طلب خدمة من ${widget.providerName}'
                 : 'طلب خدمة جديدة',
-            style: const TextStyle(fontFamily: 'Cairo'),
+            style: const TextStyle(fontFamily: 'Cairo', fontSize: 14.5),
           ),
         ),
         body: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
             children: [
               // ─── نوع الطلب ───
               _label('نوع الطلب'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _requestTypePicker(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── التصنيف ───
               _label('القسم'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _categoryDropdown(),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
 
               _label('التصنيف الفرعي'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _subcategoryDropdown(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── المدينة ───
               _label('المدينة'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: _selectedCity,
                 decoration: _inputDeco(hint: 'اختر المدينة'),
@@ -360,82 +364,91 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                 items: SaudiCities.all
                     .map((city) => DropdownMenuItem(
                           value: city,
-                          child: Text(city, style: const TextStyle(fontFamily: 'Cairo')),
+                          child: Text(
+                            city,
+                            style: const TextStyle(
+                                fontFamily: 'Cairo', fontSize: 12.5),
+                          ),
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _selectedCity = v),
                 validator: (v) {
-                  if (_requestType != 'urgent' && (v == null || v.isEmpty)) {
+                  if (_effectiveRequestType != 'urgent' &&
+                      (v == null || v.isEmpty)) {
                     return 'المدينة مطلوبة';
                   }
                   return null;
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── عنوان الطلب ───
               _label('عنوان الطلب'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextFormField(
                 controller: _titleController,
                 maxLength: 50,
+                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
                 decoration: _inputDeco(
                   hint: 'اكتب عنوان الطلب...',
                   counter: '${_titleController.text.length}/50',
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'يرجى إدخال عنوان الطلب' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'يرجى إدخال عنوان الطلب'
+                    : null,
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── تفاصيل الطلب ───
               _label('تفاصيل الطلب'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               TextFormField(
                 controller: _detailsController,
                 maxLength: 500,
-                maxLines: 6,
+                maxLines: 5,
+                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
                 decoration: _inputDeco(
                   hint: 'اكتب تفاصيل الطلب بشكل دقيق...',
                   counter: '${_detailsController.text.length}/500',
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'يرجى إدخال تفاصيل الطلب' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'يرجى إدخال تفاصيل الطلب'
+                    : null,
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── آخر موعد لاستلام العروض ───
               _label('آخر موعد لاستلام العروض (اختياري)'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _deadlineTile(),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── المرفقات ───
               _label('المرفقات'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _attachmentsPreview(),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               ElevatedButton.icon(
                 onPressed: _showAttachmentOptions,
                 icon: const Icon(Icons.add, color: Colors.white),
                 label: const Text('إضافة مرفق',
-                    style: TextStyle(color: Colors.white)),
+                    style: TextStyle(color: Colors.white, fontSize: 12.5)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _mainColor,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
 
               // ─── رسالة صوتية ───
               _label('رسالة صوتية (اختياري)'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _audioPart(),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
               // ─── أزرار ───
               Row(children: [
@@ -444,7 +457,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                     onPressed: _submitting ? null : _submitRequest,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _mainColor,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -456,7 +469,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                                 strokeWidth: 2, color: Colors.white))
                         : const Text('تقديم الطلب',
                             style: TextStyle(
-                                fontSize: 16,
+                                fontSize: 13.5,
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold)),
                   ),
@@ -466,14 +479,14 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       side: const BorderSide(color: _mainColor, width: 2),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
                     child: const Text('إلغاء',
                         style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 13.5,
                             color: _mainColor,
                             fontWeight: FontWeight.bold)),
                   ),
@@ -491,23 +504,68 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   Widget _label(String text) => Text(
         text,
         style: const TextStyle(
-            fontSize: 16, fontWeight: FontWeight.bold, color: _mainColor),
+          fontFamily: 'Cairo',
+          fontSize: 13.5,
+          fontWeight: FontWeight.w800,
+          color: _mainColor,
+        ),
       );
 
   InputDecoration _inputDeco({String? hint, String? counter}) =>
       InputDecoration(
         hintText: hint,
+        hintStyle: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12.5,
+          color: Colors.grey.shade600,
+        ),
         filled: true,
         fillColor: Colors.white,
         counterText: counter,
+        counterStyle: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11,
+          color: Colors.grey.shade600,
+        ),
+        isDense: true,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
       );
 
   Widget _requestTypePicker() {
-    // إذا جاء من صفحة مزود محدد → نوع عادي فقط
-    final bool locked = widget.providerId != null;
+    // إذا جاء من صفحة مزود محدد → نوع عادي فقط.
+    if (_isProviderRequest) {
+      return Container(
+        width: 110,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: _mainColor.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: _mainColor.withValues(alpha: 0.3)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_rounded, color: _mainColor, size: 16),
+            SizedBox(width: 6),
+            Text(
+              'عادي',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: _mainColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final types = <String, String>{
       'normal': 'عادي',
       'competitive': 'تنافسي',
@@ -518,14 +576,17 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       children: types.entries.map((e) {
         final selected = _requestType == e.key;
         return ChoiceChip(
-          label: Text(e.value, style: const TextStyle(fontFamily: 'Cairo')),
+          visualDensity: VisualDensity.compact,
+          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          label: Text(
+            e.value,
+            style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5),
+          ),
           selected: selected,
           selectedColor: _mainColor.withAlpha(50),
-          onSelected: locked
-              ? null
-              : (val) {
-                  if (val) setState(() => _requestType = e.key);
-                },
+          onSelected: (val) {
+            if (val) setState(() => _requestType = e.key);
+          },
         );
       }).toList(),
     );
@@ -533,7 +594,13 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   Widget _categoryDropdown() {
     if (_categoriesLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: SizedBox(
+          height: 18,
+          width: 18,
+          child: CircularProgressIndicator(strokeWidth: 2.2),
+        ),
+      );
     }
     return DropdownButtonFormField<int>(
       value: _selectedCategoryId,
@@ -542,7 +609,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
           .map((c) => DropdownMenuItem<int>(
               value: c['id'] as int,
               child: Text(c['name'] as String,
-                  style: const TextStyle(fontFamily: 'Cairo'))))
+                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5))))
           .toList(),
       onChanged: (val) {
         setState(() {
@@ -563,7 +630,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
           .map((s) => DropdownMenuItem<int>(
               value: s['id'] as int,
               child: Text(s['name'] as String,
-                  style: const TextStyle(fontFamily: 'Cairo'))))
+                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5))))
           .toList(),
       onChanged: (val) => setState(() => _selectedSubcategoryId = val),
       validator: (v) => v == null ? 'اختر التصنيف الفرعي' : null,
@@ -574,18 +641,19 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     return InkWell(
       onTap: _selectDeadline,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
             color: Colors.white, borderRadius: BorderRadius.circular(12)),
         child: Row(children: [
-          const Icon(Icons.calendar_today, color: _mainColor),
-          const SizedBox(width: 12),
+          const Icon(Icons.calendar_today, color: _mainColor, size: 18),
+          const SizedBox(width: 10),
           Text(
             _quoteDeadline == null
                 ? 'اضغط لتحديد التاريخ'
                 : DateFormat('dd/MM/yyyy').format(_quoteDeadline!),
             style: TextStyle(
-                fontSize: 15,
+                fontFamily: 'Cairo',
+                fontSize: 12.5,
                 color: _quoteDeadline == null ? Colors.grey : Colors.black),
           ),
         ]),
@@ -598,12 +666,19 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       return const SizedBox.shrink();
     }
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (_images.isNotEmpty) ...[
-          const Text('الصور:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'الصور:',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -634,13 +709,22 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
           const SizedBox(height: 12),
         ],
         if (_videos.isNotEmpty) ...[
-          const Text('الفيديوهات:',
-              style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'الفيديوهات:',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
           ..._videos.map((v) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.video_file, color: _mainColor),
                 title: Text(v.path.split('/').last,
-                    style: const TextStyle(fontSize: 13)),
+                    style:
+                        const TextStyle(fontFamily: 'Cairo', fontSize: 11.5)),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => setState(() => _videos.remove(v)),
@@ -649,12 +733,22 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
           const SizedBox(height: 12),
         ],
         if (_files.isNotEmpty) ...[
-          const Text('الملفات:', style: TextStyle(fontWeight: FontWeight.bold)),
+          const Text(
+            'الملفات:',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 8),
           ..._files.map((f) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.attach_file, color: _mainColor),
                 title: Text(f.path.split('/').last,
-                    style: const TextStyle(fontSize: 13)),
+                    style:
+                        const TextStyle(fontFamily: 'Cairo', fontSize: 11.5)),
                 trailing: IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
                   onPressed: () => setState(() => _files.remove(f)),
@@ -667,17 +761,17 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   Widget _audioPart() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: Colors.white, borderRadius: BorderRadius.circular(12)),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           IconButton(
             onPressed: _toggleRecording,
-            icon: Icon(_isRecording ? Icons.stop : Icons.mic, size: 40),
+            icon: Icon(_isRecording ? Icons.stop : Icons.mic, size: 34),
             color: _isRecording ? Colors.red : _mainColor,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Text(
             _isRecording
                 ? 'جاري التسجيل... اضغط للإيقاف'
@@ -685,7 +779,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                     ? 'تم التسجيل ✓'
                     : 'اضغط للبدء بالتسجيل',
             style: TextStyle(
-                fontSize: 14,
+                fontFamily: 'Cairo',
+                fontSize: 12,
                 color: _isRecording ? Colors.red : Colors.grey[700]),
           ),
         ]),

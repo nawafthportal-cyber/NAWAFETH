@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
@@ -31,6 +32,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   // ── Filters ──
   int? _selectedCatId;
   String _selectedSort = 'default';
+  Position? _clientPosition;
+  final Map<int, double> _distanceKmByProviderId = {};
 
   @override
   void initState() {
@@ -53,7 +56,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     }
   }
 
-  Future<void> _searchProviders() async {
+  Future<void> _searchProviders({bool requestLocationPermission = false}) async {
     if (mounted) setState(() => _loadingProviders = true);
     try {
       final q = _searchCtrl.text.trim();
@@ -65,6 +68,13 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       if (res.isSuccess && res.data != null) {
         final list = res.data is List ? res.data as List : (res.data['results'] as List?) ?? [];
         final providers = list.map((e) => ProviderPublicModel.fromJson(e as Map<String, dynamic>)).toList();
+        final distanceMap = await _buildDistanceMap(
+          providers,
+          requestPermission: _selectedSort == 'nearest' ? requestLocationPermission : false,
+        );
+        _distanceKmByProviderId
+          ..clear()
+          ..addAll(distanceMap);
         // Client-side sort
         _sortProviders(providers);
         if (mounted) setState(() { _providers = providers; _loadError = null; });
@@ -78,16 +88,81 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   }
 
   void _sortProviders(List<ProviderPublicModel> list) {
-    switch (_selectedSort) {
-      case 'rating':
-        list.sort((a, b) => b.ratingAvg.compareTo(a.ratingAvg));
-      case 'completed':
-        list.sort((a, b) => b.completedRequests.compareTo(a.completedRequests));
-      case 'followers':
-        list.sort((a, b) => b.followersCount.compareTo(a.followersCount));
-      default:
-        break;
+    if (_selectedSort == 'rating') {
+      list.sort((a, b) => b.ratingAvg.compareTo(a.ratingAvg));
+      return;
     }
+    if (_selectedSort == 'completed') {
+      list.sort((a, b) => b.completedRequests.compareTo(a.completedRequests));
+      return;
+    }
+    if (_selectedSort == 'followers') {
+      list.sort((a, b) => b.followersCount.compareTo(a.followersCount));
+      return;
+    }
+    if (_selectedSort == 'nearest') {
+      list.sort((a, b) {
+        final da = _distanceKmByProviderId[a.id] ?? double.infinity;
+        final db = _distanceKmByProviderId[b.id] ?? double.infinity;
+        return da.compareTo(db);
+      });
+    }
+  }
+
+  Future<Map<int, double>> _buildDistanceMap(
+    List<ProviderPublicModel> providers, {
+    required bool requestPermission,
+  }) async {
+    final result = <int, double>{};
+
+    final pos = await _resolveClientPosition(requestPermission: requestPermission);
+    if (pos == null) return result;
+
+    for (final provider in providers) {
+      final lat = provider.lat;
+      final lng = provider.lng;
+      if (lat == null || lng == null) continue;
+      final km = Geolocator.distanceBetween(
+            pos.latitude,
+            pos.longitude,
+            lat,
+            lng,
+          ) /
+          1000;
+      result[provider.id] = km;
+    }
+    return result;
+  }
+
+  Future<Position?> _resolveClientPosition({required bool requestPermission}) async {
+    if (_clientPosition != null) return _clientPosition;
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return null;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied && requestPermission) {
+      permission = await Geolocator.requestPermission();
+    }
+
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+
+    try {
+      _clientPosition = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
+      );
+    } catch (_) {
+      _clientPosition = null;
+    }
+
+    return _clientPosition;
   }
 
   void _onSearchChanged(String _) {
@@ -287,6 +362,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   void _openSortSheet(bool isDark, Color purple) {
     final opts = <Map<String, String>>[
       {'key': 'default', 'label': 'الافتراضي'},
+      {'key': 'nearest', 'label': 'الأقرب'},
       {'key': 'rating', 'label': 'أعلى تقييم'},
       {'key': 'completed', 'label': 'الأكثر طلبات مكتملة'},
       {'key': 'followers', 'label': 'الأكثر متابعة'},
@@ -321,7 +397,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                   return InkWell(
                     onTap: () {
                       setState(() => _selectedSort = o['key']!);
-                      _searchProviders();
+                      _searchProviders(
+                        requestLocationPermission: o['key'] == 'nearest',
+                      );
                       Navigator.pop(context);
                     },
                     child: Padding(
@@ -386,6 +464,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Widget _providerCard(ProviderPublicModel p, bool isDark, Color purple) {
     final profileUrl = ApiClient.buildMediaUrl(p.profileImage);
     final coverUrl = ApiClient.buildMediaUrl(p.coverImage);
+    final distanceKm = _distanceKmByProviderId[p.id];
 
     return GestureDetector(
       onTap: () => Navigator.push(context, MaterialPageRoute(
@@ -479,6 +558,18 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                           const SizedBox(width: 2),
                           Text(p.city!, style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo',
                               color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                        ],
+                      ),
+                    ],
+                    if (distanceKm != null) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.near_me_outlined, size: 11, color: Colors.blue.shade500),
+                          const SizedBox(width: 2),
+                          Text('${distanceKm.toStringAsFixed(1)} كم',
+                              style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w700, color: Colors.blue.shade600)),
                         ],
                       ),
                     ],

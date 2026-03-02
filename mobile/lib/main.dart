@@ -129,11 +129,7 @@ class _NawafethAppState extends State<NawafethApp> {
           '/orders': (context) => const OrdersHubScreen(),
           '/interactive': (context) => const InteractiveScreen(),
           '/profile': (context) => const MyProfileScreen(),
-          '/add_service': (context) => const _ModeRouteGuard(
-                allowProviderMode: false,
-                redirectRoute: '/profile',
-                child: AddServiceScreen(),
-              ),
+          '/add_service': (context) => const AddServiceScreen(),
 
           // ✅ الشاشات الجديدة
           '/login': (context) => const LoginScreen(),

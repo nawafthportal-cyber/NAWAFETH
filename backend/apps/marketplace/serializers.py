@@ -59,9 +59,16 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         subcategory = attrs.get("subcategory")
         attrs["city"] = city
 
-        # City is optional only for urgent broadcasts sent to all providers.
-        # For all other flows, keep city required.
-        if not city and not (request_type == "urgent" and dispatch_mode == "all"):
+        # City rules:
+        # - normal: required
+        # - urgent + nearest: required
+        # - urgent + all: optional
+        # - competitive: optional
+        city_required = (
+            request_type == "normal"
+            or (request_type == "urgent" and dispatch_mode == "nearest")
+        )
+        if city_required and not city:
             raise serializers.ValidationError({"city": "المدينة مطلوبة"})
 
         # Competitive/Urgent requests are broadcast to matching providers.
