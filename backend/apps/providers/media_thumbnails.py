@@ -11,13 +11,10 @@ from django.core.files.base import ContentFile
 from PIL import Image, ImageDraw
 
 
-def _thumbnail_storage_name(original_name: str) -> str:
+def _thumbnail_filename(original_name: str) -> str:
     original = (original_name or "").replace("\\", "/")
-    directory = posixpath.dirname(original)
     base = posixpath.splitext(posixpath.basename(original))[0] or "media"
-    if directory:
-        return f"{directory}/thumbs/{base}_thumb.jpg"
-    return f"thumbs/{base}_thumb.jpg"
+    return f"{base}_thumb.jpg"
 
 
 def _ffmpeg_binary() -> Optional[str]:
@@ -114,8 +111,13 @@ def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
         thumb_field = getattr(instance, "thumbnail", None)
         if thumb_field is None:
             return False
-        if getattr(thumb_field, "name", "") and not force:
-            return False
+        existing_name = (getattr(thumb_field, "name", "") or "").strip()
+        if existing_name and not force:
+            try:
+                if thumb_field.storage.exists(existing_name):
+                    return False
+            except Exception:
+                return False
 
         src_path = None
         try:
@@ -127,8 +129,8 @@ def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
         if not payload:
             return False
 
-        storage_name = _thumbnail_storage_name(getattr(instance.file, "name", ""))
-        if getattr(thumb_field, "name", "") and thumb_field.name != storage_name:
+        storage_name = _thumbnail_filename(getattr(instance.file, "name", ""))
+        if existing_name and existing_name != storage_name:
             try:
                 thumb_field.delete(save=False)
             except Exception:
@@ -138,4 +140,3 @@ def ensure_video_thumbnail(instance, *, force: bool = False) -> bool:
         return True
     except Exception:
         return False
-

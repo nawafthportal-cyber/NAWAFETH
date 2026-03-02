@@ -12,6 +12,21 @@ from .models import (
 )
 
 
+def _safe_file_url(field_file):
+    if not field_file:
+        return ""
+    try:
+        name = (field_file.name or "").strip()
+        if not name:
+            return ""
+        storage = getattr(field_file, "storage", None)
+        if storage and hasattr(storage, "exists") and not storage.exists(name):
+            return ""
+        return field_file.url
+    except Exception:
+        return ""
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
@@ -106,6 +121,12 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
+        data["cover_image"] = _safe_file_url(getattr(instance, "cover_image", None))
+        return data
+
 
 class ProviderPublicSerializer(serializers.ModelSerializer):
     followers_count = serializers.IntegerField(read_only=True)
@@ -155,6 +176,12 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
         except Exception:
             return 0
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
+        data["cover_image"] = _safe_file_url(getattr(instance, "cover_image", None))
+        return data
+
 
 class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
@@ -181,25 +208,11 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-    @staticmethod
-    def _safe_file_url(field_file):
-        if not field_file:
-            return ""
-        try:
-            name = (field_file.name or "").strip()
-            if not name:
-                return ""
-            if not field_file.storage.exists(name):
-                return ""
-            return field_file.url
-        except Exception:
-            return ""
-
     def get_file_url(self, obj):
-        return self._safe_file_url(getattr(obj, "file", None))
+        return _safe_file_url(getattr(obj, "file", None))
 
     def get_thumbnail_url(self, obj):
-        return self._safe_file_url(getattr(obj, "thumbnail", None))
+        return _safe_file_url(getattr(obj, "thumbnail", None))
 
     def get_likes_count(self, obj):
         try:
@@ -252,25 +265,11 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
-    @staticmethod
-    def _safe_file_url(field_file):
-        if not field_file:
-            return ""
-        try:
-            name = (field_file.name or "").strip()
-            if not name:
-                return ""
-            if not field_file.storage.exists(name):
-                return ""
-            return field_file.url
-        except Exception:
-            return ""
-
     def get_file_url(self, obj):
-        return self._safe_file_url(getattr(obj, "file", None))
+        return _safe_file_url(getattr(obj, "file", None))
 
     def get_thumbnail_url(self, obj):
-        return self._safe_file_url(getattr(obj, "thumbnail", None))
+        return _safe_file_url(getattr(obj, "thumbnail", None))
 
     def get_likes_count(self, obj):
         try:

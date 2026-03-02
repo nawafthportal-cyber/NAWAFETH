@@ -307,3 +307,35 @@ def test_provider_can_upload_profile_and_cover_images(settings, tmp_path):
     profile = ProviderProfile.objects.get(user__phone="0500000099")
     assert bool(profile.profile_image)
     assert bool(profile.cover_image)
+
+
+@pytest.mark.django_db
+def test_provider_profile_hides_missing_media_urls(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+    client = APIClient()
+    _register_and_auth_provider(client, phone="0500000100")
+    profile = ProviderProfile.objects.get(user__phone="0500000100")
+    profile.profile_image = "providers/profile/2026/03/missing_profile.jpg"
+    profile.cover_image = "providers/cover/2026/03/missing_cover.jpg"
+    profile.save(update_fields=["profile_image", "cover_image"])
+
+    me = client.get("/api/providers/me/profile/")
+    assert me.status_code == 200
+    me_payload = me.json()
+    assert me_payload.get("profile_image") == ""
+    assert me_payload.get("cover_image") == ""
+
+    public = client.get(f"/api/providers/{profile.id}/")
+    assert public.status_code == 200
+    public_payload = public.json()
+    assert public_payload.get("profile_image") == ""
+    assert public_payload.get("cover_image") == ""

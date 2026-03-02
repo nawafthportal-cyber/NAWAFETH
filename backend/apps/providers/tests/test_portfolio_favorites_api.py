@@ -148,6 +148,7 @@ def test_client_favorites_video_includes_thumbnail_url(settings, tmp_path):
     assert item["file_type"] == "video"
     assert item["file_url"]
     assert item.get("thumbnail_url")
+    assert "/thumbs/providers/portfolio/" not in (item.get("thumbnail_url") or "")
 
 
 @pytest.mark.django_db
@@ -278,8 +279,10 @@ def test_spotlights_are_separate_from_portfolio(settings, tmp_path):
     public_spotlights = provider_api.get(f"/api/providers/{provider_profile.id}/spotlights/")
     assert public_spotlights.status_code == 200
     spotlight_items = public_spotlights.json()
-    assert any(item["id"] == spotlight_id for item in spotlight_items)
+    spotlight_item = next(item for item in spotlight_items if item["id"] == spotlight_id)
     assert all(item.get("caption") != "portfolio only" for item in spotlight_items)
+    assert spotlight_item.get("thumbnail_url")
+    assert "/thumbs/providers/spotlights/" not in (spotlight_item.get("thumbnail_url") or "")
 
     assert ProviderPortfolioItem.objects.filter(id=portfolio_id).exists()
     assert ProviderSpotlightItem.objects.filter(id=spotlight_id).exists()
