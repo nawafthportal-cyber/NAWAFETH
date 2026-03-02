@@ -949,8 +949,305 @@
 }
 
 /* ====================================================================
-   PROFILE PAGE — Template aliases
+   PROFILE PAGE v2 — 1:1 Flutter match (نافذتي)
    ==================================================================== */
+
+/* ─── Hero: Cover + Avatar + Name + Stats (320px stacked) ─── */
+.pv2-hero {
+  position: relative;
+  margin-bottom: var(--space-lg);
+}
+
+/* Cover */
+.pv2-cover {
+  position: relative;
+  height: 150px;
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+  overflow: hidden;
+  background: linear-gradient(135deg, #4A148C, #7B1FA2);
+}
+@media (min-width: 769px) {
+  .pv2-cover { height: 200px; border-radius: var(--radius-xl); }
+}
+.pv2-cover img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+
+/* Cover top-bar mini buttons */
+.pv2-cover-bar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding: calc(env(safe-area-inset-top, 8px) + 8px) 14px 0;
+  display: flex;
+  gap: 8px;
+  z-index: 3;
+}
+.pv2-mini-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.15);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-decoration: none;
+}
+.pv2-mini-btn:hover { background: rgba(255,255,255,0.30); }
+
+/* Avatar — overlapping cover */
+.pv2-avatar-wrap {
+  display: flex; justify-content: center;
+  margin-top: -40px;
+  position: relative;
+  z-index: 2;
+}
+.pv2-avatar {
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  border: 3.5px solid var(--color-bg, #F5F5FA);
+  background: var(--color-surface);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(103,58,183,0.18);
+  position: relative;
+}
+.pv2-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.pv2-avatar-initials {
+  font-size: 28px; font-weight: 800;
+  color: var(--color-text-tertiary);
+}
+
+/* Name + Username */
+.pv2-name {
+  text-align: center;
+  font-size: 16px; font-weight: 700;
+  color: var(--color-text);
+  margin: 8px 0 1px;
+}
+.pv2-username {
+  text-align: center;
+  font-size: 11.5px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+
+/* Upload progress bar */
+.pv2-upload-bar {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 11px; color: var(--color-text-tertiary);
+}
+.pv2-spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: pv2spin .7s linear infinite;
+}
+@keyframes pv2spin { to { transform: rotate(360deg); } }
+
+/* Stats card (inside hero) */
+.pv2-stats {
+  display: flex; align-items: center; justify-content: space-evenly;
+  margin: 10px 32px 0;
+  padding: 8px 4px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.pv2-stat {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 1px;
+}
+.pv2-stat-num {
+  font-size: 14px; font-weight: 800;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+.pv2-stat-lbl {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+.pv2-stat-div {
+  width: 1px; height: 24px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* ─── Account Mode Toggle ─── */
+.pv2-mode-toggle {
+  display: flex;
+  margin: 6px 40px 10px;
+  padding: 3px;
+  border-radius: 16px;
+  background: #f5f5f5;
+}
+@media (min-width: 769px) {
+  .pv2-mode-toggle { max-width: 340px; margin-left: auto; margin-right: auto; }
+}
+.pv2-mode-chip {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px;
+  padding: 9px 0;
+  border: none;
+  border-radius: 13px;
+  background: transparent;
+  font-family: 'Cairo', sans-serif;
+  font-size: 12px; font-weight: 600;
+  color: #9e9e9e;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.pv2-mode-chip.active {
+  background: #fff;
+  color: var(--color-primary);
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(103,58,183,0.12);
+}
+.pv2-mode-chip:not(.active):hover {
+  color: var(--color-primary);
+  background: rgba(103,58,183,0.04);
+}
+
+/* ─── Quick actions row (always 4 cols) ─── */
+.pv2-quick-row {
+  display: flex;
+  gap: 8px;
+  padding: 6px 16px 10px;
+}
+.pv2-qa {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px;
+  padding: 12px 4px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 3px 10px rgba(103,58,183,0.06);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+.pv2-qa:hover {
+  box-shadow: 0 4px 14px rgba(103,58,183,0.14);
+  transform: translateY(-1px);
+}
+.pv2-qa-icon {
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: rgba(103,58,183,0.08);
+}
+.pv2-qa span {
+  font-size: 10.5px; font-weight: 600;
+  color: var(--color-text);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ─── Menu card (single card, dividers) ─── */
+.pv2-menu-card {
+  margin: 0 16px;
+  background: var(--color-surface);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  overflow: hidden;
+}
+.pv2-menu-tile {
+  display: flex; align-items: center;
+  padding: 13px 14px;
+  gap: 12px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  text-decoration: none;
+}
+.pv2-menu-tile:hover {
+  background: rgba(103,58,183,0.04);
+}
+.pv2-menu-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: rgba(103,58,183,0.08);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pv2-menu-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.pv2-menu-label {
+  font-size: 12.5px; font-weight: 600;
+  color: var(--color-text);
+}
+.pv2-menu-sub {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+.pv2-menu-sub:empty { display: none; }
+.pv2-menu-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(103,58,183,0.08);
+  font-size: 10px; font-weight: 700;
+  color: var(--color-primary);
+}
+.pv2-chevron {
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+}
+.pv2-menu-div {
+  height: 1px;
+  margin: 0 14px;
+  background: var(--color-border);
+}
+
+/* ─── Provider CTA ─── */
+.pv2-provider-cta {
+  display: flex; align-items: center;
+  gap: 12px;
+  margin: 12px 16px 0;
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #EDE7F6, #fff);
+  border: 1px solid rgba(103,58,183,0.12);
+}
+.pv2-cta-icon {
+  width: 42px; height: 42px;
+  border-radius: 50%;
+  background: rgba(103,58,183,0.10);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pv2-cta-body {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column;
+}
+.pv2-cta-title {
+  font-size: 12.5px; font-weight: 700;
+  color: var(--color-text);
+}
+.pv2-cta-sub {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+.pv2-cta-btn {
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 10.5px; font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: opacity var(--transition-fast);
+}
+.pv2-cta-btn:hover { opacity: .88; }
+
+/* ═══ Legacy profile aliases (keep for provider section / KPIs) ═══ */
 .profile-info {
   padding: 0 var(--space-lg);
   text-align: right;
