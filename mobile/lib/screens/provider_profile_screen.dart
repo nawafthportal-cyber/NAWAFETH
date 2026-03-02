@@ -15,7 +15,6 @@ import '../services/api_client.dart';
 import '../models/provider_public_model.dart';
 import 'chat_detail_screen.dart';
 import 'provider_dashboard/reviews_tab.dart';
-import 'service_detail_screen.dart';
 import 'service_request_form_screen.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
@@ -124,7 +123,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   // معرض خدماتي من API — مجموعة حسب subcategory
   List<Map<String, dynamic>> get serviceGallerySections {
-    if (_apiPortfolio.isEmpty) return [];
     final grouped = <String, List<Map<String, dynamic>>>{};
 
     for (final item in _apiPortfolio) {
@@ -150,15 +148,37 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       });
     }
 
-    if (grouped.isEmpty) return [];
-    return grouped.entries
-        .map(
-          (entry) => <String, dynamic>{
-            'title': entry.key,
-            'items': entry.value,
-          },
-        )
+    final rawSections = _providerDetail?.contentSections ?? const <dynamic>[];
+    final definedSections = rawSections
+        .whereType<Map>()
+        .map((section) => Map<String, dynamic>.from(section))
         .toList();
+
+    // Prefer explicit sections configured in provider profile content.
+    if (definedSections.isNotEmpty) {
+      final result = <Map<String, dynamic>>[];
+      for (final section in definedSections) {
+        final title = (section['title'] ?? '').toString().trim();
+        if (title.isEmpty) continue;
+        final sectionDesc = (section['description'] ?? '').toString().trim();
+        result.add({
+          'title': title,
+          'section_desc': sectionDesc,
+          'items': List<Map<String, dynamic>>.from(grouped[title] ?? const []),
+        });
+      }
+      return result;
+    }
+
+    // Fallback for old providers who have portfolio items but no content_sections.
+    if (grouped.isEmpty) return [];
+    return grouped.entries.map((entry) {
+      return <String, dynamic>{
+        'title': entry.key,
+        'section_desc': '',
+        'items': entry.value,
+      };
+    }).toList();
   }
 
   String _extractPortfolioSectionTitle(String caption) {
@@ -2527,40 +2547,29 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             final title = (service["title"] ?? '').toString().trim();
             final description =
                 (service["description"] ?? '').toString().trim();
-            final image = (service["image"] ?? '').toString().trim();
             final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
             final categoryLabel = _serviceCategoryFromService(service);
             final subCategoryLabel = _serviceSubCategoryFromService(service);
+            final providerId = _resolvedProviderId?.toString();
 
-            return InkWell(
-              onTap: () {
+            return _serviceCard(
+              index: index + 1,
+              title: serviceTitle,
+              description: description,
+              priceLabel: _servicePriceLabel(service),
+              categoryLabel: categoryLabel,
+              subCategoryLabel: subCategoryLabel,
+              onRequest: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => ServiceDetailScreen(
-                      title: serviceTitle,
-                      images: image.isNotEmpty ? [image] : <String>[],
-                      description: description,
-                      likes: _asInt(service["likes"]),
-                      filesCount: _asInt(service["files"]),
-                      initialCommentsCount: _asInt(service["comments"]),
-                      providerId: _resolvedProviderId,
+                    builder: (_) => ServiceRequestFormScreen(
                       providerName: providerName,
-                      providerHandle: providerHandle,
-                      providerImage: providerImage,
+                      providerId: providerId,
                     ),
                   ),
                 );
               },
-              borderRadius: BorderRadius.circular(14),
-              child: _serviceCard(
-                index: index + 1,
-                title: serviceTitle,
-                description: description,
-                priceLabel: _servicePriceLabel(service),
-                categoryLabel: categoryLabel,
-                subCategoryLabel: subCategoryLabel,
-              ),
             );
           },
         ),
@@ -2635,13 +2644,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     required String priceLabel,
     required String categoryLabel,
     required String subCategoryLabel,
+    required VoidCallback onRequest,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? Colors.grey[850] : Colors.white;
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
     final titleColor = isDark ? Colors.white : Colors.black87;
     final descColor = isDark ? Colors.grey[350]! : Colors.grey.shade700;
-    final hintColor = isDark ? Colors.grey[400]! : Colors.grey.shade600;
     final hasDescription = description.isNotEmpty;
     final hasCategory = categoryLabel.isNotEmpty;
     final hasSubCategory = subCategoryLabel.isNotEmpty;
@@ -2701,7 +2710,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   ),
                 ),
               ),
-              Icon(Icons.chevron_left_rounded, color: hintColor, size: 20),
             ],
           ),
           if (hasDescription) ...[
@@ -2741,20 +2749,29 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Icon(Icons.info_outline_rounded, size: 15, color: hintColor),
-              const SizedBox(width: 6),
-              Text(
-                'اضغط لعرض تفاصيل الخدمة',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: hintColor,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onRequest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: mainColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
-            ],
+              icon: const Icon(Icons.add_circle_outline, size: 18),
+              label: const Text(
+                'اطلب الخدمة',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -2864,53 +2881,95 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 'المعرض فارغ حالياً. عند إضافة محتوى من حساب مقدم الخدمة سيظهر هنا.',
           ),
         for (final section in sections) ...[
-          Row(
-            children: [
-              Text(
-                section['title'] as String,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  color: textColor,
-                ),
+          ...() {
+            final sectionItems = (section['items'] as List?) ?? const [];
+            final sectionDesc =
+                (section['section_desc'] ?? '').toString().trim();
+            return [
+              Row(
+                children: [
+                  Text(
+                    section['title'] as String,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${sectionItems.length} محتوى',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                ],
               ),
-              const Spacer(),
-              Text(
-                '${(section['items'] as List).length} محتوى',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  color: secondaryTextColor,
+              if (sectionDesc.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  sectionDesc,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    color: secondaryTextColor,
+                    height: 1.4,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: (section['items'] as List).length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 0.86,
-            ),
-            itemBuilder: (context, index) {
-              final item =
-                  (section['items'] as List)[index] as Map<String, dynamic>;
-              return _galleryMediaTile(
-                item: item,
-                cardColor: cardColor,
-                borderColor: borderColor,
-                secondaryTextColor: secondaryTextColor,
-                section: section,
-                indexInSection: index,
-              );
-            },
-          ),
-          const SizedBox(height: 18),
+              ],
+              const SizedBox(height: 10),
+              if (sectionItems.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 14,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: borderColor),
+                  ),
+                  child: Text(
+                    'لا يوجد محتوى مرئي مرفق في هذا القسم حالياً.',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10.8,
+                      color: secondaryTextColor,
+                    ),
+                  ),
+                )
+              else
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sectionItems.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 0.86,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = sectionItems[index] as Map<String, dynamic>;
+                    return _galleryMediaTile(
+                      item: item,
+                      cardColor: cardColor,
+                      borderColor: borderColor,
+                      secondaryTextColor: secondaryTextColor,
+                      section: section,
+                      indexInSection: index,
+                    );
+                  },
+                ),
+              const SizedBox(height: 18),
+            ];
+          }(),
         ],
       ],
     );

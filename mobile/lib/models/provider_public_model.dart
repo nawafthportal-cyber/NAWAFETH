@@ -26,6 +26,7 @@ class ProviderPublicModel {
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
   final List<dynamic> qualifications;
+  final List<dynamic> contentSections;
   final double ratingAvg;
   final int ratingCount;
   final String? createdAt;
@@ -58,6 +59,7 @@ class ProviderPublicModel {
     this.isVerifiedBlue = false,
     this.isVerifiedGreen = false,
     this.qualifications = const [],
+    this.contentSections = const [],
     this.ratingAvg = 0.0,
     this.ratingCount = 0,
     this.createdAt,
@@ -83,9 +85,8 @@ class ProviderPublicModel {
       socialLinks: json['social_links'] is List
           ? json['social_links'] as List<dynamic>
           : [],
-      languages: json['languages'] is List
-          ? json['languages'] as List<dynamic>
-          : [],
+      languages:
+          json['languages'] is List ? json['languages'] as List<dynamic> : [],
       city: _parseString(json['city']),
       lat: _parseDouble(json['lat']),
       lng: _parseDouble(json['lng']),
@@ -95,6 +96,9 @@ class ProviderPublicModel {
       isVerifiedGreen: _parseBool(json['is_verified_green']),
       qualifications: json['qualifications'] is List
           ? json['qualifications'] as List<dynamic>
+          : [],
+      contentSections: json['content_sections'] is List
+          ? json['content_sections'] as List<dynamic>
           : [],
       ratingAvg: _parseDouble(json['rating_avg']) ?? 0.0,
       ratingCount: _parseInt(json['rating_count']) ?? 0,
@@ -145,10 +149,19 @@ class ProviderPublicModel {
     if (value is num) return value != 0;
     if (value is String) {
       final text = value.trim().toLowerCase();
-      if (text == 'true' || text == '1' || text == 'yes' || text == 'y' || text == 'on') {
+      if (text == 'true' ||
+          text == '1' ||
+          text == 'yes' ||
+          text == 'y' ||
+          text == 'on') {
         return true;
       }
-      if (text == 'false' || text == '0' || text == 'no' || text == 'n' || text == 'off' || text.isEmpty) {
+      if (text == 'false' ||
+          text == '0' ||
+          text == 'no' ||
+          text == 'n' ||
+          text == 'off' ||
+          text.isEmpty) {
         return false;
       }
     }

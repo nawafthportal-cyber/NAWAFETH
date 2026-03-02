@@ -166,6 +166,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "is_verified_blue",
             "is_verified_green",
             "qualifications",
+            "content_sections",
             "rating_avg",
             "rating_count",
             "created_at",
