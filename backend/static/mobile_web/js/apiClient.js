@@ -7,6 +7,7 @@
 const ApiClient = (() => {
   // Base URL — auto-detect from current origin (same Django server)
   const BASE = window.location.origin;
+  let _refreshing = null; // singleton refresh promise to avoid concurrent refreshes
 
   /**
    * Get stored JWT access token (if user is authenticated).
@@ -16,10 +17,39 @@ const ApiClient = (() => {
     try { return sessionStorage.getItem('nw_access_token'); } catch { return null; }
   }
 
+  /** Try to refresh the access token. Returns true on success. */
+  async function _tryRefresh() {
+    let refresh;
+    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch { return false; }
+    if (!refresh) return false;
+    try {
+      const res = await fetch(BASE + '/api/accounts/token/refresh/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d && d.access) {
+          try { sessionStorage.setItem('nw_access_token', d.access); } catch {}
+          return true;
+        }
+      }
+    } catch { /* network error */ }
+    // Refresh failed — clear expired tokens so AllowAny endpoints work
+    try {
+      sessionStorage.removeItem('nw_access_token');
+      sessionStorage.removeItem('nw_refresh_token');
+    } catch {}
+    return false;
+  }
+
   /**
-   * Core fetch helper with timeout support.
+   * Core fetch helper with timeout support and automatic 401 retry.
+   * On 401: tries to refresh the JWT token and retries the request.
+   * If refresh fails, retries once without auth header (for AllowAny endpoints).
    * @param {string} path  — API path starting with /
-   * @param {object} opts  — { method, body, timeout }
+   * @param {object} opts  — { method, body, timeout, _retried }
    * @returns {Promise<{ok:boolean, status:number, data:*}>}
    */
   async function request(path, opts = {}) {
@@ -50,6 +80,16 @@ const ApiClient = (() => {
         signal: controller.signal,
       });
       if (timeoutId) clearTimeout(timeoutId);
+
+      // ── 401 auto-retry: refresh token then retry, or retry without auth ──
+      if (res.status === 401 && !opts._retried && token) {
+        // Deduplicate concurrent refresh attempts
+        if (!_refreshing) _refreshing = _tryRefresh().finally(() => { _refreshing = null; });
+        const refreshed = await _refreshing;
+        // Retry with new token (or without token if refresh failed)
+        return request(path, Object.assign({}, opts, { _retried: true }));
+      }
+
       const data = res.headers.get('content-type')?.includes('json')
         ? await res.json()
         : null;

@@ -97,6 +97,8 @@ CONTENT_SECURITY_POLICY = {
 		"img-src": ("'self'", "data:", "https:"),
 		"style-src": ("'self'", "'unsafe-inline'", "https:"),
 		"script-src": ("'self'", "'unsafe-inline'", "https:"),
+		"font-src": ("'self'", "https://fonts.gstatic.com", "data:"),
+		"connect-src": ("'self'", "https:"),
 	}
 }
 
