@@ -38,30 +38,52 @@
         <p class="profile-role" id="profile-role"></p>
       </div>
 
+      <!-- Account mode toggle (client/provider) -->
+      <div class="profile-mode-toggle hidden" id="profile-mode-toggle">
+        <button class="mode-chip active" id="mode-client-btn" type="button" data-mode="client">عميل</button>
+        <button class="mode-chip" id="mode-provider-btn" type="button" data-mode="provider">مقدم خدمة</button>
+      </div>
+
       <!-- Stats -->
       <div class="profile-stats" id="profile-stats">
-        <div class="stat-item"><span class="stat-value" id="stat-following">0</span><span class="stat-label">متابعاتي</span></div>
-        <div class="stat-item"><span class="stat-value" id="stat-likes">0</span><span class="stat-label">إعجابات</span></div>
-        <div class="stat-item"><span class="stat-value" id="stat-favorites">0</span><span class="stat-label">مفضلتي</span></div>
+        <div class="stat-item"><span class="stat-value" id="stat-following">0</span><span class="stat-label" id="stat-following-label">متابعاتي</span></div>
+        <div class="stat-item"><span class="stat-value" id="stat-likes">0</span><span class="stat-label" id="stat-likes-label">إعجابات</span></div>
+        <div class="stat-item"><span class="stat-value" id="stat-favorites">0</span><span class="stat-label" id="stat-favorites-label">مفضلتي</span></div>
+      </div>
+
+      <!-- Provider KPI row (shown in provider mode) -->
+      <div class="provider-dashboard-strip hidden" id="provider-dashboard-strip">
+        <a href="/orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-urgent">0</span>
+          <span class="provider-kpi-label">طلبات عاجلة</span>
+        </a>
+        <a href="/orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-new">0</span>
+          <span class="provider-kpi-label">طلبات جديدة</span>
+        </a>
+        <a href="/orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-completed">0</span>
+          <span class="provider-kpi-label">مكتمل</span>
+        </a>
       </div>
 
       <!-- Quick actions -->
       <div class="profile-actions">
-        <a href="/orders/" class="action-card">
+        <a href="/orders/" class="action-card" id="action-orders">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="#673AB7"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
-          <span>طلباتي</span>
+          <span id="action-orders-label">طلباتي</span>
         </a>
-        <a href="/interactive/" class="action-card">
+        <a href="/interactive/" class="action-card" id="action-interactive">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          <span>تفاعلي</span>
+          <span id="action-interactive-label">تفاعلي</span>
         </a>
-        <a href="/notifications/" class="action-card">
+        <a href="/notifications/" class="action-card" id="action-notifications">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-          <span>الإشعارات</span>
+          <span id="action-notifications-label">الإشعارات</span>
         </a>
-        <a href="/chats/" class="action-card">
+        <a href="/chats/" class="action-card" id="action-last">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="#673AB7"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
-          <span>المحادثات</span>
+          <span id="action-last-label">المحادثات</span>
         </a>
       </div>
 
@@ -87,7 +109,7 @@
       <!-- Provider card (if registered) -->
       <div class="provider-section hidden" id="provider-section">
         <div class="section-header">
-          <h2 class="section-title">ملفي كمقدم خدمة</h2>
+          <h2 class="section-title" id="provider-section-title">ملفي كمقدم خدمة</h2>
         </div>
         <div class="provider-profile-card" id="provider-card"></div>
       </div>

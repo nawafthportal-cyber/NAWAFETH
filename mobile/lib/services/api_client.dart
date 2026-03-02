@@ -158,33 +158,73 @@ class ApiClient {
 
   /// تحليل الاستجابة (public for multipart usage)
   static ApiResponse parseResponse(http.Response response) {
-    try {
-      final body = utf8.decode(response.bodyBytes);
-      final data = body.isNotEmpty ? jsonDecode(body) : null;
+    final statusCode = response.statusCode;
+    final contentType = (response.headers['content-type'] ?? '').toLowerCase();
+    final body = utf8.decode(response.bodyBytes, allowMalformed: true).trim();
 
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        return ApiResponse(
-          statusCode: response.statusCode,
-          data: data,
-        );
-      } else {
-        String errorMessage = 'خطأ غير معروف';
-        if (data is Map) {
-          errorMessage = data['detail'] as String? ??
-              data['error'] as String? ??
-              data.toString();
+    dynamic data;
+    if (body.isNotEmpty) {
+      final looksLikeJson = body.startsWith('{') || body.startsWith('[');
+      if (contentType.contains('json') || looksLikeJson) {
+        try {
+          data = jsonDecode(body);
+        } catch (_) {
+          data = null;
         }
-        return ApiResponse(
-          statusCode: response.statusCode,
-          data: data,
-          error: errorMessage,
-        );
       }
-    } catch (e) {
-      return ApiResponse(
-        statusCode: response.statusCode,
-        error: 'خطأ في تحليل الاستجابة',
-      );
+    }
+
+    if (statusCode >= 200 && statusCode < 300) {
+      return ApiResponse(statusCode: statusCode, data: data);
+    }
+
+    String errorMessage = _defaultErrorMessage(statusCode);
+    if (data is Map) {
+      errorMessage = data['detail'] as String? ??
+          data['error'] as String? ??
+          data.toString();
+    } else if (body.isNotEmpty) {
+      final plain = body
+          .replaceAll(RegExp(r'<[^>]*>'), ' ')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .trim();
+      if (plain.isNotEmpty) {
+        errorMessage = plain.length > 220
+            ? '${plain.substring(0, 220)}...'
+            : plain;
+      }
+    }
+
+    return ApiResponse(
+      statusCode: statusCode,
+      data: data,
+      error: errorMessage,
+    );
+  }
+
+  static String _defaultErrorMessage(int statusCode) {
+    switch (statusCode) {
+      case 400:
+        return 'البيانات المرسلة غير صحيحة';
+      case 401:
+        return 'انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى';
+      case 403:
+        return 'ليس لديك صلاحية لتنفيذ هذا الإجراء';
+      case 404:
+        return 'العنصر المطلوب غير موجود';
+      case 413:
+        return 'حجم الملف كبير جدًا';
+      case 415:
+        return 'صيغة الملف غير مدعومة';
+      case 429:
+        return 'تم تجاوز الحد المسموح من الطلبات، حاول لاحقًا';
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return 'حدث خطأ في الخادم، حاول مرة أخرى';
+      default:
+        return 'حدث خطأ غير متوقع';
     }
   }
 

@@ -19,10 +19,10 @@ const TwofaPage = (() => {
     }
 
     const qs = new URLSearchParams(window.location.search);
-    _phone = (qs.get('phone') || _sessionGet('nw_auth_phone') || '').trim();
+    _phone = _normalizePhone05(qs.get('phone') || _sessionGet('nw_auth_phone') || '');
     _next = (qs.get('next') || '/').trim() || '/';
 
-    if (!_phone) {
+    if (!_phone || !_isValidPhone05(_phone)) {
       window.location.href = '/login/?next=' + encodeURIComponent(_next);
       return;
     }
@@ -51,6 +51,18 @@ const TwofaPage = (() => {
     } catch {
       return null;
     }
+  }
+
+  function _normalizePhone05(value) {
+    const digits = String(value || '').replace(/[^\d]/g, '');
+    if (/^05\d{8}$/.test(digits)) return digits;
+    if (/^5\d{8}$/.test(digits)) return '0' + digits;
+    if (/^9665\d{8}$/.test(digits)) return '0' + digits.slice(3);
+    return digits.slice(0, 10);
+  }
+
+  function _isValidPhone05(phone) {
+    return /^05\d{8}$/.test(String(phone || ''));
   }
 
   function _sessionSet(key, value) {

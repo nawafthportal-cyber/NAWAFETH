@@ -1,169 +1,330 @@
 /* ===================================================================
-   providerDetailPage.js — Provider public profile detail
-   GET /api/providers/{id}/
-   GET /api/providers/{id}/services/
-   GET /api/providers/{id}/portfolio/
-   GET /api/reviews/providers/{id}/reviews/
-   GET /api/reviews/providers/{id}/rating/
-   POST /api/providers/{id}/follow/
-   POST /api/providers/{id}/unfollow/
+   providerDetailPage.js — Provider public profile detail (redesigned)
+   Mirrors the Flutter ProviderProfileScreen layout.
    =================================================================== */
 'use strict';
 
 const ProviderDetailPage = (() => {
   let _providerId = null;
   let _isFollowing = false;
+  let _isBookmarked = false;
   let _activeTab = 'profile';
+  let _providerData = null;
+  let _providerPhone = '';
 
   function init() {
-    // Extract provider ID from URL: /provider/123/
     const match = window.location.pathname.match(/\/provider\/(\d+)/);
-    if (!match) { document.body.innerHTML = '<p style="text-align:center;padding:60px">مقدم الخدمة غير موجود</p>'; return; }
+    if (!match) {
+      document.querySelector('.pd-page').textContent = '';
+      const msg = UI.el('div', { className: 'pd-empty', style: { padding: '80px 20px' } });
+      msg.appendChild(UI.el('div', { className: 'pd-empty-icon', textContent: '🔍' }));
+      msg.appendChild(UI.el('p', { textContent: 'مقدم الخدمة غير موجود' }));
+      document.querySelector('.pd-page').appendChild(msg);
+      return;
+    }
     _providerId = match[1];
 
-    // Tab clicks
-    document.getElementById('prov-tabs').addEventListener('click', e => {
-      const btn = e.target.closest('.tab-btn');
+    _bindTabs();
+    _bindActions();
+    _loadAll();
+  }
+
+  /* ── Tabs ── */
+  function _bindTabs() {
+    document.getElementById('pd-tabs').addEventListener('click', e => {
+      const btn = e.target.closest('.pd-tab');
       if (!btn) return;
-      document.querySelectorAll('#prov-tabs .tab-btn').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.pd-tab').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
       _activeTab = btn.dataset.tab;
-      _switchTab();
+      document.querySelectorAll('.pd-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('tab-' + _activeTab);
+      if (panel) panel.classList.add('active');
     });
+  }
 
-    // Action buttons
+  /* ── Action buttons ── */
+  function _bindActions() {
     document.getElementById('btn-follow').addEventListener('click', _toggleFollow);
+
+    // Message
     const msgBtn = document.getElementById('btn-message');
     if (msgBtn) msgBtn.addEventListener('click', () => {
-      if (!Auth.isLoggedIn()) { Auth.requireLogin(window.location.pathname); return; }
+      if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
       window.location.href = '/chats/?start=' + _providerId;
     });
+
+    // Request service
     document.getElementById('btn-request').addEventListener('click', () => {
       window.location.href = '/search/?provider=' + _providerId;
     });
 
-    _loadProvider();
-    _loadServices();
-    _loadPortfolio();
-    _loadReviews();
-  }
+    // Call
+    const callBtn = document.getElementById('btn-call');
+    if (callBtn) callBtn.addEventListener('click', () => {
+      if (_providerPhone) window.open('tel:' + _formatPhoneE164(_providerPhone));
+    });
 
-  function _switchTab() {
-    ['profile', 'services', 'portfolio', 'reviews'].forEach(t => {
-      const panel = document.getElementById('tab-' + t);
-      if (panel) panel.classList.toggle('hidden', t !== _activeTab);
+    // WhatsApp (header + profile tab)
+    ['btn-whatsapp', 'pd-btn-whatsapp'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', e => {
+        e.preventDefault();
+        if (!_providerPhone) return;
+        const phone = _formatPhoneE164(_providerPhone).replace('+', '');
+        const name = _providerData?.display_name || '';
+        const msg = encodeURIComponent('السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @' + name);
+        window.open('https://wa.me/' + phone + '?text=' + msg, '_blank');
+      });
+    });
+
+    // Profile tab quick actions
+    const qCall = document.getElementById('pd-btn-call');
+    if (qCall) qCall.addEventListener('click', e => {
+      e.preventDefault();
+      if (_providerPhone) window.open('tel:' + _formatPhoneE164(_providerPhone));
+    });
+    const qChat = document.getElementById('pd-btn-chat');
+    if (qChat) qChat.addEventListener('click', e => {
+      e.preventDefault();
+      if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
+      window.location.href = '/chats/?start=' + _providerId;
+    });
+
+    // Bookmark
+    const bookmarkBtn = document.getElementById('btn-bookmark');
+    if (bookmarkBtn) bookmarkBtn.addEventListener('click', () => {
+      _isBookmarked = !_isBookmarked;
+      bookmarkBtn.classList.toggle('bookmarked', _isBookmarked);
+      const svg = bookmarkBtn.querySelector('svg');
+      if (svg) svg.setAttribute('fill', _isBookmarked ? '#fff' : 'none');
+    });
+
+    // Share
+    const shareBtn = document.getElementById('btn-share');
+    if (shareBtn) shareBtn.addEventListener('click', async () => {
+      const url = window.location.href;
+      if (navigator.share) {
+        try { await navigator.share({ title: document.title, url }); } catch {}
+      } else {
+        try { await navigator.clipboard.writeText(url); _showToast('تم نسخ الرابط'); } catch {}
+      }
     });
   }
 
-  /* ---------- Provider profile ---------- */
-  async function _loadProvider() {
-    const res = await ApiClient.get('/api/providers/' + _providerId + '/');
-    if (!res.ok || !res.data) return;
-    const p = res.data;
+  /* ── Load all data ── */
+  async function _loadAll() {
+    const [provRes, statsRes] = await Promise.all([
+      ApiClient.get('/api/providers/' + _providerId + '/'),
+      ApiClient.get('/api/providers/' + _providerId + '/stats/')
+    ]);
 
-    // Cover
-    const coverEl = document.getElementById('prov-cover');
-    if (p.cover_image) {
-      coverEl.innerHTML = '';
-      coverEl.appendChild(UI.lazyImg(ApiClient.mediaUrl(p.cover_image), ''));
+    if (provRes.ok && provRes.data) {
+      _providerData = provRes.data;
+      _renderProvider(provRes.data, statsRes.ok ? statsRes.data : null);
     }
 
-    // Avatar
-    const avatarEl = document.getElementById('prov-avatar');
+    // Parallel: services, portfolio, reviews, spotlights
+    _loadServices();
+    _loadPortfolio();
+    _loadReviews();
+    _loadSpotlights();
+  }
+
+  /* ═══════════════════════════════════════════════
+     RENDER PROVIDER PROFILE
+     ═══════════════════════════════════════════════ */
+  function _renderProvider(p, stats) {
+    _providerPhone = p.phone || p.whatsapp || '';
+
+    // ── Cover ──
+    const coverEl = document.getElementById('pd-cover');
+    if (p.cover_image) {
+      const img = UI.lazyImg(ApiClient.mediaUrl(p.cover_image), 'غلاف');
+      img.style.position = 'absolute';
+      img.style.inset = '0';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      coverEl.insertBefore(img, coverEl.firstChild);
+    }
+
+    // ── Avatar ──
+    const avatarEl = document.getElementById('pd-avatar');
     if (p.profile_image) {
-      avatarEl.innerHTML = '';
-      avatarEl.appendChild(UI.lazyImg(ApiClient.mediaUrl(p.profile_image), ''));
+      avatarEl.textContent = '';
+      avatarEl.appendChild(UI.lazyImg(ApiClient.mediaUrl(p.profile_image), p.display_name || ''));
     } else {
       avatarEl.textContent = (p.display_name || '').charAt(0) || '؟';
     }
 
-    // Name + badge
-    document.getElementById('prov-name').textContent = p.display_name || '';
-    const badge = document.getElementById('prov-badge');
-    if (p.is_verified_blue) { badge.innerHTML = ''; badge.appendChild(UI.icon('verified_blue', 18, '#2196F3')); }
-    else if (p.is_verified_green) { badge.innerHTML = ''; badge.appendChild(UI.icon('verified_green', 18, '#4CAF50')); }
-    else badge.classList.add('hidden');
-
-    // @handle
-    const handleEl = document.getElementById('prov-handle');
-    if (handleEl) handleEl.textContent = p.username ? ('@' + p.username) : '';
-
-    // Category label
-    const catEl = document.getElementById('prov-category');
-    if (catEl) catEl.textContent = p.category_name || p.main_category || '';
-
-    document.getElementById('prov-city').textContent = p.city || '';
-
-    // Bio
-    const bioEl = document.getElementById('prov-bio');
-    if (bioEl) bioEl.textContent = p.bio || p.description || 'لا توجد نبذة';
-
-    // Contact info
-    const contactList = document.getElementById('prov-contact-list');
-    if (contactList) {
-      contactList.innerHTML = '';
-      if (p.city) _addContactRow(contactList, 'location_on', p.city);
-      if (p.phone && p.show_phone) _addContactRow(contactList, 'phone', p.phone);
-      if (p.email && p.show_email) _addContactRow(contactList, 'email', p.email);
-      if (p.website) _addContactRow(contactList, 'language', p.website);
+    // ── Badge ──
+    const badge = document.getElementById('pd-verified-badge');
+    if (p.is_verified_blue || p.is_verified_green) {
+      badge.classList.remove('hidden');
+      const color = p.is_verified_blue ? '#2196F3' : '#4CAF50';
+      badge.querySelector('svg').setAttribute('fill', color);
     }
 
-    // Working hours
+    // ── Name & handle ──
+    _setText('pd-name', p.display_name || '');
+    _setText('pd-handle', p.username ? ('@' + p.username) : '');
+
+    // ── Category & city chips ──
+    const catEl = document.getElementById('pd-category');
+    const catName = p.category_name || p.main_category || '';
+    if (catEl) {
+      catEl.textContent = catName;
+      if (!catName) catEl.style.display = 'none';
+    }
+
+    const cityEl = document.getElementById('pd-city');
+    if (cityEl) {
+      if (p.city) {
+        cityEl.textContent = '📍 ' + p.city;
+      } else {
+        cityEl.style.display = 'none';
+      }
+    }
+
+    // ── Stats ──
+    const completed = stats?.completed_requests ?? p.completed_requests ?? p.completed_orders_count ?? 0;
+    const followers = stats?.followers_count ?? p.followers_count ?? 0;
+    const likes = stats?.likes_count ?? p.likes_count ?? 0;
+    const rating = p.rating_avg ? parseFloat(p.rating_avg).toFixed(1) : '-';
+
+    _setText('stat-completed', completed);
+    _setText('stat-followers', followers);
+    _setText('stat-likes', likes);
+    _setText('stat-rating', rating);
+
+    // ── Follow state ──
+    _isFollowing = !!p.is_following;
+    _updateFollowBtn();
+
+    // ── Profile tab content ──
+    _renderProfileTab(p);
+
+    // ── Page title ──
+    document.title = (p.display_name || 'مقدم خدمة') + ' — نوافذ';
+  }
+
+  /* ── Render profile tab details ── */
+  function _renderProfileTab(p) {
+    // Bio
+    _setText('pd-bio', p.bio || p.description || p.about_details || 'لا توجد نبذة');
+
+    // Categories
+    _setText('pd-main-category', p.category_name || p.main_category || '-');
+    _setText('pd-sub-category', p.subcategory_name || p.sub_category || '-');
+
+    // About details
+    _setText('pd-about-details', p.about_details || p.bio || '-');
+
+    // Qualifications
+    const quals = p.qualifications || [];
+    const qualsText = quals.map(q => typeof q === 'string' ? q : (q.title || q.name || '')).filter(Boolean).join('، ');
+    _setText('pd-qualifications', qualsText || '-');
+
+    // Experience
+    _setText('pd-experience', p.years_experience ? p.years_experience + ' سنوات' : '-');
+
+    // Languages
+    const langs = p.languages || [];
+    const langsText = langs.map(l => typeof l === 'string' ? l : (l.name || '')).filter(Boolean).join('، ');
+    _setText('pd-languages', langsText || '-');
+
+    // Geo scope
+    const radius = p.coverage_radius_km;
+    const city = p.city || '';
+    if (radius && radius > 0 && city) {
+      _setText('pd-geo-scope', city + ' (ضمن نطاق ' + Math.round(radius) + ' كم)');
+    } else if (city) {
+      _setText('pd-geo-scope', city);
+    }
+
+    // ── Contact info ──
+    const contactList = document.getElementById('pd-contact-list');
+    if (contactList) {
+      contactList.textContent = '';
+      if (p.city) _addContactRow(contactList, _svgIcon('location'), p.city);
+      if (p.phone) _addContactRow(contactList, _svgIcon('phone'), p.phone);
+      if (p.whatsapp && p.whatsapp !== p.phone) _addContactRow(contactList, _svgIcon('whatsapp'), p.whatsapp);
+      if (p.website) _addContactRow(contactList, _svgIcon('web'), p.website, p.website);
+    }
+
+    // ── Social links ──
+    const socialList = document.getElementById('pd-social-list');
+    if (socialList && p.social_links && p.social_links.length) {
+      socialList.textContent = '';
+      p.social_links.forEach(link => {
+        const url = typeof link === 'string' ? link : (link.url || '');
+        if (!url) return;
+        const platform = _detectPlatform(url);
+        _addSocialRow(socialList, platform.icon, platform.label, url);
+      });
+    } else if (socialList) {
+      // Check individual fields
+      const hasAny = p.website;
+      if (!hasAny && !(p.social_links && p.social_links.length)) {
+        const card = document.getElementById('pd-social-card');
+        if (card) card.classList.add('hidden');
+      }
+    }
+
+    // ── Working hours ──
     if (p.working_hours && p.working_hours.length) {
-      const hoursCard = document.getElementById('prov-hours-card');
-      const hoursEl = document.getElementById('prov-hours');
+      const hoursCard = document.getElementById('pd-hours-card');
+      const hoursEl = document.getElementById('pd-hours');
       if (hoursCard && hoursEl) {
-        hoursCard.style.display = '';
-        hoursEl.innerHTML = '';
+        hoursCard.classList.remove('hidden');
+        hoursEl.textContent = '';
         p.working_hours.forEach(h => {
-          const row = UI.el('div', { className: 'prov-hours-row' });
-          row.appendChild(UI.el('span', { className: 'hours-day', textContent: h.day || '' }));
-          row.appendChild(UI.el('span', { className: 'hours-time', textContent: (h.open || '') + ' - ' + (h.close || '') }));
+          const row = UI.el('div', { className: 'pd-hours-row' });
+          row.appendChild(UI.el('span', { className: 'pd-hours-day', textContent: h.day || '' }));
+          row.appendChild(UI.el('span', { className: 'pd-hours-time', textContent: (h.open || '') + ' - ' + (h.close || '') }));
           hoursEl.appendChild(row);
         });
       }
     }
 
-    // Highlights
-    if (p.highlights && p.highlights.length) {
-      const hlSection = document.getElementById('prov-highlights-section');
-      const hlRow = document.getElementById('prov-highlights');
-      if (hlSection && hlRow) {
-        hlSection.style.display = '';
-        p.highlights.forEach(hl => {
-          const item = UI.el('div', { className: 'highlight-item' });
-          if (hl.image) item.appendChild(UI.lazyImg(ApiClient.mediaUrl(hl.image), ''));
-          if (hl.title) item.appendChild(UI.el('span', { textContent: hl.title }));
-          hlRow.appendChild(item);
-        });
+    // ── Map ──
+    if (p.lat && p.lng && p.lat !== 0 && p.lng !== 0 && typeof L !== 'undefined') {
+      const mapCard = document.getElementById('pd-map-card');
+      const mapEl = document.getElementById('pd-map');
+      if (mapCard && mapEl) {
+        mapCard.classList.remove('hidden');
+        setTimeout(() => {
+          const map = L.map(mapEl, { scrollWheelZoom: false }).setView([p.lat, p.lng], 12);
+          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap'
+          }).addTo(map);
+          L.marker([p.lat, p.lng]).addTo(map);
+          if (p.coverage_radius_km) {
+            L.circle([p.lat, p.lng], {
+              radius: p.coverage_radius_km * 1000,
+              color: '#673AB7', fillColor: '#673AB7',
+              fillOpacity: 0.08, weight: 2
+            }).addTo(map);
+          }
+        }, 300);
       }
     }
-
-    // Stats
-    _setText('stat-rating', p.rating_avg ? parseFloat(p.rating_avg).toFixed(1) : '-');
-    _setText('stat-followers', p.followers_count || 0);
-    _setText('stat-likes', p.likes_count || 0);
-    _setText('stat-completed', p.completed_orders_count || p.orders_count || 0);
-
-    // Following state
-    _isFollowing = !!p.is_following;
-    _updateFollowBtn();
-
-    // Page title
-    document.title = (p.display_name || 'مقدم خدمة') + ' — نوافذ';
   }
 
-  /* ---------- Follow / Unfollow ---------- */
+  /* ═══ Follow / Unfollow ═══ */
   async function _toggleFollow() {
-    if (!Auth.isLoggedIn()) { Auth.requireLogin(window.location.pathname); return; }
+    if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
     const url = _isFollowing
       ? '/api/providers/' + _providerId + '/unfollow/'
       : '/api/providers/' + _providerId + '/follow/';
+    const btn = document.getElementById('btn-follow');
+    btn.disabled = true;
     const res = await ApiClient.request(url, { method: 'POST' });
+    btn.disabled = false;
     if (res.ok) {
       _isFollowing = !_isFollowing;
       _updateFollowBtn();
-      // Update followers count
       const el = document.getElementById('stat-followers');
       if (el) {
         let c = parseInt(el.textContent) || 0;
@@ -175,141 +336,319 @@ const ProviderDetailPage = (() => {
 
   function _updateFollowBtn() {
     const btn = document.getElementById('btn-follow');
+    if (!btn) return;
     if (_isFollowing) {
-      btn.className = 'btn btn-secondary';
-      btn.textContent = 'إلغاء المتابعة';
+      btn.classList.add('following');
+      btn.querySelector('span') ? null : null;
+      // Replace inner content
+      btn.textContent = '';
+      const svg = _createSVG('<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="23" y1="11" x2="17" y2="11"/>', 16);
+      btn.appendChild(svg);
+      btn.appendChild(document.createTextNode(' إلغاء المتابعة'));
     } else {
-      btn.className = 'btn btn-primary';
-      btn.textContent = 'متابعة';
+      btn.classList.remove('following');
+      btn.textContent = '';
+      const svg = _createSVG('<path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/>', 16);
+      btn.appendChild(svg);
+      btn.appendChild(document.createTextNode(' متابعة'));
     }
   }
 
-  /* ---------- Services ---------- */
+  /* ═══ Spotlights / Highlights ═══ */
+  async function _loadSpotlights() {
+    const res = await ApiClient.get('/api/providers/' + _providerId + '/spotlights/');
+    if (!res.ok) return;
+    const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    if (!list.length) return;
+
+    const section = document.getElementById('pd-highlights-section');
+    const row = document.getElementById('pd-highlights');
+    if (!section || !row) return;
+
+    section.classList.remove('hidden');
+    row.textContent = '';
+    list.forEach(item => {
+      const el = UI.el('div', { className: 'pd-highlight-item' });
+      const thumb = UI.el('div', { className: 'pd-highlight-thumb' });
+      const imgUrl = item.thumbnail_url || item.file_url || '';
+      if (imgUrl) thumb.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
+      el.appendChild(thumb);
+      el.appendChild(UI.el('div', { className: 'pd-highlight-label', textContent: item.title || 'لمحة' }));
+      row.appendChild(el);
+    });
+  }
+
+  /* ═══ Services ═══ */
   async function _loadServices() {
-    const container = document.getElementById('services-list');
+    const container = document.getElementById('pd-services-list');
+    const emptyEl = document.getElementById('pd-services-empty');
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
     if (!res.ok) return;
-    const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
-    container.innerHTML = '';
+    const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    container.textContent = '';
+
     if (!list.length) {
-      container.innerHTML = '<div class="empty-hint"><div class="empty-icon">📋</div><p>لا توجد خدمات</p></div>';
+      if (emptyEl) emptyEl.classList.remove('hidden');
       return;
     }
-    const frag = document.createDocumentFragment();
+
     list.forEach(svc => {
-      const card = UI.el('div', { className: 'service-card' });
-      card.appendChild(UI.el('div', { className: 'service-name', textContent: svc.name || svc.title || '' }));
-      if (svc.description) card.appendChild(UI.el('div', { className: 'service-desc', textContent: svc.description }));
-      const footer = UI.el('div', { className: 'service-footer' });
-      if (svc.price || svc.min_price) {
-        const price = svc.price || svc.min_price;
-        footer.appendChild(UI.el('span', { className: 'service-price', textContent: parseFloat(price).toLocaleString('ar-SA') + ' ر.س' }));
+      const card = UI.el('div', { className: 'pd-service-card' });
+
+      // Image
+      const imgWrap = UI.el('div', { className: 'pd-service-img' });
+      const imgUrl = svc.image || svc.thumbnail_url || '';
+      if (imgUrl) {
+        imgWrap.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), svc.name || svc.title || ''));
+      } else {
+        const placeholder = UI.el('div', { className: 'pd-service-placeholder' });
+        placeholder.appendChild(UI.icon('category', 32, '#ccc'));
+        imgWrap.appendChild(placeholder);
+      }
+      card.appendChild(imgWrap);
+
+      // Body
+      const body = UI.el('div', { className: 'pd-service-body' });
+      body.appendChild(UI.el('div', { className: 'pd-service-name', textContent: svc.name || svc.title || '' }));
+      if (svc.description) {
+        body.appendChild(UI.el('div', { className: 'pd-service-desc', textContent: svc.description }));
+      }
+
+      // Footer
+      const footer = UI.el('div', { className: 'pd-service-footer' });
+      const price = svc.price || svc.min_price || svc.price_from;
+      if (price) {
+        footer.appendChild(UI.el('span', { className: 'pd-service-price', textContent: parseFloat(price).toLocaleString('ar-SA') + ' ر.س' }));
       }
       if (svc.delivery_days) {
-        footer.appendChild(UI.el('span', { className: 'service-duration', textContent: svc.delivery_days + ' يوم' }));
+        const dur = UI.el('span', { className: 'pd-service-duration' });
+        dur.textContent = '⏱ ' + svc.delivery_days + ' يوم';
+        footer.appendChild(dur);
       }
-      card.appendChild(footer);
-      frag.appendChild(card);
-    });
-    container.appendChild(frag);
-  }
-
-  /* ---------- Portfolio ---------- */
-  async function _loadPortfolio() {
-    const container = document.getElementById('portfolio-list');
-    const res = await ApiClient.get('/api/providers/' + _providerId + '/portfolio/');
-    if (!res.ok) return;
-    const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
-    container.innerHTML = '';
-    if (!list.length) {
-      container.innerHTML = '<div class="empty-hint"><div class="empty-icon">🖼️</div><p>لا توجد أعمال</p></div>';
-      return;
-    }
-    const grid = UI.el('div', { className: 'media-grid' });
-    list.forEach(item => {
-      const el = UI.el('div', { className: 'media-item' });
-      const imgUrl = item.image || item.media_url || item.file;
-      if (imgUrl) el.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
-      if (item.title || item.caption) {
-        el.appendChild(UI.el('div', { className: 'media-caption', textContent: item.title || item.caption }));
-      }
-      grid.appendChild(el);
-    });
-    container.appendChild(grid);
-  }
-
-  /* ---------- Reviews ---------- */
-  async function _loadReviews() {
-    const container = document.getElementById('reviews-list');
-
-    // Rating summary + reviews
-    const [ratingRes, reviewsRes] = await Promise.all([
-      ApiClient.get('/api/reviews/providers/' + _providerId + '/rating/'),
-      ApiClient.get('/api/reviews/providers/' + _providerId + '/reviews/')
-    ]);
-
-    container.innerHTML = '';
-
-    // Rating summary
-    if (ratingRes.ok && ratingRes.data) {
-      const r = ratingRes.data;
-      const summary = UI.el('div', { className: 'rating-summary' });
-      const bigNum = UI.el('div', { className: 'rating-big' });
-      bigNum.appendChild(UI.text(r.average ? parseFloat(r.average).toFixed(1) : '-'));
-      bigNum.appendChild(UI.icon('star', 20, '#FFC107'));
-      summary.appendChild(bigNum);
-      summary.appendChild(UI.el('div', { className: 'rating-count', textContent: (r.count || 0) + ' تقييم' }));
-      container.appendChild(summary);
-    }
-
-    // Individual reviews
-    let reviews = [];
-    if (reviewsRes.ok && reviewsRes.data) {
-      reviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : (reviewsRes.data.results || []);
-    }
-
-    if (!reviews.length) {
-      container.appendChild(UI.el('div', { className: 'empty-hint', innerHTML: '<div class="empty-icon">⭐</div><p>لا توجد تقييمات بعد</p>' }));
-      return;
-    }
-
-    reviews.forEach(rev => {
-      const card = UI.el('div', { className: 'review-card' });
-
-      const header = UI.el('div', { className: 'review-header' });
-      header.appendChild(UI.el('span', { className: 'review-author', textContent: rev.reviewer_name || rev.client_name || 'مستخدم' }));
-      // Stars
-      const stars = UI.el('span', { className: 'review-stars' });
-      const rating = Math.round(rev.rating || 0);
-      for (let i = 0; i < 5; i++) {
-        stars.appendChild(UI.icon('star', 12, i < rating ? '#FFC107' : '#E0E0E0'));
-      }
-      header.appendChild(stars);
-      card.appendChild(header);
-
-      if (rev.comment || rev.text) {
-        card.appendChild(UI.el('div', { className: 'review-text', textContent: rev.comment || rev.text }));
-      }
-
-      if (rev.created_at || rev.created) {
-        const d = new Date(rev.created_at || rev.created);
-        card.appendChild(UI.el('div', { className: 'review-date', textContent: d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' }) }));
-      }
+      body.appendChild(footer);
+      card.appendChild(body);
 
       container.appendChild(card);
     });
   }
 
-  function _addContactRow(container, icon, text) {
-    const row = UI.el('div', { className: 'prov-contact-row' });
-    row.appendChild(UI.icon(icon, 16, '#888'));
-    row.appendChild(UI.el('span', { textContent: text }));
-    container.appendChild(row);
+  /* ═══ Portfolio ═══ */
+  async function _loadPortfolio() {
+    const container = document.getElementById('pd-portfolio-list');
+    const emptyEl = document.getElementById('pd-portfolio-empty');
+    const res = await ApiClient.get('/api/providers/' + _providerId + '/portfolio/');
+    if (!res.ok) return;
+    const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    container.textContent = '';
+
+    if (!list.length) {
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    list.forEach(item => {
+      const el = UI.el('div', { className: 'pd-portfolio-item' });
+      const imgUrl = item.file_url || item.image || item.media_url || item.file || item.thumbnail_url || '';
+      const fileType = item.file_type || 'image';
+
+      if (imgUrl) {
+        const displayUrl = (fileType === 'video' && item.thumbnail_url) ? item.thumbnail_url : imgUrl;
+        el.appendChild(UI.lazyImg(ApiClient.mediaUrl(displayUrl), item.caption || ''));
+      }
+
+      if (fileType === 'video') {
+        const badge = UI.el('div', { className: 'pd-portfolio-video-badge' });
+        badge.appendChild(_createSVG('<polygon points="5 3 19 12 5 21 5 3" fill="#fff"/>', 14));
+        el.appendChild(badge);
+      }
+
+      if (item.caption || item.title) {
+        el.appendChild(UI.el('div', { className: 'pd-portfolio-overlay', textContent: item.caption || item.title }));
+      }
+      container.appendChild(el);
+    });
   }
+
+  /* ═══ Reviews ═══ */
+  async function _loadReviews() {
+    const summaryEl = document.getElementById('pd-rating-summary');
+    const listEl = document.getElementById('pd-reviews-list');
+    const emptyEl = document.getElementById('pd-reviews-empty');
+
+    const [ratingRes, reviewsRes] = await Promise.all([
+      ApiClient.get('/api/reviews/providers/' + _providerId + '/rating/'),
+      ApiClient.get('/api/reviews/providers/' + _providerId + '/reviews/')
+    ]);
+
+    // Rating summary
+    if (ratingRes.ok && ratingRes.data && summaryEl) {
+      const r = ratingRes.data;
+      summaryEl.textContent = '';
+      const bigDiv = UI.el('div', { className: 'pd-rating-big' });
+      bigDiv.appendChild(UI.text(r.average ? parseFloat(r.average).toFixed(1) : '-'));
+      bigDiv.appendChild(UI.icon('star', 24, '#FFC107'));
+      summaryEl.appendChild(bigDiv);
+      summaryEl.appendChild(UI.el('div', { className: 'pd-rating-count', textContent: (r.count || 0) + ' تقييم' }));
+
+      // Rating bars
+      if (r.distribution) {
+        const bars = UI.el('div', { className: 'pd-rating-bars' });
+        for (let i = 5; i >= 1; i--) {
+          const count = r.distribution[i] || r.distribution[String(i)] || 0;
+          const total = r.count || 1;
+          const pct = Math.round((count / total) * 100);
+          const row = UI.el('div', { className: 'pd-rating-bar-row' });
+          row.appendChild(UI.el('span', { className: 'pd-rating-bar-label', textContent: i }));
+          row.appendChild(UI.icon('star', 12, '#FFC107'));
+          const bar = UI.el('div', { className: 'pd-rating-bar' });
+          const fill = UI.el('div', { className: 'pd-rating-bar-fill' });
+          fill.style.width = pct + '%';
+          bar.appendChild(fill);
+          row.appendChild(bar);
+          bars.appendChild(row);
+        }
+        summaryEl.appendChild(bars);
+      }
+    }
+
+    // Reviews list
+    let reviews = [];
+    if (reviewsRes.ok && reviewsRes.data) {
+      reviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : (reviewsRes.data.results || []);
+    }
+
+    if (listEl) listEl.textContent = '';
+
+    if (!reviews.length) {
+      if (emptyEl) emptyEl.classList.remove('hidden');
+      return;
+    }
+
+    reviews.forEach(rev => {
+      const card = UI.el('div', { className: 'pd-review-card' });
+
+      const header = UI.el('div', { className: 'pd-review-header' });
+      header.appendChild(UI.el('span', { className: 'pd-review-author', textContent: rev.reviewer_name || rev.client_name || 'مستخدم' }));
+      const stars = UI.el('span', { className: 'pd-review-stars' });
+      const rating = Math.round(rev.rating || 0);
+      for (let i = 0; i < 5; i++) {
+        stars.appendChild(UI.icon('star', 14, i < rating ? '#FFC107' : '#E0E0E0'));
+      }
+      header.appendChild(stars);
+      card.appendChild(header);
+
+      if (rev.comment || rev.text) {
+        card.appendChild(UI.el('div', { className: 'pd-review-text', textContent: rev.comment || rev.text }));
+      }
+      if (rev.created_at || rev.created) {
+        const d = new Date(rev.created_at || rev.created);
+        card.appendChild(UI.el('div', { className: 'pd-review-date', textContent: d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' }) }));
+      }
+      if (listEl) listEl.appendChild(card);
+    });
+  }
+
+  /* ═══ Helpers ═══ */
 
   function _setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
+  }
+
+  function _addContactRow(container, iconHtml, text, href) {
+    const row = UI.el(href ? 'a' : 'div', { className: 'pd-contact-row' });
+    if (href) { row.href = href.startsWith('http') ? href : ('https://' + href); row.target = '_blank'; row.rel = 'noopener'; }
+    const iconWrap = UI.el('span', {});
+    iconWrap.innerHTML = iconHtml; // safe: from our own _svgIcon
+    row.appendChild(iconWrap);
+    row.appendChild(UI.el('span', { textContent: text }));
+    container.appendChild(row);
+  }
+
+  function _addSocialRow(container, iconHtml, label, url) {
+    const row = UI.el('div', { className: 'pd-social-row' });
+    const iconWrap = UI.el('div', { className: 'pd-social-icon' });
+    iconWrap.innerHTML = iconHtml;
+    row.appendChild(iconWrap);
+
+    const info = UI.el('div', { className: 'pd-social-info' });
+    info.appendChild(UI.el('div', { className: 'pd-social-label', textContent: label }));
+    const handle = _extractHandle(url);
+    info.appendChild(UI.el('div', { className: 'pd-social-value', textContent: handle || url }));
+    row.appendChild(info);
+
+    const link = UI.el('a', { className: 'pd-social-link', href: url.startsWith('http') ? url : ('https://' + url), target: '_blank', rel: 'noopener' });
+    link.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>';
+    row.appendChild(link);
+    container.appendChild(row);
+  }
+
+  function _extractHandle(url) {
+    try {
+      const uri = new URL(url.startsWith('http') ? url : ('https://' + url));
+      const parts = uri.pathname.split('/').filter(Boolean);
+      return parts.length ? '@' + parts[parts.length - 1] : '';
+    } catch { return ''; }
+  }
+
+  function _detectPlatform(url) {
+    const u = url.toLowerCase();
+    if (u.includes('instagram')) return { label: 'انستقرام', icon: _svgIcon('instagram') };
+    if (u.includes('x.com') || u.includes('twitter')) return { label: 'X (تويتر)', icon: _svgIcon('x') };
+    if (u.includes('snapchat')) return { label: 'سناب شات', icon: _svgIcon('snapchat') };
+    if (u.includes('tiktok')) return { label: 'تيك توك', icon: _svgIcon('web') };
+    if (u.includes('facebook')) return { label: 'فيسبوك', icon: _svgIcon('web') };
+    if (u.includes('youtube')) return { label: 'يوتيوب', icon: _svgIcon('web') };
+    if (u.includes('linkedin')) return { label: 'لينكد إن', icon: _svgIcon('web') };
+    return { label: 'رابط', icon: _svgIcon('web') };
+  }
+
+  function _svgIcon(name) {
+    const icons = {
+      location: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>',
+      phone: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#673AB7"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.32.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>',
+      whatsapp: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/></svg>',
+      web: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#673AB7"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95a15.65 15.65 0 00-1.38-3.56A8.03 8.03 0 0118.92 8zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56A7.987 7.987 0 015.08 16zm2.95-8H5.08a7.987 7.987 0 014.33-3.56A15.65 15.65 0 008.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95a8.03 8.03 0 01-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg>',
+      instagram: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#E1306C"><rect x="2" y="2" width="20" height="20" rx="5" fill="none" stroke="#E1306C" stroke-width="2"/><circle cx="12" cy="12" r="5" fill="none" stroke="#E1306C" stroke-width="2"/><circle cx="17.5" cy="6.5" r="1.5" fill="#E1306C"/></svg>',
+      x: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#000"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>',
+      snapchat: '<svg width="16" height="16" viewBox="0 0 24 24" fill="#FFFC00"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>',
+    };
+    return icons[name] || icons.web;
+  }
+
+  function _createSVG(paths, size) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', size || 16);
+    svg.setAttribute('height', size || 16);
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.innerHTML = paths;
+    return svg;
+  }
+
+  function _formatPhoneE164(phone) {
+    const cleaned = phone.replace(/\s+/g, '');
+    if (cleaned.startsWith('+')) return cleaned;
+    if (cleaned.startsWith('05') && cleaned.length === 10) return '+966' + cleaned.substring(1);
+    if (cleaned.startsWith('5') && cleaned.length === 9) return '+966' + cleaned;
+    return cleaned;
+  }
+
+  function _showToast(msg) {
+    const toast = UI.el('div', {
+      textContent: msg,
+      style: {
+        position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)',
+        background: '#333', color: '#fff', padding: '10px 24px',
+        borderRadius: '12px', fontSize: '13px', fontWeight: '600',
+        zIndex: '9999', fontFamily: 'Cairo, sans-serif',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)'
+      }
+    });
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
   }
 
   // Boot

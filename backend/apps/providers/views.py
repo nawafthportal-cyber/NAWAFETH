@@ -10,6 +10,7 @@ from apps.accounts.models import User
 
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
+from apps.accounts.role_context import get_active_role
 
 from .models import (
 	Category,
@@ -274,13 +275,17 @@ class ProviderDetailView(generics.RetrieveAPIView):
 
 
 class MyFollowingProvidersView(generics.ListAPIView):
-	"""Providers the current user follows."""
+	"""Providers the current user follows (scoped to active role)."""
 	serializer_class = ProviderPublicSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderProfile.objects.filter(followers__user=self.request.user)
+			ProviderProfile.objects.filter(
+				followers__user=self.request.user,
+				followers__role_context=role,
+			)
 			.annotate(
 				followers_count=Count("followers"),
 				likes_count=Count("likes"),
@@ -443,14 +448,18 @@ class MyProviderSpotlightDetailView(generics.RetrieveDestroyAPIView):
 
 
 class MyLikedPortfolioItemsView(generics.ListAPIView):
-	"""Portfolio media the current user liked (Favorites: images/videos)."""
+	"""Portfolio media the current user liked (scoped to active role)."""
 
 	serializer_class = ProviderPortfolioItemSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderPortfolioItem.objects.filter(likes__user=self.request.user)
+			ProviderPortfolioItem.objects.filter(
+				likes__user=self.request.user,
+				likes__role_context=role,
+			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.select_related("provider", "provider__user")
@@ -460,14 +469,18 @@ class MyLikedPortfolioItemsView(generics.ListAPIView):
 
 
 class MySavedPortfolioItemsView(generics.ListAPIView):
-	"""Portfolio media the current user saved (bookmarked)."""
+	"""Portfolio media the current user saved (scoped to active role)."""
 
 	serializer_class = ProviderPortfolioItemSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderPortfolioItem.objects.filter(saves__user=self.request.user)
+			ProviderPortfolioItem.objects.filter(
+				Q(saves__user=self.request.user, saves__role_context=role)
+				| Q(likes__user=self.request.user, likes__role_context=role)
+			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.select_related("provider", "provider__user")
@@ -477,14 +490,18 @@ class MySavedPortfolioItemsView(generics.ListAPIView):
 
 
 class MyLikedSpotlightItemsView(generics.ListAPIView):
-	"""Spotlight media the current user liked."""
+	"""Spotlight media the current user liked (scoped to active role)."""
 
 	serializer_class = ProviderSpotlightItemSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderSpotlightItem.objects.filter(likes__user=self.request.user)
+			ProviderSpotlightItem.objects.filter(
+				likes__user=self.request.user,
+				likes__role_context=role,
+			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.select_related("provider", "provider__user")
@@ -494,14 +511,18 @@ class MyLikedSpotlightItemsView(generics.ListAPIView):
 
 
 class MySavedSpotlightItemsView(generics.ListAPIView):
-	"""Spotlight media the current user saved (bookmarked)."""
+	"""Spotlight media the current user saved (scoped to active role)."""
 
 	serializer_class = ProviderSpotlightItemSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderSpotlightItem.objects.filter(saves__user=self.request.user)
+			ProviderSpotlightItem.objects.filter(
+				Q(saves__user=self.request.user, saves__role_context=role)
+				| Q(likes__user=self.request.user, likes__role_context=role)
+			)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 			.select_related("provider", "provider__user")
@@ -514,8 +535,9 @@ class LikePortfolioItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(ProviderPortfolioItem, id=item_id)
-		ProviderPortfolioLike.objects.get_or_create(user=request.user, item=item)
+		ProviderPortfolioLike.objects.get_or_create(user=request.user, item=item, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -523,7 +545,8 @@ class UnlikePortfolioItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
-		ProviderPortfolioLike.objects.filter(user=request.user, item_id=item_id).delete()
+		role = get_active_role(request)
+		ProviderPortfolioLike.objects.filter(user=request.user, item_id=item_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -531,8 +554,9 @@ class SavePortfolioItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(ProviderPortfolioItem, id=item_id)
-		ProviderPortfolioSave.objects.get_or_create(user=request.user, item=item)
+		ProviderPortfolioSave.objects.get_or_create(user=request.user, item=item, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -540,7 +564,8 @@ class UnsavePortfolioItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
-		ProviderPortfolioSave.objects.filter(user=request.user, item_id=item_id).delete()
+		role = get_active_role(request)
+		ProviderPortfolioSave.objects.filter(user=request.user, item_id=item_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -548,8 +573,9 @@ class LikeSpotlightItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(ProviderSpotlightItem, id=item_id)
-		ProviderSpotlightLike.objects.get_or_create(user=request.user, item=item)
+		ProviderSpotlightLike.objects.get_or_create(user=request.user, item=item, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -557,7 +583,8 @@ class UnlikeSpotlightItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
-		ProviderSpotlightLike.objects.filter(user=request.user, item_id=item_id).delete()
+		role = get_active_role(request)
+		ProviderSpotlightLike.objects.filter(user=request.user, item_id=item_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -565,8 +592,9 @@ class SaveSpotlightItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
+		role = get_active_role(request)
 		item = generics.get_object_or_404(ProviderSpotlightItem, id=item_id)
-		ProviderSpotlightSave.objects.get_or_create(user=request.user, item=item)
+		ProviderSpotlightSave.objects.get_or_create(user=request.user, item=item, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -574,18 +602,23 @@ class UnsaveSpotlightItemView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, item_id: int):
-		ProviderSpotlightSave.objects.filter(user=request.user, item_id=item_id).delete()
+		role = get_active_role(request)
+		ProviderSpotlightSave.objects.filter(user=request.user, item_id=item_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
 class MyLikedProvidersView(generics.ListAPIView):
-	"""Providers the current user liked (used as Favorites in the app)."""
+	"""Providers the current user liked (scoped to active role)."""
 	serializer_class = ProviderPublicSerializer
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get_queryset(self):
+		role = get_active_role(self.request)
 		return (
-			ProviderProfile.objects.filter(likes__user=self.request.user)
+			ProviderProfile.objects.filter(
+				likes__user=self.request.user,
+				likes__role_context=role,
+			)
 			.annotate(followers_count=Count("followers"), likes_count=Count("likes"))
 			.distinct()
 			.order_by("-id")
@@ -650,17 +683,21 @@ class ProviderFollowersView(generics.ListAPIView):
 
 
 class ProviderFollowingView(generics.ListAPIView):
-	"""Public: Providers that a specific provider follows (if any)."""
+	"""Public: Providers that a specific provider follows (scoped by role)."""
 	serializer_class = ProviderPublicSerializer
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
+		role = get_active_role(self.request, fallback="provider")
 		try:
 			provider = ProviderProfile.objects.get(id=provider_id)
 			user = provider.user
 			return (
-				ProviderProfile.objects.filter(followers__user=user)
+				ProviderProfile.objects.filter(
+					followers__user=user,
+					followers__role_context=role,
+				)
 				.annotate(
 					followers_count=Count("followers"),
 					likes_count=Count("likes"),
@@ -729,8 +766,9 @@ class FollowProviderView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, provider_id: int):
+		role = get_active_role(request)
 		provider = generics.get_object_or_404(ProviderProfile, id=provider_id)
-		ProviderFollow.objects.get_or_create(user=request.user, provider=provider)
+		ProviderFollow.objects.get_or_create(user=request.user, provider=provider, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -738,7 +776,8 @@ class UnfollowProviderView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, provider_id: int):
-		ProviderFollow.objects.filter(user=request.user, provider_id=provider_id).delete()
+		role = get_active_role(request)
+		ProviderFollow.objects.filter(user=request.user, provider_id=provider_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -746,8 +785,9 @@ class LikeProviderView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, provider_id: int):
+		role = get_active_role(request)
 		provider = generics.get_object_or_404(ProviderProfile, id=provider_id)
-		ProviderLike.objects.get_or_create(user=request.user, provider=provider)
+		ProviderLike.objects.get_or_create(user=request.user, provider=provider, role_context=role)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -755,5 +795,6 @@ class UnlikeProviderView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def post(self, request, provider_id: int):
-		ProviderLike.objects.filter(user=request.user, provider_id=provider_id).delete()
+		role = get_active_role(request)
+		ProviderLike.objects.filter(user=request.user, provider_id=provider_id, role_context=role).delete()
 		return Response({"ok": True}, status=status.HTTP_200_OK)

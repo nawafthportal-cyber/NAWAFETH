@@ -6,6 +6,11 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 
+
+class RoleContext(models.TextChoices):
+    CLIENT = "client", "عميل"
+    PROVIDER = "provider", "مزود خدمة"
+
 class Category(models.Model):
     name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
@@ -136,11 +141,17 @@ class ProviderPortfolioLike(models.Model):
         on_delete=models.CASCADE,
         related_name="likes",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "item"], name="uniq_like_user_portfolio_item"),
+            models.UniqueConstraint(fields=["user", "item", "role_context"], name="uniq_like_user_portfolio_item_role"),
         ]
 
 
@@ -155,11 +166,17 @@ class ProviderPortfolioSave(models.Model):
         on_delete=models.CASCADE,
         related_name="saves",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "item"], name="uniq_save_user_portfolio_item"),
+            models.UniqueConstraint(fields=["user", "item", "role_context"], name="uniq_save_user_portfolio_item_role"),
         ]
 
 
@@ -174,11 +191,17 @@ class ProviderSpotlightLike(models.Model):
         on_delete=models.CASCADE,
         related_name="likes",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "item"], name="uniq_like_user_spotlight_item"),
+            models.UniqueConstraint(fields=["user", "item", "role_context"], name="uniq_like_user_spotlight_item_role"),
         ]
 
 
@@ -193,11 +216,17 @@ class ProviderSpotlightSave(models.Model):
         on_delete=models.CASCADE,
         related_name="saves",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "item"], name="uniq_save_user_spotlight_item"),
+            models.UniqueConstraint(fields=["user", "item", "role_context"], name="uniq_save_user_spotlight_item_role"),
         ]
 
 
@@ -266,11 +295,17 @@ class ProviderFollow(models.Model):
         on_delete=models.CASCADE,
         related_name="followers",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "provider"], name="uniq_follow_user_provider"),
+            models.UniqueConstraint(fields=["user", "provider", "role_context"], name="uniq_follow_user_provider_role"),
         ]
 
 
@@ -285,9 +320,15 @@ class ProviderLike(models.Model):
         on_delete=models.CASCADE,
         related_name="likes",
     )
+    role_context = models.CharField(
+        max_length=20,
+        choices=RoleContext.choices,
+        default=RoleContext.CLIENT,
+        db_index=True,
+    )
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=["user", "provider"], name="uniq_like_user_provider"),
+            models.UniqueConstraint(fields=["user", "provider", "role_context"], name="uniq_like_user_provider_role"),
         ]

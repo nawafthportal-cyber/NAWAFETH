@@ -1,5 +1,7 @@
 /// خدمة التفاعلات الاجتماعية — متابعة، متابعيني، مفضلتي
 ///
+/// جميع العمليات معزولة حسب الوضع (عميل/مزود) عبر ?mode=
+///
 /// الـ Endpoints:
 /// - GET  /api/providers/me/following/          → المزودين اللي أتابعهم
 /// - GET  /api/providers/me/followers/          → المستخدمين اللي يتابعوني (مزود فقط)
@@ -12,18 +14,25 @@
 library;
 
 import 'api_client.dart';
+import 'account_mode_service.dart';
 import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
 
 class InteractiveService {
+  /// إضافة ?mode= إلى المسار
+  static Future<String> _withMode(String path) async {
+    final mode = await AccountModeService.apiMode();
+    return path.contains('?') ? '$path&mode=$mode' : '$path?mode=$mode';
+  }
   // ────────────────────────────────────────
   // 📋 جلب قوائم
   // ────────────────────────────────────────
 
-  /// جلب المزودين الذين أتابعهم
+  /// جلب المزودين الذين أتابعهم (معزول حسب الوضع)
   static Future<ListResult<ProviderPublicModel>> fetchFollowing() async {
-    final resp = await ApiClient.get('/api/providers/me/following/');
+    final path = await _withMode('/api/providers/me/following/');
+    final resp = await ApiClient.get(path);
     if (!resp.isSuccess) {
       return ListResult(error: resp.error ?? 'خطأ في جلب المتابَعين');
     }
@@ -45,12 +54,13 @@ class InteractiveService {
     return ListResult(data: items);
   }
 
-  /// جلب المفضلة (معرض أعمال + أضواء)
+  /// جلب المفضلة (معرض أعمال + أضواء) — معزول حسب الوضع
   static Future<ListResult<MediaItemModel>> fetchFavorites() async {
-    // ✅ جلب المعرض والأضواء بالتوازي
+    final mode = await AccountModeService.apiMode();
+    // ✅ جلب المعرض والأضواء بالتوازي مع الوضع
     final results = await Future.wait([
-      ApiClient.get('/api/providers/me/favorites/'),
-      ApiClient.get('/api/providers/me/favorites/spotlights/'),
+      ApiClient.get('/api/providers/me/favorites/?mode=$mode'),
+      ApiClient.get('/api/providers/me/favorites/spotlights/?mode=$mode'),
     ]);
 
     final portfolioResp = results[0];
@@ -88,23 +98,26 @@ class InteractiveService {
   // 🔘 إجراءات
   // ────────────────────────────────────────
 
-  /// متابعة مزود
+  /// متابعة مزود (معزول حسب الوضع)
   static Future<bool> followProvider(int providerId) async {
-    final resp = await ApiClient.post('/api/providers/$providerId/follow/');
+    final path = await _withMode('/api/providers/$providerId/follow/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إلغاء متابعة مزود
+  /// إلغاء متابعة مزود (معزول حسب الوضع)
   static Future<bool> unfollowProvider(int providerId) async {
-    final resp = await ApiClient.post('/api/providers/$providerId/unfollow/');
+    final path = await _withMode('/api/providers/$providerId/unfollow/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إلغاء حفظ عنصر من المفضلة
+  /// إلغاء حفظ عنصر من المفضلة (معزول حسب الوضع)
   static Future<bool> unsaveItem(MediaItemModel item) async {
-    final path = item.source == MediaItemSource.portfolio
+    final basePath = item.source == MediaItemSource.portfolio
         ? '/api/providers/portfolio/${item.id}/unsave/'
         : '/api/providers/spotlights/${item.id}/unsave/';
+    final path = await _withMode(basePath);
     final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
@@ -143,51 +156,59 @@ class InteractiveService {
     return ApiClient.delete('/api/providers/me/spotlights/$itemId/');
   }
 
-  /// إعجاب بعنصر معرض
+  /// إعجاب بعنصر معرض (معزول حسب الوضع)
   static Future<bool> likePortfolio(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/like/');
+    final path = await _withMode('/api/providers/portfolio/$itemId/like/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إلغاء إعجاب بعنصر معرض
+  /// إلغاء إعجاب بعنصر معرض (معزول حسب الوضع)
   static Future<bool> unlikePortfolio(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/unlike/');
+    final path = await _withMode('/api/providers/portfolio/$itemId/unlike/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// حفظ عنصر معرض
+  /// حفظ عنصر معرض (معزول حسب الوضع)
   static Future<bool> savePortfolio(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/portfolio/$itemId/save/');
+    final path = await _withMode('/api/providers/portfolio/$itemId/save/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إعجاب بعنصر أضواء
+  /// إعجاب بعنصر أضواء (معزول حسب الوضع)
   static Future<bool> likeSpotlight(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/like/');
+    final path = await _withMode('/api/providers/spotlights/$itemId/like/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إلغاء إعجاب بعنصر أضواء
+  /// إلغاء إعجاب بعنصر أضواء (معزول حسب الوضع)
   static Future<bool> unlikeSpotlight(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/unlike/');
+    final path = await _withMode('/api/providers/spotlights/$itemId/unlike/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// حفظ عنصر أضواء
+  /// حفظ عنصر أضواء (معزول حسب الوضع)
   static Future<bool> saveSpotlight(int itemId) async {
-    final resp = await ApiClient.post('/api/providers/spotlights/$itemId/save/');
+    final path = await _withMode('/api/providers/spotlights/$itemId/save/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إعجاب بمزود
+  /// إعجاب بمزود (معزول حسب الوضع)
   static Future<bool> likeProvider(int providerId) async {
-    final resp = await ApiClient.post('/api/providers/$providerId/like/');
+    final path = await _withMode('/api/providers/$providerId/like/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 
-  /// إلغاء إعجاب بمزود
+  /// إلغاء إعجاب بمزود (معزول حسب الوضع)
   static Future<bool> unlikeProvider(int providerId) async {
-    final resp = await ApiClient.post('/api/providers/$providerId/unlike/');
+    final path = await _withMode('/api/providers/$providerId/unlike/');
+    final resp = await ApiClient.post(path);
     return resp.isSuccess;
   }
 

@@ -272,6 +272,14 @@ def test_provider_list_supports_urgent_and_location_filters():
 @pytest.mark.django_db
 def test_provider_can_upload_profile_and_cover_images(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
     client = APIClient()
     _register_and_auth_provider(client, phone="0500000099")

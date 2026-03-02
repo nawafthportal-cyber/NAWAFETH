@@ -17,21 +17,19 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.accounts.permissions import ROLE_LEVELS, role_level
+from apps.accounts.role_context import get_active_role
 from apps.marketplace.models import ServiceRequest
 
 from .models import Message, Thread, ThreadUserState
 
 
 def _active_context_mode_from_request(request) -> str:
-	mode = (
-		request.query_params.get("mode")
-		or request.data.get("mode")
-		or request.headers.get("X-Account-Mode")
-		or ""
-	).strip().lower()
-	if mode in {"client", "provider"}:
-		return mode
-	return "shared"
+	"""Return the active context mode using the shared role utility.
+
+	Falls back to 'shared' (instead of 'client') so that requests without
+	an explicit mode still see all threads.
+	"""
+	return get_active_role(request, fallback="shared")
 
 
 logger = logging.getLogger(__name__)

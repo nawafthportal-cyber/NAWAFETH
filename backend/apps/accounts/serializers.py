@@ -3,12 +3,30 @@ import re
 from rest_framework import serializers
 from .models import User
 
+
+def _digits_only(value: str) -> str:
+    return "".join(ch for ch in str(value or "") if ch.isdigit())
+
+
+def _validate_phone_local05(value: str) -> str:
+    digits = _digits_only(value)
+    if not re.fullmatch(r"05\d{8}", digits):
+        raise serializers.ValidationError("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX")
+    return digits
+
+
 class OTPSendSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
+
+    def validate_phone(self, value: str) -> str:
+        return _validate_phone_local05(value)
 
 class OTPVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
     code = serializers.CharField(max_length=4)
+
+    def validate_phone(self, value: str) -> str:
+        return _validate_phone_local05(value)
 
 
 class CompleteRegistrationSerializer(serializers.Serializer):
@@ -144,7 +162,7 @@ class MeUpdateSerializer(serializers.Serializer):
         value = (value or "").strip()
         if not value:
             raise serializers.ValidationError("رقم الجوال مطلوب")
-        return value
+        return _validate_phone_local05(value)
 
     def validate_username(self, value: str | None):
         if value is None:

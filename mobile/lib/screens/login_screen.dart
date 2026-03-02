@@ -29,17 +29,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// ✅ التحقق من صحة رقم الجوال
   bool get _isPhoneValid {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) return false;
-    // يقبل أرقام سعودية: 05XXXXXXXX أو 5XXXXXXXX أو +9665XXXXXXXX
-    final digits = phone.replaceAll(RegExp(r'[^\d]'), '');
-    return digits.length >= 9 && digits.length <= 14;
+    final digits = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    return RegExp(r'^05\d{8}$').hasMatch(digits);
   }
 
   /// ✅ إرسال OTP عبر الـ API
   Future<void> _onSendOtp() async {
     if (!_isPhoneValid) {
-      setState(() => _errorMessage = 'أدخل رقم جوال صحيح');
+      setState(() => _errorMessage = 'الصيغة الصحيحة: 05XXXXXXXX');
       return;
     }
 
@@ -48,7 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final phone = _phoneController.text.trim();
+    final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
     final result = await AuthApiService.sendOtp(phone);
 
     if (!mounted) return;
@@ -173,6 +170,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: "رقم الجوال",
                     hintText: "05XXXXXXXX",
                     hintTextDirection: TextDirection.ltr,
+                    helperText: "الصيغة المعتمدة: 05XXXXXXXX",
+                    helperStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
                     prefixIcon: const Icon(Icons.phone_android),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),

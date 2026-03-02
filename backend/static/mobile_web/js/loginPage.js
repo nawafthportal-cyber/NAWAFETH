@@ -19,6 +19,13 @@ const LoginPage = (() => {
     if (!phoneInput || !btnSend || !btnGuest) return;
 
     btnSend.addEventListener('click', () => _sendOTP(phoneInput));
+    phoneInput.addEventListener('input', () => {
+      const sanitized = _sanitizePhoneInput(phoneInput.value);
+      if (phoneInput.value !== sanitized) {
+        phoneInput.value = sanitized;
+      }
+      _hideError(document.getElementById('phone-error'));
+    });
     phoneInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') _sendOTP(phoneInput);
     });
@@ -29,25 +36,26 @@ const LoginPage = (() => {
     });
   }
 
-  function _normalizeDigits(value) {
-    return String(value || '').replace(/[^\d]/g, '');
+  function _sanitizePhoneInput(value) {
+    return String(value || '').replace(/[^\d]/g, '').slice(0, 10);
   }
 
   function _isValidPhone(phone) {
-    const digits = _normalizeDigits(phone);
-    return (
-      /^05\d{8}$/.test(digits) ||
-      /^5\d{8}$/.test(digits) ||
-      /^9665\d{8}$/.test(digits)
-    );
+    const digits = _sanitizePhoneInput(phone);
+    return /^05\d{8}$/.test(digits);
   }
 
   async function _sendOTP(phoneInput) {
     const rawPhone = phoneInput.value.trim();
+    const normalizedPhone = _sanitizePhoneInput(rawPhone);
     const errEl = document.getElementById('phone-error');
 
-    if (!_isValidPhone(rawPhone)) {
-      _showError(errEl, 'أدخل رقم جوال صحيح');
+    if (phoneInput.value !== normalizedPhone) {
+      phoneInput.value = normalizedPhone;
+    }
+
+    if (!_isValidPhone(normalizedPhone)) {
+      _showError(errEl, 'الصيغة الصحيحة: 05XXXXXXXX');
       return;
     }
     _hideError(errEl);
@@ -55,7 +63,7 @@ const LoginPage = (() => {
 
     const res = await ApiClient.request('/api/accounts/otp/send/', {
       method: 'POST',
-      body: { phone: rawPhone },
+      body: { phone: normalizedPhone },
     });
 
     _setLoading(false);
@@ -67,7 +75,7 @@ const LoginPage = (() => {
     }
 
     try {
-      sessionStorage.setItem('nw_auth_phone', rawPhone);
+      sessionStorage.setItem('nw_auth_phone', normalizedPhone);
       if (res.data && res.data.dev_code) {
         sessionStorage.setItem('nw_auth_dev_code', String(res.data.dev_code));
       } else {
@@ -78,7 +86,7 @@ const LoginPage = (() => {
     const qs = new URLSearchParams(window.location.search);
     const next = qs.get('next') || '/';
     const target = new URL('/twofa/', window.location.origin);
-    target.searchParams.set('phone', rawPhone);
+    target.searchParams.set('phone', normalizedPhone);
     target.searchParams.set('next', next);
     window.location.href = target.toString();
   }

@@ -96,13 +96,24 @@ class ProfileService {
       },
     );
 
-    if (res.isSuccess && res.dataAsMap != null) {
-      try {
-        final profile = UserProfile.fromJson(res.dataAsMap!);
-        return ProfileResult.success(profile);
-      } catch (_) {
-        return ProfileResult.failure('خطأ في تحليل الاستجابة');
+    if (res.isSuccess) {
+      final payload = res.dataAsMap;
+      if (payload != null) {
+        try {
+          final profile = UserProfile.fromJson(payload);
+          return ProfileResult.success(profile);
+        } catch (_) {
+          // Fallback below: some environments return incomplete body after upload.
+        }
       }
+
+      final fresh = await fetchMyProfile();
+      if (fresh.isSuccess && fresh.data != null) {
+        return ProfileResult.success(fresh.data!);
+      }
+      return ProfileResult.failure(
+        fresh.error ?? 'تم رفع الصور لكن تعذر جلب البيانات المحدثة',
+      );
     }
     return ProfileResult.failure(res.error ?? 'فشل رفع الصور');
   }
@@ -135,13 +146,24 @@ class ProfileService {
       },
     );
 
-    if (res.isSuccess && res.dataAsMap != null) {
-      try {
-        final profile = ProviderProfileModel.fromJson(res.dataAsMap!);
-        return ProfileResult.success(profile);
-      } catch (_) {
-        return ProfileResult.failure('خطأ في تحليل الاستجابة');
+    if (res.isSuccess) {
+      final payload = res.dataAsMap;
+      if (payload != null) {
+        try {
+          final profile = ProviderProfileModel.fromJson(payload);
+          return ProfileResult.success(profile);
+        } catch (_) {
+          // Fallback below: some environments return incomplete body after upload.
+        }
       }
+
+      final fresh = await fetchProviderProfile();
+      if (fresh.isSuccess && fresh.data != null) {
+        return ProfileResult.success(fresh.data!);
+      }
+      return ProfileResult.failure(
+        fresh.error ?? 'تم رفع الصور لكن تعذر جلب البيانات المحدثة',
+      );
     }
     return ProfileResult.failure(res.error ?? 'فشل رفع الصور');
   }
