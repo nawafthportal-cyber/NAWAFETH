@@ -26,6 +26,8 @@ const HomePage = (() => {
   let _isLoading = false;
   let _reelsData = [];           // keep spotlight items for SpotlightViewer
   let _reelsAutoTimer = null;    // auto-scroll interval
+  let _reelsPaused = false;      // pause while user is touching/dragging
+  let _reelsBound = false;       // bind track interaction handlers once
 
   /* ----------------------------------------------------------
      INIT
@@ -38,17 +40,7 @@ const HomePage = (() => {
     $heroSubtitle   = document.getElementById('hero-subtitle');
     $reelsTrack     = document.getElementById('reels-track');
     $offlineBanner  = document.getElementById('offline-banner');
-
-    // Hero top-bar menu button → toggle sidebar
-    const menuBtn = document.getElementById('btn-menu');
-    if (menuBtn) {
-      menuBtn.addEventListener('click', () => {
-        const sidebar = document.getElementById('sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
-        if (sidebar) sidebar.classList.toggle('open');
-        if (overlay) overlay.classList.toggle('active');
-      });
-    }
+    _bindReelsInteraction();
 
     // Network listener
     window.addEventListener('online',  () => _setOffline(false));
@@ -398,29 +390,32 @@ const HomePage = (() => {
 
   /* ----------------------------------------------------------
      REELS AUTO-SCROLL (mirrors Flutter Timer.periodic)
-     Scrolls by one reel-item width every 3 seconds,
-     pauses on hover/touch.
-  ---------------------------------------------------------- */
+     Scrolls continuously with small steps and loops to start.
+   ---------------------------------------------------------- */
+  function _bindReelsInteraction() {
+    if (!$reelsTrack || _reelsBound) return;
+    _reelsBound = true;
+
+    const pause = () => { _reelsPaused = true; };
+    const resume = () => { _reelsPaused = false; };
+
+    $reelsTrack.addEventListener('pointerdown', pause, { passive: true });
+    $reelsTrack.addEventListener('pointerup', resume, { passive: true });
+    $reelsTrack.addEventListener('pointercancel', resume, { passive: true });
+    $reelsTrack.addEventListener('mouseleave', resume, { passive: true });
+  }
+
   function _startAutoScroll() {
     if (!$reelsTrack) return;
-    let paused = false;
-
-    $reelsTrack.addEventListener('mouseenter', () => { paused = true; });
-    $reelsTrack.addEventListener('mouseleave', () => { paused = false; });
-    $reelsTrack.addEventListener('touchstart', () => { paused = true; }, { passive: true });
-    $reelsTrack.addEventListener('touchend', () => { setTimeout(() => { paused = false; }, 2000); }, { passive: true });
+    _reelsPaused = false;
 
     _reelsAutoTimer = setInterval(() => {
-      if (paused || !$reelsTrack) return;
-      const itemWidth = 88; // reel-item width + gap
+      if (_reelsPaused || !$reelsTrack) return;
       const maxScroll = $reelsTrack.scrollWidth - $reelsTrack.clientWidth;
-      if ($reelsTrack.scrollLeft >= maxScroll - 4) {
-        // Loop back to start
-        $reelsTrack.scrollTo({ left: 0, behavior: 'smooth' });
-      } else {
-        $reelsTrack.scrollBy({ left: itemWidth, behavior: 'smooth' });
-      }
-    }, 3000);
+      if (maxScroll <= 0) return;
+      const next = $reelsTrack.scrollLeft + 1;
+      $reelsTrack.scrollLeft = next >= maxScroll ? 0 : next;
+    }, 50);
   }
 
   function _stopAutoScroll() {

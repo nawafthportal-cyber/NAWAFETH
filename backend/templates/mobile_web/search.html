@@ -6,71 +6,81 @@
 {% block body_class %}page-search{% endblock %}
 
 {% block content %}
-<main class="page-content">
-  <!-- Search Hero -->
-  <section class="search-hero">
+<main class="page-content search-mobile-page">
+  <section class="search-mobile-header">
     <div class="container">
-      <div class="search-input-wrap">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="search-input" class="search-input" placeholder="ابحث عن مقدم خدمة..." autocomplete="off">
-        <button class="search-clear hidden" id="search-clear">✕</button>
-        <button class="search-filter-btn" id="btn-advanced-filter" title="فلتر متقدم">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#673AB7"><path d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"/></svg>
+      <div class="search-mobile-top">
+        <button class="search-back-btn" id="search-back-btn" type="button" aria-label="رجوع">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
+        <h1 class="search-mobile-title">البحث عن مزود خدمة</h1>
       </div>
-      <!-- Advanced filter panel -->
-      <div class="advanced-filter-panel hidden" id="advanced-filter-panel">
-        <div class="filter-panel-row">
-          <div class="filter-panel-group">
-            <label class="form-label">المدينة</label>
-            <select class="form-select" id="filter-city">
-              <option value="">جميع المدن</option>
-            </select>
-          </div>
-          <div class="filter-panel-group">
-            <label class="form-label">نطاق السعر</label>
-            <div class="price-range-row">
-              <input type="number" class="form-input" id="filter-price-min" placeholder="من" min="0">
-              <span>-</span>
-              <input type="number" class="form-input" id="filter-price-max" placeholder="إلى" min="0">
-            </div>
-          </div>
-        </div>
+
+      <div class="search-mobile-input-wrap">
+        <span class="search-input-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a9a9a" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input type="text" id="search-input" class="search-input" placeholder="ابحث بالاسم أو التخصص..." autocomplete="off">
+        <button class="search-clear hidden" id="search-clear" type="button" aria-label="مسح">✕</button>
       </div>
     </div>
   </section>
 
-  <div class="container">
-    <!-- Category Filters -->
+  <div class="container search-mobile-body">
     <div class="filter-row" id="filter-row">
       <button class="filter-chip active" data-cat-id="">الكل</button>
-      <!-- populated by JS -->
     </div>
 
-    <!-- Sort -->
-    <div class="sort-row">
-      <label class="sort-label">ترتيب:</label>
-      <select id="sort-select" class="sort-select">
-        <option value="">الافتراضي</option>
-        <option value="rating">الأعلى تقييماً</option>
-        <option value="followers">الأكثر متابعة</option>
-      </select>
-      <span class="results-count" id="results-count"></span>
+    <div class="search-mobile-sort-row">
+      <span class="results-count" id="results-count">0 نتيجة</span>
+      <button class="search-mobile-sort-btn" id="search-sort-btn" type="button" aria-haspopup="dialog">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v2h18V6H3zm3 7h12v-2H6v2zm4 5h4v-2h-4v2z"/></svg>
+        فرز
+      </button>
     </div>
 
-    <!-- Providers Grid -->
-    <div class="providers-grid" id="providers-list">
-      <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:12px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:10px;border-radius:4px;margin-top:8px"></div></div></div>
-      <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:12px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:10px;border-radius:4px;margin-top:8px"></div></div></div>
-      <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:12px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:10px;border-radius:4px;margin-top:8px"></div></div></div>
-      <div class="provider-card skeleton-provider"><div class="provider-cover shimmer"></div><div class="provider-info-skeleton"><div class="shimmer" style="width:60%;height:12px;border-radius:4px"></div><div class="shimmer" style="width:40%;height:10px;border-radius:4px;margin-top:8px"></div></div></div>
+    <div class="providers-list-compact" id="providers-list">
+      <div class="provider-list-card skeleton-provider-list">
+        <div class="provider-list-media shimmer"></div>
+        <div class="provider-list-body">
+          <div class="shimmer" style="width:48%;height:11px;border-radius:4px"></div>
+          <div class="shimmer" style="width:34%;height:9px;border-radius:4px;margin-top:6px"></div>
+          <div class="shimmer" style="width:60%;height:9px;border-radius:4px;margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="provider-list-card skeleton-provider-list">
+        <div class="provider-list-media shimmer"></div>
+        <div class="provider-list-body">
+          <div class="shimmer" style="width:48%;height:11px;border-radius:4px"></div>
+          <div class="shimmer" style="width:34%;height:9px;border-radius:4px;margin-top:6px"></div>
+          <div class="shimmer" style="width:60%;height:9px;border-radius:4px;margin-top:8px"></div>
+        </div>
+      </div>
+      <div class="provider-list-card skeleton-provider-list">
+        <div class="provider-list-media shimmer"></div>
+        <div class="provider-list-body">
+          <div class="shimmer" style="width:48%;height:11px;border-radius:4px"></div>
+          <div class="shimmer" style="width:34%;height:9px;border-radius:4px;margin-top:6px"></div>
+          <div class="shimmer" style="width:60%;height:9px;border-radius:4px;margin-top:8px"></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Empty state -->
     <div class="empty-state hidden" id="empty-state">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="#ccc"><circle cx="11" cy="11" r="8" fill="none" stroke="#ccc" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="#ccc" stroke-width="2"/></svg>
       <p>لا توجد نتائج</p>
     </div>
+  </div>
+
+  <div class="sort-sheet-backdrop hidden" id="sort-sheet-backdrop"></div>
+  <div class="sort-sheet hidden" id="sort-sheet" role="dialog" aria-modal="true" aria-label="فرز حسب">
+    <div class="sort-sheet-handle"></div>
+    <h3 class="sort-sheet-title">فرز حسب:</h3>
+    <button class="sort-sheet-option active" data-sort-key="default" type="button">الافتراضي</button>
+    <button class="sort-sheet-option" data-sort-key="nearest" type="button">الأقرب</button>
+    <button class="sort-sheet-option" data-sort-key="rating" type="button">أعلى تقييم</button>
+    <button class="sort-sheet-option" data-sort-key="completed" type="button">الأكثر طلبات مكتملة</button>
+    <button class="sort-sheet-option" data-sort-key="followers" type="button">الأكثر متابعة</button>
   </div>
 </main>
 {% endblock %}

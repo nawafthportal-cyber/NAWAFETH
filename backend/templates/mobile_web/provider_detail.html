@@ -70,6 +70,12 @@
       </div>
     </div>
 
+    <div class="pd-connections-row">
+      <button class="pd-connections-btn" id="btn-show-followers" type="button">عرض المتابعين</button>
+      <span class="pd-connections-divider" aria-hidden="true"></span>
+      <button class="pd-connections-btn muted" id="btn-show-following" type="button">عرض المتابَعين</button>
+    </div>
+
     <!-- ═══ ACTION BUTTONS (like mobile) ═══ -->
     <div class="pd-actions">
       <button class="pd-action-primary" id="btn-request">
@@ -108,15 +114,15 @@
       </button>
       <button class="pd-tab" data-tab="services">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-        <span>الخدمات</span>
+        <span>خدماتي</span>
       </button>
       <button class="pd-tab" data-tab="portfolio">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
-        <span>معرض الأعمال</span>
+        <span>معرض خدماتي</span>
       </button>
       <button class="pd-tab" data-tab="reviews">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span>التقييمات</span>
+        <span>المراجعات</span>
       </button>
     </div>
 
@@ -245,6 +251,10 @@
 
       <!-- Services Tab -->
       <div id="tab-services" class="pd-panel">
+        <div class="pd-services-helper">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+          <span>الخدمات المعروضة هنا هي نفس الخدمات المُدخلة في ملف مقدم الخدمة.</span>
+        </div>
         <div class="pd-services-grid" id="pd-services-list"></div>
         <div class="pd-empty hidden" id="pd-services-empty">
           <div class="pd-empty-icon">📋</div>
@@ -277,5 +287,6 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{% static 'mobile_web/js/spotlightViewer.js' %}"></script>
 <script src="{% static 'mobile_web/js/providerDetailPage.js' %}"></script>
 {% endblock %}

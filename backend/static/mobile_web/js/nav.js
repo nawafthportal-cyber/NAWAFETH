@@ -16,13 +16,17 @@ const Nav = (() => {
 
   /* ---------- Sidebar ---------- */
   function _initSidebarController() {
-    const btn = document.getElementById('btn-menu');
+    const buttons = [
+      document.getElementById('btn-menu'),
+      document.getElementById('hero-menu-btn'),
+    ].filter(Boolean);
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
     const close = document.getElementById('sidebar-close');
-    if (!btn || !sidebar) return;
+    if (!buttons.length || !sidebar) return;
 
     const open = () => {
+      if (_sidebarOpen) return;
       _sidebarOpen = true;
       sidebar.classList.add('open');
       sidebar.setAttribute('aria-hidden', 'false');
@@ -34,6 +38,7 @@ const Nav = (() => {
     };
 
     const shut = () => {
+      if (!_sidebarOpen) return;
       _sidebarOpen = false;
       sidebar.classList.remove('open');
       sidebar.setAttribute('aria-hidden', 'true');
@@ -44,7 +49,12 @@ const Nav = (() => {
       document.body.style.overflow = '';
     };
 
-    btn.addEventListener('click', open);
+    const toggle = () => {
+      if (_sidebarOpen) shut();
+      else open();
+    };
+
+    buttons.forEach(btn => btn.addEventListener('click', toggle));
     if (overlay) overlay.addEventListener('click', shut);
     if (close) close.addEventListener('click', shut);
 

@@ -11,6 +11,7 @@ const ProviderDetailPage = (() => {
   let _activeTab = 'profile';
   let _providerData = null;
   let _providerPhone = '';
+  let _spotlights = [];
 
   function init() {
     const match = window.location.pathname.match(/\/provider\/(\d+)/);
@@ -47,6 +48,16 @@ const ProviderDetailPage = (() => {
   function _bindActions() {
     document.getElementById('btn-follow').addEventListener('click', _toggleFollow);
 
+    const followersBtn = document.getElementById('btn-show-followers');
+    if (followersBtn) {
+      followersBtn.addEventListener('click', () => _openConnectionsSheet('followers'));
+    }
+
+    const followingBtn = document.getElementById('btn-show-following');
+    if (followingBtn) {
+      followingBtn.addEventListener('click', () => _openConnectionsSheet('following'));
+    }
+
     // Message
     const msgBtn = document.getElementById('btn-message');
     if (msgBtn) msgBtn.addEventListener('click', () => {
@@ -56,7 +67,7 @@ const ProviderDetailPage = (() => {
 
     // Request service
     document.getElementById('btn-request').addEventListener('click', () => {
-      window.location.href = '/search/?provider=' + _providerId;
+      window.location.href = '/service-request/?provider_id=' + encodeURIComponent(String(_providerId));
     });
 
     // Call
@@ -190,6 +201,7 @@ const ProviderDetailPage = (() => {
     // ── Stats ──
     const completed = stats?.completed_requests ?? p.completed_requests ?? p.completed_orders_count ?? 0;
     const followers = stats?.followers_count ?? p.followers_count ?? 0;
+    const following = stats?.following_count ?? p.following_count ?? 0;
     const likes = stats?.likes_count ?? p.likes_count ?? 0;
     const rating = p.rating_avg ? parseFloat(p.rating_avg).toFixed(1) : '-';
 
@@ -197,6 +209,11 @@ const ProviderDetailPage = (() => {
     _setText('stat-followers', followers);
     _setText('stat-likes', likes);
     _setText('stat-rating', rating);
+
+    const followingBtn = document.getElementById('btn-show-following');
+    if (followingBtn) {
+      followingBtn.dataset.count = String(following || 0);
+    }
 
     // ── Follow state ──
     _isFollowing = !!p.is_following;
@@ -312,6 +329,92 @@ const ProviderDetailPage = (() => {
     }
   }
 
+  async function _openConnectionsSheet(kind) {
+    const isFollowers = kind === 'followers';
+    const endpoint = isFollowers
+      ? '/api/providers/' + _providerId + '/followers/'
+      : '/api/providers/' + _providerId + '/following/';
+    const title = isFollowers ? 'متابعون' : 'يتابع';
+    const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
+    const count = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
+
+    const res = await ApiClient.get(endpoint);
+    const items = res.ok
+      ? (Array.isArray(res.data) ? res.data : (res.data?.results || []))
+      : [];
+
+    const backdrop = UI.el('div', { className: 'pd-sheet-backdrop' });
+    const sheet = UI.el('div', { className: 'pd-sheet' });
+    const handle = UI.el('div', { className: 'pd-sheet-handle' });
+    const header = UI.el('div', { className: 'pd-sheet-header' });
+    const heading = UI.el('div', {
+      className: 'pd-sheet-title',
+      textContent: title + ' (' + count + ')',
+    });
+    const closeBtn = UI.el('button', {
+      className: 'pd-sheet-close',
+      type: 'button',
+      textContent: '×',
+    });
+    closeBtn.setAttribute('aria-label', 'إغلاق');
+    closeBtn.addEventListener('click', closeSheet);
+
+    header.appendChild(heading);
+    header.appendChild(closeBtn);
+    sheet.appendChild(handle);
+    sheet.appendChild(header);
+
+    const body = UI.el('div', { className: 'pd-sheet-body' });
+
+    if (!res.ok && !items.length) {
+      body.appendChild(UI.el('div', {
+        className: 'pd-sheet-empty',
+        textContent: res.error || 'تعذر تحميل القائمة',
+      }));
+    } else if (!items.length) {
+      body.appendChild(UI.el('div', {
+        className: 'pd-sheet-empty',
+        textContent: isFollowers ? 'لا يوجد متابعون بعد' : 'لا يوجد متابَعون بعد',
+      }));
+    } else {
+      const list = UI.el('div', { className: 'pd-sheet-list' });
+      items.forEach(item => {
+        const name = String(item.display_name || item.name || item.username || 'مستخدم').trim() || 'مستخدم';
+        const username = String(item.username || item.username_display || '').trim();
+        const avatarUrl = ApiClient.mediaUrl(item.profile_image || item.avatar || '');
+
+        const row = UI.el('div', { className: 'pd-sheet-item' });
+        const avatar = UI.el('div', { className: 'pd-sheet-avatar' });
+        if (avatarUrl) avatar.appendChild(UI.lazyImg(avatarUrl, name));
+        else avatar.appendChild(UI.el('span', { textContent: name.charAt(0) }));
+        row.appendChild(avatar);
+
+        const meta = UI.el('div', { className: 'pd-sheet-meta' });
+        meta.appendChild(UI.el('div', { className: 'pd-sheet-name', textContent: name }));
+        if (username) {
+          meta.appendChild(UI.el('div', { className: 'pd-sheet-handle-text', textContent: '@' + username }));
+        }
+        row.appendChild(meta);
+        list.appendChild(row);
+      });
+      body.appendChild(list);
+    }
+
+    sheet.appendChild(body);
+    backdrop.appendChild(sheet);
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('open'));
+
+    backdrop.addEventListener('click', e => {
+      if (e.target === backdrop) closeSheet();
+    });
+
+    function closeSheet() {
+      backdrop.classList.remove('open');
+      setTimeout(() => backdrop.remove(), 180);
+    }
+  }
+
   /* ═══ Follow / Unfollow ═══ */
   async function _toggleFollow() {
     if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
@@ -358,8 +461,27 @@ const ProviderDetailPage = (() => {
   async function _loadSpotlights() {
     const res = await ApiClient.get('/api/providers/' + _providerId + '/spotlights/');
     if (!res.ok) return;
-    const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-    if (!list.length) return;
+    const raw = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    if (!raw.length) return;
+
+    _spotlights = raw.map(item => {
+      return {
+        id: item.id,
+        provider_id: item.provider_id || _safeInt(_providerId),
+        provider_display_name: item.provider_display_name || _providerData?.display_name || '',
+        provider_profile_image: item.provider_profile_image || _providerData?.profile_image || '',
+        file_type: item.file_type || 'image',
+        file_url: item.file_url || item.media_url || '',
+        thumbnail_url: item.thumbnail_url || item.file_url || item.media_url || '',
+        caption: item.caption || item.title || '',
+        likes_count: _safeInt(item.likes_count),
+        saves_count: _safeInt(item.saves_count),
+        is_liked: !!item.is_liked,
+        is_saved: !!item.is_saved,
+      };
+    }).filter(item => (item.file_url || item.thumbnail_url));
+
+    if (!_spotlights.length) return;
 
     const section = document.getElementById('pd-highlights-section');
     const row = document.getElementById('pd-highlights');
@@ -367,13 +489,22 @@ const ProviderDetailPage = (() => {
 
     section.classList.remove('hidden');
     row.textContent = '';
-    list.forEach(item => {
+    _spotlights.forEach((item, idx) => {
       const el = UI.el('div', { className: 'pd-highlight-item' });
       const thumb = UI.el('div', { className: 'pd-highlight-thumb' });
-      const imgUrl = item.thumbnail_url || item.file_url || '';
+      const imgUrl = item.thumbnail_url || item.file_url;
       if (imgUrl) thumb.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
       el.appendChild(thumb);
-      el.appendChild(UI.el('div', { className: 'pd-highlight-label', textContent: item.title || 'لمحة' }));
+
+      const caption = (item.caption || '').toString().trim();
+      el.appendChild(UI.el('div', { className: 'pd-highlight-label', textContent: caption || 'لمحة' }));
+
+      el.addEventListener('click', () => {
+        if (typeof SpotlightViewer !== 'undefined') {
+          SpotlightViewer.open(_spotlights, idx);
+        }
+      });
+
       row.appendChild(el);
     });
   }
@@ -386,50 +517,90 @@ const ProviderDetailPage = (() => {
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
     container.textContent = '';
+    if (emptyEl) emptyEl.classList.add('hidden');
 
     if (!list.length) {
       if (emptyEl) emptyEl.classList.remove('hidden');
       return;
     }
 
-    list.forEach(svc => {
-      const card = UI.el('div', { className: 'pd-service-card' });
+    list.forEach((svc, idx) => {
+      const title = String(svc.title || svc.name || '').trim() || 'خدمة بدون اسم';
+      const description = String(svc.description || '').trim();
+      const subcategory = (svc.subcategory && typeof svc.subcategory === 'object') ? svc.subcategory : null;
+      const categoryLabel = String(
+        (subcategory && subcategory.category_name) ||
+        svc.category_name ||
+        svc.main_category ||
+        ''
+      ).trim();
+      const subCategoryLabel = String(
+        (subcategory && subcategory.name) ||
+        svc.subcategory_name ||
+        svc.sub_category ||
+        ''
+      ).trim();
 
-      // Image
-      const imgWrap = UI.el('div', { className: 'pd-service-img' });
-      const imgUrl = svc.image || svc.thumbnail_url || '';
-      if (imgUrl) {
-        imgWrap.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), svc.name || svc.title || ''));
-      } else {
-        const placeholder = UI.el('div', { className: 'pd-service-placeholder' });
-        placeholder.appendChild(UI.icon('category', 32, '#ccc'));
-        imgWrap.appendChild(placeholder);
-      }
-      card.appendChild(imgWrap);
+      const card = UI.el('div', { className: 'pd-service-list-card' });
 
-      // Body
-      const body = UI.el('div', { className: 'pd-service-body' });
-      body.appendChild(UI.el('div', { className: 'pd-service-name', textContent: svc.name || svc.title || '' }));
-      if (svc.description) {
-        body.appendChild(UI.el('div', { className: 'pd-service-desc', textContent: svc.description }));
+      const head = UI.el('div', { className: 'pd-service-list-head' });
+      head.appendChild(UI.el('span', { className: 'pd-service-index', textContent: String(idx + 1) }));
+      head.appendChild(UI.el('h4', { className: 'pd-service-list-title', textContent: title }));
+      card.appendChild(head);
+
+      if (description) {
+        card.appendChild(UI.el('p', { className: 'pd-service-list-desc', textContent: description }));
       }
 
-      // Footer
-      const footer = UI.el('div', { className: 'pd-service-footer' });
-      const price = svc.price || svc.min_price || svc.price_from;
-      if (price) {
-        footer.appendChild(UI.el('span', { className: 'pd-service-price', textContent: parseFloat(price).toLocaleString('ar-SA') + ' ر.س' }));
+      const chips = UI.el('div', { className: 'pd-service-list-chips' });
+      chips.appendChild(UI.el('span', { className: 'pd-service-chip primary', textContent: _servicePriceLabel(svc) }));
+      if (categoryLabel) {
+        chips.appendChild(UI.el('span', { className: 'pd-service-chip', textContent: categoryLabel }));
       }
-      if (svc.delivery_days) {
-        const dur = UI.el('span', { className: 'pd-service-duration' });
-        dur.textContent = '⏱ ' + svc.delivery_days + ' يوم';
-        footer.appendChild(dur);
+      if (subCategoryLabel) {
+        chips.appendChild(UI.el('span', { className: 'pd-service-chip', textContent: subCategoryLabel }));
       }
-      body.appendChild(footer);
-      card.appendChild(body);
+      card.appendChild(chips);
+
+      const requestBtn = UI.el('button', {
+        className: 'pd-service-list-request',
+        type: 'button',
+        textContent: 'اطلب الخدمة',
+      });
+      requestBtn.addEventListener('click', () => {
+        const params = new URLSearchParams();
+        params.set('provider_id', String(_providerId));
+        if (svc.id) params.set('service_id', String(svc.id));
+        window.location.href = '/service-request/?' + params.toString();
+      });
+      card.appendChild(requestBtn);
 
       container.appendChild(card);
     });
+  }
+
+  function _servicePriceLabel(service) {
+    const from = _asNumber(service.price_from);
+    const to = _asNumber(service.price_to);
+    const single = _asNumber(service.price || service.min_price);
+    const unit = String(service.price_unit || '').trim();
+    const suffix = unit ? (' / ' + unit) : '';
+
+    if (Number.isFinite(from) && Number.isFinite(to)) {
+      if (Math.abs(from - to) < 0.001) {
+        return 'السعر: ' + from.toLocaleString('ar-SA') + suffix;
+      }
+      return 'السعر: ' + from.toLocaleString('ar-SA') + ' - ' + to.toLocaleString('ar-SA') + suffix;
+    }
+    if (Number.isFinite(from)) return 'السعر: ' + from.toLocaleString('ar-SA') + suffix;
+    if (Number.isFinite(single)) return 'السعر: ' + single.toLocaleString('ar-SA') + suffix;
+    return 'السعر: حسب الاتفاق';
+  }
+
+  function _asNumber(value) {
+    if (value === null || value === undefined || value === '') return NaN;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : NaN;
   }
 
   /* ═══ Portfolio ═══ */
@@ -549,6 +720,11 @@ const ProviderDetailPage = (() => {
   }
 
   /* ═══ Helpers ═══ */
+
+  function _safeInt(value) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : 0;
+  }
 
   function _setText(id, val) {
     const el = document.getElementById(id);
