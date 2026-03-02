@@ -809,13 +809,13 @@
 .pd-service-name {
   font-size: 13px; font-weight: 700; color: var(--color-text);
   margin-bottom: 4px;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .pd-service-desc {
   font-size: 11px; color: var(--color-text-tertiary);
   margin-bottom: var(--space-sm);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; line-height: 1.5;
 }
 .pd-service-footer {
