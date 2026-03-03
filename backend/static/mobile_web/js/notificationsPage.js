@@ -138,6 +138,7 @@ const NotificationsPage = (() => {
     if (res.ok) {
       _notifications[index].is_read = true;
       _render();
+      window.dispatchEvent(new Event('nw:badge-refresh'));
     }
   }
 
@@ -146,6 +147,7 @@ const NotificationsPage = (() => {
     if (res.ok) {
       _notifications.forEach(n => n.is_read = true);
       _render();
+      window.dispatchEvent(new Event('nw:badge-refresh'));
     }
   }
 
@@ -154,6 +156,7 @@ const NotificationsPage = (() => {
     const res = await ApiClient.request('/api/notifications/delete-old/', { method: 'POST' });
     if (res.ok) {
       _fetchNotifications();
+      window.dispatchEvent(new Event('nw:badge-refresh'));
     }
   }
 

@@ -59,7 +59,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   int _newOrdersCount = 0;
   int _clientsCount = 0;
   Map<String, dynamic>? _providerStats;
-  int _favoritesCount = 0;
   List<Map<String, dynamic>> _mySpotlights = <Map<String, dynamic>>[];
   final Set<int> _deletingSpotlightIds = <int>{};
 
@@ -68,20 +67,35 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   String? get _currentPlanStatusLabel => _subscriptionStatus == null
       ? null
       : SubscriptionsService.subscriptionStatusLabel(_subscriptionStatus);
-    int get _followersCount =>
-      _providerStats?['followers_count'] as int? ??
+  int? _providerStatIntOrNull(String key) {
+    final value = _providerStats?[key];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final parsed = int.tryParse(value.trim());
+      if (parsed != null) return parsed;
+    }
+    return null;
+  }
+
+  int get _followersCount =>
+      _providerStatIntOrNull('followers_count') ??
       _userProfile?.providerFollowersCount ??
       0;
-    int get _followingCount =>
-      _providerStats?['following_count'] as int? ??
+
+  int get _followingCount =>
+      _providerStatIntOrNull('following_count') ??
       _userProfile?.followingCount ??
       0;
-    int get _likesReceivedCount =>
-      _providerStats?['likes_count'] as int? ??
+
+  int get _likesReceivedCount =>
+      _providerStatIntOrNull('media_likes_count') ??
+      _providerStatIntOrNull('likes_count') ??
       _userProfile?.providerLikesReceivedCount ??
       0;
-  String get _displayName =>
-      _providerProfile?.displayName ?? _userProfile?.providerDisplayName ?? '';
+
+  int get _savedByUsersCount =>
+      _providerStatIntOrNull('media_saves_count') ?? 0;
 
   // ✅ نسبة إكمال الملف من البيانات الحقيقية
   double get _profileCompletion => _providerProfile?.profileCompletion ?? 0.30;
@@ -117,7 +131,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     setState(() {
       _userProfile = meResult.data;
-      _favoritesCount = meResult.data?.favoritesMediaCount ?? 0;
       _isLoading = false;
     });
 
@@ -127,7 +140,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     unawaited(_loadOrderCounts());
     unawaited(_loadMySpotlights());
     unawaited(_loadProviderStats());
-    unawaited(_loadFavoritesCount());
   }
 
   Future<void> _loadProviderProfile(
@@ -149,24 +161,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   Future<void> _loadProviderStats() async {
     try {
-      final providerId = _providerProfile?.id ?? _userProfile?.providerProfileId;
+      final providerId =
+          _providerProfile?.id ?? _userProfile?.providerProfileId;
       if (providerId == null || providerId <= 0) return;
       final response = await InteractiveService.fetchProviderStats(providerId);
       if (!mounted || !response.isSuccess || response.dataAsMap == null) return;
       setState(() {
         _providerStats = response.dataAsMap;
-      });
-    } catch (_) {
-      // optional data
-    }
-  }
-
-  Future<void> _loadFavoritesCount() async {
-    try {
-      final response = await InteractiveService.fetchFavorites();
-      if (!mounted || !response.isSuccess) return;
-      setState(() {
-        _favoritesCount = response.items.length;
       });
     } catch (_) {
       // optional data
@@ -201,7 +202,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       _subscriptionPlanName =
           SubscriptionsService.planTitleFromSubscription(selected);
       _subscriptionStatus = selected?['status']?.toString();
-      _subscriptionEndAt = SubscriptionsService.parseSubscriptionEndAt(selected);
+      _subscriptionEndAt =
+          SubscriptionsService.parseSubscriptionEndAt(selected);
     });
   }
 
@@ -1579,7 +1581,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                           _statItem(
                                             icon: Icons.bookmark_border,
                                             label: "محفوظ",
-                                            value: '$_favoritesCount',
+                                            value: '$_savedByUsersCount',
                                           ),
                                           const SizedBox(width: 6),
                                           _statItem(

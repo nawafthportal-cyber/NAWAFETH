@@ -6,6 +6,7 @@
 
 const RequestQuotePage = (() => {
   let _selectedFiles = [];
+  let _errorTimer = null;
   const _cities = [
     'الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','الظهران','الطائف','تبوك','بريدة',
     'عنيزة','حائل','أبها','خميس مشيط','نجران','جازان','ينبع','الباحة','الجبيل','حفر الباطن',
@@ -21,6 +22,10 @@ const RequestQuotePage = (() => {
     _loadCities();
     _loadCategories();
     _bindDescriptionCounter();
+    _bindLiveValidation();
+    _syncDeadlineMin();
+    _bindFilePickerTrigger();
+    _renderAttachments();
 
     const catSel = document.getElementById('rq-category');
     if (catSel) catSel.addEventListener('change', _onCategoryChange);
@@ -85,6 +90,34 @@ const RequestQuotePage = (() => {
     update();
   }
 
+  function _bindLiveValidation() {
+    ['rq-title', 'rq-category', 'rq-subcategory', 'rq-details'].forEach((id) => {
+      const field = document.getElementById(id);
+      if (!field) return;
+      const clear = () => { field.classList.remove('is-invalid'); };
+      field.addEventListener('input', clear);
+      field.addEventListener('change', clear);
+    });
+  }
+
+  function _syncDeadlineMin() {
+    const deadlineInput = document.getElementById('rq-deadline');
+    if (!deadlineInput) return;
+    const now = new Date();
+    const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    deadlineInput.min = iso;
+    if (deadlineInput.value && deadlineInput.value < iso) {
+      deadlineInput.value = '';
+    }
+  }
+
+  function _bindFilePickerTrigger() {
+    const trigger = document.getElementById('rq-file-trigger');
+    const input = document.getElementById('rq-files');
+    if (!trigger || !input) return;
+    trigger.addEventListener('click', () => input.click());
+  }
+
   /* ---- Categories cascade ---- */
   async function _loadCategories() {
     const res = await ApiClient.get('/api/providers/categories/');
@@ -105,6 +138,8 @@ const RequestQuotePage = (() => {
     const sel = document.getElementById('rq-category');
     const subSel = document.getElementById('rq-subcategory');
     if (!sel || !subSel) return;
+    sel.classList.remove('is-invalid');
+    subSel.classList.remove('is-invalid');
     subSel.innerHTML = '<option value="">-- اختر التخصص --</option>';
     const opt = sel.options[sel.selectedIndex];
     if (!opt || !opt.dataset.subs) return;
@@ -163,6 +198,7 @@ const RequestQuotePage = (() => {
       else if (isVideo) videos.push(file);
       else others.push(file);
     });
+    _setAttachmentSummary(images, videos, others);
 
     const renderThumbSection = (title, items, kind) => {
       if (!items.length) return;
@@ -249,23 +285,84 @@ const RequestQuotePage = (() => {
     }
   }
 
+  function _setAttachmentSummary(images, videos, others) {
+    const summary = document.getElementById('rq-file-summary');
+    if (!summary) return;
+    const total = images.length + videos.length + others.length;
+    if (!total) {
+      summary.textContent = 'لا توجد مرفقات مضافة';
+      return;
+    }
+    const parts = [`${total} ملف`];
+    if (images.length) parts.push(`${images.length} صورة`);
+    if (videos.length) parts.push(`${videos.length} فيديو`);
+    if (others.length) parts.push(`${others.length} ملف عام`);
+    summary.textContent = parts.join(' - ');
+  }
+
+  function _markFieldInvalid(id) {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('is-invalid');
+  }
+
+  function _validateRequiredFields() {
+    const title = document.getElementById('rq-title')?.value?.trim() || '';
+    const category = document.getElementById('rq-category')?.value || '';
+    const subcategory = document.getElementById('rq-subcategory')?.value || '';
+    const details = document.getElementById('rq-details')?.value?.trim() || '';
+
+    const missing = [];
+    if (!title) {
+      missing.push('يرجى كتابة عنوان الطلب');
+      _markFieldInvalid('rq-title');
+    }
+    if (!category) {
+      missing.push('يرجى اختيار التصنيف الرئيسي');
+      _markFieldInvalid('rq-category');
+    }
+    if (!subcategory) {
+      missing.push('يرجى اختيار التصنيف الفرعي');
+      _markFieldInvalid('rq-subcategory');
+    }
+    if (!details) {
+      missing.push('يرجى كتابة تفاصيل الطلب');
+      _markFieldInvalid('rq-details');
+    }
+
+    if (missing.length) {
+      _showError(missing[0]);
+      return null;
+    }
+    return { title, details, subcategory };
+  }
+
+  function _extractApiError(data) {
+    if (!data) return '';
+    if (typeof data.detail === 'string' && data.detail.trim()) return data.detail.trim();
+    const keys = Object.keys(data);
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (Array.isArray(value) && value.length) return String(value[0]);
+    }
+    return '';
+  }
+
   /* ---- Submit ---- */
   async function _onSubmit(e) {
     e.preventDefault();
+    _clearError();
+    const required = _validateRequiredFields();
+    if (!required) return;
+
     const btn = document.getElementById('rq-submit');
     if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner-inline"></span> جاري الإرسال...'; }
 
-    const title = document.getElementById('rq-title')?.value?.trim();
-    const details = document.getElementById('rq-details')?.value?.trim();
-    const subcat = document.getElementById('rq-subcategory')?.value;
+    const title = required.title;
+    const details = required.details;
+    const subcat = required.subcategory;
     const city = document.getElementById('rq-city')?.value;
     const deadline = document.getElementById('rq-deadline')?.value;
-
-    if (!title) {
-      _showError('يرجى كتابة عنوان الطلب');
-      _resetBtn(btn);
-      return;
-    }
 
     const fd = new FormData();
     fd.append('request_type', 'competitive');
@@ -276,16 +373,31 @@ const RequestQuotePage = (() => {
     if (deadline) fd.append('quote_deadline', deadline);
     _selectedFiles.forEach(f => fd.append('files', f));
 
-    const res = await ApiClient.request('/api/marketplace/requests/create/', { method: 'POST', body: fd, formData: true });
-    if (res.ok) {
-      const success = document.getElementById('rq-success');
-      success?.classList.remove('hidden');
-      success?.classList.add('visible');
-      setTimeout(() => { window.location.href = '/orders/'; }, 2000);
-    } else {
-      _showError(res.data?.detail || 'حدث خطأ، حاول مرة أخرى');
+    try {
+      const res = await ApiClient.request('/api/marketplace/requests/create/', { method: 'POST', body: fd, formData: true });
+      if (res.ok) {
+        const success = document.getElementById('rq-success');
+        success?.classList.remove('hidden');
+        success?.classList.add('visible');
+        setTimeout(() => { window.location.href = '/orders/'; }, 2000);
+      } else {
+        _showError(_extractApiError(res.data) || 'تعذر إرسال الطلب، تحقق من البيانات وحاول مرة أخرى');
+      }
+    } catch (err) {
+      _showError('تعذر الاتصال بالخادم، حاول مرة أخرى');
+    } finally {
+      _resetBtn(btn);
     }
-    _resetBtn(btn);
+  }
+
+  function _clearError() {
+    const errEl = document.getElementById('rq-error');
+    if (!errEl) return;
+    errEl.style.display = 'none';
+    if (_errorTimer) {
+      clearTimeout(_errorTimer);
+      _errorTimer = null;
+    }
   }
 
   function _showError(msg) {
@@ -296,13 +408,17 @@ const RequestQuotePage = (() => {
     }
     errEl.textContent = msg;
     errEl.style.display = 'block';
-    setTimeout(() => { errEl.style.display = 'none'; }, 4000);
+    if (_errorTimer) clearTimeout(_errorTimer);
+    _errorTimer = setTimeout(() => {
+      errEl.style.display = 'none';
+      _errorTimer = null;
+    }, 4000);
   }
 
   function _resetBtn(btn) {
     if (!btn) return;
     btn.disabled = false;
-    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-inline-end:4px"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>تقديم الطلب';
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg><span>تقديم الطلب</span>';
   }
 
   // Boot

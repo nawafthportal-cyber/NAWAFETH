@@ -9,6 +9,7 @@ const UrgentRequestPage = (() => {
   let _videos = [];
   let _files = [];
   let _audio = null;
+  let _lastNearestToastKey = '';
   const _cities = [
     'الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','الظهران','الطائف','تبوك','بريدة',
     'عنيزة','حائل','أبها','خميس مشيط','نجران','جازان','ينبع','الباحة','الجبيل','حفر الباطن',
@@ -36,13 +37,19 @@ const UrgentRequestPage = (() => {
     if (form) form.addEventListener('submit', _onSubmit);
 
     const citySel = document.getElementById('ur-city');
-    if (citySel) citySel.addEventListener('change', _updateCityClearVisibility);
+    if (citySel) {
+      citySel.addEventListener('change', () => {
+        _updateCityClearVisibility();
+        _maybeShowNearestMapToast();
+      });
+    }
 
     const clearCityBtn = document.getElementById('ur-city-clear');
     if (clearCityBtn) {
       clearCityBtn.addEventListener('click', () => {
         if (citySel) citySel.value = '';
         _updateCityClearVisibility();
+        _lastNearestToastKey = '';
       });
     }
 
@@ -87,8 +94,57 @@ const UrgentRequestPage = (() => {
         });
         chip.classList.add('active');
         _updateCityClearVisibility();
+        _maybeShowNearestMapToast();
       });
     });
+  }
+
+  function _maybeShowNearestMapToast() {
+    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'nearest';
+    const city = (document.getElementById('ur-city')?.value || '').trim();
+    if (dispatch !== 'nearest' || !city) return;
+
+    const key = dispatch + '::' + city;
+    if (key === _lastNearestToastKey) return;
+    _lastNearestToastKey = key;
+
+    _showHintToast('سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة ' + city, {
+      actionLabel: 'عرض الخريطة',
+      onAction: () => {
+        const url = '/search/?city=' + encodeURIComponent(city) + '&sort=nearest&open_map=1&urgent=1';
+        window.location.href = url;
+      },
+    });
+  }
+
+  function _showHintToast(message, opts) {
+    const options = opts || {};
+    const toast = UI.el('div', {
+      className: 'search-toast',
+    });
+    toast.appendChild(UI.el('span', { textContent: message }));
+
+    if (options.actionLabel && typeof options.onAction === 'function') {
+      const btn = UI.el('button', {
+        type: 'button',
+        textContent: options.actionLabel,
+      });
+      btn.style.marginInlineStart = '10px';
+      btn.style.background = 'transparent';
+      btn.style.border = 'none';
+      btn.style.color = 'inherit';
+      btn.style.fontWeight = '700';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', options.onAction);
+      toast.appendChild(btn);
+    }
+
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 180);
+    }, 2400);
   }
 
   function _updateCityClearVisibility() {

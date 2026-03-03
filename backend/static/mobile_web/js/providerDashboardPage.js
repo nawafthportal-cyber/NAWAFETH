@@ -85,11 +85,12 @@ const ProviderDashboardPage = (() => {
     _bindUploads();
     _bindModeToggle();
     _bindQrAction();
+    _bindOrdersCard();
   }
 
   async function _loadData() {
     // Parallel fetch
-    const [profRes, provRes, subRes, urgentRes, newRes, completedRes, spotsRes, favoritesRes, favoriteSpotlightsRes] =
+    const [profRes, provRes, subRes, urgentRes, newRes, completedRes, spotsRes] =
       await Promise.allSettled([
         ApiClient.get('/api/accounts/me/'),
         ApiClient.get('/api/providers/me/profile/'),
@@ -98,8 +99,6 @@ const ProviderDashboardPage = (() => {
         ApiClient.get('/api/marketplace/provider/requests/?status_group=new'),
         ApiClient.get('/api/marketplace/provider/requests/?status_group=completed'),
         ApiClient.get('/api/providers/me/spotlights/'),
-        ApiClient.get('/api/providers/me/favorites/?mode=provider'),
-        ApiClient.get('/api/providers/me/favorites/spotlights/?mode=provider'),
       ]);
 
     if (profRes.status === 'fulfilled' && profRes.value.ok) {
@@ -122,7 +121,7 @@ const ProviderDashboardPage = (() => {
       }
     }
 
-    _favoritesCount = _resolveFavoritesCount(favoritesRes, favoriteSpotlightsRes);
+    _favoritesCount = _resolveFavoritesCount();
 
     _renderHeader();
     _renderStats();
@@ -166,33 +165,21 @@ const ProviderDashboardPage = (() => {
     const stats = _providerStats || {};
     const followers = stats.followers_count ?? p.followers_count ?? _profile?.provider_followers_count ?? 0;
     const following = stats.following_count ?? p.following_count ?? _profile?.following_count ?? 0;
-    const likes = stats.likes_count ?? p.likes_count ?? _profile?.provider_likes_received_count ?? _profile?.likes_count ?? 0;
+    const likes = stats.media_likes_count ?? stats.likes_count ?? p.likes_count ?? _profile?.provider_likes_received_count ?? _profile?.likes_count ?? 0;
     const clients = p.total_clients ?? stats.completed_requests ?? p.completed_requests ?? 0;
+    const favorites = stats.media_saves_count ?? _favoritesCount;
 
     _setText('stat-followers', '.pd-stat-val', followers);
     _setText('stat-following', '.pd-stat-val', following);
     _setText('stat-likes', '.pd-stat-val', likes);
     _setText('stat-clients', '.pd-stat-val', clients);
-    _setText('stat-favorites', '.pd-stat-val', _favoritesCount);
+    _setText('stat-favorites', '.pd-stat-val', favorites);
   }
 
-  function _resolveFavoritesCount(portfolioRes, spotlightsRes) {
-    const fromProfile = _profile?.favorites_media_count;
-    if (Number.isFinite(fromProfile)) return Number(fromProfile);
-
-    const collectIds = (res, key) => {
-      if (res.status !== 'fulfilled' || !res.value.ok) return [];
-      const payload = res.value.data;
-      const list = Array.isArray(payload) ? payload : (payload?.results || []);
-      return list
-        .map(item => item && item[key])
-        .filter(id => Number.isFinite(Number(id)))
-        .map(id => Number(id));
-    };
-
-    const portfolioIds = collectIds(portfolioRes, 'id');
-    const spotlightIds = collectIds(spotlightsRes, 'id');
-    return new Set([...portfolioIds, ...spotlightIds.map(id => id + 1000000000)]).size;
+  function _resolveFavoritesCount() {
+    const fromStats = _providerStats?.media_saves_count;
+    if (Number.isFinite(Number(fromStats))) return Number(fromStats);
+    return 0;
   }
 
   function _renderSubscription(subRes) {
@@ -261,7 +248,7 @@ const ProviderDashboardPage = (() => {
   }
 
   function _renderKPIs(urgentRes, newRes, completedRes) {
-    let urgent = 0, newCount = 0, completed = 0;
+    let urgent = 0, newCount = 0;
     if (urgentRes.status === 'fulfilled' && urgentRes.value.ok) {
       const d = urgentRes.value.data;
       urgent = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
@@ -270,13 +257,8 @@ const ProviderDashboardPage = (() => {
       const d = newRes.value.data;
       newCount = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
     }
-    if (completedRes.status === 'fulfilled' && completedRes.value.ok) {
-      const d = completedRes.value.data;
-      completed = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
-    }
     document.getElementById('kpi-urgent').textContent = urgent;
     document.getElementById('kpi-new').textContent = newCount;
-    document.getElementById('kpi-completed').textContent = completed;
   }
 
   function _renderSpotlights(spotsRes) {
@@ -286,6 +268,7 @@ const ProviderDashboardPage = (() => {
     spots.forEach(s => {
       const thumb = document.createElement('div');
       thumb.className = 'pd-reel-thumb';
+      thumb.title = 'لمحة';
       if (s.thumbnail_url || s.file_url) {
         thumb.style.backgroundImage = `url('${ApiClient.mediaUrl(s.thumbnail_url || s.file_url)}')`;
       }
@@ -355,9 +338,61 @@ const ProviderDashboardPage = (() => {
 
   function _bindQrAction() {
     const btn = document.getElementById('stat-qr-btn');
-    if (!btn) return;
+    const modal = document.getElementById('pd-qr-modal');
+    const closeBtn = document.getElementById('pd-qr-close');
+    const copyBtn = document.getElementById('pd-qr-copy');
+    const shareBtn = document.getElementById('pd-qr-share');
+    if (!btn || !modal) return;
+
+    const qrPayload = 'QR-CODE-DATA';
+
     btn.addEventListener('click', () => {
-      window.location.href = '/my-qr/';
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden', 'false');
+    });
+
+    const close = () => {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    };
+
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) close();
+    });
+
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(qrPayload);
+          alert('تم نسخ الكود');
+        } catch {
+          alert('تعذر النسخ');
+        }
+      });
+    }
+
+    if (shareBtn) {
+      shareBtn.addEventListener('click', async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({ text: qrPayload });
+            return;
+          } catch {
+            // continue to fallback
+          }
+        }
+        window.location.href = '/my-qr/';
+      });
+    }
+  }
+
+  function _bindOrdersCard() {
+    const card = document.getElementById('orders-card');
+    if (!card) return;
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('a,button,input,label')) return;
+      window.location.href = '/provider-orders/';
     });
   }
 

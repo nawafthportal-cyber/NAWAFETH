@@ -32,6 +32,7 @@ class ProviderProfileScreen extends StatefulWidget {
   final String? providerPhone;
   final double? providerLat;
   final double? providerLng;
+  final bool showBackToMapButton;
 
   const ProviderProfileScreen({
     super.key,
@@ -46,6 +47,7 @@ class ProviderProfileScreen extends StatefulWidget {
     this.providerPhone,
     this.providerLat,
     this.providerLng,
+    this.showBackToMapButton = false,
   });
 
   @override
@@ -1679,6 +1681,36 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         color: isDark
                             ? Colors.grey.shade500
                             : Colors.grey.shade600,
+                      ),
+                    ),
+                  ),
+                if (widget.showBackToMapButton)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.map_outlined, size: 16),
+                      label: const Text(
+                        'العودة إلى الخريطة',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: mainColor,
+                        side: BorderSide(color: mainColor.withValues(alpha: 0.35)),
+                        backgroundColor: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
                   ),

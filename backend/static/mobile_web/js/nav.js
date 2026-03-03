@@ -6,6 +6,7 @@
 
 const Nav = (() => {
   let _sidebarOpen = false;
+  let _badgeRefreshInFlight = false;
 
   function init() {
     _ensureSingleBottomNav();
@@ -239,6 +240,14 @@ const Nav = (() => {
     return badge;
   }
 
+  function _ensureBadges(selector) {
+    const nodes = Array.from(document.querySelectorAll(selector));
+    if (!nodes.length) return [];
+    return nodes
+      .map(_ensureBadge)
+      .filter(Boolean);
+  }
+
   function _setBadge(badge, count) {
     if (!badge) return;
     const value = Number.isFinite(count) ? Math.max(0, count) : 0;
@@ -252,28 +261,42 @@ const Nav = (() => {
   }
 
   async function _loadUnreadBadges() {
+    if (_badgeRefreshInFlight) return;
+    _badgeRefreshInFlight = true;
+
     if (!Auth.isLoggedIn()) return;
 
-    const notificationsBtn = document.querySelector('a[href="/notifications/"]');
-    const chatsBtn = document.querySelector('a[href="/chats/"]');
-    const notificationsBadge = _ensureBadge(notificationsBtn);
-    const chatsBadge = _ensureBadge(chatsBtn);
-    if (!notificationsBadge && !chatsBadge) return;
+    const notificationsBadges = _ensureBadges('a[href="/notifications/"]');
+    const chatsBadges = _ensureBadges('a[href="/chats/"]');
+    if (!notificationsBadges.length && !chatsBadges.length) {
+      _badgeRefreshInFlight = false;
+      return;
+    }
 
-    const mode = _activeMode();
-    const [notifRes, chatsRes] = await Promise.all([
-      ApiClient.get('/api/notifications/unread-count/?mode=' + mode),
-      ApiClient.get('/api/messaging/direct/unread-count/?mode=' + mode),
-    ]);
+    try {
+      const mode = _activeMode();
+      const [notifRes, chatsRes] = await Promise.all([
+        ApiClient.get('/api/notifications/unread-count/?mode=' + mode),
+        ApiClient.get('/api/messaging/direct/unread-count/?mode=' + mode),
+      ]);
 
-    const notifUnread = notifRes?.ok ? (notifRes.data?.unread || 0) : 0;
-    const chatUnread = chatsRes?.ok ? (chatsRes.data?.unread || 0) : 0;
-    _setBadge(notificationsBadge, notifUnread);
-    _setBadge(chatsBadge, chatUnread);
+      const notifUnread = notifRes?.ok ? (notifRes.data?.unread || 0) : 0;
+      const chatUnread = chatsRes?.ok ? (chatsRes.data?.unread || 0) : 0;
+      notificationsBadges.forEach((badge) => _setBadge(badge, notifUnread));
+      chatsBadges.forEach((badge) => _setBadge(badge, chatUnread));
+    } finally {
+      _badgeRefreshInFlight = false;
+    }
   }
 
   function _initUnreadBadges() {
     _loadUnreadBadges();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') _loadUnreadBadges();
+    });
+    window.addEventListener('focus', _loadUnreadBadges);
+    window.addEventListener('pageshow', _loadUnreadBadges);
+    window.addEventListener('nw:badge-refresh', _loadUnreadBadges);
     setInterval(_loadUnreadBadges, 20000);
   }
 
@@ -284,5 +307,8 @@ const Nav = (() => {
     init();
   }
 
-  return { init };
+  return {
+    init,
+    refreshUnreadBadges: _loadUnreadBadges,
+  };
 })();

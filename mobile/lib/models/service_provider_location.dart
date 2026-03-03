@@ -3,6 +3,7 @@ class ServiceProviderLocation {
   final String name;
   final String category;           // "صيانة المركبات"
   final String subCategory;        // "ميكانيكا"
+  final String city;
   final double latitude;
   final double longitude;
   final double rating;
@@ -23,6 +24,7 @@ class ServiceProviderLocation {
     required this.name,
     required this.category,
     required this.subCategory,
+    this.city = '',
     required this.latitude,
     required this.longitude,
     required this.rating,
@@ -44,6 +46,7 @@ class ServiceProviderLocation {
       name: json['display_name'] ?? json['name'] ?? '',
       category: json['category'] ?? '',
       subCategory: json['subCategory'] ?? json['sub_category'] ?? '',
+      city: json['city'] ?? '',
       latitude: _toDouble(json['lat'] ?? json['latitude']),
       longitude: _toDouble(json['lng'] ?? json['longitude']),
       rating: _toDouble(json['rating_avg'] ?? json['rating']),
@@ -90,6 +93,7 @@ class ServiceProviderLocation {
       'name': name,
       'category': category,
       'subCategory': subCategory,
+      'city': city,
       'latitude': latitude,
       'longitude': longitude,
       'rating': rating,
@@ -111,6 +115,7 @@ class ServiceProviderLocation {
     String? name,
     String? category,
     String? subCategory,
+    String? city,
     double? latitude,
     double? longitude,
     double? rating,
@@ -129,6 +134,7 @@ class ServiceProviderLocation {
       name: name ?? this.name,
       category: category ?? this.category,
       subCategory: subCategory ?? this.subCategory,
+      city: city ?? this.city,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       rating: rating ?? this.rating,

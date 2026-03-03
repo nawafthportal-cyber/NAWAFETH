@@ -9,11 +9,17 @@ const SearchPage = (() => {
   let _providers = [];
   let _activeCat = '';
   let _query = '';
+  let _activeCity = '';
+  let _urgentOnly = false;
   let _selectedSort = 'default';
   let _debounce = null;
   let _distanceKmByProviderId = {};
   let _clientPosition = null;
   let _sortSheetOpen = false;
+  let _openMapAfterFirstRender = false;
+  let _mapModalOpen = false;
+  let _mapInstance = null;
+  let _mapMarkersLayer = null;
 
   let _input;
   let _clearBtn;
@@ -22,6 +28,9 @@ const SearchPage = (() => {
   let _resultsCount;
   let _sortSheet;
   let _sortBackdrop;
+  let _mapBtn;
+  let _mapBackdrop;
+  let _mapModal;
 
   function init() {
     _input = document.getElementById('search-input');
@@ -31,6 +40,9 @@ const SearchPage = (() => {
     _resultsCount = document.getElementById('results-count');
     _sortSheet = document.getElementById('sort-sheet');
     _sortBackdrop = document.getElementById('sort-sheet-backdrop');
+    _mapBtn = document.getElementById('search-map-btn');
+    _mapBackdrop = document.getElementById('search-map-backdrop');
+    _mapModal = document.getElementById('search-map-modal');
 
     if (!_input || !_providersList) return;
 
@@ -38,16 +50,23 @@ const SearchPage = (() => {
     _bindSearch();
     _bindCategoryFilter();
     _bindSortSheet();
+    _bindMapModal();
 
     const params = new URLSearchParams(window.location.search);
     const urlQ = (params.get('q') || '').trim();
     const urlCat = (params.get('category') || params.get('category_id') || '').trim();
+    const urlCity = (params.get('city') || '').trim();
+    const urlSort = (params.get('sort') || '').trim();
+    _urgentOnly = (params.get('urgent') || '').trim() === '1';
+    _openMapAfterFirstRender = (params.get('open_map') || '').trim() === '1';
     if (urlQ) {
       _input.value = urlQ;
       _query = urlQ;
       _clearBtn.classList.remove('hidden');
     }
     if (urlCat) _activeCat = urlCat;
+    if (urlCity) _activeCity = urlCity;
+    if (urlSort) _selectedSort = urlSort;
 
     _renderLoading();
     _fetchCategories();
@@ -112,6 +131,18 @@ const SearchPage = (() => {
 
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape' && _sortSheetOpen) _closeSortSheet();
+    });
+  }
+
+  function _bindMapModal() {
+    if (_mapBtn) _mapBtn.addEventListener('click', _openMapModal);
+
+    const closeBtn = document.getElementById('search-map-close');
+    if (closeBtn) closeBtn.addEventListener('click', _closeMapModal);
+    if (_mapBackdrop) _mapBackdrop.addEventListener('click', _closeMapModal);
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && _mapModalOpen) _closeMapModal();
     });
   }
 
@@ -196,6 +227,8 @@ const SearchPage = (() => {
     let url = '/api/providers/list/?page_size=30';
     if (_query) url += '&q=' + encodeURIComponent(_query);
     if (_activeCat) url += '&category_id=' + encodeURIComponent(_activeCat);
+    if (_activeCity) url += '&city=' + encodeURIComponent(_activeCity);
+    if (_urgentOnly) url += '&accepts_urgent=1';
 
     const res = await ApiClient.get(url);
     if (!res.ok || !res.data) {
@@ -206,6 +239,18 @@ const SearchPage = (() => {
     }
 
     _providers = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    if (_activeCity) {
+      _providers = _providers.filter(provider => {
+        const providerCity = String(provider?.city || '').trim().toLowerCase();
+        return providerCity && providerCity === _activeCity.trim().toLowerCase();
+      });
+    }
+    if (_urgentOnly) {
+      _providers = _providers.filter(provider => {
+        const urgent = provider?.accepts_urgent ?? provider?.isUrgentEnabled ?? provider?.is_urgent_enabled;
+        return !!urgent;
+      });
+    }
     await _ensureDistanceMap(false);
     _renderProviders();
   }
@@ -288,6 +333,7 @@ const SearchPage = (() => {
     const sorted = _sortProviders(_providers);
 
     if (_resultsCount) _resultsCount.textContent = sorted.length + ' نتيجة';
+    if (_mapBtn) _mapBtn.classList.toggle('hidden', sorted.length === 0);
 
     _providersList.textContent = '';
     if (!sorted.length) {
@@ -300,6 +346,99 @@ const SearchPage = (() => {
     const frag = document.createDocumentFragment();
     sorted.forEach(provider => frag.appendChild(_buildProviderCard(provider)));
     _providersList.appendChild(frag);
+
+    if (_openMapAfterFirstRender) {
+      _openMapAfterFirstRender = false;
+      _openMapModal();
+    }
+  }
+
+  function _openMapModal() {
+    if (_mapModalOpen || !_mapModal || !_mapBackdrop) return;
+    _mapModalOpen = true;
+    _mapBackdrop.classList.remove('hidden');
+    _mapModal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      _mapBackdrop.classList.add('active');
+      _mapModal.classList.add('open');
+      _renderMap();
+    });
+    document.body.style.overflow = 'hidden';
+  }
+
+  function _closeMapModal() {
+    if (!_mapModalOpen || !_mapModal || !_mapBackdrop) return;
+    _mapModalOpen = false;
+    _mapBackdrop.classList.remove('active');
+    _mapModal.classList.remove('open');
+    setTimeout(() => {
+      _mapBackdrop.classList.add('hidden');
+      _mapModal.classList.add('hidden');
+    }, 180);
+    document.body.style.overflow = '';
+  }
+
+  function _renderMap() {
+    const canvas = document.getElementById('search-map-canvas');
+    const title = document.getElementById('search-map-title');
+    if (!canvas || typeof L === 'undefined') return;
+
+    const sorted = _sortProviders(_providers).filter(provider => {
+      const lat = _safeNum(provider.lat ?? provider.latitude);
+      const lng = _safeNum(provider.lng ?? provider.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
+    });
+
+    if (title) {
+      title.textContent = _activeCity
+        ? ('خريطة المزوّدين - ' + _activeCity)
+        : 'خريطة المزوّدين';
+    }
+
+    if (!_mapInstance) {
+      _mapInstance = L.map(canvas, { scrollWheelZoom: false });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(_mapInstance);
+    }
+
+    if (_mapMarkersLayer) {
+      _mapMarkersLayer.clearLayers();
+    } else {
+      _mapMarkersLayer = L.layerGroup().addTo(_mapInstance);
+    }
+
+    if (!sorted.length) {
+      _mapInstance.setView([24.7136, 46.6753], 6);
+      setTimeout(() => {
+        try { _mapInstance.invalidateSize(); } catch (_) {}
+      }, 120);
+      return;
+    }
+
+    const points = [];
+    sorted.forEach(provider => {
+      const lat = _safeNum(provider.lat ?? provider.latitude);
+      const lng = _safeNum(provider.lng ?? provider.longitude);
+      const marker = L.marker([lat, lng]);
+      marker.bindPopup(_buildProviderMapPopupHtml(provider), {
+        maxWidth: 290,
+        className: 'search-map-provider-popup-wrap',
+      });
+      _mapMarkersLayer.addLayer(marker);
+      points.push([lat, lng]);
+    });
+
+    if (points.length === 1) {
+      _mapInstance.setView(points[0], 12);
+    } else {
+      const bounds = L.latLngBounds(points);
+      _mapInstance.fitBounds(bounds, { padding: [24, 24] });
+    }
+
+    setTimeout(() => {
+      try { _mapInstance.invalidateSize(); } catch (_) {}
+    }, 120);
   }
 
   function _sortProviders(list) {
@@ -468,6 +607,80 @@ const SearchPage = (() => {
     const a = Math.sin(dLat / 2) ** 2 +
       Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
     return r * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  function _escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _resolveProviderPhone(provider) {
+    const raw = String(
+      provider?.phone || provider?.phone_number || provider?.phoneNumber || provider?.whatsapp || ''
+    ).trim();
+    if (!raw) return '';
+    return raw.replace(/\s+/g, '');
+  }
+
+  function _buildProviderMapPopupHtml(provider) {
+    const providerId = String(provider?.id || '').trim();
+    const name = _escapeHtml((provider?.display_name || 'مزود خدمة').trim());
+    const returnUrl = (() => {
+      try {
+        const url = new URL(window.location.href);
+        if (url.searchParams.get('open_map') !== '1') {
+          url.searchParams.set('open_map', '1');
+        }
+        return url.pathname + (url.search || '');
+      } catch (_) {
+        return '/search/?open_map=1';
+      }
+    })();
+    const profileUrl = providerId
+      ? (
+        '/provider/' + encodeURIComponent(providerId) + '/?from_map=1&return_to=' +
+        encodeURIComponent(returnUrl)
+      )
+      : '#';
+    const imageUrl = ApiClient.mediaUrl(provider?.profile_image || provider?.profileImage || '');
+    const rating = _safeNum(provider?.rating_avg);
+    const ratingLabel = rating > 0 ? rating.toFixed(1) : '-';
+    const completed = _completedCount(provider);
+    const phone = _resolveProviderPhone(provider);
+    const telHref = phone ? ('tel:' + encodeURIComponent(phone)) : '';
+    const waPhone = phone ? phone.replace(/^\+/, '') : '';
+    const waText = encodeURIComponent('السلام عليكم، أتواصل معك عبر منصة نوافذ بخصوص طلب خدمة.');
+    const waHref = waPhone ? ('https://wa.me/' + encodeURIComponent(waPhone) + '?text=' + waText) : '';
+    const chatHref = providerId ? ('/chats/?start=' + encodeURIComponent(providerId)) : '/chats/';
+
+    return [
+      '<div class="search-map-provider-popup">',
+      '<a class="search-map-provider-avatar-link" href="' + profileUrl + '">',
+      imageUrl
+        ? ('<img class="search-map-provider-avatar" src="' + _escapeHtml(imageUrl) + '" alt="' + name + '">')
+        : '<span class="search-map-provider-avatar-fallback">👤</span>',
+      '</a>',
+      '<div class="search-map-provider-name">' + name + '</div>',
+      '<div class="search-map-provider-meta">',
+      '<span>⭐ ' + ratingLabel + '</span>',
+      '<span>•</span>',
+      '<span>طلبات مكتملة: ' + completed + '</span>',
+      '</div>',
+      '<div class="search-map-provider-actions">',
+      telHref
+        ? ('<a class="map-provider-action" href="' + telHref + '">اتصال</a>')
+        : '<span class="map-provider-action is-disabled">اتصال</span>',
+      waHref
+        ? ('<a class="map-provider-action" href="' + waHref + '" target="_blank" rel="noopener">واتس اب</a>')
+        : '<span class="map-provider-action is-disabled">واتس اب</span>',
+      '<a class="map-provider-action" href="' + chatHref + '">محادثة</a>',
+      '</div>',
+      '</div>',
+    ].join('');
   }
 
   function _showToast(message) {

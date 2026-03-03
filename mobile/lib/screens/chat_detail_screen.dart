@@ -4,10 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/chat_message_model.dart';
+import '../models/service_request_model.dart';
 import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
+import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
-import 'service_request_form_screen.dart';
+import '../services/marketplace_service.dart';
+import 'provider_dashboard/provider_order_details_screen.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   final int? threadId;
@@ -49,10 +52,30 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isSending = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
-  int _totalCount = 0;
   int? _myUserId;
   int? _resolvedThreadId;
   String? _errorMessage;
+  bool _isChatConnected = true;
+  bool _isReconnecting = false;
+  bool _isProviderAccount = false;
+  int? _myProviderProfileId;
+
+  String get _connectionStatusText {
+    if (_isChatConnected) return 'متصل';
+    if (_isReconnecting) return 'جاري إعادة الاتصال...';
+    return 'غير متصل';
+  }
+
+  Color _connectionStatusColor(BuildContext context) {
+    if (_isChatConnected) return Colors.green.shade100;
+    if (_isReconnecting) return Colors.amber.shade100;
+    return Colors.red.shade100;
+  }
+
+  bool get _isChatWithClient => widget.peerProviderId == null;
+
+  bool get _canShowProviderClientActions =>
+      _isProviderAccount && _isChatWithClient && (widget.peerId ?? 0) > 0;
 
   String get _memberName {
     final value = widget.peerName.trim();
@@ -74,7 +97,31 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _resolvedThreadId = widget.threadId;
+    _initAccountContext();
     _initChat();
+  }
+
+  int? _toIntOrNull(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
+  }
+
+  Future<void> _initAccountContext() async {
+    final isProvider = await AccountModeService.isProviderMode();
+    int? providerId;
+    if (isProvider) {
+      final meRes = await ApiClient.get('/api/accounts/me/?mode=provider');
+      if (meRes.isSuccess && meRes.dataAsMap != null) {
+        providerId = _toIntOrNull(meRes.dataAsMap!['provider_profile_id']);
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _isProviderAccount = isProvider;
+      _myProviderProfileId = providerId;
+    });
   }
 
   Future<void> _initChat() async {
@@ -83,7 +130,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     // إذا لم يكن لدينا threadId، نحاول إنشاء/جلب محادثة عبر peerProviderId
     if (_resolvedThreadId == null && widget.peerProviderId != null) {
       try {
-        _resolvedThreadId = await MessagingService.getOrCreateDirectThread(widget.peerProviderId!);
+        _resolvedThreadId = await MessagingService.getOrCreateDirectThread(
+            widget.peerProviderId!);
       } catch (_) {
         if (!mounted) return;
         setState(() {
@@ -111,6 +159,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      if (!_isChatConnected) {
+        _isReconnecting = true;
+      }
     });
 
     try {
@@ -120,8 +171,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         // الرسائل تأتي مرتبة من الأحدث — نعكسها للعرض
         _messages = page.messages.reversed.toList();
         _hasMore = page.hasMore;
-        _totalCount = page.totalCount;
         _isLoading = false;
+        _isChatConnected = true;
+        _isReconnecting = false;
       });
 
       // تمييز كمقروءة
@@ -134,13 +186,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       setState(() {
         _isLoading = false;
         _errorMessage = 'فشل تحميل الرسائل';
+        _isChatConnected = false;
+        _isReconnecting = false;
       });
     }
   }
 
   /// تحميل رسائل أقدم عند التمرير لأعلى
   void _onScroll() {
-    if (_scrollController.position.pixels <= 50 && _hasMore && !_isLoadingMore) {
+    if (_scrollController.position.pixels <= 50 &&
+        _hasMore &&
+        !_isLoadingMore) {
       _loadOlderMessages();
     }
   }
@@ -180,7 +236,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     // التحقق من وجود محتوى
     final text = _controller.text.trim();
-    final hasPendingFile = _pendingType != null && _pendingType != "text" && _pendingFile != null;
+    final hasPendingFile =
+        _pendingType != null && _pendingType != "text" && _pendingFile != null;
     final hasPendingAudio = _pendingType == "audio" && _pendingDuration != null;
 
     if (text.isEmpty && !hasPendingFile && !hasPendingAudio) return;
@@ -218,10 +275,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _pendingFile = null;
         _pendingDuration = null;
         _recordSeconds = 0;
+        _isChatConnected = true;
+        _isReconnecting = false;
       });
       // إعادة تحميل الرسائل لجلب الرسالة الجديدة من السيرفر
       await _refreshMessages();
     } else {
+      if (mounted) {
+        setState(() {
+          _isChatConnected = false;
+          _isReconnecting = false;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -237,14 +302,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   /// تحديث الرسائل بدون إعادة التحميل الكامل
   Future<void> _refreshMessages() async {
     if (_resolvedThreadId == null) return;
-    final page = await MessagingService.fetchMessages(_resolvedThreadId!, limit: 30);
-    if (!mounted) return;
-    setState(() {
-      _messages = page.messages.reversed.toList();
-      _hasMore = page.hasMore;
-      _totalCount = page.totalCount;
-    });
-    _scrollToBottom();
+    if (_isChatConnected == false && mounted) {
+      setState(() {
+        _isReconnecting = true;
+      });
+    }
+    try {
+      final page =
+          await MessagingService.fetchMessages(_resolvedThreadId!, limit: 30);
+      if (!mounted) return;
+      setState(() {
+        _messages = page.messages.reversed.toList();
+        _hasMore = page.hasMore;
+        _isChatConnected = true;
+        _isReconnecting = false;
+      });
+      _scrollToBottom();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isChatConnected = false;
+        _isReconnecting = false;
+      });
+    }
   }
 
   // ✅ التسجيل الصوتي
@@ -339,28 +419,49 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.image, color: Colors.deepPurple),
-            title: const Text("اختيار صورة من المعرض", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () { Navigator.pop(context); _pickImage(); },
+            title: const Text("اختيار صورة من المعرض",
+                style: TextStyle(fontFamily: "Cairo")),
+            onTap: () {
+              Navigator.pop(context);
+              _pickImage();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.camera_alt, color: Colors.deepPurple),
-            title: const Text("تصوير صورة", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () { Navigator.pop(context); _takePhoto(); },
+            title:
+                const Text("تصوير صورة", style: TextStyle(fontFamily: "Cairo")),
+            onTap: () {
+              Navigator.pop(context);
+              _takePhoto();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.videocam, color: Colors.deepPurple),
-            title: const Text("تسجيل فيديو (حد أقصى 3 دقائق)", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () { Navigator.pop(context); _recordVideo(); },
+            title: const Text("تسجيل فيديو (حد أقصى 3 دقائق)",
+                style: TextStyle(fontFamily: "Cairo")),
+            onTap: () {
+              Navigator.pop(context);
+              _recordVideo();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.video_library, color: Colors.deepPurple),
-            title: const Text("اختيار فيديو من المعرض", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () { Navigator.pop(context); _pickVideoFromGallery(); },
+            title: const Text("اختيار فيديو من المعرض",
+                style: TextStyle(fontFamily: "Cairo")),
+            onTap: () {
+              Navigator.pop(context);
+              _pickVideoFromGallery();
+            },
           ),
           ListTile(
-            leading: const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
-            title: const Text("اختيار ملف", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () { Navigator.pop(context); _pickFile(); },
+            leading:
+                const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
+            title:
+                const Text("اختيار ملف", style: TextStyle(fontFamily: "Cairo")),
+            onTap: () {
+              Navigator.pop(context);
+              _pickFile();
+            },
           ),
         ],
       ),
@@ -378,14 +479,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           ListTile(
             leading: const Icon(Icons.mark_chat_read, color: Colors.blue),
-            title: const Text("اجعلها مقروءة", style: TextStyle(fontFamily: "Cairo")),
+            title: const Text("اجعلها مقروءة",
+                style: TextStyle(fontFamily: "Cairo")),
             onTap: () async {
               Navigator.pop(context);
               await MessagingService.markRead(_resolvedThreadId!);
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("تم تمييز المحادثة كمقروءة", style: TextStyle(fontFamily: 'Cairo')),
+                  content: Text("تم تمييز المحادثة كمقروءة",
+                      style: TextStyle(fontFamily: 'Cairo')),
                 ),
               );
             },
@@ -399,14 +502,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("تم تحديث المفضلة", style: TextStyle(fontFamily: 'Cairo')),
+                  content: Text("تم تحديث المفضلة",
+                      style: TextStyle(fontFamily: 'Cairo')),
                 ),
               );
             },
           ),
           ListTile(
             leading: const Icon(Icons.block, color: Colors.red),
-            title: const Text("حظر العضو", style: TextStyle(fontFamily: "Cairo")),
+            title:
+                const Text("حظر العضو", style: TextStyle(fontFamily: "Cairo")),
             onTap: () {
               Navigator.pop(context);
               _showBlockConfirmation();
@@ -414,7 +519,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.report, color: Colors.orange),
-            title: const Text("الإبلاغ عن عضو", style: TextStyle(fontFamily: "Cairo")),
+            title: const Text("الإبلاغ عن عضو",
+                style: TextStyle(fontFamily: "Cairo")),
             onTap: () {
               Navigator.pop(context);
               _showReportDialog();
@@ -422,14 +528,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           ListTile(
             leading: const Icon(Icons.archive_outlined, color: Colors.grey),
-            title: const Text("أرشفة المحادثة", style: TextStyle(fontFamily: "Cairo")),
+            title: const Text("أرشفة المحادثة",
+                style: TextStyle(fontFamily: "Cairo")),
             onTap: () async {
               Navigator.pop(context);
               await MessagingService.toggleArchive(_resolvedThreadId!);
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text("تمت أرشفة المحادثة", style: TextStyle(fontFamily: 'Cairo')),
+                  content: Text("تمت أرشفة المحادثة",
+                      style: TextStyle(fontFamily: 'Cairo')),
                 ),
               );
               Navigator.pop(context); // العودة لقائمة المحادثات
@@ -442,25 +550,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   // ✅ تأكيد الحظر — يستدعي API
   void _showBlockConfirmation() {
+    final rootContext = context;
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("حظر العضو", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+      context: rootContext,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text("حظر العضو",
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
         content: Text(
           "هل أنت متأكد من حظر ${widget.peerName}؟ \n\nلن يتمكن من مراسلتك بعد ذلك.",
           style: const TextStyle(fontFamily: 'Cairo'),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text("إلغاء", style: TextStyle(fontFamily: 'Cairo')),
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
-              final success = await MessagingService.toggleBlock(_resolvedThreadId!);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
+              Navigator.pop(dialogContext);
+              final success =
+                  await MessagingService.toggleBlock(_resolvedThreadId!);
+              if (!rootContext.mounted) return;
+              ScaffoldMessenger.of(rootContext).showSnackBar(
                 SnackBar(
                   content: Text(
                     success ? "تم حظر العضو بنجاح" : "فشل الحظر",
@@ -469,10 +580,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   backgroundColor: success ? Colors.red : Colors.grey,
                 ),
               );
-              if (success) Navigator.pop(context); // العودة لقائمة المحادثات
+              if (success && rootContext.mounted) {
+                Navigator.pop(rootContext); // العودة لقائمة المحادثات
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text("حظر", style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+            child: const Text("حظر",
+                style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
           ),
         ],
       ),
@@ -489,24 +603,33 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text("إبلاغ عن المحادثة", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+          title: const Text("إبلاغ عن المحادثة",
+              style:
+                  TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("المستخدم:", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
-                Text(widget.peerName, style: const TextStyle(fontFamily: 'Cairo')),
+                const Text("المستخدم:",
+                    style: TextStyle(
+                        fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                Text(widget.peerName,
+                    style: const TextStyle(fontFamily: 'Cairo')),
                 const SizedBox(height: 16),
-                const Text("سبب الإبلاغ:", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                const Text("سبب الإبلاغ:",
+                    style: TextStyle(
+                        fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedReason,
+                  initialValue: selectedReason,
                   decoration: const InputDecoration(
                     border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  hint: const Text("اختر السبب", style: TextStyle(fontFamily: 'Cairo')),
+                  hint: const Text("اختر السبب",
+                      style: TextStyle(fontFamily: 'Cairo')),
                   items: [
                     "محتوى غير لائق",
                     "تحرش أو إزعاج",
@@ -517,13 +640,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ]
                       .map((r) => DropdownMenuItem(
                             value: r,
-                            child: Text(r, style: const TextStyle(fontFamily: 'Cairo')),
+                            child: Text(r,
+                                style: const TextStyle(fontFamily: 'Cairo')),
                           ))
                       .toList(),
                   onChanged: (v) => setDialogState(() => selectedReason = v),
                 ),
                 const SizedBox(height: 16),
-                const Text("تفاصيل إضافية (اختياري):", style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                const Text("تفاصيل إضافية (اختياري):",
+                    style: TextStyle(
+                        fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 TextField(
                   controller: detailsController,
@@ -540,7 +666,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text("إلغاء", style: TextStyle(fontFamily: 'Cairo', color: Colors.grey)),
+              child: const Text("إلغاء",
+                  style: TextStyle(fontFamily: 'Cairo', color: Colors.grey)),
             ),
             ElevatedButton(
               onPressed: isSending
@@ -549,7 +676,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       if (selectedReason == null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text("يرجى اختيار سبب الإبلاغ", style: TextStyle(fontFamily: 'Cairo')),
+                            content: Text("يرجى اختيار سبب الإبلاغ",
+                                style: TextStyle(fontFamily: 'Cairo')),
                             backgroundColor: Colors.orange,
                           ),
                         );
@@ -568,17 +696,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            result.success ? "تم إرسال البلاغ بنجاح" : result.error ?? "فشل الإرسال",
+                            result.success
+                                ? "تم إرسال البلاغ بنجاح"
+                                : result.error ?? "فشل الإرسال",
                             style: const TextStyle(fontFamily: 'Cairo'),
                           ),
-                          backgroundColor: result.success ? Colors.green : Colors.red,
+                          backgroundColor:
+                              result.success ? Colors.green : Colors.red,
                         ),
                       );
                     },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
               child: isSending
-                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text("إرسال", style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text("إرسال",
+                      style:
+                          TextStyle(fontFamily: 'Cairo', color: Colors.white)),
             ),
           ],
         ),
@@ -586,23 +724,346 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  // ✅ إرسال رابط طلب خدمة
-  void _sendServiceRequestLink() {
-    // إرسال رسالة نصية تحتوي على رابط طلب الخدمة
-    _controller.text = "يمكنك طلب خدمة عبر الرابط التالي 🔗";
-    _sendMessage();
+  // ✅ إرسال رابط طلب خدمة من المزوّد إلى العميل
+  Future<void> _sendServiceRequestLink() async {
+    if (_isSending) return;
+    if (!_canShowProviderClientActions) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'هذا الإجراء متاح فقط في محادثة المزوّد مع العميل',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      return;
+    }
+    if (_resolvedThreadId == null) return;
+
+    final providerId = _myProviderProfileId;
+    if (providerId == null || providerId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر تحديد معرف المزوّد لإرسال الرابط',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final link =
+        'https://nawafeth.app/service-request/?provider_id=$providerId';
+    final body = 'يمكنك إنشاء طلب خدمة مباشرة عبر الرابط التالي:\n$link';
+
+    setState(() => _isSending = true);
+    final result =
+        await MessagingService.sendTextMessage(_resolvedThreadId!, body);
+    if (!mounted) return;
+    setState(() => _isSending = false);
+
+    if (result.success) {
+      await _refreshMessages();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تم إرسال رابط طلب الخدمة',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.error ?? 'فشل إرسال رابط الطلب',
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
-  // ✅ الانتقال إلى صفحة طلب الخدمة
-  void _goToServiceRequest() {
-    Navigator.push(
+  Color _requestStatusColor(String statusGroup) {
+    switch (statusGroup) {
+      case 'completed':
+        return Colors.green;
+      case 'cancelled':
+        return Colors.red;
+      case 'in_progress':
+        return Colors.orange;
+      case 'new':
+        return Colors.amber.shade800;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatRequestDate(DateTime date) {
+    final d = date.day.toString().padLeft(2, '0');
+    final m = date.month.toString().padLeft(2, '0');
+    final y = date.year.toString();
+    return '$d/$m/$y';
+  }
+
+  bool _isAssignedToCurrentProvider(ServiceRequest request) {
+    final myProviderId = _myProviderProfileId;
+    if (myProviderId == null || myProviderId <= 0) return false;
+    return request.provider == myProviderId;
+  }
+
+  Future<void> _openProviderRequestDetailsFromSheet(
+    BuildContext sheetContext,
+    ServiceRequest request,
+  ) async {
+    if (!_isAssignedToCurrentProvider(request)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'يمكن فتح تفاصيل الطلبات المسندة لك فقط',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    Navigator.pop(sheetContext);
+    await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ServiceRequestFormScreen(
-          providerName: widget.peerName,
-          providerId: widget.peerProviderId?.toString(),
-        ),
+        builder: (_) => ProviderOrderDetailsScreen(requestId: request.id),
       ),
+    );
+  }
+
+  void _showClientRequestsSheet() {
+    final clientUserId = widget.peerId;
+    if (clientUserId == null || clientUserId <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر تحديد العميل لعرض طلباته',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.78,
+              child: FutureBuilder<List<ServiceRequest>>(
+                future: MarketplaceService.getProviderRequests(
+                  clientUserId: clientUserId,
+                ),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child:
+                          CircularProgressIndicator(color: Colors.deepPurple),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return const Center(
+                      child: Text(
+                        'تعذر تحميل طلبات العميل',
+                        style:
+                            TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+                      ),
+                    );
+                  }
+
+                  final all = [...(snapshot.data ?? const <ServiceRequest>[])];
+                  all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+                  final current = all
+                      .where((r) =>
+                          r.statusGroup != 'completed' &&
+                          r.statusGroup != 'cancelled')
+                      .toList();
+                  final previous = all
+                      .where((r) =>
+                          r.statusGroup == 'completed' ||
+                          r.statusGroup == 'cancelled')
+                      .toList();
+
+                  if (all.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'لا توجد طلبات لهذا العميل',
+                        style:
+                            TextStyle(fontFamily: 'Cairo', color: Colors.grey),
+                      ),
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.assignment_outlined,
+                              color: Colors.deepPurple,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'طلبات العميل: ${widget.peerName}',
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () => Navigator.pop(sheetContext),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
+                          children: [
+                            if (current.isNotEmpty) ...[
+                              const Text(
+                                'الطلبات الحالية',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...current.map(
+                                (req) => Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    onTap: () =>
+                                        _openProviderRequestDetailsFromSheet(
+                                      sheetContext,
+                                      req,
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor:
+                                          _requestStatusColor(req.statusGroup)
+                                              .withValues(alpha: 0.14),
+                                      child: Icon(
+                                        Icons.assignment,
+                                        color: _requestStatusColor(
+                                            req.statusGroup),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      '${req.displayId} • ${req.statusLabel}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${req.title}\n${_formatRequestDate(req.createdAt)}',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontFamily: 'Cairo', fontSize: 11),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_left),
+                                    isThreeLine: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                            ],
+                            if (previous.isNotEmpty) ...[
+                              const Text(
+                                'الطلبات السابقة',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ...previous.map(
+                                (req) => Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  child: ListTile(
+                                    onTap: () =>
+                                        _openProviderRequestDetailsFromSheet(
+                                      sheetContext,
+                                      req,
+                                    ),
+                                    leading: CircleAvatar(
+                                      backgroundColor:
+                                          _requestStatusColor(req.statusGroup)
+                                              .withValues(alpha: 0.14),
+                                      child: Icon(
+                                        req.statusGroup == 'completed'
+                                            ? Icons.check_circle_outline
+                                            : Icons.cancel_outlined,
+                                        color: _requestStatusColor(
+                                            req.statusGroup),
+                                        size: 18,
+                                      ),
+                                    ),
+                                    title: Text(
+                                      '${req.displayId} • ${req.statusLabel}',
+                                      style: const TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      '${req.title}\n${_formatRequestDate(req.createdAt)}',
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          fontFamily: 'Cairo', fontSize: 11),
+                                    ),
+                                    trailing: const Icon(Icons.chevron_left),
+                                    isThreeLine: true,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -620,28 +1081,34 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           if (msg.body.isNotEmpty)
             ListTile(
               leading: const Icon(Icons.copy, color: Colors.deepPurple),
-              title: const Text("نسخ النص", style: TextStyle(fontFamily: "Cairo")),
+              title:
+                  const Text("نسخ النص", style: TextStyle(fontFamily: "Cairo")),
               onTap: () {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("تم نسخ النص", style: TextStyle(fontFamily: 'Cairo'))),
+                  const SnackBar(
+                      content: Text("تم نسخ النص",
+                          style: TextStyle(fontFamily: 'Cairo'))),
                 );
               },
             ),
           if (isMe)
             ListTile(
               leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text("حذف الرسالة", style: TextStyle(fontFamily: "Cairo")),
+              title: const Text("حذف الرسالة",
+                  style: TextStyle(fontFamily: "Cairo")),
               onTap: () async {
                 Navigator.pop(context);
-                final success = await MessagingService.deleteMessage(_resolvedThreadId!, msg.id);
+                final success = await MessagingService.deleteMessage(
+                    _resolvedThreadId!, msg.id);
                 if (success) {
                   _refreshMessages();
                 } else {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text("فشل حذف الرسالة", style: TextStyle(fontFamily: 'Cairo')),
+                      content: Text("فشل حذف الرسالة",
+                          style: TextStyle(fontFamily: 'Cairo')),
                       backgroundColor: Colors.red,
                     ),
                   );
@@ -651,7 +1118,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           if (!isMe)
             ListTile(
               leading: const Icon(Icons.report, color: Colors.orange),
-              title: const Text("إبلاغ عن هذه الرسالة", style: TextStyle(fontFamily: "Cairo")),
+              title: const Text("إبلاغ عن هذه الرسالة",
+                  style: TextStyle(fontFamily: "Cairo")),
               onTap: () {
                 Navigator.pop(context);
                 _showReportDialog();
@@ -680,12 +1148,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(fullUrl, width: 200, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 48)),
+              child: Image.network(fullUrl,
+                  width: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.broken_image, size: 48)),
             ),
             if (msg.body.isNotEmpty) ...[
               const SizedBox(height: 6),
-              Text(msg.body, style: TextStyle(color: textColor, fontFamily: "Cairo", fontSize: 15)),
+              Text(msg.body,
+                  style: TextStyle(
+                      color: textColor, fontFamily: "Cairo", fontSize: 15)),
             ],
           ],
         );
@@ -697,7 +1170,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             const SizedBox(width: 8),
             Flexible(
               child: Text(
-                msg.attachmentName.isNotEmpty ? msg.attachmentName : "رسالة صوتية",
+                msg.attachmentName.isNotEmpty
+                    ? msg.attachmentName
+                    : "رسالة صوتية",
                 style: TextStyle(color: textColor, fontFamily: "Cairo"),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -730,7 +1205,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     // تنسيق الوقت
-    final h = msg.createdAt.hour > 12 ? msg.createdAt.hour - 12 : msg.createdAt.hour;
+    final h =
+        msg.createdAt.hour > 12 ? msg.createdAt.hour - 12 : msg.createdAt.hour;
     final amPm = msg.createdAt.hour >= 12 ? 'م' : 'ص';
     final m = msg.createdAt.minute.toString().padLeft(2, '0');
     final timeStr = '$h:$m $amPm';
@@ -760,7 +1236,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ],
           ),
           child: Column(
-            crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
               content,
               const SizedBox(height: 5),
@@ -780,7 +1257,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     Icon(
                       msg.readByIds.isNotEmpty ? Icons.done_all : Icons.done,
                       size: 14,
-                      color: msg.readByIds.length > 1 ? Colors.blue.shade200 : Colors.white60,
+                      color: msg.readByIds.length > 1
+                          ? Colors.blue.shade200
+                          : Colors.white60,
                     ),
                   ],
                 ],
@@ -799,11 +1278,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.file(_pendingFile, width: 50, height: 50, fit: BoxFit.cover),
+            child: Image.file(_pendingFile,
+                width: 50, height: 50, fit: BoxFit.cover),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() { _pendingType = null; _pendingFile = null; }),
+            onPressed: () => setState(() {
+              _pendingType = null;
+              _pendingFile = null;
+            }),
           ),
         ],
       );
@@ -821,7 +1304,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() { _pendingType = null; _pendingFile = null; }),
+            onPressed: () => setState(() {
+              _pendingType = null;
+              _pendingFile = null;
+            }),
           ),
         ],
       );
@@ -839,7 +1325,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() { _pendingType = null; _pendingDuration = null; }),
+            onPressed: () => setState(() {
+              _pendingType = null;
+              _pendingDuration = null;
+            }),
           ),
         ],
       );
@@ -850,19 +1339,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             alignment: Alignment.center,
             children: [
               Container(
-                width: 50, height: 50,
-                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(8)),
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(8)),
               ),
-              const Icon(Icons.play_circle_outline, color: Colors.white, size: 24),
+              const Icon(Icons.play_circle_outline,
+                  color: Colors.white, size: 24),
             ],
           ),
           const SizedBox(width: 8),
           const Expanded(
-            child: Text("فيديو جاهز للإرسال", style: TextStyle(fontFamily: "Cairo"), overflow: TextOverflow.ellipsis),
+            child: Text("فيديو جاهز للإرسال",
+                style: TextStyle(fontFamily: "Cairo"),
+                overflow: TextOverflow.ellipsis),
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() { _pendingType = null; _pendingFile = null; }),
+            onPressed: () => setState(() {
+              _pendingType = null;
+              _pendingFile = null;
+            }),
           ),
         ],
       );
@@ -870,7 +1368,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return TextField(
         controller: _controller,
         style: const TextStyle(fontFamily: "Cairo"),
-        decoration: const InputDecoration(hintText: "اكتب رسالة...", border: InputBorder.none),
+        decoration: const InputDecoration(
+            hintText: "اكتب رسالة...", border: InputBorder.none),
         onChanged: (_) => setState(() => _pendingType = "text"),
       );
     }
@@ -898,15 +1397,40 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
-        title: Text(
-          _memberName,
-          style: const TextStyle(fontFamily: "Cairo", fontSize: 16, fontWeight: FontWeight.bold),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _memberName,
+              style: const TextStyle(
+                  fontFamily: "Cairo",
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold),
+            ),
+            Text(
+              _connectionStatusText,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11,
+                color: _connectionStatusColor(context),
+              ),
+            ),
+          ],
         ),
         actions: [
-          if (widget.peerProviderId != null)
+          if (_canShowProviderClientActions)
             IconButton(
-              icon: const Icon(Icons.send_outlined, color: Colors.white, size: 22),
-              onPressed: () => _sendServiceRequestLink(),
+              icon: const Icon(Icons.assignment_ind_outlined,
+                  color: Colors.white, size: 22),
+              onPressed: _showClientRequestsSheet,
+              tooltip: "طلبات العميل",
+            ),
+          if (_canShowProviderClientActions)
+            IconButton(
+              icon: const Icon(Icons.send_outlined,
+                  color: Colors.white, size: 22),
+              onPressed: _sendServiceRequestLink,
               tooltip: "إرسال رابط طلب خدمة",
             ),
           IconButton(
@@ -924,9 +1448,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
+              border:
+                  Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
               boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+                BoxShadow(
+                    color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
               ],
             ),
             child: Column(
@@ -934,7 +1460,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person_outline, size: 16, color: Colors.deepPurple),
+                    const Icon(Icons.person_outline,
+                        size: 16, color: Colors.deepPurple),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -949,19 +1476,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                       ),
                     ),
+                    if (_canShowProviderClientActions)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.assignment_outlined,
+                          size: 18,
+                          color: Colors.deepPurple,
+                        ),
+                        onPressed: _showClientRequestsSheet,
+                        tooltip: 'طلبات العميل',
+                        constraints: const BoxConstraints(),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    const Icon(Icons.phone_outlined, size: 15, color: Colors.grey),
+                    const Icon(Icons.phone_outlined,
+                        size: 15, color: Colors.grey),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         _memberPhone,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+                        style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            color: Colors.black54),
                       ),
                     ),
                   ],
@@ -969,14 +1513,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.location_city_outlined, size: 15, color: Colors.grey),
+                    const Icon(Icons.location_city_outlined,
+                        size: 15, color: Colors.grey),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         _memberCity,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+                        style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            color: Colors.black54),
                       ),
                     ),
                   ],
@@ -987,21 +1535,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           // ✅ الرسائل
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+                ? const Center(
+                    child: CircularProgressIndicator(color: Colors.deepPurple))
                 : _errorMessage != null
                     ? Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                            const Icon(Icons.error_outline,
+                                size: 48, color: Colors.grey),
                             const SizedBox(height: 12),
-                            Text(_errorMessage!, style: const TextStyle(fontFamily: 'Cairo', color: Colors.grey)),
+                            Text(_errorMessage!,
+                                style: const TextStyle(
+                                    fontFamily: 'Cairo', color: Colors.grey)),
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: _loadMessages,
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.deepPurple),
                               child: const Text("إعادة المحاولة",
-                                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+                                  style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      color: Colors.white)),
                             ),
                           ],
                         ),
@@ -1011,13 +1566,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey.shade300),
+                                Icon(Icons.chat_bubble_outline,
+                                    size: 64, color: Colors.grey.shade300),
                                 const SizedBox(height: 16),
                                 const Text("لا توجد رسائل بعد",
-                                    style: TextStyle(fontFamily: 'Cairo', fontSize: 16, color: Colors.grey)),
+                                    style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 16,
+                                        color: Colors.grey)),
                                 const SizedBox(height: 8),
                                 const Text("ابدأ المحادثة بإرسال رسالة ✨",
-                                    style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: Colors.grey)),
+                                    style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 13,
+                                        color: Colors.grey)),
                               ],
                             ),
                           )
@@ -1027,16 +1589,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 const Padding(
                                   padding: EdgeInsets.all(8),
                                   child: SizedBox(
-                                    height: 20, width: 20,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.deepPurple),
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.deepPurple),
                                   ),
                                 ),
                               Expanded(
                                 child: ListView.builder(
                                   controller: _scrollController,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 10),
                                   itemCount: _messages.length,
-                                  itemBuilder: (context, index) => _buildMessageBubble(_messages[index]),
+                                  itemBuilder: (context, index) =>
+                                      _buildMessageBubble(_messages[index]),
                                 ),
                               ),
                             ],
@@ -1049,17 +1616,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               padding: const EdgeInsets.all(10),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))],
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4,
+                      offset: Offset(0, -2))
+                ],
               ),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.attach_file, color: Colors.deepPurple),
+                    icon:
+                        const Icon(Icons.attach_file, color: Colors.deepPurple),
                     onPressed: _showAttachmentOptions,
                   ),
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(25),
@@ -1077,7 +1651,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 12),
-                                Text(_formatDuration(_recordSeconds), style: const TextStyle(color: Colors.red)),
+                                Text(_formatDuration(_recordSeconds),
+                                    style: const TextStyle(color: Colors.red)),
                               ],
                             )
                           : _buildPreview(),
@@ -1106,7 +1681,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     child: _isSending
                         ? const Padding(
                             padding: EdgeInsets.all(10),
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
                           )
                         : IconButton(
                             icon: const Icon(Icons.send, color: Colors.white),

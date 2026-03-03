@@ -11,6 +11,18 @@ const ChatDetailPage = (() => {
   let _messages = [];
   let _myUserId = null;
   let _pollTimer = null;
+  let _ws = null;
+  let _wsConnected = false;
+  let _wsReconnectTimer = null;
+  let _pendingByClientId = new Map();
+
+  function _setConnectionStatus(connected) {
+    const statusEl = document.getElementById('peer-status');
+    if (!statusEl) return;
+    statusEl.textContent = connected ? 'متصل' : 'غير متصل';
+    statusEl.classList.toggle('is-online', !!connected);
+    statusEl.classList.toggle('is-offline', !connected);
+  }
 
   function init() {
     if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
@@ -28,9 +40,116 @@ const ChatDetailPage = (() => {
 
     _loadMessages();
     _markRead();
+    _setConnectionStatus(false);
+    _connectWebSocket();
+    _startPollingFallback();
+  }
 
-    // Poll for new messages every 5s
-    _pollTimer = setInterval(_loadMessages, 5000);
+  function _startPollingFallback() {
+    if (_pollTimer) clearInterval(_pollTimer);
+    _pollTimer = setInterval(() => {
+      if (!_wsConnected) _loadMessages();
+    }, 5000);
+  }
+
+  function _buildWsUrl(token) {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return protocol + '//' + window.location.host + '/ws/thread/' + _threadId + '/?token=' + encodeURIComponent(token);
+  }
+
+  function _connectWebSocket() {
+    const token = Auth.getAccessToken();
+    if (!token || _wsConnected) return;
+    try {
+      _ws = new WebSocket(_buildWsUrl(token));
+    } catch {
+      _scheduleReconnect();
+      return;
+    }
+
+    _ws.onopen = () => {
+      _wsConnected = true;
+      _setConnectionStatus(true);
+      if (_wsReconnectTimer) {
+        clearTimeout(_wsReconnectTimer);
+        _wsReconnectTimer = null;
+      }
+      _markRead();
+    };
+
+    _ws.onmessage = (event) => {
+      let payload;
+      try {
+        payload = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+
+      if (payload?.type === 'message') {
+        _upsertIncomingMessage(payload);
+        if (payload.sender_id !== _myUserId) _markRead();
+        window.dispatchEvent(new Event('nw:badge-refresh'));
+      }
+      if (payload?.type === 'read') {
+        window.dispatchEvent(new Event('nw:badge-refresh'));
+      }
+    };
+
+    _ws.onerror = () => {
+      _wsConnected = false;
+      _setConnectionStatus(false);
+    };
+
+    _ws.onclose = () => {
+      _wsConnected = false;
+      _setConnectionStatus(false);
+      _ws = null;
+      _scheduleReconnect();
+    };
+  }
+
+  function _scheduleReconnect() {
+    if (_wsReconnectTimer) return;
+    _wsReconnectTimer = setTimeout(() => {
+      _wsReconnectTimer = null;
+      _connectWebSocket();
+    }, 3000);
+  }
+
+  function _upsertIncomingMessage(payload) {
+    const msgId = parseInt(payload.id, 10);
+    const clientId = payload.client_id || null;
+
+    if (clientId && _pendingByClientId.has(clientId)) {
+      const tempId = _pendingByClientId.get(clientId);
+      _pendingByClientId.delete(clientId);
+      const idx = _messages.findIndex(m => m.id === tempId);
+      const mapped = {
+        id: msgId,
+        sender_id: payload.sender_id,
+        text: payload.text || '',
+        created_at: payload.sent_at || new Date().toISOString(),
+      };
+      if (idx >= 0) {
+        _messages[idx] = mapped;
+      } else {
+        _messages.push(mapped);
+      }
+      _renderMessages();
+      return;
+    }
+
+    if (Number.isFinite(msgId) && _messages.some(m => parseInt(m.id, 10) === msgId)) {
+      return;
+    }
+
+    _messages.push({
+      id: msgId,
+      sender_id: payload.sender_id,
+      text: payload.text || '',
+      created_at: payload.sent_at || new Date().toISOString(),
+    });
+    _renderMessages();
   }
 
   async function _loadMessages() {
@@ -102,14 +221,28 @@ const ChatDetailPage = (() => {
     input.value = '';
     input.focus();
 
+    const clientId = 'web-' + Date.now() + '-' + Math.random().toString(16).slice(2, 8);
+    const tempId = -Date.now();
+
     // Optimistic add
     const tempMsg = {
+      id: tempId,
       sender_id: _myUserId,
       text: text,
       created_at: new Date().toISOString(),
     };
     _messages.push(tempMsg);
+    _pendingByClientId.set(clientId, tempId);
     _renderMessages();
+
+    if (_wsConnected && _ws && _ws.readyState === WebSocket.OPEN) {
+      try {
+        _ws.send(JSON.stringify({ type: 'message', text, client_id: clientId }));
+        return;
+      } catch {
+        _pendingByClientId.delete(clientId);
+      }
+    }
 
     const res = await ApiClient.request('/api/messaging/direct/thread/' + _threadId + '/messages/send/', {
       method: 'POST',
@@ -118,18 +251,31 @@ const ChatDetailPage = (() => {
 
     if (!res.ok) {
       // Remove temp message on failure
-      _messages.pop();
+      _messages = _messages.filter(m => m.id !== tempId);
+      _pendingByClientId.delete(clientId);
       _renderMessages();
+      return;
     }
+
+    // Fallback mode sent successfully via REST; sync latest state
+    _pendingByClientId.delete(clientId);
+    _loadMessages();
+
+    window.dispatchEvent(new Event('nw:badge-refresh'));
   }
 
   async function _markRead() {
     await ApiClient.request('/api/messaging/direct/thread/' + _threadId + '/messages/read/', { method: 'POST' });
+    window.dispatchEvent(new Event('nw:badge-refresh'));
   }
 
   // Cleanup on page leave
   window.addEventListener('beforeunload', () => {
     if (_pollTimer) clearInterval(_pollTimer);
+    if (_wsReconnectTimer) clearTimeout(_wsReconnectTimer);
+    if (_ws) {
+      try { _ws.close(); } catch {}
+    }
   });
 
   // Boot

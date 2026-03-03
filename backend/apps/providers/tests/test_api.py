@@ -6,7 +6,14 @@ from apps.providers.models import (
     Category,
     ProviderCategory,
     ProviderFollow,
+    ProviderLike,
+    ProviderPortfolioItem,
+    ProviderPortfolioLike,
+    ProviderPortfolioSave,
     ProviderProfile,
+    ProviderSpotlightItem,
+    ProviderSpotlightLike,
+    ProviderSpotlightSave,
     RoleContext,
     SubCategory,
 )
@@ -416,3 +423,88 @@ def test_provider_following_count_in_detail_and_stats_is_scoped_by_mode():
     stats_provider = client.get(f"/api/providers/{owner_provider.id}/stats/?mode=provider")
     assert stats_provider.status_code == 200
     assert stats_provider.json().get("following_count") == 1
+
+
+@pytest.mark.django_db
+def test_provider_stats_include_media_likes_and_saves_from_published_media(settings, tmp_path):
+    from apps.accounts.models import User
+
+    settings.MEDIA_ROOT = tmp_path
+
+    owner_user = User.objects.create(phone="0500000911", username="owner_media_stats")
+    owner_provider = ProviderProfile.objects.create(
+        user=owner_user,
+        provider_type="individual",
+        display_name="Owner Media Stats",
+        bio="bio",
+        years_experience=2,
+        city="الرياض",
+    )
+
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\x89\x1e\x1b\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    mp4_bytes = b"\x00\x00\x00\x18ftypmp42\x00\x00\x00\x00mp42isom"
+
+    portfolio_item = ProviderPortfolioItem.objects.create(
+        provider=owner_provider,
+        file_type="image",
+        file=SimpleUploadedFile("portfolio.png", png_bytes, content_type="image/png"),
+        caption="portfolio",
+    )
+    spotlight_item = ProviderSpotlightItem.objects.create(
+        provider=owner_provider,
+        file_type="video",
+        file=SimpleUploadedFile("spotlight.mp4", mp4_bytes, content_type="video/mp4"),
+        caption="spotlight",
+    )
+
+    actor_one = User.objects.create(phone="0500000912", username="actor_media_one")
+    actor_two = User.objects.create(phone="0500000913", username="actor_media_two")
+
+    ProviderPortfolioLike.objects.create(
+        user=actor_one,
+        item=portfolio_item,
+        role_context=RoleContext.CLIENT,
+    )
+    ProviderPortfolioLike.objects.create(
+        user=actor_one,
+        item=portfolio_item,
+        role_context=RoleContext.PROVIDER,
+    )
+    ProviderSpotlightLike.objects.create(
+        user=actor_two,
+        item=spotlight_item,
+        role_context=RoleContext.CLIENT,
+    )
+
+    ProviderPortfolioSave.objects.create(
+        user=actor_two,
+        item=portfolio_item,
+        role_context=RoleContext.CLIENT,
+    )
+    ProviderSpotlightSave.objects.create(
+        user=actor_one,
+        item=spotlight_item,
+        role_context=RoleContext.CLIENT,
+    )
+
+    ProviderLike.objects.create(
+        user=actor_two,
+        provider=owner_provider,
+        role_context=RoleContext.CLIENT,
+    )
+
+    stats = APIClient().get(f"/api/providers/{owner_provider.id}/stats/?mode=provider")
+    assert stats.status_code == 200
+    payload = stats.json()
+
+    assert payload.get("likes_count") == 1
+    assert payload.get("profile_likes_count") == 1
+    assert payload.get("portfolio_likes_count") == 2
+    assert payload.get("spotlight_likes_count") == 1
+    assert payload.get("media_likes_count") == 3
+    assert payload.get("portfolio_saves_count") == 1
+    assert payload.get("spotlight_saves_count") == 1
+    assert payload.get("media_saves_count") == 2

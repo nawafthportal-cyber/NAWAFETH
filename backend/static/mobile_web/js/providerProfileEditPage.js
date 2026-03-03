@@ -6,6 +6,16 @@ var ProviderProfileEditPage = (function () {
   var profile = null;
   var initialTab = null;
   var initialFocus = null;
+  var initialSection = null;
+
+  var SECTION_TITLES = {
+    basic: "البيانات الأساسية",
+    service_details: "تفاصيل الخدمة",
+    additional: "معلومات إضافية",
+    contact_full: "معلومات التواصل",
+    lang_loc: "اللغة ونطاق الخدمة",
+    seo: "SEO والكلمات المفتاحية"
+  };
 
   var FIELD_MAP = {
     fullName: "display_name", accountType: "provider_type", about: "bio",
@@ -41,6 +51,7 @@ var ProviderProfileEditPage = (function () {
 
   function init() {
     parseEntryQuery();
+    applyEntryHeader();
     bindTabs();
     loadProfile();
   }
@@ -49,8 +60,17 @@ var ProviderProfileEditPage = (function () {
     var params = new URLSearchParams(window.location.search || "");
     var tab = (params.get("tab") || "").trim();
     var focus = (params.get("focus") || "").trim();
+    var section = (params.get("section") || "").trim();
     if (tab && TABS[tab]) initialTab = tab;
     if (focus && FIELD_MAP[focus]) initialFocus = focus;
+    if (section && SECTION_TITLES[section]) initialSection = section;
+  }
+
+  function applyEntryHeader() {
+    if (!initialSection) return;
+    var title = document.getElementById("pe-page-title");
+    if (!title) return;
+    title.textContent = SECTION_TITLES[initialSection] || "الملف الشخصي";
   }
 
   function escapeHtml(value) {

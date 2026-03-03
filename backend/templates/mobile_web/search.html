@@ -5,6 +5,10 @@
 {% block sidebar_search %}active{% endblock %}
 {% block body_class %}page-search{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
 {% block content %}
 <main class="page-content search-mobile-page">
   <section class="search-mobile-header">
@@ -33,10 +37,16 @@
 
     <div class="search-mobile-sort-row">
       <span class="results-count" id="results-count">0 نتيجة</span>
-      <button class="search-mobile-sort-btn" id="search-sort-btn" type="button" aria-haspopup="dialog">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v2h18V6H3zm3 7h12v-2H6v2zm4 5h4v-2h-4v2z"/></svg>
-        فرز
-      </button>
+      <div class="search-mobile-actions-row">
+        <button class="search-mobile-map-btn hidden" id="search-map-btn" type="button" aria-haspopup="dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 3l-5.5 2-6-2-5.5 2v16l5.5-2 6 2 5.5-2V3zM9 5.5l6 2v10l-6-2v-10z"/></svg>
+          الخريطة
+        </button>
+        <button class="search-mobile-sort-btn" id="search-sort-btn" type="button" aria-haspopup="dialog">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6v2h18V6H3zm3 7h12v-2H6v2zm4 5h4v-2h-4v2z"/></svg>
+          فرز
+        </button>
+      </div>
     </div>
 
     <div class="providers-list-compact" id="providers-list">
@@ -82,9 +92,21 @@
     <button class="sort-sheet-option" data-sort-key="completed" type="button">الأكثر طلبات مكتملة</button>
     <button class="sort-sheet-option" data-sort-key="followers" type="button">الأكثر متابعة</button>
   </div>
+
+  <div class="sort-sheet-backdrop hidden" id="search-map-backdrop"></div>
+  <div class="search-map-modal hidden" id="search-map-modal" role="dialog" aria-modal="true" aria-label="خريطة المزوّدين">
+    <div class="search-map-head">
+      <h3 id="search-map-title">خريطة المزوّدين</h3>
+      <button type="button" id="search-map-close" class="search-map-close" aria-label="إغلاق">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="search-map-canvas" class="search-map-canvas"></div>
+  </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/searchPage.js' %}"></script>
 {% endblock %}

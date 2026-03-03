@@ -6,6 +6,7 @@
 
 const ProviderDetailPage = (() => {
   let _providerId = null;
+  let _mode = 'client';
   let _isFollowing = false;
   let _isBookmarked = false;
   let _activeTab = 'profile';
@@ -19,6 +20,9 @@ const ProviderDetailPage = (() => {
   let _spotlightSaves = 0;
   let _portfolioSavedByMe = false;
   let _spotlightSavedByMe = false;
+  let _derivedMainCategory = '';
+  let _derivedSubCategory = '';
+  let _returnToMapHref = '';
   let _socialUrls = {
     instagram: '',
     x: '',
@@ -36,6 +40,8 @@ const ProviderDetailPage = (() => {
       return;
     }
     _providerId = match[1];
+    _mode = _resolveMode();
+    _returnToMapHref = _resolveReturnToMapHref();
 
     _bindTabs();
     _bindActions();
@@ -70,6 +76,34 @@ const ProviderDetailPage = (() => {
       followingBtn.addEventListener('click', () => _openConnectionsSheet('following'));
     }
 
+    const backBtn = document.getElementById('btn-back');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        if (_returnToMapHref) {
+          window.location.href = _returnToMapHref;
+          return;
+        }
+        if (window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        const fallback = document.referrer && document.referrer.startsWith(window.location.origin)
+          ? document.referrer
+          : '/search/';
+        window.location.href = fallback;
+      });
+    }
+
+    const returnToMapBtn = document.getElementById('btn-back-to-map');
+    if (returnToMapBtn) {
+      if (_returnToMapHref) {
+        returnToMapBtn.href = _returnToMapHref;
+        returnToMapBtn.classList.remove('hidden');
+      } else {
+        returnToMapBtn.classList.add('hidden');
+      }
+    }
+
     // Message
     const msgBtn = document.getElementById('btn-message');
     if (msgBtn) msgBtn.addEventListener('click', () => {
@@ -95,7 +129,7 @@ const ProviderDetailPage = (() => {
         e.preventDefault();
         if (!_providerPhone) return;
         const phone = _formatPhoneE164(_providerPhone).replace('+', '');
-        const name = _providerData?.display_name || '';
+        const name = _pickFirstText(_providerData?.display_name, _providerData?.displayName);
         const msg = encodeURIComponent('السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @' + name);
         window.open('https://wa.me/' + phone + '?text=' + msg, '_blank');
       });
@@ -138,17 +172,39 @@ const ProviderDetailPage = (() => {
     });
   }
 
+  function _resolveReturnToMapHref() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const fromMap = params.get('from_map') === '1';
+      const returnTo = String(params.get('return_to') || '').trim();
+      if (!fromMap && !returnTo) return '';
+      const candidate = returnTo || '/search/?open_map=1';
+      if (!candidate.startsWith('/')) return '/search/?open_map=1';
+      if (!candidate.startsWith('/search')) return '/search/?open_map=1';
+      const normalized = new URL(candidate, window.location.origin);
+      if (normalized.searchParams.get('open_map') !== '1') {
+        normalized.searchParams.set('open_map', '1');
+      }
+      return normalized.pathname + normalized.search;
+    } catch (_) {
+      return '/search/?open_map=1';
+    }
+  }
+
   /* ── Load all data ── */
   async function _loadAll() {
+    const providerPath = _withMode('/api/providers/' + _providerId + '/');
+    const statsPath = _withMode('/api/providers/' + _providerId + '/stats/');
     const [provRes, statsRes] = await Promise.all([
-      ApiClient.get('/api/providers/' + _providerId + '/'),
-      ApiClient.get('/api/providers/' + _providerId + '/stats/')
+      ApiClient.get(providerPath),
+      ApiClient.get(statsPath)
     ]);
 
     if (provRes.ok && provRes.data) {
       _providerData = provRes.data;
       _renderProvider(provRes.data, statsRes.ok ? statsRes.data : null);
     }
+    _syncFollowState();
 
     // Parallel: services, portfolio, reviews, spotlights
     _loadServices();
@@ -161,12 +217,18 @@ const ProviderDetailPage = (() => {
      RENDER PROVIDER PROFILE
      ═══════════════════════════════════════════════ */
   function _renderProvider(p, stats) {
-    _providerPhone = p.phone || p.whatsapp || '';
+    _providerPhone = _pickFirstText(
+      p.phone,
+      p.whatsapp,
+      p.phone_number,
+      p.phoneNumber
+    );
 
     // ── Cover ──
     const coverEl = document.getElementById('pd-cover');
-    if (p.cover_image) {
-      const img = UI.lazyImg(ApiClient.mediaUrl(p.cover_image), 'غلاف');
+    const coverImage = _pickFirstText(p.cover_image, p.coverImage);
+    if (coverImage) {
+      const img = UI.lazyImg(ApiClient.mediaUrl(coverImage), 'غلاف');
       img.style.position = 'absolute';
       img.style.inset = '0';
       img.style.width = '100%';
@@ -177,11 +239,13 @@ const ProviderDetailPage = (() => {
 
     // ── Avatar ──
     const avatarEl = document.getElementById('pd-avatar');
-    if (p.profile_image) {
+    const profileImage = _pickFirstText(p.profile_image, p.profileImage);
+    const displayName = _pickFirstText(p.display_name, p.displayName);
+    if (profileImage) {
       avatarEl.textContent = '';
-      avatarEl.appendChild(UI.lazyImg(ApiClient.mediaUrl(p.profile_image), p.display_name || ''));
+      avatarEl.appendChild(UI.lazyImg(ApiClient.mediaUrl(profileImage), displayName || ''));
     } else {
-      avatarEl.textContent = (p.display_name || '').charAt(0) || '؟';
+      avatarEl.textContent = displayName.charAt(0) || '؟';
     }
 
     // ── Badge ──
@@ -193,25 +257,10 @@ const ProviderDetailPage = (() => {
     }
 
     // ── Name & handle ──
-    _setText('pd-name', p.display_name || '');
-    _setText('pd-handle', p.username ? ('@' + p.username) : '');
-
-    // ── Category & city chips ──
-    const catEl = document.getElementById('pd-category');
-    const catName = p.category_name || p.main_category || '';
-    if (catEl) {
-      catEl.textContent = catName;
-      if (!catName) catEl.style.display = 'none';
-    }
-
-    const cityEl = document.getElementById('pd-city');
-    if (cityEl) {
-      if (p.city) {
-        cityEl.textContent = '📍 ' + p.city;
-      } else {
-        cityEl.style.display = 'none';
-      }
-    }
+    const username = _pickFirstText(p.username, p.user_name);
+    _setText('pd-name', displayName);
+    _setText('pd-handle', username ? ('@' + username) : '');
+    _syncCategoryViews();
 
     // ── Stats ──
     const completed = stats?.completed_requests ?? p.completed_requests ?? p.completed_orders_count ?? 0;
@@ -234,14 +283,14 @@ const ProviderDetailPage = (() => {
     }
 
     // ── Follow state ──
-    _isFollowing = !!p.is_following;
+    _isFollowing = _asBool(p.is_following);
     _updateFollowBtn();
 
     // ── Profile tab content ──
     _renderProfileTab(p);
 
     // ── Page title ──
-    document.title = (p.display_name || 'مقدم خدمة') + ' — نوافذ';
+    document.title = (displayName || 'مقدم خدمة') + ' — نوافذ';
   }
 
   /* ── Render profile tab details ── */
@@ -253,8 +302,10 @@ const ProviderDetailPage = (() => {
     _setText('pd-bio', p.bio || p.description || p.about_details || 'لا يوجد وصف');
 
     // Categories
-    _setText('pd-main-category', _displayOrUnavailable(p.category_name || p.main_category, unavailable));
-    _setText('pd-sub-category', _displayOrUnavailable(p.subcategory_name || p.sub_category, unavailable));
+    const mainCategory = _resolveMainCategory(p);
+    const subCategory = _resolveSubCategory(p);
+    _setText('pd-main-category', _displayOrUnavailable(mainCategory, unavailable));
+    _setText('pd-sub-category', _displayOrUnavailable(subCategory, unavailable));
 
     // About details
     _setText('pd-about-details', _displayOrUnavailable(p.about_details || p.bio, unavailable));
@@ -337,9 +388,9 @@ const ProviderDetailPage = (() => {
 
   async function _openConnectionsSheet(kind) {
     const isFollowers = kind === 'followers';
-    const endpoint = isFollowers
+    const endpoint = _withMode(isFollowers
       ? '/api/providers/' + _providerId + '/followers/'
-      : '/api/providers/' + _providerId + '/following/';
+      : '/api/providers/' + _providerId + '/following/');
     const title = isFollowers ? 'متابعون' : 'يتابع';
     const countEl = isFollowers ? document.getElementById('stat-followers') : document.getElementById('btn-show-following');
     const count = countEl ? (parseInt(isFollowers ? countEl.textContent : countEl.dataset.count, 10) || 0) : 0;
@@ -424,9 +475,9 @@ const ProviderDetailPage = (() => {
   /* ═══ Follow / Unfollow ═══ */
   async function _toggleFollow() {
     if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
-    const url = _isFollowing
+    const url = _withMode(_isFollowing
       ? '/api/providers/' + _providerId + '/unfollow/'
-      : '/api/providers/' + _providerId + '/follow/';
+      : '/api/providers/' + _providerId + '/follow/');
     const btn = document.getElementById('btn-follow');
     btn.disabled = true;
     const res = await ApiClient.request(url, { method: 'POST' });
@@ -441,6 +492,20 @@ const ProviderDetailPage = (() => {
         el.textContent = Math.max(0, c);
       }
     }
+  }
+
+  async function _syncFollowState() {
+    if (!Auth.isLoggedIn()) return;
+    const res = await ApiClient.get(_withMode('/api/providers/me/following/'));
+    if (!res.ok) return;
+    const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    const targetId = _safeInt(_providerId);
+    const isFollowing = list.some(entry => {
+      const provider = entry && (entry.provider || entry);
+      return _safeInt(provider && provider.id) === targetId;
+    });
+    _isFollowing = isFollowing;
+    _updateFollowBtn();
   }
 
   function _updateFollowBtn() {
@@ -465,7 +530,7 @@ const ProviderDetailPage = (() => {
 
   /* ═══ Spotlights / Highlights ═══ */
   async function _loadSpotlights() {
-    const res = await ApiClient.get('/api/providers/' + _providerId + '/spotlights/');
+    const res = await ApiClient.get(_withMode('/api/providers/' + _providerId + '/spotlights/'));
     if (!res.ok) return;
     const raw = Array.isArray(res.data) ? res.data : (res.data?.results || []);
     if (!raw.length) return;
@@ -474,16 +539,26 @@ const ProviderDetailPage = (() => {
       return {
         id: item.id,
         provider_id: item.provider_id || _safeInt(_providerId),
-        provider_display_name: item.provider_display_name || _providerData?.display_name || '',
-        provider_profile_image: item.provider_profile_image || _providerData?.profile_image || '',
+        provider_display_name: _pickFirstText(
+          item.provider_display_name,
+          item.providerDisplayName,
+          _providerData?.display_name,
+          _providerData?.displayName
+        ),
+        provider_profile_image: _pickFirstText(
+          item.provider_profile_image,
+          item.providerProfileImage,
+          _providerData?.profile_image,
+          _providerData?.profileImage
+        ),
         file_type: item.file_type || 'image',
         file_url: item.file_url || item.media_url || '',
         thumbnail_url: item.thumbnail_url || item.file_url || item.media_url || '',
         caption: item.caption || item.title || '',
         likes_count: _safeInt(item.likes_count),
         saves_count: _safeInt(item.saves_count),
-        is_liked: !!item.is_liked,
-        is_saved: !!item.is_saved,
+        is_liked: _asBool(item.is_liked),
+        is_saved: _asBool(item.is_saved),
       };
     }).filter(item => (item.file_url || item.thumbnail_url));
 
@@ -541,6 +616,8 @@ const ProviderDetailPage = (() => {
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+    _refreshDerivedCategories(list);
+    _syncCategoryViews();
     container.textContent = '';
     if (emptyEl) emptyEl.classList.add('hidden');
 
@@ -607,18 +684,18 @@ const ProviderDetailPage = (() => {
   function _servicePriceLabel(service) {
     const from = _asNumber(service.price_from);
     const to = _asNumber(service.price_to);
-    const single = _asNumber(service.price || service.min_price);
     const unit = String(service.price_unit || '').trim();
     const suffix = unit ? (' / ' + unit) : '';
 
+    if (!Number.isFinite(from) && !Number.isFinite(to)) return 'السعر: حسب الاتفاق';
     if (Number.isFinite(from) && Number.isFinite(to)) {
-      if (Math.abs(from - to) < 0.001) {
-        return 'السعر: ' + from.toLocaleString('ar-SA') + suffix;
+      if (Math.abs(from - to) < 0.0001) {
+        return 'السعر: ' + _formatCompactNumber(from) + suffix;
       }
-      return 'السعر: ' + from.toLocaleString('ar-SA') + ' - ' + to.toLocaleString('ar-SA') + suffix;
+      return 'السعر: ' + _formatCompactNumber(from) + ' - ' + _formatCompactNumber(to) + suffix;
     }
-    if (Number.isFinite(from)) return 'السعر: ' + from.toLocaleString('ar-SA') + suffix;
-    if (Number.isFinite(single)) return 'السعر: ' + single.toLocaleString('ar-SA') + suffix;
+    const value = Number.isFinite(from) ? from : to;
+    if (Number.isFinite(value)) return 'السعر: ' + _formatCompactNumber(value) + suffix;
     return 'السعر: حسب الاتفاق';
   }
 
@@ -632,7 +709,7 @@ const ProviderDetailPage = (() => {
   async function _loadPortfolio() {
     const container = document.getElementById('pd-portfolio-sections');
     const emptyEl = document.getElementById('pd-portfolio-empty');
-    const res = await ApiClient.get('/api/providers/' + _providerId + '/portfolio/');
+    const res = await ApiClient.get(_withMode('/api/providers/' + _providerId + '/portfolio/'));
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
 
@@ -642,7 +719,7 @@ const ProviderDetailPage = (() => {
     list.forEach(item => {
       _portfolioLikes += _safeInt(item.likes_count);
       _portfolioSaves += _safeInt(item.saves_count);
-      if (item.is_saved) _portfolioSavedByMe = true;
+      if (_asBool(item.is_saved)) _portfolioSavedByMe = true;
     });
     _recomputeEngagementView();
 
@@ -675,8 +752,8 @@ const ProviderDetailPage = (() => {
         desc: description,
         likes_count: _safeInt(item.likes_count),
         saves_count: _safeInt(item.saves_count),
-        is_liked: !!item.is_liked,
-        is_saved: !!item.is_saved,
+        is_liked: _asBool(item.is_liked),
+        is_saved: _asBool(item.is_saved),
       });
     });
 
@@ -841,6 +918,161 @@ const ProviderDetailPage = (() => {
     return Number.isFinite(n) ? n : 0;
   }
 
+  function _asBool(value) {
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    const text = String(value || '').trim().toLowerCase();
+    if (!text) return false;
+    if (text === 'true' || text === '1' || text === 'yes' || text === 'y' || text === 'on') return true;
+    if (text === 'false' || text === '0' || text === 'no' || text === 'n' || text === 'off') return false;
+    return false;
+  }
+
+  function _trimText(value) {
+    return String(value || '').trim();
+  }
+
+  function _pickFirstText() {
+    for (let i = 0; i < arguments.length; i += 1) {
+      const text = _trimText(arguments[i]);
+      if (text) return text;
+    }
+    return '';
+  }
+
+  function _resolveMode() {
+    let accountModeRaw = '';
+    try {
+      accountModeRaw = sessionStorage.getItem('nw_account_mode') || '';
+    } catch {}
+    const byAccountMode = _trimText(accountModeRaw).toLowerCase();
+    if (byAccountMode === 'provider') return 'provider';
+    if (byAccountMode === 'client') return 'client';
+    const roleState = (typeof Auth !== 'undefined' && Auth.getRoleState)
+      ? _trimText(Auth.getRoleState()).toLowerCase()
+      : '';
+    return roleState.includes('provider') ? 'provider' : 'client';
+  }
+
+  function _withMode(path) {
+    const sep = path.includes('?') ? '&' : '?';
+    return path + sep + 'mode=' + encodeURIComponent(_mode || 'client');
+  }
+
+  function _formatCompactNumber(value) {
+    if (!Number.isFinite(value)) return '';
+    if (Math.abs(value - Math.round(value)) < 0.0001) {
+      return String(Math.round(value));
+    }
+    return Number(value)
+      .toFixed(2)
+      .replace(/0+$/, '')
+      .replace(/\.$/, '');
+  }
+
+  function _uniqueNonEmpty(values) {
+    const seen = new Set();
+    const result = [];
+    values.forEach((value) => {
+      const clean = _trimText(value);
+      if (!clean || seen.has(clean)) return;
+      seen.add(clean);
+      result.push(clean);
+    });
+    return result;
+  }
+
+  function _joinForDisplay(values, maxItems) {
+    const list = _uniqueNonEmpty(values || []);
+    const limit = Number.isFinite(maxItems) && maxItems > 0 ? maxItems : 3;
+    if (!list.length) return '';
+    if (list.length <= limit) return list.join('، ');
+    return list.slice(0, limit).join('، ') + ' (+' + String(list.length - limit) + ')';
+  }
+
+  function _serviceCategoryFromService(service) {
+    const subcategory = service && typeof service.subcategory === 'object' ? service.subcategory : null;
+    return _pickFirstText(
+      subcategory ? subcategory.category_name : '',
+      subcategory ? subcategory.categoryName : '',
+      service ? service.category_name : '',
+      service ? service.main_category : '',
+      service ? service.categoryName : '',
+      service ? service.mainCategory : ''
+    );
+  }
+
+  function _serviceSubCategoryFromService(service) {
+    const subcategory = service && typeof service.subcategory === 'object' ? service.subcategory : null;
+    return _pickFirstText(
+      subcategory ? subcategory.name : '',
+      subcategory ? subcategory.subcategory_name : '',
+      subcategory ? subcategory.subCategoryName : '',
+      service ? service.subcategory_name : '',
+      service ? service.sub_category : '',
+      service ? service.subCategoryName : '',
+      service ? service.subCategory : ''
+    );
+  }
+
+  function _providerMainCategory(provider) {
+    return _pickFirstText(
+      provider ? provider.category_name : '',
+      provider ? provider.main_category : '',
+      provider ? provider.categoryName : '',
+      provider ? provider.mainCategory : ''
+    );
+  }
+
+  function _providerSubCategory(provider) {
+    return _pickFirstText(
+      provider ? provider.subcategory_name : '',
+      provider ? provider.sub_category : '',
+      provider ? provider.subcategoryName : '',
+      provider ? provider.subCategoryName : '',
+      provider ? provider.subCategory : ''
+    );
+  }
+
+  function _resolveMainCategory(provider) {
+    return _providerMainCategory(provider) || _derivedMainCategory;
+  }
+
+  function _resolveSubCategory(provider) {
+    return _providerSubCategory(provider) || _derivedSubCategory;
+  }
+
+  function _updateIdentityCategoryLine(mainCategory, subCategory) {
+    const lineEl = document.getElementById('pd-category-line');
+    if (!lineEl) return;
+    const main = _trimText(mainCategory);
+    const sub = _trimText(subCategory);
+    if (!main) {
+      lineEl.textContent = '';
+      lineEl.classList.add('hidden');
+      return;
+    }
+    lineEl.textContent = sub ? (main + ' • ' + sub) : main;
+    lineEl.classList.remove('hidden');
+  }
+
+  function _syncCategoryViews() {
+    if (!_providerData) return;
+    const mainCategory = _resolveMainCategory(_providerData);
+    const subCategory = _resolveSubCategory(_providerData);
+    _updateIdentityCategoryLine(mainCategory, subCategory);
+    _setText('pd-main-category', _displayOrUnavailable(mainCategory, 'غير متوفر'));
+    _setText('pd-sub-category', _displayOrUnavailable(subCategory, 'غير متوفر'));
+  }
+
+  function _refreshDerivedCategories(services) {
+    const list = Array.isArray(services) ? services : [];
+    const categories = list.map((service) => _serviceCategoryFromService(service));
+    const subcategories = list.map((service) => _serviceSubCategoryFromService(service));
+    _derivedMainCategory = _joinForDisplay(categories, 3);
+    _derivedSubCategory = _joinForDisplay(subcategories, 3);
+  }
+
   function _setText(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val;
@@ -939,7 +1171,7 @@ const ProviderDetailPage = (() => {
       const prefix = section + separator;
       if (text.startsWith(prefix)) {
         const rest = text.slice(prefix.length).trim();
-        return rest || 'بدون وصف';
+        if (rest) return rest;
       }
     }
     return text;
@@ -970,10 +1202,9 @@ const ProviderDetailPage = (() => {
 
     const results = [];
     grouped.forEach((items, title) => {
-      const firstDesc = items.find(item => item.desc && item.desc !== 'بدون وصف');
       results.push({
         sectionTitle: title,
-        sectionDesc: firstDesc ? firstDesc.desc : '',
+        sectionDesc: '',
         items,
       });
     });

@@ -19,6 +19,8 @@ class ProvidersMapScreen extends StatefulWidget {
   final String? subCategory;
   final String? requestDescription;
   final List<String>? attachments;
+  final String? cityFilter;
+  final bool urgentOnly;
 
   const ProvidersMapScreen({
     super.key,
@@ -26,6 +28,8 @@ class ProvidersMapScreen extends StatefulWidget {
     this.subCategory,
     this.requestDescription,
     this.attachments,
+    this.cityFilter,
+    this.urgentOnly = false,
   });
 
   @override
@@ -150,6 +154,8 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
 
   Future<void> _showProviderContactActions(ServiceProviderLocation provider) async {
     final e164 = _formatPhoneE164(provider.phoneNumber);
+    final completedRequests = provider.operationsCount;
+    final ratingText = provider.rating > 0 ? provider.rating.toStringAsFixed(1) : '-';
 
     await showModalBottomSheet(
       context: context,
@@ -174,6 +180,105 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _openProviderProfile(provider);
+                  },
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 68,
+                        height: 68,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.deepPurple.withValues(alpha: 0.25),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: _providerImageWidget(
+                            provider.profileImage,
+                            width: 68,
+                            height: 68,
+                            fallbackIconSize: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'عرض صفحة المزود',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.deepPurple.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        provider.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 16, color: Colors.amber),
+                          const SizedBox(width: 4),
+                          Text(
+                            ratingText,
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Icon(Icons.check_circle_outline,
+                              size: 15, color: AppColors.deepPurple),
+                          const SizedBox(width: 4),
+                          Text(
+                            'الطلبات المكتملة: $completedRequests',
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -410,6 +515,13 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
     final queryParams = <String, String>{
       'has_location': '1',
     };
+    final city = (widget.cityFilter ?? '').trim();
+    if (city.isNotEmpty) {
+      queryParams['city'] = city;
+    }
+    if (widget.urgentOnly) {
+      queryParams['accepts_urgent'] = '1';
+    }
     // يمكن إضافة فلتر المدينة إذا كانت متوفرة
     if (_currentPosition != null) {
       queryParams['lat'] = _currentPosition!.latitude.toString();
@@ -436,6 +548,17 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
             ServiceProviderLocation.fromJson(e as Map<String, dynamic>))
         .where((p) => p.latitude != 0.0 && p.longitude != 0.0)
         .toList();
+
+    if (city.isNotEmpty) {
+      final cityNorm = _norm(city);
+      _providers = _providers
+        .where((p) => _norm(p.city) == cityNorm)
+        .toList();
+    }
+
+    if (widget.urgentOnly) {
+      _providers = _providers.where((p) => p.isUrgentEnabled).toList();
+    }
 
     // حساب المسافة لكل مزود
     if (_currentPosition != null) {
@@ -503,7 +626,11 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
           height: 80,
           child: GestureDetector(
             onTap: () {
-              _openProviderProfile(provider);
+              setState(() {
+                _selectedProvider = provider;
+              });
+              _animateToProvider(provider);
+              _showProviderContactActions(provider);
             },
             child: Column(
               children: [
@@ -596,6 +723,7 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
           providerPhone: provider.phoneNumber,
           providerLat: provider.latitude,
           providerLng: provider.longitude,
+          showBackToMapButton: true,
         ),
       ),
     );

@@ -874,12 +874,26 @@ class ProviderPublicStatsView(APIView):
 			.distinct()
 			.count()
 		)
-		likes_count = (
+		profile_likes_count = (
 			ProviderLike.objects.filter(provider_id=provider_id)
 			.values("user_id")
 			.distinct()
 			.count()
 		)
+		portfolio_likes_count = ProviderPortfolioLike.objects.filter(
+			item__provider_id=provider_id,
+		).count()
+		portfolio_saves_count = ProviderPortfolioSave.objects.filter(
+			item__provider_id=provider_id,
+		).count()
+		spotlight_likes_count = ProviderSpotlightLike.objects.filter(
+			item__provider_id=provider_id,
+		).count()
+		spotlight_saves_count = ProviderSpotlightSave.objects.filter(
+			item__provider_id=provider_id,
+		).count()
+		media_likes_count = portfolio_likes_count + spotlight_likes_count
+		media_saves_count = portfolio_saves_count + spotlight_saves_count
 
 		return Response(
 			{
@@ -887,7 +901,15 @@ class ProviderPublicStatsView(APIView):
 				"completed_requests": completed_requests,
 				"followers_count": followers_count,
 				"following_count": following_count,
-				"likes_count": likes_count,
+				# Backward-compatible: keep profile likes on legacy key.
+				"likes_count": profile_likes_count,
+				"profile_likes_count": profile_likes_count,
+				"portfolio_likes_count": portfolio_likes_count,
+				"spotlight_likes_count": spotlight_likes_count,
+				"media_likes_count": media_likes_count,
+				"portfolio_saves_count": portfolio_saves_count,
+				"spotlight_saves_count": spotlight_saves_count,
+				"media_saves_count": media_saves_count,
 				"rating_avg": getattr(provider, "rating_avg", 0) or 0,
 				"rating_count": getattr(provider, "rating_count", 0) or 0,
 			},

@@ -8,6 +8,7 @@ import '../services/account_mode_service.dart';
 import '../models/category_model.dart';
 import '../constants/saudi_cities.dart';
 import '../widgets/bottom_nav.dart';
+import 'providers_map_screen.dart';
 
 class UrgentRequestScreen extends StatefulWidget {
   const UrgentRequestScreen({super.key});
@@ -62,6 +63,7 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   SubCategoryModel? _selectedSub;
   String? _selectedCity;
   String _dispatchMode = 'all'; // 'all' | 'nearest'
+  String _lastNearestToastKey = '';
   bool _submitting = false;
   bool _showSuccess = false;
 
@@ -206,6 +208,51 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
       SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo', fontSize: 11)),
           backgroundColor: Colors.red.shade700, behavior: SnackBarBehavior.floating),
     );
+  }
+
+  void _openMapForCity(String city) {
+    final cityValue = city.trim();
+    if (cityValue.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProvidersMapScreen(
+          category: _selectedCat?.name ?? 'خدمات',
+          subCategory: _selectedSub?.name,
+          requestDescription: _descCtrl.text.trim(),
+          cityFilter: cityValue,
+          urgentOnly: true,
+        ),
+      ),
+    );
+  }
+
+  void _hintSnack(String msg, {String? city}) {
+    final cityValue = (city ?? '').trim();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontFamily: 'Cairo', fontSize: 11)),
+        backgroundColor: Colors.deepPurple,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 4),
+        action: cityValue.isEmpty
+            ? null
+            : SnackBarAction(
+                label: 'عرض الخريطة',
+                textColor: Colors.white,
+                onPressed: () => _openMapForCity(cityValue),
+              ),
+      ),
+    );
+  }
+
+  void _maybeShowNearestMapToast() {
+    final city = (_selectedCity ?? '').trim();
+    if (_dispatchMode != 'nearest' || city.isEmpty) return;
+    final key = '$_dispatchMode::$city';
+    if (key == _lastNearestToastKey) return;
+    _lastNearestToastKey = key;
+    _hintSnack('سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة $city', city: city);
   }
 
   @override
@@ -364,8 +411,31 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
           value: _selectedCity,
           items: SaudiCities.all,
           labelFn: (city) => city,
-          onChanged: (city) => setState(() => _selectedCity = city),
+          onChanged: (city) {
+            setState(() => _selectedCity = city);
+            _maybeShowNearestMapToast();
+          },
         ),
+        if (_dispatchMode == 'nearest' && (_selectedCity ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openMapForCity(_selectedCity!),
+              icon: const Icon(Icons.map_outlined, size: 16),
+              label: Text(
+                'عرض المزوّدين الأقرب على الخريطة',
+                style: const TextStyle(fontSize: 11, fontFamily: 'Cairo', fontWeight: FontWeight.w700),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: purple,
+                side: BorderSide(color: purple.withValues(alpha: 0.35)),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ),
+        ],
         if (_dispatchMode == 'all' && _selectedCity != null) ...[
           const SizedBox(height: 6),
           Align(
@@ -610,7 +680,12 @@ class _UrgentRequestScreenState extends State<UrgentRequestScreen> {
   Widget _radioChip(String label, String value, bool isDark, Color purple) {
     final sel = _dispatchMode == value;
     return GestureDetector(
-      onTap: () => setState(() => _dispatchMode = value),
+      onTap: () {
+        setState(() {
+          _dispatchMode = value;
+        });
+        _maybeShowNearestMapToast();
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
