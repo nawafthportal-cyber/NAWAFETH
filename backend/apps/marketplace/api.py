@@ -14,6 +14,7 @@ from django.utils import timezone
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, permissions, status
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -30,6 +31,7 @@ from .models import (
 	RequestStatusLog,
 	RequestType,
 	ServiceRequest,
+	ServiceRequestAttachment,
 )
 from .serializers import (
 	ClientRequestUpdateSerializer,
@@ -56,6 +58,19 @@ from .views import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _infer_attachment_type(uploaded_file) -> str:
+	name = (getattr(uploaded_file, "name", "") or "").lower()
+	content_type = (getattr(uploaded_file, "content_type", "") or "").lower()
+
+	if content_type.startswith("image/") or name.endswith((".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp")):
+		return "image"
+	if content_type.startswith("video/") or name.endswith((".mp4", ".mov", ".avi", ".mkv", ".webm", ".m4v")):
+		return "video"
+	if content_type.startswith("audio/") or name.endswith((".mp3", ".wav", ".aac", ".ogg", ".m4a")):
+		return "audio"
+	return "document"
 
 
 # ────────────────────────────────────────────────
@@ -879,11 +894,13 @@ class RequestStartView(APIView):
 
 class RequestCompleteView(APIView):
 	permission_classes = [permissions.IsAuthenticated, IsProviderPermission]
+	parser_classes = [MultiPartParser, FormParser, JSONParser]
 
 	def post(self, request, request_id):
 		s = RequestCompleteSerializer(data=request.data)
 		s.is_valid(raise_exception=True)
 		note = s.validated_data.get("note", "")
+		attachments = s.validated_data.get("attachments", [])
 
 		provider = request.user.provider_profile
 
@@ -912,6 +929,18 @@ class RequestCompleteView(APIView):
 			sr.delivered_at = s.validated_data["delivered_at"]
 			sr.actual_service_amount = s.validated_data["actual_service_amount"]
 			sr.save(update_fields=["status", "delivered_at", "actual_service_amount"])
+
+			if attachments:
+				ServiceRequestAttachment.objects.bulk_create(
+					[
+						ServiceRequestAttachment(
+							request=sr,
+							file=attachment,
+							file_type=_infer_attachment_type(attachment),
+						)
+						for attachment in attachments
+					]
+				)
 
 			RequestStatusLog.objects.create(
 				request=sr,

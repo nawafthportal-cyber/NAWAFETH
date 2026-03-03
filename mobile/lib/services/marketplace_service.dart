@@ -276,7 +276,33 @@ class MarketplaceService {
     required String deliveredAt,
     required String actualServiceAmount,
     String? note,
+    List<File> attachments = const [],
   }) async {
+    if (attachments.isNotEmpty) {
+      final optimizedFiles = <File>[];
+      for (final f in attachments) {
+        optimizedFiles.add(await UploadOptimizer.optimizeForUpload(f));
+      }
+
+      return ApiClient.sendMultipart(
+        'POST',
+        '/api/marketplace/requests/$requestId/complete/',
+        (request) async {
+          request.fields['delivered_at'] = deliveredAt;
+          request.fields['actual_service_amount'] = actualServiceAmount;
+          if (note != null && note.trim().isNotEmpty) {
+            request.fields['note'] = note.trim();
+          }
+          for (final file in optimizedFiles) {
+            request.files.add(
+              await http.MultipartFile.fromPath('attachments', file.path),
+            );
+          }
+        },
+        timeout: const Duration(seconds: 60),
+      );
+    }
+
     return ApiClient.post(
       '/api/marketplace/requests/$requestId/complete/',
       body: {

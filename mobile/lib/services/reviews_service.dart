@@ -7,11 +7,19 @@ class ReviewsService {
   /// إنشاء مراجعة لطلب مكتمل
   static Future<ApiResponse> createReview({
     required int requestId,
-    required int rating,
+    required int responseSpeed,
+    required int costValue,
+    required int quality,
+    required int credibility,
+    required int onTime,
     String? comment,
   }) async {
     final body = <String, dynamic>{
-      'rating': rating,
+      'response_speed': responseSpeed,
+      'cost_value': costValue,
+      'quality': quality,
+      'credibility': credibility,
+      'on_time': onTime,
     };
     if (comment != null && comment.isNotEmpty) {
       body['comment'] = comment;

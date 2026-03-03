@@ -5,6 +5,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
+import '../services/reviews_service.dart';
 
 class ClientOrderDetailsScreen extends StatefulWidget {
   final int requestId;
@@ -236,6 +237,69 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(res.error ?? 'فشل تنفيذ العملية',
+              style: const TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _submitReview() async {
+    final order = _order;
+    if (order == null) return;
+
+    if (order.reviewId != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إرسال تقييمك مسبقاً', style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      return;
+    }
+
+    final criteria = [
+      _ratingResponseSpeed,
+      _ratingCostValue,
+      _ratingQuality,
+      _ratingCredibility,
+      _ratingOnTime,
+    ];
+    if (criteria.any((value) => value <= 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('الرجاء تعبئة جميع عناصر التقييم',
+              style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    final res = await ReviewsService.createReview(
+      requestId: order.id,
+      responseSpeed: _ratingResponseSpeed.round(),
+      costValue: _ratingCostValue.round(),
+      quality: _ratingQuality.round(),
+      credibility: _ratingCredibility.round(),
+      onTime: _ratingOnTime.round(),
+      comment: _ratingCommentController.text.trim().isEmpty
+          ? null
+          : _ratingCommentController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم إرسال التقييم والمراجعة بنجاح',
+              style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      _loadDetail();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.error ?? 'تعذر إرسال التقييم',
               style: const TextStyle(fontFamily: 'Cairo')),
         ),
       );
@@ -718,6 +782,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
 
   Widget _completedCard(Color cardColor, Color borderColor, bool isDark) {
     final order = _order!;
+    final reviewed = order.reviewId != null;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -739,19 +804,30 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton(
-              onPressed: () =>
-                  setState(() => _showRatingForm = !_showRatingForm),
+              onPressed: reviewed
+                  ? null
+                  : () => setState(() => _showRatingForm = !_showRatingForm),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 side: const BorderSide(color: _mainColor),
               ),
-              child: const Text('تقييم الخدمة',
-                  style: TextStyle(
+              child: Text(reviewed ? 'تم إرسال التقييم' : 'تقييم الخدمة',
+                  style: const TextStyle(
                       fontFamily: 'Cairo',
                       fontWeight: FontWeight.bold,
                       color: _mainColor)),
             ),
           ),
+          if (reviewed) ...[
+            const SizedBox(height: 8),
+            Text(
+              'تم إرسال مراجعتك لهذه الخدمة ويمكنك مشاهدة تفاصيلها في السجل.',
+              style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.black54),
+            ),
+          ],
           if (_showRatingForm) ...[
             const SizedBox(height: 12),
             _ratingRow(
@@ -793,6 +869,29 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
               maxLines: 5,
               decoration: const InputDecoration(border: OutlineInputBorder()),
               style: const TextStyle(fontFamily: 'Cairo'),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saving ? null : _submitReview,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _mainColor,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('إرسال التقييم والمراجعة',
+                        style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+              ),
             ),
           ],
         ],
@@ -974,6 +1073,18 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
 
   Widget _attachmentsCard(
       ServiceRequest order, Color cardColor, Color borderColor, bool isDark) {
+    final deliveredAt = order.deliveredAt;
+    final finalDeliveryAttachments = order.attachments.where((attachment) {
+      final createdAt = attachment.createdAt;
+      if (deliveredAt == null || createdAt == null) {
+        return false;
+      }
+      return !createdAt.isBefore(deliveredAt);
+    }).toList();
+    final regularAttachments = order.attachments.where((attachment) {
+      return !finalDeliveryAttachments.contains(attachment);
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -995,32 +1106,53 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                 style: TextStyle(
                     fontFamily: 'Cairo',
                     color: isDark ? Colors.white54 : Colors.black54))
-          else
-            ...order.attachments.map(
-              (a) => Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Row(children: [
-                  Icon(_attachmentIcon(a.fileType),
-                      size: 18, color: Colors.grey),
-                  const SizedBox(width: 6),
-                  Expanded(
-                      child: Text(a.fileUrl.split('/').last,
-                          style: TextStyle(
-                              fontFamily: 'Cairo',
-                              color: isDark
-                                  ? Colors.white70
-                                  : Colors.black87))),
-                  Text(a.fileType.toUpperCase(),
-                      style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 12,
-                          color:
-                              isDark ? Colors.white54 : Colors.black54)),
-                ]),
+          else ...[
+            if (finalDeliveryAttachments.isNotEmpty) ...[
+              const Text('مرفقات التسليم النهائي',
+                  style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: _mainColor)),
+              ...finalDeliveryAttachments.map(
+                (attachment) => _attachmentRow(attachment, isDark),
               ),
-            ),
+              if (regularAttachments.isNotEmpty) const SizedBox(height: 8),
+            ],
+            if (regularAttachments.isNotEmpty) ...[
+              if (finalDeliveryAttachments.isNotEmpty)
+                const Text('مرفقات الطلب',
+                    style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold)),
+              ...regularAttachments.map(
+                (attachment) => _attachmentRow(attachment, isDark),
+              ),
+            ],
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _attachmentRow(RequestAttachment attachment, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(children: [
+        Icon(_attachmentIcon(attachment.fileType), size: 18, color: Colors.grey),
+        const SizedBox(width: 6),
+        Expanded(
+            child: Text(attachment.fileUrl.split('/').last,
+                style: TextStyle(
+                    fontFamily: 'Cairo',
+                    color: isDark ? Colors.white70 : Colors.black87))),
+        Text(attachment.fileType.toUpperCase(),
+            style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                color: isDark ? Colors.white54 : Colors.black54)),
+      ]),
     );
   }
 

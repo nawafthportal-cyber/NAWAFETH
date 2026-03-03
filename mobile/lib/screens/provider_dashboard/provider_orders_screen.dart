@@ -4,6 +4,7 @@ import 'package:nawafeth/services/account_mode_service.dart';
 
 import '../../models/service_request_model.dart';
 import '../../services/marketplace_service.dart';
+import '../../widgets/bottom_nav.dart';
 import '../client_orders_screen.dart';
 import 'provider_order_details_screen.dart';
 
@@ -317,6 +318,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
                         TextStyle(fontFamily: 'Cairo', color: Colors.white)),
                 iconTheme: const IconThemeData(color: Colors.white),
               ),
+              bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
               body: Padding(
                 padding: const EdgeInsets.all(16),
                 child: _buildBody(),

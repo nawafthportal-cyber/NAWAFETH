@@ -339,6 +339,11 @@ class ProviderInputsDecisionSerializer(RequestActionSerializer):
 class RequestCompleteSerializer(RequestActionSerializer):
     delivered_at = serializers.DateTimeField(required=True)
     actual_service_amount = serializers.DecimalField(max_digits=12, decimal_places=2, required=True)
+    attachments = serializers.ListField(
+        child=serializers.FileField(),
+        required=False,
+        write_only=True,
+    )
 
     def validate(self, attrs):
         amount = attrs.get("actual_service_amount")

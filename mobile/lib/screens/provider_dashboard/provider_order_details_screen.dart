@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:nawafeth/services/account_mode_service.dart';
@@ -36,6 +39,7 @@ class _ProviderOrderDetailsScreenState
 
   // حقول الإكمال
   final TextEditingController _actualAmountController = TextEditingController();
+  final List<File> _completionAttachments = <File>[];
 
   // حقول الرفض
   final TextEditingController _cancelReasonController = TextEditingController();
@@ -215,16 +219,54 @@ class _ProviderOrderDetailsScreenState
       note: _noteController.text.trim().isNotEmpty
           ? _noteController.text.trim()
           : null,
+      attachments: _completionAttachments,
     );
     if (!mounted) return;
     setState(() => _actionLoading = false);
 
     if (res.isSuccess) {
       _snack('تم إكمال الطلب');
+      _completionAttachments.clear();
       _loadDetail();
     } else {
       _snack(res.error ?? 'فشلت العملية');
     }
+  }
+
+  Future<void> _pickCompletionAttachments() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: const [
+        'jpg',
+        'jpeg',
+        'png',
+        'gif',
+        'webp',
+        'bmp',
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'ppt',
+        'pptx',
+        'txt',
+        'zip',
+        'rar',
+      ],
+    );
+
+    if (result == null || result.files.isEmpty || !mounted) return;
+
+    setState(() {
+      for (final picked in result.files) {
+        final path = picked.path;
+        if (path == null || path.isEmpty) continue;
+        if (_completionAttachments.any((f) => f.path == path)) continue;
+        _completionAttachments.add(File(path));
+      }
+    });
   }
 
   void _snack(String msg) {
@@ -451,6 +493,17 @@ class _ProviderOrderDetailsScreenState
 
     final order = _order!;
     final statusColor = _statusColor(order.statusGroup);
+    final deliveredAt = order.deliveredAt;
+    final finalDeliveryAttachments = order.attachments.where((a) {
+      final createdAt = a.createdAt;
+      if (deliveredAt == null || createdAt == null) {
+        return false;
+      }
+      return !createdAt.isBefore(deliveredAt);
+    }).toList();
+    final regularAttachments = order.attachments.where((a) {
+      return !finalDeliveryAttachments.contains(a);
+    }).toList();
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -647,34 +700,29 @@ class _ProviderOrderDetailsScreenState
                     const Text('لا توجد مرفقات',
                         style: TextStyle(
                             fontFamily: 'Cairo', color: Colors.black54))
-                  else
-                    ...order.attachments.map((a) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(children: [
-                            Icon(_attachIcon(a.fileType),
-                                size: 18, color: Colors.black45),
-                            const SizedBox(width: 6),
-                            Expanded(
-                                child: Text(a.fileUrl.split('/').last,
-                                    style: const TextStyle(
-                                        fontFamily: 'Cairo', fontSize: 13))),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: _mainColor.withAlpha(25),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                    color: _mainColor.withAlpha(60)),
-                              ),
-                              child: Text(a.fileType.toUpperCase(),
-                                  style: const TextStyle(
-                                      fontFamily: 'Cairo',
-                                      fontSize: 11,
-                                      color: _mainColor)),
-                            ),
-                          ]),
-                        )),
+                  else ...[
+                    if (finalDeliveryAttachments.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      const Text('مرفقات التسليم النهائي',
+                          style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: _mainColor)),
+                      ...finalDeliveryAttachments
+                          .map((a) => _attachmentRow(a)),
+                      if (regularAttachments.isNotEmpty) const SizedBox(height: 8),
+                    ],
+                    if (regularAttachments.isNotEmpty) ...[
+                      if (finalDeliveryAttachments.isNotEmpty)
+                        const Text('مرفقات الطلب',
+                            style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12)),
+                      ...regularAttachments.map((a) => _attachmentRow(a)),
+                    ],
+                  ],
                 ],
               ),
             ),
@@ -968,6 +1016,42 @@ class _ProviderOrderDetailsScreenState
       const SizedBox(height: 12),
       _moneyField('قيمة الخدمة الفعلية (SR)', _actualAmountController),
       const SizedBox(height: 12),
+      _sectionTitle('مرفقات الإكمال (فواتير/صور/ملفات)'),
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _actionLoading ? null : _pickCompletionAttachments,
+          icon: const Icon(Icons.attach_file),
+          label: const Text('إضافة مرفقات'),
+        ),
+      ),
+      if (_completionAttachments.isNotEmpty) ...[
+        const SizedBox(height: 8),
+        ..._completionAttachments.asMap().entries.map(
+          (entry) => ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
+            title: Text(
+              entry.value.path.split('\\').last,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.close, size: 18, color: Colors.red),
+              onPressed: _actionLoading
+                  ? null
+                  : () {
+                      setState(() {
+                        _completionAttachments.removeAt(entry.key);
+                      });
+                    },
+            ),
+          ),
+        ),
+      ],
+      const SizedBox(height: 12),
       SizedBox(
         width: double.infinity,
         child: ElevatedButton(
@@ -1045,6 +1129,30 @@ class _ProviderOrderDetailsScreenState
       const SizedBox(height: 10),
       _readOnlyBox(label: 'سبب الإلغاء', value: order.cancelReason ?? '-'),
     ]);
+  }
+
+  Widget _attachmentRow(RequestAttachment attachment) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(children: [
+        Icon(_attachIcon(attachment.fileType), size: 18, color: Colors.black45),
+        const SizedBox(width: 6),
+        Expanded(
+            child: Text(attachment.fileUrl.split('/').last,
+                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: _mainColor.withAlpha(25),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _mainColor.withAlpha(60)),
+          ),
+          child: Text(attachment.fileType.toUpperCase(),
+              style: const TextStyle(
+                  fontFamily: 'Cairo', fontSize: 11, color: _mainColor)),
+        ),
+      ]),
+    );
   }
 
   IconData _attachIcon(String type) {

@@ -7,6 +7,18 @@
 {% block sidebar_interactive %}active{% endblock %}
 {% block body_class %}page-interactive{% endblock %}
 
+{% block extra_css %}
+<style>
+  body.page-interactive #bottom-nav {
+    display: flex !important;
+  }
+
+  body.page-interactive .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <main class="page-content">
   <div class="container">

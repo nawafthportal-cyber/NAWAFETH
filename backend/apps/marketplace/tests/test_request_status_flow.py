@@ -13,6 +13,7 @@ Covers:
 """
 import pytest
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
@@ -21,6 +22,7 @@ from apps.marketplace.models import (
     RequestStatusLog,
     RequestType,
     ServiceRequest,
+    ServiceRequestAttachment,
 )
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 
@@ -357,17 +359,24 @@ def test_full_start_approve_complete_flow():
 
     # Provider completes
     api.force_authenticate(user=provider_user)
+    invoice = SimpleUploadedFile(
+        "invoice.pdf",
+        b"%PDF-1.4 fake invoice content",
+        content_type="application/pdf",
+    )
     r = api.post(
         f"/api/marketplace/requests/{sr.id}/complete/",
         {
             "delivered_at": "2026-06-02T12:00:00Z",
             "actual_service_amount": "480.00",
+            "attachments": [invoice],
         },
-        format="json",
+        format="multipart",
     )
     assert r.status_code == 200
     sr.refresh_from_db()
     assert sr.status == RequestStatus.COMPLETED
+    assert ServiceRequestAttachment.objects.filter(request=sr).count() == 1
 
 
 

@@ -1344,8 +1344,9 @@ ul, ol { list-style: none; }
   main, .page-content { padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg)); }
 }
 @media (min-width: 769px) {
-  #bottom-nav { display: none !important; }
-  main, .page-content { padding-bottom: var(--space-xl); }
+  #site-footer { display: none !important; }
+  #bottom-nav { display: flex !important; }
+  main, .page-content { padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg)); }
 }
 
 /* ====================================================================

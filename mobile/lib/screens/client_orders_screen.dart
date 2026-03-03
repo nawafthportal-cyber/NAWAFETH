@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
+import '../widgets/bottom_nav.dart';
 import 'client_order_details_screen.dart';
 import 'provider_dashboard/provider_orders_screen.dart';
 
@@ -212,6 +213,7 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
           ),
           iconTheme: const IconThemeData(color: Colors.white),
         ),
+        bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
         body: _buildBody(isDark: isDark),
       ),
     );
