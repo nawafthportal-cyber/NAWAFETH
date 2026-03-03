@@ -16,6 +16,7 @@ import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
+import 'interactive_screen.dart';
 import 'provider_dashboard/reviews_tab.dart';
 import 'service_request_form_screen.dart';
 
@@ -68,6 +69,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   List<Map<String, dynamic>> _apiServices = [];
   List<Map<String, dynamic>> _apiPortfolio = [];
   List<MediaItemModel> _spotlightItems = [];
+  int _portfolioLikes = 0;
+  int _spotlightLikes = 0;
+  int _portfolioSaves = 0;
+  int _spotlightSaves = 0;
 
   // لمحات مقدم الخدمة
   List<MediaItemModel> get _spotlightVideoItems {
@@ -107,8 +112,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       _statsData?['following_count'] as int? ??
       _providerDetail?.followingCount ??
       0;
-  int get _likesCount =>
+    int get _profileLikesBase =>
       _statsData?['likes_count'] as int? ?? _providerDetail?.likesCount ?? 0;
+    int get _likesCount =>
+      _profileLikesBase + _portfolioLikes + _spotlightLikes;
 
   int get _reviewersCount =>
       _statsData?['rating_count'] as int? ?? _providerDetail?.ratingCount ?? 0;
@@ -535,6 +542,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       final spotlightsResp = results[4];
       ProviderPublicModel? parsedDetail;
       bool? isFollowingFromPayload;
+      int portfolioLikes = 0;
+      int portfolioSaves = 0;
+      bool portfolioSavedByMe = false;
+      int spotlightLikes = 0;
+      int spotlightSaves = 0;
+      bool spotlightSavedByMe = false;
       if (detailResp.isSuccess && detailResp.dataAsMap != null) {
         parsedDetail = ProviderPublicModel.fromJson(detailResp.dataAsMap!);
         isFollowingFromPayload =
@@ -593,6 +606,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               );
               return normalized;
             }).toList();
+            for (final item in _apiPortfolio) {
+              portfolioLikes += _asInt(item['likes_count']);
+              portfolioSaves += _asInt(item['saves_count']);
+              if (_asBool(item['is_saved'])) {
+                portfolioSavedByMe = true;
+              }
+            }
           }
 
           // Spotlights
@@ -601,9 +621,22 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 .map(_mapSpotlightItem)
                 .where((item) => (item.fileUrl ?? '').trim().isNotEmpty)
                 .toList();
+            for (final item in _spotlightItems) {
+              spotlightLikes += item.likesCount;
+              spotlightSaves += item.savesCount;
+              if (item.isSaved) {
+                spotlightSavedByMe = true;
+              }
+            }
           } else {
             _spotlightItems = [];
           }
+
+          _portfolioLikes = portfolioLikes;
+          _portfolioSaves = portfolioSaves;
+          _spotlightLikes = spotlightLikes;
+          _spotlightSaves = spotlightSaves;
+          _isBookmarked = portfolioSavedByMe || spotlightSavedByMe;
 
           _isLoading = false;
         });
@@ -817,6 +850,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
           peerName: providerName,
+          peerPhone: providerPhone,
+          peerCity: providerCityName,
           peerProviderId: providerId,
         ),
       ),
@@ -1538,7 +1573,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   children: [
                     _headerIconBtn(
                       _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
-                      () => setState(() => _isBookmarked = !_isBookmarked),
+                      _openFavorites,
                     ),
                     const SizedBox(width: 8),
                     _headerIconBtn(Icons.ios_share, _showShareAndReportSheet),
@@ -2034,6 +2069,60 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         ),
       ),
     );
+
+    if (!mounted) return;
+    _recomputeEngagementFromLists();
+  }
+
+  Future<void> _openFavorites() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('سجل دخولك أولًا لعرض المفضلة')),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const InteractiveScreen()),
+    );
+
+    if (!mounted) return;
+    _recomputeEngagementFromLists();
+  }
+
+  void _recomputeEngagementFromLists() {
+    int portfolioLikes = 0;
+    int portfolioSaves = 0;
+    bool portfolioSavedByMe = false;
+    for (final item in _apiPortfolio) {
+      portfolioLikes += _asInt(item['likes_count']);
+      portfolioSaves += _asInt(item['saves_count']);
+      if (_asBool(item['is_saved'])) {
+        portfolioSavedByMe = true;
+      }
+    }
+
+    int spotlightLikes = 0;
+    int spotlightSaves = 0;
+    bool spotlightSavedByMe = false;
+    for (final item in _spotlightItems) {
+      spotlightLikes += item.likesCount;
+      spotlightSaves += item.savesCount;
+      if (item.isSaved) {
+        spotlightSavedByMe = true;
+      }
+    }
+
+    setState(() {
+      _portfolioLikes = portfolioLikes;
+      _portfolioSaves = portfolioSaves;
+      _spotlightLikes = spotlightLikes;
+      _spotlightSaves = spotlightSaves;
+      _isBookmarked = portfolioSavedByMe || spotlightSavedByMe;
+    });
   }
 
   Widget _buildTabContent() {

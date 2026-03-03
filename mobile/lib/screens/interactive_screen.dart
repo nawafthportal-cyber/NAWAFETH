@@ -418,7 +418,12 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                 ),
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => ChatDetailScreen(peerName: provider.displayName, peerProviderId: provider.id),
+                    builder: (_) => ChatDetailScreen(
+                      peerName: provider.displayName,
+                      peerPhone: provider.phone,
+                      peerCity: provider.city,
+                      peerProviderId: provider.id,
+                    ),
                   )),
                   child: Container(
                     padding: const EdgeInsets.all(5),

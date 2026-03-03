@@ -12,6 +12,13 @@ const ProviderDetailPage = (() => {
   let _providerData = null;
   let _providerPhone = '';
   let _spotlights = [];
+  let _profileLikesBase = 0;
+  let _portfolioLikes = 0;
+  let _spotlightLikes = 0;
+  let _portfolioSaves = 0;
+  let _spotlightSaves = 0;
+  let _portfolioSavedByMe = false;
+  let _spotlightSavedByMe = false;
   let _socialUrls = {
     instagram: '',
     x: '',
@@ -109,12 +116,15 @@ const ProviderDetailPage = (() => {
 
     // Bookmark
     const bookmarkBtn = document.getElementById('btn-bookmark');
-    if (bookmarkBtn) bookmarkBtn.addEventListener('click', () => {
-      _isBookmarked = !_isBookmarked;
-      bookmarkBtn.classList.toggle('bookmarked', _isBookmarked);
-      const svg = bookmarkBtn.querySelector('svg');
-      if (svg) svg.setAttribute('fill', _isBookmarked ? '#fff' : 'none');
-    });
+    if (bookmarkBtn) {
+      bookmarkBtn.addEventListener('click', () => {
+        if (!Auth.isLoggedIn()) {
+          window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+          return;
+        }
+        window.location.href = '/interactive/';
+      });
+    }
 
     // Share
     const shareBtn = document.getElementById('btn-share');
@@ -212,8 +222,11 @@ const ProviderDetailPage = (() => {
 
     _setText('stat-completed', completed);
     _setText('stat-followers', followers);
-    _setText('stat-likes', likes);
+    _profileLikesBase = _safeInt(likes);
+    _setText('stat-likes', _profileLikesBase);
     _setText('stat-rating', rating);
+
+    _recomputeEngagementView();
 
     const followingBtn = document.getElementById('btn-show-following');
     if (followingBtn) {
@@ -474,6 +487,11 @@ const ProviderDetailPage = (() => {
       };
     }).filter(item => (item.file_url || item.thumbnail_url));
 
+    _spotlightLikes = _spotlights.reduce((sum, item) => sum + _safeInt(item.likes_count), 0);
+    _spotlightSaves = _spotlights.reduce((sum, item) => sum + _safeInt(item.saves_count), 0);
+    _spotlightSavedByMe = _spotlights.some(item => !!item.is_saved);
+    _recomputeEngagementView();
+
     if (!_spotlights.length) return;
 
     const section = document.getElementById('pd-highlights-section');
@@ -617,6 +635,17 @@ const ProviderDetailPage = (() => {
     const res = await ApiClient.get('/api/providers/' + _providerId + '/portfolio/');
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+
+    _portfolioLikes = 0;
+    _portfolioSaves = 0;
+    _portfolioSavedByMe = false;
+    list.forEach(item => {
+      _portfolioLikes += _safeInt(item.likes_count);
+      _portfolioSaves += _safeInt(item.saves_count);
+      if (item.is_saved) _portfolioSavedByMe = true;
+    });
+    _recomputeEngagementView();
+
     container.textContent = '';
 
     if (!list.length) {
@@ -712,6 +741,18 @@ const ProviderDetailPage = (() => {
     if (!container.children.length && emptyEl) {
       emptyEl.classList.remove('hidden');
     }
+  }
+
+  function _recomputeEngagementView() {
+    const totalLikes = _safeInt(_profileLikesBase) + _safeInt(_portfolioLikes) + _safeInt(_spotlightLikes);
+    _setText('stat-likes', totalLikes);
+
+    _isBookmarked = !!(_portfolioSavedByMe || _spotlightSavedByMe);
+    const bookmarkBtn = document.getElementById('btn-bookmark');
+    if (!bookmarkBtn) return;
+    bookmarkBtn.classList.toggle('bookmarked', _isBookmarked);
+    const svg = bookmarkBtn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', _isBookmarked ? '#fff' : 'none');
   }
 
   /* ═══ Reviews ═══ */

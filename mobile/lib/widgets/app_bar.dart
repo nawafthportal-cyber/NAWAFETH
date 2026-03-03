@@ -155,7 +155,7 @@ class _CustomAppBarState extends State<CustomAppBar> {
               const SizedBox(width: 12),
 
               // ✅ عنوان أو حقل بحث
-              if (title != null)
+              if (widget.title != null)
                 Expanded(
                   child: Text(
                     widget.title!,

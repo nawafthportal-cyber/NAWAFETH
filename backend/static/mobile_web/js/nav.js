@@ -8,11 +8,24 @@ const Nav = (() => {
   let _sidebarOpen = false;
 
   function init() {
+    _ensureSingleBottomNav();
     _initSidebarController();
     _initQuickNavButtons();
     _initAuthUI();
     _initLogout();
     _initUnreadBadges();
+  }
+
+  function _ensureSingleBottomNav() {
+    const navs = Array.from(document.querySelectorAll('nav#bottom-nav'));
+    if (navs.length <= 1) return;
+
+    const primary = navs[0];
+    for (let index = 1; index < navs.length; index += 1) {
+      navs[index].remove();
+    }
+
+    primary.style.display = 'flex';
   }
 
   /* ---------- Sidebar ---------- */

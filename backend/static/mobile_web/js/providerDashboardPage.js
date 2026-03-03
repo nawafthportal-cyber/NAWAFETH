@@ -7,6 +7,7 @@
 const ProviderDashboardPage = (() => {
   let _profile = null;
   let _providerProfile = null;
+  let _providerStats = null;
 
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
@@ -104,6 +105,13 @@ const ProviderDashboardPage = (() => {
       _providerProfile = provRes.value.data;
     }
 
+    if (_providerProfile && _providerProfile.id) {
+      const statsRes = await ApiClient.get('/api/providers/' + _providerProfile.id + '/stats/?mode=provider');
+      if (statsRes.ok && statsRes.data) {
+        _providerStats = statsRes.data;
+      }
+    }
+
     _renderHeader();
     _renderStats();
     _renderSubscription(subRes);
@@ -143,10 +151,16 @@ const ProviderDashboardPage = (() => {
 
   function _renderStats() {
     const p = _providerProfile || {};
-    _setText('stat-followers', '.pd-stat-val', p.followers_count || 0);
-    _setText('stat-following', '.pd-stat-val', p.following_count || 0);
-    _setText('stat-likes', '.pd-stat-val', p.total_likes || 0);
-    _setText('stat-clients', '.pd-stat-val', p.total_clients || 0);
+    const stats = _providerStats || {};
+    const followers = stats.followers_count ?? p.followers_count ?? _profile?.provider_followers_count ?? 0;
+    const following = stats.following_count ?? p.following_count ?? _profile?.following_count ?? 0;
+    const likes = stats.likes_count ?? p.likes_count ?? _profile?.provider_likes_received_count ?? _profile?.likes_count ?? 0;
+    const clients = p.total_clients ?? stats.completed_requests ?? p.completed_requests ?? 0;
+
+    _setText('stat-followers', '.pd-stat-val', followers);
+    _setText('stat-following', '.pd-stat-val', following);
+    _setText('stat-likes', '.pd-stat-val', likes);
+    _setText('stat-clients', '.pd-stat-val', clients);
   }
 
   function _renderSubscription(subRes) {

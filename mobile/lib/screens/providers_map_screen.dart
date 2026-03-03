@@ -141,6 +141,7 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
       MaterialPageRoute(
         builder: (_) => ChatDetailScreen(
           peerName: provider.name,
+          peerPhone: provider.phoneNumber,
           peerProviderId: peerProviderId,
         ),
       ),

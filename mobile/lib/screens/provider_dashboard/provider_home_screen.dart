@@ -58,6 +58,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   int _urgentOrdersCount = 0;
   int _newOrdersCount = 0;
   int _clientsCount = 0;
+  Map<String, dynamic>? _providerStats;
+  int _favoritesCount = 0;
   List<Map<String, dynamic>> _mySpotlights = <Map<String, dynamic>>[];
   final Set<int> _deletingSpotlightIds = <int>{};
 
@@ -66,10 +68,18 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   String? get _currentPlanStatusLabel => _subscriptionStatus == null
       ? null
       : SubscriptionsService.subscriptionStatusLabel(_subscriptionStatus);
-  int get _followersCount => _userProfile?.providerFollowersCount ?? 0;
-  int get _followingCount => _userProfile?.followingCount ?? 0;
-  int get _likesReceivedCount => _userProfile?.providerLikesReceivedCount ?? 0;
-  int get _favoritesCount => _userProfile?.favoritesMediaCount ?? 0;
+    int get _followersCount =>
+      _providerStats?['followers_count'] as int? ??
+      _userProfile?.providerFollowersCount ??
+      0;
+    int get _followingCount =>
+      _providerStats?['following_count'] as int? ??
+      _userProfile?.followingCount ??
+      0;
+    int get _likesReceivedCount =>
+      _providerStats?['likes_count'] as int? ??
+      _userProfile?.providerLikesReceivedCount ??
+      0;
   String get _displayName =>
       _providerProfile?.displayName ?? _userProfile?.providerDisplayName ?? '';
 
@@ -107,6 +117,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     setState(() {
       _userProfile = meResult.data;
+      _favoritesCount = meResult.data?.favoritesMediaCount ?? 0;
       _isLoading = false;
     });
 
@@ -115,6 +126,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     unawaited(_loadSubscriptionPlan());
     unawaited(_loadOrderCounts());
     unawaited(_loadMySpotlights());
+    unawaited(_loadProviderStats());
+    unawaited(_loadFavoritesCount());
   }
 
   Future<void> _loadProviderProfile(
@@ -127,7 +140,34 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
         setState(() {
           _providerProfile = providerResult.data;
         });
+        unawaited(_loadProviderStats());
       }
+    } catch (_) {
+      // optional data
+    }
+  }
+
+  Future<void> _loadProviderStats() async {
+    try {
+      final providerId = _providerProfile?.id ?? _userProfile?.providerProfileId;
+      if (providerId == null || providerId <= 0) return;
+      final response = await InteractiveService.fetchProviderStats(providerId);
+      if (!mounted || !response.isSuccess || response.dataAsMap == null) return;
+      setState(() {
+        _providerStats = response.dataAsMap;
+      });
+    } catch (_) {
+      // optional data
+    }
+  }
+
+  Future<void> _loadFavoritesCount() async {
+    try {
+      final response = await InteractiveService.fetchFavorites();
+      if (!mounted || !response.isSuccess) return;
+      setState(() {
+        _favoritesCount = response.items.length;
+      });
     } catch (_) {
       // optional data
     }

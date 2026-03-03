@@ -12,6 +12,8 @@ import 'service_request_form_screen.dart';
 class ChatDetailScreen extends StatefulWidget {
   final int? threadId;
   final String peerName;
+  final String? peerPhone;
+  final String? peerCity;
   final int? peerId;
   final int? peerProviderId;
 
@@ -19,6 +21,8 @@ class ChatDetailScreen extends StatefulWidget {
     super.key,
     this.threadId,
     required this.peerName,
+    this.peerPhone,
+    this.peerCity,
     this.peerId,
     this.peerProviderId,
   });
@@ -49,6 +53,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   int? _myUserId;
   int? _resolvedThreadId;
   String? _errorMessage;
+
+  String get _memberName {
+    final value = widget.peerName.trim();
+    return value.isNotEmpty ? value : 'عضو';
+  }
+
+  String get _memberPhone {
+    final value = (widget.peerPhone ?? '').trim();
+    return value.isNotEmpty ? value : 'غير متوفر';
+  }
+
+  String get _memberCity {
+    final value = (widget.peerCity ?? '').trim();
+    return value.isNotEmpty ? value : 'غير متوفر';
+  }
 
   @override
   void initState() {
@@ -879,32 +898,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
-        title: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: Colors.deepPurple.shade200,
-              child: Text(
-                widget.peerName.isNotEmpty ? widget.peerName[0] : '?',
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.peerName,
-                style: const TextStyle(fontFamily: "Cairo", fontSize: 15, fontWeight: FontWeight.bold),
-              ),
-            ),
-            // ✅ أيقونة إرسال رابط طلب خدمة
-            if (widget.peerProviderId != null)
-              IconButton(
-                icon: const Icon(Icons.send_outlined, color: Colors.white, size: 22),
-                onPressed: () => _sendServiceRequestLink(),
-                tooltip: "إرسال رابط طلب خدمة",
-              ),
-          ],
+        title: Text(
+          _memberName,
+          style: const TextStyle(fontFamily: "Cairo", fontSize: 16, fontWeight: FontWeight.bold),
         ),
         actions: [
+          if (widget.peerProviderId != null)
+            IconButton(
+              icon: const Icon(Icons.send_outlined, color: Colors.white, size: 22),
+              onPressed: () => _sendServiceRequestLink(),
+              tooltip: "إرسال رابط طلب خدمة",
+            ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             onPressed: () => _showChatOptions(),
@@ -913,6 +917,73 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ),
       body: Column(
         children: [
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline, size: 16, color: Colors.deepPurple),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _memberName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.phone_outlined, size: 15, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _memberPhone,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.location_city_outlined, size: 15, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _memberCity,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.black54),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           // ✅ الرسائل
           Expanded(
             child: _isLoading

@@ -506,6 +506,8 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
             builder: (_) => ChatDetailScreen(
               threadId: thread.threadId,
               peerName: thread.peerName,
+              peerPhone: thread.peerPhone,
+              peerCity: thread.peerCity,
               peerId: thread.peerId,
               peerProviderId: thread.peerProviderId,
             ),

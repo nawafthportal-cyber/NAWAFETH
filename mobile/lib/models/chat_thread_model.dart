@@ -5,6 +5,7 @@ class ChatThread {
   final int? peerProviderId;
   final String peerName;
   final String peerPhone;
+  final String peerCity;
   final String lastMessage;
   final DateTime lastMessageAt;
   final int unreadCount;
@@ -22,6 +23,7 @@ class ChatThread {
     this.peerProviderId,
     required this.peerName,
     required this.peerPhone,
+    this.peerCity = '',
     required this.lastMessage,
     required this.lastMessageAt,
     required this.unreadCount,
@@ -39,6 +41,7 @@ class ChatThread {
       peerProviderId: json['peer_provider_id'] as int?,
       peerName: (json['peer_name'] ?? '') as String,
       peerPhone: (json['peer_phone'] ?? '') as String,
+      peerCity: (json['peer_city'] ?? json['city'] ?? json['peer_city_name'] ?? '') as String,
       lastMessage: (json['last_message'] ?? '') as String,
       lastMessageAt: DateTime.tryParse(json['last_message_at'] ?? '') ?? DateTime.now(),
       unreadCount: (json['unread_count'] ?? 0) as int,
