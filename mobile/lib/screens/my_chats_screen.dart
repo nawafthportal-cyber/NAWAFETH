@@ -81,7 +81,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
 
     if (searchQuery.isNotEmpty) {
       filtered = filtered
-          .where((t) => t.peerName.contains(searchQuery) || t.peerPhone.contains(searchQuery))
+          .where((t) => t.peerDisplayName.contains(searchQuery) || t.peerPhone.contains(searchQuery))
           .toList();
     }
 
@@ -247,7 +247,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            thread.peerName,
+                            thread.peerDisplayName,
                             style: const TextStyle(fontFamily: 'Cairo', fontSize: 14),
                           ),
                         ),
@@ -505,7 +505,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
           MaterialPageRoute(
             builder: (_) => ChatDetailScreen(
               threadId: thread.threadId,
-              peerName: thread.peerName,
+              peerName: thread.peerDisplayName,
               peerPhone: thread.peerPhone,
               peerCity: thread.peerCity,
               peerId: thread.peerId,
@@ -543,7 +543,9 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                   radius: 26,
                   backgroundColor: Colors.deepPurple.shade100,
                   child: Text(
-                    thread.peerName.isNotEmpty ? thread.peerName[0] : '?',
+                    thread.peerDisplayName.isNotEmpty
+                      ? thread.peerDisplayName[0]
+                      : '?',
                     style: const TextStyle(
                       fontSize: 20,
                       color: Colors.deepPurple,
@@ -564,7 +566,7 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          thread.peerName,
+                          thread.peerDisplayName,
                           style: TextStyle(
                             fontFamily: "Cairo",
                             fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,

@@ -8,6 +8,7 @@ const ProviderDashboardPage = (() => {
   let _profile = null;
   let _providerProfile = null;
   let _providerStats = null;
+  let _favoritesCount = 0;
 
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
@@ -83,11 +84,12 @@ const ProviderDashboardPage = (() => {
     _loadData();
     _bindUploads();
     _bindModeToggle();
+    _bindQrAction();
   }
 
   async function _loadData() {
     // Parallel fetch
-    const [profRes, provRes, subRes, urgentRes, newRes, completedRes, spotsRes] =
+    const [profRes, provRes, subRes, urgentRes, newRes, completedRes, spotsRes, favoritesRes, favoriteSpotlightsRes] =
       await Promise.allSettled([
         ApiClient.get('/api/accounts/me/'),
         ApiClient.get('/api/providers/me/profile/'),
@@ -96,6 +98,8 @@ const ProviderDashboardPage = (() => {
         ApiClient.get('/api/marketplace/provider/requests/?status_group=new'),
         ApiClient.get('/api/marketplace/provider/requests/?status_group=completed'),
         ApiClient.get('/api/providers/me/spotlights/'),
+        ApiClient.get('/api/providers/me/favorites/?mode=provider'),
+        ApiClient.get('/api/providers/me/favorites/spotlights/?mode=provider'),
       ]);
 
     if (profRes.status === 'fulfilled' && profRes.value.ok) {
@@ -111,6 +115,8 @@ const ProviderDashboardPage = (() => {
         _providerStats = statsRes.data;
       }
     }
+
+    _favoritesCount = _resolveFavoritesCount(favoritesRes, favoriteSpotlightsRes);
 
     _renderHeader();
     _renderStats();
@@ -161,6 +167,26 @@ const ProviderDashboardPage = (() => {
     _setText('stat-following', '.pd-stat-val', following);
     _setText('stat-likes', '.pd-stat-val', likes);
     _setText('stat-clients', '.pd-stat-val', clients);
+    _setText('stat-favorites', '.pd-stat-val', _favoritesCount);
+  }
+
+  function _resolveFavoritesCount(portfolioRes, spotlightsRes) {
+    const fromProfile = _profile?.favorites_media_count;
+    if (Number.isFinite(fromProfile)) return Number(fromProfile);
+
+    const collectIds = (res, key) => {
+      if (res.status !== 'fulfilled' || !res.value.ok) return [];
+      const payload = res.value.data;
+      const list = Array.isArray(payload) ? payload : (payload?.results || []);
+      return list
+        .map(item => item && item[key])
+        .filter(id => Number.isFinite(Number(id)))
+        .map(id => Number(id));
+    };
+
+    const portfolioIds = collectIds(portfolioRes, 'id');
+    const spotlightIds = collectIds(spotlightsRes, 'id');
+    return new Set([...portfolioIds, ...spotlightIds.map(id => id + 1000000000)]).size;
   }
 
   function _renderSubscription(subRes) {
@@ -284,6 +310,14 @@ const ProviderDashboardPage = (() => {
     });
     provBtn.addEventListener('click', () => {
       sessionStorage.setItem('nw_account_mode', 'provider');
+    });
+  }
+
+  function _bindQrAction() {
+    const btn = document.getElementById('stat-qr-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      window.location.href = '/my-qr/';
     });
   }
 

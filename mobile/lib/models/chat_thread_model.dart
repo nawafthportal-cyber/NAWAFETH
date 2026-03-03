@@ -4,6 +4,9 @@ class ChatThread {
   final int peerId;
   final int? peerProviderId;
   final String peerName;
+  final String peerFirstName;
+  final String peerLastName;
+  final String peerUsername;
   final String peerPhone;
   final String peerCity;
   final String lastMessage;
@@ -22,6 +25,9 @@ class ChatThread {
     required this.peerId,
     this.peerProviderId,
     required this.peerName,
+    this.peerFirstName = '',
+    this.peerLastName = '',
+    this.peerUsername = '',
     required this.peerPhone,
     this.peerCity = '',
     required this.lastMessage,
@@ -40,12 +46,26 @@ class ChatThread {
       peerId: json['peer_id'] as int,
       peerProviderId: json['peer_provider_id'] as int?,
       peerName: (json['peer_name'] ?? '') as String,
+      peerFirstName: (json['peer_first_name'] ?? '') as String,
+      peerLastName: (json['peer_last_name'] ?? '') as String,
+      peerUsername: (json['peer_username'] ?? '') as String,
       peerPhone: (json['peer_phone'] ?? '') as String,
       peerCity: (json['peer_city'] ?? json['city'] ?? json['peer_city_name'] ?? '') as String,
       lastMessage: (json['last_message'] ?? '') as String,
       lastMessageAt: DateTime.tryParse(json['last_message_at'] ?? '') ?? DateTime.now(),
       unreadCount: (json['unread_count'] ?? 0) as int,
     );
+  }
+
+  String get peerDisplayName {
+    final first = peerFirstName.trim();
+    final last = peerLastName.trim();
+    final full = ('$first $last').trim();
+    if (full.isNotEmpty) return full;
+    if (peerName.trim().isNotEmpty) return peerName.trim();
+    final username = peerUsername.trim();
+    if (username.isNotEmpty) return username;
+    return peerPhone.trim();
   }
 }
 

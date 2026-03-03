@@ -13,6 +13,13 @@ const ChatsPage = (() => {
     if (!Auth.isLoggedIn()) { _showGate(); return; }
     _hideGate();
 
+    const params = new URLSearchParams(window.location.search);
+    const startProviderId = params.get('start') || params.get('provider_id');
+    if (startProviderId) {
+      _startDirectChat(startProviderId);
+      return;
+    }
+
     // Filter chips
     document.getElementById('chat-filters').addEventListener('click', e => {
       const chip = e.target.closest('.filter-chip');
@@ -29,6 +36,23 @@ const ChatsPage = (() => {
       _render();
     });
 
+    _fetchThreads();
+  }
+
+  async function _startDirectChat(providerId) {
+    const id = parseInt(providerId, 10);
+    if (!id) {
+      _fetchThreads();
+      return;
+    }
+    const res = await ApiClient.request('/api/messaging/direct/thread/', {
+      method: 'POST',
+      body: { provider_id: id },
+    });
+    if (res.ok && res.data && res.data.id) {
+      window.location.href = '/chat/' + res.data.id + '/';
+      return;
+    }
     _fetchThreads();
   }
 
@@ -64,7 +88,7 @@ const ChatsPage = (() => {
     // Search
     if (_searchQuery) {
       list = list.filter(t =>
-        (t.peer_name || '').toLowerCase().includes(_searchQuery) ||
+        _peerDisplayName(t).toLowerCase().includes(_searchQuery) ||
         (t.peer_phone || '').includes(_searchQuery)
       );
     }
@@ -110,9 +134,11 @@ const ChatsPage = (() => {
   }
 
   function _buildThreadCard(thread) {
+    const displayName = _peerDisplayName(thread);
+    const threadId = thread.thread_id || thread.id;
     const card = UI.el('a', {
       className: 'thread-card' + ((thread.unread_count || 0) > 0 ? ' unread' : ''),
-      href: '/chat/' + thread.id + '/',
+      href: '/chat/' + threadId + '/',
     });
 
     // Avatar
@@ -121,7 +147,7 @@ const ChatsPage = (() => {
     if (peerImg) {
       avatar.appendChild(UI.lazyImg(ApiClient.mediaUrl(peerImg), ''));
     } else {
-      avatar.textContent = (thread.peer_name || '؟').charAt(0);
+      avatar.textContent = (displayName || '؟').charAt(0);
     }
     card.appendChild(avatar);
 
@@ -129,7 +155,7 @@ const ChatsPage = (() => {
     const content = UI.el('div', { className: 'thread-content' });
 
     const topRow = UI.el('div', { className: 'thread-top-row' });
-    topRow.appendChild(UI.el('span', { className: 'thread-name', textContent: thread.peer_name || 'مستخدم' }));
+    topRow.appendChild(UI.el('span', { className: 'thread-name', textContent: displayName || 'مستخدم' }));
     if (thread.last_message_at) {
       topRow.appendChild(UI.el('span', { className: 'thread-time', textContent: _relativeTime(thread.last_message_at) }));
     }
@@ -150,6 +176,16 @@ const ChatsPage = (() => {
 
     card.appendChild(content);
     return card;
+  }
+
+  function _peerDisplayName(thread) {
+    const first = (thread.peer_first_name || '').trim();
+    const last = (thread.peer_last_name || '').trim();
+    const full = (first + ' ' + last).trim();
+    if (full) return full;
+    if ((thread.peer_name || '').trim()) return thread.peer_name.trim();
+    if ((thread.peer_username || '').trim()) return thread.peer_username.trim();
+    return (thread.peer_phone || '').trim();
   }
 
   function _relativeTime(dateStr) {

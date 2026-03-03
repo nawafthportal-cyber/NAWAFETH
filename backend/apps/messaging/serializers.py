@@ -46,6 +46,8 @@ class MessageCreateSerializer(serializers.ModelSerializer):
 
 class MessageListSerializer(serializers.ModelSerializer):
     sender_phone = serializers.CharField(source="sender.phone", read_only=True)
+    sender_name = serializers.SerializerMethodField()
+    receiver_name = serializers.SerializerMethodField()
     read_by_ids = serializers.SerializerMethodField()
     attachment_url = serializers.FileField(source="attachment", read_only=True)
 
@@ -55,6 +57,8 @@ class MessageListSerializer(serializers.ModelSerializer):
             "id",
             "sender",
             "sender_phone",
+            "sender_name",
+            "receiver_name",
             "body",
             "attachment_url",
             "attachment_type",
@@ -68,6 +72,36 @@ class MessageListSerializer(serializers.ModelSerializer):
             return list(obj.reads.values_list("user_id", flat=True))
         except Exception:
             return []
+
+    def _display_name_for_user(self, user):
+        if not user:
+            return ""
+        first = (getattr(user, "first_name", "") or "").strip()
+        last = (getattr(user, "last_name", "") or "").strip()
+        full = ("%s %s" % (first, last)).strip()
+        if full:
+            return full
+        username = (getattr(user, "username", "") or "").strip()
+        if username:
+            return username
+        return getattr(user, "phone", "") or str(user)
+
+    def get_sender_name(self, obj):
+        return self._display_name_for_user(getattr(obj, "sender", None))
+
+    def get_receiver_name(self, obj):
+        try:
+            thread = getattr(obj, "thread", None)
+            if not thread or not thread.is_direct:
+                return ""
+            sender = getattr(obj, "sender", None)
+            if sender and sender.id == thread.participant_1_id:
+                peer = thread.participant_2
+            else:
+                peer = thread.participant_1
+            return self._display_name_for_user(peer)
+        except Exception:
+            return ""
 
 
 class ThreadUserStateSerializer(serializers.ModelSerializer):

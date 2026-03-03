@@ -46,6 +46,18 @@ from .views import (
 logger = logging.getLogger(__name__)
 
 
+def _display_name_for_user(user) -> str:
+	first = (getattr(user, "first_name", None) or "").strip()
+	last = (getattr(user, "last_name", None) or "").strip()
+	full = ("%s %s" % (first, last)).strip()
+	if full:
+		return full
+	username = (getattr(user, "username", None) or "").strip()
+	if username:
+		return username
+	return getattr(user, "phone", "") or str(user)
+
+
 # ────────────────────────────────────────────────
 # Request-based messaging
 # ────────────────────────────────────────────────
@@ -324,8 +336,11 @@ class MyDirectThreadsListView(APIView):
 				"peer_provider_id": getattr(peer_provider, "id", None),
 				"peer_name": (
 					peer_provider.display_name if peer_provider
-					else getattr(peer, "get_full_name", lambda: "")() or getattr(peer, "phone", str(peer))
+					else _display_name_for_user(peer)
 				),
+				"peer_first_name": getattr(peer, "first_name", "") or "",
+				"peer_last_name": getattr(peer, "last_name", "") or "",
+				"peer_username": getattr(peer, "username", "") or "",
 				"peer_phone": getattr(peer, "phone", ""),
 				"last_message": last_msg.body if last_msg else "",
 				"last_message_at": last_msg.created_at.isoformat() if last_msg else t.created_at.isoformat(),
