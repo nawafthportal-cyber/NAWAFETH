@@ -38,8 +38,17 @@ var ProviderPortfolioPage = (function () {
           var src = typeof item === "string" ? item : item.image || item.file || item.url || "";
           var itemId = item.id || "";
           var isVideo = /\.(mp4|mov|avi|webm)/i.test(src);
+          var likesCount = Number(item && item.likes_count) || 0;
+          var savesCount = Number(item && item.saves_count) || 0;
+          var isLiked = !!(item && item.is_liked);
+          var isSaved = !!(item && item.is_saved);
+          var statsHtml = '<div class="pf-item-stats">' +
+            '<span class="pf-item-stat' + (isLiked ? ' active' : '') + '">❤ ' + likesCount + '</span>' +
+            '<span class="pf-item-stat' + (isSaved ? ' active' : '') + '">🔖 ' + savesCount + '</span>' +
+            '</div>';
           return '<div class="pf-item" data-item-id="' + itemId + '">' +
             (isVideo ? '<video src="' + API.mediaUrl(src) + '" class="pf-media"></video>' : '<img src="' + API.mediaUrl(src) + '" class="pf-media" alt="">') +
+            statsHtml +
             '<button class="pf-item-delete" data-section="' + sec.id + '" data-item="' + itemId + '">×</button></div>';
         }).join("") + '</div></div>';
     }).join("");

@@ -198,10 +198,10 @@ def test_provider_cannot_reopen_cancelled_request():
 # ── 7. Client approve provider inputs ────────────
 @pytest.mark.django_db
 def test_client_approve_provider_inputs():
-    """العميل يوافق على مدخلات المزود أثناء IN_PROGRESS."""
+    """العميل يوافق على مدخلات المزود أثناء NEW فيتحول الطلب إلى IN_PROGRESS."""
     client_user, provider_user, provider, sr = _make_fixtures(
         "0510000013", "0510000014",
-        request_status=RequestStatus.IN_PROGRESS,
+        request_status=RequestStatus.NEW,
     )
     # Simulate provider submitted inputs (start flow)
     sr.expected_delivery_at = timezone.now()
@@ -223,16 +223,16 @@ def test_client_approve_provider_inputs():
     assert sr.provider_inputs_approved is True
     assert sr.provider_inputs_decided_at is not None
     assert sr.provider_inputs_decision_note == "أوافق على المدخلات"
-    assert sr.status == RequestStatus.IN_PROGRESS  # status unchanged
+    assert sr.status == RequestStatus.IN_PROGRESS
 
 
 # ── 8. Client reject provider inputs ─────────────
 @pytest.mark.django_db
 def test_client_reject_provider_inputs():
-    """العميل يرفض مدخلات المزود أثناء IN_PROGRESS."""
+    """العميل يرفض مدخلات المزود أثناء NEW ويبقى الطلب NEW."""
     client_user, provider_user, provider, sr = _make_fixtures(
         "0510000015", "0510000016",
-        request_status=RequestStatus.IN_PROGRESS,
+        request_status=RequestStatus.NEW,
     )
     sr.expected_delivery_at = timezone.now()
     sr.estimated_service_amount = 2000
@@ -253,7 +253,7 @@ def test_client_reject_provider_inputs():
     assert sr.provider_inputs_approved is False
     assert sr.provider_inputs_decided_at is not None
     assert sr.provider_inputs_decision_note == "المبلغ مبالغ فيه"
-    assert sr.status == RequestStatus.IN_PROGRESS  # status unchanged
+    assert sr.status == RequestStatus.NEW
 
 
 # ── Extra: Double decision is rejected ────────────
@@ -262,7 +262,7 @@ def test_client_cannot_decide_inputs_twice():
     """العميل لا يستطيع اتخاذ قرار ثانٍ بشأن المدخلات."""
     client_user, provider_user, provider, sr = _make_fixtures(
         "0510000017", "0510000018",
-        request_status=RequestStatus.IN_PROGRESS,
+        request_status=RequestStatus.NEW,
     )
     sr.provider_inputs_approved = True
     sr.provider_inputs_decided_at = timezone.now()
@@ -321,7 +321,7 @@ def test_staff_can_reopen_cancelled_request():
 # ── Extra: Full start → inputs → complete flow ───
 @pytest.mark.django_db
 def test_full_start_approve_complete_flow():
-    """دورة كاملة: بداية ← اعتماد مدخلات ← إكمال."""
+    """دورة كاملة: إرسال مدخلات ← اعتماد مدخلات ← إكمال."""
     client_user, provider_user, provider, sr = _make_fixtures(
         "0510000025", "0510000026",
         request_status=RequestStatus.NEW,
@@ -342,7 +342,7 @@ def test_full_start_approve_complete_flow():
     )
     assert r.status_code == 200
     sr.refresh_from_db()
-    assert sr.status == RequestStatus.IN_PROGRESS
+    assert sr.status == RequestStatus.NEW
 
     # Client approves inputs
     api.force_authenticate(user=client_user)
@@ -352,6 +352,8 @@ def test_full_start_approve_complete_flow():
         format="json",
     )
     assert r.status_code == 200
+    sr.refresh_from_db()
+    assert sr.status == RequestStatus.IN_PROGRESS
 
     # Provider completes
     api.force_authenticate(user=provider_user)

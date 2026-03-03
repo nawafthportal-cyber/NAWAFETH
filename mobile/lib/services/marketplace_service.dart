@@ -212,7 +212,7 @@ class MarketplaceService {
     );
   }
 
-  /// بدء التنفيذ (new → in_progress مع البيانات المالية)
+  /// إرسال مدخلات التنفيذ من المزوّد (يبقى الطلب NEW حتى اعتماد العميل)
   static Future<ApiResponse> startRequest(
     int requestId, {
     required String expectedDeliveryAt,
@@ -227,6 +227,21 @@ class MarketplaceService {
         'estimated_service_amount': estimatedServiceAmount,
         'received_amount': receivedAmount,
         if (note != null) 'note': note,
+      },
+    );
+  }
+
+  /// قرار العميل على مدخلات المزوّد
+  static Future<ApiResponse> decideProviderInputs(
+    int requestId, {
+    required bool approved,
+    String? note,
+  }) async {
+    return ApiClient.post(
+      '/api/marketplace/requests/$requestId/provider-inputs/decision/',
+      body: {
+        'approved': approved,
+        if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
       },
     );
   }

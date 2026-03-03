@@ -9,6 +9,7 @@ from .models import (
     NotificationPreference,
     NotificationTier,
 )
+from .push import send_push_for_notification
 
 
 NOTIFICATION_CATALOG = {
@@ -282,4 +283,11 @@ def create_notification(
                 message_id=message_id,
                 meta=meta,
             )
+
+    try:
+        send_push_for_notification(notif)
+    except Exception:
+        # Fail-open: in-app notifications must still be persisted.
+        pass
+
     return notif

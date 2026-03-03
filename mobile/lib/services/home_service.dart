@@ -21,12 +21,15 @@ class HomeService {
     final categories = _categoriesCache?.data ?? const <CategoryModel>[];
     final providers = _featuredProvidersCache[providersLimit]?.data ?? const <ProviderPublicModel>[];
     final banners = _homeBannersCache[bannersLimit]?.data ?? const <BannerModel>[];
-    final spotlights = _spotlightsCache[spotlightsLimit]?.data ?? const <MediaItemModel>[];
+    final spotlights = List<MediaItemModel>.from(
+      _spotlightsCache[spotlightsLimit]?.data ?? const <MediaItemModel>[],
+    );
+    MediaItemModel.applyInteractionOverrides(spotlights);
     return HomeCachedData(
       categories: List<CategoryModel>.from(categories),
       providers: List<ProviderPublicModel>.from(providers),
       banners: List<BannerModel>.from(banners),
-      spotlights: List<MediaItemModel>.from(spotlights),
+      spotlights: spotlights,
     );
   }
 
@@ -112,7 +115,9 @@ class HomeService {
   }) async {
     final cached = _spotlightsCache[limit];
     if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
-      return List<MediaItemModel>.from(cached.data);
+      final copy = List<MediaItemModel>.from(cached.data);
+      MediaItemModel.applyInteractionOverrides(copy);
+      return copy;
     }
 
     final res = await ApiClient.get('/api/providers/spotlights/feed/?limit=$limit');
@@ -128,7 +133,9 @@ class HomeService {
       return parsed;
     }
     if (cached != null) {
-      return List<MediaItemModel>.from(cached.data);
+      final copy = List<MediaItemModel>.from(cached.data);
+      MediaItemModel.applyInteractionOverrides(copy);
+      return copy;
     }
     return [];
   }

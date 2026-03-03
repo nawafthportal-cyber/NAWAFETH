@@ -45,6 +45,9 @@ dependencies:
   shared_preferences: ^2.3.3         # تخزين محلي (Login, Onboarding)
   share_plus: ^10.1.2                # مشاركة نصوص وملفات
   http: ^1.2.0                       # HTTP client للاتصال بالـ Backend API
+  firebase_core: ^3.13.0             # تهيئة Firebase
+  firebase_messaging: ^15.2.5        # FCM push notifications
+  flutter_local_notifications: ^18.0.1 # إشعارات محلية مع صوت
 
   # ============================
   # 🗺️ خرائط تفاعلية (مجانية - بدون API Key)

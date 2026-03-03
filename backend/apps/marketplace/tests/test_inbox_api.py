@@ -311,7 +311,7 @@ def test_provider_can_accept_assigned_normal_request():
     accept = client.post(f"/api/marketplace/provider/requests/{sr.id}/accept/", {}, format="json")
     assert accept.status_code == 200
     sr.refresh_from_db()
-    assert sr.status == RequestStatus.IN_PROGRESS
+    assert sr.status == RequestStatus.NEW
 
 
 @pytest.mark.django_db

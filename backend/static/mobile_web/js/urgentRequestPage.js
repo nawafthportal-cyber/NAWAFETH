@@ -5,7 +5,10 @@
 'use strict';
 
 const UrgentRequestPage = (() => {
-  let _selectedFiles = [];
+  let _images = [];
+  let _videos = [];
+  let _files = [];
+  let _audio = null;
   const _cities = [
     'الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','الظهران','الطائف','تبوك','بريدة',
     'عنيزة','حائل','أبها','خميس مشيط','نجران','جازان','ينبع','الباحة','الجبيل','حفر الباطن',
@@ -13,6 +16,7 @@ const UrgentRequestPage = (() => {
   ];
 
   function init() {
+    _resetSuccessOverlay();
     const isLoggedIn = !!Auth.isLoggedIn();
     _setAuthState(isLoggedIn);
     if (!isLoggedIn) return;
@@ -30,6 +34,26 @@ const UrgentRequestPage = (() => {
 
     const form = document.getElementById('ur-form');
     if (form) form.addEventListener('submit', _onSubmit);
+
+    const citySel = document.getElementById('ur-city');
+    if (citySel) citySel.addEventListener('change', _updateCityClearVisibility);
+
+    const clearCityBtn = document.getElementById('ur-city-clear');
+    if (clearCityBtn) {
+      clearCityBtn.addEventListener('click', () => {
+        if (citySel) citySel.value = '';
+        _updateCityClearVisibility();
+      });
+    }
+
+    _renderAttachments();
+  }
+
+  function _resetSuccessOverlay() {
+    const overlay = document.getElementById('ur-success');
+    if (!overlay) return;
+    overlay.classList.remove('visible');
+    overlay.classList.add('hidden');
   }
 
   function _setAuthState(isLoggedIn) {
@@ -48,6 +72,7 @@ const UrgentRequestPage = (() => {
       option.textContent = city;
       citySel.appendChild(option);
     });
+    _updateCityClearVisibility();
   }
 
   function _bindDispatchMode() {
@@ -61,8 +86,17 @@ const UrgentRequestPage = (() => {
           node.classList.remove('active');
         });
         chip.classList.add('active');
+        _updateCityClearVisibility();
       });
     });
+  }
+
+  function _updateCityClearVisibility() {
+    const clearBtn = document.getElementById('ur-city-clear');
+    if (!clearBtn) return;
+    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'nearest';
+    const cityValue = (document.getElementById('ur-city')?.value || '').trim();
+    clearBtn.classList.toggle('hidden', !(dispatch === 'all' && cityValue.length > 0));
   }
 
   function _bindDescriptionCounter() {
@@ -110,16 +144,180 @@ const UrgentRequestPage = (() => {
 
   /* ---- File handling ---- */
   function _onFilesChanged(e) {
-    _selectedFiles = Array.from(e.target.files || []);
+    const incoming = Array.from((e && e.target && e.target.files) || []);
+    let added = 0;
+
+    incoming.forEach((file) => {
+      if (_hasFile(file)) return;
+      const kind = _classifyFile(file);
+
+      if (kind === 'image') {
+        _images.push(file);
+        added += 1;
+        return;
+      }
+      if (kind === 'video') {
+        _videos.push(file);
+        added += 1;
+        return;
+      }
+      if (kind === 'audio') {
+        _audio = file;
+        added += 1;
+        return;
+      }
+
+      _files.push(file);
+      added += 1;
+    });
+
+    const input = document.getElementById('ur-files');
+    if (input) input.value = '';
+
+    _renderAttachments();
+    if (!added) _showError('لم تتم إضافة مرفقات جديدة');
+  }
+
+  function _fileExt(name) {
+    const value = String(name || '');
+    const idx = value.lastIndexOf('.');
+    return idx === -1 ? '' : value.slice(idx + 1).toLowerCase();
+  }
+
+  function _classifyFile(file) {
+    const mime = String((file && file.type) || '').toLowerCase();
+    const ext = _fileExt((file && file.name) || '');
+
+    if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return 'image';
+    if (mime.startsWith('video/') || ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'].includes(ext)) return 'video';
+    if (mime.startsWith('audio/') || ['mp3', 'wav', 'aac', 'ogg', 'm4a'].includes(ext)) return 'audio';
+    return 'file';
+  }
+
+  function _fileKey(file) {
+    return [file.name, file.size, file.lastModified].join('::');
+  }
+
+  function _hasFile(file) {
+    const key = _fileKey(file);
+    if (_images.some((f) => _fileKey(f) === key)) return true;
+    if (_videos.some((f) => _fileKey(f) === key)) return true;
+    if (_files.some((f) => _fileKey(f) === key)) return true;
+    if (_audio && _fileKey(_audio) === key) return true;
+    return false;
+  }
+
+  function _renderAttachments() {
     const list = document.getElementById('ur-file-list');
     if (!list) return;
     list.innerHTML = '';
-    _selectedFiles.forEach(f => {
-      const item = UI.el('div', { className: 'file-item' });
-      item.appendChild(UI.icon('attachment', 16, '#666'));
-      item.appendChild(UI.el('span', { textContent: f.name }));
-      list.appendChild(item);
-    });
+
+    const renderThumbSection = (title, items, kind, removeFn) => {
+      if (!items.length) return;
+      const section = UI.el('div', { className: 'attach-section' });
+      section.appendChild(UI.el('strong', { className: 'attach-section-title', textContent: title }));
+      const grid = UI.el('div', { className: 'attach-image-grid' });
+
+      items.forEach((file, idx) => {
+        const thumb = UI.el('div', { className: 'attach-thumb' });
+        const url = URL.createObjectURL(file);
+
+        if (kind === 'video') {
+          const video = UI.el('video', {
+            src: url,
+            muted: true,
+            playsInline: true,
+            preload: 'metadata',
+          });
+          const revoke = () => URL.revokeObjectURL(url);
+          video.addEventListener('loadeddata', revoke, { once: true });
+          video.addEventListener('error', revoke, { once: true });
+          thumb.appendChild(video);
+          thumb.appendChild(UI.el('span', {
+            className: 'attach-thumb-video-badge',
+            textContent: '▶',
+            'aria-hidden': 'true',
+          }));
+        } else {
+          const img = UI.el('img', { src: url, alt: file.name });
+          const revoke = () => URL.revokeObjectURL(url);
+          img.addEventListener('load', revoke, { once: true });
+          img.addEventListener('error', revoke, { once: true });
+          thumb.appendChild(img);
+        }
+
+        const removeBtn = UI.el('button', {
+          type: 'button',
+          className: 'attach-thumb-remove',
+          textContent: '×',
+          title: kind === 'video' ? 'إزالة الفيديو' : 'إزالة الصورة',
+          'aria-label': kind === 'video' ? 'إزالة الفيديو' : 'إزالة الصورة',
+        });
+        removeBtn.addEventListener('click', () => {
+          removeFn(idx);
+          _renderAttachments();
+        });
+
+        thumb.appendChild(removeBtn);
+        grid.appendChild(thumb);
+      });
+
+      section.appendChild(grid);
+      list.appendChild(section);
+    };
+
+    renderThumbSection('الصور', _images, 'image', (idx) => { _images.splice(idx, 1); });
+    renderThumbSection('الفيديو', _videos, 'video', (idx) => { _videos.splice(idx, 1); });
+
+    const renderSection = (title, items, removeFn) => {
+      if (!items.length) return;
+      const section = UI.el('div', { className: 'attach-section' });
+      section.appendChild(UI.el('strong', { className: 'attach-section-title', textContent: title }));
+
+      const rows = UI.el('div', { className: 'attach-rows' });
+      items.forEach((file, idx) => {
+        const row = UI.el('div', { className: 'file-item' });
+        row.appendChild(UI.el('span', { className: 'file-name', textContent: file.name }));
+
+        const removeBtn = UI.el('button', {
+          type: 'button',
+          className: 'file-remove-btn',
+          textContent: 'إزالة',
+        });
+        removeBtn.addEventListener('click', () => {
+          removeFn(idx);
+          _renderAttachments();
+        });
+
+        row.appendChild(removeBtn);
+        rows.appendChild(row);
+      });
+
+      section.appendChild(rows);
+      list.appendChild(section);
+    };
+
+    if (_audio) renderSection('الصوت', [_audio], () => { _audio = null; });
+    renderSection('الملفات', _files, (idx) => { _files.splice(idx, 1); });
+
+    if (!_images.length && !_videos.length && !_files.length && !_audio) {
+      list.appendChild(UI.el('span', { className: 'attach-empty', textContent: 'لا توجد مرفقات مضافة' }));
+    }
+  }
+
+  function _appendRequestFiles(formData) {
+    _images.forEach((file) => formData.append('images', file));
+    _videos.forEach((file) => formData.append('videos', file));
+    _files.forEach((file) => formData.append('files', file));
+    if (_audio) formData.append('audio', _audio);
+  }
+
+  function _clearAttachments() {
+    _images = [];
+    _videos = [];
+    _files = [];
+    _audio = null;
+    _renderAttachments();
   }
 
   /* ---- Submit ---- */
@@ -139,17 +337,26 @@ const UrgentRequestPage = (() => {
       return;
     }
 
+    if (dispatch === 'nearest' && !city) {
+      _showError('اختر المدينة عند البحث عن الأقرب');
+      _resetBtn(btn);
+      return;
+    }
+
     const fd = new FormData();
     fd.append('request_type', 'urgent');
     fd.append('description', desc);
     if (subcat) fd.append('subcategory', subcat);
     if (city) fd.append('city', city);
     fd.append('dispatch_mode', dispatch);
-    _selectedFiles.forEach(f => fd.append('images', f));
+    _appendRequestFiles(fd);
 
     const res = await ApiClient.request('/api/marketplace/requests/create/', { method: 'POST', body: fd, formData: true });
     if (res.ok) {
-      document.getElementById('ur-success')?.classList.add('visible');
+      _clearAttachments();
+      const success = document.getElementById('ur-success');
+      success?.classList.remove('hidden');
+      success?.classList.add('visible');
       setTimeout(() => { window.location.href = '/orders/'; }, 2000);
     } else {
       _showError(res.data?.detail || 'حدث خطأ، حاول مرة أخرى');
@@ -171,11 +378,12 @@ const UrgentRequestPage = (() => {
   function _resetBtn(btn) {
     if (!btn) return;
     btn.disabled = false;
-    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-inline-end:4px"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>إرسال الطلب';
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-inline-end:4px"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>تقديم الطلب';
   }
 
   // Boot
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
+  window.addEventListener('pageshow', _resetSuccessOverlay);
   return {};
 })();

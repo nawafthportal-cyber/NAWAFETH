@@ -42,8 +42,14 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
     if is_client:
         if sr.status == RequestStatus.NEW:
             acts.append("cancel")
-        if sr.status == RequestStatus.IN_PROGRESS:
-            if sr.provider_inputs_approved is None:
+            has_provider_inputs = any(
+                [
+                    sr.expected_delivery_at is not None,
+                    sr.estimated_service_amount is not None,
+                    sr.received_amount is not None,
+                ]
+            )
+            if has_provider_inputs and sr.provider_inputs_approved is None:
                 acts.extend(["approve_inputs", "reject_inputs"])
         if sr.status == RequestStatus.CANCELLED:
             acts.append("reopen")
@@ -141,31 +147,33 @@ def execute_action(
         )
         return ActionResult(True, "تم إعادة فتح الطلب", sr.status)
 
-    # approve_inputs — client only, IN_PROGRESS + inputs not yet decided
+    # approve_inputs — client only, NEW + inputs not yet decided
     if action == "approve_inputs":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
-        if sr.status != RequestStatus.IN_PROGRESS:
+        if sr.status != RequestStatus.NEW:
             raise ValidationError("لا يمكن اتخاذ قرار بشأن المدخلات في هذه الحالة")
         if sr.provider_inputs_approved is not None:
             raise ValidationError("تم اتخاذ قرار مسبقًا بشأن المدخلات")
+        old = sr.status
+        sr.status = RequestStatus.IN_PROGRESS
         sr.provider_inputs_approved = True
         sr.provider_inputs_decided_at = timezone.now()
-        sr.save(update_fields=["provider_inputs_approved", "provider_inputs_decided_at"])
+        sr.save(update_fields=["status", "provider_inputs_approved", "provider_inputs_decided_at"])
         RequestStatusLog.objects.create(
             request=sr,
             actor=user,
-            from_status=sr.status,
+            from_status=old,
             to_status=sr.status,
-            note="العميل وافق على مدخلات المزود",
+            note="العميل وافق على مدخلات المزود وبدأ التنفيذ",
         )
         return ActionResult(True, "تم اعتماد المدخلات", sr.status)
 
-    # reject_inputs — client only, IN_PROGRESS + inputs not yet decided
+    # reject_inputs — client only, NEW + inputs not yet decided
     if action == "reject_inputs":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
-        if sr.status != RequestStatus.IN_PROGRESS:
+        if sr.status != RequestStatus.NEW:
             raise ValidationError("لا يمكن اتخاذ قرار بشأن المدخلات في هذه الحالة")
         if sr.provider_inputs_approved is not None:
             raise ValidationError("تم اتخاذ قرار مسبقًا بشأن المدخلات")

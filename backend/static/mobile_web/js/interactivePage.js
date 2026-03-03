@@ -8,6 +8,7 @@ const InteractivePage = (() => {
   let _mode = 'client';
   let _isProviderMode = false;
   let _favorites = [];
+  const _roleModes = ['client', 'provider'];
 
   async function init() {
     _setInitialLoading(true);
@@ -39,9 +40,15 @@ const InteractivePage = (() => {
     return mode === 'provider' ? 'provider' : 'client';
   }
 
-  function _withMode(path) {
+  function _withMode(path, modeOverride) {
+    const activeMode = (modeOverride || _mode || 'client').toLowerCase() === 'provider' ? 'provider' : 'client';
     const sep = path.includes('?') ? '&' : '?';
-    return path + sep + 'mode=' + encodeURIComponent(_mode);
+    return path + sep + 'mode=' + encodeURIComponent(activeMode);
+  }
+
+  function _uniqueModes() {
+    const first = (_mode || 'client').toLowerCase() === 'provider' ? 'provider' : 'client';
+    return first === 'provider' ? ['provider', 'client'] : ['client', 'provider'];
   }
 
   function _parseList(payload) {
@@ -173,17 +180,38 @@ const InteractivePage = (() => {
     const container = document.getElementById('following-list');
     _renderLoading(container, 'جاري تحميل المتابَعين...');
 
-    const res = await ApiClient.get(_withMode('/api/providers/me/following/'));
-    if (res.status === 401) {
+    const modes = _uniqueModes();
+    const responses = await Promise.all(
+      modes.map((mode) => ApiClient.get(_withMode('/api/providers/me/following/', mode)))
+    );
+
+    if (responses.every((res) => res.status === 401)) {
       _showGate();
       return;
     }
-    if (!res.ok) {
-      _renderError(container, res.error || 'تعذر تحميل القائمة', _fetchFollowing);
+
+    const hasSuccess = responses.some((res) => res.ok);
+    if (!hasSuccess) {
+      const firstError = responses.find((res) => !res.ok)?.error;
+      _renderError(container, firstError || 'تعذر تحميل القائمة', _fetchFollowing);
       return;
     }
 
-    const list = _parseList(res.data);
+    const mergedMap = new Map();
+    responses
+      .filter((res) => res.ok)
+      .forEach((res) => {
+        _parseList(res.data).forEach((entry) => {
+          const provider = entry && (entry.provider || entry);
+          const providerId = _toInt(provider && provider.id);
+          if (providerId <= 0) return;
+          if (!mergedMap.has(providerId)) {
+            mergedMap.set(providerId, entry);
+          }
+        });
+      });
+
+    const list = Array.from(mergedMap.values());
     if (!list.length) {
       _renderEmpty(container, 'group-off', 'لا تتابع أي مزود خدمة حتى الآن');
       return;
@@ -345,28 +373,54 @@ const InteractivePage = (() => {
     const container = document.getElementById('favorites-list');
     _renderLoading(container, 'جاري تحميل المفضلة...');
 
-    const [portfolioRes, spotlightsRes] = await Promise.all([
-      ApiClient.get(_withMode('/api/providers/me/favorites/')),
-      ApiClient.get(_withMode('/api/providers/me/favorites/spotlights/')),
-    ]);
+    const modes = _uniqueModes();
+    const responses = await Promise.all(
+      modes.map(async (mode) => {
+        const [portfolioRes, spotlightsRes] = await Promise.all([
+          ApiClient.get(_withMode('/api/providers/me/favorites/', mode)),
+          ApiClient.get(_withMode('/api/providers/me/favorites/spotlights/', mode)),
+        ]);
+        return { mode, portfolioRes, spotlightsRes };
+      })
+    );
 
-    if (portfolioRes.status === 401 || spotlightsRes.status === 401) {
+    const allUnauthorized = responses.every(
+      ({ portfolioRes, spotlightsRes }) => portfolioRes.status === 401 && spotlightsRes.status === 401
+    );
+    if (allUnauthorized) {
       _showGate();
       return;
     }
 
-    if (!portfolioRes.ok && !spotlightsRes.ok) {
+    const hasAnySuccess = responses.some(
+      ({ portfolioRes, spotlightsRes }) => portfolioRes.ok || spotlightsRes.ok
+    );
+    if (!hasAnySuccess) {
       _renderError(container, 'تعذر تحميل عناصر المفضلة', _fetchFavorites);
       return;
     }
 
-    const portfolio = portfolioRes.ok ? _parseList(portfolioRes.data).map((row) => _normalizeMedia(row, 'portfolio')) : [];
-    const spotlights = spotlightsRes.ok ? _parseList(spotlightsRes.data).map((row) => _normalizeMedia(row, 'spotlight')) : [];
-    _favorites = portfolio.concat(spotlights).sort((a, b) => (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
+    const merged = [];
+    responses.forEach(({ mode, portfolioRes, spotlightsRes }) => {
+      if (portfolioRes.ok) {
+        merged.push(..._parseList(portfolioRes.data).map((row) => _normalizeMedia(row, 'portfolio', mode)));
+      }
+      if (spotlightsRes.ok) {
+        merged.push(..._parseList(spotlightsRes.data).map((row) => _normalizeMedia(row, 'spotlight', mode)));
+      }
+    });
+
+    const dedupedMap = new Map();
+    merged.forEach((item) => {
+      const key = item.source + '::' + item.id;
+      if (!dedupedMap.has(key)) dedupedMap.set(key, item);
+    });
+
+    _favorites = Array.from(dedupedMap.values()).sort((a, b) => (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
     _renderFavorites();
   }
 
-  function _normalizeMedia(raw, source) {
+  function _normalizeMedia(raw, source, modeContext) {
     const providerObj = raw && raw.provider ? raw.provider : null;
     const fileTypeRaw = String((raw && raw.file_type) || 'image').toLowerCase();
     return {
@@ -381,8 +435,10 @@ const InteractivePage = (() => {
       caption: (raw && raw.caption) || '',
       likes_count: _toInt(raw && raw.likes_count),
       saves_count: _toInt(raw && raw.saves_count),
+      is_liked: !!(raw && raw.is_liked),
       is_saved: raw ? raw.is_saved !== false : true,
       created_at: (raw && raw.created_at) || '',
+      mode_context: modeContext || 'client',
     };
   }
 
@@ -433,6 +489,24 @@ const InteractivePage = (() => {
       className: 'interactive-source-badge ' + (item.source === 'spotlight' ? 'spotlight' : 'portfolio'),
       textContent: item.source === 'spotlight' ? 'أضواء' : 'معرض',
     }));
+
+    const statsBar = UI.el('div', { className: 'interactive-favorite-stats' });
+
+    const likesStat = UI.el('span', {
+      className: 'interactive-favorite-stat' + (item.is_liked ? ' active' : ''),
+    });
+    likesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: item.is_liked ? '❤' : '♡' }));
+    likesStat.appendChild(UI.el('span', { textContent: String(_toInt(item.likes_count)) }));
+    statsBar.appendChild(likesStat);
+
+    const savesStat = UI.el('span', {
+      className: 'interactive-favorite-stat' + (item.is_saved ? ' active' : ''),
+    });
+    savesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: item.is_saved ? '🔖' : '📑' }));
+    savesStat.appendChild(UI.el('span', { textContent: String(_toInt(item.saves_count)) }));
+    statsBar.appendChild(savesStat);
+
+    media.appendChild(statsBar);
 
     const bottom = UI.el('div', { className: 'interactive-favorite-bottom' });
     bottom.appendChild(UI.el('strong', {
@@ -501,7 +575,7 @@ const InteractivePage = (() => {
       : '/api/providers/portfolio/' + item.id + '/unsave/';
 
     if (triggerBtn) triggerBtn.disabled = true;
-    const res = await ApiClient.request(_withMode(endpoint), { method: 'POST' });
+    const res = await ApiClient.request(_withMode(endpoint, item.mode_context), { method: 'POST' });
     if (triggerBtn) triggerBtn.disabled = false;
 
     if (!res.ok) {

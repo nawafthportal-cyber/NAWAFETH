@@ -520,14 +520,12 @@ class ProviderAssignedRequestAcceptView(APIView):
 					return Response({"detail": "لا يمكن قبول الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
 
 				old = sr.status
-				sr.status = RequestStatus.IN_PROGRESS
-				sr.save(update_fields=["status"])
 				RequestStatusLog.objects.create(
 					request=sr,
 					actor=request.user,
 					from_status=old,
 					to_status=sr.status,
-					note="قبول من المزود",
+					note="قبول من المزود بانتظار إرسال تفاصيل التنفيذ",
 				)
 
 			return Response({"ok": True, "request_id": sr.id, "status": sr.status}, status=status.HTTP_200_OK)
@@ -611,7 +609,7 @@ class ProviderProgressUpdateView(APIView):
 			if sr.provider_id != provider.id:
 				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
-			if sr.status != RequestStatus.IN_PROGRESS:
+			if sr.status not in (RequestStatus.NEW, RequestStatus.IN_PROGRESS):
 				return Response(
 					{"detail": "لا يمكن تحديث التنفيذ في هذه الحالة"},
 					status=status.HTTP_400_BAD_REQUEST,
@@ -634,6 +632,18 @@ class ProviderProgressUpdateView(APIView):
 					]
 				)
 
+			if sr.status == RequestStatus.NEW:
+				sr.provider_inputs_approved = None
+				sr.provider_inputs_decided_at = None
+				sr.provider_inputs_decision_note = ""
+				update_fields.extend(
+					[
+						"provider_inputs_approved",
+						"provider_inputs_decided_at",
+						"provider_inputs_decision_note",
+					]
+				)
+
 			if update_fields:
 				sr.save(update_fields=update_fields)
 
@@ -642,7 +652,7 @@ class ProviderProgressUpdateView(APIView):
 				actor=request.user,
 				from_status=sr.status,
 				to_status=sr.status,
-				note=note or "تحديث من مزود الخدمة",
+				note=note or "إرسال/تحديث مدخلات التنفيذ من مزود الخدمة",
 			)
 
 		return Response(
@@ -827,14 +837,13 @@ class RequestStartView(APIView):
 			if sr.provider_id != provider.id:
 				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
-			if sr.status not in (RequestStatus.NEW, RequestStatus.IN_PROGRESS):
+			if sr.status != RequestStatus.NEW:
 				return Response(
 					{"detail": "لا يمكن بدء التنفيذ في هذه الحالة"},
 					status=status.HTTP_400_BAD_REQUEST,
 				)
 
 			old = sr.status
-			sr.status = RequestStatus.IN_PROGRESS
 			sr.expected_delivery_at = s.validated_data["expected_delivery_at"]
 			sr.estimated_service_amount = s.validated_data["estimated_service_amount"]
 			sr.received_amount = s.validated_data["received_amount"]
@@ -844,7 +853,6 @@ class RequestStartView(APIView):
 			sr.provider_inputs_decision_note = ""
 			sr.save(
 				update_fields=[
-					"status",
 					"expected_delivery_at",
 					"estimated_service_amount",
 					"received_amount",

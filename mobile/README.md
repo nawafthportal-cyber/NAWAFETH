@@ -32,3 +32,32 @@ Force a specific API URL (local or remote):
 ```bash
 flutter run -d emulator-5554 --dart-define=API_BASE_URL=https://nawafeth-2290.onrender.com
 ```
+
+## Push notifications (FCM + sound)
+
+This project now includes:
+- Firebase Cloud Messaging (`firebase_messaging`)
+- Local foreground notifications with sound (`flutter_local_notifications`)
+- Backend device token registration (`/api/notifications/device-token/`)
+
+Required setup:
+
+1) Android
+- Place `google-services.json` in: `android/app/google-services.json`
+
+2) iOS
+- Place `GoogleService-Info.plist` in: `ios/Runner/GoogleService-Info.plist`
+- Open iOS project in Xcode and ensure Push Notifications + Background Modes (Remote notifications) are enabled.
+
+3) Backend
+- Configure Firebase service account env vars in backend `.env`:
+	- `FIREBASE_PUSH_ENABLED=1`
+	- `FIREBASE_PROJECT_ID=...`
+	- `FIREBASE_CREDENTIALS_PATH=/path/to/service-account.json` (or `FIREBASE_CREDENTIALS_JSON`)
+
+After setup:
+
+```bash
+flutter pub get
+flutter run -d emulator-5554 --dart-define=API_TARGET=local
+```

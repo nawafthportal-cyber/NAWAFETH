@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.test import APIClient
 
-from apps.accounts.models import OTP
+from apps.accounts.models import OTP, User
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.notifications.models import Notification
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
@@ -249,6 +249,80 @@ def test_create_normal_request_requires_provider():
         format="json",
     )
     assert verify.status_code == 200
+
+
+@pytest.mark.django_db
+def test_create_normal_request_allows_blank_city():
+    cat = Category.objects.create(name="خدمات", is_active=True)
+    sub = SubCategory.objects.create(category=cat, name="سباكة", is_active=True)
+
+    client = APIClient()
+
+    send = client.post(
+        "/api/accounts/otp/send/",
+        {"phone": "0500000991"},
+        format="json",
+    )
+    assert send.status_code == 200
+    payload = send.json()
+    dev_code = payload.get("dev_code") or OTP.objects.filter(phone="0500000991").order_by("-id").values_list(
+        "code", flat=True
+    ).first()
+    assert dev_code
+
+    verify = client.post(
+        "/api/accounts/otp/verify/",
+        {"phone": "0500000991", "code": dev_code},
+        format="json",
+    )
+    assert verify.status_code == 200
+    access = verify.json()["access"]
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
+
+    complete = client.post(
+        "/api/accounts/complete/",
+        {
+            "first_name": "عميل",
+            "last_name": "اختبار",
+            "username": "user_0500000991",
+            "email": "0500000991@example.com",
+            "password": "StrongPass123!",
+            "password_confirm": "StrongPass123!",
+            "accept_terms": True,
+        },
+        format="json",
+    )
+    assert complete.status_code == 200
+
+    p_user = User.objects.create(phone="0500000992", username="provider_992")
+    provider = ProviderProfile.objects.create(
+        user=p_user,
+        provider_type="individual",
+        display_name="مزود تجريبي",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    ProviderCategory.objects.get_or_create(provider=provider, subcategory=sub)
+
+    res = client.post(
+        "/api/marketplace/requests/create/",
+        {
+            "provider": provider.id,
+            "subcategory": sub.id,
+            "title": "طلب بدون مدينة",
+            "description": "طلب عادي والمدينة اختيارية",
+            "request_type": "normal",
+            "city": "",
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201
+    sr = ServiceRequest.objects.get(id=res.json()["id"])
+    assert sr.request_type == "normal"
+    assert sr.city == ""
     access = verify.json()["access"]
     client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 

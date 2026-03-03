@@ -360,12 +360,31 @@ class ProviderPortfolioListView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider_id = self.kwargs.get("provider_id")
-		return (
+		qs = (
 			ProviderPortfolioItem.objects.filter(provider_id=provider_id)
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
-			.order_by("-created_at", "-id")
 		)
+		user = self.request.user
+		if user.is_authenticated:
+			role = get_active_role(self.request)
+			qs = qs.annotate(
+				_is_liked=Exists(
+					ProviderPortfolioLike.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+				_is_saved=Exists(
+					ProviderPortfolioSave.objects.filter(
+						user=user,
+						item=OuterRef("pk"),
+						role_context=role,
+					)
+				),
+			)
+		return qs.order_by("-created_at", "-id")
 
 
 class MyProviderPortfolioListCreateView(generics.ListCreateAPIView):

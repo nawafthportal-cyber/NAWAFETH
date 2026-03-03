@@ -347,6 +347,13 @@ SUBS_GRACE_DAYS = 7  # فترة سماح بعد الانتهاء
 # إعدادات افتراضية للإضافات (اختياري الآن)
 EXTRAS_GRACE_DAYS = 0
 
+# Firebase Cloud Messaging (optional)
+FIREBASE_PUSH_ENABLED = env_bool("FIREBASE_PUSH_ENABLED", False)
+FIREBASE_PROJECT_ID = (os.getenv("FIREBASE_PROJECT_ID", "") or "").strip()
+FIREBASE_CREDENTIALS_PATH = (os.getenv("FIREBASE_CREDENTIALS_PATH", "") or "").strip()
+FIREBASE_CREDENTIALS_JSON = (os.getenv("FIREBASE_CREDENTIALS_JSON", "") or "").strip()
+FIREBASE_PUSH_SOUND = (os.getenv("FIREBASE_PUSH_SOUND", "default") or "default").strip()
+
 EXTRA_SKUS = {
     "uploads_10gb_month": {"title": "زيادة سعة مرفقات 10GB (شهري)", "price": 59},
     "uploads_50gb_month": {"title": "زيادة سعة مرفقات 50GB (شهري)", "price": 199},

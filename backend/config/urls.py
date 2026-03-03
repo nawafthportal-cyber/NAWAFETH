@@ -47,6 +47,21 @@ from apps.mobile_web.views import (
     MobileWebMyQrView,
     MobileWebLoginSettingsView,
     MobileWebNotificationSettingsView,
+    MobileWebProviderDashboardView,
+    MobileWebProviderOrdersView,
+    MobileWebProviderOrderDetailView,
+    MobileWebPlansView,
+    MobileWebVerificationView,
+    MobileWebServiceDetailView,
+    MobileWebServiceRequestFormView,
+    MobileWebProviderRegisterView,
+    MobileWebPromotionView,
+    MobileWebAdditionalServicesView,
+    MobileWebProviderServicesView,
+    MobileWebProviderReviewsView,
+    MobileWebProviderProfileEditView,
+    MobileWebProviderPortfolioView,
+    MobileWebProfileCompletionView,
 )
 
 admin.site.site_header = _("إدارة منصة نوافذ")
@@ -124,6 +139,26 @@ urlpatterns = [
     path("language/", MobileWebLanguageView.as_view(), name="language"),
     path("my-qr/", MobileWebMyQrView.as_view(), name="my_qr"),
     path("login-settings/", MobileWebLoginSettingsView.as_view(), name="login_settings"),
+    # Provider/mobile parity routes mounted at root to match hard-coded web links.
+    path("provider-dashboard/", MobileWebProviderDashboardView.as_view(), name="provider_dashboard"),
+    path("provider-orders/", MobileWebProviderOrdersView.as_view(), name="provider_orders"),
+    path(
+        "provider-orders/<int:request_id>/",
+        MobileWebProviderOrderDetailView.as_view(),
+        name="provider_order_detail",
+    ),
+    path("plans/", MobileWebPlansView.as_view(), name="plans"),
+    path("verification/", MobileWebVerificationView.as_view(), name="verification"),
+    path("service/<int:service_id>/", MobileWebServiceDetailView.as_view(), name="service_detail"),
+    path("service-request/", MobileWebServiceRequestFormView.as_view(), name="service_request_form"),
+    path("provider-register/", MobileWebProviderRegisterView.as_view(), name="provider_register"),
+    path("promotion/", MobileWebPromotionView.as_view(), name="promotion"),
+    path("additional-services/", MobileWebAdditionalServicesView.as_view(), name="additional_services"),
+    path("provider-services/", MobileWebProviderServicesView.as_view(), name="provider_services"),
+    path("provider-reviews/", MobileWebProviderReviewsView.as_view(), name="provider_reviews"),
+    path("provider-profile-edit/", MobileWebProviderProfileEditView.as_view(), name="provider_profile_edit"),
+    path("provider-portfolio/", MobileWebProviderPortfolioView.as_view(), name="provider_portfolio"),
+    path("profile-completion/", MobileWebProfileCompletionView.as_view(), name="profile_completion"),
 ]
 
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):

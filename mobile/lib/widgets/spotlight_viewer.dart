@@ -131,6 +131,7 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
       item.likesCount += wasLiked ? -1 : 1;
       if (item.likesCount < 0) item.likesCount = 0;
     });
+    item.rememberInteractionState();
 
     final success = await _toggleLikeBySource(item, wasLiked);
 
@@ -143,6 +144,7 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
         item.likesCount += wasLiked ? 1 : -1;
       }
     });
+    item.rememberInteractionState();
   }
 
   // ──────────────────────────────────────────
@@ -160,6 +162,7 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
       item.savesCount += wasSaved ? -1 : 1;
       if (item.savesCount < 0) item.savesCount = 0;
     });
+    item.rememberInteractionState();
 
     final success = await _toggleSaveBySource(item, wasSaved);
 
@@ -171,6 +174,7 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
         item.savesCount += wasSaved ? 1 : -1;
       }
     });
+    item.rememberInteractionState();
   }
 
   Future<bool> _toggleLikeBySource(MediaItemModel item, bool wasLiked) {

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
+import '../services/push_notification_service.dart';
 import 'signup_screen.dart';
 
 class TwoFAScreen extends StatefulWidget {
@@ -200,6 +201,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
   }
 
   void _navigateAfterLogin() {
+    PushNotificationService.tryRegisterCurrentToken();
     final target = widget.redirectTo ?? widget.nextPage;
     if (target != null) {
       Navigator.pushAndRemoveUntil(

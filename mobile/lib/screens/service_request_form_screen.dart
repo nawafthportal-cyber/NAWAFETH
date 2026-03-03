@@ -244,12 +244,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     }
 
     final city = _selectedCity ?? '';
-    // المدينة مطلوبة إلا للعاجل مع dispatch_mode=all
-    final cityRequired = !(_effectiveRequestType == 'urgent');
-    if (cityRequired && city.isEmpty) {
-      _snack('الرجاء اختيار المدينة');
-      return;
-    }
 
     // الطلب العادي يحتاج provider
     int? providerId;
@@ -358,7 +352,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: _selectedCity,
-                decoration: _inputDeco(hint: 'اختر المدينة'),
+                decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
                 isExpanded: true,
                 menuMaxHeight: 300,
                 items: SaudiCities.all
@@ -372,14 +366,18 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
                         ))
                     .toList(),
                 onChanged: (v) => setState(() => _selectedCity = v),
-                validator: (v) {
-                  if (_effectiveRequestType != 'urgent' &&
-                      (v == null || v.isEmpty)) {
-                    return 'المدينة مطلوبة';
-                  }
-                  return null;
-                },
               ),
+              if (_selectedCity != null) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () => setState(() => _selectedCity = null),
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('إلغاء اختيار المدينة'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
 
               // ─── عنوان الطلب ───

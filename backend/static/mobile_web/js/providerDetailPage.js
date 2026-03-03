@@ -487,6 +487,20 @@ const ProviderDetailPage = (() => {
       const thumb = UI.el('div', { className: 'pd-highlight-thumb' });
       const imgUrl = item.thumbnail_url || item.file_url;
       if (imgUrl) thumb.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
+
+      const stats = UI.el('div', { className: 'pd-highlight-stats' });
+      const likes = UI.el('span', {
+        className: 'pd-highlight-stat' + (item.is_liked ? ' active' : ''),
+        textContent: '❤ ' + String(_safeInt(item.likes_count)),
+      });
+      const saves = UI.el('span', {
+        className: 'pd-highlight-stat' + (item.is_saved ? ' active' : ''),
+        textContent: '🔖 ' + String(_safeInt(item.saves_count)),
+      });
+      stats.appendChild(likes);
+      stats.appendChild(saves);
+      thumb.appendChild(stats);
+
       el.appendChild(thumb);
 
       const caption = (item.caption || '').toString().trim();
@@ -625,10 +639,15 @@ const ProviderDetailPage = (() => {
 
       if (!grouped.has(sectionTitle)) grouped.set(sectionTitle, []);
       grouped.get(sectionTitle).push({
+        id: _safeInt(item.id),
         type: fileType.startsWith('video') ? 'video' : 'image',
         media: media,
         thumbnail: thumbUrl,
         desc: description,
+        likes_count: _safeInt(item.likes_count),
+        saves_count: _safeInt(item.saves_count),
+        is_liked: !!item.is_liked,
+        is_saved: !!item.is_saved,
       });
     });
 
@@ -668,6 +687,21 @@ const ProviderDetailPage = (() => {
         if (item.desc && item.desc !== 'بدون وصف') {
           el.appendChild(UI.el('div', { className: 'pd-portfolio-overlay', textContent: item.desc }));
         }
+
+        const stats = UI.el('div', { className: 'pd-portfolio-item-stats' });
+        const likesStat = UI.el('div', { className: 'pd-portfolio-item-stat' });
+        if (item.is_liked) likesStat.classList.add('active');
+        likesStat.appendChild(_createSVG('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>', 12));
+        likesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.likes_count)) }));
+        stats.appendChild(likesStat);
+
+        const savesStat = UI.el('div', { className: 'pd-portfolio-item-stat' });
+        if (item.is_saved) savesStat.classList.add('active');
+        savesStat.appendChild(_createSVG('<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>', 12));
+        savesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.saves_count)) }));
+        stats.appendChild(savesStat);
+
+        el.appendChild(stats);
         grid.appendChild(el);
       });
 

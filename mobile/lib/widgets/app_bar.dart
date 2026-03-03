@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
+import 'dart:async';
 
 // ✅ استدعاء شاشة الإشعارات
 import 'package:nawafeth/screens/notifications_screen.dart';
 import 'package:nawafeth/screens/my_chats_screen.dart';
+import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:nawafeth/services/messaging_service.dart';
+import 'package:nawafeth/services/notification_service.dart';
 
-class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String? title;
   final bool showSearchField;
   final bool showBackButton;
@@ -23,6 +27,78 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(60);
 
   @override
+  State<CustomAppBar> createState() => _CustomAppBarState();
+}
+
+class _CustomAppBarState extends State<CustomAppBar> {
+  int _notificationUnread = 0;
+  int _chatUnread = 0;
+  Timer? _badgeTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBadges();
+    _badgeTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      _loadBadges();
+    });
+  }
+
+  @override
+  void dispose() {
+    _badgeTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadBadges() async {
+    final mode = await AccountModeService.apiMode();
+    final results = await Future.wait<int>([
+      NotificationService.fetchUnreadCount(mode: mode),
+      MessagingService.fetchUnreadCount(mode: mode),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = results[0];
+      _chatUnread = results[1];
+    });
+  }
+
+  Widget _badgeIcon({
+    required IconData icon,
+    required Color color,
+    required int count,
+  }) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, color: color),
+        if (count > 0)
+          Positioned(
+            top: -4,
+            right: -6,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -31,7 +107,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     // ✅ تحديد ما إذا كان يجب إظهار زر العودة تلقائياً
     // إذا كان forceDrawerIcon = true، لا تظهر زر الرجوع أبداً
     final bool canPop = Navigator.of(context).canPop();
-    final bool shouldShowBack = !forceDrawerIcon && (showBackButton || canPop);
+    final bool shouldShowBack = !widget.forceDrawerIcon && (widget.showBackButton || canPop);
 
     return SafeArea(
       bottom: false,
@@ -82,7 +158,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               if (title != null)
                 Expanded(
                   child: Text(
-                    title!,
+                    widget.title!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -93,7 +169,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
                 )
-              else if (showSearchField)
+              else if (widget.showSearchField)
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -149,17 +225,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
               // ✅ أيقونة الإشعارات
               IconButton(
-                icon: Icon(
-                  Icons.notifications_none,
+                icon: _badgeIcon(
+                  icon: Icons.notifications_none,
                   color: iconColor,
+                  count: _notificationUnread,
                 ),
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const NotificationsScreen(),
                     ),
                   );
+                  _loadBadges();
                 },
               ),
 
@@ -167,14 +245,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
               // ✅ المحادثات داخل التطبيق (بديل شعار التطبيق)
               IconButton(
-                icon: Icon(Icons.chat_bubble_outline, color: iconColor),
-                onPressed: () {
-                  Navigator.push(
+                icon: _badgeIcon(
+                  icon: Icons.chat_bubble_outline,
+                  color: iconColor,
+                  count: _chatUnread,
+                ),
+                onPressed: () async {
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => const MyChatsScreen(),
                     ),
                   );
+                  _loadBadges();
                 },
               ),
             ],

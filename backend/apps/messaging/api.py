@@ -167,24 +167,32 @@ class DirectThreadGetOrCreateView(APIView):
 
 		provider_user = provider_profile.user
 		me = request.user
-		context_mode = _active_context_mode_from_request(request)
 
 		if me.id == provider_user.id:
 			return Response({"error": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
 
-		from django.db.models import Q
-		thread = Thread.objects.filter(
-			is_direct=True,
-			context_mode=context_mode,
-		).filter(
-			Q(participant_1=me, participant_2=provider_user) |
-			Q(participant_1=provider_user, participant_2=me)
-		).first()
+		from django.db.models import Q, Max
+		thread = (
+			Thread.objects.filter(is_direct=True)
+			.filter(
+				Q(participant_1=me, participant_2=provider_user)
+				| Q(participant_1=provider_user, participant_2=me)
+			)
+			.annotate(last_message_at=Max("messages__created_at"))
+			.order_by("-last_message_at", "-id")
+			.first()
+		)
+
+		# Direct chat must be shared between both account contexts so either
+		# side can see the same thread regardless of active mode.
+		if thread and thread.context_mode != Thread.ContextMode.SHARED:
+			thread.context_mode = Thread.ContextMode.SHARED
+			thread.save(update_fields=["context_mode"])
 
 		if not thread:
 			thread = Thread.objects.create(
 				is_direct=True,
-				context_mode=context_mode,
+				context_mode=Thread.ContextMode.SHARED,
 				participant_1=me,
 				participant_2=provider_user,
 			)
@@ -244,6 +252,7 @@ class DirectThreadSendMessageView(APIView):
 			attachment_name=attachment_name,
 			created_at=timezone.now(),
 		)
+		_unarchive_for_participants(thread)
 
 		return Response(
 			{"ok": True, "message_id": message.id},
@@ -292,13 +301,8 @@ class MyDirectThreadsListView(APIView):
 	def get(self, request):
 		from django.db.models import Q, Max
 		me = request.user
-		mode = _active_context_mode_from_request(request)
-
-		threads = Thread.objects.filter(is_direct=True)
-		if mode in {"client", "provider"}:
-			threads = threads.filter(context_mode=mode)
 		threads = (
-			threads
+			Thread.objects.filter(is_direct=True)
 			.filter(Q(participant_1=me) | Q(participant_2=me))
 			.select_related("participant_1", "participant_2")
 			.annotate(last_message_at=Max("messages__created_at"))
@@ -331,6 +335,24 @@ class MyDirectThreadsListView(APIView):
 		return Response(result, status=status.HTTP_200_OK)
 
 
+class DirectUnreadCountView(APIView):
+	"""Return aggregate unread messages count for direct threads."""
+	permission_classes = [IsAtLeastPhoneOnly]
+
+	def get(self, request):
+		from django.db.models import Q
+
+		me = request.user
+		count = (
+			Message.objects.filter(thread__is_direct=True)
+			.filter(Q(thread__participant_1=me) | Q(thread__participant_2=me))
+			.exclude(sender=me)
+			.exclude(reads__user=me)
+			.count()
+		)
+		return Response({"unread": count}, status=status.HTTP_200_OK)
+
+
 # ────────────────────────────────────────────────
 # Thread state management
 # ────────────────────────────────────────────────
@@ -345,10 +367,8 @@ class MyThreadStatesListView(APIView):
 
 		q = Q()
 		if mode in {"client", "provider"}:
-			q |= (
-				(Q(is_direct=True, participant_1=me) | Q(is_direct=True, participant_2=me))
-				& Q(context_mode=mode)
-			)
+			# Direct chats are shared between client/provider contexts.
+			q |= Q(is_direct=True, participant_1=me) | Q(is_direct=True, participant_2=me)
 			if mode == "client":
 				q |= Q(request__client=me)
 			else:

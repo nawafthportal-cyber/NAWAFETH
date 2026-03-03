@@ -13,7 +13,7 @@ services:
       - key: DJANGO_DEBUG
         value: "0"
       - key: DJANGO_SECRET_KEY
-        generateValue: true
+        value: "134d49caedbc1a33f3e3ca0e8c12ee4f"
       # Add your Render service hostname + custom domains when you have them.
       # Example: nawafeth-2290.onrender.com,nawafeth.app,admin.nawafeth.app
       - key: DJANGO_ALLOWED_HOSTS

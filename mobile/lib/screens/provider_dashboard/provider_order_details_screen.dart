@@ -111,7 +111,7 @@ class _ProviderOrderDetailsScreenState
 
   // ─── إجراءات ───
 
-  /// قبول الطلب (new → in_progress)
+  /// قبول الطلب (يبقى NEW بانتظار إرسال/اعتماد المدخلات)
   Future<void> _accept() async {
     setState(() => _actionLoading = true);
     final res = await MarketplaceService.acceptRequest(widget.requestId);
@@ -119,7 +119,7 @@ class _ProviderOrderDetailsScreenState
     setState(() => _actionLoading = false);
 
     if (res.isSuccess) {
-      _snack('تم قبول الطلب');
+      _snack('تم قبول الطلب. أرسل تفاصيل التنفيذ للعميل');
       _loadDetail();
     } else {
       _snack(res.error ?? 'فشلت العملية');
@@ -149,42 +149,24 @@ class _ProviderOrderDetailsScreenState
     }
   }
 
-  /// بدء التنفيذ
-  Future<void> _start() async {
-    if (_expectedDeliveryAt == null) {
-      _snack('حدد موعد التسليم المتوقع');
-      return;
-    }
-    final est = _estimatedAmountController.text.trim();
-    final rec = _receivedAmountController.text.trim();
-    if (est.isEmpty || rec.isEmpty) {
-      _snack('أدخل القيمة المقدرة والمبلغ المستلم');
-      return;
-    }
-
-    setState(() => _actionLoading = true);
-    final res = await MarketplaceService.startRequest(
-      widget.requestId,
-      expectedDeliveryAt: _expectedDeliveryAt!.toIso8601String(),
-      estimatedServiceAmount: est,
-      receivedAmount: rec,
-      note: _noteController.text.trim().isNotEmpty
-          ? _noteController.text.trim()
-          : null,
-    );
-    if (!mounted) return;
-    setState(() => _actionLoading = false);
-
-    if (res.isSuccess) {
-      _snack('تم بدء التنفيذ');
-      _loadDetail();
-    } else {
-      _snack(res.error ?? 'فشلت العملية');
-    }
-  }
-
   /// تحديث التقدم
   Future<void> _updateProgress() async {
+    final order = _order;
+    if (order == null) return;
+
+    if (order.statusGroup == 'new') {
+      if (_expectedDeliveryAt == null) {
+        _snack('حدد موعد التسليم المتوقع');
+        return;
+      }
+      final est = _estimatedAmountController.text.trim();
+      final rec = _receivedAmountController.text.trim();
+      if (est.isEmpty || rec.isEmpty) {
+        _snack('أدخل القيمة المقدرة والمبلغ المستلم');
+        return;
+      }
+    }
+
     setState(() => _actionLoading = true);
     final res = await MarketplaceService.updateProgress(
       widget.requestId,
@@ -204,7 +186,9 @@ class _ProviderOrderDetailsScreenState
     setState(() => _actionLoading = false);
 
     if (res.isSuccess) {
-      _snack('تم تحديث التقدم');
+      _snack(order.statusGroup == 'new'
+          ? 'تم إرسال تحديثك للعميل بانتظار القرار'
+          : 'تم تحديث التقدم');
       _loadDetail();
     } else {
       _snack(res.error ?? 'فشلت العملية');
@@ -806,6 +790,10 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _newActions() {
+    final order = _order;
+    final rejectedByClient = order?.providerInputsApproved == false;
+    final rejectionNote = (order?.providerInputsDecisionNote ?? '').trim();
+
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       // قبول
       SizedBox(
@@ -834,8 +822,16 @@ class _ProviderOrderDetailsScreenState
       ),
       const SizedBox(height: 12),
 
-      // أو بدء مع بيانات مالية
-      _sectionTitle('أو بدء التنفيذ مباشرة'),
+      if (rejectedByClient) ...[
+        _readOnlyBox(
+          label: 'سبب رفض العميل للتفاصيل السابقة',
+          value: rejectionNote.isEmpty ? '-' : rejectionNote,
+          maxLines: 4,
+        ),
+        const SizedBox(height: 12),
+      ],
+
+      _sectionTitle(rejectedByClient ? 'إعادة إرسال تفاصيل التنفيذ' : 'إرسال تفاصيل التنفيذ'),
       _dateLine(
         label: 'موعد التسليم المتوقع',
         value: _expectedDeliveryAt,
@@ -864,15 +860,16 @@ class _ProviderOrderDetailsScreenState
       SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: _actionLoading ? null : _start,
+          onPressed: _actionLoading ? null : _updateProgress,
           style: ElevatedButton.styleFrom(
             backgroundColor: _mainColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14)),
           ),
-          child: const Text('بدء التنفيذ',
-              style: TextStyle(
+          child: Text(
+              rejectedByClient ? 'إعادة إرسال التفاصيل' : 'إرسال التفاصيل للعميل',
+              style: const TextStyle(
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
                   color: Colors.white)),

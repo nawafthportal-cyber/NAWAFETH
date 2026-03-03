@@ -10,6 +10,7 @@ from .api import (
     DirectThreadSendMessageView,
     DirectThreadMarkReadView,
     MyDirectThreadsListView,
+    DirectUnreadCountView,
     MyThreadStatesListView,
     ThreadStateDetailView,
     ThreadFavoriteView,
@@ -42,6 +43,7 @@ urlpatterns = [
     path("direct/thread/<int:thread_id>/messages/send/", DirectThreadSendMessageView.as_view(), name="direct_message_send"),
     path("direct/thread/<int:thread_id>/messages/read/", DirectThreadMarkReadView.as_view(), name="direct_thread_mark_read"),
     path("direct/threads/", MyDirectThreadsListView.as_view(), name="direct_threads_list"),
+    path("direct/unread-count/", DirectUnreadCountView.as_view(), name="direct_unread_count"),
 
     # Per-user thread state (favorite / block / archive)
     path("threads/states/", MyThreadStatesListView.as_view(), name="my_thread_states"),

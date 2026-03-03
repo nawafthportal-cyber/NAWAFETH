@@ -32,6 +32,8 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _detailsController;
   final TextEditingController _reminderController = TextEditingController();
+  final TextEditingController _rejectInputsReasonController =
+      TextEditingController();
 
   bool _editTitle = false;
   bool _editDetails = false;
@@ -78,6 +80,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     _titleController.dispose();
     _detailsController.dispose();
     _reminderController.dispose();
+    _rejectInputsReasonController.dispose();
     _ratingCommentController.dispose();
     super.dispose();
   }
@@ -190,6 +193,51 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
         SnackBar(
             content: Text(res.error ?? 'فشل الحفظ',
                 style: const TextStyle(fontFamily: 'Cairo'))),
+      );
+    }
+  }
+
+  Future<void> _decideProviderInputs({required bool approved}) async {
+    final order = _order;
+    if (order == null) return;
+
+    if (!approved && _rejectInputsReasonController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('سبب الرفض مطلوب', style: TextStyle(fontFamily: 'Cairo')),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+    final res = await MarketplaceService.decideProviderInputs(
+      order.id,
+      approved: approved,
+      note: approved ? null : _rejectInputsReasonController.text.trim(),
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    if (res.isSuccess) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            approved
+                ? 'تم اعتماد التفاصيل وبدأ التنفيذ'
+                : 'تم رفض التفاصيل وإشعار مقدم الخدمة',
+            style: const TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      _rejectInputsReasonController.clear();
+      _loadDetail();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(res.error ?? 'فشل تنفيذ العملية',
+              style: const TextStyle(fontFamily: 'Cairo')),
+        ),
       );
     }
   }
@@ -476,6 +524,17 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                 // ─── تحت التنفيذ: المالية ───
                 if (order.statusGroup == 'in_progress') ...[
                   _inProgressCard(order, cardColor, borderColor, isDark),
+                  const SizedBox(height: 12),
+                ],
+
+                // ─── جديد: مدخلات مقدم الخدمة + قرار العميل ───
+                if (order.statusGroup == 'new' &&
+                    (order.expectedDeliveryAt != null ||
+                        order.estimatedAmount != null ||
+                        order.receivedAmt != null ||
+                        order.remainingAmt != null)) ...[
+                  _providerInputsDecisionCard(order, cardColor, borderColor,
+                      isDark, canEdit),
                   const SizedBox(height: 12),
                 ],
 
@@ -770,6 +829,114 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
             const SizedBox(height: 12),
             Text(
               'حالة اعتماد مدخلات مقدم الخدمة: ${order.providerInputsApproved == true ? 'معتمد ✅' : 'مرفوض ❌'}',
+              style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: isDark ? Colors.white54 : Colors.black54),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _providerInputsDecisionCard(ServiceRequest order, Color cardColor,
+      Color borderColor, bool isDark, bool canEdit) {
+    final waitingDecision = order.providerInputsApproved == null;
+    final rejected = order.providerInputsApproved == false;
+    final decisionNote = (order.providerInputsDecisionNote ?? '').trim();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('تفاصيل التنفيذ من مقدم الخدمة',
+              style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _infoLabel('موعد التسليم المتوقع'),
+          _infoRow(order.expectedDeliveryAt == null
+              ? '-'
+              : _formatDateOnly(order.expectedDeliveryAt!)),
+          const SizedBox(height: 10),
+          _infoLabel('قيمة الخدمة المقدرة (SR)'),
+          _infoRow(_formatMoney(order.estimatedAmount)),
+          const SizedBox(height: 10),
+          _infoLabel('المبلغ المستلم (SR)'),
+          _infoRow(_formatMoney(order.receivedAmt)),
+          const SizedBox(height: 10),
+          _infoLabel('المبلغ المتبقي (SR)'),
+          _infoRow(_formatMoney(order.remainingAmt)),
+          if (rejected && decisionNote.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _infoLabel('سبب الرفض المرسل لمقدم الخدمة'),
+            _infoRow(decisionNote),
+          ],
+          if (canEdit && waitingDecision) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _rejectInputsReasonController,
+              minLines: 2,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: 'سبب الرفض (مطلوب عند الرفض)',
+                border: OutlineInputBorder(),
+              ),
+              style: const TextStyle(fontFamily: 'Cairo'),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _decideProviderInputs(approved: false),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('رفض التفاصيل',
+                        style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _decideProviderInputs(approved: true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _mainColor,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('اعتماد وبدء التنفيذ',
+                        style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (!waitingDecision) ...[
+            const SizedBox(height: 10),
+            Text(
+              order.providerInputsApproved == true
+                  ? 'تم اعتماد تفاصيل التنفيذ'
+                  : 'تم رفض تفاصيل التنفيذ بانتظار إعادة الإرسال',
               style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 12,

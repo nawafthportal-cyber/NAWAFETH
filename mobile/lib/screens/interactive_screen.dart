@@ -670,6 +670,54 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             ),
           ),
 
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.52),
+                borderRadius: BorderRadius.circular(7),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    item.isLiked ? Icons.favorite : Icons.favorite_border,
+                    size: 12,
+                    color: item.isLiked ? purple : Colors.white,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${item.likesCount}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    item.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                    size: 12,
+                    color: item.isSaved ? purple : Colors.white,
+                  ),
+                  const SizedBox(width: 3),
+                  Text(
+                    '${item.savesCount}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9.5,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Bottom bar
           Positioned(
             bottom: 0,

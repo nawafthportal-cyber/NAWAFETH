@@ -88,9 +88,8 @@ def _notification_matches_mode(*, notif: Notification, user, mode: str) -> bool:
         if thread is None:
             return True
         if thread.is_direct:
-            # Direct threads are treated as client-context only for now because
-            # the current product flow creates them from client -> provider.
-            return mode == "client"
+            # Direct threads are shared between both account contexts.
+            return user.id in {thread.participant_1_id, thread.participant_2_id}
         sr = thread.request
         if sr is None:
             return True

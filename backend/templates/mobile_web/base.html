@@ -17,37 +17,6 @@
 </head>
 <body class="mobile-web-parity {% block body_class %}{% endblock %}">
 
-<!-- ====== TOP NAVBAR ====== -->
-<header id="top-navbar">
-  <div class="container navbar-inner">
-    <div class="navbar-right">
-      <button class="nav-icon-btn mobile-only" id="btn-menu" aria-label="القائمة">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-      <a href="/" class="navbar-brand">نوافــذ</a>
-    </div>
-    <nav class="navbar-links desktop-only">
-      <a href="/" class="nav-link {% block nav_home %}{% endblock %}">الرئيسية</a>
-      <a href="/orders/" class="nav-link {% block nav_orders %}{% endblock %}">طلباتي</a>
-      <a href="/interactive/" class="nav-link {% block nav_interactive %}{% endblock %}">تفاعلي</a>
-      <a href="/profile/" class="nav-link {% block nav_profile %}{% endblock %}">نافذتي</a>
-    </nav>
-    <div class="navbar-left">
-      <a href="/search/" class="nav-icon-btn" aria-label="بحث">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      </a>
-      <button class="nav-icon-btn" id="btn-notifications" aria-label="الإشعارات">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <span class="notif-badge hidden" id="notif-badge"></span>
-      </button>
-      <button class="nav-icon-btn" id="btn-chat" aria-label="المحادثات">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-      </button>
-      <span id="user-avatar-nav" class="nav-avatar hidden"></span>
-    </div>
-  </div>
-</header>
-
 <!-- ====== MOBILE SIDEBAR ====== -->
 <div id="sidebar-overlay" class="sidebar-overlay hidden" aria-hidden="true"></div>
 <aside id="sidebar" class="sidebar" aria-label="القائمة الجانبية" aria-hidden="true">
@@ -191,20 +160,6 @@
 <script src="{% static 'mobile_web/js/utils.js' %}"></script>
 <script src="{% static 'mobile_web/js/auth.js' %}"></script>
 <script src="{% static 'mobile_web/js/nav.js' %}"></script>
-<script>
-// Navbar scroll effect
-(function(){
-  var navbar = document.getElementById('top-navbar');
-  if (!navbar) return;
-  var last = 0;
-  window.addEventListener('scroll', function(){
-    var y = window.scrollY || window.pageYOffset;
-    if (y > 20) navbar.classList.add('scrolled');
-    else navbar.classList.remove('scrolled');
-    last = y;
-  }, {passive:true});
-})();
-</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

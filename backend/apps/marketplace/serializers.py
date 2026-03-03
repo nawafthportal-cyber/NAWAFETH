@@ -60,14 +60,10 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         attrs["city"] = city
 
         # City rules:
-        # - normal: required
         # - urgent + nearest: required
         # - urgent + all: optional
-        # - competitive: optional
-        city_required = (
-            request_type == "normal"
-            or (request_type == "urgent" and dispatch_mode == "nearest")
-        )
+        # - normal/competitive: optional
+        city_required = request_type == "urgent" and dispatch_mode == "nearest"
         if city_required and not city:
             raise serializers.ValidationError({"city": "المدينة مطلوبة"})
 
@@ -331,6 +327,13 @@ class RequestStartSerializer(RequestActionSerializer):
 
 class ProviderInputsDecisionSerializer(RequestActionSerializer):
     approved = serializers.BooleanField(required=True)
+
+    def validate(self, attrs):
+        approved = attrs.get("approved")
+        note = (attrs.get("note") or "").strip()
+        if approved is False and not note:
+            raise serializers.ValidationError({"note": "سبب الرفض مطلوب"})
+        return attrs
 
 
 class RequestCompleteSerializer(RequestActionSerializer):

@@ -105,6 +105,10 @@ class _VideoReelsState extends State<VideoReels> {
 class VideoThumbnailWidget extends StatefulWidget {
   final String path;
   final String logo;
+  final int likesCount;
+  final int savesCount;
+  final bool isLiked;
+  final bool isSaved;
   final VoidCallback onTap;
   final EdgeInsetsGeometry margin;
 
@@ -112,6 +116,10 @@ class VideoThumbnailWidget extends StatefulWidget {
     super.key,
     required this.path,
     required this.logo,
+    this.likesCount = 0,
+    this.savesCount = 0,
+    this.isLiked = false,
+    this.isSaved = false,
     required this.onTap,
     this.margin = const EdgeInsets.symmetric(horizontal: 10),
   });
@@ -213,6 +221,54 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget>
               ),
               child: ClipOval(
                 child: _buildLogoImage(),
+              ),
+            ),
+
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.52),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.isLiked ? Icons.favorite : Icons.favorite_border,
+                      size: 10.5,
+                      color: widget.isLiked ? Colors.deepPurple : Colors.white,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${widget.likesCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Cairo',
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Icon(
+                      widget.isSaved ? Icons.bookmark : Icons.bookmark_border,
+                      size: 10.5,
+                      color: widget.isSaved ? Colors.deepPurple : Colors.white,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${widget.savesCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        fontFamily: 'Cairo',
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

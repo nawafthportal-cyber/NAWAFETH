@@ -7,6 +7,10 @@ import 'video_reels.dart';
 class AutoScrollingReelsRow extends StatefulWidget {
   final List<String> videoPaths;
   final List<String> logos;
+  final List<int>? likesCounts;
+  final List<int>? savesCounts;
+  final List<bool>? likedStates;
+  final List<bool>? savedStates;
   final void Function(int index) onTap;
 
   final double itemExtent;
@@ -17,6 +21,10 @@ class AutoScrollingReelsRow extends StatefulWidget {
     super.key,
     required this.videoPaths,
     required this.logos,
+    this.likesCounts,
+    this.savesCounts,
+    this.likedStates,
+    this.savedStates,
     required this.onTap,
     this.itemExtent = 110,
     this.step = 1.0,
@@ -80,7 +88,11 @@ class _AutoScrollingReelsRowState extends State<AutoScrollingReelsRow> {
     super.didUpdateWidget(oldWidget);
 
     if (oldWidget.videoPaths.length != widget.videoPaths.length ||
-        oldWidget.logos.length != widget.logos.length) {
+      oldWidget.logos.length != widget.logos.length ||
+      oldWidget.likesCounts?.length != widget.likesCounts?.length ||
+      oldWidget.savesCounts?.length != widget.savesCounts?.length ||
+      oldWidget.likedStates?.length != widget.likedStates?.length ||
+      oldWidget.savedStates?.length != widget.savedStates?.length) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         if (!_scrollController.hasClients) return;
@@ -117,10 +129,26 @@ class _AutoScrollingReelsRowState extends State<AutoScrollingReelsRow> {
         itemBuilder: (context, index) {
           final baseIndex = index % widget.videoPaths.length;
           final logo = widget.logos[index % widget.logos.length];
+            final likes = (widget.likesCounts != null && baseIndex < widget.likesCounts!.length)
+              ? widget.likesCounts![baseIndex]
+              : 0;
+            final saves = (widget.savesCounts != null && baseIndex < widget.savesCounts!.length)
+              ? widget.savesCounts![baseIndex]
+              : 0;
+            final isLiked = (widget.likedStates != null && baseIndex < widget.likedStates!.length)
+              ? widget.likedStates![baseIndex]
+              : false;
+            final isSaved = (widget.savedStates != null && baseIndex < widget.savedStates!.length)
+              ? widget.savedStates![baseIndex]
+              : false;
           return Center(
             child: VideoThumbnailWidget(
               path: widget.videoPaths[baseIndex],
               logo: logo,
+              likesCount: likes,
+              savesCount: saves,
+              isLiked: isLiked,
+              isSaved: isSaved,
               margin: EdgeInsets.zero,
               onTap: () => widget.onTap(baseIndex),
             ),

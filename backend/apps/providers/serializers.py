@@ -207,6 +207,8 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     thumbnail_url = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     saves_count = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
+    is_saved = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderPortfolioItem
@@ -221,6 +223,8 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "caption",
             "likes_count",
             "saves_count",
+            "is_liked",
+            "is_saved",
             "created_at",
         )
 
@@ -241,6 +245,26 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             return int(getattr(obj, "saves_count", None) or obj.saves.count())
         except Exception:
             return 0
+
+    def get_is_liked(self, obj):
+        annotated = getattr(obj, "_is_liked", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            role = get_active_role(request, fallback="client")
+            return obj.likes.filter(user=request.user, role_context=role).exists()
+        return False
+
+    def get_is_saved(self, obj):
+        annotated = getattr(obj, "_is_saved", None)
+        if annotated is not None:
+            return bool(annotated)
+        request = self.context.get("request")
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            role = get_active_role(request, fallback="client")
+            return obj.saves.filter(user=request.user, role_context=role).exists()
+        return False
 
 
 class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):

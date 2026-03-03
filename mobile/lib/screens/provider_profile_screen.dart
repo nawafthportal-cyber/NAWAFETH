@@ -146,9 +146,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       );
       grouped.putIfAbsent(sectionTitle, () => <Map<String, dynamic>>[]);
       grouped[sectionTitle]!.add({
+        'id': _asInt(item['id']),
         'type': fileType == 'video' ? 'video' : 'image',
         'media': media,
         'desc': desc,
+        'likes_count': _asInt(item['likes_count']),
+        'saves_count': _asInt(item['saves_count']),
+        'is_liked': _asBool(item['is_liked']),
+        'is_saved': _asBool(item['is_saved']),
       });
     }
 
@@ -691,7 +696,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
     final createdAtRaw = (item['created_at'] ?? '').toString().trim();
 
-    return MediaItemModel(
+    final model = MediaItemModel(
       id: id,
       providerId: providerId,
       providerDisplayName:
@@ -709,6 +714,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       createdAt: createdAtRaw.isEmpty ? null : createdAtRaw,
       source: MediaItemSource.spotlight,
     );
+    model.applyInteractionOverride();
+    model.rememberInteractionState();
+    return model;
   }
 
   String _formatCompactNumber(num value) {
@@ -1924,7 +1932,23 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Widget _highlightsRow({required bool isDark}) {
     final textColor = isDark ? Colors.white : Colors.black;
     final sub = isDark ? Colors.grey[400]! : Colors.grey.shade700;
-    final shouldAutoScroll = _highlightsVideos.length >= 9;
+    final spotlightItems = _spotlightVideoItems;
+    final shouldAutoScroll = spotlightItems.length >= 9;
+    final videoPaths = spotlightItems
+        .map((item) => _normalizeMediaUrl((item.fileUrl ?? '').trim()))
+        .where((path) => path.isNotEmpty)
+        .toList();
+    final logos = spotlightItems
+        .map((item) {
+          final thumb = (item.thumbnailUrl ?? item.fileUrl ?? '').trim();
+          return _normalizeMediaUrl(thumb);
+        })
+        .where((logo) => logo.isNotEmpty)
+        .toList();
+    final likesCounts = spotlightItems.map((item) => item.likesCount).toList();
+    final savesCounts = spotlightItems.map((item) => item.savesCount).toList();
+    final likedStates = spotlightItems.map((item) => item.isLiked).toList();
+    final savedStates = spotlightItems.map((item) => item.isSaved).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1955,8 +1979,12 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         const SizedBox(height: 10),
         if (shouldAutoScroll)
           AutoScrollingReelsRow(
-            videoPaths: _highlightsVideos,
-            logos: _highlightsLogos,
+            videoPaths: videoPaths,
+            logos: logos,
+            likesCounts: likesCounts,
+            savesCounts: savesCounts,
+            likedStates: likedStates,
+            savedStates: savedStates,
             onTap: _openHighlights,
           )
         else
@@ -1964,16 +1992,25 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             height: 110,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: _highlightsVideos.length,
+              itemCount: spotlightItems.length,
               separatorBuilder: (_, __) => const SizedBox(width: 14),
               itemBuilder: (context, index) {
-                final logo = _highlightsLogos[index % _highlightsLogos.length];
+                if (index >= spotlightItems.length) {
+                  return const SizedBox.shrink();
+                }
+                final item = spotlightItems[index];
+                final logo = logos.isNotEmpty ? logos[index % logos.length] : '';
+                final path = _normalizeMediaUrl((item.fileUrl ?? '').trim());
                 return InkWell(
                   onTap: () => _openHighlights(index),
                   borderRadius: BorderRadius.circular(999),
                   child: VideoThumbnailWidget(
-                    path: _highlightsVideos[index],
+                    path: path,
                     logo: logo,
+                    likesCount: item.likesCount,
+                    savesCount: item.savesCount,
+                    isLiked: item.isLiked,
+                    isSaved: item.isSaved,
                     onTap: () => _openHighlights(index),
                   ),
                 );
@@ -2552,42 +2589,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     }
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final helperTextColor =
-        isDark ? Colors.grey.shade300 : Colors.grey.shade700;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : mainColor.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: mainColor.withValues(alpha: 0.2)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.work_outline, color: mainColor, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'الخدمات المعروضة هنا هي نفس الخدمات المُدخلة في ملف مقدم الخدمة.',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: helperTextColor,
-                    height: 1.45,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -3037,6 +3042,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     final type = (item['type'] ?? 'image').toString();
     final media = (item['media'] ?? '').toString();
     final desc = (item['desc'] ?? '').toString();
+    final likesCount = _asInt(item['likes_count']);
+    final savesCount = _asInt(item['saves_count']);
+    final isLiked = _asBool(item['is_liked']);
+    final isSaved = _asBool(item['is_saved']);
     final isVideo = type == 'video';
     final normalizedMedia = _normalizeMediaUrl(media);
 
@@ -3148,16 +3157,57 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             ),
             Padding(
               padding: const EdgeInsets.all(10),
-              child: Text(
-                desc,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  color: secondaryTextColor,
-                  height: 1.25,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    desc,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      color: secondaryTextColor,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(
+                        isLiked ? Icons.favorite : Icons.favorite_border,
+                        size: 15,
+                        color: isLiked ? mainColor : secondaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$likesCount',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        isSaved ? Icons.bookmark : Icons.bookmark_border,
+                        size: 15,
+                        color: isSaved ? mainColor : secondaryTextColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$savesCount',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          color: secondaryTextColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],

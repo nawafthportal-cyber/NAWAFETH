@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'services/account_mode_service.dart';
+import 'services/push_notification_service.dart';
 
 // 🟣 الشاشات الرئيسية
 import 'screens/home_screen.dart';
@@ -43,7 +44,9 @@ class MyThemeController extends InheritedWidget {
       oldWidget.themeMode != themeMode || oldWidget.locale != locale;
 }
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await PushNotificationService.initialize();
   runApp(const NawafethApp());
 }
 

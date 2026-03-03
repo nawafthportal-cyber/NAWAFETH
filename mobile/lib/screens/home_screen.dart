@@ -512,8 +512,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
 
     if (mounted) {
+      _syncSpotlightInteractionState();
       _startReelsScroll();
     }
+  }
+
+  void _syncSpotlightInteractionState() {
+    if (_spotlights.isEmpty || !mounted) return;
+    setState(() {
+      MediaItemModel.applyInteractionOverrides(_spotlights);
+    });
   }
 
   void _showNoSpotlights() {
@@ -646,17 +654,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final coverUrl = ApiClient.buildMediaUrl(p.coverImage);
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProviderProfileScreen(
-        providerId: p.id.toString(),
-        providerName: p.displayName,
-        providerImage: ApiClient.buildMediaUrl(p.profileImage),
-        providerRating: p.ratingAvg,
-        providerVerified: p.isVerified,
-        providerPhone: p.phone,
-        providerLat: p.lat,
-        providerLng: p.lng,
-        providerOperations: p.completedRequests,
-      ))),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProviderProfileScreen(
+              providerId: p.id.toString(),
+              providerName: p.displayName,
+              providerImage: ApiClient.buildMediaUrl(p.profileImage),
+              providerRating: p.ratingAvg,
+              providerVerified: p.isVerified,
+              providerPhone: p.phone,
+              providerLat: p.lat,
+              providerLng: p.lng,
+              providerOperations: p.completedRequests,
+            ),
+          ),
+        );
+        _syncSpotlightInteractionState();
+      },
       child: Container(
         width: 150,
         margin: const EdgeInsets.only(left: 10),

@@ -34,7 +34,7 @@ def test_notifications_created_on_offer_and_message():
         title="طلب",
         description="وصف",
         request_type=RequestType.COMPETITIVE,
-        status=RequestStatus.SENT,
+        status=RequestStatus.NEW,
         city="الرياض",
     )
 
@@ -110,7 +110,7 @@ def test_notifications_are_filtered_by_active_mode_query_param():
         title="طلب كعميل",
         description="وصف",
         request_type=RequestType.NORMAL,
-        status=RequestStatus.SENT,
+        status=RequestStatus.NEW,
         city="الرياض",
     )
     Offer.objects.create(request=sr_client, provider=other_provider, price="120.00", duration_days=2, note="عرض")
@@ -123,15 +123,15 @@ def test_notifications_are_filtered_by_active_mode_query_param():
         title="طلب كمزود",
         description="وصف",
         request_type=RequestType.NORMAL,
-        status=RequestStatus.ACCEPTED,
+        status=RequestStatus.IN_PROGRESS,
         city="الرياض",
     )
     RequestStatusLog.objects.create(
         request=sr_provider,
         actor=other_client,
-        from_status=RequestStatus.ACCEPTED,
-        to_status=RequestStatus.IN_PROGRESS,
-        note="بدء التنفيذ",
+        from_status=RequestStatus.IN_PROGRESS,
+        to_status=RequestStatus.COMPLETED,
+        note="تم إكمال الطلب",
     )
 
     api = APIClient()
@@ -158,7 +158,7 @@ def test_notifications_are_filtered_by_active_mode_query_param():
 
 
 @pytest.mark.django_db
-def test_status_log_creates_notification_for_counterparty():
+def test_status_log_creates_notification_for_both_parties_with_request_title():
     client_user = User.objects.create_user(phone="0509000021")
     provider_user = User.objects.create_user(phone="0509000022")
 
@@ -183,24 +183,40 @@ def test_status_log_creates_notification_for_counterparty():
         title="طلب تحديث حالة",
         description="وصف",
         request_type=RequestType.NORMAL,
-        status=RequestStatus.ACCEPTED,
+        status=RequestStatus.IN_PROGRESS,
         city="الرياض",
     )
 
     RequestStatusLog.objects.create(
         request=sr,
         actor=provider_user,
-        from_status=RequestStatus.ACCEPTED,
-        to_status=RequestStatus.IN_PROGRESS,
-        note="بدء التنفيذ",
+        from_status=RequestStatus.IN_PROGRESS,
+        to_status=RequestStatus.COMPLETED,
+        note="تم إكمال الطلب",
     )
 
-    notif = Notification.objects.filter(user=client_user, title="تحديث على الطلب").first()
-    assert notif is not None
-    assert "تحت التنفيذ" in notif.body
-    assert notif.kind == "request_status_change"
-    assert notif.url == f"/requests/{sr.id}"
-    assert notif.audience_mode == "client"
+    client_notif = Notification.objects.filter(
+        user=client_user,
+        kind="request_status_change",
+    ).order_by("-id").first()
+    provider_notif = Notification.objects.filter(
+        user=provider_user,
+        kind="request_status_change",
+    ).order_by("-id").first()
+
+    assert client_notif is not None
+    assert provider_notif is not None
+
+    assert client_notif.title == f"تحديث الطلب: {sr.title}"
+    assert provider_notif.title == f"تحديث الطلب: {sr.title}"
+
+    assert "مكتمل" in client_notif.body
+    assert "مكتمل" in provider_notif.body
+
+    assert client_notif.url == f"/requests/{sr.id}"
+    assert provider_notif.url == f"/requests/{sr.id}"
+    assert client_notif.audience_mode == "client"
+    assert provider_notif.audience_mode == "provider"
 
 
 @pytest.mark.django_db

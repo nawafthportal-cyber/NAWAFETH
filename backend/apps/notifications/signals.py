@@ -13,6 +13,13 @@ from .models import EventType
 from .services import create_notification
 
 
+def _audience_mode_for_user(user: User) -> str:
+    role_state = (getattr(user, "role_state", "") or "").strip().lower()
+    if role_state == "provider":
+        return "provider"
+    return "client"
+
+
 def _status_label(raw: str) -> str:
     s = (raw or "").strip().lower()
     if s == "new":
@@ -102,7 +109,7 @@ def notify_new_message(sender, instance: Message, created, **kwargs):
             pref_key="new_chat_message",
             message_id=instance.id,
             meta={"thread_id": thread.id, "is_direct": True},
-            audience_mode="client",
+            audience_mode=_audience_mode_for_user(target),
         )
         return
 
@@ -140,17 +147,13 @@ def notify_request_status_changed(sender, instance: RequestStatusLog, created, *
         return
 
     sr = instance.request
-    actor_id = instance.actor_id
-    target = None
+    recipients = []
+    if sr.client_id:
+        recipients.append(sr.client)
+    if sr.provider_id and sr.provider.user_id:
+        recipients.append(sr.provider.user)
 
-    if sr.provider_id and actor_id == sr.client_id:
-        target = sr.provider.user
-    elif sr.provider_id and sr.provider.user_id == actor_id:
-        target = sr.client
-    elif sr.provider_id:
-        target = sr.client
-
-    if target is None:
+    if not recipients:
         return
 
     status_label = _status_label(instance.to_status)
@@ -162,20 +165,21 @@ def notify_request_status_changed(sender, instance: RequestStatusLog, created, *
     if note:
         body = f"{body}. {note}"
 
-    create_notification(
-        user=target,
-        title="تحديث على الطلب",
-        body=body,
-        kind="request_status_change",
-        url=f"/requests/{sr.id}",
-        actor=instance.actor,
-        event_type=EventType.STATUS_CHANGED,
-        pref_key="request_status_change",
-        request_id=sr.id,
-        meta={
-            "from_status": instance.from_status,
-            "to_status": instance.to_status,
-            "note": note,
-        },
-        audience_mode="provider" if sr.provider_id and target.id == sr.provider.user_id else "client",
-    )
+    for target in recipients:
+        create_notification(
+            user=target,
+            title=f"تحديث الطلب: {sr.title}",
+            body=body,
+            kind="request_status_change",
+            url=f"/requests/{sr.id}",
+            actor=instance.actor,
+            event_type=EventType.STATUS_CHANGED,
+            pref_key="request_status_change",
+            request_id=sr.id,
+            meta={
+                "from_status": instance.from_status,
+                "to_status": instance.to_status,
+                "note": note,
+            },
+            audience_mode="provider" if sr.provider_id and target.id == sr.provider.user_id else "client",
+        )
