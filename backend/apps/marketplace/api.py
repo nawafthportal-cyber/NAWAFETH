@@ -25,12 +25,14 @@ from apps.notifications.services import create_notification
 from apps.accounts.permissions import IsAtLeastClient
 
 from .models import (
+	DispatchStatus,
 	Offer,
 	OfferStatus,
 	RequestStatus,
 	RequestStatusLog,
 	RequestType,
 	ServiceRequest,
+	ServiceRequestDispatch,
 	ServiceRequestAttachment,
 )
 from .serializers import (
@@ -49,6 +51,12 @@ from .serializers import (
 )
 
 from .services.actions import execute_action
+from .services.dispatch import (
+	dispatch_ready_urgent_windows,
+	ensure_dispatch_windows_for_urgent_request,
+	provider_can_access_urgent_request,
+	provider_dispatch_tier,
+)
 
 from .views import (
 	_normalize_status_group,
@@ -74,44 +82,6 @@ def _infer_attachment_type(uploaded_file) -> str:
 
 
 # ────────────────────────────────────────────────
-# Helpers (internal to API layer)
-# ────────────────────────────────────────────────
-
-def _notify_urgent_request_to_matching_providers(service_request: ServiceRequest) -> None:
-	if service_request.request_type != RequestType.URGENT:
-		return
-
-	provider_ids = ProviderCategory.objects.filter(
-		subcategory_id=service_request.subcategory_id
-	).values_list("provider_id", flat=True)
-
-	qs = ProviderProfile.objects.select_related("user").filter(
-		id__in=provider_ids,
-		accepts_urgent=True,
-	)
-	city = (service_request.city or "").strip()
-	if city:
-		qs = qs.filter(city=city)
-
-	for provider in qs:
-		if not provider.user_id:
-			continue
-		create_notification(
-			user=provider.user,
-			title="طلب خدمة عاجلة جديد",
-			body=f"يوجد طلب عاجل جديد في تخصصك: {service_request.title}",
-			kind="urgent_request",
-			url=f"/requests/{service_request.id}",
-			actor=service_request.client,
-			event_type=EventType.REQUEST_CREATED,
-			pref_key="urgent_request",
-			request_id=service_request.id,
-			is_urgent=True,
-			audience_mode="provider",
-		)
-
-
-# ────────────────────────────────────────────────
 # Permissions
 # ────────────────────────────────────────────────
 
@@ -134,17 +104,19 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 
 		is_urgent = request_type == RequestType.URGENT
 		status_value = RequestStatus.NEW
+		now = timezone.now()
 
 		expires_at = None
 		if is_urgent:
 			minutes = getattr(settings, "URGENT_REQUEST_EXPIRY_MINUTES", 15)
-			expires_at = timezone.now() + timedelta(minutes=minutes)
+			expires_at = now + timedelta(minutes=minutes)
 
 		service_request = serializer.save(
 			client=self.request.user,
 			is_urgent=is_urgent,
 			status=status_value,
 			expires_at=expires_at,
+			dispatch_mode=dispatch_mode,
 		)
 
 		# Targeted normal requests (client -> specific provider) need an explicit
@@ -167,7 +139,8 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 				audience_mode="provider",
 			)
 		if is_urgent and dispatch_mode in {"all", "nearest"}:
-			_notify_urgent_request_to_matching_providers(service_request)
+			ensure_dispatch_windows_for_urgent_request(service_request, now=now)
+			dispatch_ready_urgent_windows(now=now, limit=200)
 
 
 class MyClientRequestsView(generics.ListAPIView):
@@ -288,6 +261,7 @@ class UrgentRequestAcceptView(APIView):
 
 	def post(self, request):
 		_expire_urgent_requests()
+		dispatch_ready_urgent_windows(limit=200)
 		serializer = UrgentRequestAcceptSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 
@@ -349,6 +323,11 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "هذا الطلب لا يطابق تخصصاتك"},
 					status=status.HTTP_403_FORBIDDEN,
 				)
+			if not provider_can_access_urgent_request(provider, service_request, now=now):
+				return Response(
+					{"detail": "هذا الطلب لم يصبح متاحًا لباقتك بعد"},
+					status=status.HTTP_403_FORBIDDEN,
+				)
 
 			old = service_request.status
 			service_request.provider = provider
@@ -380,13 +359,18 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 	def get_queryset(self):
 		_expire_urgent_requests()
 		provider = self.request.user.provider_profile
+		now = timezone.now()
+		dispatch_ready_urgent_windows(now=now, limit=200)
+
+		if not provider.accepts_urgent:
+			return ServiceRequest.objects.none()
+
+		provider_tier = provider_dispatch_tier(provider)
 
 		provider_subcats = ProviderCategory.objects.filter(provider=provider).values_list(
 			"subcategory_id",
 			flat=True,
 		)
-
-		now = timezone.now()
 
 		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
@@ -401,10 +385,17 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 			.order_by("-created_at")
 		)
 
-		if not provider.accepts_urgent:
-			return ServiceRequest.objects.none()
+		ready_request_ids = ServiceRequestDispatch.objects.filter(
+			dispatch_tier=provider_tier,
+			dispatch_status__in=[
+				DispatchStatus.PENDING,
+				DispatchStatus.READY,
+				DispatchStatus.DISPATCHED,
+			],
+			available_at__lte=now,
+		).values_list("request_id", flat=True)
 
-		return qs
+		return qs.filter(Q(id__in=ready_request_ids) | Q(dispatch_windows__isnull=True)).distinct()
 
 
 class AvailableCompetitiveRequestsView(generics.ListAPIView):
@@ -492,6 +483,8 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 			raise PermissionDenied("غير مصرح")
 
 		if obj.request_type == RequestType.URGENT and not provider.accepts_urgent:
+			raise PermissionDenied("غير مصرح")
+		if obj.request_type == RequestType.URGENT and not provider_can_access_urgent_request(provider, obj):
 			raise PermissionDenied("غير مصرح")
 
 		if (obj.city or "").strip() and (provider.city or "").strip() and obj.city.strip() != provider.city.strip():

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
 import 'service_request_form_screen.dart'; // ✅ نموذج طلب الخدمة
 import '../widgets/platform_report_dialog.dart';
+import '../widgets/verified_badge_view.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
   final String title;
@@ -11,6 +12,8 @@ class ServiceDetailScreen extends StatefulWidget {
   final String providerName;
   final String providerHandle;
   final String providerImage;
+  final bool providerVerifiedBlue;
+  final bool providerVerifiedGreen;
   final int likes;
   final int filesCount;
   final int initialCommentsCount;
@@ -24,6 +27,8 @@ class ServiceDetailScreen extends StatefulWidget {
     this.providerName = 'مزود خدمة',
     this.providerHandle = '',
     this.providerImage = '',
+    this.providerVerifiedBlue = false,
+    this.providerVerifiedGreen = false,
     this.likes = 0,
     this.filesCount = 0,
     this.initialCommentsCount = 0,
@@ -214,8 +219,11 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          if (widget.providerId != null)
-                            const Icon(Icons.verified, color: Colors.green, size: 18),
+                          VerifiedBadgeView(
+                            isVerifiedBlue: widget.providerVerifiedBlue,
+                            isVerifiedGreen: widget.providerVerifiedGreen,
+                            iconSize: 18,
+                          ),
                         ],
                       ),
                       if (_providerDisplayHandle.isNotEmpty)

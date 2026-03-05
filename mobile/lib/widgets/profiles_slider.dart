@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
+import 'verified_badge_view.dart';
 
 // ✅ استدعاء شاشة بروفايل مزود الخدمة
 import 'package:nawafeth/screens/provider_profile_screen.dart';
@@ -17,15 +18,35 @@ class _ProfilesSliderState extends State<ProfilesSlider> {
   Timer? _timer;
   double _scrollPosition = 0;
 
-  static const List<Map<String, String>> _baseProfiles = [
-    {'image': 'assets/images/1.png', 'label': 'محامي'},
-    {'image': 'assets/images/12.png', 'label': 'طبيب'},
-    {'image': 'assets/images/151.png', 'label': 'مهندس'},
-    {'image': 'assets/images/551.png', 'label': 'إداري'},
+  static const List<Map<String, dynamic>> _baseProfiles = [
+    {
+      'image': 'assets/images/1.png',
+      'label': 'محامي',
+      'is_verified_blue': true,
+      'is_verified_green': false,
+    },
+    {
+      'image': 'assets/images/12.png',
+      'label': 'طبيب',
+      'is_verified_blue': false,
+      'is_verified_green': true,
+    },
+    {
+      'image': 'assets/images/151.png',
+      'label': 'مهندس',
+      'is_verified_blue': false,
+      'is_verified_green': false,
+    },
+    {
+      'image': 'assets/images/551.png',
+      'label': 'إداري',
+      'is_verified_blue': true,
+      'is_verified_green': false,
+    },
   ];
   
   // ✅ مضاعفة العناصر للتمرير اللانهائي
-  late final List<Map<String, String>> profiles;
+  late final List<Map<String, dynamic>> profiles;
 
   @override
   void initState() {
@@ -80,6 +101,9 @@ class _ProfilesSliderState extends State<ProfilesSlider> {
         itemCount: profiles.length,
         itemBuilder: (context, index) {
           final profile = profiles[index];
+          final isVerifiedBlue = profile['is_verified_blue'] == true;
+          final isVerifiedGreen = profile['is_verified_green'] == true;
+          final isVerified = isVerifiedBlue || isVerifiedGreen;
           return GestureDetector(
             onTap: () => _openProfileDetail(context),
             child: Container(
@@ -95,33 +119,34 @@ class _ProfilesSliderState extends State<ProfilesSlider> {
                         backgroundColor: AppColors.softBlue,
                         child: CircleAvatar(
                           radius: 32,
-                          backgroundImage: AssetImage(profile['image']!),
+                          backgroundImage: AssetImage(profile['image'] as String),
                         ),
                       ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Transform.translate(
-                          offset: const Offset(6, 6),
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.verified,
-                              color: Colors.green,
-                              size: 18,
+                      if (isVerified)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Transform.translate(
+                            offset: const Offset(6, 6),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: VerifiedBadgeView(
+                                isVerifiedBlue: isVerifiedBlue,
+                                isVerifiedGreen: isVerifiedGreen,
+                                iconSize: 18,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    profile['label']!,
+                    profile['label'] as String,
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

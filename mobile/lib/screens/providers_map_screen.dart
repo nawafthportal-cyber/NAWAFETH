@@ -11,6 +11,7 @@ import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../constants/colors.dart';
+import '../widgets/verified_badge_view.dart';
 import 'chat_detail_screen.dart';
 import 'provider_profile_screen.dart';
 
@@ -719,7 +720,8 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
           providerRating: provider.rating,
           providerOperations: provider.operationsCount,
           providerImage: provider.profileImage,
-          providerVerified: provider.verified,
+          providerVerifiedBlue: provider.isVerifiedBlue,
+          providerVerifiedGreen: provider.isVerifiedGreen,
           providerPhone: provider.phoneNumber,
           providerLat: provider.latitude,
           providerLng: provider.longitude,
@@ -914,8 +916,11 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                                 ),
                                 if (provider.verified) ...[
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.verified,
-                                      color: Colors.green, size: 14),
+                                  VerifiedBadgeView(
+                                    isVerifiedBlue: provider.isVerifiedBlue,
+                                    isVerifiedGreen: provider.isVerifiedGreen,
+                                    iconSize: 14,
+                                  ),
                                 ],
                               ],
                             ),

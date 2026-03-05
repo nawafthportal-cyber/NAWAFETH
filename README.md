@@ -1,5 +1,7 @@
 # NAWAFETH
 
+[![Mobile Flutter Tests](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/mobile-flutter-tests.yml/badge.svg)](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/mobile-flutter-tests.yml)
+
 ## Backend (Django) on Render
 
 This repo contains:

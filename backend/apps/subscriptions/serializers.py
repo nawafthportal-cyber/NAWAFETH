@@ -24,6 +24,7 @@ class PlanSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "code",
+            "tier",
             "title",
             "description",
             "period",

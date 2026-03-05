@@ -13,6 +13,12 @@ class PlanPeriod(models.TextChoices):
     YEAR = "year", "سنوي"
 
 
+class PlanTier(models.TextChoices):
+    BASIC = "basic", "أساسية"
+    RIYADI = "riyadi", "ريادية"
+    PRO = "pro", "احترافية"
+
+
 class SubscriptionStatus(models.TextChoices):
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
     ACTIVE = "active", "نشط"
@@ -35,6 +41,7 @@ class SubscriptionPlan(models.Model):
     خطط الاشتراك (باقات).
     """
     code = models.CharField(max_length=30, unique=True)  # BASIC / PRO / ENTERPRISE ...
+    tier = models.CharField(max_length=20, choices=PlanTier.choices, default=PlanTier.BASIC)
     title = models.CharField(max_length=80)
     description = models.CharField(max_length=300, blank=True)
 
@@ -53,6 +60,17 @@ class SubscriptionPlan(models.Model):
 
     def __str__(self):
         return f"{self.code} ({self.get_period_display()})"
+
+    def normalized_tier(self) -> str:
+        tier = (self.tier or "").strip().lower()
+        if tier in {PlanTier.BASIC, PlanTier.RIYADI, PlanTier.PRO}:
+            return tier
+        code = (self.code or "").strip().lower()
+        if "riyadi" in code or "entrepreneur" in code or "leading" in code:
+            return PlanTier.RIYADI
+        if "pro" in code or "professional" in code:
+            return PlanTier.PRO
+        return PlanTier.BASIC
 
 
 class Subscription(models.Model):

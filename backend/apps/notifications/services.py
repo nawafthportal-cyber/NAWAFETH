@@ -1,6 +1,7 @@
 from django.db import transaction
 
-from apps.subscriptions.models import Subscription, SubscriptionStatus
+from apps.subscriptions.models import PlanTier, Subscription, SubscriptionStatus
+from apps.subscriptions.services import plan_to_tier
 
 from .models import (
     Notification,
@@ -170,17 +171,10 @@ def _user_tier_level(user) -> int:
     if not active:
         return 1
 
-    code = (active.plan.code or "").strip().upper()
-    title = (active.plan.title or "").strip()
-    features = set(active.plan.features or [])
-
-    if (
-        "PROFESSIONAL" in code
-        or "احتراف" in title
-        or "advanced_analytics" in features
-    ):
+    tier = plan_to_tier(getattr(active, "plan", None))
+    if tier == PlanTier.PRO:
         return 3
-    if "PRO" in code or "رائد" in title or "priority_support" in features:
+    if tier == PlanTier.RIYADI:
         return 2
     return 1
 

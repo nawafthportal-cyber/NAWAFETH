@@ -290,6 +290,7 @@ const SpotlightViewer = (() => {
     item.likes_count = (item.likes_count || 0) + (wasLiked ? -1 : 1);
     if (item.likes_count < 0) item.likes_count = 0;
     _renderCurrent();
+    _emitEngagementUpdate(item);
 
     try {
       const endpoint = wasLiked
@@ -302,6 +303,7 @@ const SpotlightViewer = (() => {
       item.is_liked = wasLiked;
       item.likes_count += wasLiked ? 1 : -1;
       _renderCurrent();
+      _emitEngagementUpdate(item);
     }
   }
 
@@ -311,6 +313,7 @@ const SpotlightViewer = (() => {
     item.saves_count = (item.saves_count || 0) + (wasSaved ? -1 : 1);
     if (item.saves_count < 0) item.saves_count = 0;
     _renderCurrent();
+    _emitEngagementUpdate(item);
 
     try {
       const endpoint = wasSaved
@@ -322,7 +325,22 @@ const SpotlightViewer = (() => {
       item.is_saved = wasSaved;
       item.saves_count += wasSaved ? 1 : -1;
       _renderCurrent();
+      _emitEngagementUpdate(item);
     }
+  }
+
+  function _emitEngagementUpdate(item) {
+    if (!item || typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('nw:spotlight-engagement-update', {
+      detail: {
+        id: item.id,
+        provider_id: item.provider_id,
+        likes_count: Number(item.likes_count) || 0,
+        saves_count: Number(item.saves_count) || 0,
+        is_liked: !!item.is_liked,
+        is_saved: !!item.is_saved,
+      },
+    }));
   }
 
   /* ----------------------------------------------------------

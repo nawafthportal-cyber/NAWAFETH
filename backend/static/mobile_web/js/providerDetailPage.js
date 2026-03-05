@@ -20,6 +20,8 @@ const ProviderDetailPage = (() => {
   let _spotlightSaves = 0;
   let _portfolioSavedByMe = false;
   let _spotlightSavedByMe = false;
+  let _mediaLikesTotal = null;
+  let _spotlightSyncBound = false;
   let _derivedMainCategory = '';
   let _derivedSubCategory = '';
   let _returnToMapHref = '';
@@ -45,6 +47,7 @@ const ProviderDetailPage = (() => {
 
     _bindTabs();
     _bindActions();
+    _bindSpotlightSync();
     _loadAll();
   }
 
@@ -172,6 +175,37 @@ const ProviderDetailPage = (() => {
     });
   }
 
+  function _bindSpotlightSync() {
+    if (_spotlightSyncBound) return;
+    _spotlightSyncBound = true;
+    window.addEventListener('nw:spotlight-engagement-update', (event) => {
+      const detail = event?.detail || {};
+      const providerId = _safeInt(detail.provider_id);
+      if (!providerId || String(providerId) !== String(_providerId)) return;
+      const itemId = _safeInt(detail.id);
+      if (!itemId) return;
+
+      const target = _spotlights.find((item) => _safeInt(item.id) === itemId);
+      if (!target) return;
+
+      const previousLikes = _safeInt(target.likes_count);
+      const previousSaves = _safeInt(target.saves_count);
+
+      target.likes_count = _safeInt(detail.likes_count);
+      target.saves_count = _safeInt(detail.saves_count);
+      target.is_liked = _asBool(detail.is_liked);
+      target.is_saved = _asBool(detail.is_saved);
+
+      if (_mediaLikesTotal !== null) {
+        _mediaLikesTotal = Math.max(0, _safeInt(_mediaLikesTotal) + (target.likes_count - previousLikes));
+      }
+
+      _syncSpotlightEngagementTotals();
+      _updateSpotlightBadge(target);
+      _recomputeEngagementView();
+    });
+  }
+
   function _resolveReturnToMapHref() {
     try {
       const params = new URLSearchParams(window.location.search || '');
@@ -227,14 +261,15 @@ const ProviderDetailPage = (() => {
     // ── Cover ──
     const coverEl = document.getElementById('pd-cover');
     const coverImage = _pickFirstText(p.cover_image, p.coverImage);
-    if (coverImage) {
+    const existingCover = coverEl ? coverEl.querySelector('img.pd-cover-media') : null;
+    if (existingCover) existingCover.remove();
+    if (coverImage && coverEl) {
       const img = UI.lazyImg(ApiClient.mediaUrl(coverImage), 'غلاف');
-      img.style.position = 'absolute';
-      img.style.inset = '0';
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'cover';
+      img.className = 'pd-cover-media';
       coverEl.insertBefore(img, coverEl.firstChild);
+      coverEl.classList.add('has-media');
+    } else if (coverEl) {
+      coverEl.classList.remove('has-media');
     }
 
     // ── Avatar ──
@@ -266,13 +301,14 @@ const ProviderDetailPage = (() => {
     const completed = stats?.completed_requests ?? p.completed_requests ?? p.completed_orders_count ?? 0;
     const followers = stats?.followers_count ?? p.followers_count ?? 0;
     const following = stats?.following_count ?? p.following_count ?? 0;
-    const likes = stats?.likes_count ?? p.likes_count ?? 0;
+    const profileLikes = stats?.profile_likes_count ?? stats?.likes_count ?? p.likes_count ?? 0;
+    _mediaLikesTotal = _safeNullableInt(stats?.media_likes_count);
     const rating = p.rating_avg ? parseFloat(p.rating_avg).toFixed(1) : '-';
 
     _setText('stat-completed', completed);
     _setText('stat-followers', followers);
-    _profileLikesBase = _safeInt(likes);
-    _setText('stat-likes', _profileLikesBase);
+    _profileLikesBase = _safeInt(profileLikes);
+    _setText('stat-likes', _mediaLikesTotal !== null ? _mediaLikesTotal : _profileLikesBase);
     _setText('stat-rating', rating);
 
     _recomputeEngagementView();
@@ -562,21 +598,26 @@ const ProviderDetailPage = (() => {
       };
     }).filter(item => (item.file_url || item.thumbnail_url));
 
-    _spotlightLikes = _spotlights.reduce((sum, item) => sum + _safeInt(item.likes_count), 0);
-    _spotlightSaves = _spotlights.reduce((sum, item) => sum + _safeInt(item.saves_count), 0);
-    _spotlightSavedByMe = _spotlights.some(item => !!item.is_saved);
+    _syncSpotlightEngagementTotals();
     _recomputeEngagementView();
+    _renderSpotlightsRow();
+  }
 
-    if (!_spotlights.length) return;
-
+  function _renderSpotlightsRow() {
     const section = document.getElementById('pd-highlights-section');
     const row = document.getElementById('pd-highlights');
     if (!section || !row) return;
+    if (!_spotlights.length) {
+      section.classList.add('hidden');
+      row.textContent = '';
+      return;
+    }
 
     section.classList.remove('hidden');
     row.textContent = '';
     _spotlights.forEach((item, idx) => {
       const el = UI.el('div', { className: 'pd-highlight-item' });
+      el.dataset.itemId = String(_safeInt(item.id));
       const thumb = UI.el('div', { className: 'pd-highlight-thumb' });
       const imgUrl = item.thumbnail_url || item.file_url;
       if (imgUrl) thumb.appendChild(UI.lazyImg(ApiClient.mediaUrl(imgUrl), ''));
@@ -586,10 +627,12 @@ const ProviderDetailPage = (() => {
         className: 'pd-highlight-stat' + (item.is_liked ? ' active' : ''),
         textContent: '❤ ' + String(_safeInt(item.likes_count)),
       });
+      likes.dataset.stat = 'likes';
       const saves = UI.el('span', {
         className: 'pd-highlight-stat' + (item.is_saved ? ' active' : ''),
         textContent: '🔖 ' + String(_safeInt(item.saves_count)),
       });
+      saves.dataset.stat = 'saves';
       stats.appendChild(likes);
       stats.appendChild(saves);
       thumb.appendChild(stats);
@@ -607,6 +650,29 @@ const ProviderDetailPage = (() => {
 
       row.appendChild(el);
     });
+  }
+
+  function _syncSpotlightEngagementTotals() {
+    _spotlightLikes = _spotlights.reduce((sum, item) => sum + _safeInt(item.likes_count), 0);
+    _spotlightSaves = _spotlights.reduce((sum, item) => sum + _safeInt(item.saves_count), 0);
+    _spotlightSavedByMe = _spotlights.some(item => !!item.is_saved);
+  }
+
+  function _updateSpotlightBadge(item) {
+    const key = String(_safeInt(item?.id));
+    if (!key) return;
+    const root = document.querySelector('.pd-highlight-item[data-item-id="' + key + '"]');
+    if (!root) return;
+    const likesEl = root.querySelector('.pd-highlight-stat[data-stat="likes"]');
+    const savesEl = root.querySelector('.pd-highlight-stat[data-stat="saves"]');
+    if (likesEl) {
+      likesEl.textContent = '❤ ' + String(_safeInt(item.likes_count));
+      likesEl.classList.toggle('active', _asBool(item.is_liked));
+    }
+    if (savesEl) {
+      savesEl.textContent = '🔖 ' + String(_safeInt(item.saves_count));
+      savesEl.classList.toggle('active', _asBool(item.is_saved));
+    }
   }
 
   /* ═══ Services ═══ */
@@ -821,7 +887,9 @@ const ProviderDetailPage = (() => {
   }
 
   function _recomputeEngagementView() {
-    const totalLikes = _safeInt(_profileLikesBase) + _safeInt(_portfolioLikes) + _safeInt(_spotlightLikes);
+    const totalLikes = _mediaLikesTotal !== null
+      ? _safeInt(_mediaLikesTotal)
+      : (_safeInt(_profileLikesBase) + _safeInt(_portfolioLikes) + _safeInt(_spotlightLikes));
     _setText('stat-likes', totalLikes);
 
     _isBookmarked = !!(_portfolioSavedByMe || _spotlightSavedByMe);
@@ -916,6 +984,12 @@ const ProviderDetailPage = (() => {
   function _safeInt(value) {
     const n = parseInt(value, 10);
     return Number.isFinite(n) ? n : 0;
+  }
+
+  function _safeNullableInt(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
   }
 
   function _asBool(value) {

@@ -12,6 +12,7 @@ import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/spotlight_viewer.dart';
+import '../widgets/verified_badge_view.dart';
 
 class InteractiveScreen extends StatefulWidget {
   const InteractiveScreen({super.key});
@@ -407,7 +408,11 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                           ),
                           if (provider.isVerified) ...[
                             const SizedBox(width: 3),
-                            Icon(Icons.verified, size: 12, color: provider.isVerifiedBlue ? Colors.blue : Colors.green),
+                            VerifiedBadgeView(
+                              isVerifiedBlue: provider.isVerifiedBlue,
+                              isVerifiedGreen: provider.isVerifiedGreen,
+                              iconSize: 12,
+                            ),
                           ],
                         ],
                       ),
@@ -479,7 +484,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         providerRating: p.ratingAvg,
         providerOperations: p.completedRequests,
         providerImage: ApiClient.buildMediaUrl(p.profileImage),
-        providerVerified: p.isVerified,
+        providerVerifiedBlue: p.isVerifiedBlue,
+        providerVerifiedGreen: p.isVerifiedGreen,
         providerPhone: p.phone,
         providerLat: p.lat,
         providerLng: p.lng,

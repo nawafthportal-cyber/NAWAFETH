@@ -5,12 +5,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from django.shortcuts import get_object_or_404
+from django.db.models import Case, IntegerField, Value, When
 
 from .models import SubscriptionPlan, Subscription
 from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
 from .services import start_subscription_checkout
-from .bootstrap import ensure_subscription_plans_exist
+from .bootstrap import CANONICAL_PLAN_CODES, ensure_subscription_plans_exist
 
 
 class PlansListView(generics.ListAPIView):
@@ -19,7 +20,19 @@ class PlansListView(generics.ListAPIView):
 
     def get_queryset(self):
         ensure_subscription_plans_exist()
-        return SubscriptionPlan.objects.filter(is_active=True).order_by("price", "id")
+        return (
+            SubscriptionPlan.objects.filter(is_active=True, code__in=CANONICAL_PLAN_CODES)
+            .annotate(
+                tier_order=Case(
+                    When(code="basic", then=Value(1)),
+                    When(code="riyadi", then=Value(2)),
+                    When(code="pro", then=Value(3)),
+                    default=Value(99),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("tier_order", "price", "id")
+        )
 
 
 class MySubscriptionsView(generics.ListAPIView):

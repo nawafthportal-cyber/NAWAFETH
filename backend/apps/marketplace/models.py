@@ -20,6 +20,24 @@ class RequestStatus(models.TextChoices):
 	CANCELLED = "cancelled", "ملغي"
 
 
+class DispatchMode(models.TextChoices):
+	ALL = "all", "الكل"
+	NEAREST = "nearest", "الأقرب"
+
+
+class DispatchTier(models.TextChoices):
+	BASIC = "basic", "أساسية"
+	RIYADI = "riyadi", "ريادية"
+	PRO = "pro", "احترافية"
+
+
+class DispatchStatus(models.TextChoices):
+	PENDING = "pending", "معلّق"
+	READY = "ready", "جاهز للإرسال"
+	DISPATCHED = "dispatched", "تم الإرسال"
+	FAILED = "failed", "فشل الإرسال"
+
+
 class ServiceRequest(models.Model):
 	client = models.ForeignKey(
 		User,
@@ -43,6 +61,11 @@ class ServiceRequest(models.Model):
 	request_type = models.CharField(
 		max_length=20,
 		choices=RequestType.choices,
+	)
+	dispatch_mode = models.CharField(
+		max_length=20,
+		choices=DispatchMode.choices,
+		default=DispatchMode.ALL,
 	)
 
 	status = models.CharField(
@@ -179,3 +202,40 @@ class ServiceRequestAttachment(models.Model):
 
 	def __str__(self):
 		return f"Attachment {self.id} for Request #{self.request_id}"
+
+
+class ServiceRequestDispatch(models.Model):
+	request = models.ForeignKey(
+		ServiceRequest,
+		on_delete=models.CASCADE,
+		related_name="dispatch_windows",
+	)
+	dispatch_tier = models.CharField(max_length=20, choices=DispatchTier.choices)
+	available_at = models.DateTimeField(db_index=True)
+	dispatch_status = models.CharField(
+		max_length=20,
+		choices=DispatchStatus.choices,
+		default=DispatchStatus.PENDING,
+		db_index=True,
+	)
+	dispatched_at = models.DateTimeField(null=True, blank=True)
+	dispatch_attempts = models.PositiveSmallIntegerField(default=0)
+	last_error = models.CharField(max_length=255, blank=True)
+	idempotency_key = models.CharField(max_length=120, unique=True)
+	created_at = models.DateTimeField(auto_now_add=True)
+	updated_at = models.DateTimeField(auto_now=True)
+
+	class Meta:
+		constraints = [
+			models.UniqueConstraint(
+				fields=["request", "dispatch_tier"],
+				name="uniq_dispatch_window_request_tier",
+			),
+		]
+		indexes = [
+			models.Index(fields=["dispatch_tier", "dispatch_status", "available_at"]),
+			models.Index(fields=["request", "dispatch_status"]),
+		]
+
+	def __str__(self) -> str:
+		return f"dispatch#{self.id} req={self.request_id} tier={self.dispatch_tier} status={self.dispatch_status}"

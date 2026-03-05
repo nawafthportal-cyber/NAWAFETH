@@ -1,0 +1,45 @@
+name: Mobile Flutter Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - mobile/**
+      - .github/workflows/mobile-flutter-tests.yml
+  pull_request:
+    branches: [main]
+    paths:
+      - mobile/**
+      - .github/workflows/mobile-flutter-tests.yml
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-flutter-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter-tests:
+    name: Flutter test suite
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run badge heuristic guard test
+        run: flutter test --no-pub test/badge_heuristics_guard_test.dart
+
+      - name: Run all Flutter tests
+        run: flutter test --no-pub

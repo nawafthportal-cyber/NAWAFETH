@@ -7,6 +7,7 @@ import '../models/category_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
+import '../widgets/verified_badge_view.dart';
 import 'provider_profile_screen.dart';
 
 class SearchProviderScreen extends StatefulWidget {
@@ -473,7 +474,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           providerName: p.displayName,
           providerImage: profileUrl,
           providerRating: p.ratingAvg,
-          providerVerified: p.isVerified,
+          providerVerifiedBlue: p.isVerifiedBlue,
+          providerVerifiedGreen: p.isVerifiedGreen,
           providerPhone: p.phone,
           providerLat: p.lat,
           providerLng: p.lng,
@@ -530,8 +532,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                     if (p.isVerified)
                       Positioned(
                         top: 6, left: 6,
-                        child: Icon(Icons.verified, size: 14,
-                            color: p.isVerifiedBlue ? Colors.blue : Colors.green),
+                        child: VerifiedBadgeView(
+                          isVerifiedBlue: p.isVerifiedBlue,
+                          isVerifiedGreen: p.isVerifiedGreen,
+                          iconSize: 14,
+                        ),
                       ),
                   ],
                 ),

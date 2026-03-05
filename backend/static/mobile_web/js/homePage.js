@@ -213,19 +213,20 @@ const HomePage = (() => {
     providers.forEach(p => {
       const profileUrl = ApiClient.mediaUrl(p.profile_image);
       const coverUrl = ApiClient.mediaUrl(p.cover_image);
-      const displayName = p.display_name || '';
+      const displayName = (p.display_name || '').trim() || 'مقدم خدمة';
       const initial = displayName.charAt(0) || '؟';
       const providerHref = p.id ? '/provider/' + encodeURIComponent(String(p.id)) + '/' : '/search/';
 
       const card = UI.el('a', { className: 'provider-card', href: providerHref });
 
-      // Cover (70px on mobile as in Flutter)
+      // Cover
       const cover = UI.el('div', { className: 'provider-cover' });
       if (coverUrl) cover.appendChild(UI.lazyImg(coverUrl, displayName));
       card.appendChild(cover);
 
-      // Info section: avatar + meta side by side (Flutter Row layout)
+      // Info section: avatar + name + verification + rating
       const info = UI.el('div', { className: 'provider-info' });
+      const head = UI.el('div', { className: 'provider-head' });
 
       const avatar = UI.el('div', { className: 'provider-avatar' });
       if (profileUrl) {
@@ -233,44 +234,52 @@ const HomePage = (() => {
       } else {
         avatar.appendChild(UI.text(initial));
       }
-      info.appendChild(avatar);
+      head.appendChild(avatar);
 
       const meta = UI.el('div', { className: 'provider-meta' });
 
-      // Name + verified badge
       const nameRow = UI.el('div', { className: 'provider-name-row' });
       nameRow.appendChild(UI.el('span', { className: 'provider-name', textContent: displayName }));
-      if (p.is_verified_blue) {
-        nameRow.appendChild(UI.icon('verified_blue', 12, '#2196F3'));
-      } else if (p.is_verified_green) {
-        nameRow.appendChild(UI.icon('verified_green', 12, '#4CAF50'));
-      }
       meta.appendChild(nameRow);
 
-      if (p.city) {
-        meta.appendChild(UI.el('div', { className: 'provider-city', textContent: p.city }));
+      const isVerified = !!(p.is_verified_blue || p.is_verified_green || p.is_verified);
+      if (isVerified) {
+        const badgeClass = p.is_verified_blue
+          ? 'provider-verified-badge is-blue'
+          : 'provider-verified-badge is-green';
+        const badge = UI.el('span', { className: badgeClass });
+        badge.appendChild(
+          p.is_verified_blue
+            ? UI.icon('verified_blue', 12, '#2196F3')
+            : UI.icon('verified_green', 12, '#4CAF50')
+        );
+        badge.appendChild(UI.text('موثّق'));
+        meta.appendChild(badge);
       }
-      info.appendChild(meta);
-      card.appendChild(info);
 
-      // Stats bar (star / followers / likes — same as Flutter)
+      head.appendChild(meta);
+      info.appendChild(head);
+
       const stats = UI.el('div', { className: 'provider-stats' });
-      const rating = p.rating_avg > 0 ? parseFloat(p.rating_avg).toFixed(1) : '-';
-      stats.appendChild(_statBadge('star', rating, '#FFC107'));
-      stats.appendChild(_statBadge('people', String(p.followers_count || 0), '#999'));
-      stats.appendChild(_statBadge('heart', String(p.likes_count || 0), '#999'));
-      card.appendChild(stats);
+      stats.appendChild(_ratingBadge(_ratingText(p)));
+      info.appendChild(stats);
 
+      card.appendChild(info);
       frag.appendChild(card);
     });
     $providersList.textContent = '';
     $providersList.appendChild(frag);
   }
 
-  function _statBadge(iconName, value, color) {
-    const cls = iconName === 'star' ? 'provider-stat rating' : 'provider-stat';
-    return UI.el('span', { className: cls }, [
-      UI.icon(iconName, 11, color),
+  function _ratingText(provider) {
+    const n = Number(provider?.rating_avg ?? provider?.rating ?? provider?.average_rating);
+    if (Number.isFinite(n) && n > 0) return n.toFixed(1);
+    return '0.0';
+  }
+
+  function _ratingBadge(value) {
+    return UI.el('span', { className: 'provider-stat rating' }, [
+      UI.icon('star', 12, '#FFC107'),
       UI.text(' ' + value),
     ]);
   }

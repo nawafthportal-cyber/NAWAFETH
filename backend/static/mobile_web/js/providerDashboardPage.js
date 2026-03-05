@@ -248,7 +248,7 @@ const ProviderDashboardPage = (() => {
   }
 
   function _renderKPIs(urgentRes, newRes, completedRes) {
-    let urgent = 0, newCount = 0;
+    let urgent = 0, newCount = 0, completed = 0;
     if (urgentRes.status === 'fulfilled' && urgentRes.value.ok) {
       const d = urgentRes.value.data;
       urgent = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
@@ -257,8 +257,14 @@ const ProviderDashboardPage = (() => {
       const d = newRes.value.data;
       newCount = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
     }
+    if (completedRes.status === 'fulfilled' && completedRes.value.ok) {
+      const d = completedRes.value.data;
+      completed = d.count ?? (Array.isArray(d) ? d.length : (d.results || []).length);
+    }
     document.getElementById('kpi-urgent').textContent = urgent;
     document.getElementById('kpi-new').textContent = newCount;
+    const completedEl = document.getElementById('kpi-completed');
+    if (completedEl) completedEl.textContent = completed;
   }
 
   function _renderSpotlights(spotsRes) {

@@ -84,6 +84,7 @@ urlpatterns = [
     ),
     path("api/reviews/", include(("apps.reviews.urls", "reviews"), namespace="reviews")),
     path("api/content/", include(("apps.content.urls", "content"), namespace="content")),
+    path("api/public/", include(("apps.verification.public_urls", "public"), namespace="public")),
 
     path(
         "dashboard/",

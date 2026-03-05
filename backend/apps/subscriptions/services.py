@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus
 
-from .models import Subscription, SubscriptionPlan, SubscriptionStatus
+from .models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 
 
 def _subscription_status_to_unified(status: str) -> str:
@@ -161,3 +161,31 @@ def user_has_feature(user, key: str) -> bool:
         return False
     features = active.plan.features or []
     return key in features
+
+
+def plan_to_tier(plan: SubscriptionPlan | None) -> str:
+    if not plan:
+        return PlanTier.BASIC
+
+    tier = (getattr(plan, "tier", "") or "").strip().lower()
+    if tier in {PlanTier.BASIC, PlanTier.RIYADI, PlanTier.PRO}:
+        return tier
+
+    code = (getattr(plan, "code", "") or "").strip().lower()
+    if "riyadi" in code or "entrepreneur" in code or "leading" in code:
+        return PlanTier.RIYADI
+    if "pro" in code or "professional" in code:
+        return PlanTier.PRO
+    return PlanTier.BASIC
+
+
+def user_plan_tier(user, *, fallback: str = PlanTier.BASIC) -> str:
+    active = (
+        Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE)
+        .select_related("plan")
+        .order_by("-id")
+        .first()
+    )
+    if not active:
+        return fallback
+    return plan_to_tier(getattr(active, "plan", None))

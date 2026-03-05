@@ -1,10 +1,13 @@
 import pytest
+from datetime import timedelta
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import OTP, User
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.notifications.models import Notification
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
+from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 
 
 @pytest.mark.django_db
@@ -433,6 +436,22 @@ def test_create_urgent_creates_urgent_notifications_for_matching_providers_only(
     )
     ProviderCategory.objects.get_or_create(provider=provider_match, subcategory=sub_match)
 
+    pro_plan = SubscriptionPlan.objects.create(
+        code="pro_notify",
+        tier=PlanTier.PRO,
+        title="احترافية",
+        period=PlanPeriod.MONTH,
+        price="99.00",
+        features=["verify_blue"],
+    )
+    Subscription.objects.create(
+        user=provider_user_match,
+        plan=pro_plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=30),
+    )
+
     provider_user_other = User.objects.create(phone="0507777002", username="prov_other")
     provider_other = ProviderProfile.objects.create(
         user=provider_user_other,
@@ -444,6 +463,22 @@ def test_create_urgent_creates_urgent_notifications_for_matching_providers_only(
         accepts_urgent=True,
     )
     ProviderCategory.objects.get_or_create(provider=provider_other, subcategory=sub_other)
+
+    basic_plan = SubscriptionPlan.objects.create(
+        code="basic_notify",
+        tier=PlanTier.BASIC,
+        title="أساسية",
+        period=PlanPeriod.MONTH,
+        price="49.00",
+        features=["verify_green"],
+    )
+    Subscription.objects.create(
+        user=provider_user_other,
+        plan=basic_plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=30),
+    )
 
     client = APIClient()
     send = client.post("/api/accounts/otp/send/", {"phone": "0507777000"}, format="json")

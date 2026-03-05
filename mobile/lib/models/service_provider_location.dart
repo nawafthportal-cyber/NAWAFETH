@@ -17,7 +17,10 @@ class ServiceProviderLocation {
   final String phoneNumber;
   final List<String> urgentServices;  // الخدمات العاجلة المتاحة
   final int responseTime;             // متوسط وقت الرد (بالدقائق)
-  final bool verified;                // موثق؟
+  final bool isVerifiedBlue;
+  final bool isVerifiedGreen;
+
+  bool get verified => isVerifiedBlue || isVerifiedGreen;
 
   ServiceProviderLocation({
     required this.id,
@@ -36,7 +39,8 @@ class ServiceProviderLocation {
     required this.phoneNumber,
     this.urgentServices = const [],
     this.responseTime = 15,
-    this.verified = false,
+    this.isVerifiedBlue = false,
+    this.isVerifiedGreen = false,
   });
 
   // ✅ إنشاء من JSON (يدعم استجابة الباكند)
@@ -62,10 +66,9 @@ class ServiceProviderLocation {
       phoneNumber: json['phone'] ?? json['phoneNumber'] ?? '',
       urgentServices: List<String>.from(json['urgentServices'] ?? []),
       responseTime: _toInt(json['responseTime'] ?? json['response_time']),
-      verified: json['is_verified_blue'] ??
-          json['is_verified_green'] ??
-          json['verified'] ??
-          false,
+        isVerifiedBlue: _toBool(json['is_verified_blue']),
+        isVerifiedGreen: _toBool(json['is_verified_green']) ||
+          (!_toBool(json['is_verified_blue']) && _toBool(json['verified'])),
     );
   }
 
@@ -84,6 +87,20 @@ class ServiceProviderLocation {
     if (v is num) return v.toInt();
     if (v is String) return int.tryParse(v) ?? 0;
     return 0;
+  }
+
+  static bool _toBool(dynamic v) {
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) {
+      final value = v.trim().toLowerCase();
+      return value == 'true' ||
+          value == '1' ||
+          value == 'yes' ||
+          value == 'y' ||
+          value == 'on';
+    }
+    return false;
   }
 
   // ✅ تحويل إلى JSON
@@ -105,6 +122,8 @@ class ServiceProviderLocation {
       'phoneNumber': phoneNumber,
       'urgentServices': urgentServices,
       'responseTime': responseTime,
+      'is_verified_blue': isVerifiedBlue,
+      'is_verified_green': isVerifiedGreen,
       'verified': verified,
     };
   }
@@ -127,7 +146,8 @@ class ServiceProviderLocation {
     String? phoneNumber,
     List<String>? urgentServices,
     int? responseTime,
-    bool? verified,
+    bool? isVerifiedBlue,
+    bool? isVerifiedGreen,
   }) {
     return ServiceProviderLocation(
       id: id ?? this.id,
@@ -146,7 +166,8 @@ class ServiceProviderLocation {
       phoneNumber: phoneNumber ?? this.phoneNumber,
       urgentServices: urgentServices ?? this.urgentServices,
       responseTime: responseTime ?? this.responseTime,
-      verified: verified ?? this.verified,
+      isVerifiedBlue: isVerifiedBlue ?? this.isVerifiedBlue,
+      isVerifiedGreen: isVerifiedGreen ?? this.isVerifiedGreen,
     );
   }
 }

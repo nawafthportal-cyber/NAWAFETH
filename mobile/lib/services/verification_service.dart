@@ -4,6 +4,17 @@ import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/upload_optimizer.dart';
 
 class VerificationService {
+  /// جلب كتالوج الشارات العامة (AllowAny)
+  static Future<ApiResponse> fetchPublicBadgesCatalog() {
+    return ApiClient.get('/api/public/badges/');
+  }
+
+  /// جلب تفاصيل شارة عامة (blue | green) لشرح معنى الشارة عند النقر
+  static Future<ApiResponse> fetchPublicBadgeDetail(String badgeType) {
+    final normalized = badgeType.trim().toLowerCase();
+    return ApiClient.get('/api/public/badges/$normalized/');
+  }
+
   /// إنشاء طلب توثيق جديد
   static Future<ApiResponse> createRequest({
     String? badgeType,

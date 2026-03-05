@@ -199,54 +199,129 @@ body.home-mobile-layout .reel-item:hover {
 }
 
 .providers-scroll .provider-card {
-  flex: 0 0 155px;
-  width: 155px;
-  min-height: 185px;
+  flex: 0 0 166px;
+  width: 166px;
+  min-height: 220px;
   scroll-snap-align: start;
+  border-radius: 18px;
+  border: 1px solid #ece8f7;
+  background: linear-gradient(180deg, #ffffff 0%, #faf9ff 100%);
+  box-shadow: 0 10px 24px rgba(41, 31, 66, 0.12);
 }
 
-/* Flutter provider card: cover 70px, compact info */
+.providers-scroll .provider-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 26px rgba(41, 31, 66, 0.16);
+}
+
 .providers-scroll .provider-cover {
-  height: 70px;
+  height: 92px;
+  position: relative;
+}
+
+.providers-scroll .provider-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(17, 16, 25, 0.25), transparent 52%);
+  pointer-events: none;
 }
 
 .providers-scroll .provider-info {
-  margin-top: -16px;
-  padding: 0 8px;
+  margin-top: -20px;
+  padding: 0 10px 10px;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.providers-scroll .provider-head {
+  display: flex;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .providers-scroll .provider-avatar {
-  width: 32px;
-  height: 32px;
-  font-size: 11px;
+  width: 44px;
+  height: 44px;
+  font-size: 14px;
+  border: 2.5px solid #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.16);
   flex-shrink: 0;
 }
 
 .providers-scroll .provider-meta {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.providers-scroll .provider-name-row {
+  margin-top: 0;
 }
 
 .providers-scroll .provider-name {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #231942;
+}
+
+.providers-scroll .provider-verified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(103, 58, 183, 0.1);
+  border: 1px solid rgba(103, 58, 183, 0.22);
+  color: #4527a0;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.providers-scroll .provider-verified-badge.is-blue {
+  background: rgba(33, 150, 243, 0.12);
+  border-color: rgba(33, 150, 243, 0.28);
+  color: #1565c0;
+}
+
+.providers-scroll .provider-verified-badge.is-green {
+  background: rgba(76, 175, 80, 0.12);
+  border-color: rgba(76, 175, 80, 0.28);
+  color: #2e7d32;
 }
 
 .providers-scroll .provider-city {
-  font-size: 10px;
+  display: none;
 }
 
 .providers-scroll .provider-stats {
-  padding: 4px 8px 6px;
-  gap: 8px;
-  margin-top: 4px;
+  margin-top: auto;
+  border-top: 1px solid #ece8f7;
+  padding: 8px 0 0;
+  gap: 0;
+  justify-content: flex-start;
 }
 
 .providers-scroll .provider-stat {
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #475467;
+}
+
+.providers-scroll .provider-stat svg {
+  width: 14px;
+  height: 14px;
+}
+
+.providers-scroll .provider-stat:not(.rating) {
+  display: none;
 }
 
 /* ── Banners Scroll (Flutter: 220×130 cards) ── */
@@ -392,52 +467,72 @@ body.home-mobile-layout .section-reels {
   }
 
   .providers-scroll .provider-card {
-    flex: 0 0 160px;
-    width: 160px;
-    min-height: 188px;
+    flex: 0 0 172px;
+    width: 172px;
+    min-height: 224px;
   }
 
   .providers-scroll .provider-cover {
-    height: 72px;
+    height: 96px;
   }
 
   .providers-scroll .provider-info {
-    margin-top: -16px;
-    padding: 0 8px;
+    margin-top: -22px;
+    padding: 0 10px 10px;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .providers-scroll .provider-head {
+    display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 8px;
+    min-width: 0;
   }
 
   .providers-scroll .provider-avatar {
-    width: 32px;
-    height: 32px;
-    font-size: 11px;
+    width: 46px;
+    height: 46px;
+    font-size: 15px;
     flex-shrink: 0;
   }
 
   .providers-scroll .provider-meta {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+  }
+
+  .providers-scroll .provider-name-row {
+    margin-top: 0;
   }
 
   .providers-scroll .provider-name {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .providers-scroll .provider-city {
-    font-size: 10px;
+    display: none;
   }
 
   .providers-scroll .provider-stats {
-    padding: 4px 8px 6px;
-    gap: 8px;
-    margin-top: 4px;
+    margin-top: auto;
+    border-top: 1px solid #ece8f7;
+    padding: 8px 0 0;
+    gap: 0;
+    justify-content: flex-start;
   }
 
   .providers-scroll .provider-stat {
-    font-size: 10px;
+    font-size: 12px;
+  }
+
+  .providers-scroll .provider-stat:not(.rating) {
+    display: none;
   }
 
   .banners-scroll {
@@ -463,8 +558,8 @@ body.home-mobile-layout .section-reels {
   }
 
   .providers-scroll .provider-card {
-    flex: 0 0 168px;
-    width: 168px;
+    flex: 0 0 178px;
+    width: 178px;
   }
 
   .banners-scroll .banner-card {

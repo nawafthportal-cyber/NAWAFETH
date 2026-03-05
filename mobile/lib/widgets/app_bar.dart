@@ -8,6 +8,7 @@ import 'package:nawafeth/screens/my_chats_screen.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/messaging_service.dart';
 import 'package:nawafeth/services/notification_service.dart';
+import 'package:nawafeth/widgets/verified_badge_view.dart';
 
 class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String? title;
@@ -286,43 +287,50 @@ class _SearchScreenState extends State<SearchScreen> {
       "name": "محمد القحطاني",
       "services": ["محامي", "استشارات قانونية"],
       "image": "assets/images/1.png",
-      "verified": true,
+      "is_verified_blue": true,
+      "is_verified_green": false,
     },
     {
       "name": "سارة العبدالله",
       "services": ["طبيبة أسنان"],
       "image": "assets/images/12.png",
-      "verified": true,
+      "is_verified_blue": false,
+      "is_verified_green": true,
     },
     {
       "name": "أحمد الغامدي",
       "services": ["مهندس مدني", "إشراف مشاريع"],
       "image": "assets/images/151.png",
-      "verified": false,
+      "is_verified_blue": false,
+      "is_verified_green": false,
     },
     {
       "name": "ريم العساف",
       "services": ["مصممة جرافيك", "هوية بصرية"],
       "image": "assets/images/251.jpg",
-      "verified": true,
+      "is_verified_blue": true,
+      "is_verified_green": false,
     },
     {
       "name": "خالد الحربي",
       "services": ["مبرمج تطبيقات", "مواقع ويب"],
       "image": "assets/images/551.png",
-      "verified": false,
+      "is_verified_blue": false,
+      "is_verified_green": false,
     },
     {
       "name": "منى الزهراني",
       "services": ["مدرسة لغة إنجليزية", "تحضير IELTS"],
       "image": "assets/images/879797.jpeg",
-      "verified": true,
+      "is_verified_blue": false,
+      "is_verified_green": true,
     },
     {
       "name": "شركة نافذة",
       "services": ["تسويق إلكتروني", "إدارة حسابات"],
       "image": "assets/images/gfo.png",
-      "verified": true,
+      "is_verified_blue": true,
+      "is_verified_green": false,
     },
   ];
 
@@ -399,6 +407,11 @@ class _SearchScreenState extends State<SearchScreen> {
                               Divider(color: Colors.grey.shade300, height: 1),
                       itemBuilder: (context, index) {
                         final provider = results[index];
+                        final isVerifiedBlue =
+                            provider["is_verified_blue"] == true;
+                        final isVerifiedGreen =
+                            provider["is_verified_green"] == true;
+                        final isVerified = isVerifiedBlue || isVerifiedGreen;
                         return ListTile(
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
@@ -423,13 +436,13 @@ class _SearchScreenState extends State<SearchScreen> {
                                   fontSize: 15,
                                 ),
                               ),
-                              if (provider["verified"])
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 4),
-                                  child: Icon(
-                                    Icons.verified,
-                                    color: Colors.blue,
-                                    size: 18,
+                              if (isVerified)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: VerifiedBadgeView(
+                                    isVerifiedBlue: isVerifiedBlue,
+                                    isVerifiedGreen: isVerifiedGreen,
+                                    iconSize: 18,
                                   ),
                                 ),
                             ],

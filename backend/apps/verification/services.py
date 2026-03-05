@@ -51,6 +51,47 @@ REQUIREMENTS_CATALOG: dict[str, dict[str, dict[str, str]]] = {
 }
 
 
+BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
+    VerificationBadgeType.BLUE: {
+        "badge_type": VerificationBadgeType.BLUE,
+        "title": "الشارة الزرقاء",
+        "short_description": "توثيق الهوية أو السجل التجاري من مصادر سعودية رسمية.",
+        "explanation": "تعني أن مقدم الخدمة أكمل التحقق الأساسي لهويته أو سجله التجاري داخل المملكة.",
+    },
+    VerificationBadgeType.GREEN: {
+        "badge_type": VerificationBadgeType.GREEN,
+        "title": "الشارة الخضراء",
+        "short_description": "توثيق الكفاءة المهنية أو الاعتماد التنظيمي وفق متطلبات المجال.",
+        "explanation": "تعني أن مقدم الخدمة قدم واعتمد أدلة كفاءة مهنية أو ترخيص/اعتماد مرتبط بخدمته.",
+    },
+}
+
+
+def get_public_badge_detail(badge_type: str):
+    bt = (badge_type or "").strip().lower()
+    definition = BADGE_PUBLIC_DEFINITIONS.get(bt)
+    if not definition:
+        return None
+
+    requirements = list((REQUIREMENTS_CATALOG.get(bt) or {}).values())
+    return {
+        **definition,
+        "requirements": requirements,
+    }
+
+
+def get_public_badges_catalog():
+    items = []
+    for bt in (VerificationBadgeType.BLUE, VerificationBadgeType.GREEN):
+        detail = get_public_badge_detail(bt)
+        if detail:
+            items.append(detail)
+    return {
+        "count": len(items),
+        "items": items,
+    }
+
+
 def resolve_requirement_def(badge_type: str, code: str) -> dict[str, str]:
     bt = (badge_type or "").strip()
     c = (code or "").strip().upper()
@@ -116,6 +157,73 @@ def _safe_set_profile_flags(user, badge_type: str, active: bool):
     except Exception:
         # لا نفشل التشغيل
         pass
+
+
+def sync_provider_badges(user) -> dict[str, bool]:
+    """
+    مزامنة flags الشارات داخل ProviderProfile من المصدر المرجعي VerifiedBadge.
+    يعتمد فقط على الشارات الفعالة وغير المنتهية.
+    """
+    now = timezone.now()
+
+    has_blue = VerifiedBadge.objects.filter(
+        user=user,
+        badge_type=VerificationBadgeType.BLUE,
+        is_active=True,
+        expires_at__gt=now,
+    ).exists()
+    has_green = VerifiedBadge.objects.filter(
+        user=user,
+        badge_type=VerificationBadgeType.GREEN,
+        is_active=True,
+        expires_at__gt=now,
+    ).exists()
+
+    profile = getattr(user, "provider_profile", None) or getattr(user, "providerprofile", None)
+    if profile:
+        changed = False
+        if hasattr(profile, "is_verified_blue") and profile.is_verified_blue != has_blue:
+            profile.is_verified_blue = has_blue
+            changed = True
+        if hasattr(profile, "is_verified_green") and profile.is_verified_green != has_green:
+            profile.is_verified_green = has_green
+            changed = True
+        if changed:
+            try:
+                profile.save(update_fields=["is_verified_blue", "is_verified_green", "updated_at"])
+            except Exception:
+                try:
+                    profile.save()
+                except Exception:
+                    pass
+
+    return {
+        "is_verified_blue": has_blue,
+        "is_verified_green": has_green,
+    }
+
+
+def expire_verified_badges_and_sync(*, now=None, limit: int = 1000) -> int:
+    now = now or timezone.now()
+
+    expired_badges = list(
+        VerifiedBadge.objects.filter(is_active=True, expires_at__lte=now)
+        .order_by("id")[:limit]
+    )
+    if not expired_badges:
+        return 0
+
+    expired_ids = [badge.id for badge in expired_badges]
+    user_ids = sorted({badge.user_id for badge in expired_badges if badge.user_id})
+    VerifiedBadge.objects.filter(id__in=expired_ids).update(is_active=False)
+
+    if user_ids:
+        from apps.accounts.models import User
+
+        for user in User.objects.filter(id__in=user_ids):
+            sync_provider_badges(user)
+
+    return len(expired_ids)
 
 
 def _fee_for_badge(badge_type: str) -> Decimal:
@@ -327,11 +435,8 @@ def activate_after_payment(*, vr: VerificationRequest):
             is_active=True,
         )
 
-    # Update profile flags based on any active badge items.
-    has_blue = VerifiedBadge.objects.filter(user=vr.requester, badge_type=VerificationBadgeType.BLUE, is_active=True).exists()
-    has_green = VerifiedBadge.objects.filter(user=vr.requester, badge_type=VerificationBadgeType.GREEN, is_active=True).exists()
-    _safe_set_profile_flags(vr.requester, VerificationBadgeType.BLUE, has_blue)
-    _safe_set_profile_flags(vr.requester, VerificationBadgeType.GREEN, has_green)
+    # Update ProviderProfile flags from source-of-truth badge records.
+    sync_provider_badges(vr.requester)
 
     _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
     return vr

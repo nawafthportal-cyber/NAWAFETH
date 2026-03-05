@@ -11,6 +11,7 @@ import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/spotlight_viewer.dart';
+import '../widgets/verified_badge_view.dart';
 
 import 'search_provider_screen.dart';
 import 'provider_profile_screen.dart';
@@ -663,7 +664,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               providerName: p.displayName,
               providerImage: ApiClient.buildMediaUrl(p.profileImage),
               providerRating: p.ratingAvg,
-              providerVerified: p.isVerified,
+              providerVerifiedBlue: p.isVerifiedBlue,
+              providerVerifiedGreen: p.isVerifiedGreen,
               providerPhone: p.phone,
               providerLat: p.lat,
               providerLng: p.lng,
@@ -724,7 +726,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ),
                             if (p.isVerified) ...[
                               const SizedBox(width: 2),
-                              Icon(Icons.verified, size: 11, color: p.isVerifiedBlue ? Colors.blue : Colors.green),
+                              VerifiedBadgeView(
+                                isVerifiedBlue: p.isVerifiedBlue,
+                                isVerifiedGreen: p.isVerifiedGreen,
+                                iconSize: 11,
+                              ),
                             ],
                           ],
                         ),

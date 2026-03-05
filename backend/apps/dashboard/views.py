@@ -47,6 +47,7 @@ from apps.verification.services import (
     finalize_request_and_create_invoice,
     decide_requirement,
     activate_after_payment as activate_verification_after_payment,
+    sync_provider_badges,
 )
 from apps.subscriptions.models import Subscription, SubscriptionStatus, SubscriptionPlan, FeatureKey
 from apps.subscriptions.services import (
@@ -2273,6 +2274,7 @@ def verified_badge_deactivate_action(request: HttpRequest, badge_id: int) -> Htt
         badge.is_active = False
         badge.expires_at = timezone.now()
         badge.save(update_fields=["is_active", "expires_at"])
+        sync_provider_badges(badge.user)
         messages.success(request, "تم إلغاء التفعيل")
     except Exception:
         logger.exception("verified_badge_deactivate_action error")

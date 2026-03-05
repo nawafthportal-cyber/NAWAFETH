@@ -1,4 +1,6 @@
-{% extends "mobile_web/base.html" %}{% load static %}
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
 {% block title %}لوحة التحكم — نوافــذ{% endblock %}
 {% block body_class %}page-provider-dashboard{% endblock %}
 {% block nav_profile %}active{% endblock %}
@@ -6,206 +8,249 @@
 {% block bnav_profile %}active{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/provider-dashboard.css' %}">
 {% endblock %}
 
 {% block content %}
-<main class="page-shell">
-  <!-- Auth gate -->
-  <div id="auth-gate" class="auth-gate" style="display:none">
-    <div class="auth-gate-inner">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      <h2>تسجيل الدخول مطلوب</h2>
-      <p>يجب عليك تسجيل الدخول للوصول إلى لوحة التحكم</p>
-      <a href="/login/?next=/provider-dashboard/" class="btn btn-primary" id="dash-login-link">تسجيل الدخول</a>
+<main class="page-content">
+  <div class="container">
+    <!-- Auth gate -->
+    <div id="auth-gate" class="auth-gate" style="display:none">
+      <div class="auth-gate-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="#B39DDB"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      </div>
+      <p class="auth-gate-text">يجب عليك تسجيل الدخول للوصول إلى لوحة التحكم</p>
+      <a href="/login/?next=/provider-dashboard/" class="btn-primary" id="dash-login-link">تسجيل الدخول</a>
     </div>
-  </div>
 
-  <div id="dashboard-content" style="display:none">
-    <!-- Cover & Avatar Section -->
-    <section class="pd-hero">
-      <div class="pd-cover-wrap">
-        <div class="pd-cover" id="pd-cover"></div>
-        <div class="pd-cover-left-actions">
-          <label class="pd-cover-btn" title="تغيير صورة الغلاف">
-            <input type="file" accept="image/*" id="cover-upload" hidden>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 000-1.41l-2.34-2.34a1 1 0 00-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+    <div id="dashboard-content" style="display:none">
+      <!-- Hero: same visual structure as client profile -->
+      <div class="pv2-hero provider-hero">
+        <div class="pv2-cover" id="pd-cover">
+          <div class="pv2-cover-bar">
+            <label class="pv2-mini-btn" title="تغيير صورة الغلاف">
+              <input type="file" accept="image/*" id="cover-upload" hidden>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 15.2l3.2-3.2H14V8h-4v4H8.8L12 15.2zM20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h4.05l1.83-2h4.24l1.83 2H20v12z"/><circle cx="12" cy="12" r="3.2"/></svg>
+            </label>
+            <a href="/chats/" class="pv2-mini-btn" title="المحادثات" aria-label="المحادثات">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+            </a>
+            <a href="/notifications/" class="pv2-mini-btn" title="الإشعارات" aria-label="الإشعارات">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+            </a>
+          </div>
+        </div>
+
+        <div class="pv2-avatar-wrap provider-avatar-wrap">
+          <div class="pv2-avatar provider-avatar" id="pd-avatar"></div>
+          <label class="provider-avatar-upload" title="تغيير الصورة الشخصية">
+            <input type="file" accept="image/*" id="avatar-upload" hidden>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z"/></svg>
           </label>
         </div>
-        <div class="pd-cover-right-actions">
-          <a href="/notifications/" class="pd-header-btn" title="الإشعارات" aria-label="الإشعارات">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-          </a>
-          <a href="/chats/" class="pd-header-btn" title="الرسائل" aria-label="الرسائل">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
-          </a>
+
+        <h1 class="pv2-name" id="pd-name"></h1>
+        <p class="pv2-username" id="pd-handle"></p>
+
+        <div class="provider-verified-badge" id="pd-verified" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#4CAF50"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
+          <span>موثّق</span>
         </div>
-      </div>
-      <div class="pd-avatar-wrap">
-        <div class="pd-avatar" id="pd-avatar"></div>
-        <label class="pd-avatar-btn" title="تغيير الصورة الشخصية">
-          <input type="file" accept="image/*" id="avatar-upload" hidden>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9z"/></svg>
-        </label>
-      </div>
-    </section>
 
-    <!-- Provider Name & Info -->
-    <section class="pd-info-section">
-      <h1 class="pd-name" id="pd-name"></h1>
-      <p class="pd-handle" id="pd-handle"></p>
-      <div class="pd-verified" id="pd-verified" style="display:none">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="#4CAF50"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
-        <span>موثّق</span>
-      </div>
-    </section>
-
-    <!-- Mode Toggle -->
-    <section class="pd-mode-toggle">
-      <button class="mode-btn" id="mode-client-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span>عميل</span>
-      </button>
-      <button class="mode-btn active" id="mode-provider-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-        <span>مقدم خدمة</span>
-      </button>
-    </section>
-
-    <!-- Stats Row (1:1 mobile structure) -->
-    <section class="pd-stats-wrap">
-      <div class="pd-stats-row pd-stats-row-top">
-        <div class="pd-stat-top" id="stat-followers">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          <span class="pd-stat-val">0</span>
-          <span class="pd-stat-label">متابعين</span>
-        </div>
-        <div class="pd-stat-top" id="stat-following">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm8 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-          <span class="pd-stat-val">0</span>
-          <span class="pd-stat-label">أتابعهم</span>
+        <div class="pv2-stats provider-stats">
+          <div class="pv2-stat" id="stat-followers">
+            <span class="pv2-stat-num pd-stat-val">0</span>
+            <span class="pv2-stat-lbl">متابعين</span>
+          </div>
+          <div class="pv2-stat-div"></div>
+          <div class="pv2-stat" id="stat-following">
+            <span class="pv2-stat-num pd-stat-val">0</span>
+            <span class="pv2-stat-lbl">أتابعهم</span>
+          </div>
+          <div class="pv2-stat-div"></div>
+          <div class="pv2-stat" id="stat-likes">
+            <span class="pv2-stat-num pd-stat-val">0</span>
+            <span class="pv2-stat-lbl">إعجابات</span>
+          </div>
         </div>
       </div>
 
-      <div class="pd-stats-row pd-stats-row-bottom">
-        <div class="pd-stat-bottom" id="stat-likes">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09A6 6 0 0116.5 3C19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-          <span class="pd-stat-val">0</span>
-          <span class="pd-stat-label">إعجابات</span>
-        </div>
-        <div class="pd-stat-bottom" id="stat-clients">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-          <span class="pd-stat-val">0</span>
-          <span class="pd-stat-label">عملاء</span>
-        </div>
-        <div class="pd-stat-bottom" id="stat-favorites">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
-          <span class="pd-stat-val">0</span>
-          <span class="pd-stat-label">محفوظ</span>
-        </div>
-        <button type="button" class="pd-stat-bottom pd-stat-qr" id="stat-qr-btn" aria-label="QR">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm8 0h2v2h-2v-2zm2 2h2v2h-2v-2zm2-2h2v2h-2v-2zm-4 4h2v2h-2v-2zm4 0h4v2h-4v-2zm2-4h2v2h-2v-2z"/></svg>
-          <span class="pd-stat-val"></span>
-          <span class="pd-stat-label">QR</span>
+      <div class="pv2-mode-toggle provider-mode-toggle">
+        <button class="pv2-mode-chip" id="mode-client-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          <span>عميل</span>
+        </button>
+        <button class="pv2-mode-chip active" id="mode-provider-btn" type="button">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+          <span>مقدم خدمة</span>
         </button>
       </div>
-    </section>
 
-    <!-- Subscription Card -->
-    <section class="pd-card pd-subscription-card" id="subscription-card" style="display:none">
-      <div class="pd-card-header">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFD700"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
-        <span id="plan-name">الباقة الأساسية</span>
-      </div>
-      <p class="pd-card-meta" id="plan-expiry"></p>
-      <a href="/plans/" class="btn btn-sm btn-outline">ترقية الباقة</a>
-    </section>
-
-    <!-- Profile Completion Card -->
-    <section class="pd-card pd-completion-card" id="completion-card">
-      <div class="pd-card-header">
-        <span>اكتمال الملف التعريفي</span>
-        <span class="pd-completion-pct" id="completion-pct">0%</span>
-      </div>
-      <div class="pd-progress-bar">
-        <div class="pd-progress-fill" id="completion-bar" style="width:0%"></div>
-      </div>
-      <a href="/profile-completion/" class="btn btn-sm btn-outline">أكمل ملفك</a>
-    </section>
-
-    <!-- Orders Management Card -->
-    <section class="pd-card pd-orders-card" id="orders-card">
-      <div class="pd-card-header">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="#663D90"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
-        <span>إدارة الطلبات</span>
-      </div>
-      <div class="pd-orders-kpis">
-        <div class="pd-kpi pd-kpi-urgent">
-          <span class="pd-kpi-val" id="kpi-urgent">0</span>
-          <span class="pd-kpi-label">عاجلة</span>
+      <div class="provider-dashboard-strip provider-secondary-stats">
+        <div class="provider-kpi" id="stat-clients">
+          <span class="provider-kpi-value pd-stat-val">0</span>
+          <span class="provider-kpi-label">عملاء</span>
         </div>
-        <div class="pd-kpi pd-kpi-new">
-          <span class="pd-kpi-val" id="kpi-new">0</span>
-          <span class="pd-kpi-label">جديدة</span>
+        <div class="provider-kpi" id="stat-favorites">
+          <span class="provider-kpi-value pd-stat-val">0</span>
+          <span class="provider-kpi-label">محفوظ</span>
         </div>
+        <button type="button" class="provider-kpi provider-kpi-button" id="stat-qr-btn" aria-label="QR نافذتي">
+          <span class="provider-kpi-value">QR</span>
+          <span class="provider-kpi-label">QR نافذتي</span>
+        </button>
       </div>
-    </section>
 
-    <!-- Spotlights Row -->
-    <section class="pd-section" id="spotlights-section">
-      <div class="pd-section-header">
-        <h3>الريلز والأضواء</h3>
+      <div class="provider-dashboard-strip provider-orders-strip">
+        <a href="/provider-orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-urgent">0</span>
+          <span class="provider-kpi-label">طلبات عاجلة</span>
+        </a>
+        <a href="/provider-orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-new">0</span>
+          <span class="provider-kpi-label">طلبات جديدة</span>
+        </a>
+        <a href="/provider-orders/" class="provider-kpi">
+          <span class="provider-kpi-value" id="kpi-completed">0</span>
+          <span class="provider-kpi-label">مكتملة</span>
+        </a>
       </div>
-      <div class="pd-reels-row" id="reels-row">
-        <label class="pd-reel-add" title="إضافة فيديو">
-          <input type="file" accept="video/*" id="spotlight-upload" hidden>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#663D90"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-        </label>
+
+      <div class="pv2-quick-row provider-quick-row">
+        <a href="/provider-orders/" class="pv2-qa">
+          <div class="pv2-qa-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#673AB7"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+          </div>
+          <span>الطلبات</span>
+        </a>
+        <a href="/provider-services/" class="pv2-qa">
+          <div class="pv2-qa-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#673AB7"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+          </div>
+          <span>خدماتي</span>
+        </a>
+        <a href="/provider-portfolio/" class="pv2-qa">
+          <div class="pv2-qa-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#673AB7"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
+          </div>
+          <span>معرض الأعمال</span>
+        </a>
+        <a href="/provider-reviews/" class="pv2-qa">
+          <div class="pv2-qa-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
+          </div>
+          <span>المراجعات</span>
+        </a>
       </div>
-    </section>
 
-    <!-- Dashboard Navigation Grid -->
-    <section class="pd-nav-grid">
-      <a href="/provider-profile-edit/" class="pd-nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="#663D90"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span>الملف الشخصي</span>
-      </a>
-      <a href="/provider-services/" class="pd-nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="#663D90"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-        <span>خدماتي</span>
-      </a>
-      <a href="/provider-reviews/" class="pd-nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="#663D90"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
-        <span>المراجعات</span>
-      </a>
-      <a href="/provider-portfolio/" class="pd-nav-btn">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="#663D90"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
-        <span>معرض الأعمال</span>
-      </a>
-    </section>
+      <div class="provider-panels">
+        <section class="provider-panel" id="subscription-card" style="display:none">
+          <div class="provider-panel-head">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#FFD700"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
+            <div class="provider-panel-title-wrap">
+              <h3 id="plan-name">الباقة الأساسية</h3>
+              <p id="plan-expiry" class="provider-panel-meta"></p>
+            </div>
+          </div>
+          <a href="/plans/" class="pv2-cta-btn provider-inline-btn">ترقية الباقة</a>
+        </section>
 
-    <!-- Extra Services -->
-    <section class="pd-section">
-      <div class="pd-extra-card">
-        <h3 class="pd-section-title">خدمات إضافية لتعزيز ظهورك:</h3>
-        <div class="pd-extra-pills">
-          <a href="/promotion/" class="pd-extra-pill pd-pill-green">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
-            <span>ترويج</span>
-          </a>
-          <a href="/plans/" class="pd-extra-pill pd-pill-orange">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
-            <span>ترقية</span>
-          </a>
-          <a href="/verification/" class="pd-extra-pill pd-pill-blue">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-            <span>توثيق</span>
-          </a>
+        <section class="provider-panel" id="completion-card">
+          <div class="provider-panel-head">
+            <h3>اكتمال الملف التعريفي</h3>
+            <span class="provider-percent" id="completion-pct">0%</span>
+          </div>
+          <div class="provider-progress">
+            <div class="provider-progress-fill" id="completion-bar" style="width:0%"></div>
+          </div>
+          <a href="/profile-completion/" class="pv2-cta-btn provider-inline-btn">أكمل ملفك</a>
+        </section>
+
+        <section class="provider-panel provider-panel-clickable" id="orders-card">
+          <div class="provider-panel-head">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#673AB7"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+            <h3>إدارة الطلبات</h3>
+          </div>
+          <p class="provider-panel-desc">راجع الطلبات العاجلة والجديدة وحدث حالتها بسرعة.</p>
+          <a href="/provider-orders/" class="pv2-cta-btn provider-inline-btn">فتح الطلبات</a>
+        </section>
+
+        <section class="provider-panel">
+          <div class="provider-panel-head">
+            <h3>الريلز والأضواء</h3>
+          </div>
+          <div class="pd-reels-row" id="reels-row">
+            <label class="pd-reel-add" title="إضافة فيديو">
+              <input type="file" accept="video/*" id="spotlight-upload" hidden>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="#663D90"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </label>
+          </div>
+        </section>
+      </div>
+
+      <div class="pv2-menu-card provider-menu">
+        <a href="/provider-profile-edit/" class="pv2-menu-tile">
+          <div class="pv2-menu-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          </div>
+          <div class="pv2-menu-body">
+            <span class="pv2-menu-label">تعديل الملف الشخصي</span>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#bbb" class="pv2-chevron"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+        </a>
+        <div class="pv2-menu-div"></div>
+        <a href="/provider-services/" class="pv2-menu-tile">
+          <div class="pv2-menu-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#673AB7"><path d="M20 6h-4V4c0-1.1-.9-2-2-2h-4c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-6 0h-4V4h4v2z"/></svg>
+          </div>
+          <div class="pv2-menu-body">
+            <span class="pv2-menu-label">إدارة الخدمات</span>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#bbb" class="pv2-chevron"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+        </a>
+        <div class="pv2-menu-div"></div>
+        <a href="/provider-reviews/" class="pv2-menu-tile">
+          <div class="pv2-menu-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#673AB7"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
+          </div>
+          <div class="pv2-menu-body">
+            <span class="pv2-menu-label">مراجعات العملاء</span>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#bbb" class="pv2-chevron"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+        </a>
+        <div class="pv2-menu-div"></div>
+        <a href="/provider-portfolio/" class="pv2-menu-tile">
+          <div class="pv2-menu-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#673AB7"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
+          </div>
+          <div class="pv2-menu-body">
+            <span class="pv2-menu-label">معرض الأعمال</span>
+          </div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#bbb" class="pv2-chevron"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
+        </a>
+      </div>
+
+      <section class="provider-extra">
+        <div class="provider-extra-card">
+          <h3 class="provider-extra-title">خدمات إضافية لتعزيز ظهورك</h3>
+          <div class="provider-extra-pills">
+            <a href="/promotion/" class="provider-extra-pill provider-extra-pill-green">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
+              <span>ترويج</span>
+            </a>
+            <a href="/plans/" class="provider-extra-pill provider-extra-pill-orange">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1l3.09 6.26L22 8.27l-5 4.87 1.18 6.88L12 17.25l-6.18 2.77L7 13.14 2 8.27l6.91-1.01L12 1z"/></svg>
+              <span>ترقية</span>
+            </a>
+            <a href="/verification/" class="provider-extra-pill provider-extra-pill-blue">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+              <span>توثيق</span>
+            </a>
+          </div>
+          <a href="/additional-services/" class="provider-extra-cta">عرض كل الخدمات الإضافية</a>
         </div>
-        <a href="/additional-services/" class="pd-extra-cta">عرض كل الخدمات الإضافية</a>
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 </main>
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import generics, status
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
@@ -29,6 +30,8 @@ from .services import (
     decide_document,
     decide_requirement,
     finalize_request_and_create_invoice,
+    get_public_badge_detail,
+    get_public_badges_catalog,
     _sync_verification_to_unified,
 )
 
@@ -267,3 +270,20 @@ class BackofficeFinalizeRequestView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(VerificationRequestDetailSerializer(vr).data, status=status.HTTP_200_OK)
+
+
+class PublicVerificationBadgesView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(get_public_badges_catalog(), status=status.HTTP_200_OK)
+
+
+class PublicVerificationBadgeDetailView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, badge_type: str):
+        detail = get_public_badge_detail(badge_type)
+        if not detail:
+            return Response({"detail": "badge_type غير صالح"}, status=status.HTTP_404_NOT_FOUND)
+        return Response(detail, status=status.HTTP_200_OK)

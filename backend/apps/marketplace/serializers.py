@@ -95,10 +95,6 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # Currently used as a routing hint for urgent requests.
-        # Matching strategy is still controlled by server rules.
-        validated_data.pop("dispatch_mode", None)
-
         images = validated_data.pop("images", [])
         videos = validated_data.pop("videos", [])
         files = validated_data.pop("files", [])

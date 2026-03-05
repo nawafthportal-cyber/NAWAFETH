@@ -14,6 +14,7 @@ import '../services/interactive_service.dart';
 import '../services/api_client.dart';
 import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
+import '../widgets/verified_badge_view.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
 import 'interactive_screen.dart';
@@ -28,7 +29,8 @@ class ProviderProfileScreen extends StatefulWidget {
   final double? providerRating;
   final int? providerOperations;
   final String? providerImage;
-  final bool? providerVerified;
+  final bool? providerVerifiedBlue;
+  final bool? providerVerifiedGreen;
   final String? providerPhone;
   final double? providerLat;
   final double? providerLng;
@@ -43,7 +45,8 @@ class ProviderProfileScreen extends StatefulWidget {
     this.providerRating,
     this.providerOperations,
     this.providerImage,
-    this.providerVerified,
+    this.providerVerifiedBlue,
+    this.providerVerifiedGreen,
     this.providerPhone,
     this.providerLat,
     this.providerLng,
@@ -265,8 +268,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     return 'assets/images/8410.jpeg';
   }
 
-  bool get providerVerified =>
-      _providerDetail?.isVerified ?? widget.providerVerified ?? false;
+  bool get providerVerifiedBlue =>
+      _providerDetail?.isVerifiedBlue ?? widget.providerVerifiedBlue ?? false;
+
+  bool get providerVerifiedGreen {
+    final fromDetail = _providerDetail?.isVerifiedGreen;
+    if (fromDetail != null) return fromDetail;
+    return widget.providerVerifiedGreen ?? false;
+  }
+
+  bool get providerVerified => providerVerifiedBlue || providerVerifiedGreen;
 
   String get providerPhone =>
       _providerDetail?.phone ?? widget.providerPhone ?? '';
@@ -1635,8 +1646,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                                   color: mainColor.withValues(alpha: 0.2),
                                   width: 1),
                             ),
-                            child: Icon(Icons.check_circle,
-                                color: mainColor, size: 16),
+                            child: Center(
+                              child: VerifiedBadgeView(
+                                isVerifiedBlue: providerVerifiedBlue,
+                                isVerifiedGreen: providerVerifiedGreen,
+                                iconSize: 16,
+                              ),
+                            ),
                           ),
                         ),
                     ],
