@@ -13,10 +13,12 @@ from apps.backoffice.models import Dashboard
 from apps.promo.models import PromoRequest
 from apps.promo.models import PromoAsset, PromoRequestStatus
 from apps.promo.models import PromoAdPrice
+from apps.notifications.models import EventLog, Notification
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import SubscriptionPlan, Subscription, SubscriptionStatus
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
+from apps.promo.services import reject_request, activate_after_payment
 from apps.unified_requests.models import UnifiedRequest
 
 
@@ -329,9 +331,13 @@ def test_management_command_expires_due_active_promos(user):
     assert "Expired promo requests: 1" in out.getvalue()
     due_ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(due.id))
     assert due_ur.status == "completed"
+    assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
+    event = EventLog.objects.filter(target_user=user, request_id=due.id).order_by("-id").first()
+    assert event is not None
+    assert event.meta.get("payload", {}).get("status") == PromoRequestStatus.EXPIRED
 
 
-def test_quote_updates_unified_request_pending_payment(user):
+def test_quote_updates_unified_request_quoted(user):
     pr = PromoRequest.objects.create(
         requester=user,
         title="quote me",
@@ -360,9 +366,73 @@ def test_quote_updates_unified_request_pending_payment(user):
 
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="ok")
     ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
-    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+    assert pr.status == PromoRequestStatus.QUOTED
     assert ur.status == "new"
     assert ur.metadata_record.payload.get("invoice_id") == pr.invoice_id
+    assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
+    event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
+    assert event is not None
+    assert event.meta.get("payload", {}).get("status") == PromoRequestStatus.QUOTED
+
+
+def test_reject_and_activate_send_promo_status_notifications(user):
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="state flow",
+        ad_type="banner_home",
+        start_at=timezone.now() + timedelta(days=1),
+        end_at=timezone.now() + timedelta(days=3),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="asset",
+        file=SimpleUploadedFile(
+            "state.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    reject_request(pr=pr, reason="not suitable", by_user=user)
+    assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
+    reject_event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
+    assert reject_event is not None
+    assert reject_event.meta.get("payload", {}).get("status") == PromoRequestStatus.REJECTED
+
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="activate me",
+        ad_type="banner_home",
+        start_at=timezone.now() - timedelta(hours=1),
+        end_at=timezone.now() + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="asset2",
+        file=SimpleUploadedFile(
+            "state2.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="activate")
+    pr.invoice.status = "paid"
+    pr.invoice.save(update_fields=["status"])
+    activate_after_payment(pr=pr)
+    assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
+    activate_event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
+    assert activate_event is not None
+    assert activate_event.meta.get("payload", {}).get("status") == PromoRequestStatus.ACTIVE
 
 
 def test_calc_quote_uses_db_price_override(user):

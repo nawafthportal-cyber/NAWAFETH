@@ -179,6 +179,12 @@ class DirectThreadGetOrCreateView(APIView):
 
 		provider_user = provider_profile.user
 		me = request.user
+		active_mode = _active_context_mode_from_request(request)
+		desired_mode = (
+			active_mode
+			if active_mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
+			else Thread.ContextMode.SHARED
+		)
 
 		if me.id == provider_user.id:
 			return Response({"error": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
@@ -190,21 +196,16 @@ class DirectThreadGetOrCreateView(APIView):
 				Q(participant_1=me, participant_2=provider_user)
 				| Q(participant_1=provider_user, participant_2=me)
 			)
+			.filter(context_mode=desired_mode)
 			.annotate(last_message_at=Max("messages__created_at"))
 			.order_by("-last_message_at", "-id")
 			.first()
 		)
 
-		# Direct chat must be shared between both account contexts so either
-		# side can see the same thread regardless of active mode.
-		if thread and thread.context_mode != Thread.ContextMode.SHARED:
-			thread.context_mode = Thread.ContextMode.SHARED
-			thread.save(update_fields=["context_mode"])
-
 		if not thread:
 			thread = Thread.objects.create(
 				is_direct=True,
-				context_mode=Thread.ContextMode.SHARED,
+				context_mode=desired_mode,
 				participant_1=me,
 				participant_2=provider_user,
 			)
@@ -313,6 +314,7 @@ class MyDirectThreadsListView(APIView):
 	def get(self, request):
 		from django.db.models import Q, Max
 		me = request.user
+		mode = _active_context_mode_from_request(request)
 		threads = (
 			Thread.objects.filter(is_direct=True)
 			.filter(Q(participant_1=me) | Q(participant_2=me))
@@ -320,6 +322,11 @@ class MyDirectThreadsListView(APIView):
 			.annotate(last_message_at=Max("messages__created_at"))
 			.order_by("-last_message_at")
 		)
+
+		if mode == Thread.ContextMode.CLIENT:
+			threads = threads.filter(context_mode__in=[Thread.ContextMode.CLIENT, Thread.ContextMode.SHARED])
+		elif mode == Thread.ContextMode.PROVIDER:
+			threads = threads.filter(context_mode__in=[Thread.ContextMode.PROVIDER, Thread.ContextMode.SHARED])
 
 		result = []
 		for t in threads:
@@ -382,8 +389,11 @@ class MyThreadStatesListView(APIView):
 
 		q = Q()
 		if mode in {"client", "provider"}:
-			# Direct chats are shared between client/provider contexts.
-			q |= Q(is_direct=True, participant_1=me) | Q(is_direct=True, participant_2=me)
+			direct_q = (
+				(Q(is_direct=True, participant_1=me) | Q(is_direct=True, participant_2=me))
+				& Q(context_mode__in=[mode, Thread.ContextMode.SHARED])
+			)
+			q |= direct_q
 			if mode == "client":
 				q |= Q(request__client=me)
 			else:

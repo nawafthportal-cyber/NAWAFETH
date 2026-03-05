@@ -25,6 +25,11 @@ NOTIFICATION_CATALOG = {
         "tier": NotificationTier.BASIC,
         "default_enabled": True,
     },
+    "promo_status_change": {
+        "title": "تحديث حالة طلب ترويج",
+        "tier": NotificationTier.BASIC,
+        "default_enabled": True,
+    },
     "urgent_request": {
         "title": "إشعار طلب خدمة عاجلة",
         "tier": NotificationTier.BASIC,

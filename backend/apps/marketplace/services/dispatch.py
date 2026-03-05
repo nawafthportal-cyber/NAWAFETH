@@ -107,8 +107,12 @@ def ensure_dispatch_windows_for_urgent_request(service_request: ServiceRequest, 
 
 
 def _eligible_matching_providers(service_request: ServiceRequest):
+    subcategory_ids = service_request.selected_subcategory_ids()
+    if not subcategory_ids:
+        return ProviderProfile.objects.none()
+
     provider_ids = ProviderCategory.objects.filter(
-        subcategory_id=service_request.subcategory_id
+        subcategory_id__in=subcategory_ids
     ).values_list("provider_id", flat=True)
 
     providers = ProviderProfile.objects.select_related("user").filter(

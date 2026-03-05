@@ -202,9 +202,8 @@ const HomePage = (() => {
 
   /* ----------------------------------------------------------
      RENDER: PROVIDERS
-     Flutter: horizontal ListView, 150px wide, cover 70px,
-     avatar(32px)+name+verified row, city, stats row
-  ---------------------------------------------------------- */
+     Home cards: avatar-first compact layout (no cover background)
+   ---------------------------------------------------------- */
   function _renderProviders(providers) {
     if (!$providersList) return;
     if (!providers.length) { _renderProvidersEmpty(); return; }
@@ -212,17 +211,11 @@ const HomePage = (() => {
     const frag = document.createDocumentFragment();
     providers.forEach(p => {
       const profileUrl = ApiClient.mediaUrl(p.profile_image);
-      const coverUrl = ApiClient.mediaUrl(p.cover_image);
       const displayName = (p.display_name || '').trim() || 'مقدم خدمة';
       const initial = displayName.charAt(0) || '؟';
       const providerHref = p.id ? '/provider/' + encodeURIComponent(String(p.id)) + '/' : '/search/';
 
-      const card = UI.el('a', { className: 'provider-card', href: providerHref });
-
-      // Cover
-      const cover = UI.el('div', { className: 'provider-cover' });
-      if (coverUrl) cover.appendChild(UI.lazyImg(coverUrl, displayName));
-      card.appendChild(cover);
+      const card = UI.el('a', { className: 'provider-card no-cover', href: providerHref });
 
       // Info section: avatar + name + verification + rating
       const info = UI.el('div', { className: 'provider-info' });

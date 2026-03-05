@@ -81,6 +81,15 @@ def _infer_attachment_type(uploaded_file) -> str:
 	return "document"
 
 
+def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
+	try:
+		return service_request.selected_subcategory_ids()
+	except Exception:
+		if getattr(service_request, "subcategory_id", None):
+			return [service_request.subcategory_id]
+		return []
+
+
 # ────────────────────────────────────────────────
 # Permissions
 # ────────────────────────────────────────────────
@@ -318,7 +327,10 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "هذا الطلب خارج نطاق مدينتك"},
 					status=status.HTTP_403_FORBIDDEN,
 				)
-			if not ProviderCategory.objects.filter(provider=provider, subcategory_id=service_request.subcategory_id).exists():
+			if not ProviderCategory.objects.filter(
+				provider=provider,
+				subcategory_id__in=_request_subcategory_ids(service_request),
+			).exists():
 				return Response(
 					{"detail": "هذا الطلب لا يطابق تخصصاتك"},
 					status=status.HTTP_403_FORBIDDEN,
@@ -378,11 +390,15 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 				request_type=RequestType.URGENT,
 				provider__isnull=True,
 				status=RequestStatus.NEW,
-				subcategory_id__in=provider_subcats,
+			)
+			.filter(
+				Q(subcategory_id__in=provider_subcats)
+				| Q(subcategories__id__in=provider_subcats)
 			)
 			.filter(Q(city=provider.city) | Q(city=""))
 			.exclude(expires_at__isnull=False, expires_at__lt=now)
 			.order_by("-created_at")
+			.distinct()
 		)
 
 		ready_request_ids = ServiceRequestDispatch.objects.filter(
@@ -416,10 +432,14 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 				request_type=RequestType.COMPETITIVE,
 				provider__isnull=True,
 				status=RequestStatus.NEW,
-				subcategory_id__in=provider_subcats,
+			)
+			.filter(
+				Q(subcategory_id__in=provider_subcats)
+				| Q(subcategories__id__in=provider_subcats)
 			)
 			.filter(Q(city=provider.city) | Q(city=""))
 			.order_by("-created_at")
+			.distinct()
 		)
 
 
@@ -492,7 +512,7 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 
 		if not ProviderCategory.objects.filter(
 			provider=provider,
-			subcategory_id=obj.subcategory_id,
+			subcategory_id__in=_request_subcategory_ids(obj),
 		).exists():
 			raise PermissionDenied("غير مصرح")
 
@@ -728,7 +748,10 @@ class CreateOfferView(APIView):
 				{"detail": "هذا الطلب خارج نطاق مدينتك"},
 				status=status.HTTP_403_FORBIDDEN,
 			)
-		if not ProviderCategory.objects.filter(provider=provider, subcategory_id=service_request.subcategory_id).exists():
+		if not ProviderCategory.objects.filter(
+			provider=provider,
+			subcategory_id__in=_request_subcategory_ids(service_request),
+		).exists():
 			return Response(
 				{"detail": "هذا الطلب لا يطابق تخصصاتك"},
 				status=status.HTTP_403_FORBIDDEN,

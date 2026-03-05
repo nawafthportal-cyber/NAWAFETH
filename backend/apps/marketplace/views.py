@@ -167,6 +167,7 @@ def provider_requests(request):
 
 	qs = (
 		ServiceRequest.objects.select_related("client", "provider", "provider__user", "subcategory")
+		.prefetch_related("subcategories")
 		.order_by("-id")
 	)
 
@@ -193,7 +194,7 @@ def provider_requests(request):
 					)
 				)
 				if sub_ids:
-					qs = qs.filter(subcategory_id__in=sub_ids)
+					qs = qs.filter(Q(subcategory_id__in=sub_ids) | Q(subcategories__id__in=sub_ids)).distinct()
 
 	# فلاتر آمنة
 	if q:

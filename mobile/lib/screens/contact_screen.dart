@@ -44,9 +44,13 @@ class _ContactScreenState extends State<ContactScreen> {
 
   // تحويل اسم الفريق العربي إلى ticket_type
   static const Map<String, String> _teamToTicketType = {
+    'الدعم': 'tech',
+    'الترويج': 'ads',
     'الدعم الفني': 'tech',
+    'المالية': 'subs',
     'الاشتراكات': 'subs',
     'التوثيق': 'verify',
+    'المحتوى': 'suggest',
     'الاقتراحات': 'suggest',
     'الإعلانات': 'ads',
     'الشكاوى والبلاغات': 'complaint',

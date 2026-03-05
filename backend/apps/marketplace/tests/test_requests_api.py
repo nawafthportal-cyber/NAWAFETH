@@ -3,11 +3,100 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.accounts.models import OTP, User
+from apps.accounts.models import OTP, User, UserRole
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.notifications.models import Notification
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
+
+
+@pytest.mark.django_db
+def test_create_request_accepts_subcategory_ids_and_backfills_primary():
+    cat = Category.objects.create(name="خدمات عامة", is_active=True)
+    sub1 = SubCategory.objects.create(category=cat, name="خدمة 1", is_active=True)
+    sub2 = SubCategory.objects.create(category=cat, name="خدمة 2", is_active=True)
+
+    client_user = User.objects.create_user(phone="0500011001", password="Pass12345!")
+    client_user.role_state = UserRole.CLIENT
+    client_user.save(update_fields=["role_state"])
+
+    provider_user = User.objects.create_user(phone="0500011002", password="Pass12345!")
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود متعدد",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    ProviderCategory.objects.get_or_create(provider=provider, subcategory=sub2)
+
+    client = APIClient()
+    client.force_authenticate(user=client_user)
+
+    res = client.post(
+        "/api/marketplace/requests/create/",
+        {
+            "provider": provider.id,
+            "subcategory_ids": [sub1.id, sub2.id],
+            "title": "طلب متعدد",
+            "description": "طلب بتصنيفات فرعية متعددة",
+            "request_type": "normal",
+            "city": "الرياض",
+        },
+        format="json",
+    )
+
+    assert res.status_code == 201
+    sr = ServiceRequest.objects.get(id=res.json()["id"])
+    assert sr.subcategory_id == sub1.id
+    assert set(sr.subcategories.values_list("id", flat=True)) == {sub1.id, sub2.id}
+
+
+@pytest.mark.django_db
+def test_available_competitive_matches_any_selected_subcategory():
+    cat = Category.objects.create(name="تصميم", is_active=True)
+    sub1 = SubCategory.objects.create(category=cat, name="شعار", is_active=True)
+    sub2 = SubCategory.objects.create(category=cat, name="هوية", is_active=True)
+
+    provider_user = User.objects.create_user(phone="0500012001", password="Pass12345!")
+    provider_user.role_state = UserRole.PROVIDER
+    provider_user.save(update_fields=["role_state"])
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود هوية",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    ProviderCategory.objects.get_or_create(provider=provider, subcategory=sub2)
+
+    req_client = User.objects.create_user(phone="0500012002", password="Pass12345!")
+    req_client.role_state = UserRole.CLIENT
+    req_client.save(update_fields=["role_state"])
+
+    sr = ServiceRequest.objects.create(
+        client=req_client,
+        subcategory=sub1,
+        title="طلب تنافسي متعدد",
+        description="desc",
+        request_type="competitive",
+        city="الرياض",
+        status=RequestStatus.NEW,
+    )
+    sr.subcategories.set([sub1.id, sub2.id])
+
+    client = APIClient()
+    client.force_authenticate(user=provider_user)
+    res = client.get("/api/marketplace/provider/competitive/available/")
+
+    assert res.status_code == 200
+    ids = [row["id"] for row in res.data]
+    assert sr.id in ids
 
 
 @pytest.mark.django_db

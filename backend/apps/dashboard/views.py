@@ -200,6 +200,19 @@ def _dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
     return ap.is_allowed(dashboard_code)
 
 
+def _is_promo_operator_user(user) -> bool:
+    if not user or not getattr(user, "is_staff", False):
+        return False
+    ap = getattr(user, "access_profile", None)
+    if not ap:
+        return False
+    if ap.is_revoked() or ap.is_expired():
+        return False
+    if ap.level in {AccessLevel.ADMIN, AccessLevel.POWER}:
+        return True
+    return ap.level == AccessLevel.USER and ap.is_allowed("promo")
+
+
 def _is_active_admin_profile(ap: UserAccessProfile) -> bool:
     if ap.level != AccessLevel.ADMIN:
         return False
@@ -1931,7 +1944,7 @@ def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
             status_label = getattr(t, "get_status_display", lambda: t.status)() or "—"
             team = getattr(getattr(t, "assigned_team", None), "name_ar", "—") or "—"
             assignee = getattr(getattr(t, "assigned_to", None), "phone", "—") or "—"
-            detail_path = f"/dashboard/support/{t.id}/"
+            detail_path = f"/dashboard/promo/inquiries/{t.id}/"
             export_rows.append([code, phone, priority_label, status_label, team, assignee, detail_path])
 
         if _want_csv(request):
@@ -1955,8 +1968,132 @@ def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
             "priority_val": priority_val,
             "status_choices": SupportTicketStatus.choices,
             "priority_choices": SupportTicket._meta.get_field("priority").choices,
+            "can_write": _dashboard_allowed(request.user, "promo", write=True),
         },
     )
+
+
+@staff_member_required
+@dashboard_access_required("promo")
+def promo_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(
+        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to", "last_action_by"),
+        id=ticket_id,
+        ticket_type=SupportTicketType.ADS,
+    )
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    comments = ticket.comments.select_related("created_by").order_by("-id")
+    logs = ticket.status_logs.select_related("changed_by").order_by("-id")
+    teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
+    staff_users = [
+        u
+        for u in User.objects.filter(is_staff=True).order_by("-id")[:300]
+        if _is_promo_operator_user(u)
+    ][:150]
+    can_write = _dashboard_allowed(request.user, "promo", write=True)
+
+    return render(
+        request,
+        "dashboard/support_ticket_detail.html",
+        {
+            "ticket": ticket,
+            "comments": comments,
+            "logs": logs,
+            "teams": teams,
+            "staff_users": staff_users,
+            "status_choices": SupportTicketStatus.choices,
+            "reported_user_profile_url": "",
+            "reported_target_label": "",
+            "reported_target_url": "",
+            "can_write": can_write,
+            "back_url": reverse("dashboard:promo_inquiries_list"),
+            "assign_action_url": reverse("dashboard:promo_assign_action", args=[ticket.id]),
+            "status_action_url": reverse("dashboard:promo_inquiry_status_action", args=[ticket.id]),
+        },
+    )
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    team_id = request.POST.get("assigned_team") or None
+    assigned_to = request.POST.get("assigned_to") or None
+    if request.POST.get("assign_to_me") == "1" and not assigned_to:
+        assigned_to = str(request.user.id)
+
+    note = (request.POST.get("note") or "").strip()
+
+    try:
+        team_id = int(team_id) if team_id else None
+    except Exception:
+        team_id = None
+
+    try:
+        assigned_to = int(assigned_to) if assigned_to else None
+    except Exception:
+        assigned_to = None
+
+    if ap and ap.level == "user":
+        if assigned_to is not None and assigned_to != request.user.id:
+            return HttpResponse("غير مصرح", status=403)
+
+    if assigned_to is not None:
+        assignee = User.objects.filter(id=assigned_to, is_staff=True).first()
+        if not assignee:
+            messages.error(request, "المستخدم المحدد غير صالح")
+            return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+        if not _is_promo_operator_user(assignee):
+            messages.error(request, "لا يمكن التعيين إلا لمستخدم يملك صلاحية promo_operator")
+            return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+
+    try:
+        assign_ticket(ticket=ticket, team_id=team_id, user_id=assigned_to, by_user=request.user, note=note)
+        messages.success(request, "تم تحديث التعيين بنجاح")
+    except Exception:
+        logger.exception("promo_assign_action error")
+        messages.error(request, "تعذر تحديث التعيين")
+
+    next_url = (request.POST.get("next") or "").strip()
+    if next_url.startswith("/"):
+        return redirect(next_url)
+    return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    status_new = (request.POST.get("status") or "").strip()
+    note = (request.POST.get("note") or "").strip()
+    if not status_new:
+        messages.warning(request, "اختر حالة التذكرة")
+        return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+
+    try:
+        change_ticket_status(ticket=ticket, new_status=status_new, by_user=request.user, note=note)
+        messages.success(request, "تم تحديث حالة الاستفسار")
+    except Exception:
+        logger.exception("promo_inquiry_status_action error")
+        messages.error(request, "تعذر تحديث الحالة")
+
+    return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
 
 
 @staff_member_required

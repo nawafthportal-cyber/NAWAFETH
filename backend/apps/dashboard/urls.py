@@ -89,6 +89,9 @@ urlpatterns = [
 
     path("promo/", views.promo_requests_list, name="promo_requests_list"),
     path("promo/inquiries/", views.promo_inquiries_list, name="promo_inquiries_list"),
+    path("promo/inquiries/<int:ticket_id>/", views.promo_inquiry_detail, name="promo_inquiry_detail"),
+    path("promo/inquiries/<int:ticket_id>/actions/assign/", views.promo_assign_action, name="promo_assign_action"),
+    path("promo/inquiries/<int:ticket_id>/actions/status/", views.promo_inquiry_status_action, name="promo_inquiry_status_action"),
     path("promo/pricing/", views.promo_pricing, name="promo_pricing"),
     path("promo/pricing/actions/update/", views.promo_pricing_update_action, name="promo_pricing_update_action"),
     path("promo/<int:promo_id>/", views.promo_request_detail, name="promo_request_detail"),

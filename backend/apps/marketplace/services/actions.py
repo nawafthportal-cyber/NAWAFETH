@@ -41,6 +41,7 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
 
     if is_client:
         if sr.status == RequestStatus.NEW:
+            acts.append("send")
             acts.append("cancel")
             has_provider_inputs = any(
                 [
@@ -91,6 +92,14 @@ def execute_action(
     )
 
     is_staff, is_client, is_provider = _role_flags(user, sr)
+
+    # send — backward-compatible no-op for competitive/new flow
+    if action == "send":
+        if not (is_staff or is_client):
+            raise PermissionDenied("غير مصرح")
+        if sr.status != RequestStatus.NEW:
+            raise ValidationError("لا يمكن إرسال الطلب في هذه الحالة")
+        return ActionResult(True, "تم إرسال الطلب", sr.status)
 
     # cancel — client: NEW only; provider: NEW+IN_PROGRESS; staff: NEW+IN_PROGRESS
     if action == "cancel":

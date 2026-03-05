@@ -6,6 +6,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus
+from apps.notifications.models import EventType
+from apps.notifications.services import create_notification
 
 from .models import (
     PromoRequest, PromoRequestStatus,
@@ -23,6 +25,43 @@ def _promo_status_to_unified(status: str) -> str:
     }:
         return "completed"
     return "new"
+
+
+def _promo_status_label(status: str) -> str:
+    return {
+        PromoRequestStatus.NEW: "جديد",
+        PromoRequestStatus.IN_REVIEW: "قيد المراجعة",
+        PromoRequestStatus.QUOTED: "تم التسعير",
+        PromoRequestStatus.PENDING_PAYMENT: "بانتظار الدفع",
+        PromoRequestStatus.ACTIVE: "مفعل",
+        PromoRequestStatus.REJECTED: "مرفوض",
+        PromoRequestStatus.EXPIRED: "منتهي",
+        PromoRequestStatus.CANCELLED: "ملغي",
+    }.get(status, status)
+
+
+def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) -> None:
+    try:
+        code_or_id = (pr.code or str(pr.id)).strip()
+        create_notification(
+            user=pr.requester,
+            title="تحديث حالة الترويج",
+            body=f"تم تحديث حالة طلب الترويج ({code_or_id}) إلى {_promo_status_label(status)}.",
+            kind="promo_status_change",
+            url=f"/promo/requests/{pr.id}/",
+            actor=actor,
+            event_type=EventType.STATUS_CHANGED,
+            request_id=pr.id,
+            meta={
+                "payload": {"status": status},
+                "status": status,
+                "promo_request_id": pr.id,
+                "promo_code": code_or_id,
+            },
+            pref_key="promo_status_change",
+        )
+    except Exception:
+        pass
 
 
 def _sync_promo_to_unified(*, pr: PromoRequest, changed_by=None):
@@ -126,6 +165,7 @@ def expire_due_promos(*, now=None) -> int:
         pr.status = PromoRequestStatus.EXPIRED
         pr.save(update_fields=["status", "updated_at"])
         _sync_promo_to_unified(pr=pr, changed_by=None)
+        _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=None)
     return count
 
 
@@ -162,12 +202,13 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
 
         pr.invoice = inv
 
-    pr.status = PromoRequestStatus.PENDING_PAYMENT
+    pr.status = PromoRequestStatus.QUOTED
     pr.save(update_fields=[
         "subtotal", "total_days", "quote_note",
         "reviewed_at", "invoice", "status", "updated_at"
     ])
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
+    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.QUOTED, actor=by_user)
     return pr
 
 
@@ -179,6 +220,7 @@ def reject_request(*, pr: PromoRequest, reason: str, by_user) -> PromoRequest:
     pr.reviewed_at = timezone.now()
     pr.save(update_fields=["status", "reject_reason", "reviewed_at", "updated_at"])
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
+    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.REJECTED, actor=by_user)
     return pr
 
 
@@ -196,12 +238,14 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
         pr.status = PromoRequestStatus.EXPIRED
         pr.save(update_fields=["status", "updated_at"])
         _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
+        _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=pr.requester)
         return pr
 
     pr.status = PromoRequestStatus.ACTIVE
     pr.activated_at = now
     pr.save(update_fields=["status", "activated_at", "updated_at"])
     _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
+    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.ACTIVE, actor=pr.requester)
 
     # Audit
     try:

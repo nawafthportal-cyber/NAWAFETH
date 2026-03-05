@@ -261,11 +261,19 @@ const ProviderDetailPage = (() => {
     // ── Cover ──
     const coverEl = document.getElementById('pd-cover');
     const coverImage = _pickFirstText(p.cover_image, p.coverImage);
-    const existingCover = coverEl ? coverEl.querySelector('img.pd-cover-media') : null;
-    if (existingCover) existingCover.remove();
+    if (coverEl) {
+      coverEl.querySelectorAll('img.pd-cover-media, img.pd-cover-bg').forEach((img) => img.remove());
+    }
     if (coverImage && coverEl) {
-      const img = UI.lazyImg(ApiClient.mediaUrl(coverImage), 'غلاف');
+      const coverUrl = ApiClient.mediaUrl(coverImage);
+      const bg = UI.lazyImg(coverUrl, '');
+      bg.className = 'pd-cover-bg';
+      bg.setAttribute('aria-hidden', 'true');
+
+      const img = UI.lazyImg(coverUrl, 'غلاف');
       img.className = 'pd-cover-media';
+
+      coverEl.insertBefore(bg, coverEl.firstChild);
       coverEl.insertBefore(img, coverEl.firstChild);
       coverEl.classList.add('has-media');
     } else if (coverEl) {

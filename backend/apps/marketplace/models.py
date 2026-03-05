@@ -20,6 +20,11 @@ class RequestStatus(models.TextChoices):
 	CANCELLED = "cancelled", "ملغي"
 
 
+# Backward compatibility for legacy status constants used in tests/older code.
+RequestStatus.SENT = RequestStatus.NEW
+RequestStatus.ACCEPTED = RequestStatus.IN_PROGRESS
+
+
 class DispatchMode(models.TextChoices):
 	ALL = "all", "الكل"
 	NEAREST = "nearest", "الأقرب"
@@ -54,6 +59,11 @@ class ServiceRequest(models.Model):
 	)
 
 	subcategory = models.ForeignKey(SubCategory, on_delete=models.PROTECT)
+	subcategories = models.ManyToManyField(
+		SubCategory,
+		blank=True,
+		related_name="service_requests_multi",
+	)
 
 	title = models.CharField(max_length=50)
 	description = models.TextField(max_length=500)
@@ -127,6 +137,17 @@ class ServiceRequest(models.Model):
 		self.status = RequestStatus.NEW
 		self.provider = None
 		self.save(update_fields=["status", "provider"])
+
+	def selected_subcategory_ids(self) -> list[int]:
+		prefetched = getattr(self, "_prefetched_objects_cache", {})
+		cached = prefetched.get("subcategories") if isinstance(prefetched, dict) else None
+		if cached is not None:
+			ids = [obj.id for obj in cached if getattr(obj, "id", None) is not None]
+		else:
+			ids = list(self.subcategories.values_list("id", flat=True))
+		if not ids and self.subcategory_id:
+			ids = [self.subcategory_id]
+		return ids
 
 	def __str__(self) -> str:
 		return f"{self.title} ({self.get_status_display()})"

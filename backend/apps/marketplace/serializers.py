@@ -1,10 +1,14 @@
 from rest_framework import serializers
 
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
-from apps.providers.models import ProviderCategory, ProviderProfile
+from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
 
 
 class ServiceRequestCreateSerializer(serializers.ModelSerializer):
+    subcategory = serializers.PrimaryKeyRelatedField(
+        queryset=SubCategory.objects.filter(is_active=True),
+        required=False,
+    )
     city = serializers.CharField(required=False, allow_blank=True)
     dispatch_mode = serializers.ChoiceField(
         choices=("all", "nearest"),
@@ -27,6 +31,11 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
     )
     audio = serializers.FileField(required=False, write_only=True)
     quote_deadline = serializers.DateField(required=False, allow_null=True)
+    subcategory_ids = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = ServiceRequest
@@ -34,6 +43,7 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
             "id",
             "provider",
             "subcategory",
+            "subcategory_ids",
             "title",
             "description",
             "request_type",
@@ -57,7 +67,34 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         city = (attrs.get("city") or "").strip()
         dispatch_mode = (attrs.get("dispatch_mode") or "all").strip().lower()
         subcategory = attrs.get("subcategory")
+        subcategory_ids = list(attrs.get("subcategory_ids") or [])
         attrs["city"] = city
+
+        if subcategory is not None and subcategory.id not in subcategory_ids:
+            subcategory_ids = [subcategory.id, *subcategory_ids]
+
+        if not subcategory_ids and subcategory is not None:
+            subcategory_ids = [subcategory.id]
+
+        normalized_ids: list[int] = []
+        for sub_id in subcategory_ids:
+            if sub_id not in normalized_ids:
+                normalized_ids.append(sub_id)
+
+        if not normalized_ids:
+            raise serializers.ValidationError({"subcategory": "الرجاء اختيار تصنيف فرعي واحد على الأقل"})
+
+        active_subcategories = {
+            row.id: row
+            for row in SubCategory.objects.filter(id__in=normalized_ids, is_active=True)
+        }
+        invalid_ids = [sub_id for sub_id in normalized_ids if sub_id not in active_subcategories]
+        if invalid_ids:
+            raise serializers.ValidationError({"subcategory_ids": "توجد تصنيفات فرعية غير صالحة"})
+
+        primary_subcategory = active_subcategories[normalized_ids[0]]
+        attrs["subcategory"] = primary_subcategory
+        attrs["_selected_subcategory_ids"] = normalized_ids
 
         # City rules:
         # - urgent + nearest: required
@@ -85,11 +122,12 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "city": "مدينة الطلب لا تطابق مدينة مزود الخدمة"
                 })
-            if subcategory is not None and not ProviderCategory.objects.filter(
-                provider=provider, subcategory=subcategory
+            if not ProviderCategory.objects.filter(
+                provider=provider,
+                subcategory_id__in=normalized_ids,
             ).exists():
                 raise serializers.ValidationError({
-                    "subcategory": "مزود الخدمة لا يدعم هذا التصنيف"
+                    "subcategory_ids": "مزود الخدمة لا يدعم أيًا من التصنيفات المختارة"
                 })
 
         return attrs
@@ -99,8 +137,12 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         videos = validated_data.pop("videos", [])
         files = validated_data.pop("files", [])
         audio = validated_data.pop("audio", None)
+        validated_data.pop("subcategory_ids", None)
+        selected_subcategory_ids = list(validated_data.pop("_selected_subcategory_ids", []))
 
         request = super().create(validated_data)
+        if selected_subcategory_ids:
+            request.subcategories.set(selected_subcategory_ids)
 
         # Save attachments
         attachments = []
@@ -147,6 +189,7 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     client_name = serializers.SerializerMethodField()
     provider_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_phone = serializers.CharField(source="provider.user.phone", read_only=True)
+    subcategory_ids = serializers.SerializerMethodField()
     status_group = serializers.SerializerMethodField()
     status_label = serializers.SerializerMethodField()
     review_id = serializers.SerializerMethodField()
@@ -187,6 +230,14 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
         last = (getattr(obj.client, "last_name", "") or "").strip()
         name = f"{first} {last}".strip()
         return name or "-"
+
+    def get_subcategory_ids(self, obj):
+        try:
+            return obj.selected_subcategory_ids()
+        except Exception:
+            if getattr(obj, "subcategory_id", None):
+                return [obj.subcategory_id]
+            return []
 
     def _review_attr(self, obj, attr):
         try:
@@ -258,6 +309,7 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
             "review_on_time",
             "review_comment",
             "subcategory",
+            "subcategory_ids",
             "subcategory_name",
             "category_name",
             "client_name",
