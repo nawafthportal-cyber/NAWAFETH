@@ -67,6 +67,29 @@ BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
 }
 
 
+DEFAULT_VERIFY_FEES_BY_TIER: dict[str, dict[str, str]] = {
+    "basic": {
+        VerificationBadgeType.BLUE: "100.00",
+        VerificationBadgeType.GREEN: "100.00",
+    },
+    "riyadi": {
+        VerificationBadgeType.BLUE: "50.00",
+        VerificationBadgeType.GREEN: "50.00",
+    },
+    "pro": {
+        VerificationBadgeType.BLUE: "0.00",
+        VerificationBadgeType.GREEN: "0.00",
+    },
+}
+
+
+PLAN_TIER_LABELS: dict[str, str] = {
+    "basic": "أساسية",
+    "riyadi": "ريادية",
+    "pro": "احترافية",
+}
+
+
 def get_public_badge_detail(badge_type: str):
     bt = (badge_type or "").strip().lower()
     definition = BADGE_PUBLIC_DEFINITIONS.get(bt)
@@ -239,20 +262,78 @@ def _fee_for_badge(badge_type: str) -> Decimal:
     return Decimal(str(blue_fee))
 
 
-def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
-    """
-    رسوم التوثيق حسب الباقة (إن وُجدت) مع fallback للرسوم الثابتة.
+def _normalize_verify_matrix(raw_matrix, *, key_case: str):
+    out = {}
+    for key, raw_value in (raw_matrix or {}).items():
+        normalized_key = str(key).strip()
+        normalized_key = normalized_key.upper() if key_case == "upper" else normalized_key.lower()
 
-    settings.VERIFY_FEES_BY_PLAN مثال:
-    {
-        "BASIC": {"blue": "120.00", "green": "60.00"},
-        "PRO": {"blue": "80.00", "green": "40.00"},
+        if isinstance(raw_value, dict):
+            out[normalized_key] = {
+                str(inner_key).strip().lower(): inner_value
+                for inner_key, inner_value in raw_value.items()
+            }
+        else:
+            out[normalized_key] = raw_value
+    return out
+
+
+def _resolve_verify_amount(entry, badge_type: str):
+    if isinstance(entry, dict):
+        normalized_badge = str(badge_type).strip().lower()
+        for key in (normalized_badge, str(badge_type).strip(), "default"):
+            if key in entry:
+                return entry[key]
+        return None
+    return entry
+
+
+def verification_pricing_for_plan(plan=None) -> dict[str, object]:
+    try:
+        from apps.subscriptions.services import plan_to_tier
+    except Exception:
+        plan_to_tier = None
+
+    plan_code = ((getattr(plan, "code", "") or "") if plan else "").strip().upper()
+    plan_tier = (
+        plan_to_tier(plan) if plan_to_tier and plan is not None else "basic"
+    )
+    normalized_tier = str(plan_tier or "basic").strip().lower() or "basic"
+
+    raw_plan_matrix = getattr(settings, "VERIFY_FEES_BY_PLAN", {}) or {}
+    plan_matrix = _normalize_verify_matrix(raw_plan_matrix, key_case="upper")
+    raw_tier_matrix = getattr(settings, "VERIFY_FEES_BY_TIER", DEFAULT_VERIFY_FEES_BY_TIER) or DEFAULT_VERIFY_FEES_BY_TIER
+    tier_matrix = _normalize_verify_matrix(raw_tier_matrix, key_case="lower")
+
+    prices = {}
+    for badge_type in (VerificationBadgeType.BLUE, VerificationBadgeType.GREEN):
+        amount = _resolve_verify_amount(plan_matrix.get(plan_code), badge_type) if plan_code else None
+        if amount is None:
+            amount = _resolve_verify_amount(tier_matrix.get(normalized_tier), badge_type)
+        if amount is None:
+            amount = _fee_for_badge(badge_type)
+        amount_decimal = Decimal(str(amount))
+        prices[badge_type] = {
+            "badge_type": badge_type,
+            "amount": str(amount_decimal.quantize(Decimal("0.01"))),
+            "is_free": amount_decimal <= Decimal("0.00"),
+            "requires_payment": amount_decimal > Decimal("0.00"),
+        }
+
+    return {
+        "plan_code": plan_code.lower(),
+        "tier": normalized_tier,
+        "tier_label": PLAN_TIER_LABELS.get(normalized_tier, normalized_tier),
+        "currency": "SAR",
+        "prices": prices,
     }
-    """
+
+
+def verification_pricing_for_user(user) -> dict[str, object]:
     try:
         from apps.subscriptions.models import Subscription, SubscriptionStatus
     except Exception:
-        return _fee_for_badge(badge_type)
+        return verification_pricing_for_plan(None)
 
     active_sub = (
         Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE)
@@ -260,20 +341,33 @@ def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
         .order_by("-id")
         .first()
     )
-    if not active_sub or not getattr(active_sub, "plan", None):
-        return _fee_for_badge(badge_type)
+    pricing = verification_pricing_for_plan(getattr(active_sub, "plan", None))
+    pricing["has_active_subscription"] = active_sub is not None
+    if active_sub is not None:
+        pricing["subscription_id"] = active_sub.id
+    return pricing
 
-    plan_code = ((active_sub.plan.code or "") if active_sub.plan else "").strip().upper()
-    if not plan_code:
-        return _fee_for_badge(badge_type)
 
-    raw_matrix = getattr(settings, "VERIFY_FEES_BY_PLAN", {}) or {}
-    # Normalize top-level keys to uppercase for safer matching.
-    matrix = {str(k).strip().upper(): (v or {}) for k, v in raw_matrix.items()}
-    plan_fees = matrix.get(plan_code, {}) or {}
-    amount = plan_fees.get(badge_type)
-    if amount is None:
-        amount = plan_fees.get(str(badge_type).lower())
+def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
+    """
+    رسوم التوثيق منفصلة عن الاشتراك، لكن الاشتراك يؤثر على سعرها.
+
+    settings.VERIFY_FEES_BY_PLAN مثال:
+    {
+        "BASIC": {"blue": "120.00", "green": "60.00"},
+        "PRO": {"blue": "80.00", "green": "40.00"},
+    }
+
+    settings.VERIFY_FEES_BY_TIER مثال:
+    {
+        "basic": "100.00",
+        "riyadi": "50.00",
+        "pro": "0.00",
+    }
+    """
+    pricing = verification_pricing_for_user(user)
+    entry = (pricing.get("prices") or {}).get(badge_type, {})
+    amount = (entry or {}).get("amount")
     if amount is None:
         return _fee_for_badge(badge_type)
     return Decimal(str(amount))
@@ -308,7 +402,9 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
     - كل المستندات تم اتخاذ قرار عليها
     - ولا يوجد أي مستند مرفوض
     ثم:
-    - إنشاء فاتورة + تحويل الطلب إلى pending_payment
+    - إنشاء فاتورة
+    - تحويل الطلب إلى pending_payment إذا كانت الرسوم أكبر من صفر
+    - أو تفعيل الشارة مباشرة إذا كانت الرسوم مجانية حسب الباقة
     """
     vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
 
@@ -358,6 +454,8 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
 
     # Create invoice with line items per approved requirement.
     if not vr.invoice_id:
+        pricing_snapshot = verification_pricing_for_user(vr.requester)
+        pricing_by_badge = pricing_snapshot.get("prices") or {}
         inv = Invoice.objects.create(
             user=vr.requester,
             title="رسوم التوثيق",
@@ -368,7 +466,8 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
             status=InvoiceStatus.DRAFT,
         )
         for idx, item in enumerate(approved_items):
-            fee = _fee_for_user_and_badge(vr.requester, item.badge_type)
+            fee_payload = pricing_by_badge.get(item.badge_type) or {}
+            fee = Decimal(str(fee_payload.get("amount", _fee_for_badge(item.badge_type))))
             InvoiceLineItem.objects.create(
                 invoice=inv,
                 item_code=item.code,
@@ -376,12 +475,21 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
                 amount=fee,
                 sort_order=idx,
             )
-        inv.mark_pending()
-        inv.save(update_fields=["status", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
+        inv.recalc()
 
         vr.invoice = inv
-        vr.status = VerificationStatus.PENDING_PAYMENT
-        vr.save(update_fields=["invoice", "status", "updated_at"])
+        vr.save(update_fields=["invoice", "updated_at"])
+
+        if inv.total > Decimal("0.00"):
+            inv.mark_pending()
+            inv.save(update_fields=["status", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
+
+            vr.status = VerificationStatus.PENDING_PAYMENT
+            vr.save(update_fields=["status", "updated_at"])
+        else:
+            inv.mark_paid(when=timezone.now())
+            inv.save(update_fields=["status", "paid_at", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
+            vr = activate_after_payment(vr=vr)
 
     _sync_verification_to_unified(vr=vr, changed_by=by_user)
     return vr

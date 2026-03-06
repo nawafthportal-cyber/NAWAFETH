@@ -25,9 +25,8 @@ class _PlansScreenState extends State<PlansScreen> {
   String _translateFeatureKey(String key) {
     switch (key.trim().toLowerCase()) {
       case 'verify_blue':
-        return 'توثيق (شارة زرقاء)';
       case 'verify_green':
-        return 'توثيق (شارة خضراء)';
+        return 'رسوم التوثيق تعتمد على فئة الباقة';
       case 'promo_ads':
         return 'إعلانات وترويج';
       case 'priority_support':
@@ -53,7 +52,7 @@ class _PlansScreenState extends State<PlansScreen> {
 
     final rawFeatures = plan['features'];
     if (rawFeatures is! List) return const <String>[];
-    return rawFeatures
+    final extracted = rawFeatures
         .map((item) {
           if (item is String) return _translateFeatureKey(item);
           if (item is Map) {
@@ -63,6 +62,7 @@ class _PlansScreenState extends State<PlansScreen> {
         })
         .where((item) => item.isNotEmpty)
         .toList();
+    return extracted.toSet().toList();
   }
 
   @override

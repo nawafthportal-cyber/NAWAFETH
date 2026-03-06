@@ -39,3 +39,25 @@ def test_my_features(api, user):
     r = api.get("/api/features/my/")
     assert r.status_code == 200
     assert r.data["promo_ads"] is True
+
+
+def test_my_features_does_not_treat_verification_as_subscription_feature(api, user):
+    plan = SubscriptionPlan.objects.create(
+        code="VERIFY_ONLY",
+        title="Verify Only",
+        period=PlanPeriod.MONTH,
+        price=Decimal("10.00"),
+        features=["verify_blue", "verify_green"],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
+
+    api.force_authenticate(user=user)
+    r = api.get("/api/features/my/")
+    assert r.status_code == 200
+    assert r.data["verify_blue"] is False
+    assert r.data["verify_green"] is False

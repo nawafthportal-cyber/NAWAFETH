@@ -156,11 +156,16 @@ def user_has_feature(user, key: str) -> bool:
     """
     هل المستخدم لديه ميزة ضمن اشتراكه النشط؟
     """
+    normalized_key = (key or "").strip().lower()
+    # التوثيق مستقل عن الاشتراك؛ الباقة تؤثر على الرسوم فقط.
+    if normalized_key in {"verify_blue", "verify_green"}:
+        return False
+
     active = Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE).select_related("plan").order_by("-id").first()
     if not active:
         return False
-    features = active.plan.features or []
-    return key in features
+    features = {str(item or "").strip().lower() for item in (active.plan.features or [])}
+    return normalized_key in features
 
 
 def plan_to_tier(plan: SubscriptionPlan | None) -> str:

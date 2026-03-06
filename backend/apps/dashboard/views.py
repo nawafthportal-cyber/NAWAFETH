@@ -46,6 +46,7 @@ from apps.verification.services import (
     finalize_request_and_create_invoice,
     decide_requirement,
     activate_after_payment as activate_verification_after_payment,
+    verification_pricing_for_plan,
     sync_provider_badges,
 )
 from apps.subscriptions.models import Subscription, SubscriptionStatus, SubscriptionPlan, FeatureKey
@@ -3655,15 +3656,42 @@ def subscription_plans_compare(request: HttpRequest) -> HttpResponse:
 
     plans = list(SubscriptionPlan.objects.filter(is_active=True).order_by("price", "id"))
     feature_labels = dict(FeatureKey.choices)
+    verification_keys = {"verify_blue", "verify_green"}
     all_keys = []
     seen = set()
     for p in plans:
         for key in (p.features or []):
+            if key in verification_keys:
+                continue
             if key not in seen:
                 seen.add(key)
                 all_keys.append(key)
 
     rows = []
+    def _pricing_cell(plan: SubscriptionPlan, badge_type: str) -> str:
+        prices = (verification_pricing_for_plan(plan).get("prices") or {})
+        amount = ((prices.get(badge_type) or {}).get("amount") or "100.00")
+        return "مجاني" if str(amount) == "0.00" else f"{amount} ر.س"
+
+    rows.extend(
+        [
+            {
+                "key": "subscription_tier",
+                "label": "فئة الباقة",
+                "values": [verification_pricing_for_plan(p).get("tier_label", "أساسية") for p in plans],
+            },
+            {
+                "key": "verification_blue_fee",
+                "label": "رسوم التوثيق الأزرق",
+                "values": [_pricing_cell(p, "blue") for p in plans],
+            },
+            {
+                "key": "verification_green_fee",
+                "label": "رسوم التوثيق الأخضر",
+                "values": [_pricing_cell(p, "green") for p in plans],
+            },
+        ]
+    )
     for key in all_keys:
         rows.append(
             {
@@ -4161,14 +4189,27 @@ def features_overview(request: HttpRequest) -> HttpResponse:
         users_qs = users_qs.filter(Q(phone__icontains=q) | Q(username__icontains=q) | Q(email__icontains=q))
     paginator = Paginator(users_qs, 20)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
+    page_user_ids = [user.id for user in page_obj.object_list]
+    active_subscriptions = (
+        Subscription.objects.filter(user_id__in=page_user_ids, status=SubscriptionStatus.ACTIVE)
+        .select_related("plan")
+        .order_by("user_id", "-id")
+    )
+    active_sub_by_user_id: dict[int, Subscription] = {}
+    for sub in active_subscriptions:
+        active_sub_by_user_id.setdefault(sub.user_id, sub)
 
     rows = []
     for user in page_obj.object_list:
+        active_sub = active_sub_by_user_id.get(user.id)
+        pricing = verification_pricing_for_plan(getattr(active_sub, "plan", None))
+        prices = pricing.get("prices") or {}
         rows.append(
             {
                 "user": user,
-                "verify_blue": has_feature(user, "verify_blue"),
-                "verify_green": has_feature(user, "verify_green"),
+                "subscription_tier": pricing.get("tier_label", "أساسية"),
+                "verify_blue_fee": ((prices.get("blue") or {}).get("amount") or "100.00"),
+                "verify_green_fee": ((prices.get("green") or {}).get("amount") or "100.00"),
                 "promo_ads": has_feature(user, "promo_ads"),
                 "priority_support": has_feature(user, "priority_support"),
                 "extra_uploads": has_feature(user, "extra_uploads"),
@@ -4181,8 +4222,9 @@ def features_overview(request: HttpRequest) -> HttpResponse:
             [
                 row["user"].id,
                 row["user"].phone or "",
-                row["verify_blue"],
-                row["verify_green"],
+                row["subscription_tier"],
+                row["verify_blue_fee"],
+                row["verify_green_fee"],
                 row["promo_ads"],
                 row["priority_support"],
                 row["extra_uploads"],
@@ -4192,7 +4234,7 @@ def features_overview(request: HttpRequest) -> HttpResponse:
         ]
         return _csv_response(
             "features_overview.csv",
-            ["user_id", "phone", "verify_blue", "verify_green", "promo_ads", "priority_support", "extra_uploads", "max_upload_mb"],
+            ["user_id", "phone", "subscription_tier", "verify_blue_fee", "verify_green_fee", "promo_ads", "priority_support", "extra_uploads", "max_upload_mb"],
             csv_rows,
         )
 

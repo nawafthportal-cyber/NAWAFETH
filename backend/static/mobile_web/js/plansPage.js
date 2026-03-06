@@ -62,6 +62,39 @@ const PlansPage = (() => {
     }
   }
 
+  function _featureLabel(feature) {
+    switch (String(feature || '').trim().toLowerCase()) {
+      case 'verify_blue':
+      case 'verify_green':
+        return 'رسوم التوثيق تعتمد على فئة الباقة';
+      case 'promo_ads':
+        return 'إعلانات وترويج';
+      case 'priority_support':
+        return 'دعم أولوية';
+      case 'extra_uploads':
+        return 'سعة مرفقات إضافية';
+      case 'advanced_analytics':
+        return 'تحليلات متقدمة';
+      default:
+        return String(feature || '').replace(/_/g, ' ').trim();
+    }
+  }
+
+  function _extractFeatures(plan) {
+    const source = (Array.isArray(plan.feature_labels) && plan.feature_labels.length)
+      ? plan.feature_labels
+      : (plan.features || plan.feature_list || []);
+    const out = [];
+    source.forEach(item => {
+      let label = '';
+      if (typeof item === 'string') label = _featureLabel(item);
+      else if (item && typeof item === 'object') label = String(item.name || item.title || '').trim();
+      else label = String(item || '').trim();
+      if (label && !out.includes(label)) out.push(label);
+    });
+    return out;
+  }
+
   function init() {
     if (!Auth.isLoggedIn()) {
       document.getElementById('auth-gate').style.display = '';
@@ -102,12 +135,7 @@ const PlansPage = (() => {
     card.className = 'plan-card';
     if (index === 1) card.classList.add('plan-featured'); // 2nd plan highlighted
 
-    const features = (
-      plan.feature_labels ||
-      plan.features ||
-      plan.feature_list ||
-      []
-    );
+    const features = _extractFeatures(plan);
     const featureHtml = features.map(f =>
       `<li class="plan-feature"><svg width="16" height="16" viewBox="0 0 24 24" fill="#4CAF50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>${UI.text(typeof f === 'string' ? f : f.name || f.title || '')}</li>`
     ).join('');

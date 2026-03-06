@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:animate_do/animate_do.dart';
 import '../constants/colors.dart';
+import '../services/api_client.dart';
 import '../services/content_service.dart';
+import '../widgets/content_block_media.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -12,42 +14,65 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class OnboardItem {
-  final Widget icon; // ✅ هنا صار ويدجت مش IconData بس عشان نستعمل شعار مخصص
+  final Widget icon;
   final String title;
   final String desc;
+  final String? mediaUrl;
+  final String mediaType;
 
-  OnboardItem(this.icon, this.title, this.desc);
+  const OnboardItem({
+    required this.icon,
+    required this.title,
+    required this.desc,
+    this.mediaUrl,
+    this.mediaType = '',
+  });
+
+  OnboardItem copyWith({
+    Widget? icon,
+    String? title,
+    String? desc,
+    String? mediaUrl,
+    String? mediaType,
+  }) {
+    return OnboardItem(
+      icon: icon ?? this.icon,
+      title: title ?? this.title,
+      desc: desc ?? this.desc,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      mediaType: mediaType ?? this.mediaType,
+    );
+  }
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  // ✅ الصفحات الثلاثة (قابلة للتحديث من API)
+  // الصفحات الثلاثة (قابلة للتحديث من API)
   late List<OnboardItem> onboardingData = [
-    OnboardItem(
-      // شعار التطبيق ✅
-      const Icon(Icons.widgets, size: 80, color: AppColors.deepPurple),
-      "مرحبا بك في نوافذ",
-      "منصتك الأولى لربط العملاء بمقدمي الخدمات.",
+    const OnboardItem(
+      icon: Icon(Icons.widgets, size: 80, color: AppColors.deepPurple),
+      title: "مرحبا بك في نوافذ",
+      desc: "منصتك الأولى لربط العملاء بمقدمي الخدمات.",
     ),
-    OnboardItem(
-      const FaIcon(
+    const OnboardItem(
+      icon: FaIcon(
         FontAwesomeIcons.users,
         size: 80,
         color: AppColors.deepPurple,
       ),
-      "لكل عميل ومقدم خدمة",
-      "اختر خدماتك أو اعرض خبراتك وابدأ التواصل مباشرة.",
+      title: "لكل عميل ومقدم خدمة",
+      desc: "اختر خدماتك أو اعرض خبراتك وابدأ التواصل مباشرة.",
     ),
-    OnboardItem(
-      const FaIcon(
+    const OnboardItem(
+      icon: FaIcon(
         FontAwesomeIcons.bolt,
         size: 80,
         color: AppColors.deepPurple,
       ),
-      "انطلق الآن",
-      "جرب تجربة سلسة وسريعة لتصل لما تريد خلال ثوانٍ.",
+      title: "انطلق الآن",
+      desc: "جرب تجربة سلسة وسريعة لتصل لما تريد خلال ثوانٍ.",
     ),
   ];
 
@@ -70,40 +95,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final intro = blocks['onboarding_intro'];
 
         setState(() {
-          // الصفحة الأولى ← onboarding_first_time
           if (firstTime is Map<String, dynamic>) {
-            final title =
-                (firstTime['title_ar'] as String?)?.trim() ?? '';
-            final body =
-                (firstTime['body_ar'] as String?)?.trim() ?? '';
-            if (title.isNotEmpty || body.isNotEmpty) {
-              onboardingData[0] = OnboardItem(
-                onboardingData[0].icon,
-                title.isNotEmpty ? title : onboardingData[0].title,
-                body.isNotEmpty ? body : onboardingData[0].desc,
-              );
-            }
+            onboardingData[0] = _mergeApiBlock(onboardingData[0], firstTime);
           }
 
-          // الصفحة الثانية ← onboarding_intro
           if (intro is Map<String, dynamic>) {
-            final title =
-                (intro['title_ar'] as String?)?.trim() ?? '';
-            final body =
-                (intro['body_ar'] as String?)?.trim() ?? '';
-            if (title.isNotEmpty || body.isNotEmpty) {
-              onboardingData[1] = OnboardItem(
-                onboardingData[1].icon,
-                title.isNotEmpty ? title : onboardingData[1].title,
-                body.isNotEmpty ? body : onboardingData[1].desc,
-              );
-            }
+            onboardingData[1] = _mergeApiBlock(onboardingData[1], intro);
           }
         });
       }
     } catch (_) {
-      // fallback إلى النصوص الثابتة — لا شيء
+      // fallback إلى النصوص الثابتة
     }
+  }
+
+  OnboardItem _mergeApiBlock(OnboardItem fallback, Map<String, dynamic> block) {
+    final title = (block['title_ar'] as String?)?.trim() ?? '';
+    final body = (block['body_ar'] as String?)?.trim() ?? '';
+    final mediaUrl = ApiClient.buildMediaUrl(block['media_url']?.toString());
+    final mediaType = (block['media_type'] as String?)?.trim() ?? '';
+
+    return fallback.copyWith(
+      title: title.isNotEmpty ? title : fallback.title,
+      desc: body.isNotEmpty ? body : fallback.desc,
+      mediaUrl: (mediaUrl ?? '').isNotEmpty ? mediaUrl : fallback.mediaUrl,
+      mediaType: mediaType.isNotEmpty ? mediaType : fallback.mediaType,
+    );
   }
 
   void _nextPage() {
@@ -139,7 +156,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
                 itemBuilder: (context, index) {
                   final item = onboardingData[index];
-                  return _buildPage(item.icon, item.title, item.desc);
+                  return _buildPage(
+                    item: item,
+                    isActive: index == _currentPage,
+                  );
                 },
               ),
             ),
@@ -150,27 +170,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildPage(Widget iconWidget, String title, String desc) {
+  Widget _buildPage({
+    required OnboardItem item,
+    required bool isActive,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           BounceInDown(
-            child: Container(
-              padding: const EdgeInsets.all(28),
-              decoration: BoxDecoration(
-                color: Colors.deepPurple.shade50,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.deepPurple.withOpacity(0.2),
-                    blurRadius: 20,
-                    spreadRadius: 2,
-                  ),
-                ],
+            child: ContentBlockMedia(
+              mediaUrl: item.mediaUrl,
+              mediaType: item.mediaType,
+              isActive: isActive,
+              borderRadius: 32,
+              aspectRatio: 1,
+              fallback: Container(
+                width: 168,
+                height: 168,
+                padding: const EdgeInsets.all(28),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.shade50,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.deepPurple.withValues(alpha: 0.2),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Center(child: item.icon),
               ),
-              child: iconWidget, // ✅ شعار أو أيقونة ديناميكية
             ),
           ),
 
@@ -179,7 +211,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           FadeInUp(
             delay: const Duration(milliseconds: 300),
             child: Text(
-              title,
+              item.title,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: "Cairo",
@@ -195,7 +227,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           FadeInUp(
             delay: const Duration(milliseconds: 500),
             child: Text(
-              desc,
+              item.desc,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontFamily: "Cairo",

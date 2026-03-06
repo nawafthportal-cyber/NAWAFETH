@@ -11,6 +11,7 @@ const TermsPage = (() => {
     regulations: { title: 'الأنظمة والتشريعات المتبعة', icon: '⚖️' },
     prohibited_services: { title: 'الخدمات الممنوعة', icon: '⛔' },
   };
+  const DOC_ORDER = ['terms', 'privacy', 'regulations', 'prohibited_services'];
 
   const FALLBACK = [
     {
@@ -60,18 +61,25 @@ const TermsPage = (() => {
       return FALLBACK;
     }
     const documents = res.data.documents || {};
-    const entries = Object.entries(documents);
-    if (!entries.length) return FALLBACK;
+    const orderedTypes = DOC_ORDER.filter((docType) => documents[docType]).concat(
+      Object.keys(documents).filter((docType) => !DOC_ORDER.includes(docType)),
+    );
+    if (!orderedTypes.length) return FALLBACK;
 
-    return entries.map(([docType, doc]) => {
+    return orderedTypes.map((docType) => {
+      const doc = documents[docType] || {};
       const meta = DOC_META[docType] || { title: docType, icon: '📄' };
       const published = doc && doc.published_at ? _formatDate(doc.published_at) : '';
+      const version = doc && doc.version ? 'الإصدار ' + doc.version : '';
+      const body = doc && doc.body_ar ? String(doc.body_ar).trim() : '';
+      const fileUrl = doc && doc.file_url ? ApiClient.mediaUrl(doc.file_url) : '';
+      const subtitle = [version, published ? 'آخر تحديث: ' + published : ''].filter(Boolean).join(' • ');
       return {
-        title: meta.title,
+        title: doc.label_ar || meta.title,
         icon: meta.icon,
-        last_update: published ? 'آخر تحديث: ' + published : '',
-        content: 'اضغط على "عرض المستند" لفتح النسخة الرسمية.',
-        file_url: doc && doc.file_url ? ApiClient.mediaUrl(doc.file_url) : '',
+        last_update: subtitle,
+        content: body || (fileUrl ? 'اضغط على "عرض المستند" لفتح النسخة الرسمية.' : 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+        file_url: fileUrl,
       };
     });
   }
@@ -100,7 +108,11 @@ const TermsPage = (() => {
     head.appendChild(textWrap);
     head.appendChild(UI.el('span', { className: 'expand-arrow', textContent: '⌄' }));
 
-    body.appendChild(UI.el('p', { className: 'expand-content', textContent: item.content || '' }));
+    body.appendChild(UI.el('p', {
+      className: 'expand-content',
+      textContent: item.content || '',
+      style: { whiteSpace: 'pre-line' },
+    }));
     if (item.file_url) {
       const openBtn = UI.el('a', {
         className: 'btn-secondary expand-open-btn',

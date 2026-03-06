@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/content_service.dart';
 import '../services/api_client.dart';
@@ -56,6 +57,12 @@ class _TermsScreenState extends State<TermsScreen> {
     'regulations': {'icon': Icons.gavel_outlined, 'title': 'الأنظمة والتشريعات المتبعة'},
     'prohibited_services': {'icon': Icons.block_outlined, 'title': 'الخدمات الممنوعة'},
   };
+  static const List<String> _docOrder = [
+    'terms',
+    'privacy',
+    'regulations',
+    'prohibited_services',
+  ];
 
   @override
   void initState() {
@@ -71,15 +78,29 @@ class _TermsScreenState extends State<TermsScreen> {
       final documents = data['documents'] as Map<String, dynamic>?;
       if (documents != null && documents.isNotEmpty) {
         final List<Map<String, dynamic>> apiTerms = [];
-        for (final entry in documents.entries) {
-          final docType = entry.key;
-          final doc = entry.value as Map<String, dynamic>? ?? {};
+        final orderedKeys = [
+          ..._docOrder.where(documents.containsKey),
+          ...documents.keys.where((key) => !_docOrder.contains(key)),
+        ];
+        for (final docType in orderedKeys) {
+          final doc = documents[docType] as Map<String, dynamic>? ?? {};
           final meta = _docMeta[docType] ?? {'icon': Icons.description_outlined, 'title': docType};
+          final fileUrl = ApiClient.buildMediaUrl(doc['file_url']?.toString());
+          final body = (doc['body_ar'] ?? '').toString().trim();
+          final version = (doc['version'] ?? '').toString().trim();
           apiTerms.add({
-            'title': meta['title'],
-            'lastUpdate': doc['published_at'] != null ? 'آخر تحديث: ${doc['published_at']}' : '',
-            'content': 'اضغط على "عرض المستند" لفتح النسخة الرسمية.',
-            'fileUrl': ApiClient.buildMediaUrl(doc['file_url']?.toString()),
+            'title': (doc['label_ar'] ?? meta['title']).toString(),
+            'lastUpdate': _buildMetaLine(
+              publishedAt: doc['published_at']?.toString(),
+              version: version,
+            ),
+            'content':
+                body.isNotEmpty
+                    ? body
+                    : ((fileUrl ?? '').isNotEmpty
+                        ? 'اضغط على "عرض المستند" لفتح النسخة الرسمية.'
+                        : 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+            'fileUrl': fileUrl,
             'icon': meta['icon'],
           });
         }
@@ -91,7 +112,30 @@ class _TermsScreenState extends State<TermsScreen> {
         }
       }
     }
+    if (!mounted) return;
     setState(() => _isLoading = false);
+  }
+
+  String _buildMetaLine({String? publishedAt, String? version}) {
+    final parts = <String>[];
+    final normalizedVersion = (version ?? '').trim();
+    if (normalizedVersion.isNotEmpty) {
+      parts.add('الإصدار $normalizedVersion');
+    }
+
+    final formattedDate = _formatPublishedAt(publishedAt);
+    if (formattedDate.isNotEmpty) {
+      parts.add('آخر تحديث: $formattedDate');
+    }
+    return parts.join(' • ');
+  }
+
+  String _formatPublishedAt(String? rawValue) {
+    final raw = (rawValue ?? '').trim();
+    if (raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return raw;
+    return DateFormat('dd/MM/yyyy', 'ar').format(parsed.toLocal());
   }
 
   Future<void> _openDocument(String? fileUrl) async {
@@ -128,6 +172,7 @@ class _TermsScreenState extends State<TermsScreen> {
                 final item = _terms[index];
                 final expanded = _expanded[index];
                 final fileUrl = (item["fileUrl"] as String?)?.trim() ?? '';
+                final metaLine = (item["lastUpdate"] as String?)?.trim() ?? '';
 
                 return AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
@@ -180,31 +225,24 @@ class _TermsScreenState extends State<TermsScreen> {
 
                           const SizedBox(height: 10),
 
-                          // ✅ حالة الموافقة + آخر تحديث
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                "✅ تمت الموافقة مسبقًا",
-                                style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 13,
-                                  color: Colors.green,
-                                  fontWeight: FontWeight.w600,
+                          if (metaLine.isNotEmpty)
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    metaLine,
+                                    style: const TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                item["lastUpdate"],
-                                style: const TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 12,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // ✅ النص التفصيلي عند التوسع
+                              ],
+                            ),
+                          if (metaLine.isNotEmpty)
+                            const SizedBox(height: 4),
                           AnimatedCrossFade(
                             firstChild: const SizedBox.shrink(),
                             secondChild: Padding(

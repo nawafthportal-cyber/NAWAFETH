@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../services/api_client.dart';
 import '../services/profile_service.dart';
 import '../services/content_service.dart';
 import '../models/user_profile.dart';
+import '../widgets/content_block_media.dart';
 
 /// أيقونة Face ID
 class FaceIDIcon extends StatelessWidget {
@@ -53,8 +55,12 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   // محتوى المساعدة من API (settings_help / settings_info)
   String? _helpTitle;
   String? _helpBody;
+  String? _helpMediaUrl;
+  String? _helpMediaType;
   String? _infoTitle;
   String? _infoBody;
+  String? _infoMediaUrl;
+  String? _infoMediaType;
 
   @override
   void initState() {
@@ -118,10 +124,14 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
           if (help is Map<String, dynamic>) {
             _helpTitle = (help['title_ar'] as String?)?.trim();
             _helpBody = (help['body_ar'] as String?)?.trim();
+            _helpMediaUrl = ApiClient.buildMediaUrl(help['media_url']?.toString());
+            _helpMediaType = (help['media_type'] as String?)?.trim();
           }
           if (info is Map<String, dynamic>) {
             _infoTitle = (info['title_ar'] as String?)?.trim();
             _infoBody = (info['body_ar'] as String?)?.trim();
+            _infoMediaUrl = ApiClient.buildMediaUrl(info['media_url']?.toString());
+            _infoMediaType = (info['media_type'] as String?)?.trim();
           }
         });
       }
@@ -305,21 +315,27 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
 
           // ─── محتوى المساعدة من لوحة التحكم ───
           if (_helpTitle != null && _helpTitle!.isNotEmpty ||
-              _helpBody != null && _helpBody!.isNotEmpty)
+              _helpBody != null && _helpBody!.isNotEmpty ||
+              _helpMediaUrl != null && _helpMediaUrl!.isNotEmpty)
             _buildContentCard(
               icon: Icons.help_outline,
               title: _helpTitle ?? 'مساعدة',
               body: _helpBody ?? '',
               color: Colors.orange,
+              mediaUrl: _helpMediaUrl,
+              mediaType: _helpMediaType,
             ),
 
           if (_infoTitle != null && _infoTitle!.isNotEmpty ||
-              _infoBody != null && _infoBody!.isNotEmpty)
+              _infoBody != null && _infoBody!.isNotEmpty ||
+              _infoMediaUrl != null && _infoMediaUrl!.isNotEmpty)
             _buildContentCard(
               icon: Icons.info_outline,
               title: _infoTitle ?? 'معلومات',
               body: _infoBody ?? '',
               color: Colors.blue,
+              mediaUrl: _infoMediaUrl,
+              mediaType: _infoMediaType,
             ),
 
           const SizedBox(height: 30),
@@ -480,7 +496,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     required String title,
     required String body,
     required Color color,
+    String? mediaUrl,
+    String? mediaType,
   }) {
+    final normalizedMediaUrl = (mediaUrl ?? '').trim();
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
@@ -510,6 +529,15 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
                 ),
               ),
             ]),
+            if (normalizedMediaUrl.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ContentBlockMedia(
+                mediaUrl: normalizedMediaUrl,
+                mediaType: (mediaType ?? '').trim(),
+                aspectRatio: 16 / 9,
+                borderRadius: 18,
+              ),
+            ],
             if (body.isNotEmpty) ...[
               const SizedBox(height: 10),
               Text(

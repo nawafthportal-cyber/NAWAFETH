@@ -11,23 +11,55 @@ const AddServicePage = (() => {
 
   async function _fetchCategories() {
     const grid = document.getElementById('cats-grid');
-    const res = await ApiClient.get('/api/providers/categories/');
-    if (!res.ok || !res.data) return;
+    const countEl = document.getElementById('cats-count');
+    if (!grid) return;
 
-    const cats = Array.isArray(res.data) ? res.data : (res.data.results || []);
+    _setCount(countEl, 0);
+
+    try {
+      const res = await ApiClient.get('/api/providers/categories/');
+      if (!res.ok || !res.data) {
+        _renderMessage(grid, 'تعذر تحميل التصنيفات حالياً.');
+        return;
+      }
+
+      const cats = Array.isArray(res.data) ? res.data : (res.data.results || []);
+      if (!cats.length) {
+        _renderMessage(grid, 'لا توجد تصنيفات متاحة حالياً.');
+        return;
+      }
+
+      cats.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'ar'));
+
+      grid.innerHTML = '';
+      _setCount(countEl, cats.length);
+
+      const frag = document.createDocumentFragment();
+      cats.forEach(cat => {
+        const item = UI.el('a', { className: 'cat-item', href: '/search/?category=' + cat.id });
+        const iconWrap = UI.el('div', { className: 'cat-icon' });
+        iconWrap.appendChild(UI.icon(UI.categoryIconKey(cat.name), 24, '#673AB7'));
+        item.appendChild(iconWrap);
+        item.appendChild(UI.el('div', { className: 'cat-name', textContent: cat.name }));
+        item.appendChild(UI.el('div', { className: 'cat-link-hint', textContent: 'استعراض' }));
+        frag.appendChild(item);
+      });
+      grid.appendChild(frag);
+    } catch (_) {
+      _renderMessage(grid, 'حدث خطأ أثناء تحميل التصنيفات.');
+    }
+  }
+
+  function _setCount(node, count) {
+    if (!node) return;
+    node.textContent = String(Math.max(0, Number(count) || 0));
+  }
+
+  function _renderMessage(grid, message) {
+    if (!grid) return;
     grid.innerHTML = '';
-    if (!cats.length) return;
-
-    const frag = document.createDocumentFragment();
-    cats.forEach(cat => {
-      const item = UI.el('a', { className: 'cat-item', href: '/search/?category=' + cat.id });
-      const iconWrap = UI.el('div', { className: 'cat-icon' });
-      iconWrap.appendChild(UI.icon(UI.categoryIconKey(cat.name), 24, '#673AB7'));
-      item.appendChild(iconWrap);
-      item.appendChild(UI.el('div', { className: 'cat-name', textContent: cat.name }));
-      frag.appendChild(item);
-    });
-    grid.appendChild(frag);
+    const msg = UI.el('div', { className: 'add-service-cats-message', textContent: message });
+    grid.appendChild(msg);
   }
 
   // Boot

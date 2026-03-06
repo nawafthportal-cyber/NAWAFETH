@@ -6,9 +6,11 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
+from apps.billing.models import InvoiceLineItem
 
 from .models import (
     VerificationRequest,
@@ -32,8 +34,34 @@ from .services import (
     finalize_request_and_create_invoice,
     get_public_badge_detail,
     get_public_badges_catalog,
+    verification_pricing_for_user,
     _sync_verification_to_unified,
 )
+
+
+def verification_request_queryset():
+    return (
+        VerificationRequest.objects.select_related("requester", "assigned_to", "invoice")
+        .prefetch_related(
+            Prefetch(
+                "documents",
+                queryset=VerificationDocument.objects.order_by("id"),
+            ),
+            Prefetch(
+                "requirements",
+                queryset=VerificationRequirement.objects.order_by("sort_order", "id").prefetch_related(
+                    Prefetch(
+                        "attachments",
+                        queryset=VerificationRequirementAttachment.objects.order_by("id"),
+                    )
+                ),
+            ),
+            Prefetch(
+                "invoice__lines",
+                queryset=InvoiceLineItem.objects.order_by("sort_order", "id"),
+            ),
+        )
+    )
 
 
 class VerificationRequestCreateView(generics.CreateAPIView):
@@ -46,18 +74,25 @@ class VerificationRequestCreateView(generics.CreateAPIView):
         return ctx
 
 
+class MyVerificationPricingView(APIView):
+    permission_classes = [IsOwnerOrBackofficeVerify]
+
+    def get(self, request):
+        return Response(verification_pricing_for_user(request.user), status=status.HTTP_200_OK)
+
+
 class MyVerificationRequestsListView(generics.ListAPIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
     serializer_class = VerificationRequestDetailSerializer
 
     def get_queryset(self):
-        return VerificationRequest.objects.filter(requester=self.request.user).order_by("-id")
+        return verification_request_queryset().filter(requester=self.request.user).order_by("-id")
 
 
 class VerificationRequestDetailView(generics.RetrieveAPIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
     serializer_class = VerificationRequestDetailSerializer
-    queryset = VerificationRequest.objects.all()
+    queryset = verification_request_queryset()
 
     def get_object(self):
         obj = super().get_object()
@@ -71,7 +106,7 @@ class VerificationAddDocumentView(generics.CreateAPIView):
     serializer_class = VerificationDocumentSerializer
 
     def create(self, request, *args, **kwargs):
-        vr = VerificationRequest.objects.get(pk=kwargs["pk"])
+        vr = get_object_or_404(VerificationRequest, pk=kwargs["pk"])
         self.check_object_permissions(request, vr)
 
         if vr.status not in (VerificationStatus.NEW, VerificationStatus.IN_REVIEW, VerificationStatus.REJECTED):
@@ -121,7 +156,7 @@ class VerificationAddRequirementAttachmentView(generics.CreateAPIView):
     serializer_class = VerificationRequirementAttachmentSerializer
 
     def create(self, request, *args, **kwargs):
-        vr = VerificationRequest.objects.get(pk=kwargs["pk"])
+        vr = get_object_or_404(VerificationRequest, pk=kwargs["pk"])
         self.check_object_permissions(request, vr)
 
         if vr.status not in (VerificationStatus.NEW, VerificationStatus.IN_REVIEW, VerificationStatus.REJECTED):
@@ -166,7 +201,7 @@ class BackofficeVerificationRequestsListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = VerificationRequest.objects.all().order_by("-id")
+        qs = verification_request_queryset().order_by("-id")
 
         ap = getattr(user, "access_profile", None)
         if not ap:
@@ -190,7 +225,7 @@ class BackofficeVerificationAssignView(APIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
 
     def patch(self, request, pk: int):
-        vr = VerificationRequest.objects.get(pk=pk)
+        vr = get_object_or_404(VerificationRequest, pk=pk)
         self.check_object_permissions(request, vr)
 
         ap = getattr(request.user, "access_profile", None)
@@ -217,6 +252,7 @@ class BackofficeVerificationAssignView(APIView):
         vr.save(update_fields=["assigned_to", "assigned_at", "updated_at"])
         _sync_verification_to_unified(vr=vr, changed_by=request.user)
 
+        vr = verification_request_queryset().get(pk=vr.pk)
         return Response(VerificationRequestDetailSerializer(vr).data, status=status.HTTP_200_OK)
 
 
@@ -224,7 +260,7 @@ class BackofficeDecideDocumentView(APIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
 
     def patch(self, request, doc_id: int):
-        doc = VerificationDocument.objects.select_related("request").get(pk=doc_id)
+        doc = get_object_or_404(VerificationDocument.objects.select_related("request"), pk=doc_id)
         vr = doc.request
         self.check_object_permissions(request, vr)
 
@@ -243,7 +279,7 @@ class BackofficeDecideRequirementView(APIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
 
     def patch(self, request, req_id: int):
-        req = VerificationRequirement.objects.select_related("request").get(pk=req_id)
+        req = get_object_or_404(VerificationRequirement.objects.select_related("request"), pk=req_id)
         vr = req.request
         self.check_object_permissions(request, vr)
 
@@ -261,7 +297,7 @@ class BackofficeFinalizeRequestView(APIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
 
     def post(self, request, pk: int):
-        vr = VerificationRequest.objects.get(pk=pk)
+        vr = get_object_or_404(VerificationRequest, pk=pk)
         self.check_object_permissions(request, vr)
 
         try:
@@ -269,6 +305,7 @@ class BackofficeFinalizeRequestView(APIView):
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+        vr = verification_request_queryset().get(pk=vr.pk)
         return Response(VerificationRequestDetailSerializer(vr).data, status=status.HTTP_200_OK)
 
 

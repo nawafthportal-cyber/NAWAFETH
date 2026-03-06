@@ -16,11 +16,33 @@
     <div class="space-y-4">
       {% for key, label in block_choices %}
       {% with block=blocks|get_item:key %}
-      <form method="post" action="{% url 'dashboard:content_block_update_action' key %}" class="rounded-xl border border-gray-200 p-4 bg-gray-50/70 space-y-3">
+      <form method="post" enctype="multipart/form-data" action="{% url 'dashboard:content_block_update_action' key %}" class="rounded-xl border border-gray-200 p-4 bg-gray-50/70 space-y-3">
         {% csrf_token %}
         <div class="text-sm font-bold text-gray-700">{{ label }} <span class="text-xs text-gray-400">({{ key }})</span></div>
-        <input name="title_ar" value="{% if block %}{{ block.title_ar }}{% endif %}" placeholder="العنوان" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
-        <textarea name="body_ar" rows="3" placeholder="النص" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{% if block %}{{ block.body_ar }}{% endif %}</textarea>
+        <textarea name="title_ar" rows="2" placeholder="العنوان" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{% if block %}{{ block.title_ar }}{% endif %}</textarea>
+        <textarea name="body_ar" rows="6" placeholder="النص" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{% if block %}{{ block.body_ar }}{% endif %}</textarea>
+        <div class="space-y-2 rounded-xl border border-dashed border-gray-200 bg-white/80 p-3">
+          <div class="text-xs font-semibold text-gray-700">وسائط البلوك</div>
+          <div class="text-xs text-gray-500">يمكنك رفع صورة أو فيديو قصير وسيظهر في الشاشات المرتبطة بهذا البلوك.</div>
+          <input type="file" name="media_file" accept="image/*,video/*" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+          {% if block and block.media_file %}
+          <div class="overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+            {% if block.media_type == "video" %}
+            <video src="{{ block.media_file.url }}" controls muted class="block max-h-64 w-full bg-black"></video>
+            {% else %}
+            <img src="{{ block.media_file.url }}" alt="{{ label }}" class="block max-h-64 w-full object-cover">
+            {% endif %}
+            <div class="flex items-center justify-between gap-3 px-3 py-2 text-xs text-gray-600">
+              <span>الوسائط الحالية: {% if block.media_type == "video" %}فيديو{% else %}صورة{% endif %}</span>
+              <a href="{{ block.media_file.url }}" target="_blank" rel="noopener" class="font-semibold text-indigo-600 hover:underline">فتح الملف</a>
+            </div>
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="remove_media" {% if not can_write %}disabled{% endif %}>
+            <span>حذف الوسائط الحالية</span>
+          </label>
+          {% endif %}
+        </div>
         <label class="inline-flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" name="is_active" {% if not block or block.is_active %}checked{% endif %} {% if not can_write %}disabled{% endif %}>
           <span>مفعّل</span>
@@ -48,7 +70,15 @@
           {% if latest %}
           <div class="text-xs text-gray-500">الإصدار الحالي: {{ latest.version }} — {{ latest.published_at|date:"Y-m-d H:i" }}</div>
           {% endif %}
+          <div class="text-xs text-gray-500">يمكنك إدخال نص متعدد الأسطر، أو رفع ملف، أو استخدام الاثنين معاً.</div>
+          <textarea name="body_ar" rows="6" placeholder="نص المستند" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{% if latest %}{{ latest.body_ar }}{% endif %}</textarea>
+          {% if latest and latest.body_ar %}
+          <div class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 whitespace-pre-line">{{ latest.body_ar|truncatechars:260 }}</div>
+          {% endif %}
           <input type="file" name="file" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
+          {% if latest and latest.file %}
+          <a href="{{ latest.file.url }}" target="_blank" rel="noopener" class="inline-flex text-xs font-semibold text-indigo-600 hover:underline">عرض الملف الحالي</a>
+          {% endif %}
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <input name="version" value="{% if latest %}{{ latest.version }}{% else %}1.0{% endif %}" placeholder="الإصدار" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
             <input type="datetime-local" name="published_at" class="rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>
@@ -58,7 +88,7 @@
             <span>تفعيل هذا الإصدار</span>
           </label>
           {% if can_write %}
-          <button class="block w-full rounded-lg bg-indigo-600 text-white px-4 py-2 font-semibold">رفع المستند</button>
+          <button class="block w-full rounded-lg bg-indigo-600 text-white px-4 py-2 font-semibold">حفظ المستند</button>
           {% else %}
           <div class="text-xs text-gray-500">صلاحية القراءة فقط</div>
           {% endif %}

@@ -11,7 +11,7 @@ from django.views.decorators.http import require_POST
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
 from apps.content.models import ContentBlockKey, LegalDocumentType, SiteContentBlock, SiteLegalDocument, SiteLinks
-from apps.content.services import sanitize_text
+from apps.content.services import sanitize_multiline_text, sanitize_text
 
 from .auth import dashboard_staff_required as staff_member_required
 from .views import _dashboard_allowed, dashboard_access_required
@@ -56,8 +56,10 @@ def content_block_update_action(request, key: str):
     if key not in valid_keys:
         return redirect("dashboard:content_management")
 
-    title_ar = sanitize_text(request.POST.get("title_ar", ""))
-    body_ar = sanitize_text(request.POST.get("body_ar", ""))
+    title_ar = sanitize_multiline_text(request.POST.get("title_ar", ""))
+    body_ar = sanitize_multiline_text(request.POST.get("body_ar", ""))
+    uploaded_media = request.FILES.get("media_file")
+    remove_media = (request.POST.get("remove_media") or "") in {"1", "on", "true"}
     is_active = (request.POST.get("is_active") or "") in {"1", "on", "true"}
 
     if not title_ar:
@@ -65,16 +67,41 @@ def content_block_update_action(request, key: str):
         return redirect("dashboard:content_management")
 
     obj, _created = SiteContentBlock.objects.get_or_create(key=key)
+    old_media_name = obj.media_file.name if obj.media_file else ""
+    old_media_storage = obj.media_file.storage if obj.media_file else None
     before = {
         "title_ar": obj.title_ar,
         "body_ar": obj.body_ar,
+        "media_url": obj.media_file.url if obj.media_file else "",
+        "media_type": obj.media_type,
         "is_active": obj.is_active,
     }
     obj.title_ar = title_ar
     obj.body_ar = body_ar
+    if remove_media:
+        obj.media_file = ""
+    elif uploaded_media:
+        obj.media_file = uploaded_media
     obj.is_active = is_active
     obj.updated_by = request.user
-    obj.save(update_fields=["title_ar", "body_ar", "is_active", "updated_by", "updated_at"])
+
+    try:
+        obj.full_clean()
+    except ValidationError as exc:
+        messages.error(request, "بيانات المحتوى غير صالحة: %s" % ", ".join(exc.messages))
+        return redirect("dashboard:content_management")
+
+    obj.save()
+
+    should_delete_old_media = old_media_name and (
+        (remove_media and not obj.media_file)
+        or (uploaded_media and old_media_name != getattr(obj.media_file, "name", ""))
+    )
+    if should_delete_old_media and old_media_storage is not None:
+        try:
+            old_media_storage.delete(old_media_name)
+        except Exception:
+            pass
 
     log_action(
         actor=request.user,
@@ -88,6 +115,8 @@ def content_block_update_action(request, key: str):
             "after": {
                 "title_ar": obj.title_ar,
                 "body_ar": obj.body_ar,
+                "media_url": obj.media_file.url if obj.media_file else "",
+                "media_type": obj.media_type,
                 "is_active": obj.is_active,
             },
         },
@@ -105,8 +134,9 @@ def content_doc_upload_action(request, doc_type: str):
         return redirect("dashboard:content_management")
 
     uploaded = request.FILES.get("file")
-    if not uploaded:
-        messages.error(request, "يرجى اختيار ملف قبل الرفع")
+    body_ar = sanitize_multiline_text(request.POST.get("body_ar", ""))
+    if not uploaded and not body_ar:
+        messages.error(request, "أدخل نص المستند أو أرفق ملفاً واحداً على الأقل")
         return redirect("dashboard:content_management")
 
     version = sanitize_text(request.POST.get("version", "1.0")) or "1.0"
@@ -124,6 +154,7 @@ def content_doc_upload_action(request, doc_type: str):
 
     doc = SiteLegalDocument(
         doc_type=doc_type,
+        body_ar=body_ar,
         file=uploaded,
         version=version,
         published_at=published_at,
@@ -153,9 +184,11 @@ def content_doc_upload_action(request, doc_type: str):
             "version": doc.version,
             "is_active": doc.is_active,
             "published_at": doc.published_at.isoformat() if doc.published_at else None,
+            "has_body": bool(doc.body_ar),
+            "has_file": bool(doc.file),
         },
     )
-    messages.success(request, "تم رفع الملف القانوني بنجاح")
+    messages.success(request, "تم حفظ المستند القانوني بنجاح")
     return redirect("dashboard:content_management")
 
 

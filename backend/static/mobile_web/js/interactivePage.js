@@ -229,9 +229,21 @@ const InteractivePage = (() => {
 
   function _buildFollowingCard(provider) {
     const providerId = encodeURIComponent(String(provider.id));
-    const card = UI.el('article', { className: 'interactive-following-card' });
-    card.addEventListener('click', () => {
+    const card = UI.el('article', {
+      className: 'interactive-following-card interactive-following-card-clean',
+      role: 'button',
+      tabindex: '0',
+    });
+
+    const openProvider = () => {
       window.location.href = '/provider/' + providerId + '/';
+    };
+    card.addEventListener('click', openProvider);
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openProvider();
+      }
     });
 
     const header = UI.el('div', { className: 'interactive-following-head' });
@@ -248,60 +260,35 @@ const InteractivePage = (() => {
       textContent: provider.display_name || 'مقدم خدمة',
     }));
     if (provider.is_verified_blue || provider.is_verified_green || provider.is_verified) {
-      const badge = UI.el('span', { className: 'interactive-verified-dot' });
-      badge.style.backgroundColor = provider.is_verified_blue ? '#2196F3' : '#43A047';
+      const badge = UI.el('span', {
+        className: 'interactive-verified-badge',
+        title: 'مزود موثق',
+        'aria-label': 'مزود موثق',
+      });
+      badge.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5z"/></svg>';
+      if (provider.is_verified_blue) badge.classList.add('blue');
       nameRow.appendChild(badge);
     }
     meta.appendChild(nameRow);
-    if (provider.city) {
-      meta.appendChild(UI.el('div', { className: 'interactive-following-city', textContent: provider.city }));
-    }
-    header.appendChild(meta);
 
-    const chatBtn = UI.el('button', {
-      type: 'button',
-      className: 'interactive-chat-icon-btn',
-      'aria-label': 'مراسلة',
-      title: 'مراسلة',
-    });
-    chatBtn.innerHTML = _chatIcon();
-    chatBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      _openProviderChat(provider.id);
-    });
-    header.appendChild(chatBtn);
+    const cityText = String(provider.city || '').trim() || 'غير محدد';
+    const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
+    const ratingText = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : '0.0';
+
+    const metaRow = UI.el('div', { className: 'interactive-following-meta-row' });
+    metaRow.appendChild(UI.el('span', {
+      className: 'interactive-following-pill city',
+      textContent: cityText,
+    }));
+    const ratingPill = UI.el('span', { className: 'interactive-following-pill rating' });
+    ratingPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('star') + '</span><span>' + ratingText + '</span>';
+    metaRow.appendChild(ratingPill);
+
+    meta.appendChild(metaRow);
+    header.appendChild(meta);
     card.appendChild(header);
 
-    const cover = UI.el('div', { className: 'interactive-following-cover' });
-    const coverUrl = ApiClient.mediaUrl(provider.cover_image || '');
-    if (coverUrl) {
-      const img = UI.lazyImg(coverUrl, provider.display_name || '');
-      cover.appendChild(img);
-    } else {
-      const ph = UI.el('div', { className: 'interactive-following-cover-placeholder' });
-      ph.innerHTML = _stateIcon('image');
-      cover.appendChild(ph);
-    }
-    card.appendChild(cover);
-
-    const stats = UI.el('div', { className: 'interactive-following-stats' });
-    stats.appendChild(_miniStat('people', _toInt(provider.followers_count || provider.followersCount)));
-    stats.appendChild(_miniStat('heart', _toInt(provider.likes_count || provider.likesCount)));
-    const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
-    if (rating > 0) stats.appendChild(_miniStat('star', rating.toFixed(1)));
-    card.appendChild(stats);
-
     return card;
-  }
-
-  function _miniStat(kind, value) {
-    const item = UI.el('span', { className: 'interactive-mini-stat' });
-    const icon = UI.el('span', { className: 'interactive-mini-icon' });
-    icon.innerHTML = _miniIcon(kind);
-    item.appendChild(icon);
-    item.appendChild(UI.el('span', { className: 'interactive-mini-text', textContent: String(value) }));
-    return item;
   }
 
   function _openProviderChat(providerId) {

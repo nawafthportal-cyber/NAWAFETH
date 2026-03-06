@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    MyVerificationPricingView,
     VerificationRequestCreateView,
     MyVerificationRequestsListView,
     VerificationRequestDetailView,
@@ -16,6 +17,7 @@ from .views import (
 
 urlpatterns = [
     # client
+    path("pricing/my/", MyVerificationPricingView.as_view(), name="pricing_my"),
     path("requests/create/", VerificationRequestCreateView.as_view(), name="create"),
     path("requests/my/", MyVerificationRequestsListView.as_view(), name="my"),
     path("requests/<int:pk>/", VerificationRequestDetailView.as_view(), name="detail"),

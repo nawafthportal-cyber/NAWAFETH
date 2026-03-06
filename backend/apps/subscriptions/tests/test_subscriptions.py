@@ -24,11 +24,22 @@ def user():
 
 
 def test_plans_list(api, user):
-    SubscriptionPlan.objects.create(code="BASIC", title="Basic", period=PlanPeriod.MONTH, price=Decimal("10.00"), features=["verify_green"])
+    SubscriptionPlan.objects.create(
+        code="BASIC",
+        tier="basic",
+        title="Basic",
+        period=PlanPeriod.MONTH,
+        price=Decimal("10.00"),
+        features=["verify_green"],
+    )
     api.force_authenticate(user=user)
     r = api.get("/api/subscriptions/plans/")
     assert r.status_code == 200
     assert len(r.data) >= 1
+    plan_payload = r.data[0]
+    labels = plan_payload.get("feature_labels") or []
+    assert any("رسوم التوثيق" in label for label in labels)
+    assert not any("توثيق (شارة" in label for label in labels)
 
 
 def test_subscribe(api, user):

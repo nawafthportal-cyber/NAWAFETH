@@ -1098,8 +1098,11 @@ def test_subscription_plans_compare_and_upgrade_summary_pages():
 	assert res_compare.status_code == 200
 	html_compare = res_compare.content.decode("utf-8")
 	assert "الصفحة التفصيلية لخيارات الاشتراك" in html_compare
+	assert "فئة الباقة" in html_compare
+	assert "رسوم التوثيق الأزرق" in html_compare
 	assert "الأساسية" in html_compare
 	assert "الاحترافية" in html_compare
+	assert "توثيق (شارة زرقاء)" not in html_compare
 
 	res_summary = c.get(reverse("dashboard:subscription_upgrade_summary", args=[sub.id]), {"plan_id": str(plan_pro.id)})
 	assert res_summary.status_code == 200
@@ -1163,6 +1166,39 @@ def test_subscription_payment_checkout_and_success_flow():
 	assert res_success.status_code == 200
 	html_success = res_success.content.decode("utf-8")
 	assert "تمت عملية سداد الرسوم بنجاح" in html_success
+
+
+@pytest.mark.django_db
+def test_features_overview_shows_verification_fees_by_subscription_tier():
+	admin_user = User.objects.create_user(phone="0500000961", password="Pass12345!", is_staff=True)
+	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=50)
+	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
+
+	requester = User.objects.create_user(phone="0500000962", password="Pass12345!")
+	plan = SubscriptionPlan.objects.create(
+		code="PRO_ANALYTICS",
+		tier="pro",
+		title="الاحترافية",
+		period="year",
+		price="999.00",
+		features=["verify_blue", "verify_green", "promo_ads"],
+		is_active=True,
+	)
+	Subscription.objects.create(user=requester, plan=plan, status=SubscriptionStatus.ACTIVE)
+
+	c = Client()
+	assert c.login(phone=admin_user.phone, password="Pass12345!")
+	s = c.session
+	s[SESSION_OTP_VERIFIED_KEY] = True
+	s.save()
+
+	res = c.get(reverse("dashboard:features_overview"), {"q": requester.phone})
+	assert res.status_code == 200
+	html = res.content.decode("utf-8")
+	assert requester.phone in html
+	assert "فئة الباقة" in html
+	assert "احترافية" in html
+	assert "0.00 ر.س" in html
 
 
 @pytest.mark.django_db

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/colors.dart';
-import 'plans_screen.dart';
 import '../services/verification_service.dart';
 
 class VerificationScreen extends StatefulWidget {
@@ -22,6 +21,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   String? blueOption; // "person" / "company" / "other"
   final List<String> greenOptions = [];
   final List<File> uploadedFiles = [];
+  Map<String, dynamic>? _pricing;
 
   // المدخلات
   final _formKeyBlue = GlobalKey<FormState>();
@@ -31,8 +31,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
   final _crDateCtrl = TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
-  String _selectedPaymentMethod = "apple"; // apple / card
   bool _isSending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPricing();
+  }
 
   @override
   void dispose() {
@@ -42,6 +47,67 @@ class _VerificationScreenState extends State<VerificationScreen> {
     _crCtrl.dispose();
     _crDateCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPricing() async {
+    final response = await VerificationService.fetchMyPricing();
+    if (!mounted || !response.isSuccess) return;
+    setState(() {
+      _pricing = response.dataAsMap;
+    });
+  }
+
+  Map<String, dynamic> _pricingEntryFor(String badgeType) {
+    final prices = _pricing?['prices'];
+    if (prices is Map) {
+      final entry = prices[badgeType];
+      if (entry is Map<String, dynamic>) return entry;
+      if (entry is Map) return Map<String, dynamic>.from(entry);
+    }
+    return const <String, dynamic>{};
+  }
+
+  double _priceFor(String badgeType) {
+    final raw = _pricingEntryFor(badgeType)['amount'];
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw.trim()) ?? 100;
+    return 100;
+  }
+
+  bool _isFreeBadge(String badgeType) {
+    final entry = _pricingEntryFor(badgeType);
+    if (entry['is_free'] == true) return true;
+    return _priceFor(badgeType) <= 0;
+  }
+
+  String _formatAmount(double amount) {
+    if (amount == amount.roundToDouble()) {
+      return amount.toStringAsFixed(0);
+    }
+    return amount.toStringAsFixed(2);
+  }
+
+  String _priceLabelFor(String badgeType) {
+    final amount = _priceFor(badgeType);
+    if (_isFreeBadge(badgeType)) return 'مجاني عند الاعتماد';
+    return '${_formatAmount(amount)} ر.س عند الاعتماد';
+  }
+
+  String _pricingHintFor(String badgeType) {
+    final tierLabel = (_pricing?['tier_label'] ?? '').toString().trim();
+    final amount = _priceFor(badgeType);
+    if (_isFreeBadge(badgeType)) {
+      return tierLabel.isNotEmpty
+          ? 'هذه الخدمة مجانية ضمن باقة $tierLabel بعد اعتماد الطلب.'
+          : 'هذه الخدمة مجانية بعد اعتماد الطلب.';
+    }
+    return tierLabel.isNotEmpty
+        ? 'رسوم التفعيل المتوقعة ${_formatAmount(amount)} ر.س وفق باقة $tierLabel، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماده.'
+        : 'رسوم التفعيل المتوقعة ${_formatAmount(amount)} ر.س، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماده.';
+  }
+
+  String _selectedPricingHint() {
+    return _pricingHintFor(selectedType == 'green' ? 'green' : 'blue');
   }
 
   // رفع ملف (صورة مستند)
@@ -200,23 +266,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (!createRes.isSuccess) {
       setState(() => _isSending = false);
       final errorText = (createRes.error ?? 'فشل في إنشاء الطلب').trim();
-      final isPlanRestricted = errorText.contains('غير متاح في باقتك الحالية');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorText),
           backgroundColor: Colors.red,
-          action: isPlanRestricted
-              ? SnackBarAction(
-                  label: 'عرض الباقات',
-                  textColor: Colors.white,
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const PlansScreen()),
-                    );
-                  },
-                )
-              : null,
         ),
       );
       return;
@@ -228,9 +281,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
     if (requestId != null && uploadedFiles.isNotEmpty) {
       String docType;
       if (selectedType == 'blue') {
-        docType = blueOption == 'company' ? 'cr' : 'national_id';
+        if (blueOption == 'company') {
+          docType = 'cr';
+        } else if (blueOption == 'other') {
+          docType = 'other';
+        } else {
+          docType = 'id';
+        }
       } else {
-        docType = 'certificate';
+        docType = 'license';
       }
 
       for (final file in uploadedFiles) {
@@ -249,6 +308,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   void _showSuccess() {
+    final pricingNote = _selectedPricingHint();
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -290,10 +350,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    "سيتم مراجعة الطلب من فريق التوثيق وإشعارك خلال وقت قصير.",
+                  Text(
+                    pricingNote,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: "Cairo",
                       color: Colors.black54,
                       height: 1.4,
@@ -332,8 +392,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
   }
 
   String _amountLabel() =>
-      selectedType == "blue" ? "100 ر.س/سنة" : "150 ر.س/سنة";
-  int _amount() => selectedType == "blue" ? 100 : 150;
+      _priceLabelFor(selectedType == "green" ? "green" : "blue");
+  double _amount() => _priceFor(selectedType == "green" ? "green" : "blue");
 
   @override
   Widget build(BuildContext context) {
@@ -452,7 +512,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     )
                   else ...[
                     Text(
-                      _currentStep == 2 ? "تأكيد الدفع" : "التالي",
+                      _currentStep == 2 ? "إرسال الطلب" : "التالي",
                       style: const TextStyle(
                         fontFamily: "Cairo",
                         fontSize: 15,
@@ -507,7 +567,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             type: "blue",
             title: "التوثيق بالشارة الزرقاء",
             subtitle: "إثبات الهوية الشخصية أو السجل التجاري كمنشأة.",
-            price: 100,
+            priceLabel: _priceLabelFor("blue"),
             color: Colors.blue,
             highlightLabel: "هوية / سجل تجاري",
             selected: selectedType == "blue",
@@ -518,7 +578,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
             type: "green",
             title: "التوثيق بالشارة الخضراء",
             subtitle: "توثيق اعتمادك المهني وشهاداتك وخبراتك العملية.",
-            price: 150,
+            priceLabel: _priceLabelFor("green"),
             color: Colors.green,
             highlightLabel: "اعتمادات مهنية",
             selected: selectedType == "green",
@@ -861,10 +921,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
     );
   }
 
-  // الخطوة 3 — مراجعة الطلب والدفع
+  // الخطوة 3 — مراجعة الطلب والرسوم
   Widget _step3Checkout() {
     final amount = _amount();
     final isBlue = selectedType == "blue";
+    final pricingHint = _selectedPricingHint();
+    final amountDisplay = _isFreeBadge(isBlue ? "blue" : "green")
+        ? "مجاني"
+        : "${_formatAmount(amount)} ر.س";
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
@@ -881,7 +945,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
           const SizedBox(height: 4),
           const Text(
-            "تحقق من تفاصيل طلب التوثيق قبل إتمام عملية الدفع.",
+            "تحقق من تفاصيل طلب التوثيق قبل إرساله للمراجعة.",
             style: TextStyle(fontFamily: "Cairo", color: Colors.black54),
           ),
           const SizedBox(height: 16),
@@ -934,7 +998,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         ),
                       ),
                       Text(
-                        "$amount ر.س",
+                        amountDisplay,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -1015,9 +1079,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       color: AppColors.deepPurple.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Text(
-                      "تفاصيل طلبك سيتم تدقيقها من فريق التوثيق قبل اعتماد الشارة.",
-                      style: TextStyle(
+                    child: Text(
+                      pricingHint,
+                      style: const TextStyle(
                         fontFamily: "Cairo",
                         color: Colors.black54,
                         height: 1.4,
@@ -1030,7 +1094,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
           const SizedBox(height: 22),
           const Text(
-            "طريقة الدفع",
+            "آلية التفعيل",
             style: TextStyle(
               fontFamily: "Cairo",
               fontWeight: FontWeight.bold,
@@ -1044,105 +1108,48 @@ class _VerificationScreenState extends State<VerificationScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Column(
-              children: [
-                RadioListTile<String>(
-                  value: "apple",
-                  groupValue: _selectedPaymentMethod,
-                  activeColor: Colors.black,
-                  onChanged: (v) {
-                    setState(() => _selectedPaymentMethod = v ?? "apple");
-                  },
-                  title: Row(
-                    children: const [
-                      Icon(Icons.phone_iphone, color: Colors.black),
-                      SizedBox(width: 8),
-                      Text("Apple Pay", style: TextStyle(fontFamily: "Cairo")),
-                    ],
-                  ),
-                ),
-                const Divider(height: 0),
-                RadioListTile<String>(
-                  value: "card",
-                  groupValue: _selectedPaymentMethod,
-                  activeColor: AppColors.deepPurple,
-                  onChanged: (v) {
-                    setState(() => _selectedPaymentMethod = v ?? "card");
-                  },
-                  title: Row(
-                    children: const [
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Icon(
-                        Icons.credit_card_outlined,
-                        color: Colors.deepPurple,
+                        _isFreeBadge(isBlue ? "blue" : "green")
+                            ? Icons.verified_outlined
+                            : Icons.receipt_long_outlined,
+                        color: AppColors.deepPurple,
                       ),
-                      SizedBox(width: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        "بطاقة مدى / فيزا",
-                        style: TextStyle(fontFamily: "Cairo"),
+                        _isFreeBadge(isBlue ? "blue" : "green")
+                            ? "لا توجد رسوم عند الاعتماد"
+                            : "الفاتورة تصدر بعد الاعتماد",
+                        style: const TextStyle(
+                          fontFamily: "Cairo",
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    pricingHint,
+                    style: const TextStyle(
+                      fontFamily: "Cairo",
+                      color: Colors.black54,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 18),
-          if (_selectedPaymentMethod == "apple") ...[
-            ElevatedButton.icon(
-              onPressed: _isSending ? null : _submitRequest,
-              icon: _isSending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.phone_iphone),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                minimumSize: const Size(double.infinity, 55),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              label: const Text(
-                "الدفع عبر Apple Pay",
-                style: TextStyle(
-                  fontFamily: "Cairo",
-                  fontSize: 15,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ] else ...[
-            OutlinedButton.icon(
-              onPressed: _isSending ? null : _submitRequest,
-              icon: _isSending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.credit_card_outlined),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 55),
-                side: BorderSide(color: Colors.grey.shade300),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              label: const Text(
-                "الدفع ببطاقة مدى / فيزا",
-                style: TextStyle(fontFamily: "Cairo", fontSize: 15),
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
           Center(
             child: Text(
-              "المبلغ الإجمالي: ${_amount()} ر.س",
+              "الرسوم المتوقعة: $amountDisplay",
               style: const TextStyle(
                 fontFamily: "Cairo",
                 fontWeight: FontWeight.bold,
@@ -1171,7 +1178,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     required String type,
     required String title,
     required String subtitle,
-    required int price,
+    required String priceLabel,
     required MaterialColor color,
     required String highlightLabel,
     required bool selected,
@@ -1242,7 +1249,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        "$price ر.س/سنة",
+                        priceLabel,
                         style: const TextStyle(
                           fontFamily: "Cairo",
                           fontSize: 12,
@@ -1486,7 +1493,7 @@ class _ProgressSteps extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const steps = ["اختيار الشارة", "التفاصيل", "الدفع"];
+    const steps = ["اختيار الشارة", "التفاصيل", "المراجعة"];
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
       child: Row(

@@ -4,6 +4,11 @@ import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/upload_optimizer.dart';
 
 class VerificationService {
+  /// جلب رسوم التوثيق الحالية للمستخدم حسب باقته الحالية.
+  static Future<ApiResponse> fetchMyPricing() {
+    return ApiClient.get('/api/verification/pricing/my/');
+  }
+
   /// جلب كتالوج الشارات العامة (AllowAny)
   static Future<ApiResponse> fetchPublicBadgesCatalog() {
     return ApiClient.get('/api/public/badges/');

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from django.conf import settings
 from rest_framework import serializers
 
 from .models import (
@@ -95,8 +94,6 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         from .services import _sync_verification_to_unified
         from .services import resolve_requirement_def
 
-        from apps.features.checks import has_feature
-
         requirements = validated_data.pop("requirements", []) or []
 
         badge_type = validated_data.get("badge_type")
@@ -106,14 +103,6 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
             if badge_type not in VerificationBadgeType.values:
                 raise serializers.ValidationError("badge_type مطلوب أو قم بإرسال requirements.")
             requirements = [{"badge_type": badge_type, "code": "B1" if badge_type == "blue" else "G1"}]
-
-        # Feature gating per requirement badge type.
-        has_blue = any(r["badge_type"] == VerificationBadgeType.BLUE for r in requirements)
-        has_green = any(r["badge_type"] == VerificationBadgeType.GREEN for r in requirements)
-        if has_blue and not has_feature(user, "verify_blue"):
-            raise serializers.ValidationError("توثيق الشارة الزرقاء غير متاح في باقتك الحالية.")
-        if has_green and not has_feature(user, "verify_green"):
-            raise serializers.ValidationError("توثيق الشارة الخضراء غير متاح في باقتك الحالية.")
 
         # Prevent multiple active/pending requests for the same badge type.
         # (Mixed requests are also blocked if they include a badge type that already has a pending request.)
@@ -182,7 +171,9 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
             return None
         lines = []
         if hasattr(inv, "lines"):
-            for li in inv.lines.all().order_by("sort_order", "id"):
+            cached_lines = getattr(inv, "_prefetched_objects_cache", {}).get("lines")
+            iterable = cached_lines if cached_lines is not None else inv.lines.all().order_by("sort_order", "id")
+            for li in iterable:
                 lines.append(
                     {
                         "id": li.id,
