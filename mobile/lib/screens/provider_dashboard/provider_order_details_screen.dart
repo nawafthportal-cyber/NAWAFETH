@@ -44,6 +44,13 @@ class _ProviderOrderDetailsScreenState
   // حقول الرفض
   final TextEditingController _cancelReasonController = TextEditingController();
 
+  // حقول العرض التنافسي
+  final TextEditingController _offerPriceController = TextEditingController();
+  final TextEditingController _offerDurationDaysController =
+      TextEditingController();
+  final TextEditingController _offerNoteController = TextEditingController();
+  bool _offerAlreadySent = false;
+
   DateTime? _expectedDeliveryAt;
   DateTime? _deliveredAt;
 
@@ -79,6 +86,9 @@ class _ProviderOrderDetailsScreenState
     _noteController.dispose();
     _actualAmountController.dispose();
     _cancelReasonController.dispose();
+    _offerPriceController.dispose();
+    _offerDurationDaysController.dispose();
+    _offerNoteController.dispose();
     super.dispose();
   }
 
@@ -104,26 +114,35 @@ class _ProviderOrderDetailsScreenState
       _order = order;
       _expectedDeliveryAt = order.expectedDeliveryAt;
       _deliveredAt = order.deliveredAt;
-      _estimatedAmountController.text =
-          order.estimatedServiceAmount ?? '';
+      _estimatedAmountController.text = order.estimatedServiceAmount ?? '';
       _receivedAmountController.text = order.receivedAmount ?? '';
       _actualAmountController.text = order.actualServiceAmount ?? '';
       _cancelReasonController.text = order.cancelReason ?? '';
+      _offerAlreadySent = false;
       _loading = false;
     });
   }
 
   // ─── إجراءات ───
 
-  /// قبول الطلب (يبقى NEW بانتظار إرسال/اعتماد المدخلات)
+  /// قبول الطلب (المسند أو العاجل المتاح)
   Future<void> _accept() async {
+    final order = _order;
+    if (order == null) return;
+
     setState(() => _actionLoading = true);
-    final res = await MarketplaceService.acceptRequest(widget.requestId);
+    final res = (order.requestType == 'urgent' && order.provider == null)
+        ? await MarketplaceService.acceptUrgentRequest(widget.requestId)
+        : await MarketplaceService.acceptRequest(widget.requestId);
     if (!mounted) return;
     setState(() => _actionLoading = false);
 
     if (res.isSuccess) {
-      _snack('تم قبول الطلب. أرسل تفاصيل التنفيذ للعميل');
+      if (order.requestType == 'urgent' && order.provider == null) {
+        _snack('تم قبول الطلب العاجل بنجاح');
+      } else {
+        _snack('تم قبول الطلب. أرسل تفاصيل التنفيذ للعميل');
+      }
       _loadDetail();
     } else {
       _snack(res.error ?? 'فشلت العملية');
@@ -175,10 +194,9 @@ class _ProviderOrderDetailsScreenState
     final res = await MarketplaceService.updateProgress(
       widget.requestId,
       expectedDeliveryAt: _expectedDeliveryAt?.toIso8601String(),
-      estimatedServiceAmount:
-          _estimatedAmountController.text.trim().isNotEmpty
-              ? _estimatedAmountController.text.trim()
-              : null,
+      estimatedServiceAmount: _estimatedAmountController.text.trim().isNotEmpty
+          ? _estimatedAmountController.text.trim()
+          : null,
       receivedAmount: _receivedAmountController.text.trim().isNotEmpty
           ? _receivedAmountController.text.trim()
           : null,
@@ -233,6 +251,48 @@ class _ProviderOrderDetailsScreenState
     }
   }
 
+  Future<void> _sendCompetitiveOffer() async {
+    final priceRaw = _offerPriceController.text.trim();
+    final durationRaw = _offerDurationDaysController.text.trim();
+    final noteRaw = _offerNoteController.text.trim();
+
+    final price = double.tryParse(priceRaw);
+    if (priceRaw.isEmpty || price == null || price <= 0) {
+      _snack('أدخل سعر عرض صالح');
+      return;
+    }
+
+    final durationDays = int.tryParse(durationRaw);
+    if (durationRaw.isEmpty || durationDays == null || durationDays <= 0) {
+      _snack('أدخل مدة تنفيذ بالأيام بشكل صحيح');
+      return;
+    }
+
+    setState(() => _actionLoading = true);
+    final res = await MarketplaceService.createOffer(
+      widget.requestId,
+      price: priceRaw,
+      durationDays: durationDays,
+      note: noteRaw.isNotEmpty ? noteRaw : null,
+    );
+    if (!mounted) return;
+    setState(() => _actionLoading = false);
+
+    if (res.isSuccess) {
+      setState(() => _offerAlreadySent = true);
+      _snack('تم إرسال عرض السعر بنجاح');
+      return;
+    }
+
+    if (res.statusCode == 409) {
+      setState(() => _offerAlreadySent = true);
+      _snack('تم إرسال عرض مسبقًا على هذا الطلب');
+      return;
+    }
+
+    _snack(res.error ?? 'تعذّر إرسال العرض');
+  }
+
   Future<void> _pickCompletionAttachments() async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: true,
@@ -270,8 +330,8 @@ class _ProviderOrderDetailsScreenState
   }
 
   void _snack(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg, style: const TextStyle(fontFamily: 'Cairo'))));
   }
 
   // ─── Helper widgets ───
@@ -345,7 +405,8 @@ class _ProviderOrderDetailsScreenState
     );
   }
 
-  Widget _infoLine({required IconData icon, required String label, required String value}) {
+  Widget _infoLine(
+      {required IconData icon, required String label, required String value}) {
     return Row(children: [
       Icon(icon, size: 18, color: _mainColor),
       const SizedBox(width: 8),
@@ -368,7 +429,8 @@ class _ProviderOrderDetailsScreenState
     ]);
   }
 
-  Widget _readOnlyBox({required String label, required String value, int maxLines = 3}) {
+  Widget _readOnlyBox(
+      {required String label, required String value, int maxLines = 3}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
@@ -447,8 +509,7 @@ class _ProviderOrderDetailsScreenState
           Expanded(
               child: Text(
                   value == null ? label : '$label: ${_formatDateOnly(value)}',
-                  style:
-                      const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
+                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
           const Icon(Icons.expand_more, color: Colors.black45),
         ]),
       ),
@@ -457,8 +518,7 @@ class _ProviderOrderDetailsScreenState
 
   Widget _moneyField(String label, TextEditingController controller) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label,
-          style: const TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+      Text(label, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12)),
       const SizedBox(height: 6),
       _textField(
         controller: controller,
@@ -474,8 +534,7 @@ class _ProviderOrderDetailsScreenState
   @override
   Widget build(BuildContext context) {
     if (!_accountChecked || _loading) {
-      return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!_isProviderAccount) return const Scaffold(body: SizedBox.shrink());
     if (_error != null) {
@@ -527,8 +586,8 @@ class _ProviderOrderDetailsScreenState
             // عنوان
             Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 decoration: BoxDecoration(
                   color: _mainColor.withAlpha(25),
                   borderRadius: BorderRadius.circular(22),
@@ -663,15 +722,12 @@ class _ProviderOrderDetailsScreenState
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16)),
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _readOnlyBox(
-                      label: 'عنوان الطلب',
-                      value: order.title,
-                      maxLines: 2),
+                      label: 'عنوان الطلب', value: order.title, maxLines: 2),
                   const SizedBox(height: 12),
                   _readOnlyBox(
                       label: 'تفاصيل الطلب',
@@ -686,8 +742,7 @@ class _ProviderOrderDetailsScreenState
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16)),
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -709,9 +764,9 @@ class _ProviderOrderDetailsScreenState
                               fontWeight: FontWeight.bold,
                               fontSize: 13,
                               color: _mainColor)),
-                      ...finalDeliveryAttachments
-                          .map((a) => _attachmentRow(a)),
-                      if (regularAttachments.isNotEmpty) const SizedBox(height: 8),
+                      ...finalDeliveryAttachments.map((a) => _attachmentRow(a)),
+                      if (regularAttachments.isNotEmpty)
+                        const SizedBox(height: 8),
                     ],
                     if (regularAttachments.isNotEmpty) ...[
                       if (finalDeliveryAttachments.isNotEmpty)
@@ -749,8 +804,7 @@ class _ProviderOrderDetailsScreenState
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                         '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
@@ -787,8 +841,7 @@ class _ProviderOrderDetailsScreenState
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16)),
+                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -839,11 +892,28 @@ class _ProviderOrderDetailsScreenState
 
   Widget _newActions() {
     final order = _order;
-    final rejectedByClient = order?.providerInputsApproved == false;
-    final rejectionNote = (order?.providerInputsDecisionNote ?? '').trim();
+    if (order == null) return const SizedBox.shrink();
+
+    if (order.requestType == 'competitive' && order.provider == null) {
+      return _competitiveOfferActions();
+    }
+
+    if (order.requestType == 'urgent' && order.provider == null) {
+      return _urgentAvailableActions();
+    }
+
+    if (order.requestType == 'competitive' && order.provider != null) {
+      return _competitiveAssignedNewActions(order);
+    }
+
+    return _assignedNewActions(order);
+  }
+
+  Widget _assignedNewActions(ServiceRequest order) {
+    final rejectedByClient = order.providerInputsApproved == false;
+    final rejectionNote = (order.providerInputsDecisionNote ?? '').trim();
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // قبول
       SizedBox(
         width: double.infinity,
         child: ElevatedButton.icon(
@@ -863,13 +933,12 @@ class _ProviderOrderDetailsScreenState
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
         ),
       ),
       const SizedBox(height: 12),
-
       if (rejectedByClient) ...[
         _readOnlyBox(
           label: 'سبب رفض العميل للتفاصيل السابقة',
@@ -878,8 +947,9 @@ class _ProviderOrderDetailsScreenState
         ),
         const SizedBox(height: 12),
       ],
-
-      _sectionTitle(rejectedByClient ? 'إعادة إرسال تفاصيل التنفيذ' : 'إرسال تفاصيل التنفيذ'),
+      _sectionTitle(rejectedByClient
+          ? 'إعادة إرسال تفاصيل التنفيذ'
+          : 'إرسال تفاصيل التنفيذ'),
       _dateLine(
         label: 'موعد التسليم المتوقع',
         value: _expectedDeliveryAt,
@@ -898,8 +968,8 @@ class _ProviderOrderDetailsScreenState
                 'قيمة الخدمة المقدرة (SR)', _estimatedAmountController)),
         const SizedBox(width: 10),
         Expanded(
-            child: _moneyField(
-                'المبلغ المستلم (SR)', _receivedAmountController)),
+            child:
+                _moneyField('المبلغ المستلم (SR)', _receivedAmountController)),
       ]),
       const SizedBox(height: 10),
       _textField(
@@ -912,11 +982,13 @@ class _ProviderOrderDetailsScreenState
           style: ElevatedButton.styleFrom(
             backgroundColor: _mainColor,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: Text(
-              rejectedByClient ? 'إعادة إرسال التفاصيل' : 'إرسال التفاصيل للعميل',
+              rejectedByClient
+                  ? 'إعادة إرسال التفاصيل'
+                  : 'إرسال التفاصيل للعميل',
               style: const TextStyle(
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
@@ -924,8 +996,6 @@ class _ProviderOrderDetailsScreenState
         ),
       ),
       const SizedBox(height: 16),
-
-      // رفض
       _sectionTitle('رفض الطلب'),
       _textField(
           controller: _cancelReasonController,
@@ -940,14 +1010,202 @@ class _ProviderOrderDetailsScreenState
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
             side: const BorderSide(color: Colors.red),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: const Text('رفض الطلب',
               style: TextStyle(
                   fontFamily: 'Cairo',
                   fontWeight: FontWeight.bold,
                   color: Colors.red)),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _urgentAvailableActions() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _readOnlyBox(
+        label: 'طلب عاجل متاح',
+        value:
+            'هذا الطلب العاجل متاح الآن لك. عند القبول سيتم إسناده لك مباشرة.',
+        maxLines: 4,
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _actionLoading ? null : _accept,
+          icon: const Icon(Icons.flash_on, color: Colors.white),
+          label: _actionLoading
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white),
+                )
+              : const Text(
+                  'قبول الطلب العاجل',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _competitiveOfferActions() {
+    if (_offerAlreadySent) {
+      return _readOnlyBox(
+        label: 'عرض السعر',
+        value: 'تم إرسال عرضك على هذا الطلب. بانتظار قرار العميل.',
+        maxLines: 3,
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _readOnlyBox(
+        label: 'طلب عروض أسعار متاح',
+        value:
+            'أدخل السعر ومدة التنفيذ لإرسال عرضك للعميل. يمكنك إرسال عرض واحد لكل طلب.',
+        maxLines: 4,
+      ),
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: _moneyField('سعر العرض (SR)', _offerPriceController),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'مدة التنفيذ (يوم)',
+                  style: TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                ),
+                const SizedBox(height: 6),
+                _textField(
+                  controller: _offerDurationDaysController,
+                  enabled: true,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: false),
+                  hint: 'مثال: 5',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+      _textField(
+        controller: _offerNoteController,
+        enabled: true,
+        maxLines: 3,
+        hint: 'ملاحظة للعميل (اختياري)',
+      ),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _actionLoading ? null : _sendCompetitiveOffer,
+          icon: const Icon(Icons.local_offer_outlined, color: Colors.white),
+          label: _actionLoading
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : const Text(
+                  'إرسال عرض السعر',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _competitiveAssignedNewActions(ServiceRequest order) {
+    final rejectedByClient = order.providerInputsApproved == false;
+    final rejectionNote = (order.providerInputsDecisionNote ?? '').trim();
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      if (rejectedByClient) ...[
+        _readOnlyBox(
+          label: 'سبب رفض العميل للتفاصيل السابقة',
+          value: rejectionNote.isEmpty ? '-' : rejectionNote,
+          maxLines: 4,
+        ),
+        const SizedBox(height: 12),
+      ],
+      _sectionTitle(rejectedByClient
+          ? 'إعادة إرسال تفاصيل التنفيذ'
+          : 'إرسال تفاصيل التنفيذ'),
+      _dateLine(
+        label: 'موعد التسليم المتوقع',
+        value: _expectedDeliveryAt,
+        onPick: () async {
+          final picked =
+              await _pickDateTime(_expectedDeliveryAt ?? DateTime.now());
+          if (picked != null && mounted) {
+            setState(() => _expectedDeliveryAt = picked);
+          }
+        },
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(
+            child: _moneyField(
+                'قيمة الخدمة المقدرة (SR)', _estimatedAmountController)),
+        const SizedBox(width: 10),
+        Expanded(
+            child:
+                _moneyField('المبلغ المستلم (SR)', _receivedAmountController)),
+      ]),
+      const SizedBox(height: 10),
+      _textField(
+          controller: _noteController, enabled: true, hint: 'ملاحظة (اختياري)'),
+      const SizedBox(height: 12),
+      SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          onPressed: _actionLoading ? null : _updateProgress,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _mainColor,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+          child: Text(
+              rejectedByClient
+                  ? 'إعادة إرسال التفاصيل'
+                  : 'إرسال التفاصيل للعميل',
+              style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
         ),
       ),
     ]);
@@ -974,8 +1232,8 @@ class _ProviderOrderDetailsScreenState
                 'قيمة الخدمة المقدرة (SR)', _estimatedAmountController)),
         const SizedBox(width: 10),
         Expanded(
-            child: _moneyField(
-                'المبلغ المستلم (SR)', _receivedAmountController)),
+            child:
+                _moneyField('المبلغ المستلم (SR)', _receivedAmountController)),
       ]),
       const SizedBox(height: 10),
       _textField(
@@ -988,8 +1246,8 @@ class _ProviderOrderDetailsScreenState
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.orange,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: const Text('تحديث التقدم',
               style: TextStyle(
@@ -1006,8 +1264,7 @@ class _ProviderOrderDetailsScreenState
         label: 'موعد التسليم الفعلي',
         value: _deliveredAt,
         onPick: () async {
-          final picked =
-              await _pickDateTime(_deliveredAt ?? DateTime.now());
+          final picked = await _pickDateTime(_deliveredAt ?? DateTime.now());
           if (picked != null && mounted) {
             setState(() => _deliveredAt = picked);
           }
@@ -1028,28 +1285,28 @@ class _ProviderOrderDetailsScreenState
       if (_completionAttachments.isNotEmpty) ...[
         const SizedBox(height: 8),
         ..._completionAttachments.asMap().entries.map(
-          (entry) => ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
-            title: Text(
-              entry.value.path.split('\\').last,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
+              (entry) => ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.insert_drive_file_outlined, size: 18),
+                title: Text(
+                  entry.value.path.split('\\').last,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
+                ),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                  onPressed: _actionLoading
+                      ? null
+                      : () {
+                          setState(() {
+                            _completionAttachments.removeAt(entry.key);
+                          });
+                        },
+                ),
+              ),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.close, size: 18, color: Colors.red),
-              onPressed: _actionLoading
-                  ? null
-                  : () {
-                      setState(() {
-                        _completionAttachments.removeAt(entry.key);
-                      });
-                    },
-            ),
-          ),
-        ),
       ],
       const SizedBox(height: 12),
       SizedBox(
@@ -1059,8 +1316,8 @@ class _ProviderOrderDetailsScreenState
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.green,
             padding: const EdgeInsets.symmetric(vertical: 14),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: const Text('إكمال الطلب',
               style: TextStyle(
@@ -1086,8 +1343,8 @@ class _ProviderOrderDetailsScreenState
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
             side: const BorderSide(color: Colors.red),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
           child: const Text('إلغاء الطلب',
               style: TextStyle(

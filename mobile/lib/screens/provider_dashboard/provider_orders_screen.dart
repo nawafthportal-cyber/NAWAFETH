@@ -8,6 +8,12 @@ import '../../widgets/bottom_nav.dart';
 import '../client_orders_screen.dart';
 import 'provider_order_details_screen.dart';
 
+enum _ProviderOrdersTab {
+  assigned,
+  competitive,
+  urgent,
+}
+
 class ProviderOrdersScreen extends StatefulWidget {
   final bool embedded;
 
@@ -22,8 +28,12 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String? _selectedStatus;
+  _ProviderOrdersTab _activeTab = _ProviderOrdersTab.assigned;
 
-  List<ServiceRequest> _orders = [];
+  List<ServiceRequest> _assignedOrders = [];
+  List<ServiceRequest> _competitiveOrders = [];
+  List<ServiceRequest> _urgentOrders = [];
+
   bool _loading = true;
   String? _error;
 
@@ -35,7 +45,9 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
     super.initState();
     _ensureProviderAccount();
     _searchController.addListener(() {
-      if (mounted) setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     });
   }
 
@@ -66,7 +78,6 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
     super.dispose();
   }
 
-  /// ─── تحميل الطلبات من API ───
   Future<void> _loadOrders() async {
     setState(() {
       _loading = true;
@@ -90,16 +101,20 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
           break;
       }
 
-      final orders = await MarketplaceService.getProviderRequests(
-        statusGroup: statusGroup,
-      );
+      final results = await Future.wait([
+        MarketplaceService.getProviderRequests(statusGroup: statusGroup),
+        MarketplaceService.getAvailableCompetitiveRequests(),
+        MarketplaceService.getAvailableUrgentRequests(),
+      ]);
 
       if (!mounted) return;
       setState(() {
-        _orders = orders;
+        _assignedOrders = results[0];
+        _competitiveOrders = results[1];
+        _urgentOrders = results[2];
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'تعذّر تحميل الطلبات';
@@ -126,21 +141,42 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
   String _formatDate(DateTime date) =>
       DateFormat('HH:mm  dd/MM/yyyy', 'ar').format(date);
 
-  /// فلترة محلية بالبحث النصي (API لا تدعم search للمزوّد)
+  List<ServiceRequest> _currentOrders() {
+    switch (_activeTab) {
+      case _ProviderOrdersTab.assigned:
+        return _assignedOrders;
+      case _ProviderOrdersTab.competitive:
+        return _competitiveOrders;
+      case _ProviderOrdersTab.urgent:
+        return _urgentOrders;
+    }
+  }
+
   List<ServiceRequest> _filteredOrders() {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return _orders;
+    final current = _currentOrders();
+    if (query.isEmpty) return current;
 
-    return _orders.where((o) {
+    return current.where((o) {
       return o.displayId.toLowerCase().contains(query) ||
           o.title.toLowerCase().contains(query) ||
-          (o.clientName ?? '').toLowerCase().contains(query);
+          (o.clientName ?? '').toLowerCase().contains(query) ||
+          (o.city ?? '').toLowerCase().contains(query);
     }).toList();
   }
 
   void _onStatusChanged(String? status) {
     setState(() => _selectedStatus = status);
     _loadOrders();
+  }
+
+  void _onTabChanged(_ProviderOrdersTab tab) {
+    setState(() {
+      _activeTab = tab;
+      if (tab != _ProviderOrdersTab.assigned) {
+        _selectedStatus = null;
+      }
+    });
   }
 
   Future<void> _openDetails(ServiceRequest order) async {
@@ -155,7 +191,7 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
     if (refreshed == true) _loadOrders();
   }
 
-  Widget _filterChip(String label) {
+  Widget _statusFilterChip(String label) {
     final isSelected = _selectedStatus == label;
     final arabicToStatus = {
       'جديد': 'new',
@@ -186,8 +222,39 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
     );
   }
 
+  Widget _tabChip({
+    required String label,
+    required int count,
+    required _ProviderOrdersTab tab,
+    required Color color,
+  }) {
+    final isSelected = _activeTab == tab;
+    return Padding(
+      padding: const EdgeInsetsDirectional.only(end: 8),
+      child: ChoiceChip(
+        label: Text(
+          '$label ($count)',
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : color,
+          ),
+        ),
+        selected: isSelected,
+        selectedColor: color,
+        backgroundColor: color.withAlpha(20),
+        side: BorderSide(color: color.withAlpha(100)),
+        onSelected: (_) => _onTabChanged(tab),
+      ),
+    );
+  }
+
   Widget _orderCard(ServiceRequest order) {
     final statusColor = _statusColor(order.statusGroup);
+    final showAvailableTag =
+        _activeTab != _ProviderOrdersTab.assigned && order.provider == null;
+
     return InkWell(
       onTap: () => _openDetails(order),
       borderRadius: BorderRadius.circular(16),
@@ -199,7 +266,10 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [
             BoxShadow(
-                color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
           ],
         ),
         child: Column(
@@ -210,12 +280,16 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(
-                        '${order.displayId}  ${order.clientName ?? ''}',
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
+                      Expanded(
+                        child: Text(
+                          '${order.displayId}  ${order.clientName ?? ''}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 6),
@@ -241,9 +315,32 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
                             ),
                           ),
                         ),
+                      if (showAvailableTag) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.withAlpha(22),
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: Colors.teal.withAlpha(60)),
+                          ),
+                          child: const Text(
+                            'متاح',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -276,6 +373,17 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
               ),
             ),
             const SizedBox(height: 6),
+            if ((order.city ?? '').trim().isNotEmpty) ...[
+              Text(
+                'المدينة: ${order.city}',
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 4),
+            ],
             Text(
               _formatDate(order.createdAt),
               style: const TextStyle(
@@ -287,6 +395,118 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildBody() {
+    final filtered = _filteredOrders();
+
+    return Column(
+      children: [
+        TextField(
+          controller: _searchController,
+          style: const TextStyle(fontFamily: 'Cairo'),
+          decoration: InputDecoration(
+            hintText: 'بحث',
+            hintStyle: const TextStyle(fontFamily: 'Cairo'),
+            prefixIcon: const Icon(Icons.search, color: _mainColor),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _tabChip(
+                label: 'المسندة لي',
+                count: _assignedOrders.length,
+                tab: _ProviderOrdersTab.assigned,
+                color: _mainColor,
+              ),
+              _tabChip(
+                label: 'عروض الأسعار',
+                count: _competitiveOrders.length,
+                tab: _ProviderOrdersTab.competitive,
+                color: Colors.blue.shade700,
+              ),
+              _tabChip(
+                label: 'العاجلة المتاحة',
+                count: _urgentOrders.length,
+                tab: _ProviderOrdersTab.urgent,
+                color: Colors.red.shade700,
+              ),
+            ],
+          ),
+        ),
+        if (_activeTab == _ProviderOrdersTab.assigned) ...[
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _statusFilterChip('جديد'),
+                _statusFilterChip('تحت التنفيذ'),
+                _statusFilterChip('مكتمل'),
+                _statusFilterChip('ملغي'),
+              ],
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _error != null
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _error!,
+                            style: const TextStyle(fontFamily: 'Cairo'),
+                          ),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: _loadOrders,
+                            child: const Text(
+                              'إعادة المحاولة',
+                              style: TextStyle(fontFamily: 'Cairo'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : filtered.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'لا توجد طلبات',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              color: Colors.black54,
+                            ),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadOrders,
+                          child: ListView.builder(
+                            itemCount: filtered.length,
+                            itemBuilder: (_, i) => _orderCard(filtered[i]),
+                          ),
+                        ),
+        ),
+      ],
     );
   }
 
@@ -313,9 +533,10 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
               backgroundColor: Colors.grey[100],
               appBar: AppBar(
                 backgroundColor: _mainColor,
-                title: const Text('إدارة الطلبات',
-                    style:
-                        TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+                title: const Text(
+                  'إدارة الطلبات',
+                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
+                ),
                 iconTheme: const IconThemeData(color: Colors.white),
               ),
               bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
@@ -325,81 +546,5 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
               ),
             ),
           );
-  }
-
-  Widget _buildBody() {
-    final filtered = _filteredOrders();
-
-    return Column(
-      children: [
-        // بحث
-        TextField(
-          controller: _searchController,
-          style: const TextStyle(fontFamily: 'Cairo'),
-          decoration: InputDecoration(
-            hintText: 'بحث',
-            hintStyle: const TextStyle(fontFamily: 'Cairo'),
-            prefixIcon: const Icon(Icons.search, color: _mainColor),
-            filled: true,
-            fillColor: Colors.white,
-            contentPadding:
-                const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // فلاتر
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            _filterChip('جديد'),
-            _filterChip('تحت التنفيذ'),
-            _filterChip('مكتمل'),
-            _filterChip('ملغي'),
-          ]),
-        ),
-        const SizedBox(height: 12),
-        // القائمة
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(_error!,
-                              style: const TextStyle(fontFamily: 'Cairo')),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                              onPressed: _loadOrders,
-                              child: const Text('إعادة المحاولة',
-                                  style: TextStyle(fontFamily: 'Cairo'))),
-                        ],
-                      ),
-                    )
-                  : filtered.isEmpty
-                      ? const Center(
-                          child: Text('لا توجد طلبات',
-                              style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  color: Colors.black54)))
-                      : RefreshIndicator(
-                          onRefresh: _loadOrders,
-                          child: ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (_, i) => _orderCard(filtered[i]),
-                          ),
-                        ),
-        ),
-      ],
-    );
   }
 }

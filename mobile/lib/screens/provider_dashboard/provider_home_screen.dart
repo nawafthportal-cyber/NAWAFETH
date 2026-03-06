@@ -58,6 +58,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   DateTime? _subscriptionEndAt;
   int _urgentOrdersCount = 0;
   int _newOrdersCount = 0;
+  int _competitiveOrdersCount = 0;
   int _clientsCount = 0;
   int _notificationUnread = 0;
   int _chatUnread = 0;
@@ -182,19 +183,21 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     }
   }
 
-  /// جلب أعداد الطلبات العاجلة والجديدة
+  /// جلب أعداد الطلبات (العاجلة، التنافسية، الجديدة، المكتملة)
   Future<void> _loadOrderCounts() async {
     try {
       final results = await Future.wait([
         MarketplaceService.getAvailableUrgentRequests(),
+        MarketplaceService.getAvailableCompetitiveRequests(),
         MarketplaceService.getProviderRequests(statusGroup: 'new'),
         MarketplaceService.getProviderRequests(statusGroup: 'completed'),
       ]);
       if (!mounted) return;
       setState(() {
         _urgentOrdersCount = results[0].length;
-        _newOrdersCount = results[1].length;
-        _clientsCount = results[2].length;
+        _competitiveOrdersCount = results[1].length;
+        _newOrdersCount = results[2].length;
+        _clientsCount = results[3].length;
       });
     } catch (_) {
       // non-critical, keep defaults
@@ -592,8 +595,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(14),
-                  border:
-                      Border.all(color: Colors.white.withOpacity(0.45), width: 1),
+                  border: Border.all(
+                      color: Colors.white.withOpacity(0.45), width: 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.15),
@@ -609,7 +612,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   top: -4,
                   right: -6,
                   child: Container(
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    constraints:
+                        const BoxConstraints(minWidth: 16, minHeight: 16),
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: Colors.red,
@@ -1143,37 +1147,67 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   ),
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade600,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  "$_urgentOrdersCount عاجلة",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: "Cairo",
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.amber),
-                ),
-                child: Text(
-                  "$_newOrdersCount جديدة",
-                  style: TextStyle(
-                    color: Colors.black87,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: "Cairo",
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade600,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          "$_urgentOrdersCount عاجلة",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: "Cairo",
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.blue.shade300),
+                        ),
+                        child: Text(
+                          "$_competitiveOrdersCount عروض",
+                          style: TextStyle(
+                            color: Colors.blue.shade800,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: "Cairo",
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.amber),
+                        ),
+                        child: Text(
+                          "$_newOrdersCount مسندة",
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: "Cairo",
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
