@@ -42,6 +42,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isRecording = false;
   int _recordSeconds = 0;
   Timer? _timer;
+  Timer? _liveSyncTimer;
+  bool _isRefreshingMessages = false;
+  static const Duration _liveSyncInterval = Duration(seconds: 2);
 
   String? _pendingType;
   dynamic _pendingFile;
@@ -156,6 +159,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     await _loadMessages();
+    _startLiveSync();
+  }
+
+  void _startLiveSync() {
+    _liveSyncTimer?.cancel();
+    if (_resolvedThreadId == null) return;
+
+    _liveSyncTimer = Timer.periodic(_liveSyncInterval, (_) {
+      if (!mounted || _resolvedThreadId == null) return;
+      if (_isLoading || _isLoadingMore || _isSending || _isRefreshingMessages) {
+        return;
+      }
+      _refreshMessages(liveSync: true);
+    });
   }
 
   Future<void> _loadMessages() async {
@@ -284,7 +301,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _isReconnecting = false;
       });
       // إعادة تحميل الرسائل لجلب الرسالة الجديدة من السيرفر
-      await _refreshMessages();
+      await _refreshMessages(forceScroll: true);
     } else {
       if (mounted) {
         setState(() {
@@ -305,8 +322,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   /// تحديث الرسائل بدون إعادة التحميل الكامل
-  Future<void> _refreshMessages() async {
-    if (_resolvedThreadId == null) return;
+  Future<void> _refreshMessages({
+    bool liveSync = false,
+    bool forceScroll = false,
+  }) async {
+    if (_resolvedThreadId == null || _isRefreshingMessages) return;
+
+    _isRefreshingMessages = true;
+    final wasNearBottom = _isNearBottom();
+    final previousCount = _messages.length;
+    final previousLastId = _messages.isNotEmpty ? _messages.last.id : null;
+
     if (_isChatConnected == false && mounted) {
       setState(() {
         _isReconnecting = true;
@@ -316,20 +342,43 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final page =
           await MessagingService.fetchMessages(_resolvedThreadId!, limit: 30);
       if (!mounted) return;
+
+      final updatedMessages = page.messages.reversed.toList();
+      final updatedLastId =
+          updatedMessages.isNotEmpty ? updatedMessages.last.id : null;
+      final hasNewMessages =
+          updatedMessages.length != previousCount || updatedLastId != previousLastId;
+
       setState(() {
-        _messages = page.messages.reversed.toList();
+        _messages = updatedMessages;
         _hasMore = page.hasMore;
         _isChatConnected = true;
         _isReconnecting = false;
       });
-      _scrollToBottom();
+
+      if (hasNewMessages) {
+        MessagingService.markRead(_resolvedThreadId!);
+      }
+
+      if (forceScroll || (hasNewMessages && (wasNearBottom || !liveSync))) {
+        _scrollToBottom();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _isChatConnected = false;
         _isReconnecting = false;
       });
+    } finally {
+      _isRefreshingMessages = false;
     }
+  }
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final remaining =
+        _scrollController.position.maxScrollExtent - _scrollController.position.pixels;
+    return remaining <= 140;
   }
 
   // ✅ التسجيل الصوتي
@@ -1530,6 +1579,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _liveSyncTimer?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

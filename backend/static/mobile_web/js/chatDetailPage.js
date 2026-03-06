@@ -14,6 +14,9 @@ const ChatDetailPage = (() => {
     ws: null,
     wsConnected: false,
     wsReconnectTimer: null,
+    wsReconnectAttempts: 0,
+    wsDisableUntilTs: 0,
+    wsFallbackNotified: false,
     pendingByClientId: new Map(),
     pendingAttachment: null,
     peer: {
@@ -36,6 +39,9 @@ const ChatDetailPage = (() => {
       blocked_by_other: false,
     },
   };
+
+  const WS_MAX_RECONNECT_ATTEMPTS = 6;
+  const WS_DISABLE_WINDOW_MS = 60000;
 
   const dom = {};
 
@@ -781,13 +787,42 @@ const ChatDetailPage = (() => {
   function _startPollingFallback() {
     if (state.pollTimer) clearInterval(state.pollTimer);
     state.pollTimer = setInterval(() => {
-      if (!state.wsConnected) _loadMessages();
-    }, 5000);
+      if (!state.wsConnected && !state.isLoading && !document.hidden) {
+        _loadMessages();
+      }
+    }, 2000);
   }
 
-  function _buildWsUrl(token) {
+  function _buildWsCandidates(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return protocol + '//' + window.location.host + '/ws/thread/' + state.threadId + '/?token=' + encodeURIComponent(token);
+    const path = '/ws/thread/' + state.threadId + '/?token=' + encodeURIComponent(token);
+    const urls = [];
+
+    const addCandidate = (host) => {
+      const safeHost = String(host || '').trim();
+      if (!safeHost) return;
+      const candidate = protocol + '//' + safeHost + path;
+      if (!urls.includes(candidate)) urls.push(candidate);
+    };
+
+    // Primary candidate: current host exactly as opened by the user.
+    addCandidate(window.location.host);
+
+    // Secondary candidate: switch between www / non-www for production domains.
+    const hostname = String(window.location.hostname || '').trim();
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (!isLocal && hostname) {
+      const port = window.location.port ? (':' + window.location.port) : '';
+
+      if (hostname.startsWith('www.')) {
+        const bareHost = hostname.slice(4);
+        if (bareHost) addCandidate(bareHost + port);
+      } else if (hostname.includes('.')) {
+        addCandidate('www.' + hostname + port);
+      }
+    }
+
+    return urls;
   }
 
   function _setConnectionStatus(status) {
@@ -803,6 +838,11 @@ const ChatDetailPage = (() => {
       dom.peerStatus.classList.add('is-reconnecting');
       return;
     }
+    if (status === 'fallback') {
+      dom.peerStatus.textContent = 'اتصال محدود (تحديث تلقائي)';
+      dom.peerStatus.classList.add('is-offline');
+      return;
+    }
     dom.peerStatus.textContent = 'غير متصل';
     dom.peerStatus.classList.add('is-offline');
   }
@@ -810,17 +850,36 @@ const ChatDetailPage = (() => {
   function _connectWebSocket() {
     const token = Auth.getAccessToken();
     if (!token || state.wsConnected || state.threadState.blocked_by_other) return;
+    if (state.ws && state.ws.readyState === WebSocket.CONNECTING) return;
+
+    const wsCandidates = _buildWsCandidates(token);
+    if (!wsCandidates.length) {
+      _handleWsFailure();
+      return;
+    }
+
+    const attemptIndex = state.wsReconnectAttempts % wsCandidates.length;
+    const wsUrl = wsCandidates[attemptIndex] || wsCandidates[0];
+
+    const now = Date.now();
+    if (state.wsDisableUntilTs && now < state.wsDisableUntilTs) {
+      _setConnectionStatus('fallback');
+      _scheduleReconnect(state.wsDisableUntilTs - now);
+      return;
+    }
 
     try {
-      state.ws = new WebSocket(_buildWsUrl(token));
+      state.ws = new WebSocket(wsUrl);
     } catch (_) {
-      _setConnectionStatus('reconnecting');
-      _scheduleReconnect();
+      _handleWsFailure();
       return;
     }
 
     state.ws.onopen = () => {
       state.wsConnected = true;
+      state.wsReconnectAttempts = 0;
+      state.wsDisableUntilTs = 0;
+      state.wsFallbackNotified = false;
       _setConnectionStatus('online');
       if (state.wsReconnectTimer) {
         clearTimeout(state.wsReconnectTimer);
@@ -841,23 +900,55 @@ const ChatDetailPage = (() => {
 
     state.ws.onerror = () => {
       state.wsConnected = false;
-      _setConnectionStatus('reconnecting');
+      if (!state.wsDisableUntilTs || Date.now() >= state.wsDisableUntilTs) {
+        _setConnectionStatus('reconnecting');
+      }
     };
 
     state.ws.onclose = () => {
       state.wsConnected = false;
-      _setConnectionStatus('offline');
       state.ws = null;
-      _scheduleReconnect();
+      _handleWsFailure();
     };
   }
 
-  function _scheduleReconnect() {
+  function _handleWsFailure() {
+    if (state.threadState.blocked_by_other) {
+      _setConnectionStatus('offline');
+      return;
+    }
+
+    state.wsReconnectAttempts += 1;
+
+    if (state.wsReconnectAttempts >= WS_MAX_RECONNECT_ATTEMPTS) {
+      state.wsReconnectAttempts = 0;
+      state.wsDisableUntilTs = Date.now() + WS_DISABLE_WINDOW_MS;
+      _setConnectionStatus('fallback');
+
+      if (!state.wsFallbackNotified) {
+        state.wsFallbackNotified = true;
+        _showToast('تعذر الاتصال الفوري حالياً، سيتم التحديث تلقائياً.', 'warning');
+      }
+
+      _scheduleReconnect(WS_DISABLE_WINDOW_MS);
+      return;
+    }
+
+    _setConnectionStatus('reconnecting');
+    _scheduleReconnect();
+  }
+
+  function _scheduleReconnect(delayMs) {
     if (state.wsReconnectTimer || state.threadState.blocked_by_other) return;
+
+    const delay = Number.isFinite(delayMs)
+      ? Math.max(1500, delayMs)
+      : Math.min(3000 * Math.pow(2, Math.max(0, state.wsReconnectAttempts - 1)), 30000);
+
     state.wsReconnectTimer = setTimeout(() => {
       state.wsReconnectTimer = null;
       _connectWebSocket();
-    }, 3000);
+    }, delay);
   }
 
   function _handleSocketEvent(payload) {
