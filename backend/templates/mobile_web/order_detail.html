@@ -7,7 +7,7 @@
 
 {% block content %}
 <main class="page-content">
-  <div class="container">
+  <div class="container order-detail-layout">
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-gate-icon">📦</div>
       <h2>سجّل دخولك</h2>
@@ -15,27 +15,40 @@
       <a id="order-login-link" href="/login/" class="btn btn-primary">تسجيل الدخول</a>
     </div>
 
-    <div id="order-content" class="hidden">
-      <div class="page-header order-detail-header">
-        <h1>تفاصيل الطلب</h1>
-        <a href="/orders/" class="btn-sm">رجوع</a>
-      </div>
+    <div id="order-content" class="hidden order-detail-shell">
+      <header class="order-page-top">
+        <div class="order-page-title-wrap">
+          <h1>تفاصيل الطلب</h1>
+          <p>راجع حالة الطلب، التفاصيل، وعروض الأسعار من المزودين في مكان واحد.</p>
+        </div>
+        <a href="/orders/" class="order-back-link" aria-label="العودة إلى قائمة الطلبات">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+          <span>رجوع للطلبات</span>
+        </a>
+      </header>
 
       <div id="order-loading" class="text-center">
         <span class="spinner-inline"></span>
       </div>
       <div id="order-error" class="form-error hidden"></div>
 
-      <div id="order-detail" class="hidden">
-        <section class="order-detail-card">
+      <div id="order-detail" class="hidden order-detail-stack">
+        <section class="order-detail-card order-summary-card">
           <div class="order-detail-top">
-            <div id="order-display-id" class="order-display-id"></div>
-            <span id="order-status-badge" class="status-badge"></span>
+            <div class="order-summary-main">
+              <div class="order-summary-id-block">
+                <p class="order-summary-label">رقم الطلب</p>
+                <div id="order-display-id" class="order-display-id"></div>
+              </div>
+              <span id="order-status-badge" class="status-badge"></span>
+            </div>
           </div>
           <div id="order-meta" class="order-meta"></div>
         </section>
 
-        <section class="order-detail-card">
+        <section class="order-detail-card order-edit-card">
           <div class="order-field-head">
             <h2>عنوان الطلب</h2>
             <button type="button" class="btn-sm hidden" id="btn-toggle-title">تعديل</button>
@@ -43,7 +56,7 @@
           <input id="order-title" class="form-input" disabled>
         </section>
 
-        <section class="order-detail-card">
+        <section class="order-detail-card order-edit-card">
           <div class="order-field-head">
             <h2>تفاصيل الطلب</h2>
             <button type="button" class="btn-sm hidden" id="btn-toggle-desc">تعديل</button>
@@ -51,17 +64,17 @@
           <textarea id="order-description" class="form-textarea" disabled></textarea>
         </section>
 
-        <section class="order-detail-card">
+        <section class="order-detail-card order-files-card">
           <h2>المرفقات</h2>
           <div id="order-attachments" class="order-lines"></div>
         </section>
 
-        <section class="order-detail-card">
+        <section class="order-detail-card order-logs-card">
           <h2>سجل الحالة</h2>
           <div id="order-status-logs" class="order-lines"></div>
         </section>
 
-        <section id="order-offers-section" class="order-detail-card hidden">
+        <section id="order-offers-section" class="order-detail-card order-offers-card hidden">
           <div class="order-offers-head">
             <h2>عروض الأسعار</h2>
             <button type="button" class="btn-sm" id="btn-refresh-offers">تحديث</button>

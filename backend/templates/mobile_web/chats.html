@@ -7,7 +7,7 @@
 
 {% block content %}
 <main class="page-content">
-  <div class="container">
+  <div class="container chats-layout">
     <!-- Auth gate -->
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-gate-icon">💬</div>
@@ -16,30 +16,67 @@
       <a href="/login/?next=/chats/" class="btn btn-primary">تسجيل الدخول</a>
     </div>
 
-    <div id="chats-content" class="hidden">
-      <div class="page-header">
-        <h1>المحادثات</h1>
-      </div>
+    <div id="chats-content" class="hidden chats-shell">
+      <header class="chats-page-top">
+        <div class="chats-page-title-wrap">
+          <h1>المحادثات</h1>
+          <p>تابع محادثاتك مع مزودي الخدمة واطلع على أحدث الرسائل بسرعة.</p>
+        </div>
+        <div class="chats-top-counters">
+          <span id="chats-total-count" class="chats-total-badge">0</span>
+          <span id="chats-unread-count" class="chats-unread-badge hidden">0 غير مقروء</span>
+        </div>
+      </header>
 
-      <!-- Filter chips -->
-      <div class="filter-row" id="chat-filters">
-        <button class="filter-chip active" data-filter="all">الكل</button>
-        <button class="filter-chip" data-filter="unread">غير مقروءة</button>
-        <button class="filter-chip" data-filter="favorite">مفضلة</button>
-        <button class="filter-chip" data-filter="recent">الأحدث</button>
-      </div>
+      <section class="chats-control-panel">
+        <div class="chats-filter-head">
+          <h3>قائمة المحادثات</h3>
+          <span id="chats-results-count" class="chats-results-count">0 نتيجة</span>
+        </div>
 
-      <!-- Search -->
-      <div class="search-input-large" style="margin-bottom:16px">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="chat-search" placeholder="ابحث عن محادثة...">
-      </div>
+        <div class="filter-row" id="chat-filters">
+          <button class="filter-chip active" data-filter="all" type="button">
+            <span>الكل</span>
+            <span class="chat-filter-count" data-count-for="all">0</span>
+          </button>
+          <button class="filter-chip" data-filter="unread" type="button">
+            <span>غير مقروءة</span>
+            <span class="chat-filter-count" data-count-for="unread">0</span>
+          </button>
+          <button class="filter-chip" data-filter="favorite" type="button">
+            <span>مفضلة</span>
+            <span class="chat-filter-count" data-count-for="favorite">0</span>
+          </button>
+          <button class="filter-chip" data-filter="recent" type="button">
+            <span>الأحدث</span>
+            <span class="chat-filter-count" data-count-for="recent">0</span>
+          </button>
+        </div>
 
-      <div id="threads-list" class="threads-list"></div>
-      <div id="chats-empty" class="empty-hint hidden">
-        <div class="empty-icon">💬</div>
-        <p>لا توجد محادثات بعد</p>
-      </div>
+        <div class="chats-search-wrap">
+          <svg class="chats-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="chat-search" class="chats-search-input" placeholder="ابحث عن محادثة..." autocomplete="off">
+          <button type="button" id="chat-search-clear" class="chats-search-clear hidden" aria-label="مسح البحث">✕</button>
+        </div>
+      </section>
+
+      <div id="chats-error" class="form-error hidden"></div>
+
+      <section class="chats-list-panel">
+        <div id="threads-list" class="threads-list">
+          <div class="chat-thread-skeleton shimmer"></div>
+          <div class="chat-thread-skeleton shimmer"></div>
+          <div class="chat-thread-skeleton shimmer"></div>
+        </div>
+
+        <div id="chats-empty" class="empty-hint hidden">
+          <div class="empty-icon">💬</div>
+          <p id="chats-empty-text">لا توجد محادثات بعد</p>
+        </div>
+      </section>
     </div>
   </div>
 </main>
