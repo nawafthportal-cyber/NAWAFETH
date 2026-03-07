@@ -62,7 +62,7 @@ def provider_access_state(user) -> ProviderAccessState:
     return ProviderAccessState(
         allowed=False,
         code="provider_required",
-        detail="هذه الخدمة متاحة فقط لمقدمي الخدمة المسجلين.",
+        detail="هذه الخدمة متاحة فقط لمقدمي الخدمات المسجلين.",
         has_provider_profile=False,
         has_provider_role=False,
     )

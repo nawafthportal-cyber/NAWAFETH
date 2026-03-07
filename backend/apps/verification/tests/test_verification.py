@@ -163,7 +163,7 @@ def test_create_verification_request_rejects_non_provider(api, user):
     response = api.post("/api/verification/requests/create/", data={"badge_type": "blue"}, format="json")
 
     assert response.status_code == 403
-    assert "مقدمي الخدمة" in str(response.data.get("detail", ""))
+    assert "مقدمي الخدمات" in str(response.data.get("detail", ""))
 
 
 def test_create_verification_request_rejects_provider_role_without_profile(api, user):
@@ -185,7 +185,7 @@ def test_verification_pricing_rejects_non_provider(api, user):
     response = api.get("/api/verification/pricing/my/")
 
     assert response.status_code == 403
-    assert "مقدمي الخدمة" in str(response.data.get("detail", ""))
+    assert "مقدمي الخدمات" in str(response.data.get("detail", ""))
 
 
 def test_legacy_provider_profile_user_can_create_verification_request(api, user):

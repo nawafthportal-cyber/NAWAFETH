@@ -257,7 +257,7 @@ def test_subscribe_rejects_non_provider(api, user):
     response = api.post(f"/api/subscriptions/subscribe/{plan.pk}/")
 
     assert response.status_code == 403
-    assert "مقدمي الخدمة" in str(response.data.get("detail", ""))
+    assert "مقدمي الخدمات" in str(response.data.get("detail", ""))
 
 
 def test_subscription_read_endpoints_reject_non_provider(api, user):
@@ -357,7 +357,7 @@ def test_provider_subscription_pages_render_arabic_titles(client):
     summary_page = client.get("/plans/summary/?plan_id=1")
 
     assert plans_page.status_code == 200
-    assert "باقات اشتراك مقدم الخدمة" in plans_page.content.decode("utf-8")
+    assert "باقات اشتراك مقدمي الخدمات" in plans_page.content.decode("utf-8")
 
     assert summary_page.status_code == 200
     assert "ملخص الاشتراك والترقية" in summary_page.content.decode("utf-8")
