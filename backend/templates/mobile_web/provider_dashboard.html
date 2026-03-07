@@ -257,10 +257,14 @@
 <div class="pd-qr-modal hidden" id="pd-qr-modal" aria-hidden="true">
   <div class="pd-qr-dialog" role="dialog" aria-modal="true" aria-labelledby="pd-qr-title">
     <h3 id="pd-qr-title">رمز QR الخاص بك</h3>
-    <div class="pd-qr-box">QR CODE</div>
+    <div class="pd-qr-box" style="display:flex;align-items:center;justify-content:center;">
+      <img id="pd-qr-image" alt="QR" style="width:200px;height:200px;border-radius:14px;border:1px solid #eee;background:#fff;" />
+    </div>
+    <p id="pd-qr-link" class="text-muted" dir="ltr" style="margin:12px 0 0;word-break:break-all;"></p>
     <div class="pd-qr-actions">
-      <button type="button" id="pd-qr-copy" class="btn btn-sm btn-outline">نسخ</button>
+      <button type="button" id="pd-qr-copy" class="btn btn-sm btn-outline">نسخ الرابط</button>
       <button type="button" id="pd-qr-share" class="btn btn-sm btn-outline">مشاركة</button>
+      <a href="#" id="pd-qr-open" class="btn btn-sm btn-outline" target="_blank" rel="noopener">فتح الرابط</a>
     </div>
     <button type="button" id="pd-qr-close" class="btn btn-sm btn-primary">إغلاق</button>
   </div>
@@ -268,5 +272,6 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{% static 'mobile_web/js/profileQr.js' %}"></script>
 <script src="{% static 'mobile_web/js/providerDashboardPage.js' %}"></script>
 {% endblock %}

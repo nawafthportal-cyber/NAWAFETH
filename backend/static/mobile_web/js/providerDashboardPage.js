@@ -353,13 +353,54 @@ const ProviderDashboardPage = (() => {
     const closeBtn = document.getElementById('pd-qr-close');
     const copyBtn = document.getElementById('pd-qr-copy');
     const shareBtn = document.getElementById('pd-qr-share');
+    const openBtn = document.getElementById('pd-qr-open');
+    const qrImage = document.getElementById('pd-qr-image');
+    const qrLink = document.getElementById('pd-qr-link');
     if (!btn || !modal) return;
 
-    const qrPayload = 'QR-CODE-DATA';
+    let qrData = null;
 
-    btn.addEventListener('click', () => {
+    async function ensureQrData() {
+      if (qrData && qrData.targetUrl) return qrData;
+      if (!window.NwProfileQr || typeof window.NwProfileQr.resolve !== 'function') {
+        throw new Error('تعذر تهيئة QR');
+      }
+      if (_profile && (_providerProfile || _profile.id)) {
+        qrData = window.NwProfileQr.resolve(_profile, _providerProfile);
+        return qrData;
+      }
+      if (typeof window.NwProfileQr.loadCurrent === 'function') {
+        const current = await window.NwProfileQr.loadCurrent();
+        if (!_profile) _profile = current.me;
+        if (!_providerProfile) _providerProfile = current.providerProfile;
+        qrData = current.qr;
+        return qrData;
+      }
+      throw new Error('تعذر تحميل بيانات QR');
+    }
+
+    function renderQr(data) {
+      if (!data) {
+        if (qrImage) qrImage.removeAttribute('src');
+        if (qrLink) qrLink.textContent = 'جاري تحميل الرابط...';
+        if (openBtn) openBtn.href = '#';
+        return;
+      }
+      if (qrImage) qrImage.src = data.imageUrl;
+      if (qrLink) qrLink.textContent = data.targetUrl;
+      if (openBtn) openBtn.href = data.targetUrl;
+    }
+
+    btn.addEventListener('click', async () => {
       modal.classList.remove('hidden');
       modal.setAttribute('aria-hidden', 'false');
+      renderQr(null);
+      try {
+        renderQr(await ensureQrData());
+      } catch (error) {
+        alert(error && error.message ? error.message : 'تعذر تحميل QR');
+        close();
+      }
     });
 
     const close = () => {
@@ -375,25 +416,31 @@ const ProviderDashboardPage = (() => {
     if (copyBtn) {
       copyBtn.addEventListener('click', async () => {
         try {
-          await navigator.clipboard.writeText(qrPayload);
-          alert('تم نسخ الكود');
-        } catch {
-          alert('تعذر النسخ');
+          const data = await ensureQrData();
+          await navigator.clipboard.writeText(data.targetUrl);
+          alert('تم نسخ الرابط');
+        } catch (error) {
+          alert(error && error.message ? error.message : 'تعذر النسخ');
         }
       });
     }
 
     if (shareBtn) {
       shareBtn.addEventListener('click', async () => {
-        if (navigator.share) {
-          try {
-            await navigator.share({ text: qrPayload });
-            return;
-          } catch {
-            // continue to fallback
+        try {
+          const data = await ensureQrData();
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: data.title, text: data.targetUrl, url: data.targetUrl });
+              return;
+            } catch {
+              // continue to fallback
+            }
           }
+          window.location.href = '/my-qr/';
+        } catch (error) {
+          alert(error && error.message ? error.message : 'تعذر مشاركة الرابط');
         }
-        window.location.href = '/my-qr/';
       });
     }
   }

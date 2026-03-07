@@ -479,3 +479,31 @@ class ProviderServicePublicSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+
+class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
+    provider_id = serializers.IntegerField(source="provider.id", read_only=True)
+    provider_name = serializers.CharField(source="provider.display_name", read_only=True)
+    provider_avatar = serializers.SerializerMethodField()
+    category_name = serializers.CharField(source="subcategory.category.name", read_only=True)
+
+    class Meta(ProviderServicePublicSerializer.Meta):
+        fields = (
+            "id",
+            "provider_id",
+            "provider_name",
+            "provider_avatar",
+            "title",
+            "description",
+            "price_from",
+            "price_to",
+            "price_unit",
+            "category_name",
+            "subcategory",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+    def get_provider_avatar(self, obj):
+        return _safe_file_url(getattr(obj.provider, "profile_image", None))

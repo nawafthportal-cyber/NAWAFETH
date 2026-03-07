@@ -1,5 +1,6 @@
 "use strict";
 var ServiceDetailPage = (function () {
+  var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
   var Cache = window.NwCache;
   var serviceId = null;
@@ -15,8 +16,14 @@ var ServiceDetailPage = (function () {
   function load() {
     var cached = Cache.get("service_" + serviceId);
     if (cached) { render(cached); }
-    API.get("/api/providers/services/" + serviceId + "/")
-      .then(function (d) { Cache.set("service_" + serviceId, d, 120); render(d); })
+    RAW_API.get("/api/providers/services/" + serviceId + "/")
+      .then(function (resp) {
+        if (!resp || !resp.ok || !resp.data) {
+          throw new Error("service_not_found");
+        }
+        Cache.set("service_" + serviceId, resp.data, 120);
+        render(resp.data);
+      })
       .catch(function () { if (!cached) document.getElementById("sd-loading").innerHTML = '<p class="text-muted">تعذر تحميل الخدمة</p>'; });
   }
 
@@ -31,7 +38,8 @@ var ServiceDetailPage = (function () {
       ? '<img src="' + API.mediaUrl(avatar) + '" alt="">'
       : '<div class="avatar-placeholder">' + ((d.provider_name || d.provider?.name || "؟").charAt(0)) + '</div>';
     document.getElementById("sd-provider-name").textContent = d.provider_name || d.provider?.name || "";
-    document.getElementById("sd-provider-category").textContent = d.category_name || d.category?.name || "";
+    document.getElementById("sd-provider-category").textContent =
+      d.category_name || d.subcategory?.category_name || d.category?.name || "";
 
     // Service
     document.getElementById("sd-name").textContent = d.name || d.title || "";
@@ -39,10 +47,11 @@ var ServiceDetailPage = (function () {
     document.getElementById("sd-description").textContent = d.description || "";
 
     // Price
-    if (d.price || d.min_price) {
+    var priceLabel = buildPriceLabel(d);
+    if (priceLabel) {
       var priceEl = document.getElementById("sd-price");
       priceEl.style.display = "";
-      priceEl.textContent = (d.price || d.min_price) + " ر.س";
+      priceEl.textContent = priceLabel;
     }
 
     // Images slider
@@ -83,7 +92,35 @@ var ServiceDetailPage = (function () {
     // Buttons
     var providerId = d.provider_id || d.provider?.id || d.provider;
     document.getElementById("sd-btn-request").href = "/service-request/?service_id=" + serviceId + "&provider_id=" + providerId;
-    document.getElementById("sd-btn-chat").href = "/chat/?provider_id=" + providerId;
+    document.getElementById("sd-btn-chat").href = "/chats/?start=" + providerId;
+  }
+
+  function asNumber(value) {
+    if (value === null || value === undefined || value === "") return NaN;
+    var n = Number(value);
+    return isFinite(n) ? n : NaN;
+  }
+
+  function formatCompactNumber(value) {
+    if (!isFinite(value)) return "";
+    if (Math.abs(value - Math.round(value)) < 0.0001) return String(Math.round(value));
+    return value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function buildPriceLabel(service) {
+    var from = asNumber(service.price_from || service.min_price);
+    var to = asNumber(service.price_to || service.max_price);
+    var unit = String(service.price_unit || "").trim();
+    var suffix = unit ? (" / " + unit) : "";
+
+    if (!isFinite(from) && !isFinite(to)) return "";
+    if (isFinite(from) && isFinite(to)) {
+      if (Math.abs(from - to) < 0.0001) return formatCompactNumber(from) + suffix + " ر.س";
+      return formatCompactNumber(from) + " - " + formatCompactNumber(to) + suffix + " ر.س";
+    }
+    var value = isFinite(from) ? from : to;
+    if (!isFinite(value)) return "";
+    return formatCompactNumber(value) + suffix + " ر.س";
   }
 
   document.addEventListener("DOMContentLoaded", init);

@@ -36,6 +36,7 @@ from .serializers import (
 	CategorySerializer,
 	MyProviderSubcategoriesSerializer,
 	SubCategoryWithCategorySerializer,
+	ProviderServicePublicDetailSerializer,
 	ProviderServicePublicSerializer,
 	ProviderServiceSerializer,
 	ProviderPortfolioItemCreateSerializer,
@@ -200,6 +201,19 @@ class ProviderServicesPublicListView(generics.ListAPIView):
 			ProviderService.objects.filter(provider_id=provider_id, is_active=True)
 			.select_related("subcategory", "subcategory__category")
 			.order_by("-updated_at", "-id")
+		)
+
+
+class ProviderServicePublicDetailView(generics.RetrieveAPIView):
+	"""Public detail for one active provider service."""
+
+	serializer_class = ProviderServicePublicDetailSerializer
+	permission_classes = [permissions.AllowAny]
+
+	def get_queryset(self):
+		return (
+			ProviderService.objects.filter(is_active=True)
+			.select_related("provider", "subcategory", "subcategory__category")
 		)
 
 

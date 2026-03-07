@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:share_plus/share_plus.dart';
 
 import 'package:nawafeth/widgets/bottom_nav.dart';
 import 'package:nawafeth/services/api_client.dart';
@@ -25,6 +23,7 @@ import 'package:nawafeth/screens/provider_dashboard/provider_orders_screen.dart'
 import 'package:nawafeth/screens/verification_screen.dart';
 import 'package:nawafeth/screens/plans_screen.dart';
 import 'package:nawafeth/screens/additional_services_screen.dart';
+import 'package:nawafeth/screens/my_qr_screen.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/screens/provider_dashboard/promotion_screen.dart';
 
@@ -432,105 +431,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     return '$day/$month/$year';
   }
 
-  // نافذة QR
-  void _showQrDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "رمز QR الخاص بك",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Cairo',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Container(
-                  width: 200,
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    "QR CODE",
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        Clipboard.setData(
-                          const ClipboardData(text: "QR-CODE-DATA"),
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("تم نسخ الكود")),
-                        );
-                      },
-                      icon: const Icon(
-                        Icons.copy,
-                        color: Colors.deepPurple,
-                      ),
-                      tooltip: "نسخ",
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        Share.share("QR-CODE-DATA");
-                      },
-                      icon: const Icon(
-                        Icons.share,
-                        color: Colors.deepPurple,
-                      ),
-                      tooltip: "مشاركة",
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.deepPurple,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text(
-                      "إغلاق",
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 15,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+  void _openMyQrScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MyQrScreen()),
     );
   }
 
@@ -1676,7 +1580,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                             icon: Icons.qr_code,
                                             label: "QR",
                                             value: "",
-                                            onTap: _showQrDialog,
+                                            onTap: _openMyQrScreen,
                                           ),
                                         ],
                                       ),

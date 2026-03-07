@@ -8,6 +8,7 @@ import '../screens/terms_screen.dart';
 import '../screens/about_screen.dart';
 import '../screens/contact_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/my_qr_screen.dart';
 import '../main.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
@@ -42,7 +43,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Future<void> _loadUserData() async {
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) {
-      if (mounted) setState(() { _isLoading = false; _isLoggedIn = false; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _isLoggedIn = false;
+        });
       return;
     }
 
@@ -106,7 +111,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم حذف الحساب بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+            content: Text('تم حذف الحساب بنجاح',
+                style: TextStyle(fontFamily: 'Cairo')),
             backgroundColor: Colors.green,
           ),
         );
@@ -131,7 +137,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
       setState(() => _isDeleting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('حدث خطأ في الاتصال', style: TextStyle(fontFamily: 'Cairo')),
+          content:
+              Text('حدث خطأ في الاتصال', style: TextStyle(fontFamily: 'Cairo')),
           backgroundColor: Colors.red,
         ),
       );
@@ -160,10 +167,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
               bottom: 20,
             ),
             decoration: BoxDecoration(
-              color:
-                  isDark
-                      ? Colors.deepPurple.withValues(alpha: 0.15)
-                      : Colors.deepPurple.withValues(alpha: 0.05),
+              color: isDark
+                  ? Colors.deepPurple.withValues(alpha: 0.15)
+                  : Colors.deepPurple.withValues(alpha: 0.05),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -171,58 +177,64 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 // 👤 معلومات المستخدم
                 Expanded(
                   child: _isLoading
-                    ? const Center(
-                        child: SizedBox(
-                          width: 24, height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isLoggedIn
-                              ? "أهلاً ${_userProfile?.firstName ?? _userProfile?.username ?? 'مستخدم'}"
-                              : "مرحباً بك",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: 'Cairo',
-                              color: isDark ? Colors.white : AppColors.primaryDark,
-                            ),
-                            overflow: TextOverflow.ellipsis,
+                      ? const Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _isLoggedIn
-                              ? (_userProfile?.phone ?? '')
-                              : "سجّل الدخول للمتابعة",
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontFamily: 'Cairo',
-                              color: isDark ? Colors.grey[300] : Colors.black54,
-                            ),
-                          ),
-                          if (_isLoggedIn && _userProfile?.isProvider == true)
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.deepPurple.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isLoggedIn
+                                  ? "أهلاً ${_userProfile?.firstName ?? _userProfile?.username ?? 'مستخدم'}"
+                                  : "مرحباً بك",
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: 'Cairo',
+                                color: isDark
+                                    ? Colors.white
+                                    : AppColors.primaryDark,
                               ),
-                              child: const Text(
-                                '⭐ مقدّم خدمة',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontFamily: 'Cairo',
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.deepPurple,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _isLoggedIn
+                                  ? (_userProfile?.phone ?? '')
+                                  : "سجّل الدخول للمتابعة",
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontFamily: 'Cairo',
+                                color:
+                                    isDark ? Colors.grey[300] : Colors.black54,
+                              ),
+                            ),
+                            if (_isLoggedIn && _userProfile?.isProvider == true)
+                              Container(
+                                margin: const EdgeInsets.only(top: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.deepPurple.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  '⭐ مقدّم خدمة',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontFamily: 'Cairo',
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.deepPurple,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
-                      ),
+                          ],
+                        ),
                 ),
                 Column(
                   children: [
@@ -296,13 +308,14 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   label: AppTexts.getText(context, "qr"),
                   onTap: () {
                     Navigator.pop(context);
-                    // TODO: ربط بشاشة QR مخصصة عند إنشائها
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('شاشة QR نافذتي — قريباً',
-                            style: TextStyle(fontFamily: 'Cairo')),
-                      ),
-                    );
+                    Future.delayed(const Duration(milliseconds: 100), () {
+                      if (!mounted) return;
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const MyQrScreen(),
+                        ),
+                      );
+                    });
                   },
                   isDark: isDark,
                 ),
@@ -326,7 +339,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     Navigator.pop(context); // إغلاق الـ Drawer
                     Future.delayed(const Duration(milliseconds: 100), () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ContactScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const ContactScreen()),
                       );
                     });
                   },
@@ -358,34 +372,42 @@ class _CustomDrawerState extends State<CustomDrawer> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: _isLoggedIn
-              ? Column(
-                  children: [
-                    _buildActionBtn(
-                      text: _isLoggingOut ? 'جارٍ تسجيل الخروج...' : AppTexts.getText(context, "logout"),
-                      color: AppColors.primaryDark,
-                      onPressed: _isLoggingOut ? () {} : () {
-                        _showLogoutConfirmDialog(context);
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    _buildActionBtn(
-                      text: _isDeleting ? 'جارٍ الحذف...' : AppTexts.getText(context, "delete"),
-                      color: Colors.red.shade600,
-                      onPressed: _isDeleting ? () {} : () => _showDeleteConfirmDialog(context),
-                    ),
-                  ],
-                )
-              : _buildActionBtn(
-                  text: 'تسجيل الدخول',
-                  color: AppColors.primaryDark,
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    );
-                  },
-                ),
+                ? Column(
+                    children: [
+                      _buildActionBtn(
+                        text: _isLoggingOut
+                            ? 'جارٍ تسجيل الخروج...'
+                            : AppTexts.getText(context, "logout"),
+                        color: AppColors.primaryDark,
+                        onPressed: _isLoggingOut
+                            ? () {}
+                            : () {
+                                _showLogoutConfirmDialog(context);
+                              },
+                      ),
+                      const SizedBox(height: 10),
+                      _buildActionBtn(
+                        text: _isDeleting
+                            ? 'جارٍ الحذف...'
+                            : AppTexts.getText(context, "delete"),
+                        color: Colors.red.shade600,
+                        onPressed: _isDeleting
+                            ? () {}
+                            : () => _showDeleteConfirmDialog(context),
+                      ),
+                    ],
+                  )
+                : _buildActionBtn(
+                    text: 'تسجيل الدخول',
+                    color: AppColors.primaryDark,
+                    onPressed: () {
+                      Navigator.pop(context);
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -445,7 +467,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
               onPressed: () => Navigator.pop(ctx),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryDark),
               child: const Text(
                 "تسجيل الخروج",
                 style: TextStyle(color: Colors.white, fontFamily: 'Cairo'),
@@ -517,10 +540,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       child: ListTile(
         leading: Text(flag, style: const TextStyle(fontSize: 24)),
         title: Text(title, style: const TextStyle(fontFamily: 'Cairo')),
-        trailing:
-            selectedLanguage == code
-                ? const Icon(Icons.check_circle, color: Colors.deepPurple)
-                : null,
+        trailing: selectedLanguage == code
+            ? const Icon(Icons.check_circle, color: Colors.deepPurple)
+            : null,
         onTap: () {
           setState(() => selectedLanguage = code);
           Navigator.pop(context);

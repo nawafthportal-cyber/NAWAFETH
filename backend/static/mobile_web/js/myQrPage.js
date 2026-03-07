@@ -21,46 +21,36 @@ const MyQrPage = (() => {
   }
 
   async function _loadQrData() {
-    const meRes = await ApiClient.get('/api/accounts/me/');
-    if (!meRes.ok || !meRes.data) {
-      _showError('تعذر تحميل بيانات الحساب');
-      return;
-    }
+    try {
+      if (!window.NwProfileQr || typeof window.NwProfileQr.loadCurrent !== 'function') {
+        throw new Error('تعذر تهيئة QR');
+      }
 
-    const me = meRes.data;
-    const profileRes = await ApiClient.get('/api/providers/me/profile/');
-    let targetUrl = `${window.location.origin}/profile/`;
-    let title = 'رابط نافذتي';
+      const current = await window.NwProfileQr.loadCurrent();
+      const qr = current.qr;
+      const titleEl = document.getElementById('qr-title');
+      const textEl = document.getElementById('qr-link-text');
+      const imgEl = document.getElementById('my-qr-image');
+      const openEl = document.getElementById('open-qr-link');
+      const copyBtn = document.getElementById('copy-qr-link');
 
-    if (profileRes.ok && profileRes.data && profileRes.data.id) {
-      targetUrl = `${window.location.origin}/provider/${profileRes.data.id}/`;
-      title = 'QR ملف مقدم الخدمة';
-    } else if (me.id) {
-      targetUrl = `${window.location.origin}/profile/?user=${me.id}`;
-    }
+      if (titleEl) titleEl.textContent = qr.title;
+      if (textEl) textEl.textContent = qr.targetUrl;
+      if (imgEl) imgEl.src = qr.imageUrl;
+      if (openEl) openEl.href = qr.targetUrl;
 
-    const qrApi = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(targetUrl);
-
-    const titleEl = document.getElementById('qr-title');
-    const textEl = document.getElementById('qr-link-text');
-    const imgEl = document.getElementById('my-qr-image');
-    const openEl = document.getElementById('open-qr-link');
-    const copyBtn = document.getElementById('copy-qr-link');
-
-    if (titleEl) titleEl.textContent = title;
-    if (textEl) textEl.textContent = targetUrl;
-    if (imgEl) imgEl.src = qrApi;
-    if (openEl) openEl.href = targetUrl;
-
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(targetUrl);
-          _showSuccess('تم نسخ الرابط');
-        } catch (_) {
-          _showError('تعذر نسخ الرابط');
-        }
-      });
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(qr.targetUrl);
+            _showSuccess('تم نسخ الرابط');
+          } catch (_) {
+            _showError('تعذر نسخ الرابط');
+          }
+        });
+      }
+    } catch (error) {
+      _showError(error && error.message ? error.message : 'تعذر تحميل بيانات QR');
     }
   }
 

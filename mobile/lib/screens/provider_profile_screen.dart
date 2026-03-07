@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -970,10 +971,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
+  String _buildQrImageUrl(String targetUrl) {
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=${Uri.encodeComponent(targetUrl)}';
+  }
+
   Future<void> _showShareAndReportSheet() async {
-    final e164 = _formatPhoneE164(providerPhone);
+    final providerId =
+        _providerDetail?.id.toString() ?? widget.providerId ?? 'provider';
     final providerLink =
-        'https://nawafeth.app/provider/${widget.providerId ?? 'provider'}';
+        '${ApiClient.baseUrl.replaceFirst(RegExp(r'/$'), '')}/provider/$providerId/';
+    final qrImageUrl = _buildQrImageUrl(providerLink);
 
     await showModalBottomSheet(
       context: context,
@@ -1036,19 +1043,32 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.white,
                         ),
-                        child: const Center(
-                          child: Icon(Icons.qr_code,
-                              size: 80, color: Colors.black54),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            qrImageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.qr_code,
+                                  size: 80,
+                                  color: Colors.black54,
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        e164,
+                        providerLink,
                         style: const TextStyle(
                           fontFamily: 'Cairo',
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 10),
                       Row(
@@ -1075,17 +1095,19 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                Clipboard.setData(
-                                    ClipboardData(text: providerLink));
+                              onPressed: () async {
+                                await Share.share(
+                                  providerLink,
+                                  subject: 'مشاركة نافذة مقدم الخدمة',
+                                );
                                 if (sheetContext.mounted) {
                                   Navigator.pop(sheetContext);
                                 }
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                      content:
-                                          Text('تم تجهيز الرابط للمشاركة')),
+                                    content: Text('تمت مشاركة الرابط'),
+                                  ),
                                 );
                               },
                               icon: const Icon(Icons.share, size: 18),

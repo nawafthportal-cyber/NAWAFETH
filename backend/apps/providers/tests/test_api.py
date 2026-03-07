@@ -226,12 +226,22 @@ def test_provider_services_crud_and_public_list():
     assert public_list.status_code == 200
     assert len(public_list.json()) == 1
 
+    public_detail = client.get(f"/api/providers/services/{service_id}/")
+    assert public_detail.status_code == 200
+    assert public_detail.json()["id"] == service_id
+    assert public_detail.json()["provider_id"] == provider_id
+    assert public_detail.json()["provider_name"] == "محمد التصميم"
+    assert public_detail.json()["category_name"] == "تصميم"
+
     delete = client.delete(f"/api/providers/me/services/{service_id}/")
     assert delete.status_code in (200, 204)
 
     public_list2 = client.get(f"/api/providers/{provider_id}/services/")
     assert public_list2.status_code == 200
     assert len(public_list2.json()) == 0
+
+    public_detail2 = client.get(f"/api/providers/services/{service_id}/")
+    assert public_detail2.status_code == 404
 
 
 @pytest.mark.django_db

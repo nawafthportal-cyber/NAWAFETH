@@ -1,5 +1,6 @@
 "use strict";
 var ProviderReviewsPage = (function () {
+  var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
   var providerId = null;
   var reviews = [];
@@ -10,8 +11,23 @@ var ProviderReviewsPage = (function () {
     document.getElementById("rv-sort").addEventListener("change", function () { sortAndRender(); });
   }
 
+  function apiErrorMessage(data, fallback) {
+    if (data && typeof data === "object") {
+      if (typeof data.detail === "string" && data.detail.trim()) return data.detail.trim();
+      var firstKey = Object.keys(data)[0];
+      var firstVal = data[firstKey];
+      if (typeof firstVal === "string" && firstVal.trim()) return firstVal.trim();
+      if (Array.isArray(firstVal) && firstVal.length) return String(firstVal[0]);
+    }
+    return fallback || "فشل العملية";
+  }
+
   function loadProfile() {
-    return API.get("/api/accounts/profile/me/").then(function (d) {
+    return RAW_API.get("/api/accounts/me/").then(function (resp) {
+      if (!resp || !resp.ok || !resp.data) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, "تعذر تحميل بيانات الحساب"));
+      }
+      var d = resp.data;
       providerId = d.provider_profile_id || d.provider_profile || null;
       if (!providerId) {
         document.getElementById("rv-loading").innerHTML = '<p class="text-muted">لا يوجد ملف مزود مرتبط بحسابك</p>';
@@ -21,12 +37,19 @@ var ProviderReviewsPage = (function () {
 
   function loadData() {
     Promise.all([
-      API.get("/api/reviews/providers/" + providerId + "/reviews/"),
-      API.get("/api/reviews/providers/" + providerId + "/rating/")
+      RAW_API.get("/api/reviews/providers/" + providerId + "/reviews/"),
+      RAW_API.get("/api/reviews/providers/" + providerId + "/rating/")
     ]).then(function (res) {
-      var rvRaw = Array.isArray(res[0]) ? res[0] : (res[0] && res[0].results ? res[0].results : []);
+      var reviewsResp = res[0] || {};
+      var ratingResp = res[1] || {};
+      if (!reviewsResp.ok || !ratingResp.ok) {
+        throw new Error("reviews_load_failed");
+      }
+      var reviewsData = reviewsResp.data;
+      var ratingDataResp = ratingResp.data;
+      var rvRaw = Array.isArray(reviewsData) ? reviewsData : (reviewsData && reviewsData.results ? reviewsData.results : []);
       reviews = rvRaw;
-      ratingData = res[1] || {};
+      ratingData = ratingDataResp || {};
       renderSummary();
       sortAndRender();
       document.getElementById("rv-loading").style.display = "none";
@@ -100,11 +123,22 @@ var ProviderReviewsPage = (function () {
         var form = this.closest(".rv-reply-form");
         var reviewId = form.dataset.id;
         var text = form.querySelector(".rv-reply-input").value.trim();
+        var button = this;
         if (!text) return;
-        this.disabled = true; this.textContent = "جاري الإرسال...";
-        API.post("/api/reviews/" + reviewId + "/provider-reply/", { reply: text })
-          .then(function () { loadData(); })
-          .catch(function () { alert("فشل إرسال الرد"); btn.disabled = false; btn.textContent = "إرسال الرد"; });
+        button.disabled = true; button.textContent = "جاري الإرسال...";
+        RAW_API.request("/api/reviews/reviews/" + reviewId + "/provider-reply/", {
+          method: "POST",
+          body: { provider_reply: text }
+        }).then(function (resp) {
+          if (!resp || !resp.ok) {
+            throw new Error(apiErrorMessage(resp ? resp.data : null, "فشل إرسال الرد"));
+          }
+          loadData();
+        }).catch(function (err) {
+          alert((err && err.message) ? err.message : "فشل إرسال الرد");
+          button.disabled = false;
+          button.textContent = "إرسال الرد";
+        });
       });
     });
   }

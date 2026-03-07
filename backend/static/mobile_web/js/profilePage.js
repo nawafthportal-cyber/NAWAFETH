@@ -62,7 +62,7 @@ const ProfilePage = (() => {
   /* ──────── Static button binding ──────── */
   function _bindStaticActions() {
     const qrBtn = document.getElementById('btn-qrcode');
-    if (qrBtn) qrBtn.onclick = () => alert('ميزة QR ستكون متاحة قريبًا.');
+    if (qrBtn) qrBtn.onclick = () => { window.location.href = '/my-qr/'; };
 
     const settingsBtn = document.getElementById('btn-settings');
     if (settingsBtn) settingsBtn.onclick = () => { window.location.href = '/login-settings/'; };

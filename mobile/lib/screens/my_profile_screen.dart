@@ -18,6 +18,7 @@ import 'notifications_screen.dart';
 import 'my_chats_screen.dart';
 import 'orders_hub_screen.dart';
 import 'interactive_screen.dart';
+import 'my_qr_screen.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -58,11 +59,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   Future<void> _loadProfile() async {
     if (!mounted) return;
-    setState(() { _isLoading = true; _errorMessage = null; });
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     final isLoggedIn = await AuthService.isLoggedIn();
     if (!isLoggedIn) {
-      if (mounted) setState(() { _isLoading = false; _errorMessage = 'يجب تسجيل الدخول أولاً'; });
+      if (mounted)
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'يجب تسجيل الدخول أولاً';
+        });
       return;
     }
 
@@ -79,9 +87,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       final effectiveMode = canSwitch ? saved : false;
       await AccountModeService.setProviderMode(effectiveMode);
 
-      setState(() { _userProfile = profile; _isProviderMode = effectiveMode; _isLoading = false; });
+      setState(() {
+        _userProfile = profile;
+        _isProviderMode = effectiveMode;
+        _isLoading = false;
+      });
     } else {
-      setState(() { _isLoading = false; _errorMessage = result.error; });
+      setState(() {
+        _isLoading = false;
+        _errorMessage = result.error;
+      });
     }
   }
 
@@ -118,14 +133,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم حفظ الصورة بنجاح', style: TextStyle(fontFamily: 'Cairo')),
+            content: Text('تم حفظ الصورة بنجاح',
+                style: TextStyle(fontFamily: 'Cairo')),
             backgroundColor: Colors.green,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(result.error ?? 'تعذر حفظ الصورة', style: const TextStyle(fontFamily: 'Cairo')),
+            content: Text(result.error ?? 'تعذر حفظ الصورة',
+                style: const TextStyle(fontFamily: 'Cairo')),
             backgroundColor: Colors.red,
           ),
         );
@@ -159,7 +176,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     }
 
     if (_isLoading) {
-      return _buildShell(theme, child: const Center(child: CircularProgressIndicator(color: Colors.deepPurple)));
+      return _buildShell(theme,
+          child: const Center(
+              child: CircularProgressIndicator(color: Colors.deepPurple)));
     }
     if (_errorMessage != null) return _buildErrorState(theme);
 
@@ -185,7 +204,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     const purple = Colors.deepPurple;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+      backgroundColor:
+          isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
       body: RefreshIndicator(
@@ -201,26 +221,30 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             if (isProviderRegistered)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-                sliver: SliverToBoxAdapter(child: _buildModeToggle(isDark, purple)),
+                sliver:
+                    SliverToBoxAdapter(child: _buildModeToggle(isDark, purple)),
               ),
 
             // -- Quick Actions Grid --
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-              sliver: SliverToBoxAdapter(child: _buildQuickActions(isDark, purple)),
+              sliver:
+                  SliverToBoxAdapter(child: _buildQuickActions(isDark, purple)),
             ),
 
             // -- Menu Tiles --
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(child: _buildMenuSection(isDark, purple, profile)),
+              sliver: SliverToBoxAdapter(
+                  child: _buildMenuSection(isDark, purple, profile)),
             ),
 
             // -- Register as Provider CTA --
             if (!isProviderRegistered)
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                sliver: SliverToBoxAdapter(child: _buildProviderCTA(isDark, purple)),
+                sliver: SliverToBoxAdapter(
+                    child: _buildProviderCTA(isDark, purple)),
               ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 28)),
@@ -261,20 +285,28 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               gradient: coverImageProvider == null
                   ? LinearGradient(
                       colors: isDark
-                          ? [Colors.deepPurple.shade900, Colors.deepPurple.shade700.withValues(alpha: 0.7)]
-                          : [Colors.deepPurple.shade700, Colors.deepPurple.shade400],
+                          ? [
+                              Colors.deepPurple.shade900,
+                              Colors.deepPurple.shade700.withValues(alpha: 0.7)
+                            ]
+                          : [
+                              Colors.deepPurple.shade700,
+                              Colors.deepPurple.shade400
+                            ],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
                     )
                   : null,
               image: coverImageProvider != null
-                ? DecorationImage(image: coverImageProvider, fit: BoxFit.cover)
-                : null,
+                  ? DecorationImage(
+                      image: coverImageProvider, fit: BoxFit.cover)
+                  : null,
             ),
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,7 +325,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           onTap: () async {
                             await Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const MyChatsScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const MyChatsScreen()),
                             );
                             _loadUnreadBadges();
                           },
@@ -305,7 +338,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           onTap: () async {
                             await Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const NotificationsScreen()),
                             );
                             _loadUnreadBadges();
                           },
@@ -329,21 +363,29 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+                      color: isDark
+                          ? const Color(0xFF121212)
+                          : const Color(0xFFF5F5FA),
                       width: 3.5,
                     ),
                     boxShadow: [
-                      BoxShadow(color: purple.withValues(alpha: 0.18), blurRadius: 12, offset: const Offset(0, 4)),
+                      BoxShadow(
+                          color: purple.withValues(alpha: 0.18),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4)),
                     ],
                   ),
                   child: GestureDetector(
                     onTap: () => _pickImage(isCover: false),
                     child: CircleAvatar(
                       radius: 40,
-                      backgroundColor: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+                      backgroundColor:
+                          isDark ? Colors.grey.shade800 : Colors.grey.shade200,
                       backgroundImage: profileImageProvider,
                       child: profileImageProvider == null
-                          ? Icon(Icons.person, size: 36, color: isDark ? Colors.white54 : Colors.grey)
+                          ? Icon(Icons.person,
+                              size: 36,
+                              color: isDark ? Colors.white54 : Colors.grey)
                           : null,
                     ),
                   ),
@@ -352,7 +394,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 Text(
                   profile.displayName,
                   style: TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w700, fontFamily: 'Cairo',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Cairo',
                     color: isDark ? Colors.white : Colors.black87,
                   ),
                 ),
@@ -360,7 +404,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 Text(
                   profile.usernameDisplay,
                   style: TextStyle(
-                    fontSize: 11.5, fontFamily: 'Cairo',
+                    fontSize: 11.5,
+                    fontFamily: 'Cairo',
                     color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
                   ),
                 ),
@@ -434,7 +479,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 40),
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade100,
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : Colors.grey.shade100,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -457,12 +504,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.person_rounded, size: 16, color: isDark ? Colors.white : purple),
+                  Icon(Icons.person_rounded,
+                      size: 16, color: isDark ? Colors.white : purple),
                   const SizedBox(width: 5),
                   Text(
                     'عميل',
                     style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
                       color: isDark ? Colors.white : purple,
                     ),
                   ),
@@ -484,7 +534,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       backgroundColor: Colors.green,
                       duration: const Duration(seconds: 2),
                       behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                   );
                   setState(() => _isLoading = true);
@@ -500,13 +551,21 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.work_outline_rounded, size: 16, color: isDark ? Colors.grey.shade500 : Colors.grey.shade500),
+                    Icon(Icons.work_outline_rounded,
+                        size: 16,
+                        color: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey.shade500),
                     const SizedBox(width: 5),
                     Text(
                       'مقدم خدمة',
                       style: TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
-                        color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Cairo',
+                        color: isDark
+                            ? Colors.grey.shade500
+                            : Colors.grey.shade500,
                       ),
                     ),
                   ],
@@ -529,7 +588,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: isDark
             ? null
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            : [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2))
+              ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -549,8 +613,17 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(count, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: purple, fontFamily: 'Cairo')),
-          Text(label, style: TextStyle(fontSize: 10, color: isDark ? Colors.grey.shade500 : Colors.grey.shade600, fontFamily: 'Cairo')),
+          Text(count,
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: purple,
+                  fontFamily: 'Cairo')),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                  fontFamily: 'Cairo')),
         ],
       ),
     );
@@ -560,7 +633,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     return Container(
       width: 1,
       height: 24,
-      color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200,
+      color:
+          isDark ? Colors.white.withValues(alpha: 0.08) : Colors.grey.shade200,
     );
   }
 
@@ -568,16 +642,20 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget _buildQuickActions(bool isDark, Color purple) {
     final actions = [
       _QuickAction(Icons.shopping_bag_outlined, 'طلباتي', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrdersHubScreen()));
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const OrdersHubScreen()));
       }),
       _QuickAction(Icons.chat_bubble_outline_rounded, 'محادثاتي', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const MyChatsScreen()));
+        Navigator.push(
+            context, MaterialPageRoute(builder: (_) => const MyChatsScreen()));
       }),
       _QuickAction(Icons.notifications_none_rounded, 'الإشعارات', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const NotificationsScreen()));
       }),
       _QuickAction(Icons.people_outline_rounded, 'تفاعلي', () {
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const InteractiveScreen()));
+        Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const InteractiveScreen()));
       }),
     ];
 
@@ -603,7 +681,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: isDark
               ? null
-              : [BoxShadow(color: purple.withValues(alpha: 0.06), blurRadius: 10, offset: const Offset(0, 3))],
+              : [
+                  BoxShadow(
+                      color: purple.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3))
+                ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -620,7 +703,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             Text(
               action.label,
               style: TextStyle(
-                fontSize: 10.5, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Cairo',
                 color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
@@ -638,7 +723,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         borderRadius: BorderRadius.circular(14),
         boxShadow: isDark
             ? null
-            : [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+            : [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2))
+              ],
       ),
       child: Column(
         children: [
@@ -648,7 +738,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             subtitle: profile.email ?? profile.phone ?? '',
             isDark: isDark,
             purple: purple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LoginSettingsScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const LoginSettingsScreen())),
           ),
           _menuDivider(isDark),
           _menuTile(
@@ -656,11 +747,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             label: 'QR نافذتي',
             isDark: isDark,
             purple: purple,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('شاشة QR قريبا', style: TextStyle(fontFamily: 'Cairo', fontSize: 12))),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MyQrScreen()),
+            ),
           ),
           _menuDivider(isDark),
           _menuTile(
@@ -669,7 +759,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             trailing: '${profile.favoritesMediaCount}',
             isDark: isDark,
             purple: purple,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InteractiveScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const InteractiveScreen())),
           ),
         ],
       ),
@@ -707,23 +798,42 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87)),
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: 'Cairo',
+                            color: isDark ? Colors.white : Colors.black87)),
                     if (subtitle != null && subtitle.isNotEmpty)
-                      Text(subtitle, style: TextStyle(fontSize: 10, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
+                      Text(subtitle,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'Cairo',
+                              color: isDark
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade500)),
                   ],
                 ),
               ),
               if (trailing != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: purple.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(trailing, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: purple, fontFamily: 'Cairo')),
+                  child: Text(trailing,
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: purple,
+                          fontFamily: 'Cairo')),
                 ),
               const SizedBox(width: 4),
-              Icon(Icons.chevron_left_rounded, size: 18, color: isDark ? Colors.grey.shade600 : Colors.grey.shade400),
+              Icon(Icons.chevron_left_rounded,
+                  size: 18,
+                  color: isDark ? Colors.grey.shade600 : Colors.grey.shade400),
             ],
           ),
         ),
@@ -734,7 +844,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   Widget _menuDivider(bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Divider(height: 1, color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.grey.shade100),
+      child: Divider(
+          height: 1,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.grey.shade100),
     );
   }
 
@@ -745,7 +859,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [Colors.deepPurple.shade900.withValues(alpha: 0.4), Colors.deepPurple.shade800.withValues(alpha: 0.2)]
+              ? [
+                  Colors.deepPurple.shade900.withValues(alpha: 0.4),
+                  Colors.deepPurple.shade800.withValues(alpha: 0.2)
+                ]
               : [Colors.deepPurple.shade50, Colors.white],
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
@@ -770,18 +887,29 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               children: [
                 Text(
                   'انضم كمقدم خدمة',
-                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87),
+                  style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white : Colors.black87),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'شارك مهاراتك وابدأ بتلقي الطلبات',
-                  style: TextStyle(fontSize: 10, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade500 : Colors.grey.shade600),
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontFamily: 'Cairo',
+                      color:
+                          isDark ? Colors.grey.shade500 : Colors.grey.shade600),
                 ),
               ],
             ),
           ),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterServiceProviderPage())),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const RegisterServiceProviderPage())),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
@@ -790,7 +918,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               ),
               child: const Text(
                 'سجّل الآن',
-                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: Colors.white, fontFamily: 'Cairo'),
+                style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontFamily: 'Cairo'),
               ),
             ),
           ),
@@ -810,29 +942,44 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_rounded, size: 48, color: Colors.grey.shade400),
+              Icon(Icons.cloud_off_rounded,
+                  size: 48, color: Colors.grey.shade400),
               const SizedBox(height: 12),
               Text(
                 _errorMessage ?? 'حدث خطأ',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontFamily: 'Cairo', fontSize: 13, color: isDark ? Colors.white70 : Colors.black54),
+                style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    color: isDark ? Colors.white70 : Colors.black54),
               ),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _loadProfile,
                 icon: const Icon(Icons.refresh, color: Colors.white, size: 16),
-                label: const Text('إعادة المحاولة', style: TextStyle(fontFamily: 'Cairo', color: Colors.white, fontSize: 12)),
+                label: const Text('إعادة المحاولة',
+                    style: TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.white,
+                        fontSize: 12)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               if (_errorMessage == 'يجب تسجيل الدخول أولاً') ...[
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/login'),
-                  child: const Text('تسجيل الدخول', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.deepPurple, fontWeight: FontWeight.bold)),
+                  child: const Text('تسجيل الدخول',
+                      style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          color: Colors.deepPurple,
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ],

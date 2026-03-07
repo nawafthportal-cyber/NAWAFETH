@@ -12,7 +12,17 @@ import 'provider_profile_screen.dart';
 
 class SearchProviderScreen extends StatefulWidget {
   final int? initialCategoryId;
-  const SearchProviderScreen({super.key, this.initialCategoryId});
+  final String initialQuery;
+  final bool showDrawer;
+  final bool showBottomNavigation;
+
+  const SearchProviderScreen({
+    super.key,
+    this.initialCategoryId,
+    this.initialQuery = '',
+    this.showDrawer = true,
+    this.showBottomNavigation = true,
+  });
 
   @override
   State<SearchProviderScreen> createState() => _SearchProviderScreenState();
@@ -40,6 +50,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   void initState() {
     super.initState();
     _selectedCatId = widget.initialCategoryId;
+    _searchCtrl.text = widget.initialQuery.trim();
     _loadInitial();
   }
 
@@ -51,36 +62,62 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Future<void> _loadCategories() async {
     try {
       final cats = await HomeService.fetchCategories();
-      if (mounted) setState(() { _categories = cats; _loadingCats = false; });
+      if (mounted) {
+        setState(() {
+          _categories = cats;
+          _loadingCats = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loadingCats = false);
     }
   }
 
-  Future<void> _searchProviders({bool requestLocationPermission = false}) async {
+  Future<void> _searchProviders(
+      {bool requestLocationPermission = false}) async {
     if (mounted) setState(() => _loadingProviders = true);
     try {
       final q = _searchCtrl.text.trim();
-      var url = '/api/providers/list/?page_size=30';
-      if (q.isNotEmpty) url += '&q=$q';
-      if (_selectedCatId != null) url += '&category_id=$_selectedCatId';
+      final queryParameters = <String, String>{'page_size': '30'};
+      if (q.isNotEmpty) {
+        queryParameters['q'] = q;
+      }
+      if (_selectedCatId != null) {
+        queryParameters['category_id'] = _selectedCatId.toString();
+      }
 
-      final res = await ApiClient.get(url);
+      final uri = Uri(
+        path: '/api/providers/list/',
+        queryParameters: queryParameters,
+      );
+      final res = await ApiClient.get(uri.toString());
       if (res.isSuccess && res.data != null) {
-        final list = res.data is List ? res.data as List : (res.data['results'] as List?) ?? [];
-        final providers = list.map((e) => ProviderPublicModel.fromJson(e as Map<String, dynamic>)).toList();
+        final list = res.data is List
+            ? res.data as List
+            : (res.data['results'] as List?) ?? [];
+        final providers = list
+            .map((e) => ProviderPublicModel.fromJson(e as Map<String, dynamic>))
+            .toList();
         final distanceMap = await _buildDistanceMap(
           providers,
-          requestPermission: _selectedSort == 'nearest' ? requestLocationPermission : false,
+          requestPermission:
+              _selectedSort == 'nearest' ? requestLocationPermission : false,
         );
         _distanceKmByProviderId
           ..clear()
           ..addAll(distanceMap);
         // Client-side sort
         _sortProviders(providers);
-        if (mounted) setState(() { _providers = providers; _loadError = null; });
+        if (mounted) {
+          setState(() {
+            _providers = providers;
+            _loadError = null;
+          });
+        }
       } else {
-        if (mounted) setState(() => _loadError = res.error ?? 'فشل تحميل البيانات');
+        if (mounted) {
+          setState(() => _loadError = res.error ?? 'فشل تحميل البيانات');
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _loadError = 'خطأ: $e');
@@ -116,7 +153,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   }) async {
     final result = <int, double>{};
 
-    final pos = await _resolveClientPosition(requestPermission: requestPermission);
+    final pos =
+        await _resolveClientPosition(requestPermission: requestPermission);
     if (pos == null) return result;
 
     for (final provider in providers) {
@@ -135,7 +173,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     return result;
   }
 
-  Future<Position?> _resolveClientPosition({required bool requestPermission}) async {
+  Future<Position?> _resolveClientPosition(
+      {required bool requestPermission}) async {
     if (_clientPosition != null) return _clientPosition;
 
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -195,9 +234,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
-        drawer: const CustomDrawer(),
-        bottomNavigationBar: const CustomBottomNav(currentIndex: 2),
+        backgroundColor:
+            isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+        drawer: widget.showDrawer ? const CustomDrawer() : null,
+        bottomNavigationBar: widget.showBottomNavigation
+            ? const CustomBottomNav(currentIndex: 2)
+            : null,
         body: SafeArea(
           child: Column(
             children: [
@@ -230,7 +272,10 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -243,16 +288,22 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.08) : purple.withValues(alpha: 0.06),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : purple.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.arrow_forward_ios_rounded, size: 16, color: isDark ? Colors.white70 : purple),
+                  child: Icon(Icons.arrow_forward_ios_rounded,
+                      size: 16, color: isDark ? Colors.white70 : purple),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text('البحث عن مزود خدمة',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, fontFamily: 'Cairo',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Cairo',
                         color: isDark ? Colors.white : Colors.black87)),
               ),
             ],
@@ -262,20 +313,27 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           Container(
             height: 38,
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF2F2F7),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : const Color(0xFFF2F2F7),
               borderRadius: BorderRadius.circular(10),
             ),
             child: TextField(
               controller: _searchCtrl,
               onChanged: _onSearchChanged,
               textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(fontSize: 12, fontFamily: 'Cairo',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'Cairo',
                   color: isDark ? Colors.white : Colors.black87),
               decoration: InputDecoration(
                 hintText: 'ابحث بالاسم أو التخصص...',
-                hintStyle: TextStyle(fontSize: 11, fontFamily: 'Cairo',
+                hintStyle: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Cairo',
                     color: isDark ? Colors.white38 : Colors.grey.shade400),
-                prefixIcon: Icon(Icons.search_rounded, size: 18,
+                prefixIcon: Icon(Icons.search_rounded,
+                    size: 18,
                     color: isDark ? Colors.white38 : Colors.grey.shade400),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -301,27 +359,39 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         itemCount: _categories.length + 1, // +1 for "الكل"
         itemBuilder: (_, i) {
           final isAll = i == 0;
-          final selected = isAll ? _selectedCatId == null : _selectedCatId == _categories[i - 1].id;
+          final selected = isAll
+              ? _selectedCatId == null
+              : _selectedCatId == _categories[i - 1].id;
           final label = isAll ? 'الكل' : _categories[i - 1].name;
 
           return GestureDetector(
-            onTap: () => _onCategorySelected(isAll ? null : _categories[i - 1].id),
+            onTap: () =>
+                _onCategorySelected(isAll ? null : _categories[i - 1].id),
             child: Container(
               margin: const EdgeInsets.only(left: 6),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: selected
                     ? purple
-                    : isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+                    : isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: selected ? purple : (isDark ? Colors.white12 : Colors.grey.shade300),
+                  color: selected
+                      ? purple
+                      : (isDark ? Colors.white12 : Colors.grey.shade300),
                 ),
               ),
               child: Center(
                 child: Text(label,
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
-                        color: selected ? Colors.white : (isDark ? Colors.white60 : Colors.black54))),
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Cairo',
+                        color: selected
+                            ? Colors.white
+                            : (isDark ? Colors.white60 : Colors.black54))),
               ),
             ),
           );
@@ -340,7 +410,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       child: Row(
         children: [
           Text('${_providers.length} نتيجة',
-              style: TextStyle(fontSize: 10, fontFamily: 'Cairo',
+              style: TextStyle(
+                  fontSize: 10,
+                  fontFamily: 'Cairo',
                   color: isDark ? Colors.white38 : Colors.grey.shade500)),
           const Spacer(),
           GestureDetector(
@@ -350,8 +422,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
               children: [
                 Icon(Icons.tune_rounded, size: 14, color: purple),
                 const SizedBox(width: 4),
-                Text('فرز', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
-                    fontFamily: 'Cairo', color: purple)),
+                Text('فرز',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Cairo',
+                        color: purple)),
               ],
             ),
           ),
@@ -383,14 +459,22 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(width: 36, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(99))),
+                Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(99))),
                 const SizedBox(height: 12),
                 Row(children: [
                   Icon(Icons.tune_rounded, size: 16, color: purple),
                   const SizedBox(width: 6),
-                  Text('فرز حسب:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
-                      fontFamily: 'Cairo', color: isDark ? Colors.white : Colors.black87)),
+                  Text('فرز حسب:',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Cairo',
+                          color: isDark ? Colors.white : Colors.black87)),
                 ]),
                 const SizedBox(height: 8),
                 ...opts.map((o) {
@@ -406,12 +490,21 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(children: [
-                        Icon(sel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                            size: 16, color: sel ? purple : Colors.grey),
+                        Icon(
+                            sel
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            size: 16,
+                            color: sel ? purple : Colors.grey),
                         const SizedBox(width: 8),
-                        Text(o['label']!, style: TextStyle(fontSize: 11, fontFamily: 'Cairo',
-                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                            color: isDark ? Colors.white70 : Colors.black87)),
+                        Text(o['label']!,
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontFamily: 'Cairo',
+                                fontWeight:
+                                    sel ? FontWeight.w700 : FontWeight.w500,
+                                color:
+                                    isDark ? Colors.white70 : Colors.black87)),
                       ]),
                     ),
                   );
@@ -430,24 +523,37 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
   Widget _buildResults(bool isDark, Color purple) {
     if (_initialLoad || _loadingProviders) {
-      return const Center(child: CircularProgressIndicator(color: Colors.deepPurple, strokeWidth: 2));
+      return const Center(
+          child: CircularProgressIndicator(
+              color: Colors.deepPurple, strokeWidth: 2));
     }
     if (_providers.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_loadError != null ? Icons.cloud_off_rounded : Icons.search_off_rounded,
-                size: 40, color: Colors.grey.shade400),
+            Icon(
+                _loadError != null
+                    ? Icons.cloud_off_rounded
+                    : Icons.search_off_rounded,
+                size: 40,
+                color: Colors.grey.shade400),
             const SizedBox(height: 8),
-            Text(_loadError ?? 'لا توجد نتائج', style: TextStyle(fontSize: 12, fontFamily: 'Cairo',
-                color: isDark ? Colors.white38 : Colors.grey.shade500)),
+            Text(_loadError ?? 'لا توجد نتائج',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'Cairo',
+                    color: isDark ? Colors.white38 : Colors.grey.shade500)),
             if (_loadError != null) ...[
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _searchProviders,
-                child: Text('إعادة المحاولة', style: TextStyle(fontSize: 11, fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700, color: purple)),
+                child: Text('إعادة المحاولة',
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w700,
+                        color: purple)),
               ),
             ],
           ],
@@ -468,47 +574,57 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     final distanceKm = _distanceKmByProviderId[p.id];
 
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(
-        builder: (_) => ProviderProfileScreen(
-          providerId: p.id.toString(),
-          providerName: p.displayName,
-          providerImage: profileUrl,
-          providerRating: p.ratingAvg,
-          providerVerifiedBlue: p.isVerifiedBlue,
-          providerVerifiedGreen: p.isVerifiedGreen,
-          providerPhone: p.phone,
-          providerLat: p.lat,
-          providerLng: p.lng,
-          providerOperations: p.completedRequests,
-        ),
-      )),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProviderProfileScreen(
+              providerId: p.id.toString(),
+              providerName: p.displayName,
+              providerImage: profileUrl,
+              providerRating: p.ratingAvg,
+              providerVerifiedBlue: p.isVerifiedBlue,
+              providerVerifiedGreen: p.isVerifiedGreen,
+              providerPhone: p.phone,
+              providerLat: p.lat,
+              providerLng: p.lng,
+              providerOperations: p.completedRequests,
+            ),
+          )),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          border:
+              Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
         ),
         child: Row(
           children: [
             // ── Cover / Avatar section ──
             ClipRRect(
-              borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+              borderRadius:
+                  const BorderRadius.horizontal(right: Radius.circular(12)),
               child: SizedBox(
-                width: 80, height: 88,
+                width: 80,
+                height: 88,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
                     coverUrl != null
-                        ? Image.network(coverUrl, fit: BoxFit.cover,
+                        ? Image.network(coverUrl,
+                            fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => _gradientBox(purple))
                         : _gradientBox(purple),
                     // Gradient overlay
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.black.withValues(alpha: 0.3), Colors.transparent],
-                          begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.transparent
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
                         ),
                       ),
                     ),
@@ -520,10 +636,18 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                         child: CircleAvatar(
                           radius: 18,
                           backgroundColor: purple.withValues(alpha: 0.1),
-                          backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
+                          backgroundImage: profileUrl != null
+                              ? NetworkImage(profileUrl)
+                              : null,
                           child: profileUrl == null
-                              ? Text(p.displayName.isNotEmpty ? p.displayName[0] : '؟',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: purple))
+                              ? Text(
+                                  p.displayName.isNotEmpty
+                                      ? p.displayName[0]
+                                      : '؟',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: purple))
                               : null,
                         ),
                       ),
@@ -531,7 +655,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                     // Verified badge
                     if (p.isVerified)
                       Positioned(
-                        top: 6, left: 6,
+                        top: 6,
+                        left: 6,
                         child: VerifiedBadgeView(
                           isVerifiedBlue: p.isVerifiedBlue,
                           isVerifiedGreen: p.isVerifiedGreen,
@@ -546,23 +671,37 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             // ── Info ──
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Name
-                    Text(p.displayName, maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, fontFamily: 'Cairo',
+                    Text(p.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Cairo',
                             color: isDark ? Colors.white : Colors.black87)),
                     if (p.city != null) ...[
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.location_on_outlined, size: 11,
-                              color: isDark ? Colors.white38 : Colors.grey.shade500),
+                          Icon(Icons.location_on_outlined,
+                              size: 11,
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade500),
                           const SizedBox(width: 2),
-                          Text(p.city!, style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo',
-                              color: isDark ? Colors.white38 : Colors.grey.shade500)),
+                          Text(p.city!,
+                              style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontFamily: 'Cairo',
+                                  color: isDark
+                                      ? Colors.white38
+                                      : Colors.grey.shade500)),
                         ],
                       ),
                     ],
@@ -570,11 +709,15 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          Icon(Icons.near_me_outlined, size: 11, color: Colors.blue.shade500),
+                          Icon(Icons.near_me_outlined,
+                              size: 11, color: Colors.blue.shade500),
                           const SizedBox(width: 2),
                           Text('${distanceKm.toStringAsFixed(1)} كم',
-                              style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo',
-                                  fontWeight: FontWeight.w700, color: Colors.blue.shade600)),
+                              style: TextStyle(
+                                  fontSize: 9.5,
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.blue.shade600)),
                         ],
                       ),
                     ],
@@ -582,12 +725,20 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                     // Stats
                     Row(
                       children: [
-                        _statChip(Icons.star_rounded, p.ratingAvg > 0 ? p.ratingAvg.toStringAsFixed(1) : '-', Colors.amber),
+                        _statChip(
+                            Icons.star_rounded,
+                            p.ratingAvg > 0
+                                ? p.ratingAvg.toStringAsFixed(1)
+                                : '-',
+                            Colors.amber),
                         const SizedBox(width: 8),
-                        _statChip(Icons.people_outline_rounded, '${p.followersCount}',
+                        _statChip(
+                            Icons.people_outline_rounded,
+                            '${p.followersCount}',
                             isDark ? Colors.white38 : Colors.grey.shade500),
                         const SizedBox(width: 8),
-                        _statChip(Icons.check_circle_outline_rounded, '${p.completedRequests}', Colors.green.shade400),
+                        _statChip(Icons.check_circle_outline_rounded,
+                            '${p.completedRequests}', Colors.green.shade400),
                       ],
                     ),
                   ],
@@ -598,7 +749,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
             // Arrow
             Padding(
               padding: const EdgeInsets.only(left: 10),
-              child: Icon(Icons.arrow_back_ios_new_rounded, size: 12,
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 12,
                   color: isDark ? Colors.white24 : Colors.grey.shade400),
             ),
           ],
@@ -613,7 +765,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       children: [
         Icon(icon, size: 11, color: color),
         const SizedBox(width: 2),
-        Text(val, style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo', fontWeight: FontWeight.w600, color: color)),
+        Text(val,
+            style: TextStyle(
+                fontSize: 9.5,
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w600,
+                color: color)),
       ],
     );
   }
@@ -623,7 +780,8 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [const Color(0xFFB39DDB), const Color(0xFFD1C4E9)],
-          begin: Alignment.topRight, end: Alignment.bottomLeft,
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
       ),
     );

@@ -20,7 +20,8 @@ var ProviderProfileEditPage = (function () {
   var FIELD_MAP = {
     fullName: "display_name", accountType: "provider_type", about: "bio",
     specialization: "about_details", experience: "years_experience",
-    languages: "languages", location: "city", details: "about_details",
+    languages: "languages", location: "city", coverageRadius: "coverage_radius_km",
+    latitude: "lat", longitude: "lng", details: "about_details",
     qualification: "qualifications", website: "website", social: "social_links",
     phone: "whatsapp", keywords: "seo_keywords"
   };
@@ -37,7 +38,10 @@ var ProviderProfileEditPage = (function () {
     general: [
       { key: "experience", label: "سنوات الخبرة", icon: "work" },
       { key: "languages", label: "لغات التواصل", icon: "language" },
-      { key: "location", label: "المدينة", icon: "location", isCity: true }
+      { key: "location", label: "المدينة", icon: "location", isCity: true },
+      { key: "coverageRadius", label: "نطاق الخدمة (كم)", icon: "radius", inputType: "number", inputMode: "numeric", min: "0", step: "1", placeholder: "مثال: 25" },
+      { key: "latitude", label: "خط العرض", icon: "my_location", inputType: "number", inputMode: "decimal", step: "0.000001", min: "-90", max: "90", placeholder: "مثال: 24.713551", geoAction: true },
+      { key: "longitude", label: "خط الطول", icon: "explore", inputType: "number", inputMode: "decimal", step: "0.000001", min: "-180", max: "180", placeholder: "مثال: 46.675296" }
     ],
     extra: [
       { key: "details", label: "شرح تفصيلي", icon: "notes", multiline: true },
@@ -48,6 +52,12 @@ var ProviderProfileEditPage = (function () {
       { key: "keywords", label: "الكلمات المفتاحية (SEO)", icon: "label", multiline: true }
     ]
   };
+  var FIELD_CONFIG = {};
+  Object.keys(TABS).forEach(function (tabName) {
+    TABS[tabName].forEach(function (field) {
+      FIELD_CONFIG[field.key] = field;
+    });
+  });
 
   function init() {
     parseEntryQuery();
@@ -82,6 +92,35 @@ var ProviderProfileEditPage = (function () {
       .replace(/'/g, "&#39;");
   }
 
+  function fieldConfig(key) {
+    return FIELD_CONFIG[key] || {};
+  }
+
+  function displayValue(value, multiline) {
+    if (value === null || value === undefined || value === "") {
+      return '<span class="text-muted">—</span>';
+    }
+    var safeValue = escapeHtml(value);
+    return multiline ? safeValue.replace(/\n/g, "<br>") : safeValue;
+  }
+
+  function formatCoord(value) {
+    if (value === null || value === undefined || value === "") return "";
+    var parsed = Number(value);
+    if (!isFinite(parsed)) return "";
+    return parsed.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+  }
+
+  function setFieldValue(key, value) {
+    profile[key] = value === null || value === undefined ? "" : String(value);
+    var field = document.querySelector('.pe-field[data-key="' + key + '"]');
+    if (!field) return;
+    var cfg = fieldConfig(key);
+    field.querySelector(".pe-field-display").innerHTML = displayValue(profile[key], !!cfg.multiline);
+    var input = field.querySelector('.pe-input[data-key="' + key + '"]');
+    if (input) input.value = profile[key];
+  }
+
   function safeGet(path) {
     if (RAW_API && typeof RAW_API.get === "function") {
       return RAW_API.get(path);
@@ -113,7 +152,7 @@ var ProviderProfileEditPage = (function () {
 
   function loadProfile() {
     Promise.all([
-      safeGet("/api/accounts/profile/me/"),
+      safeGet("/api/accounts/me/"),
       safeGet("/api/providers/me/profile/")
     ]).then(function (res) {
       var userResp = res[0] || {};
@@ -131,6 +170,9 @@ var ProviderProfileEditPage = (function () {
         experience: prov.years_experience > 0 ? prov.years_experience + " سنوات" : "",
         languages: Array.isArray(prov.languages) ? prov.languages.map(function (l) { return l.name || l; }).join("، ") : "",
         location: prov.city || "",
+        coverageRadius: prov.coverage_radius_km === null || prov.coverage_radius_km === undefined ? "" : String(prov.coverage_radius_km),
+        latitude: formatCoord(prov.lat),
+        longitude: formatCoord(prov.lng),
         details: prov.about_details || "",
         qualification: Array.isArray(prov.qualifications) ? prov.qualifications.map(function (q) { return q.title || q; }).join("، ") : "",
         website: prov.website || "",
@@ -160,16 +202,24 @@ var ProviderProfileEditPage = (function () {
   function buildField(f) {
     var val = profile[f.key] || "";
     var safeVal = escapeHtml(val);
+    var attrs = ' data-key="' + f.key + '"';
+    if (f.placeholder) attrs += ' placeholder="' + escapeHtml(f.placeholder) + '"';
+    if (f.inputMode) attrs += ' inputmode="' + f.inputMode + '"';
+    if (f.min !== undefined) attrs += ' min="' + f.min + '"';
+    if (f.max !== undefined) attrs += ' max="' + f.max + '"';
+    if (f.step) attrs += ' step="' + f.step + '"';
     return '<div class="pe-field" data-key="' + f.key + '">' +
       '<div class="pe-field-header"><span class="pe-field-label">' + f.label + '</span>' +
       (!f.readOnly ? '<button class="btn-icon pe-edit-btn" data-key="' + f.key + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '') +
       '</div>' +
-      '<div class="pe-field-display">' + (safeVal || '<span class="text-muted">—</span>') + '</div>' +
+      '<div class="pe-field-display">' + displayValue(val, !!f.multiline) + '</div>' +
       '<div class="pe-field-edit" style="display:none">' +
       (f.isCity ? '<select class="form-select pe-input" data-key="' + f.key + '"><option value="">اختر المدينة</option>' + CITIES.map(function (c) { return '<option' + (c === val ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>'
         : f.multiline ? '<textarea class="form-input pe-input" rows="3" data-key="' + f.key + '">' + safeVal + '</textarea>'
-        : '<input type="text" class="form-input pe-input" data-key="' + f.key + '" value="' + safeVal + '">') +
-      '<button class="btn btn-sm btn-primary pe-save-btn" data-key="' + f.key + '">حفظ</button>' +
+        : '<input type="' + (f.inputType || "text") + '" class="form-input pe-input"' + attrs + ' value="' + safeVal + '">') +
+      (f.geoAction ? '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-sm btn-outline pe-geo-btn" type="button" data-key="' + f.key + '">استخدام موقعي الحالي</button>' : '') +
+      '<button class="btn btn-sm btn-primary pe-save-btn" data-key="' + f.key + '"' + (f.geoAction ? '' : ' style="margin-top:10px"') + '>حفظ</button>' +
+      (f.geoAction ? '</div>' : '') +
       '</div></div>';
   }
 
@@ -186,6 +236,49 @@ var ProviderProfileEditPage = (function () {
     document.querySelectorAll(".pe-save-btn").forEach(function (btn) {
       btn.addEventListener("click", function () { saveField(this.dataset.key, this); });
     });
+    document.querySelectorAll(".pe-geo-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () { useCurrentLocation(this); });
+    });
+  }
+
+  function useCurrentLocation(btn) {
+    if (!navigator.geolocation) {
+      alert("المتصفح لا يدعم تحديد الموقع");
+      return;
+    }
+    var originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "جاري تحديد الموقع...";
+    navigator.geolocation.getCurrentPosition(function (position) {
+      var lat = Number(position.coords.latitude);
+      var lng = Number(position.coords.longitude);
+      safePatch("/api/providers/me/profile/", { lat: lat, lng: lng }).then(function (resp) {
+        if (!resp || !resp.ok) {
+          throw new Error(apiErrorMessage(resp ? resp.data : null, "تعذر تحديث الموقع"));
+        }
+        var data = resp.data || {};
+        setFieldValue("latitude", formatCoord(data.lat !== undefined ? data.lat : lat));
+        setFieldValue("longitude", formatCoord(data.lng !== undefined ? data.lng : lng));
+        alert("تم تحديث موقعك الحالي");
+      }).catch(function (err) {
+        alert((err && err.message) ? err.message : "تعذر تحديث الموقع");
+      }).finally(function () {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      });
+    }, function (error) {
+      btn.disabled = false;
+      btn.textContent = originalText;
+      if (error && error.code === 1) {
+        alert("تم رفض صلاحية الموقع");
+        return;
+      }
+      alert("تعذر تحديد موقعك الحالي");
+    }, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0
+    });
   }
 
   function saveField(key, btn) {
@@ -193,6 +286,7 @@ var ProviderProfileEditPage = (function () {
     if (!apiKey) return;
     var input = document.querySelector('.pe-input[data-key="' + key + '"]');
     var val = input.value.trim();
+    var nextValue = val;
     var payload = {};
 
     switch (apiKey) {
@@ -200,6 +294,41 @@ var ProviderProfileEditPage = (function () {
       case "languages": payload[apiKey] = val.split(/[،,]/).filter(Boolean).map(function (s) { return { name: s.trim() }; }); break;
       case "qualifications": payload[apiKey] = val.split(/[،,]/).filter(Boolean).map(function (s) { return { title: s.trim() }; }); break;
       case "social_links": payload[apiKey] = val.split("\n").filter(Boolean).map(function (s) { return { url: s.trim() }; }); break;
+      case "coverage_radius_km":
+        if (!val) {
+          payload[apiKey] = 0;
+          nextValue = "0";
+          break;
+        }
+        payload[apiKey] = parseInt(val.replace(/[^\d]/g, ""), 10);
+        if (!isFinite(payload[apiKey]) || payload[apiKey] < 0) {
+          alert("أدخل نطاق خدمة صحيحًا");
+          return;
+        }
+        nextValue = String(payload[apiKey]);
+        break;
+      case "lat":
+      case "lng":
+        if (!val) {
+          payload[apiKey] = null;
+          nextValue = "";
+          break;
+        }
+        payload[apiKey] = Number(val);
+        if (!isFinite(payload[apiKey])) {
+          alert(apiKey === "lat" ? "خط العرض غير صالح" : "خط الطول غير صالح");
+          return;
+        }
+        if (apiKey === "lat" && (payload[apiKey] < -90 || payload[apiKey] > 90)) {
+          alert("خط العرض يجب أن يكون بين -90 و90");
+          return;
+        }
+        if (apiKey === "lng" && (payload[apiKey] < -180 || payload[apiKey] > 180)) {
+          alert("خط الطول يجب أن يكون بين -180 و180");
+          return;
+        }
+        nextValue = formatCoord(payload[apiKey]);
+        break;
       default: payload[apiKey] = val;
     }
 
@@ -208,9 +337,8 @@ var ProviderProfileEditPage = (function () {
       if (!resp || !resp.ok) {
         throw new Error(apiErrorMessage(resp ? resp.data : null, "فشل في الحفظ"));
       }
-      profile[key] = val;
       var field = document.querySelector('.pe-field[data-key="' + key + '"]');
-      field.querySelector(".pe-field-display").innerHTML = escapeHtml(val) || '<span class="text-muted">—</span>';
+      setFieldValue(key, nextValue);
       field.querySelector(".pe-field-display").style.display = "";
       field.querySelector(".pe-field-edit").style.display = "none";
       var editBtn = field.querySelector(".pe-edit-btn");

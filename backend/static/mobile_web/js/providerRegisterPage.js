@@ -1,5 +1,6 @@
 "use strict";
 var ProviderRegisterPage = (function () {
+  var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
   var CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الظهران","الطائف","تبوك","بريدة","عنيزة","حائل","أبها","خميس مشيط","نجران","جازان","ينبع","الباحة","الجبيل","حفر الباطن","القطيف","الأحساء","سكاكا","عرعر","بيشة","الخرج","الدوادمي","المجمعة","القويعية","وادي الدواسر"];
   var currentStep = 1;
@@ -73,31 +74,65 @@ var ProviderRegisterPage = (function () {
     return true;
   }
 
+  function apiErrorMessage(data, fallback) {
+    if (data && typeof data === "object") {
+      if (typeof data.detail === "string" && data.detail.trim()) return data.detail.trim();
+      var firstKey = Object.keys(data)[0];
+      var firstVal = data[firstKey];
+      if (typeof firstVal === "string" && firstVal.trim()) return firstVal.trim();
+      if (Array.isArray(firstVal) && firstVal.length) return String(firstVal[0]);
+    }
+    return fallback || "فشل العملية";
+  }
+
   function submit() {
     var btn = document.getElementById("reg-submit");
+    var subcategoryId = parseInt(document.getElementById("reg-subcategory").value, 10);
+    var serviceTitle = document.getElementById("reg-service-title").value.trim();
+    var serviceDescription = document.getElementById("reg-service-desc").value.trim();
     btn.disabled = true; btn.textContent = "جاري التسجيل...";
 
-    var body = {
+    var providerBody = {
       provider_type: providerType,
       display_name: document.getElementById("reg-display-name").value.trim(),
       bio: document.getElementById("reg-bio").value.trim(),
       city: document.getElementById("reg-city").value,
-      subcategory: parseInt(document.getElementById("reg-subcategory").value),
-      service_title: document.getElementById("reg-service-title").value.trim(),
-      service_description: document.getElementById("reg-service-desc").value.trim(),
+      subcategory_ids: subcategoryId ? [subcategoryId] : [],
       whatsapp: document.getElementById("reg-whatsapp").value.trim(),
       website: document.getElementById("reg-website").value.trim(),
-      years_experience: parseInt(document.getElementById("reg-experience").value) || 0
+      years_experience: parseInt(document.getElementById("reg-experience").value, 10) || 0
     };
 
-    API.post("/api/providers/register/", body).then(function (res) {
-      // Set provider mode
+    RAW_API.request("/api/providers/register/", { method: "POST", body: providerBody }).then(function (res) {
+      if (!res || !res.ok || !res.data) {
+        throw new Error(apiErrorMessage(res ? res.data : null, "فشل التسجيل"));
+      }
+
+      if (!serviceTitle) return { serviceSaved: false };
+
+      return RAW_API.request("/api/providers/me/services/", {
+        method: "POST",
+        body: {
+          subcategory_id: subcategoryId,
+          title: serviceTitle,
+          description: serviceDescription
+        }
+      }).then(function (serviceRes) {
+        if (!serviceRes || !serviceRes.ok || !serviceRes.data) {
+          return { serviceSaved: false, serviceError: apiErrorMessage(serviceRes ? serviceRes.data : null, "تعذر حفظ الخدمة الأولى") };
+        }
+        return { serviceSaved: true };
+      });
+    }).then(function (result) {
       sessionStorage.setItem("nw_account_mode", "provider");
       sessionStorage.setItem("nw_role_state", "provider");
       goToStep("success");
       document.getElementById("reg-success").classList.add("active");
+      if (result && result.serviceError) {
+        alert("تم إنشاء ملفك كمزوّد، لكن تعذر حفظ الخدمة الأولى. يمكنك إضافتها لاحقًا من لوحة المزوّد.\n\n" + result.serviceError);
+      }
     }).catch(function (err) {
-      alert(err.message || "فشل التسجيل");
+      alert((err && err.message) ? err.message : "فشل التسجيل");
       btn.disabled = false; btn.textContent = "إنشاء الحساب";
     });
   }
