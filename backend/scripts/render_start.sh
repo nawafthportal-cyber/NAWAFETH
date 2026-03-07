@@ -8,9 +8,10 @@ cd "${PROJECT_ROOT}"
 export DJANGO_ENV="${DJANGO_ENV:-prod}"
 
 # Keep boot fast on Render so the platform can detect the HTTP port.
-# These tasks can be enabled explicitly per service if needed.
+# Migrations stay optional, but collectstatic defaults to enabled when
+# the manifest is missing because manifest storage otherwise returns 500.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
-RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
+RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
 
 # ── Migrations (optional, non-blocking) ─────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
@@ -22,15 +23,19 @@ else
 	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START})."
 fi
 
-# ── Static files (optional, non-blocking) ───────────────────────────
+# ── Static files (required when manifest is missing) ────────────────
 if [ ! -f "staticfiles/staticfiles.json" ]; then
 	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
-		echo "[start] Static manifest missing — running collectstatic in background (timeout 30s)..."
-		(
-			timeout 30 python manage.py collectstatic --noinput 2>&1 || echo "[start] WARNING: collectstatic failed."
-		) &
+		echo "[start] Static manifest missing — running collectstatic (timeout 20s)..."
+		if ! timeout 20 python manage.py collectstatic --noinput 2>&1; then
+			echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
+			exit 1
+		fi
+		echo "[start] collectstatic completed."
 	else
-		echo "[start] Static manifest missing, but collectstatic on startup is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
+		echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
+		echo "[start] Refusing to start with manifest storage because templates will return 500."
+		exit 1
 	fi
 else
 	echo "[start] Static manifest OK."

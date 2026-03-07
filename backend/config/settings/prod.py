@@ -139,12 +139,15 @@ LOGGING = {
 		"exclude_bot_scan_404": {
 			"()": "apps.core.logging_filters.ExcludeCommonBotScan404Filter",
 		},
+		"exclude_unread_unauthorized": {
+			"()": "apps.core.logging_filters.ExcludeUnreadCountUnauthorizedFilter",
+		},
 	},
 	"handlers": {
 		"console": {
 			"class": "logging.StreamHandler",
 			"formatter": "standard",
-			"filters": ["exclude_bot_scan_404"],
+			"filters": ["exclude_bot_scan_404", "exclude_unread_unauthorized"],
 		}
 	},
 	"root": {"handlers": ["console"], "level": _log_level},

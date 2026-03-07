@@ -7,6 +7,7 @@
 const Nav = (() => {
   let _sidebarOpen = false;
   let _badgeRefreshInFlight = false;
+  let _badgeUnauthorizedUntil = 0;
 
   function init() {
     _ensureSingleBottomNav();
@@ -265,7 +266,13 @@ const Nav = (() => {
     if (_badgeRefreshInFlight) return;
     _badgeRefreshInFlight = true;
 
+    if (_badgeUnauthorizedUntil && Date.now() < _badgeUnauthorizedUntil) {
+      _badgeRefreshInFlight = false;
+      return;
+    }
+
     if (!Auth.isLoggedIn()) {
+      _badgeUnauthorizedUntil = 0;
       _badgeRefreshInFlight = false;
       return;
     }
@@ -283,6 +290,17 @@ const Nav = (() => {
         ApiClient.get('/api/notifications/unread-count/?mode=' + mode),
         ApiClient.get('/api/messaging/direct/unread-count/?mode=' + mode),
       ]);
+
+      const unauthorized = (notifRes?.status === 401) || (chatsRes?.status === 401);
+      if (unauthorized) {
+        // Back off for 2 minutes to avoid noisy repeated 401 polling.
+        _badgeUnauthorizedUntil = Date.now() + (2 * 60 * 1000);
+        notificationsBadges.forEach((badge) => _setBadge(badge, 0));
+        chatsBadges.forEach((badge) => _setBadge(badge, 0));
+        return;
+      }
+
+      _badgeUnauthorizedUntil = 0;
 
       const notifUnread = notifRes?.ok ? (notifRes.data?.unread || 0) : 0;
       const chatUnread = chatsRes?.ok ? (chatsRes.data?.unread || 0) : 0;

@@ -87,7 +87,9 @@ def execute_action(
 ) -> ActionResult:
     sr = (
         ServiceRequest.objects.select_for_update()
-        .select_related("client", "provider", "provider__user")
+        # provider is nullable; joining it with FOR UPDATE on PostgreSQL may raise
+        # "cannot be applied to the nullable side of an outer join".
+        .select_related("client")
         .get(id=request_id)
     )
 
