@@ -1151,6 +1151,7 @@ body.page-plans .page-header h1 {
 
 body.page-plans .plans-grid {
   gap: 12px;
+  grid-template-columns: 1fr;
 }
 
 body.page-plans .plan-card-rich {
@@ -1308,6 +1309,117 @@ body.page-plans .plan-current-hint {
 
 body.page-plans .plan-cta-btn {
   min-width: 140px;
+}
+
+@media (max-width: 760px) {
+  body.page-plans .page-shell {
+    max-width: 560px;
+    padding: 10px 12px calc(var(--bottom-nav-height, 84px) + 20px);
+  }
+
+  body.page-plans #plans-content {
+    gap: 8px;
+  }
+
+  body.page-plans .page-header {
+    margin: 4px 0 10px;
+  }
+
+  body.page-plans .page-header h1 {
+    font-size: 21px;
+    line-height: 1.35;
+  }
+
+  body.page-plans .plan-card-rich {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  body.page-plans .plan-title {
+    font-size: 20px;
+  }
+
+  body.page-plans .plan-description {
+    margin-top: 8px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  body.page-plans .plan-price-chip {
+    min-width: 104px;
+    padding: 10px 12px;
+    border-radius: 16px;
+  }
+
+  body.page-plans .plan-price-value {
+    font-size: 18px;
+  }
+
+  body.page-plans .plan-details-box {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  body.page-plans .plan-feature {
+    padding: 8px 0;
+  }
+
+  body.page-plans .plan-feature-label,
+  body.page-plans .plan-feature-value,
+  body.page-plans .plan-effect-label,
+  body.page-plans .plan-effect-value {
+    font-size: 12px;
+  }
+
+  body.page-plans .plan-footer-row {
+    margin-top: 14px;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  body.page-plans .page-shell {
+    padding: 8px 10px calc(var(--bottom-nav-height, 84px) + 18px);
+  }
+
+  body.page-plans .page-header h1 {
+    font-size: 19px;
+  }
+
+  body.page-plans .plan-card-rich {
+    border-radius: 18px;
+    padding: 14px;
+  }
+
+  body.page-plans .plan-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  body.page-plans .plan-title {
+    font-size: 18px;
+  }
+
+  body.page-plans .plan-price-chip {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body.page-plans .plan-details-box {
+    margin-top: 12px;
+    padding: 12px;
+  }
+
+  body.page-plans .plan-footer-row {
+    align-items: stretch;
+  }
+
+  body.page-plans .plan-cta-btn {
+    width: 100%;
+    min-width: 0;
+  }
 }
 
 @media (min-width: 761px) {

@@ -1,6 +1,64 @@
 'use strict';
 
 const PlanSummaryPage = (() => {
+  function _escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _valueToText(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+    if (Array.isArray(value)) {
+      return value.map(_valueToText).filter(Boolean).join('، ');
+    }
+
+    if (typeof value === 'object') {
+      const preferredKeys = [
+        'ar',
+        'text',
+        'label',
+        'title',
+        'name',
+        'value',
+        'display_name',
+        'display',
+        'value_text',
+        'display_value',
+        'message',
+        'en',
+      ];
+
+      for (const key of preferredKeys) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          const fromKey = _valueToText(value[key]);
+          if (fromKey) return fromKey;
+        }
+      }
+
+      for (const key of Object.keys(value)) {
+        const fromAnyKey = _valueToText(value[key]);
+        if (fromAnyKey) return fromAnyKey;
+      }
+
+      return '';
+    }
+
+    return String(value);
+  }
+
+  function _safeText(value, fallback) {
+    const text = _valueToText(value);
+    if (text) return _escapeHtml(text);
+    return _escapeHtml(_valueToText(fallback));
+  }
+
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.results)) return payload.results;
@@ -49,7 +107,7 @@ const PlanSummaryPage = (() => {
     const empty = document.getElementById('summary-empty');
     empty.style.display = '';
     if (message) {
-      empty.innerHTML = `<p>${UI.text(message)}</p><a href="/plans/" class="btn btn-secondary">العودة إلى الباقات</a>`;
+      empty.innerHTML = `<p>${_safeText(message)}</p><a href="/plans/" class="btn btn-secondary">العودة إلى الباقات</a>`;
     }
   }
 
@@ -58,10 +116,13 @@ const PlanSummaryPage = (() => {
   }
 
   function _renderRow(row) {
+    const item = row && typeof row === 'object' ? row : {};
+    const label = item.label ?? item.title ?? item.name;
+    const value = item.value ?? item.text ?? item.amount;
     return `
       <div class="ps-compare-row">
-        <span class="ps-compare-label">${UI.text(row.label || '')}</span>
-        <strong class="ps-compare-value">${UI.text(row.value || '')}</strong>
+        <span class="ps-compare-label">${_safeText(label)}</span>
+        <strong class="ps-compare-value">${_safeText(value)}</strong>
       </div>
     `;
   }
@@ -71,8 +132,8 @@ const PlanSummaryPage = (() => {
     const cta = offer.cta || {};
     const rows = Array.isArray(offer.summary_rows) ? offer.summary_rows : [];
     const features = Array.isArray(offer.feature_bullets) ? offer.feature_bullets : [];
-    const canProceed = Boolean(cta.enabled);
-    const buttonLabel = cta.label || 'ترقية';
+    const canProceed = cta.enabled === true || cta.enabled === 1 || cta.enabled === '1' || cta.enabled === 'true';
+    const buttonLabel = _valueToText(cta.label) || 'ترقية';
 
     const container = document.getElementById('summary-card');
     container.innerHTML = `
@@ -81,15 +142,15 @@ const PlanSummaryPage = (() => {
           <div class="ps-hero-head">
             <div class="ps-hero-main">
               <div class="ps-title-row">
-                <h2 class="ps-hero-title">${UI.text(offer.plan_name || plan.title || 'الباقة')}</h2>
-                <span class="ps-hero-chip">${UI.text(buttonLabel)}</span>
+                <h2 class="ps-hero-title">${_safeText(offer.plan_name || plan.title || plan.name, 'الباقة')}</h2>
+                <span class="ps-hero-chip">${_safeText(buttonLabel)}</span>
               </div>
-              <p class="ps-hero-description">${UI.text(offer.description || '')}</p>
+              <p class="ps-hero-description">${_safeText(offer.description)}</p>
             </div>
             <div class="ps-price-chip">
               <div class="ps-price-label">المبلغ النهائي</div>
-              <div class="ps-price-value">${UI.text(offer.final_payable_label || 'مجانية')}</div>
-              <div class="ps-price-cycle">${UI.text(offer.billing_cycle_label || 'سنوي')}</div>
+              <div class="ps-price-value">${_safeText(offer.final_payable_label, 'مجانية')}</div>
+              <div class="ps-price-cycle">${_safeText(offer.billing_cycle_label, 'سنوي')}</div>
             </div>
           </div>
         </article>
@@ -97,22 +158,22 @@ const PlanSummaryPage = (() => {
         <article class="ps-card ps-details-card">
           <h3 class="ps-section-title">تفاصيل الاشتراك</h3>
           <div class="ps-details-grid">
-            <div class="ps-details-row"><span>الباقة المختارة</span><strong>${UI.text(offer.plan_name || plan.title || '')}</strong></div>
-            <div class="ps-details-row"><span>دورة الفوترة</span><strong>${UI.text(offer.billing_cycle_label || 'سنوي')}</strong></div>
-            <div class="ps-details-row"><span>سعر الباقة</span><strong>${UI.text(offer.annual_price_label || 'مجانية')}</strong></div>
-            <div class="ps-details-row"><span>أثر التوثيق</span><strong>${UI.text(offer.verification_effect_label || '')}</strong></div>
-            <div class="ps-details-row"><span>المبلغ النهائي المستحق</span><strong>${UI.text(offer.final_payable_label || 'مجانية')}</strong></div>
+            <div class="ps-details-row"><span>الباقة المختارة</span><strong>${_safeText(offer.plan_name || plan.title || plan.name)}</strong></div>
+            <div class="ps-details-row"><span>دورة الفوترة</span><strong>${_safeText(offer.billing_cycle_label, 'سنوي')}</strong></div>
+            <div class="ps-details-row"><span>سعر الباقة</span><strong>${_safeText(offer.annual_price_label, 'مجانية')}</strong></div>
+            <div class="ps-details-row"><span>أثر التوثيق</span><strong>${_safeText(offer.verification_effect_label)}</strong></div>
+            <div class="ps-details-row"><span>المبلغ النهائي المستحق</span><strong>${_safeText(offer.final_payable_label, 'مجانية')}</strong></div>
           </div>
           <div class="ps-tax-note">
             <strong>ملاحظة الضريبة</strong>
-            ${UI.text(offer.tax_note || '')}
+            ${_safeText(offer.tax_note)}
           </div>
         </article>
 
         <article class="ps-card ps-features-card">
           <h3 class="ps-section-title">المزايا الرئيسية</h3>
           <ul class="ps-features-list">
-            ${features.map(item => `<li class="ps-feature-item"><span class="ps-feature-bullet">•</span><span>${UI.text(item || '')}</span></li>`).join('')}
+            ${features.map(item => `<li class="ps-feature-item"><span class="ps-feature-bullet">•</span><span>${_safeText(item)}</span></li>`).join('')}
           </ul>
         </article>
 
@@ -122,7 +183,7 @@ const PlanSummaryPage = (() => {
         </article>
 
         <div class="ps-action-row">
-          <button id="summary-submit" class="btn btn-primary ps-submit-btn" ${canProceed ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
+          <button id="summary-submit" class="btn btn-primary ps-submit-btn" ${canProceed ? '' : 'disabled'}>${_safeText(buttonLabel)}</button>
           <a href="/plans/" class="btn btn-secondary ps-back-btn">العودة إلى الباقات</a>
         </div>
       </section>
@@ -141,10 +202,10 @@ const PlanSummaryPage = (() => {
     });
     if (button) button.disabled = false;
     if (!res.ok) {
-      alert(res.data?.detail || 'تعذر إنشاء طلب الترقية');
+      alert(_valueToText(res.data?.detail) || 'تعذر إنشاء طلب الترقية');
       return;
     }
-    const amountLabel = offer.final_payable_label || offer.annual_price_label || 'مجانية';
+    const amountLabel = _valueToText(offer.final_payable_label) || _valueToText(offer.annual_price_label) || 'مجانية';
     alert(`تم إنشاء طلب الاشتراك بنجاح. المبلغ النهائي: ${amountLabel}`);
     window.location.href = '/plans/';
   }

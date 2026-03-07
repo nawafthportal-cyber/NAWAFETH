@@ -15,6 +15,68 @@ class _PlansScreenState extends State<PlansScreen> {
   bool _loading = true;
   String? _error;
 
+  static const List<String> _preferredTextKeys = <String>[
+    'ar',
+    'text',
+    'label',
+    'title',
+    'name',
+    'value',
+    'display_name',
+    'display',
+    'value_text',
+    'display_value',
+    'message',
+    'en',
+  ];
+
+  String _displayText(dynamic value, {String fallback = ''}) {
+    if (value == null) return fallback;
+
+    if (value is String) {
+      final text = value.trim();
+      return text.isEmpty ? fallback : text;
+    }
+
+    if (value is num || value is bool) {
+      return value.toString();
+    }
+
+    if (value is List) {
+      final parts = value
+          .map((item) => _displayText(item))
+          .where((item) => item.isNotEmpty)
+          .toList();
+      return parts.isEmpty ? fallback : parts.join('، ');
+    }
+
+    if (value is Map) {
+      for (final key in _preferredTextKeys) {
+        if (value.containsKey(key)) {
+          final text = _displayText(value[key]);
+          if (text.isNotEmpty) return text;
+        }
+      }
+
+      for (final entry in value.entries) {
+        final text = _displayText(entry.value);
+        if (text.isNotEmpty) return text;
+      }
+
+      return fallback;
+    }
+
+    final text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+
+  bool _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final text = _displayText(value).toLowerCase();
+    return text == 'true' || text == '1' || text == 'yes';
+  }
+
   List<Map<String, dynamic>> _rowsForPlan(Map<String, dynamic> plan) {
     final offer = SubscriptionsService.planOffer(plan);
     final rows = offer['card_rows'];
@@ -30,11 +92,11 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   String _statusBadgeText(Map<String, dynamic> action) {
-    final state = (action['state'] ?? '').toString();
+    final state = _displayText(action['state']).toLowerCase();
     switch (state) {
       case 'current':
       case 'pending':
-        return (action['label'] ?? '').toString();
+        return _displayText(action['label']);
       case 'unavailable':
         return 'باقة أقل من الحالية';
       default:
@@ -43,11 +105,9 @@ class _PlansScreenState extends State<PlansScreen> {
   }
 
   List<Color> _gradientForTier(Map<String, dynamic> plan) {
-    final tier =
-        (SubscriptionsService.planOffer(plan)['tier'] ?? plan['canonical_tier'] ?? '')
-            .toString()
-            .trim()
-            .toLowerCase();
+    final tier = _displayText(
+      SubscriptionsService.planOffer(plan)['tier'] ?? plan['canonical_tier'],
+    ).toLowerCase();
     switch (tier) {
       case 'professional':
         return const [Color(0xFF123C32), Color(0xFF0F766E)];
@@ -93,18 +153,25 @@ class _PlansScreenState extends State<PlansScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final compact = screenWidth <= 390;
+    final veryCompact = screenWidth <= 360;
+
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
         appBar: AppBar(
-          title: const Text(
+          title: Text(
             'باقات اشتراك مقدم الخدمة',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontWeight: FontWeight.bold,
               color: Colors.black,
+              fontSize: veryCompact ? 17 : (compact ? 18 : 20),
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           centerTitle: true,
           backgroundColor: Colors.white,
@@ -131,168 +198,257 @@ class _PlansScreenState extends State<PlansScreen> {
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      compact ? 10 : 12,
+                      compact ? 10 : 14,
+                      compact ? 10 : 12,
+                      compact ? 10 : 12,
+                    ),
                     itemCount: _plans.length,
-                    itemBuilder: (context, index) => _planCard(_plans[index]),
+                    itemBuilder: (context, index) => _planCard(
+                      _plans[index],
+                      compact: compact,
+                      veryCompact: veryCompact,
+                    ),
                   ),
       ),
     );
   }
 
-  Widget _planCard(Map<String, dynamic> plan) {
+  Widget _planCard(
+    Map<String, dynamic> plan, {
+    required bool compact,
+    required bool veryCompact,
+  }) {
     final offer = SubscriptionsService.planOffer(plan);
     final action = _actionForPlan(plan);
     final rows = _rowsForPlan(plan);
     final colors = _gradientForTier(plan);
-    final planName = SubscriptionsService.planDisplayTitle(plan);
-    final description = (offer['description'] ?? '').toString();
-    final verificationEffect = (offer['verification_effect_label'] ?? '').toString();
-    final buttonLabel = (action['label'] ?? 'ترقية').toString();
-    final canOpen = action['enabled'] == true;
+    final planName = _displayText(
+      SubscriptionsService.planDisplayTitle(plan),
+      fallback: 'الباقة',
+    );
+    final description = _displayText(offer['description']);
+    final annualPrice = _displayText(offer['annual_price_label'], fallback: 'مجانية');
+    final verificationEffect = _displayText(offer['verification_effect_label']);
+    final buttonLabel = _displayText(action['label'], fallback: 'ترقية');
+    final canOpen = _asBool(action['enabled']);
     final badgeText = _statusBadgeText(action);
 
+    Widget priceChip({required bool fullWidth}) {
+      return Container(
+        width: fullWidth ? double.infinity : null,
+        constraints: fullWidth
+            ? null
+            : BoxConstraints(minWidth: compact ? 96 : 110),
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 12 : 16,
+          vertical: compact ? 10 : 14,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(34),
+          borderRadius: BorderRadius.circular(compact ? 16 : 18),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'السعر السنوي',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: compact ? 11 : 12,
+                fontFamily: 'Cairo',
+              ),
+            ),
+            SizedBox(height: compact ? 4 : 6),
+            Text(
+              annualPrice,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: compact ? 16 : 18,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Cairo',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: EdgeInsets.only(bottom: compact ? 12 : 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(compact ? 20 : 26),
         gradient: LinearGradient(
           colors: colors,
           begin: Alignment.topRight,
           end: Alignment.bottomLeft,
         ),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
             color: Color(0x1A0F172A),
-            blurRadius: 24,
-            offset: Offset(0, 14),
+            blurRadius: compact ? 18 : 24,
+            offset: Offset(0, compact ? 10 : 14),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: EdgeInsets.all(compact ? 14 : 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            if (veryCompact)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            planName,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              fontFamily: 'Cairo',
-                            ),
-                          ),
-                          if (badgeText.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withAlpha(220),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                badgeText,
-                                style: TextStyle(
-                                  color: colors.last,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'Cairo',
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
                       Text(
-                        description,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          height: 1.8,
-                          fontFamily: 'Cairo',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(34),
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'السعر السنوي',
+                        planName,
                         style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontFamily: 'Cairo',
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        (offer['annual_price_label'] ?? 'مجانية').toString(),
-                        style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 18,
+                          fontSize: veryCompact ? 18 : (compact ? 20 : 24),
                           fontWeight: FontWeight.w800,
                           fontFamily: 'Cairo',
                         ),
                       ),
+                      if (badgeText.isNotEmpty)
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: compact ? 9 : 10,
+                            vertical: compact ? 4 : 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(220),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: TextStyle(
+                              color: colors.last,
+                              fontSize: compact ? 11 : 12,
+                              fontWeight: FontWeight.w700,
+                              fontFamily: 'Cairo',
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
+                  SizedBox(height: compact ? 8 : 10),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Colors.white70,
+                      height: 1.7,
+                      fontSize: compact ? 13 : 14,
+                      fontFamily: 'Cairo',
+                    ),
+                  ),
+                  SizedBox(height: compact ? 10 : 12),
+                  priceChip(fullWidth: true),
+                ],
+              )
+            else
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              planName,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: veryCompact ? 18 : (compact ? 20 : 24),
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Cairo',
+                              ),
+                            ),
+                            if (badgeText.isNotEmpty)
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: compact ? 9 : 10,
+                                  vertical: compact ? 4 : 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withAlpha(220),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  badgeText,
+                                  style: TextStyle(
+                                    color: colors.last,
+                                    fontSize: compact ? 11 : 12,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Cairo',
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        SizedBox(height: compact ? 8 : 10),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: Colors.white70,
+                            height: 1.7,
+                            fontSize: compact ? 13 : 14,
+                            fontFamily: 'Cairo',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: compact ? 10 : 12),
+                  priceChip(fullWidth: false),
+                ],
+              ),
+            SizedBox(height: compact ? 14 : 18),
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(compact ? 12 : 16),
               decoration: BoxDecoration(
                 color: Colors.white.withAlpha(18),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(compact ? 16 : 20),
               ),
               child: Column(
                 children: rows
                     .map(
                       (row) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: EdgeInsets.symmetric(vertical: compact ? 6 : 8),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
-                                (row['label'] ?? '').toString(),
-                                style: const TextStyle(
+                                _displayText(
+                                  row['label'] ?? row['title'] ?? row['name'],
+                                ),
+                                style: TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 13,
+                                  fontSize: compact ? 12 : 13,
                                   fontFamily: 'Cairo',
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            SizedBox(width: compact ? 10 : 12),
                             Expanded(
                               child: Text(
-                                (row['value'] ?? '').toString(),
+                                _displayText(
+                                  row['value'] ?? row['text'] ?? row['amount'],
+                                ),
                                 textAlign: TextAlign.left,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 13,
+                                  fontSize: compact ? 12 : 13,
                                   fontWeight: FontWeight.w700,
                                   fontFamily: 'Cairo',
                                 ),
@@ -305,17 +461,18 @@ class _PlansScreenState extends State<PlansScreen> {
                     .toList(),
               ),
             ),
-            const SizedBox(height: 18),
+            SizedBox(height: compact ? 14 : 18),
             Text(
               'أثر الباقة على التوثيق: $verificationEffect',
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                height: 1.8,
+                height: 1.7,
+                fontSize: compact ? 13 : 14,
                 fontFamily: 'Cairo',
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: compact ? 12 : 14),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -325,16 +482,17 @@ class _PlansScreenState extends State<PlansScreen> {
                   foregroundColor: colors.last,
                   disabledBackgroundColor: Colors.white24,
                   disabledForegroundColor: Colors.white70,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  padding: EdgeInsets.symmetric(vertical: compact ? 12 : 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(compact ? 14 : 16),
                   ),
                 ),
                 child: Text(
                   buttonLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: 'Cairo',
                     fontWeight: FontWeight.w700,
+                    fontSize: compact ? 14 : 15,
                   ),
                 ),
               ),

@@ -1,6 +1,64 @@
 'use strict';
 
 const PlansPage = (() => {
+  function _escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function _valueToText(value) {
+    if (value == null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+
+    if (Array.isArray(value)) {
+      return value.map(_valueToText).filter(Boolean).join('، ');
+    }
+
+    if (typeof value === 'object') {
+      const preferredKeys = [
+        'ar',
+        'text',
+        'label',
+        'title',
+        'name',
+        'value',
+        'display_name',
+        'display',
+        'value_text',
+        'display_value',
+        'message',
+        'en',
+      ];
+
+      for (const key of preferredKeys) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+          const fromKey = _valueToText(value[key]);
+          if (fromKey) return fromKey;
+        }
+      }
+
+      for (const key of Object.keys(value)) {
+        const fromAnyKey = _valueToText(value[key]);
+        if (fromAnyKey) return fromAnyKey;
+      }
+
+      return '';
+    }
+
+    return String(value);
+  }
+
+  function _safeText(value, fallback) {
+    const text = _valueToText(value);
+    if (text) return _escapeHtml(text);
+    return _escapeHtml(_valueToText(fallback));
+  }
+
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.results)) return payload.results;
@@ -17,7 +75,7 @@ const PlansPage = (() => {
   }
 
   function _planTheme(tier) {
-    switch (String(tier || '').trim().toLowerCase()) {
+    switch (_valueToText(tier).toLowerCase()) {
       case 'professional':
         return {
           shell: 'linear-gradient(135deg,#123c32,#0f766e)',
@@ -44,21 +102,25 @@ const PlansPage = (() => {
 
   function _statusBadge(offer) {
     const cta = offer.cta || {};
-    if (!cta.state) return '';
-    if (cta.state === 'current' || cta.state === 'pending') {
-      return `<span class="plan-status plan-status-current">${UI.text(cta.label || '')}</span>`;
+    const state = _valueToText(cta.state).toLowerCase();
+    if (!state) return '';
+    if (state === 'current' || state === 'pending') {
+      return `<span class="plan-status plan-status-current">${_safeText(cta.label)}</span>`;
     }
-    if (cta.state === 'unavailable') {
+    if (state === 'unavailable') {
       return '<span class="plan-status plan-status-unavailable">باقة أقل من الحالية</span>';
     }
     return '';
   }
 
   function _buildRow(row) {
+    const item = row && typeof row === 'object' ? row : {};
+    const label = item.label ?? item.title ?? item.name;
+    const value = item.value ?? item.text ?? item.amount;
     return `
       <li class="plan-feature">
-        <span class="plan-feature-label">${UI.text(row.label || '')}</span>
-        <strong class="plan-feature-value">${UI.text(row.value || '')}</strong>
+        <span class="plan-feature-label">${_safeText(label)}</span>
+        <strong class="plan-feature-value">${_safeText(value)}</strong>
       </li>
     `;
   }
@@ -78,7 +140,7 @@ const PlansPage = (() => {
     document.getElementById('plans-loading').style.display = 'none';
     if (!plansRes.ok) {
       document.getElementById('plans-empty').style.display = '';
-      document.getElementById('plans-empty').innerHTML = `<p>${UI.text(plansRes.data?.detail || 'تعذر تحميل الباقات حالياً')}</p>`;
+      document.getElementById('plans-empty').innerHTML = `<p>${_safeText(plansRes.data?.detail, 'تعذر تحميل الباقات حالياً')}</p>`;
       return;
     }
 
@@ -100,11 +162,11 @@ const PlansPage = (() => {
     const theme = _planTheme(plan.canonical_tier || offer.tier);
     const cta = _cta(plan);
     const rows = Array.isArray(offer.card_rows) ? offer.card_rows : [];
-    const buttonLabel = cta.label || 'ترقية';
-    const isEnabled = Boolean(cta.enabled);
+    const buttonLabel = _valueToText(cta.label) || 'ترقية';
+    const isEnabled = cta.enabled === true || cta.enabled === 1 || cta.enabled === '1' || cta.enabled === 'true';
     const buttonClass = isEnabled ? 'btn btn-primary' : 'btn btn-secondary';
     const actionHint = cta.current_plan_name
-      ? `<p class="plan-current-hint">الباقة الحالية: ${UI.text(cta.current_plan_name)}</p>`
+      ? `<p class="plan-current-hint">الباقة الحالية: ${_safeText(cta.current_plan_name)}</p>`
       : '';
 
     const card = document.createElement('article');
@@ -117,14 +179,14 @@ const PlansPage = (() => {
       <div class="plan-head">
         <div class="plan-head-main">
           <div class="plan-title-row">
-            <h2 class="plan-title">${UI.text(offer.plan_name || plan.title || 'باقة')}</h2>
+            <h2 class="plan-title">${_safeText(offer.plan_name || plan.title || plan.name, 'باقة')}</h2>
             ${_statusBadge(offer)}
           </div>
-          <p class="plan-description">${UI.text(offer.description || '')}</p>
+          <p class="plan-description">${_safeText(offer.description)}</p>
         </div>
         <div class="plan-price-chip">
           <div class="plan-price-label">السعر السنوي</div>
-          <div class="plan-price-value">${UI.text(offer.annual_price_label || 'مجانية')}</div>
+          <div class="plan-price-value">${_safeText(offer.annual_price_label, 'مجانية')}</div>
         </div>
       </div>
       <div class="plan-details-box">
@@ -134,10 +196,10 @@ const PlansPage = (() => {
       <div class="plan-footer-row">
         <div class="plan-effect-wrap">
           <div class="plan-effect-label">أثر الباقة على التوثيق</div>
-          <div class="plan-effect-value">${UI.text(offer.verification_effect_label || '')}</div>
+          <div class="plan-effect-value">${_safeText(offer.verification_effect_label)}</div>
           ${actionHint}
         </div>
-        <button class="${buttonClass} plan-cta-btn" ${isEnabled ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
+        <button class="${buttonClass} plan-cta-btn" ${isEnabled ? '' : 'disabled'}>${_safeText(buttonLabel)}</button>
       </div>
     `;
 

@@ -357,7 +357,7 @@ def test_provider_subscription_pages_render_arabic_titles(client):
     summary_page = client.get("/plans/summary/?plan_id=1")
 
     assert plans_page.status_code == 200
-    assert "باقات اشتراك مقدمي الخدمات" in plans_page.content.decode("utf-8")
+    assert "باقات اشتراك مقدم الخدمة" in plans_page.content.decode("utf-8")
 
     assert summary_page.status_code == 200
     assert "ملخص الاشتراك والترقية" in summary_page.content.decode("utf-8")
