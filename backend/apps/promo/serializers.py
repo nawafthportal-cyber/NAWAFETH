@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from rest_framework import serializers
 from django.utils import timezone
+from apps.subscriptions.capabilities import (
+    promotional_chat_controls_enabled_for_user,
+    promotional_notification_controls_enabled_for_user,
+)
 
 from .models import (
     PromoRequest, PromoAsset,
@@ -108,13 +112,18 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "code"]
 
     def validate(self, attrs):
-        from apps.features.checks import has_feature
-
         request = self.context.get("request")
         user = getattr(request, "user", None)
+        message_title = (attrs.get("message_title") or "").strip()
+        message_body = (attrs.get("message_body") or "").strip()
+        attrs["message_title"] = message_title
+        attrs["message_body"] = message_body
+
         if user is not None and user.is_authenticated:
-            if not has_feature(user, "promo_ads"):
-                raise serializers.ValidationError("ميزة الإعلانات (Promo) غير متاحة في باقتك الحالية.")
+            if attrs.get("ad_type") == PromoAdType.PUSH_NOTIFICATION and not promotional_notification_controls_enabled_for_user(user):
+                raise serializers.ValidationError("الإشعارات الدعائية متاحة فقط ضمن الباقة الاحترافية.")
+            if (message_title or message_body) and not promotional_chat_controls_enabled_for_user(user):
+                raise serializers.ValidationError("الرسائل الدعائية متاحة فقط ضمن الباقة الاحترافية.")
 
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")

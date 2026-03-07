@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -13,6 +14,16 @@ def env_bool(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_json(name: str, default):
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return json.loads(raw)
+    except Exception:
+        return default
 
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-me")
@@ -360,13 +371,20 @@ URGENT_REQUEST_EXPIRY_MINUTES = int(os.getenv("URGENT_REQUEST_EXPIRY_MINUTES", "
 # VAT
 DEFAULT_VAT_PERCENT = 15  # السعودية 15%
 
+BILLING_WEBHOOK_SECRETS = env_json(
+    "BILLING_WEBHOOK_SECRETS",
+    {
+        "mock": os.getenv("BILLING_WEBHOOK_SECRET_MOCK", SECRET_KEY),
+    },
+)
+
 # Settings للباقات (اختياري الآن)
 SUBS_GRACE_DAYS = 7  # فترة سماح بعد الانتهاء
 VERIFY_FEES_BY_TIER = {
     # الاشتراك لا يمنح التوثيق تلقائيًا، لكنه يغير رسومه الافتراضية.
     "basic": "100.00",
-    "riyadi": "50.00",
-    "pro": "0.00",
+    "pioneer": "50.00",
+    "professional": "0.00",
 }
 
 # إعدادات افتراضية للإضافات (اختياري الآن)

@@ -7,8 +7,12 @@ from django.db import models
 class AuditAction(models.TextChoices):
 	INVOICE_CREATED = "invoice_created", "إنشاء فاتورة"
 	INVOICE_PAID = "invoice_paid", "دفع فاتورة"
+	INVOICE_PAYMENT_REVERSED = "invoice_payment_reversed", "عكس/إلغاء اعتماد دفع فاتورة"
+	INVOICE_WEBHOOK_REJECTED = "invoice_webhook_rejected", "رفض Webhook فوترة"
+	INVOICE_STATUS_CHANGE_BLOCKED = "invoice_status_change_blocked", "منع تعديل حالة فاتورة"
 	SUBSCRIPTION_STARTED = "subscription_started", "بدء اشتراك"
 	SUBSCRIPTION_ACTIVE = "subscription_active", "تفعيل اشتراك"
+	SUBSCRIPTION_PAYMENT_REVOKED = "subscription_payment_revoked", "سحب تفعيل اشتراك بعد عكس الدفع"
 	SUBSCRIPTION_REQUEST_ASSIGNED = "subscription_request_assigned", "إسناد طلب اشتراك"
 	SUBSCRIPTION_REQUEST_STATUS_CHANGED = "subscription_request_status_changed", "تغيير حالة طلب اشتراك"
 	SUBSCRIPTION_REQUEST_NOTE_ADDED = "subscription_request_note_added", "إضافة ملاحظة طلب اشتراك"
@@ -22,6 +26,7 @@ class AuditAction(models.TextChoices):
 	VERIFY_REQUEST_CREATED = "verify_request_created", "طلب توثيق"
 	VERIFY_REQUEST_APPROVED = "verify_request_approved", "اعتماد توثيق"
 	VERIFY_REQUEST_REJECTED = "verify_request_rejected", "رفض توثيق"
+	VERIFY_REQUEST_PAYMENT_REVOKED = "verify_request_payment_revoked", "سحب تفعيل توثيق بعد عكس الدفع"
 
 	PROMO_REQUEST_CREATED = "promo_request_created", "طلب إعلان"
 	PROMO_REQUEST_QUOTED = "promo_request_quoted", "تسعير إعلان"

@@ -3,12 +3,20 @@ from __future__ import annotations
 from decimal import Decimal
 
 from rest_framework import serializers
+
+from .capabilities import plan_capabilities_for_tier
+from .offers import subscription_offer_for_plan
+from .tiering import canonical_tier_label
 from .models import FeatureKey, SubscriptionPlan, Subscription
 
 
 class PlanSerializer(serializers.ModelSerializer):
     feature_labels = serializers.SerializerMethodField()
     period_label = serializers.CharField(source="get_period_display", read_only=True)
+    canonical_tier = serializers.SerializerMethodField()
+    tier_label = serializers.SerializerMethodField()
+    capabilities = serializers.SerializerMethodField()
+    provider_offer = serializers.SerializerMethodField()
 
     def get_feature_labels(self, obj: SubscriptionPlan):
         from apps.verification.services import verification_pricing_for_plan
@@ -38,12 +46,28 @@ class PlanSerializer(serializers.ModelSerializer):
             out.append(labels.get(normalized, normalized.replace("_", " ")))
         return out
 
+    def get_canonical_tier(self, obj: SubscriptionPlan) -> str:
+        return obj.normalized_tier()
+
+    def get_tier_label(self, obj: SubscriptionPlan) -> str:
+        return canonical_tier_label(obj.normalized_tier())
+
+    def get_capabilities(self, obj: SubscriptionPlan) -> dict:
+        return plan_capabilities_for_tier(obj.normalized_tier())
+
+    def get_provider_offer(self, obj: SubscriptionPlan) -> dict:
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        return subscription_offer_for_plan(obj, user=user)
+
     class Meta:
         model = SubscriptionPlan
         fields = [
             "id",
             "code",
             "tier",
+            "canonical_tier",
+            "tier_label",
             "title",
             "description",
             "period",
@@ -51,6 +75,8 @@ class PlanSerializer(serializers.ModelSerializer):
             "price",
             "features",
             "feature_labels",
+            "capabilities",
+            "provider_offer",
             "is_active",
         ]
 

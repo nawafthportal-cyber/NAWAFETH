@@ -20,9 +20,12 @@ def test_seed_default_subscription_plans_creates_canonical_snapshot():
 
     assert codes == ["basic", "pro", "riyadi"]
     assert plans.count() == 3
-    assert plans.filter(code="basic", tier=PlanTier.BASIC, period=PlanPeriod.MONTH).exists()
-    assert plans.filter(code="riyadi", tier=PlanTier.RIYADI, period=PlanPeriod.MONTH).exists()
-    assert plans.filter(code="pro", tier=PlanTier.PRO, period=PlanPeriod.MONTH).exists()
+    assert plans.filter(code="basic", tier=PlanTier.BASIC, period=PlanPeriod.YEAR).exists()
+    assert plans.filter(code="riyadi", tier=PlanTier.RIYADI, period=PlanPeriod.YEAR).exists()
+    assert plans.filter(code="pro", tier=PlanTier.PRO, period=PlanPeriod.YEAR).exists()
+    assert plans.get(code="basic").price == Decimal("0.00")
+    assert plans.get(code="riyadi").price == Decimal("199.00")
+    assert plans.get(code="pro").price == Decimal("999.00")
 
 
 def test_normalize_existing_subscription_plans_maps_legacy_codes_without_dropping_variants():

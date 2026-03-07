@@ -33,8 +33,8 @@ from apps.messaging.models import Message
 from apps.reviews.models import Review
 from apps.support.models import SupportTicket, SupportTicketStatus, SupportTeam, SupportTicketType
 from apps.support.services import change_ticket_status, assign_ticket
-from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, money_round
-from apps.billing.services import init_payment, handle_webhook
+from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, TRUSTED_PAYMENT_REFERENCE_TYPES, money_round
+from apps.billing.services import handle_webhook, init_payment, sign_webhook_payload
 from apps.verification.models import (
     VerificationRequest,
     VerificationStatus,
@@ -53,6 +53,7 @@ from apps.subscriptions.models import Subscription, SubscriptionStatus, Subscrip
 from apps.subscriptions.services import (
     refresh_subscription_status,
     activate_subscription_after_payment,
+    get_effective_active_subscriptions_map,
     start_subscription_checkout,
 )
 from apps.promo.models import PromoRequest, PromoRequestStatus
@@ -1745,16 +1746,65 @@ def billing_invoice_set_status_action(request: HttpRequest, invoice_id: int) -> 
     invoice = get_object_or_404(Invoice, id=invoice_id)
     action = (request.POST.get("action") or "").strip().lower()
 
-    if action == "mark_paid":
+    if action in {"mark_paid", "mark_unpaid"} and invoice.reference_type in TRUSTED_PAYMENT_REFERENCE_TYPES:
+        log_action(
+            actor=request.user,
+            action=AuditAction.INVOICE_STATUS_CHANGE_BLOCKED,
+            reference_type="invoice",
+            reference_id=invoice.code or str(invoice.id),
+            request=request,
+            extra={
+                "blocked_action": action,
+                "invoice_id": invoice.id,
+                "reference_type": invoice.reference_type,
+                "reference_id": invoice.reference_id,
+                "channel": "dashboard",
+            },
+        )
+        messages.error(
+            request,
+            "لا يمكن تعليم فواتير الاشتراك/التوثيق كمدفوعة أو غير مدفوعة يدويًا. استخدم مسار الدفع الموثوق فقط.",
+        )
+    elif action == "mark_paid":
         invoice.mark_paid()
+        invoice.clear_payment_confirmation()
         invoice.cancelled_at = None
-        invoice.save(update_fields=["status", "paid_at", "cancelled_at", "updated_at"])
+        invoice.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "payment_confirmed",
+                "payment_confirmed_at",
+                "payment_provider",
+                "payment_reference",
+                "payment_event_id",
+                "payment_amount",
+                "payment_currency",
+                "updated_at",
+            ]
+        )
         messages.success(request, f"تم تعليم الفاتورة {invoice.code or invoice.id} كمدفوعة")
     elif action == "mark_unpaid":
         invoice.status = InvoiceStatus.PENDING
         invoice.paid_at = None
         invoice.cancelled_at = None
-        invoice.save(update_fields=["status", "paid_at", "cancelled_at", "updated_at"])
+        invoice.clear_payment_confirmation()
+        invoice.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "payment_confirmed",
+                "payment_confirmed_at",
+                "payment_provider",
+                "payment_reference",
+                "payment_event_id",
+                "payment_amount",
+                "payment_currency",
+                "updated_at",
+            ]
+        )
         messages.success(request, f"تم تعليم الفاتورة {invoice.code or invoice.id} كغير مدفوعة")
     else:
         messages.warning(request, "إجراء غير صالح")
@@ -3995,8 +4045,12 @@ def subscription_payment_complete_action(request: HttpRequest, subscription_id: 
                 "provider_reference": getattr(attempt, "provider_reference", ""),
                 "invoice_code": sub.invoice.code,
                 "status": "success",
+                "amount": str(sub.invoice.total),
+                "currency": sub.invoice.currency,
             }
-            handle_webhook(provider="mock", payload=payload, signature="", event_id=f"dashboard-subs-{sub.id}")
+            event_id = f"dashboard-subs-{sub.id}"
+            signature = sign_webhook_payload(provider="mock", payload=payload, event_id=event_id)
+            handle_webhook(provider="mock", payload=payload, signature=signature, event_id=event_id)
             sub.invoice.refresh_from_db()
         activate_subscription_after_payment(sub=sub)
         try:
@@ -4190,14 +4244,7 @@ def features_overview(request: HttpRequest) -> HttpResponse:
     paginator = Paginator(users_qs, 20)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
     page_user_ids = [user.id for user in page_obj.object_list]
-    active_subscriptions = (
-        Subscription.objects.filter(user_id__in=page_user_ids, status=SubscriptionStatus.ACTIVE)
-        .select_related("plan")
-        .order_by("user_id", "-id")
-    )
-    active_sub_by_user_id: dict[int, Subscription] = {}
-    for sub in active_subscriptions:
-        active_sub_by_user_id.setdefault(sub.user_id, sub)
+    active_sub_by_user_id = get_effective_active_subscriptions_map(page_user_ids)
 
     rows = []
     for user in page_obj.object_list:

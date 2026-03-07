@@ -30,12 +30,16 @@ class PaymentAttemptStatus(models.TextChoices):
     SUCCESS = "success", "ناجحة"
     FAILED = "failed", "فشلت"
     CANCELLED = "cancelled", "ملغاة"
+    REFUNDED = "refunded", "مسترجعة"
 
 
 class PaymentProvider(models.TextChoices):
     MANUAL = "manual", "تحويل يدوي"
     MOCK = "mock", "اختبار"
     # لاحقًا: moyasar / hyperpay / tap / stcpay
+
+
+TRUSTED_PAYMENT_REFERENCE_TYPES = {"subscription", "verify_request"}
 
 
 class Invoice(models.Model):
@@ -68,6 +72,13 @@ class Invoice(models.Model):
 
     paid_at = models.DateTimeField(null=True, blank=True)
     cancelled_at = models.DateTimeField(null=True, blank=True)
+    payment_confirmed = models.BooleanField(default=False)
+    payment_confirmed_at = models.DateTimeField(null=True, blank=True)
+    payment_provider = models.CharField(max_length=30, blank=True)
+    payment_reference = models.CharField(max_length=120, blank=True)
+    payment_event_id = models.CharField(max_length=120, blank=True)
+    payment_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    payment_currency = models.CharField(max_length=10, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,14 +107,61 @@ class Invoice(models.Model):
         self.status = InvoiceStatus.PAID
         self.paid_at = when or timezone.now()
 
+    def mark_payment_confirmed(
+        self,
+        *,
+        provider: str,
+        provider_reference: str,
+        event_id: str,
+        amount: Decimal,
+        currency: str,
+        when=None,
+    ):
+        confirmed_at = when or timezone.now()
+        self.mark_paid(when=confirmed_at)
+        self.payment_confirmed = True
+        self.payment_confirmed_at = confirmed_at
+        self.payment_provider = (provider or "")[:30]
+        self.payment_reference = (provider_reference or "")[:120]
+        self.payment_event_id = (event_id or "")[:120]
+        self.payment_amount = money_round(Decimal(amount or 0))
+        self.payment_currency = (currency or "")[:10]
+        self.cancelled_at = None
+
+    def clear_payment_confirmation(self):
+        self.payment_confirmed = False
+        self.payment_confirmed_at = None
+        self.payment_provider = ""
+        self.payment_reference = ""
+        self.payment_event_id = ""
+        self.payment_amount = None
+        self.payment_currency = ""
+
     def mark_failed(self):
         if self.status not in (InvoiceStatus.PAID, InvoiceStatus.CANCELLED):
             self.status = InvoiceStatus.FAILED
 
-    def mark_cancelled(self):
-        if self.status != InvoiceStatus.PAID:
+    def mark_cancelled(self, *, force: bool = False):
+        if force or self.status != InvoiceStatus.PAID:
             self.status = InvoiceStatus.CANCELLED
             self.cancelled_at = timezone.now()
+
+    def mark_refunded(self):
+        self.status = InvoiceStatus.REFUNDED
+        self.cancelled_at = timezone.now()
+
+    def requires_payment_confirmation(self) -> bool:
+        return money_round(Decimal(self.total or 0)) > Decimal("0.00")
+
+    def is_payment_effective(self) -> bool:
+        if self.status != InvoiceStatus.PAID:
+            return False
+        if not self.requires_payment_confirmation():
+            return True
+        return bool(self.payment_confirmed)
+
+    def uses_trusted_payment_flow(self) -> bool:
+        return self.reference_type in TRUSTED_PAYMENT_REFERENCE_TYPES
 
     def _ensure_code(self):
         if not self.code and self.pk:
@@ -199,6 +257,13 @@ class WebhookEvent(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=["provider", "event_id"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "event_id"],
+                condition=models.Q(event_id__gt=""),
+                name="billing_webhookevent_provider_event_unique",
+            ),
         ]
 
     def __str__(self):

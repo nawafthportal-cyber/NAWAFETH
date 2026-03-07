@@ -529,3 +529,218 @@ def test_public_active_promos_returns_targeting_and_assets(api, user):
     item = next(x for x in r.data if x.get("id") == pr_active.id)
     assert item.get("target_provider_id") == pp.id
     assert isinstance(item.get("assets"), list)
+
+
+def test_basic_plan_can_create_banner_promo_without_professional_controls(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بانر",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="basic_promo",
+        title="الأساسية",
+        tier="basic",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = timezone.now() + timedelta(days=3)
+    api.force_authenticate(user=user)
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "banner-basic",
+            "ad_type": "banner_home",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+
+
+def test_non_professional_plan_blocks_promotional_message_controls(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود غير احترافي",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="riyadi_promo",
+        title="الريادية",
+        tier="riyadi",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = timezone.now() + timedelta(days=3)
+    api.force_authenticate(user=user)
+
+    push_response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "push-not-allowed",
+            "ad_type": "push_notification",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+        },
+        format="json",
+    )
+    assert push_response.status_code == 400
+    assert "الاحترافية" in str(push_response.data)
+
+    message_response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "message-not-allowed",
+            "ad_type": "banner_home",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+            "message_title": "عرض خاص",
+            "message_body": "تفاصيل العرض",
+        },
+        format="json",
+    )
+    assert message_response.status_code == 400
+    assert "الاحترافية" in str(message_response.data)
+
+
+def test_professional_plan_allows_promotional_notification_controls(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود احترافي",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="pro_promo_controls",
+        title="الاحترافية",
+        tier="pro",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = timezone.now() + timedelta(days=3)
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "push-allowed",
+            "ad_type": "push_notification",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+            "message_title": "عرض خاص",
+            "message_body": "تفاصيل العرض",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+
+
+def test_banner_asset_limit_uses_subscription_capability(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بانر محدود",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="basic_banner_limit",
+        title="الأساسية",
+        tier="basic",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="banner limit",
+        ad_type="banner_home",
+        start_at=timezone.now() + timedelta(days=1),
+        end_at=timezone.now() + timedelta(days=3),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+
+    api.force_authenticate(user=user)
+    first_upload = api.post(
+        f"/api/promo/requests/{pr.id}/assets/",
+        data={
+            "asset_type": "image",
+            "file": SimpleUploadedFile(
+                "banner1.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+        },
+        format="multipart",
+    )
+    assert first_upload.status_code == 201
+
+    second_upload = api.post(
+        f"/api/promo/requests/{pr.id}/assets/",
+        data={
+            "asset_type": "image",
+            "file": SimpleUploadedFile(
+                "banner2.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+        },
+        format="multipart",
+    )
+    assert second_upload.status_code == 400
+    assert "الحد الأقصى" in str(second_upload.data.get("detail", ""))

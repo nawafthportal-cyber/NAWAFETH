@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+from apps.providers.eligibility import provider_access_state
+
 
 class IsOwnerOrBackofficeSubscriptions(BasePermission):
     """
@@ -37,6 +39,10 @@ class IsOwnerOrBackofficeSubscriptions(BasePermission):
             return False
         if self._is_backoffice_request(request):
             return self._has_backoffice_access(request)
+        state = provider_access_state(user)
+        if not state.allowed:
+            self.message = state.detail
+            return False
         return True
 
     def has_object_permission(self, request, view, obj):

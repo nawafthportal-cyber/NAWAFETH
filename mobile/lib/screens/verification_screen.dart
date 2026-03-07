@@ -89,21 +89,28 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   String _priceLabelFor(String badgeType) {
     final amount = _priceFor(badgeType);
-    if (_isFreeBadge(badgeType)) return 'مجاني عند الاعتماد';
-    return '${_formatAmount(amount)} ر.س عند الاعتماد';
+    if (_isFreeBadge(badgeType)) return 'مجاني ضمن الباقة';
+    return '${_formatAmount(amount)} ر.س سنويًا عند الاعتماد';
+  }
+
+  String _pricingPolicyNote() {
+    final note = (_pricing?['price_note'] ?? '').toString().trim();
+    if (note.isNotEmpty) return note;
+    return 'المبلغ المعروض هو المبلغ النهائي السنوي، ولا تضاف عليه رسوم إضافية.';
   }
 
   String _pricingHintFor(String badgeType) {
     final tierLabel = (_pricing?['tier_label'] ?? '').toString().trim();
     final amount = _priceFor(badgeType);
+    final policyNote = _pricingPolicyNote();
     if (_isFreeBadge(badgeType)) {
       return tierLabel.isNotEmpty
-          ? 'هذه الخدمة مجانية ضمن باقة $tierLabel بعد اعتماد الطلب.'
-          : 'هذه الخدمة مجانية بعد اعتماد الطلب.';
+          ? 'هذه الخدمة مجانية ضمن باقة $tierLabel بعد اعتماد الطلب. $policyNote'
+          : 'هذه الخدمة مجانية بعد اعتماد الطلب. $policyNote';
     }
     return tierLabel.isNotEmpty
-        ? 'رسوم التفعيل المتوقعة ${_formatAmount(amount)} ر.س وفق باقة $tierLabel، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماده.'
-        : 'رسوم التفعيل المتوقعة ${_formatAmount(amount)} ر.س، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماده.';
+        ? 'الرسوم السنوية النهائية ${_formatAmount(amount)} ر.س وفق باقة $tierLabel، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماد الشارة. $policyNote'
+        : 'الرسوم السنوية النهائية ${_formatAmount(amount)} ر.س، وتصدر الفاتورة فقط بعد مراجعة الطلب واعتماد الشارة. $policyNote';
   }
 
   String _selectedPricingHint() {
@@ -927,8 +934,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final isBlue = selectedType == "blue";
     final pricingHint = _selectedPricingHint();
     final amountDisplay = _isFreeBadge(isBlue ? "blue" : "green")
-        ? "مجاني"
-        : "${_formatAmount(amount)} ر.س";
+        ? "مجاني ضمن الباقة"
+        : "${_formatAmount(amount)} ر.س سنويًا";
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
@@ -1149,7 +1156,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           const SizedBox(height: 18),
           Center(
             child: Text(
-              "الرسوم المتوقعة: $amountDisplay",
+              "الرسوم السنوية النهائية: $amountDisplay",
               style: const TextStyle(
                 fontFamily: "Cairo",
                 fontWeight: FontWeight.bold,

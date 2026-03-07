@@ -36,6 +36,14 @@ def _position_rank_case(field_name: str = "position"):
     )
 
 
+def _is_platform_banner_ad_type(ad_type: str) -> bool:
+    return str(ad_type or "").strip().lower() in {
+        PromoAdType.BANNER_HOME,
+        PromoAdType.BANNER_CATEGORY,
+        PromoAdType.BANNER_SEARCH,
+    }
+
+
 class PublicHomeBannersView(generics.ListAPIView):
     """Public list of active home banner assets.
 
@@ -178,12 +186,21 @@ class PromoAddAssetView(generics.CreateAPIView):
 
         from django.core.exceptions import ValidationError as DjangoValidationError
         from apps.features.upload_limits import user_max_upload_mb
+        from apps.subscriptions.capabilities import banner_image_limit_for_user
         from apps.uploads.validators import validate_user_file_size
         from .validators import validate_extension
 
+        if _is_platform_banner_ad_type(pr.ad_type):
+            banner_limit = banner_image_limit_for_user(pr.requester)
+            if pr.assets.count() >= banner_limit:
+                return Response(
+                    {"detail": f"الحد الأقصى لصور البانر في باقتك الحالية هو {banner_limit}."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         try:
             validate_extension(file_obj)
-            validate_user_file_size(file_obj, user_max_upload_mb(request.user))
+            validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
         except DjangoValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 

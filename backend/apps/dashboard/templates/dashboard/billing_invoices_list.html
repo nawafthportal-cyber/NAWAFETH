@@ -56,24 +56,28 @@
         <td class="px-4 py-3">{{ inv.attempts.count }}</td>
         <td class="px-4 py-3">
           {% if can_write %}
-            <div class="flex items-center gap-2">
-              <form method="post" action="{% url 'dashboard:billing_invoice_set_status_action' inv.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="mark_paid">
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">
-                  مدفوعة
-                </button>
-              </form>
-              <form method="post" action="{% url 'dashboard:billing_invoice_set_status_action' inv.id %}">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="mark_unpaid">
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                <button class="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold">
-                  غير مدفوعة
-                </button>
-              </form>
-            </div>
+            {% if inv.reference_type == "subscription" or inv.reference_type == "verify_request" %}
+              <span class="text-xs text-amber-700 font-semibold">تُدار عبر دفع موثوق فقط</span>
+            {% else %}
+              <div class="flex items-center gap-2">
+                <form method="post" action="{% url 'dashboard:billing_invoice_set_status_action' inv.id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="mark_paid">
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold">
+                    مدفوعة
+                  </button>
+                </form>
+                <form method="post" action="{% url 'dashboard:billing_invoice_set_status_action' inv.id %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="action" value="mark_unpaid">
+                  <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                  <button class="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold">
+                    غير مدفوعة
+                  </button>
+                </form>
+              </div>
+            {% endif %}
           {% else %}
             <span class="text-gray-400">—</span>
           {% endif %}

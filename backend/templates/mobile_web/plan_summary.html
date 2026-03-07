@@ -1,0 +1,35 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}ملخص الترقية — نوافــذ{% endblock %}
+{% block body_class %}page-plan-summary{% endblock %}
+
+{% block content %}
+<main class="page-shell">
+  <div id="auth-gate" class="auth-gate" style="display:none">
+    <div class="auth-gate-inner">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#0f766e" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      <h2>تسجيل الدخول مطلوب</h2>
+      <a href="/login/?next=/plans/summary/" class="btn btn-primary">تسجيل الدخول</a>
+    </div>
+  </div>
+
+  <div id="summary-content" style="display:none">
+    <div class="page-header">
+      <button class="btn-back" onclick="history.back()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h1>ملخص الاشتراك والترقية</h1>
+    </div>
+
+    <div id="summary-loading" class="loading-center"><div class="spinner"></div></div>
+    <div id="summary-empty" class="empty-state" style="display:none">
+      <p>تعذر العثور على الباقة المطلوبة</p>
+      <a href="/plans/" class="btn btn-secondary">العودة إلى الباقات</a>
+    </div>
+    <div id="summary-card"></div>
+  </div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/planSummaryPage.js' %}"></script>
+{% endblock %}

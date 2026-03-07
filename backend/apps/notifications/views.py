@@ -15,7 +15,12 @@ from .serializers import (
     DeviceTokenSerializer,
     NotificationPreferenceSerializer,
 )
-from .services import NOTIFICATION_CATALOG, get_or_create_notification_preferences, _is_pref_locked
+from .services import (
+    NOTIFICATION_CATALOG,
+    get_or_create_notification_preferences,
+    _is_pref_locked,
+    notification_tier_to_canonical,
+)
 
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly
 from apps.marketplace.models import ServiceRequest
@@ -210,6 +215,7 @@ class NotificationPreferencesView(APIView):
                     "title": cfg.get("title", p.key),
                     "enabled": bool(p.enabled),
                     "tier": p.tier,
+                    "canonical_tier": notification_tier_to_canonical(p.tier),
                     "locked": bool(_is_pref_locked(request.user, p.key)),
                     "updated_at": p.updated_at,
                 }

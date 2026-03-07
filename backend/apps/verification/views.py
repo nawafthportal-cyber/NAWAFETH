@@ -34,6 +34,8 @@ from .services import (
     finalize_request_and_create_invoice,
     get_public_badge_detail,
     get_public_badges_catalog,
+    mark_request_in_review,
+    mirror_document_to_requirement_attachments,
     verification_pricing_for_user,
     _sync_verification_to_unified,
 )
@@ -140,12 +142,8 @@ class VerificationAddDocumentView(generics.CreateAPIView):
             file=file_obj,
             uploaded_by=request.user,
         )
-
-        # عند رفع جديد نعيد الطلب للمراجعة
-        if vr.status == VerificationStatus.REJECTED:
-            vr.status = VerificationStatus.IN_REVIEW
-            vr.save(update_fields=["status", "updated_at"])
-            _sync_verification_to_unified(vr=vr, changed_by=request.user)
+        mirror_document_to_requirement_attachments(doc=doc)
+        mark_request_in_review(vr=vr, changed_by=request.user)
 
         return Response(VerificationDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -184,11 +182,7 @@ class VerificationAddRequirementAttachmentView(generics.CreateAPIView):
             file=file_obj,
             uploaded_by=request.user,
         )
-
-        if vr.status == VerificationStatus.REJECTED:
-            vr.status = VerificationStatus.IN_REVIEW
-            vr.save(update_fields=["status", "updated_at"])
-            _sync_verification_to_unified(vr=vr, changed_by=request.user)
+        mark_request_in_review(vr=vr, changed_by=request.user)
 
         return Response(VerificationRequirementAttachmentSerializer(att).data, status=status.HTTP_201_CREATED)
 
@@ -263,6 +257,12 @@ class BackofficeDecideDocumentView(APIView):
         doc = get_object_or_404(VerificationDocument.objects.select_related("request"), pk=doc_id)
         vr = doc.request
         self.check_object_permissions(request, vr)
+
+        if vr.requirements.exists():
+            return Response(
+                {"detail": "اعتماد التوثيق يتم عبر بنود التوثيق ومرفقاتها، وليس عبر المستندات legacy."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         ser = VerificationDocDecisionSerializer(data=request.data)
         ser.is_valid(raise_exception=True)

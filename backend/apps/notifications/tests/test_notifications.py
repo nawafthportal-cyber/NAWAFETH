@@ -74,6 +74,21 @@ def test_notifications_api_list_and_unread():
 
 
 @pytest.mark.django_db
+def test_notification_preferences_api_exposes_canonical_tier_compatibly():
+    u = User.objects.create_user(phone="0509000012", role_state=UserRole.CLIENT)
+
+    api = APIClient()
+    api.force_authenticate(user=u)
+
+    response = api.get("/api/notifications/preferences/")
+
+    assert response.status_code == 200
+    rows = response.data["results"]
+    assert any(row["tier"] == "leading" and row["canonical_tier"] == "pioneer" for row in rows)
+    assert any(row["tier"] == "professional" and row["canonical_tier"] == "professional" for row in rows)
+
+
+@pytest.mark.django_db
 def test_notifications_are_filtered_by_active_mode_query_param():
     user = User.objects.create_user(phone="0509000041", role_state=UserRole.CLIENT)
     provider = ProviderProfile.objects.create(

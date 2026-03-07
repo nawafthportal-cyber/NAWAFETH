@@ -7,6 +7,8 @@ from django.conf import settings
 from django.db import models, transaction
 from django.utils import timezone
 
+from .tiering import canonical_tier_from_inputs
+
 
 class PlanPeriod(models.TextChoices):
     MONTH = "month", "شهري"
@@ -62,15 +64,12 @@ class SubscriptionPlan(models.Model):
         return f"{self.code} ({self.get_period_display()})"
 
     def normalized_tier(self) -> str:
-        tier = (self.tier or "").strip().lower()
-        if tier in {PlanTier.BASIC, PlanTier.RIYADI, PlanTier.PRO}:
-            return tier
-        code = (self.code or "").strip().lower()
-        if "riyadi" in code or "entrepreneur" in code or "leading" in code:
-            return PlanTier.RIYADI
-        if "pro" in code or "professional" in code:
-            return PlanTier.PRO
-        return PlanTier.BASIC
+        return canonical_tier_from_inputs(
+            tier=self.tier,
+            code=self.code,
+            title=self.title,
+            features=self.features or [],
+        )
 
 
 class Subscription(models.Model):

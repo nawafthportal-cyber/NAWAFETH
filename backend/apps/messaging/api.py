@@ -10,6 +10,7 @@ import os
 
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.db.models import Q
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from rest_framework import generics, permissions, status
@@ -20,6 +21,7 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import IsAtLeastPhoneOnly
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
+from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority
 
 from .models import Message, MessageRead, Thread, ThreadUserState
@@ -56,6 +58,21 @@ def _display_name_for_user(user) -> str:
 	if username:
 		return username
 	return getattr(user, "phone", "") or str(user)
+
+
+def _direct_threads_count_for_user(user) -> int:
+	if not getattr(user, "pk", None):
+		return 0
+	return Thread.objects.filter(is_direct=True).filter(
+		Q(participant_1=user) | Q(participant_2=user)
+	).distinct().count()
+
+
+def _provider_direct_chat_limit_exceeded(user) -> bool:
+	provider_profile = getattr(user, "provider_profile", None)
+	if not provider_profile:
+		return False
+	return _direct_threads_count_for_user(user) >= direct_chat_quota_for_user(user)
 
 
 # ────────────────────────────────────────────────
@@ -189,7 +206,7 @@ class DirectThreadGetOrCreateView(APIView):
 		if me.id == provider_user.id:
 			return Response({"error": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
 
-		from django.db.models import Q, Max
+		from django.db.models import Max
 		thread = (
 			Thread.objects.filter(is_direct=True)
 			.filter(
@@ -203,6 +220,15 @@ class DirectThreadGetOrCreateView(APIView):
 		)
 
 		if not thread:
+			provider_users = [provider_user]
+			if getattr(me, "provider_profile", None) and me.id != provider_user.id:
+				provider_users.append(me)
+			for candidate in provider_users:
+				if _provider_direct_chat_limit_exceeded(candidate):
+					return Response(
+						{"error": "تم بلوغ الحد الأقصى للمحادثات المباشرة في الباقة الحالية"},
+						status=status.HTTP_403_FORBIDDEN,
+					)
 			thread = Thread.objects.create(
 				is_direct=True,
 				context_mode=desired_mode,

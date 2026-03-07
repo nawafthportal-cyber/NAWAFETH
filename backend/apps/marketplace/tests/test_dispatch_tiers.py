@@ -72,6 +72,18 @@ def _create_urgent_request(*, client: User, subcategory: SubCategory, city: str 
     )
 
 
+def _create_competitive_request(*, client: User, subcategory: SubCategory, city: str = "Riyadh") -> ServiceRequest:
+    return ServiceRequest.objects.create(
+        client=client,
+        subcategory=subcategory,
+        title="Competitive request",
+        description="desc",
+        request_type=RequestType.COMPETITIVE,
+        status=RequestStatus.NEW,
+        city=city,
+    )
+
+
 def test_dispatch_tiers_respect_0_24_72_timing_windows():
     cat = Category.objects.create(name="خدمات", is_active=True)
     sub = SubCategory.objects.create(category=cat, name="كهرباء", is_active=True)
@@ -177,3 +189,77 @@ def test_available_urgent_respects_tier_visibility_window():
     after = api.get("/api/marketplace/provider/urgent/available/")
     assert after.status_code == 200
     assert request_obj.id in {item["id"] for item in after.json()}
+
+
+def test_available_competitive_respects_tier_visibility_window():
+    cat = Category.objects.create(name="خدمات", is_active=True)
+    sub = SubCategory.objects.create(category=cat, name="تركيب", is_active=True)
+
+    client_user = User.objects.create(phone="0509500000", username="client_competitive_visibility")
+    provider_pro = _create_provider_with_tier(phone="0509500001", tier=PlanTier.PRO, subcategory=sub)
+    provider_riyadi = _create_provider_with_tier(phone="0509500002", tier=PlanTier.RIYADI, subcategory=sub)
+    provider_basic = _create_provider_with_tier(phone="0509500003", tier=PlanTier.BASIC, subcategory=sub)
+
+    request_obj = _create_competitive_request(client=client_user, subcategory=sub)
+
+    api = APIClient()
+
+    api.force_authenticate(user=provider_pro.user)
+    pro_response = api.get("/api/marketplace/provider/competitive/available/")
+    assert pro_response.status_code == 200
+    assert request_obj.id in {item["id"] for item in pro_response.json()}
+
+    api.force_authenticate(user=provider_riyadi.user)
+    pioneer_response = api.get("/api/marketplace/provider/competitive/available/")
+    assert pioneer_response.status_code == 200
+    assert request_obj.id not in {item["id"] for item in pioneer_response.json()}
+
+    api.force_authenticate(user=provider_basic.user)
+    basic_response = api.get("/api/marketplace/provider/competitive/available/")
+    assert basic_response.status_code == 200
+    assert request_obj.id not in {item["id"] for item in basic_response.json()}
+
+    ServiceRequest.objects.filter(pk=request_obj.pk).update(created_at=timezone.now() - timedelta(hours=25))
+    api.force_authenticate(user=provider_riyadi.user)
+    pioneer_visible = api.get("/api/marketplace/provider/competitive/available/")
+    assert request_obj.id in {item["id"] for item in pioneer_visible.json()}
+
+    ServiceRequest.objects.filter(pk=request_obj.pk).update(created_at=timezone.now() - timedelta(hours=73))
+    api.force_authenticate(user=provider_basic.user)
+    basic_visible = api.get("/api/marketplace/provider/competitive/available/")
+    assert request_obj.id in {item["id"] for item in basic_visible.json()}
+
+
+def test_competitive_request_detail_and_offer_blocked_before_tier_window():
+    cat = Category.objects.create(name="خدمات", is_active=True)
+    sub = SubCategory.objects.create(category=cat, name="عزل", is_active=True)
+
+    client_user = User.objects.create(phone="0509600000", username="client_competitive_offer")
+    provider_basic = _create_provider_with_tier(phone="0509600001", tier=PlanTier.BASIC, subcategory=sub)
+
+    request_obj = _create_competitive_request(client=client_user, subcategory=sub)
+
+    api = APIClient()
+    api.force_authenticate(user=provider_basic.user)
+
+    detail_blocked = api.get(f"/api/marketplace/provider/requests/{request_obj.id}/detail/")
+    assert detail_blocked.status_code == 403
+
+    offer_blocked = api.post(
+        f"/api/marketplace/requests/{request_obj.id}/offers/create/",
+        data={"price": "100.00", "duration_days": 2, "note": "ready"},
+        format="json",
+    )
+    assert offer_blocked.status_code == 403
+
+    ServiceRequest.objects.filter(pk=request_obj.pk).update(created_at=timezone.now() - timedelta(hours=73))
+
+    detail_open = api.get(f"/api/marketplace/provider/requests/{request_obj.id}/detail/")
+    assert detail_open.status_code == 200
+
+    offer_open = api.post(
+        f"/api/marketplace/requests/{request_obj.id}/offers/create/",
+        data={"price": "100.00", "duration_days": 2, "note": "ready"},
+        format="json",
+    )
+    assert offer_open.status_code == 201

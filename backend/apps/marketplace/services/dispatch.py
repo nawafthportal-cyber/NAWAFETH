@@ -8,8 +8,8 @@ from django.utils import timezone
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
 from apps.providers.models import ProviderCategory, ProviderProfile
-from apps.subscriptions.models import PlanTier, Subscription, SubscriptionStatus
-from apps.subscriptions.services import plan_to_tier
+from apps.subscriptions.services import get_effective_active_subscriptions_map, plan_to_tier
+from apps.subscriptions.tiering import CanonicalPlanTier
 
 from ..models import (
     DispatchStatus,
@@ -37,9 +37,9 @@ def _normalize_dispatch_tier(value: str) -> str:
 
 def _plan_tier_to_dispatch_tier(plan_tier: str) -> str:
     tier = (plan_tier or "").strip().lower()
-    if tier == PlanTier.PRO:
+    if tier == CanonicalPlanTier.PROFESSIONAL:
         return DispatchTier.PRO
-    if tier == PlanTier.RIYADI:
+    if tier == CanonicalPlanTier.PIONEER:
         return DispatchTier.RIYADI
     return DispatchTier.BASIC
 
@@ -49,14 +49,8 @@ def _provider_dispatch_tiers(user_ids: list[int]) -> dict[int, str]:
         return {}
 
     tier_by_user_id: dict[int, str] = {}
-    subscriptions = (
-        Subscription.objects.filter(user_id__in=user_ids, status=SubscriptionStatus.ACTIVE)
-        .select_related("plan")
-        .order_by("user_id", "-id")
-    )
-    for subscription in subscriptions:
-        if subscription.user_id in tier_by_user_id:
-            continue
+    subscriptions_by_user = get_effective_active_subscriptions_map(user_ids)
+    for user_id, subscription in subscriptions_by_user.items():
         tier_by_user_id[subscription.user_id] = _plan_tier_to_dispatch_tier(plan_to_tier(subscription.plan))
 
     for user_id in user_ids:
@@ -68,13 +62,13 @@ def _provider_dispatch_tiers(user_ids: list[int]) -> dict[int, str]:
 def provider_dispatch_tier(provider: ProviderProfile) -> str:
     if not getattr(provider, "user_id", None):
         return DispatchTier.BASIC
-    plan_tier = PlanTier.BASIC
+    plan_tier = CanonicalPlanTier.BASIC
     try:
         from apps.subscriptions.services import user_plan_tier
 
-        plan_tier = user_plan_tier(provider.user, fallback=PlanTier.BASIC)
+        plan_tier = user_plan_tier(provider.user, fallback=CanonicalPlanTier.BASIC)
     except Exception:
-        plan_tier = PlanTier.BASIC
+        plan_tier = CanonicalPlanTier.BASIC
     return _plan_tier_to_dispatch_tier(plan_tier)
 
 

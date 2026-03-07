@@ -119,6 +119,10 @@ class MobileWebPlansView(TemplateView):
     template_name = "mobile_web/plans.html"
 
 
+class MobileWebPlanSummaryView(TemplateView):
+    template_name = "mobile_web/plan_summary.html"
+
+
 class MobileWebVerificationView(TemplateView):
     template_name = "mobile_web/verification.html"
 

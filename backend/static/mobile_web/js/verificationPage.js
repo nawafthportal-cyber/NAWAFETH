@@ -59,21 +59,27 @@ const VerificationPage = (() => {
 
   function _priceLabel(badgeType) {
     return _isFree(badgeType)
-      ? 'مجاني عند الاعتماد'
-      : `${_formatAmount(_priceAmount(badgeType))} ر.س عند الاعتماد`;
+      ? 'مجاني ضمن الباقة'
+      : `${_formatAmount(_priceAmount(badgeType))} ر.س سنويًا عند الاعتماد`;
+  }
+
+  function _pricingPolicyNote() {
+    const note = String(_pricing?.price_note || '').trim();
+    return note || 'المبلغ المعروض هو المبلغ النهائي السنوي، ولا تضاف عليه رسوم إضافية.';
   }
 
   function _pricingNote(badgeType) {
     const tierLabel = String(_pricing?.tier_label || '').trim();
+    const policyNote = _pricingPolicyNote();
     if (_isFree(badgeType)) {
       return tierLabel
-        ? `هذه الخدمة مجانية ضمن باقة ${tierLabel} بعد اعتماد الطلب.`
-        : 'هذه الخدمة مجانية بعد اعتماد الطلب.';
+        ? `هذه الخدمة مجانية ضمن باقة ${tierLabel} بعد اعتماد الطلب. ${policyNote}`
+        : `هذه الخدمة مجانية بعد اعتماد الطلب. ${policyNote}`;
     }
     const amount = _formatAmount(_priceAmount(badgeType));
     return tierLabel
-      ? `لن يتم خصم أي مبلغ الآن. بعد مراجعة الطلب واعتماد البنود ستصدر فاتورة بقيمة ${amount} ر.س وفق باقة ${tierLabel}.`
-      : `لن يتم خصم أي مبلغ الآن. بعد مراجعة الطلب واعتماد البنود ستصدر فاتورة بقيمة ${amount} ر.س.`;
+      ? `لن يتم خصم أي مبلغ الآن. بعد مراجعة الطلب واعتماد الشارة ستصدر فاتورة سنوية نهائية بقيمة ${amount} ر.س وفق باقة ${tierLabel}. ${policyNote}`
+      : `لن يتم خصم أي مبلغ الآن. بعد مراجعة الطلب واعتماد الشارة ستصدر فاتورة سنوية نهائية بقيمة ${amount} ر.س. ${policyNote}`;
   }
 
   function _bindBadgeOptions() {
@@ -150,7 +156,7 @@ const VerificationPage = (() => {
     container.innerHTML = `
       <div class="summary-row"><span>نوع الشارة:</span><strong>${badgeLabel}</strong></div>
       <div class="summary-row"><span>المستندات:</span><strong>${_files.length} ملف</strong></div>
-      <div class="summary-row"><span>الرسوم المتوقعة:</span><strong>${_priceLabel(_badgeType)}</strong></div>
+      <div class="summary-row"><span>الرسوم السنوية النهائية:</span><strong>${_priceLabel(_badgeType)}</strong></div>
     `;
     if (pricingNote) pricingNote.textContent = _pricingNote(_badgeType);
   }

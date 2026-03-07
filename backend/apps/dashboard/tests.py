@@ -956,6 +956,12 @@ def test_subscription_account_detail_page_and_actions():
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000956", password="Pass12345!")
+	ProviderProfile.objects.create(
+		user=requester,
+		provider_type="individual",
+		display_name="Requester Provider",
+		bio="bio",
+	)
 	plan_basic = SubscriptionPlan.objects.create(code="BASIC_Y2", title="الأساسية", period="year", price="100.00", is_active=True)
 	plan_pro = SubscriptionPlan.objects.create(code="PRO_Y2", title="الاحترافية", period="year", price="999.00", is_active=True)
 	invoice = Invoice.objects.create(user=requester, title="فاتورة اشتراك", subtotal="100.00", reference_type="subscription", reference_id="77")

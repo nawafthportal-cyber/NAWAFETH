@@ -5,18 +5,26 @@
 'use strict';
 
 const NotificationSettingsPage = (() => {
-  const TIER_ORDER = ['basic', 'leading', 'professional', 'extra'];
+  const TIER_ORDER = ['basic', 'pioneer', 'professional', 'extra'];
   const TIER_LABELS = {
     basic: 'الباقة الأساسية',
-    leading: 'الباقة الرائدة',
+    pioneer: 'الباقة الريادية',
     professional: 'الباقة الاحترافية',
     extra: 'الباقة المميزة',
   };
   const TIER_ICONS = {
     basic: '⭐',
-    leading: '🚀',
+    pioneer: '🚀',
     professional: '✨',
     extra: '💎',
+  };
+  const TIER_ALIASES = {
+    basic: 'basic',
+    leading: 'pioneer',
+    pioneer: 'pioneer',
+    professional: 'professional',
+    pro: 'professional',
+    extra: 'extra',
   };
 
   let _prefs = [];
@@ -82,11 +90,16 @@ const NotificationSettingsPage = (() => {
   function _groupByTier() {
     const grouped = {};
     _prefs.forEach((pref) => {
-      const tier = String(pref.tier || 'basic');
+      const tier = _normalizeTier(pref);
       if (!grouped[tier]) grouped[tier] = [];
       grouped[tier].push(pref);
     });
     return grouped;
+  }
+
+  function _normalizeTier(pref) {
+    const raw = String((pref && (pref.canonical_tier || pref.tier)) || 'basic').trim().toLowerCase();
+    return TIER_ALIASES[raw] || raw || 'basic';
   }
 
   function _render() {

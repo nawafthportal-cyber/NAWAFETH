@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import pytest
 from rest_framework.test import APIClient
 
@@ -17,6 +19,7 @@ from apps.providers.models import (
     RoleContext,
     SubCategory,
 )
+from apps.subscriptions.models import Subscription, SubscriptionStatus
 from django.core.files.uploadedfile import SimpleUploadedFile
 
 
@@ -103,6 +106,18 @@ def test_provider_register_flow_via_otp_and_jwt():
     assert profile is not None
     assert profile.display_name == "محمد التصميم"
     assert profile.city == "الرياض"
+    basic_sub = Subscription.objects.filter(
+        user=profile.user,
+        status=SubscriptionStatus.ACTIVE,
+        plan__code="basic",
+    ).select_related("plan").first()
+    assert basic_sub is not None
+    assert Subscription.objects.filter(
+        user=profile.user,
+        status=SubscriptionStatus.ACTIVE,
+        plan__code="basic",
+    ).count() == 1
+    assert basic_sub.plan.price == Decimal("0.00")
 
 
 def _register_and_auth_provider(client: APIClient, phone: str = "0500000000") -> str:

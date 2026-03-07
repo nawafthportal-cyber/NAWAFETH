@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+from apps.providers.eligibility import ProviderAccessError, ensure_provider_access
 
 from .models import (
     VerificationRequest, VerificationDocument,
-    VerificationStatus, VerificationBadgeType,
+    VerificationBadgeType,
     VerificationRequirement, VerificationRequirementAttachment,
 )
 
@@ -77,22 +78,39 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("requirements يجب أن تكون قائمة.")
         out = []
+        seen = set()
         for raw in value:
             if not isinstance(raw, dict):
                 raise serializers.ValidationError("كل عنصر في requirements يجب أن يكون كائن.")
             badge_type = (raw.get("badge_type") or "").strip()
-            code = (raw.get("code") or "").strip()
+            code = (raw.get("code") or "").strip().upper()
             if badge_type not in VerificationBadgeType.values:
                 raise serializers.ValidationError("badge_type غير صحيح.")
             if not code:
                 raise serializers.ValidationError("code مطلوب.")
+            key = (badge_type, code)
+            if key in seen:
+                raise serializers.ValidationError("لا يمكن تكرار نفس بند التوثيق داخل الطلب الواحد.")
+            seen.add(key)
             out.append({"badge_type": badge_type, "code": code})
         return out
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        if request is not None:
+            try:
+                ensure_provider_access(request.user)
+            except ProviderAccessError as exc:
+                raise serializers.ValidationError({"detail": exc.detail})
+        return attrs
+
     def create(self, validated_data):
         user = self.context["request"].user
-        from .services import _sync_verification_to_unified
-        from .services import resolve_requirement_def
+        from .services import (
+            _sync_verification_to_unified,
+            resolve_requirement_def,
+            verification_request_has_blocking_open_request,
+        )
 
         requirements = validated_data.pop("requirements", []) or []
 
@@ -107,17 +125,7 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         # Prevent multiple active/pending requests for the same badge type.
         # (Mixed requests are also blocked if they include a badge type that already has a pending request.)
         for bt in {r["badge_type"] for r in requirements}:
-            exists = VerificationRequest.objects.filter(
-                requester=user,
-                badge_type=bt,
-                status__in=[
-                    VerificationStatus.NEW,
-                    VerificationStatus.IN_REVIEW,
-                    VerificationStatus.PENDING_PAYMENT,
-                    VerificationStatus.ACTIVE,
-                ],
-            ).exists()
-            if exists:
+            if verification_request_has_blocking_open_request(user, bt):
                 raise serializers.ValidationError("يوجد طلب توثيق قائم لنفس نوع الشارة.")
 
         # For backward compatibility, store badge_type if request is single-type; otherwise keep it null.
@@ -169,6 +177,9 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
         inv = getattr(obj, "invoice", None)
         if not inv:
             return None
+        from .services import verification_billing_policy
+
+        pricing_policy = verification_billing_policy()
         lines = []
         if hasattr(inv, "lines"):
             cached_lines = getattr(inv, "_prefetched_objects_cache", {}).get("lines")
@@ -187,6 +198,13 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
             "code": inv.code,
             "status": inv.status,
             "currency": inv.currency,
+            "billing_cycle": pricing_policy["billing_cycle"],
+            "billing_cycle_label": pricing_policy["billing_cycle_label"],
+            "tax_policy": pricing_policy["tax_policy"],
+            "tax_policy_label": pricing_policy["tax_policy_label"],
+            "tax_included": pricing_policy["tax_included"],
+            "additional_vat_percent": pricing_policy["additional_vat_percent"],
+            "price_note": pricing_policy["price_note"],
             "subtotal": str(inv.subtotal),
             "vat_percent": str(inv.vat_percent),
             "vat_amount": str(inv.vat_amount),

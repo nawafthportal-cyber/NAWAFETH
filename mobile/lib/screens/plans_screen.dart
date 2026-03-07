@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+
 import '../services/subscriptions_service.dart';
+import 'plan_summary_screen.dart';
 
 class PlansScreen extends StatefulWidget {
   const PlansScreen({super.key});
@@ -10,59 +12,50 @@ class PlansScreen extends StatefulWidget {
 
 class _PlansScreenState extends State<PlansScreen> {
   List<Map<String, dynamic>> _plans = [];
-  Map<String, dynamic>? _currentSubscription;
   bool _loading = true;
   String? _error;
-  bool _subscribing = false;
 
-  int? _toInt(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
-    return null;
-  }
-
-  String _translateFeatureKey(String key) {
-    switch (key.trim().toLowerCase()) {
-      case 'verify_blue':
-      case 'verify_green':
-        return 'رسوم التوثيق تعتمد على فئة الباقة';
-      case 'promo_ads':
-        return 'إعلانات وترويج';
-      case 'priority_support':
-        return 'دعم أولوية';
-      case 'extra_uploads':
-        return 'سعة مرفقات إضافية';
-      case 'advanced_analytics':
-        return 'تحليلات متقدمة';
-      default:
-        return key.replaceAll('_', ' ').trim();
-    }
-  }
-
-  List<String> _extractFeatures(Map<String, dynamic> plan) {
-    final labels = plan['feature_labels'];
-    if (labels is List) {
-      final parsed = labels
-          .map((item) => item.toString().trim())
-          .where((item) => item.isNotEmpty)
-          .toList();
-      if (parsed.isNotEmpty) return parsed;
-    }
-
-    final rawFeatures = plan['features'];
-    if (rawFeatures is! List) return const <String>[];
-    final extracted = rawFeatures
-        .map((item) {
-          if (item is String) return _translateFeatureKey(item);
-          if (item is Map) {
-            return (item['title'] ?? item['name'] ?? '').toString().trim();
-          }
-          return item.toString().trim();
-        })
-        .where((item) => item.isNotEmpty)
+  List<Map<String, dynamic>> _rowsForPlan(Map<String, dynamic> plan) {
+    final offer = SubscriptionsService.planOffer(plan);
+    final rows = offer['card_rows'];
+    if (rows is! List) return const <Map<String, dynamic>>[];
+    return rows
+        .whereType<Map>()
+        .map((item) => item.map((key, value) => MapEntry(key.toString(), value)))
         .toList();
-    return extracted.toSet().toList();
+  }
+
+  Map<String, dynamic> _actionForPlan(Map<String, dynamic> plan) {
+    return SubscriptionsService.planAction(plan);
+  }
+
+  String _statusBadgeText(Map<String, dynamic> action) {
+    final state = (action['state'] ?? '').toString();
+    switch (state) {
+      case 'current':
+      case 'pending':
+        return (action['label'] ?? '').toString();
+      case 'unavailable':
+        return 'باقة أقل من الحالية';
+      default:
+        return '';
+    }
+  }
+
+  List<Color> _gradientForTier(Map<String, dynamic> plan) {
+    final tier =
+        (SubscriptionsService.planOffer(plan)['tier'] ?? plan['canonical_tier'] ?? '')
+            .toString()
+            .trim()
+            .toLowerCase();
+    switch (tier) {
+      case 'professional':
+        return const [Color(0xFF123C32), Color(0xFF0F766E)];
+      case 'pioneer':
+        return const [Color(0xFF0F4C5C), Color(0xFF2A9D8F)];
+      default:
+        return const [Color(0xFF5F6F52), Color(0xFFA3B18A)];
+    }
   }
 
   @override
@@ -76,98 +69,43 @@ class _PlansScreenState extends State<PlansScreen> {
       _loading = true;
       _error = null;
     });
-    final results = await Future.wait<List<Map<String, dynamic>>>([
-      SubscriptionsService.getPlans(),
-      SubscriptionsService.mySubscriptions(),
-    ]);
-    final plans = results[0];
-    final mySubscriptions = results[1];
-
+    final plans = await SubscriptionsService.getPlans();
     if (!mounted) return;
-
-    if (plans.isEmpty) {
-      setState(() {
-        _error = 'لا توجد باقات متاحة حالياً';
-        _currentSubscription =
-            SubscriptionsService.selectPreferredSubscription(mySubscriptions);
-        _loading = false;
-      });
-      return;
-    }
     setState(() {
       _plans = plans;
-      _currentSubscription =
-          SubscriptionsService.selectPreferredSubscription(mySubscriptions);
       _loading = false;
+      if (plans.isEmpty) {
+        _error = 'لا توجد باقات متاحة حالياً';
+      }
     });
   }
 
-  Future<void> _subscribe(int planId, String planTitle) async {
-    setState(() => _subscribing = true);
-    final res = await SubscriptionsService.subscribe(planId);
-    if (!mounted) return;
-    setState(() => _subscribing = false);
-
-    if (res.isSuccess) {
-      await showDialog(
-        context: context,
-        builder: (_) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Row(children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 30),
-              SizedBox(width: 10),
-              Text('تم الاشتراك'),
-            ]),
-            content: Text(
-              'تم الاشتراك في باقة $planTitle بنجاح.',
-              style: const TextStyle(height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('حسناً'),
-              ),
-            ],
-          ),
-        ),
-      );
-      if (!mounted) return;
+  Future<void> _openSummary(Map<String, dynamic> plan) async {
+    final refreshed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PlanSummaryScreen(plan: plan),
+      ),
+    );
+    if (refreshed == true && mounted) {
       await _loadPlans();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(res.error ?? 'فشل الاشتراك',
-            style: const TextStyle(fontFamily: 'Cairo')),
-      ));
     }
   }
-
-  // Cycle gradient and icon per index
-  static const _gradients = [
-    [Color(0xFF42A5F5), Color(0xFF1565C0)], // blue
-    [Color(0xFF7E57C2), Color(0xFF4527A0)], // purple
-    [Color(0xFFFFA726), Color(0xFFE65100)], // orange
-    [Color(0xFF26A69A), Color(0xFF00695C)], // teal
-  ];
-  static const _icons = [
-    Icons.star_border,
-    Icons.workspace_premium,
-    Icons.verified,
-    Icons.diamond,
-  ];
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: const Color(0xFFF6F8FB),
         appBar: AppBar(
-          title: const Text('الباقات المدفوعة',
-              style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black)),
+          title: const Text(
+            'باقات اشتراك مقدم الخدمة',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
           centerTitle: true,
           backgroundColor: Colors.white,
           elevation: 0,
@@ -178,216 +116,230 @@ class _PlansScreenState extends State<PlansScreen> {
             : _error != null
                 ? Center(
                     child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                      Text(_error!,
-                          style: const TextStyle(fontFamily: 'Cairo')),
-                      const SizedBox(height: 12),
-                      ElevatedButton(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_error!, style: const TextStyle(fontFamily: 'Cairo')),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
                           onPressed: _loadPlans,
-                          child: const Text('إعادة المحاولة',
-                              style: TextStyle(fontFamily: 'Cairo'))),
-                    ]))
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
-                    child: ListView.builder(
-                      itemCount: _plans.length,
-                      itemBuilder: (context, index) {
-                        final plan = _plans[index];
-                        final g = _gradients[index % _gradients.length];
-                        final icon = _icons[index % _icons.length];
-                        return _planCard(plan, g[0], g[1], icon);
-                      },
+                          child: const Text(
+                            'إعادة المحاولة',
+                            style: TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ),
+                      ],
                     ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+                    itemCount: _plans.length,
+                    itemBuilder: (context, index) => _planCard(_plans[index]),
                   ),
       ),
     );
   }
 
-  Widget _planCard(
-      Map<String, dynamic> plan, Color c1, Color c2, IconData icon) {
-    final width = MediaQuery.of(context).size.width;
-    final compact = width <= 430;
-    final cardRadius = compact ? 18.0 : 24.0;
-    final cardPadding = compact ? 14.0 : 20.0;
-    final titleFont = compact ? 17.0 : 22.0;
-    final descFont = compact ? 10.5 : 12.0;
-    final featureFont = compact ? 12.0 : 14.0;
-    final featureIconSize = compact ? 17.0 : 20.0;
-    final priceFont = compact ? 13.0 : 14.0;
-    final actionFont = compact ? 13.0 : 15.0;
-    final avatarRadius = compact ? 21.0 : 26.0;
-
-    final id = _toInt(plan['id']) ?? 0;
-    final title = (plan['title'] ?? plan['name'] ?? 'باقة').toString();
-    final description = (plan['description'] ?? '').toString();
-    final price = plan['price'];
-    final period = (plan['period'] ?? '').toString();
-    final periodLabel = (plan['period_label'] ?? '').toString().trim();
-    final features = _extractFeatures(plan);
-
-    final currentSub = _currentSubscription;
-    final currentPlanId = _toInt(
-      currentSub?['plan'] is Map
-          ? (currentSub?['plan'] as Map)['id']
-          : currentSub?['plan_id'],
-    );
-    final currentStatusCode =
-        (currentSub?['status'] ?? '').toString().trim().toLowerCase();
-    final isCurrentPlan = currentPlanId != null && currentPlanId == id;
-    final isCurrentLocked = isCurrentPlan &&
-        const {'active', 'grace', 'pending_payment'}
-            .contains(currentStatusCode);
-    final currentStatusLabel = isCurrentPlan
-        ? SubscriptionsService.subscriptionStatusLabel(currentStatusCode)
-        : null;
-
-    final priceDisplay = price == null || price.toString() == '0.00'
-        ? 'مجاني'
-        : '$price ر.س / ${periodLabel.isNotEmpty ? periodLabel : (period == 'year' ? 'سنة' : 'شهر')}';
-    final buttonLabel = isCurrentLocked
-        ? (currentStatusCode == 'pending_payment'
-            ? 'قيد التفعيل'
-            : 'الباقة الحالية')
-        : 'اشترك الآن';
+  Widget _planCard(Map<String, dynamic> plan) {
+    final offer = SubscriptionsService.planOffer(plan);
+    final action = _actionForPlan(plan);
+    final rows = _rowsForPlan(plan);
+    final colors = _gradientForTier(plan);
+    final planName = SubscriptionsService.planDisplayTitle(plan);
+    final description = (offer['description'] ?? '').toString();
+    final verificationEffect = (offer['verification_effect_label'] ?? '').toString();
+    final buttonLabel = (action['label'] ?? 'ترقية').toString();
+    final canOpen = action['enabled'] == true;
+    final badgeText = _statusBadgeText(action);
 
     return Container(
-      margin: EdgeInsets.only(bottom: compact ? 12 : 16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(cardRadius),
+        borderRadius: BorderRadius.circular(26),
         gradient: LinearGradient(
-            colors: [c1, c2],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
-        boxShadow: [
+          colors: colors,
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: const [
           BoxShadow(
-              color: c2.withAlpha(75),
-              blurRadius: 18,
-              spreadRadius: 2,
-              offset: const Offset(0, 6)),
+            color: Color(0x1A0F172A),
+            blurRadius: 24,
+            offset: Offset(0, 14),
+          ),
         ],
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(cardRadius),
-          color: Colors.white.withAlpha(40),
-        ),
-        child: Padding(
-          padding: EdgeInsets.all(cardPadding),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Header
-            Row(children: [
-              CircleAvatar(
-                radius: avatarRadius,
-                backgroundColor: Colors.white.withAlpha(50),
-                child: Icon(icon, size: compact ? 22 : 28, color: Colors.white),
-              ),
-              SizedBox(width: compact ? 10 : 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: titleFont,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                    if (description.isNotEmpty)
-                      Text(description,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text(
+                            planName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
                               fontFamily: 'Cairo',
-                              fontSize: descFont,
-                              color: Colors.white70)),
-                    if (isCurrentPlan)
-                      Padding(
-                        padding: EdgeInsets.only(top: compact ? 6 : 8),
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: compact ? 8 : 10,
-                              vertical: compact ? 3 : 4),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withAlpha(220),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            currentStatusLabel ?? 'الباقة المختارة',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontWeight: FontWeight.w700,
-                              fontSize: compact ? 10 : 11,
-                              color: c2,
                             ),
                           ),
+                          if (badgeText.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withAlpha(220),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                badgeText,
+                                style: TextStyle(
+                                  color: colors.last,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'Cairo',
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        description,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          height: 1.8,
+                          fontFamily: 'Cairo',
                         ),
                       ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(34),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'السعر السنوي',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontFamily: 'Cairo',
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        (offer['annual_price_label'] ?? 'مجانية').toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Cairo',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(18),
+                borderRadius: BorderRadius.circular(20),
               ),
-              Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: compact ? 10 : 14, vertical: 6),
-                decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(230),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Text(priceDisplay,
-                    style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.bold,
-                        fontSize: priceFont,
-                        color: c2)),
-              ),
-            ]),
-            SizedBox(height: compact ? 12 : 20),
-
-            // Features
-            if (features.isNotEmpty)
-              ...features.map((f) => Padding(
-                    padding: EdgeInsets.symmetric(vertical: compact ? 2 : 4),
-                    child: Row(children: [
-                      Icon(Icons.check_circle,
-                          size: featureIconSize, color: Colors.white),
-                      SizedBox(width: compact ? 6 : 8),
-                      Expanded(
-                          child: Text(f,
-                              style: TextStyle(
+              child: Column(
+                children: rows
+                    .map(
+                      (row) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                (row['label'] ?? '').toString(),
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
                                   fontFamily: 'Cairo',
-                                  fontSize: featureFont,
-                                  color: Colors.white))),
-                    ]),
-                  )),
-            SizedBox(height: compact ? 12 : 20),
-
-            // Subscribe button
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                (row['value'] ?? '').toString(),
+                                textAlign: TextAlign.left,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'Cairo',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'أثر الباقة على التوثيق: $verificationEffect',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                height: 1.8,
+                fontFamily: 'Cairo',
+              ),
+            ),
+            const SizedBox(height: 14),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: (_subscribing || id <= 0 || isCurrentLocked)
-                    ? null
-                    : () => _subscribe(id, title),
+                onPressed: canOpen ? () => _openSummary(plan) : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
+                  foregroundColor: colors.last,
+                  disabledBackgroundColor: Colors.white24,
+                  disabledForegroundColor: Colors.white70,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(compact ? 12 : 14)),
-                  minimumSize: Size(double.infinity, compact ? 44 : 50),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                child: _subscribing
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: c2))
-                    : Text(buttonLabel,
-                        style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontWeight: FontWeight.bold,
-                            fontSize: actionFont,
-                            color: c2)),
+                child: Text(
+                  buttonLabel,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ),
-          ]),
+          ],
         ),
       ),
     );

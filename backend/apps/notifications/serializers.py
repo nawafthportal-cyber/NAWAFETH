@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Notification, DeviceToken, NotificationPreference
+from .services import notification_tier_to_canonical
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -28,6 +29,11 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):
+    canonical_tier = serializers.SerializerMethodField()
+
+    def get_canonical_tier(self, obj: NotificationPreference) -> str:
+        return notification_tier_to_canonical(obj.tier)
+
     class Meta:
         model = NotificationPreference
-        fields = ("key", "enabled", "tier", "updated_at")
+        fields = ("key", "enabled", "tier", "canonical_tier", "updated_at")

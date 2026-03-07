@@ -21,6 +21,10 @@ from rest_framework.views import APIView
 from apps.providers.models import ProviderCategory, ProviderProfile
 from apps.notifications.models import EventType
 from apps.notifications.services import create_notification
+from apps.subscriptions.capabilities import (
+	competitive_request_delay_for_user,
+	competitive_request_is_visible,
+)
 
 from apps.accounts.permissions import IsAtLeastClient
 
@@ -88,6 +92,14 @@ def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
 		if getattr(service_request, "subcategory_id", None):
 			return [service_request.subcategory_id]
 		return []
+
+
+def _provider_can_access_competitive_request(provider: ProviderProfile, service_request: ServiceRequest, *, now=None) -> bool:
+	return competitive_request_is_visible(
+		user=provider.user,
+		created_at=getattr(service_request, "created_at", None),
+		now=now,
+	)
 
 
 # ────────────────────────────────────────────────
@@ -420,13 +432,16 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider = self.request.user.provider_profile
+		now = timezone.now()
 
 		provider_subcats = ProviderCategory.objects.filter(provider=provider).values_list(
 			"subcategory_id",
 			flat=True,
 		)
 
-		return (
+		delay = competitive_request_delay_for_user(provider.user)
+
+		qs = (
 			ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
 			.filter(
 				request_type=RequestType.COMPETITIVE,
@@ -441,6 +456,9 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 			.order_by("-created_at")
 			.distinct()
 		)
+		if delay.total_seconds() > 0:
+			qs = qs.filter(created_at__lte=now - delay)
+		return qs
 
 
 # ────────────────────────────────────────────────
@@ -505,6 +523,8 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 		if obj.request_type == RequestType.URGENT and not provider.accepts_urgent:
 			raise PermissionDenied("غير مصرح")
 		if obj.request_type == RequestType.URGENT and not provider_can_access_urgent_request(provider, obj):
+			raise PermissionDenied("غير مصرح")
+		if obj.request_type == RequestType.COMPETITIVE and not _provider_can_access_competitive_request(provider, obj):
 			raise PermissionDenied("غير مصرح")
 
 		if (obj.city or "").strip() and (provider.city or "").strip() and obj.city.strip() != provider.city.strip():
@@ -754,6 +774,11 @@ class CreateOfferView(APIView):
 		).exists():
 			return Response(
 				{"detail": "هذا الطلب لا يطابق تخصصاتك"},
+				status=status.HTTP_403_FORBIDDEN,
+			)
+		if not _provider_can_access_competitive_request(provider, service_request, now=timezone.now()):
+			return Response(
+				{"detail": "هذا الطلب لم يصبح متاحًا لباقتك بعد"},
 				status=status.HTTP_403_FORBIDDEN,
 			)
 

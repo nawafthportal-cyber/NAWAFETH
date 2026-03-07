@@ -1,9 +1,12 @@
 import pytest
+from decimal import Decimal
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
+from apps.providers.models import ProviderProfile
+from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportTeam, SupportTicket
 from apps.unified_requests.models import UnifiedRequest
 
@@ -151,3 +154,40 @@ def test_support_ticket_syncs_to_unified_on_assign_and_status(api, support_opera
     assert ur.status == "closed"
     assert ur.status_logs.count() >= 2
     assert ur.assignment_logs.count() >= 1
+
+
+def test_provider_pioneer_ticket_gets_high_priority(api):
+    provider_user = User.objects.create_user(phone="0511111122", password="Pass12345!")
+    ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود ريادي",
+        bio="bio",
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="riyadi_support",
+        title="الريادية",
+        tier="riyadi",
+        period=PlanPeriod.YEAR,
+        price=Decimal("199.00"),
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=provider_user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
+
+    api.force_authenticate(user=provider_user)
+    response = api.post(
+        "/api/support/tickets/create/",
+        data={
+            "ticket_type": "tech",
+            "description": "أولوية الدعم",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    ticket = SupportTicket.objects.get(pk=response.data["id"])
+    assert ticket.priority == "high"

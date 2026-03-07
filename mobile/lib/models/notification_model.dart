@@ -64,11 +64,29 @@ class NotificationModel {
 }
 
 /// نموذج تفضيل الإشعار — يطابق NotificationPreferenceSerializer
+String _normalizeNotificationTier(dynamic value) {
+  final raw = (value ?? '').toString().trim().toLowerCase();
+  switch (raw) {
+    case 'leading':
+    case 'pioneer':
+      return 'pioneer';
+    case 'pro':
+    case 'professional':
+      return 'professional';
+    case 'extra':
+      return 'extra';
+    case 'basic':
+      return 'basic';
+    default:
+      return raw.isEmpty ? 'basic' : raw;
+  }
+}
+
 class NotificationPreference {
   final String key;
   final String title;
   final bool enabled;
-  final String tier; // basic, leading, professional, extra
+  final String tier; // basic, pioneer, professional, extra
   final bool locked;
   final DateTime? updatedAt;
 
@@ -86,7 +104,7 @@ class NotificationPreference {
       key: json['key'] as String? ?? '',
       title: json['title'] as String? ?? '',
       enabled: json['enabled'] as bool? ?? true,
-      tier: json['tier'] as String? ?? 'basic',
+      tier: _normalizeNotificationTier(json['canonical_tier'] ?? json['tier']),
       locked: json['locked'] as bool? ?? false,
       updatedAt: DateTime.tryParse(json['updated_at'] ?? ''),
     );

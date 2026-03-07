@@ -1,7 +1,7 @@
 from django.db import transaction
 
-from apps.subscriptions.models import PlanTier, Subscription, SubscriptionStatus
-from apps.subscriptions.services import plan_to_tier
+from apps.subscriptions.services import user_plan_tier
+from apps.subscriptions.tiering import CanonicalPlanTier, canonical_tier_from_value
 
 from .models import (
     Notification,
@@ -160,26 +160,21 @@ EVENT_TO_PREF_KEY = {
 }
 
 
+def notification_tier_to_canonical(tier: str) -> str:
+    normalized = str(tier or "").strip().lower()
+    if normalized == NotificationTier.EXTRA:
+        return NotificationTier.EXTRA
+    return canonical_tier_from_value(normalized, fallback=CanonicalPlanTier.BASIC) or CanonicalPlanTier.BASIC
+
+
 def _user_tier_level(user) -> int:
     """
-    1=basic, 2=leading, 3=professional
+    1=basic, 2=pioneer, 3=professional
     """
-    active = (
-        Subscription.objects.filter(
-            user=user,
-            status=SubscriptionStatus.ACTIVE,
-        )
-        .select_related("plan")
-        .order_by("-id")
-        .first()
-    )
-    if not active:
-        return 1
-
-    tier = plan_to_tier(getattr(active, "plan", None))
-    if tier == PlanTier.PRO:
+    tier = user_plan_tier(user, fallback=CanonicalPlanTier.BASIC)
+    if tier == CanonicalPlanTier.PROFESSIONAL:
         return 3
-    if tier == PlanTier.RIYADI:
+    if tier == CanonicalPlanTier.PIONEER:
         return 2
     return 1
 

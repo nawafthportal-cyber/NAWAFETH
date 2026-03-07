@@ -1,98 +1,66 @@
-/* ===================================================================
-   plansPage.js — Subscription Plans (الباقات المدفوعة)
-   1:1 parity with Flutter plans_screen.dart
-   =================================================================== */
 'use strict';
 
 const PlansPage = (() => {
-  let _currentSubscription = null;
-
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.results)) return payload.results;
     return [];
   }
 
-  function _statusCode(status) {
-    return String(status || '').trim().toLowerCase();
+  function _offer(plan) {
+    return plan && typeof plan === 'object' ? (plan.provider_offer || {}) : {};
   }
 
-  function _subscriptionRank(sub) {
-    switch (_statusCode(sub && sub.status)) {
-      case 'active':
-        return 0;
-      case 'grace':
-        return 1;
-      case 'pending_payment':
-        return 2;
+  function _cta(plan) {
+    const offer = _offer(plan);
+    return offer && typeof offer === 'object' ? (offer.cta || {}) : {};
+  }
+
+  function _planTheme(tier) {
+    switch (String(tier || '').trim().toLowerCase()) {
+      case 'professional':
+        return {
+          shell: 'linear-gradient(135deg,#123c32,#0f766e)',
+          accent: '#D1FAE5',
+          badge: '#ECFDF5',
+          text: '#083344',
+        };
+      case 'pioneer':
+        return {
+          shell: 'linear-gradient(135deg,#0f4c5c,#2a9d8f)',
+          accent: '#D7F9F1',
+          badge: '#F0FDFA',
+          text: '#0F3D3E',
+        };
       default:
-        return 9;
+        return {
+          shell: 'linear-gradient(135deg,#5f6f52,#a3b18a)',
+          accent: '#F1F5E8',
+          badge: '#FEFCE8',
+          text: '#3F4A31',
+        };
     }
   }
 
-  function _pickPreferredSubscription(subs) {
-    if (!Array.isArray(subs) || !subs.length) return null;
-    let best = subs[0];
-    let bestRank = _subscriptionRank(best);
-    for (const sub of subs) {
-      const rank = _subscriptionRank(sub);
-      if (rank < bestRank) {
-        best = sub;
-        bestRank = rank;
-        if (rank === 0) break;
-      }
+  function _statusBadge(offer) {
+    const cta = offer.cta || {};
+    if (!cta.state) return '';
+    if (cta.state === 'current' || cta.state === 'pending') {
+      return `<span style="display:inline-flex;padding:5px 10px;border-radius:999px;background:${offer._theme.badge};color:${offer._theme.text};font-size:12px;font-weight:700">${UI.text(cta.label || '')}</span>`;
     }
-    return best;
+    if (cta.state === 'unavailable') {
+      return `<span style="display:inline-flex;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:700">باقة أقل من الحالية</span>`;
+    }
+    return '';
   }
 
-  function _statusLabel(status) {
-    switch (_statusCode(status)) {
-      case 'active':
-        return 'نشط';
-      case 'grace':
-        return 'فترة سماح';
-      case 'pending_payment':
-        return 'بانتظار الدفع';
-      case 'expired':
-        return 'منتهي';
-      case 'cancelled':
-        return 'ملغي';
-      default:
-        return 'غير معروف';
-    }
-  }
-
-  function _featureLabel(feature) {
-    switch (String(feature || '').trim().toLowerCase()) {
-      case 'verify_blue':
-      case 'verify_green':
-        return 'رسوم التوثيق تعتمد على فئة الباقة';
-      case 'promo_ads':
-        return 'إعلانات وترويج';
-      case 'priority_support':
-        return 'دعم أولوية';
-      case 'extra_uploads':
-        return 'سعة مرفقات إضافية';
-      case 'advanced_analytics':
-        return 'تحليلات متقدمة';
-      default:
-        return String(feature || '').replace(/_/g, ' ').trim();
-    }
-  }
-
-  function _extractFeatures(plan) {
-    const source = (Array.isArray(plan.feature_labels) && plan.feature_labels.length)
-      ? plan.feature_labels
-      : (plan.features || plan.feature_list || []);
-    const out = [];
-    source.forEach(item => {
-      let label = '';
-      if (typeof item === 'string') label = _featureLabel(item);
-      else if (item && typeof item === 'object') label = String(item.name || item.title || '').trim();
-      else label = String(item || '').trim();
-      if (label && !out.includes(label)) out.push(label);
-    });
-    return out;
+  function _buildRow(row) {
+    return `
+      <li class="plan-feature" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.14)">
+        <span style="font-size:13px;color:rgba(255,255,255,.78)">${UI.text(row.label || '')}</span>
+        <strong style="font-size:13px;color:#fff;text-align:left">${UI.text(row.value || '')}</strong>
+      </li>
+    `;
   }
 
   function init() {
@@ -106,18 +74,15 @@ const PlansPage = (() => {
 
   async function _loadPlans() {
     document.getElementById('plans-loading').style.display = '';
-    const [plansRes, mySubsRes] = await Promise.all([
-      ApiClient.get('/api/subscriptions/plans/'),
-      ApiClient.get('/api/subscriptions/my/'),
-    ]);
+    const plansRes = await ApiClient.get('/api/subscriptions/plans/');
     document.getElementById('plans-loading').style.display = 'none';
-    if (!plansRes.ok) return;
+    if (!plansRes.ok) {
+      document.getElementById('plans-empty').style.display = '';
+      document.getElementById('plans-empty').innerHTML = `<p>${UI.text(plansRes.data?.detail || 'تعذر تحميل الباقات حالياً')}</p>`;
+      return;
+    }
 
     const plans = _extractList(plansRes.data);
-    _currentSubscription = mySubsRes.ok
-      ? _pickPreferredSubscription(_extractList(mySubsRes.data))
-      : null;
-
     if (!plans.length) {
       document.getElementById('plans-empty').style.display = '';
       return;
@@ -126,78 +91,65 @@ const PlansPage = (() => {
     const container = document.getElementById('plans-list');
     container.innerHTML = '';
     const frag = document.createDocumentFragment();
-    plans.forEach((plan, i) => frag.appendChild(_buildPlanCard(plan, i)));
+    plans.forEach(plan => frag.appendChild(_buildPlanCard(plan)));
     container.appendChild(frag);
   }
 
-  function _buildPlanCard(plan, index) {
-    const card = document.createElement('div');
-    card.className = 'plan-card';
-    if (index === 1) card.classList.add('plan-featured'); // 2nd plan highlighted
-
-    const features = _extractFeatures(plan);
-    const featureHtml = features.map(f =>
-      `<li class="plan-feature"><svg width="16" height="16" viewBox="0 0 24 24" fill="#4CAF50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>${UI.text(typeof f === 'string' ? f : f.name || f.title || '')}</li>`
-    ).join('');
-
-    const price = plan.price || plan.monthly_price || 0;
-    const name = plan.name || plan.title || 'باقة';
-    const period = String(plan.period || 'month').toLowerCase();
-    const periodLabel = String(plan.period_label || '').trim() || (period === 'year' ? 'سنة' : 'شهر');
-
-    const currentPlanId = Number(_currentSubscription?.plan?.id || _currentSubscription?.plan_id || 0);
-    const isCurrentPlan = currentPlanId > 0 && currentPlanId === Number(plan.id || 0);
-    const currentStatus = _statusCode(_currentSubscription?.status);
-    const isCurrentLocked = isCurrentPlan && ['active', 'grace', 'pending_payment'].includes(currentStatus);
-    const actionLabel = isCurrentLocked
-      ? (currentStatus === 'pending_payment' ? 'قيد التفعيل' : 'الباقة الحالية')
-      : 'اشترك الآن';
-    const badgeHtml = isCurrentPlan
-      ? `<div style="margin-top:8px"><span style="display:inline-flex;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.92);color:#4A148C;font-size:12px;font-weight:700">${UI.text(_statusLabel(currentStatus))}</span></div>`
+  function _buildPlanCard(plan) {
+    const offer = _offer(plan);
+    const theme = _planTheme(plan.canonical_tier || offer.tier);
+    offer._theme = theme;
+    const cta = _cta(plan);
+    const rows = Array.isArray(offer.card_rows) ? offer.card_rows : [];
+    const buttonLabel = cta.label || 'ترقية';
+    const isEnabled = Boolean(cta.enabled);
+    const buttonClass = isEnabled ? 'btn btn-primary' : 'btn btn-secondary';
+    const actionHint = cta.current_plan_name
+      ? `<p style="margin:10px 0 0;color:rgba(255,255,255,.72);font-size:12px">الباقة الحالية: ${UI.text(cta.current_plan_name)}</p>`
       : '';
 
+    const card = document.createElement('article');
+    card.className = 'plan-card';
+    card.style.background = theme.shell;
+    card.style.borderRadius = '26px';
+    card.style.padding = '22px';
+    card.style.boxShadow = '0 14px 34px rgba(15,23,42,.12)';
+    card.style.color = '#fff';
+
     card.innerHTML = `
-      <div class="plan-header" style="background:${_planColor(index)}">
-        <h3 class="plan-name">${UI.text(name)}</h3>
-        <div class="plan-price">
-          <span class="plan-amount">${price}</span>
-          <span class="plan-currency">ر.س / ${periodLabel}</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <h2 style="margin:0;font-size:24px;font-weight:800">${UI.text(offer.plan_name || plan.title || 'باقة')}</h2>
+            ${_statusBadge(offer)}
+          </div>
+          <p style="margin:10px 0 0;color:rgba(255,255,255,.82);line-height:1.8">${UI.text(offer.description || '')}</p>
+        </div>
+        <div style="min-width:120px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.14);text-align:center">
+          <div style="font-size:12px;color:rgba(255,255,255,.72)">السعر السنوي</div>
+          <div style="margin-top:6px;font-size:20px;font-weight:800">${UI.text(offer.annual_price_label || 'مجانية')}</div>
         </div>
       </div>
-      <div class="plan-body">
-        <p class="plan-desc">${UI.text(plan.description || '')}</p>
-        ${badgeHtml}
-        <ul class="plan-features">${featureHtml}</ul>
+      <div style="margin-top:18px;padding:16px;border-radius:20px;background:rgba(255,255,255,.08)">
+        <div style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:10px">أهم التفاصيل</div>
+        <ul class="plan-features" style="margin:0;padding:0;list-style:none">${rows.map(_buildRow).join('')}</ul>
       </div>
-      <div class="plan-footer">
-        <button class="btn btn-primary btn-block plan-subscribe-btn" data-id="${plan.id}" ${isCurrentLocked ? 'disabled' : ''}>${actionLabel}</button>
+      <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:13px;color:rgba(255,255,255,.72)">أثر الباقة على التوثيق</div>
+          <div style="margin-top:6px;font-weight:700">${UI.text(offer.verification_effect_label || '')}</div>
+          ${actionHint}
+        </div>
+        <button class="${buttonClass}" style="min-width:140px" ${isEnabled ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
       </div>
     `;
 
-    if (!isCurrentLocked) {
-      card.querySelector('.plan-subscribe-btn').addEventListener('click', () => _subscribe(plan));
+    if (isEnabled) {
+      card.querySelector('button').addEventListener('click', () => {
+        window.location.href = `/plans/summary/?plan_id=${encodeURIComponent(plan.id)}`;
+      });
     }
     return card;
-  }
-
-  async function _subscribe(plan) {
-    if (!plan?.id) return;
-    const planName = plan.name || plan.title || 'هذه الباقة';
-    if (!confirm(`هل تريد الاشتراك في ${planName}؟`)) return;
-    const res = await ApiClient.request(`/api/subscriptions/subscribe/${plan.id}/`, {
-      method: 'POST',
-    });
-    if (res.ok) {
-      alert('تم الاشتراك بنجاح!');
-      await _loadPlans();
-    } else {
-      alert(res.data?.detail || 'فشل الاشتراك');
-    }
-  }
-
-  function _planColor(i) {
-    const colors = ['linear-gradient(135deg,#663D90,#9C27B0)', 'linear-gradient(135deg,#FFD700,#FFA000)', 'linear-gradient(135deg,#4CAF50,#2E7D32)', 'linear-gradient(135deg,#2196F3,#1565C0)'];
-    return colors[i % colors.length];
   }
 
   document.addEventListener('DOMContentLoaded', init);

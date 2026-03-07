@@ -20,18 +20,18 @@ class _NotificationSettingsScreenState
   final Set<String> _savingKeys = {};
 
   // ─── Backend tier names ───
-  static const _tierOrder = ['basic', 'leading', 'professional', 'extra'];
+  static const _tierOrder = ['basic', 'pioneer', 'professional', 'extra'];
 
   static const _tierLabels = {
     'basic': 'الباقة الأساسية',
-    'leading': 'الباقة الرائدة',
+    'pioneer': 'الباقة الريادية',
     'professional': 'الباقة الاحترافية',
     'extra': 'الباقة المميزة',
   };
 
   static const _tierIcons = {
     'basic': Icons.star,
-    'leading': Icons.rocket_launch,
+    'pioneer': Icons.rocket_launch,
     'professional': Icons.auto_awesome,
     'extra': Icons.diamond,
   };

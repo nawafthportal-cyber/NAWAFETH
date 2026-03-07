@@ -30,6 +30,7 @@ from apps.support.models import (
     SupportTeam,
 )
 from apps.subscriptions.models import SubscriptionPlan, FeatureKey
+from apps.subscriptions.bootstrap import infer_plan_tier
 
 from .auth import dashboard_staff_required as staff_member_required
 from .views import require_dashboard_access as dashboard_access_required, _want_csv, _csv_response
@@ -352,8 +353,10 @@ def plan_form(request: HttpRequest, plan_id: int = None) -> HttpResponse:
         if not code or not title:
             messages.error(request, "الكود والعنوان مطلوبان")
         else:
+            inferred_tier = infer_plan_tier(code=code, title=title, features=features)
             if plan:
                 plan.code = code
+                plan.tier = inferred_tier
                 plan.title = title
                 plan.period = period
                 plan.price = price
@@ -363,7 +366,7 @@ def plan_form(request: HttpRequest, plan_id: int = None) -> HttpResponse:
                 messages.success(request, "تم تحديث الخطة")
             else:
                 plan = SubscriptionPlan.objects.create(
-                    code=code, title=title, period=period,
+                    code=code, tier=inferred_tier, title=title, period=period,
                     price=price, is_active=is_active,
                     features=features,
                 )

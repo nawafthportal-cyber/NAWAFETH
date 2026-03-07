@@ -81,4 +81,5 @@ class WebhookReceiverView(APIView):
         event_id = request.headers.get("X-Event-Id", "")
 
         result = handle_webhook(provider=provider, payload=payload, signature=signature, event_id=event_id)
-        return Response(result, status=status.HTTP_200_OK)
+        http_status = int(result.pop("http_status", status.HTTP_200_OK))
+        return Response(result, status=http_status)

@@ -6,6 +6,7 @@ from typing import Iterable
 from django.db import transaction
 
 from .models import SubscriptionPlan, PlanPeriod, PlanTier
+from .tiering import CanonicalPlanTier, canonical_tier_from_inputs, db_tier_for_canonical
 
 
 CANONICAL_PLAN_CODES = ("basic", "riyadi", "pro")
@@ -17,8 +18,8 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "tier": PlanTier.BASIC,
         "title": "أساسية",
         "description": "مناسبة للبداية",
-        "period": PlanPeriod.MONTH,
-        "price": Decimal("49.00"),
+        "period": PlanPeriod.YEAR,
+        "price": Decimal("0.00"),
         "features": ["verify_green"],
         "is_active": True,
     },
@@ -27,8 +28,8 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "tier": PlanTier.RIYADI,
         "title": "ريادية",
         "description": "للنمو وتوسيع الفرص",
-        "period": PlanPeriod.MONTH,
-        "price": Decimal("79.00"),
+        "period": PlanPeriod.YEAR,
+        "price": Decimal("199.00"),
         "features": ["verify_green", "promo_ads"],
         "is_active": True,
     },
@@ -37,12 +38,15 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "tier": PlanTier.PRO,
         "title": "احترافية",
         "description": "للعملاء النشطين",
-        "period": PlanPeriod.MONTH,
-        "price": Decimal("99.00"),
+        "period": PlanPeriod.YEAR,
+        "price": Decimal("999.00"),
         "features": ["verify_blue", "verify_green", "promo_ads", "priority_support", "advanced_analytics"],
         "is_active": True,
     },
 ]
+
+
+DEFAULT_BASIC_SUBSCRIPTION_PLAN = dict(DEFAULT_SUBSCRIPTION_PLANS[0])
 
 
 LEGACY_CODE_TO_TIER = {
@@ -78,22 +82,14 @@ LEGACY_CODE_TO_CANONICAL = {
 
 
 def infer_plan_tier(*, code: str, title: str, features: Iterable[str] | None = None) -> str:
-    code_key = (code or "").strip().lower()
-    if code_key in LEGACY_CODE_TO_TIER:
-        return LEGACY_CODE_TO_TIER[code_key]
-
-    normalized_title = (title or "").strip().lower()
-    if "رياد" in normalized_title:
-        return PlanTier.RIYADI
-    if "احتراف" in normalized_title or "professional" in normalized_title:
-        return PlanTier.PRO
-
-    values = {str(item or "").strip().lower() for item in (features or [])}
-    if "advanced_analytics" in values or "verify_blue" in values:
-        return PlanTier.PRO
-    if "priority_support" in values or "promo_ads" in values:
-        return PlanTier.RIYADI
-    return PlanTier.BASIC
+    canonical = canonical_tier_from_inputs(
+        tier=None,
+        code=code,
+        title=title,
+        features=features,
+        fallback=CanonicalPlanTier.BASIC,
+    )
+    return db_tier_for_canonical(canonical)
 
 
 def normalize_existing_subscription_plans() -> int:
@@ -145,7 +141,27 @@ def seed_default_subscription_plans(*, force_update: bool = True) -> int:
     return count
 
 
+def ensure_basic_subscription_plan() -> SubscriptionPlan:
+    defaults = dict(DEFAULT_BASIC_SUBSCRIPTION_PLAN)
+    code = defaults.pop("code")
+    plan = SubscriptionPlan.objects.filter(code=code).first()
+    if plan is None:
+        plan, _ = SubscriptionPlan.objects.get_or_create(code=code, defaults=defaults)
+        return plan
+
+    updates = {}
+    for field in ("tier", "price", "is_active"):
+        if getattr(plan, field) != defaults[field]:
+            updates[field] = defaults[field]
+    if updates:
+        SubscriptionPlan.objects.filter(pk=plan.pk).update(**updates)
+        for field, value in updates.items():
+            setattr(plan, field, value)
+    return plan
+
+
 def ensure_subscription_plans_exist() -> None:
+    ensure_basic_subscription_plan()
     has_canonical = SubscriptionPlan.objects.filter(code__in=CANONICAL_PLAN_CODES).count()
     if has_canonical >= len(CANONICAL_PLAN_CODES):
         return

@@ -1,11 +1,13 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
+from decimal import Decimal
 
 from apps.accounts.models import User, UserRole
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.messaging.models import ThreadUserState
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
+from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 
 
 @pytest.mark.django_db
@@ -613,3 +615,108 @@ def test_mode_filters_direct_threads_and_thread_states_for_same_user():
     # Sanity: states exist in DB for both threads
     assert ThreadUserState.objects.filter(user=dual_user, thread_id=provider_thread_id).exists()
     assert ThreadUserState.objects.filter(user=dual_user, thread_id=client_thread_id).exists()
+
+
+@pytest.mark.django_db
+def test_direct_thread_creation_respects_provider_chat_quota():
+    provider_user = User.objects.create_user(phone="0508000001", role_state=UserRole.PROVIDER)
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود محدود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="basic_chat_limit",
+        title="الأساسية",
+        tier="basic",
+        period=PlanPeriod.YEAR,
+        price=Decimal("0.00"),
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=provider_user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
+
+    api = APIClient()
+    for idx in range(3):
+        client_user = User.objects.create_user(phone=f"050800001{idx}", role_state=UserRole.PHONE_ONLY)
+        api.force_authenticate(user=client_user)
+        created = api.post(
+            "/api/messaging/direct/thread/",
+            {"provider_id": provider.id},
+            format="json",
+        )
+        assert created.status_code == 200
+
+    blocked_user = User.objects.create_user(phone="0508000099", role_state=UserRole.PHONE_ONLY)
+    api.force_authenticate(user=blocked_user)
+    blocked = api.post(
+        "/api/messaging/direct/thread/",
+        {"provider_id": provider.id},
+        format="json",
+    )
+    assert blocked.status_code == 403
+    assert "الحد الأقصى" in str(blocked.data.get("error", ""))
+
+
+@pytest.mark.django_db
+def test_existing_direct_thread_remains_accessible_after_quota_reached():
+    client_user = User.objects.create_user(phone="0508000101", role_state=UserRole.PHONE_ONLY)
+    provider_user = User.objects.create_user(phone="0508000102", role_state=UserRole.PROVIDER)
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود مباشر",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="basic_chat_existing",
+        title="الأساسية",
+        tier="basic",
+        period=PlanPeriod.YEAR,
+        price=Decimal("0.00"),
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=provider_user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=client_user)
+    first = api.post(
+        "/api/messaging/direct/thread/",
+        {"provider_id": provider.id},
+        format="json",
+    )
+    assert first.status_code == 200
+    thread_id = first.data["id"]
+
+    for idx in range(2):
+        other_client = User.objects.create_user(phone=f"050800011{idx}", role_state=UserRole.PHONE_ONLY)
+        api.force_authenticate(user=other_client)
+        created = api.post(
+            "/api/messaging/direct/thread/",
+            {"provider_id": provider.id},
+            format="json",
+        )
+        assert created.status_code == 200
+
+    api.force_authenticate(user=client_user)
+    existing = api.post(
+        "/api/messaging/direct/thread/",
+        {"provider_id": provider.id},
+        format="json",
+    )
+    assert existing.status_code == 200
+    assert existing.data["id"] == thread_id

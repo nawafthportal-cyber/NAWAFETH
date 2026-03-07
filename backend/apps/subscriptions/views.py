@@ -5,13 +5,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from django.shortcuts import get_object_or_404
-from django.db.models import Case, IntegerField, Value, When
 
 from .models import SubscriptionPlan, Subscription
 from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
 from .services import start_subscription_checkout
 from .bootstrap import CANONICAL_PLAN_CODES, ensure_subscription_plans_exist
+from .tiering import canonical_tier_order
 
 
 class PlansListView(generics.ListAPIView):
@@ -20,19 +20,9 @@ class PlansListView(generics.ListAPIView):
 
     def get_queryset(self):
         ensure_subscription_plans_exist()
-        return (
-            SubscriptionPlan.objects.filter(is_active=True, code__in=CANONICAL_PLAN_CODES)
-            .annotate(
-                tier_order=Case(
-                    When(code="basic", then=Value(1)),
-                    When(code="riyadi", then=Value(2)),
-                    When(code="pro", then=Value(3)),
-                    default=Value(99),
-                    output_field=IntegerField(),
-                )
-            )
-            .order_by("tier_order", "price", "id")
-        )
+        plans = list(SubscriptionPlan.objects.filter(is_active=True, code__in=CANONICAL_PLAN_CODES))
+        plans.sort(key=lambda plan: (canonical_tier_order(plan.normalized_tier()), plan.price, plan.id))
+        return plans
 
 
 class MySubscriptionsView(generics.ListAPIView):
@@ -51,7 +41,9 @@ class SubscribeView(APIView):
 
     def post(self, request, plan_id: int):
         plan = get_object_or_404(SubscriptionPlan, pk=plan_id, is_active=True)
-
-        sub = start_subscription_checkout(user=request.user, plan=plan)
+        try:
+            sub = start_subscription_checkout(user=request.user, plan=plan)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(SubscriptionSerializer(sub).data, status=status.HTTP_201_CREATED)

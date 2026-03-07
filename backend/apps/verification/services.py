@@ -3,15 +3,23 @@ from __future__ import annotations
 from decimal import Decimal
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.models import InvoiceLineItem
+from apps.subscriptions.tiering import (
+    CanonicalPlanTier,
+    canonical_tier_from_value,
+    canonical_tier_label,
+    db_tier_for_canonical,
+)
 
 from .models import (
     VerificationRequest, VerificationDocument,
     VerificationStatus, VerifiedBadge, VerificationBadgeType,
     VerificationRequirement,
+    VerificationRequirementAttachment,
 )
 
 
@@ -72,22 +80,35 @@ DEFAULT_VERIFY_FEES_BY_TIER: dict[str, dict[str, str]] = {
         VerificationBadgeType.BLUE: "100.00",
         VerificationBadgeType.GREEN: "100.00",
     },
-    "riyadi": {
+    "pioneer": {
         VerificationBadgeType.BLUE: "50.00",
         VerificationBadgeType.GREEN: "50.00",
     },
-    "pro": {
+    "professional": {
         VerificationBadgeType.BLUE: "0.00",
         VerificationBadgeType.GREEN: "0.00",
     },
 }
 
-
-PLAN_TIER_LABELS: dict[str, str] = {
-    "basic": "أساسية",
-    "riyadi": "ريادية",
-    "pro": "احترافية",
-}
+VERIFICATION_PRICING_CURRENCY = "SAR"
+VERIFICATION_BILLING_CYCLE = "yearly"
+VERIFICATION_BILLING_CYCLE_LABEL = "سنوي"
+VERIFICATION_CHARGE_MODEL = "per_verification"
+VERIFICATION_CHARGE_MODEL_LABEL = "لكل طلب توثيق"
+VERIFICATION_TAX_POLICY = "inclusive"
+VERIFICATION_TAX_POLICY_LABEL = "شامل الضريبة"
+VERIFICATION_ADDITIONAL_VAT_PERCENT = Decimal("0.00")
+VERIFICATION_PRICE_NOTE = (
+    "الرسوم السنوية المعروضة هي المبلغ النهائي لكل طلب توثيق، ولا تضاف عليها "
+    "ضريبة أو رسوم إضافية عند إصدار الفاتورة."
+)
+VERIFICATION_BLOCKING_REQUEST_STATUSES = (
+    VerificationStatus.NEW,
+    VerificationStatus.IN_REVIEW,
+    VerificationStatus.APPROVED,
+    VerificationStatus.PENDING_PAYMENT,
+    VerificationStatus.ACTIVE,
+)
 
 
 def get_public_badge_detail(badge_type: str):
@@ -229,16 +250,22 @@ def sync_provider_badges(user) -> dict[str, bool]:
 def expire_verified_badges_and_sync(*, now=None, limit: int = 1000) -> int:
     now = now or timezone.now()
 
-    expired_badges = list(
-        VerifiedBadge.objects.filter(is_active=True, expires_at__lte=now)
+    expired_requests = list(
+        VerificationRequest.objects.filter(
+            status=VerificationStatus.ACTIVE,
+            expires_at__isnull=False,
+            expires_at__lte=now,
+        )
+        .select_related("requester")
         .order_by("id")[:limit]
     )
-    if not expired_badges:
+    if not expired_requests:
         return 0
 
-    expired_ids = [badge.id for badge in expired_badges]
-    user_ids = sorted({badge.user_id for badge in expired_badges if badge.user_id})
-    VerifiedBadge.objects.filter(id__in=expired_ids).update(is_active=False)
+    request_ids = [vr.id for vr in expired_requests]
+    user_ids = sorted({vr.requester_id for vr in expired_requests if vr.requester_id})
+    VerificationRequest.objects.filter(id__in=request_ids).update(status=VerificationStatus.EXPIRED)
+    changed = VerifiedBadge.objects.filter(request_id__in=request_ids, is_active=True).update(is_active=False)
 
     if user_ids:
         from apps.accounts.models import User
@@ -246,28 +273,25 @@ def expire_verified_badges_and_sync(*, now=None, limit: int = 1000) -> int:
         for user in User.objects.filter(id__in=user_ids):
             sync_provider_badges(user)
 
-    return len(expired_ids)
+    return max(changed, len(request_ids))
 
 
 def _fee_for_badge(badge_type: str) -> Decimal:
     """
-    رسوم افتراضية (قابلة للتخصيص من settings لاحقًا).
-    - الأزرق: 100
-    - الأخضر: 100
+    احتياطي مطابق للسياسة الرسمية الحالية:
+    الأزرق 100 ر.س، والأخضر 100 ر.س ضمن الباقة الأساسية.
     """
-    blue_fee = getattr(settings, "VERIFY_BLUE_FEE", Decimal("100.00"))
-    green_fee = getattr(settings, "VERIFY_GREEN_FEE", Decimal("100.00"))
     if badge_type == VerificationBadgeType.GREEN:
-        return Decimal(str(green_fee))
-    return Decimal(str(blue_fee))
+        return Decimal("100.00")
+    return Decimal("100.00")
 
 
-def _normalize_verify_matrix(raw_matrix, *, key_case: str):
+def _normalize_verify_tier_matrix(raw_matrix):
     out = {}
     for key, raw_value in (raw_matrix or {}).items():
-        normalized_key = str(key).strip()
-        normalized_key = normalized_key.upper() if key_case == "upper" else normalized_key.lower()
-
+        normalized_key = canonical_tier_from_value(key, fallback=None)
+        if not normalized_key:
+            continue
         if isinstance(raw_value, dict):
             out[normalized_key] = {
                 str(inner_key).strip().lower(): inner_value
@@ -288,6 +312,160 @@ def _resolve_verify_amount(entry, badge_type: str):
     return entry
 
 
+def verification_billing_policy() -> dict[str, object]:
+    return {
+        "currency": VERIFICATION_PRICING_CURRENCY,
+        "billing_cycle": VERIFICATION_BILLING_CYCLE,
+        "billing_cycle_label": VERIFICATION_BILLING_CYCLE_LABEL,
+        "charge_model": VERIFICATION_CHARGE_MODEL,
+        "charge_model_label": VERIFICATION_CHARGE_MODEL_LABEL,
+        "tax_policy": VERIFICATION_TAX_POLICY,
+        "tax_policy_label": VERIFICATION_TAX_POLICY_LABEL,
+        "tax_included": True,
+        "additional_vat_percent": str(
+            VERIFICATION_ADDITIONAL_VAT_PERCENT.quantize(Decimal("0.01"))
+        ),
+        "price_note": VERIFICATION_PRICE_NOTE,
+    }
+
+
+def _badge_billing_title(badge_type: str) -> str:
+    if badge_type == VerificationBadgeType.GREEN:
+        return "رسوم التوثيق للشارة الخضراء"
+    return "رسوم التوثيق للشارة الزرقاء"
+
+
+def _badge_billing_code(badge_type: str) -> str:
+    if badge_type == VerificationBadgeType.GREEN:
+        return "VERIFY_GREEN"
+    return "VERIFY_BLUE"
+
+
+def _ordered_unique_badge_types(badge_types) -> list[str]:
+    normalized_badges = [
+        str(badge_type or "").strip().lower()
+        for badge_type in (badge_types or [])
+    ]
+    seen = set()
+    ordered = []
+    for badge_type in (VerificationBadgeType.BLUE, VerificationBadgeType.GREEN):
+        if badge_type in normalized_badges and badge_type not in seen:
+            seen.add(badge_type)
+            ordered.append(badge_type)
+    for badge_type in normalized_badges:
+        if badge_type in VerificationBadgeType.values and badge_type not in seen:
+            seen.add(badge_type)
+            ordered.append(badge_type)
+    return ordered
+
+
+def _requirement_attachment_count(req: VerificationRequirement) -> int:
+    cached = getattr(req, "_prefetched_objects_cache", {}).get("attachments")
+    if cached is not None:
+        return len(cached)
+    return req.attachments.count()
+
+
+def verification_request_has_blocking_open_request(user, badge_type: str, *, exclude_request_id: int | None = None) -> bool:
+    normalized_badge = str(badge_type or "").strip().lower()
+    if normalized_badge not in VerificationBadgeType.values or not getattr(user, "pk", None):
+        return False
+
+    qs = VerificationRequest.objects.filter(
+        requester=user,
+        status__in=VERIFICATION_BLOCKING_REQUEST_STATUSES,
+    )
+    if exclude_request_id:
+        qs = qs.exclude(pk=exclude_request_id)
+
+    return qs.filter(
+        Q(badge_type=normalized_badge) | Q(requirements__badge_type=normalized_badge)
+    ).distinct().exists()
+
+
+@transaction.atomic
+def mark_request_in_review(*, vr: VerificationRequest, changed_by=None) -> VerificationRequest:
+    vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
+    if vr.status not in (VerificationStatus.NEW, VerificationStatus.REJECTED):
+        return vr
+
+    vr.status = VerificationStatus.IN_REVIEW
+    vr.save(update_fields=["status", "updated_at"])
+    _sync_verification_to_unified(vr=vr, changed_by=changed_by)
+    return vr
+
+
+def _document_target_badge_types(vr: VerificationRequest, doc_type: str) -> set[str]:
+    if vr.badge_type in VerificationBadgeType.values:
+        return {vr.badge_type}
+
+    normalized_doc_type = str(doc_type or "").strip().lower()
+    if normalized_doc_type in {"id", "cr", "iban"}:
+        return {VerificationBadgeType.BLUE}
+    if normalized_doc_type in {"license"}:
+        return {VerificationBadgeType.GREEN}
+
+    req_badges = {
+        str(req.badge_type or "").strip().lower()
+        for req in vr.requirements.all()
+        if str(req.badge_type or "").strip().lower() in VerificationBadgeType.values
+    }
+    return req_badges or set(VerificationBadgeType.values)
+
+
+@transaction.atomic
+def mirror_document_to_requirement_attachments(*, doc: VerificationDocument) -> list[VerificationRequirementAttachment]:
+    doc = VerificationDocument.objects.select_for_update().select_related("request", "uploaded_by").get(pk=doc.pk)
+    vr = doc.request
+    reqs = list(vr.requirements.all().order_by("sort_order", "id"))
+    if not reqs:
+        return []
+
+    target_badges = _document_target_badge_types(vr, doc.doc_type)
+    target_requirements = [req for req in reqs if req.badge_type in target_badges] or reqs
+
+    created: list[VerificationRequirementAttachment] = []
+    for req in target_requirements:
+        created.append(
+            VerificationRequirementAttachment.objects.create(
+                requirement=req,
+                file=doc.file.name,
+                uploaded_by=doc.uploaded_by,
+            )
+        )
+    return created
+
+
+def verification_request_has_authoritative_evidence(*, vr: VerificationRequest, reqs=None, docs=None) -> bool:
+    requirements = list(reqs) if reqs is not None else list(vr.requirements.all())
+    if requirements:
+        return any(_requirement_attachment_count(req) > 0 for req in requirements)
+
+    documents = list(docs) if docs is not None else list(vr.documents.all())
+    return bool(documents)
+
+
+def sync_verification_request_badge_state(*, vr: VerificationRequest, now=None) -> int:
+    vr = VerificationRequest.objects.select_related("requester", "invoice").get(pk=vr.pk)
+    current_time = now or timezone.now()
+
+    should_keep_badges_active = (
+        vr.status == VerificationStatus.ACTIVE
+        and vr.activated_at is not None
+        and vr.expires_at is not None
+        and vr.expires_at > current_time
+        and vr.invoice is not None
+        and vr.invoice.is_payment_effective()
+    )
+    if should_keep_badges_active:
+        sync_provider_badges(vr.requester)
+        return 0
+
+    changed = VerifiedBadge.objects.filter(request=vr, is_active=True).update(is_active=False)
+    sync_provider_badges(vr.requester)
+    return changed
+
+
 def verification_pricing_for_plan(plan=None) -> dict[str, object]:
     try:
         from apps.subscriptions.services import plan_to_tier
@@ -296,51 +474,48 @@ def verification_pricing_for_plan(plan=None) -> dict[str, object]:
 
     plan_code = ((getattr(plan, "code", "") or "") if plan else "").strip().upper()
     plan_tier = (
-        plan_to_tier(plan) if plan_to_tier and plan is not None else "basic"
+        plan_to_tier(plan) if plan_to_tier and plan is not None else CanonicalPlanTier.BASIC
     )
-    normalized_tier = str(plan_tier or "basic").strip().lower() or "basic"
+    normalized_tier = canonical_tier_from_value(plan_tier, fallback=CanonicalPlanTier.BASIC) or CanonicalPlanTier.BASIC
 
-    raw_plan_matrix = getattr(settings, "VERIFY_FEES_BY_PLAN", {}) or {}
-    plan_matrix = _normalize_verify_matrix(raw_plan_matrix, key_case="upper")
     raw_tier_matrix = getattr(settings, "VERIFY_FEES_BY_TIER", DEFAULT_VERIFY_FEES_BY_TIER) or DEFAULT_VERIFY_FEES_BY_TIER
-    tier_matrix = _normalize_verify_matrix(raw_tier_matrix, key_case="lower")
+    tier_matrix = _normalize_verify_tier_matrix(raw_tier_matrix)
+    pricing_policy = verification_billing_policy()
 
     prices = {}
     for badge_type in (VerificationBadgeType.BLUE, VerificationBadgeType.GREEN):
-        amount = _resolve_verify_amount(plan_matrix.get(plan_code), badge_type) if plan_code else None
-        if amount is None:
-            amount = _resolve_verify_amount(tier_matrix.get(normalized_tier), badge_type)
+        amount = _resolve_verify_amount(tier_matrix.get(normalized_tier), badge_type)
         if amount is None:
             amount = _fee_for_badge(badge_type)
         amount_decimal = Decimal(str(amount))
         prices[badge_type] = {
             "badge_type": badge_type,
             "amount": str(amount_decimal.quantize(Decimal("0.01"))),
+            "final_amount": str(amount_decimal.quantize(Decimal("0.01"))),
             "is_free": amount_decimal <= Decimal("0.00"),
             "requires_payment": amount_decimal > Decimal("0.00"),
+            "billing_cycle": pricing_policy["billing_cycle"],
+            "tax_included": pricing_policy["tax_included"],
+            "additional_vat_percent": pricing_policy["additional_vat_percent"],
         }
 
     return {
         "plan_code": plan_code.lower(),
         "tier": normalized_tier,
-        "tier_label": PLAN_TIER_LABELS.get(normalized_tier, normalized_tier),
-        "currency": "SAR",
+        "tier_legacy": db_tier_for_canonical(normalized_tier),
+        "tier_label": canonical_tier_label(normalized_tier),
+        **pricing_policy,
         "prices": prices,
     }
 
 
 def verification_pricing_for_user(user) -> dict[str, object]:
     try:
-        from apps.subscriptions.models import Subscription, SubscriptionStatus
+        from apps.subscriptions.services import get_effective_active_subscription
     except Exception:
         return verification_pricing_for_plan(None)
 
-    active_sub = (
-        Subscription.objects.filter(user=user, status=SubscriptionStatus.ACTIVE)
-        .select_related("plan")
-        .order_by("-id")
-        .first()
-    )
+    active_sub = get_effective_active_subscription(user)
     pricing = verification_pricing_for_plan(getattr(active_sub, "plan", None))
     pricing["has_active_subscription"] = active_sub is not None
     if active_sub is not None:
@@ -351,19 +526,7 @@ def verification_pricing_for_user(user) -> dict[str, object]:
 def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
     """
     رسوم التوثيق منفصلة عن الاشتراك، لكن الاشتراك يؤثر على سعرها.
-
-    settings.VERIFY_FEES_BY_PLAN مثال:
-    {
-        "BASIC": {"blue": "120.00", "green": "60.00"},
-        "PRO": {"blue": "80.00", "green": "40.00"},
-    }
-
-    settings.VERIFY_FEES_BY_TIER مثال:
-    {
-        "basic": "100.00",
-        "riyadi": "50.00",
-        "pro": "0.00",
-    }
+    الرسم النهائي سنوي ويُحتسب مرة واحدة لكل طلب/شارة وفق فئة الباقة الحالية.
     """
     pricing = verification_pricing_for_user(user)
     entry = (pricing.get("prices") or {}).get(badge_type, {})
@@ -375,7 +538,9 @@ def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
 
 @transaction.atomic
 def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, by_user):
-    doc = VerificationDocument.objects.select_for_update().get(pk=doc.pk)
+    doc = VerificationDocument.objects.select_for_update().select_related("request").get(pk=doc.pk)
+    if doc.request.requirements.exists():
+        raise ValueError("اعتماد التوثيق يتم عبر بنود التوثيق ومرفقاتها، وليس عبر المستندات legacy.")
     doc.is_approved = bool(is_approved)
     doc.decision_note = (note or "")[:300]
     doc.decided_by = by_user
@@ -408,27 +573,46 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
     """
     vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
 
-    reqs = list(vr.requirements.all())
+    reqs = list(vr.requirements.prefetch_related("attachments").all())
     if not reqs:
-        # Legacy fallback: treat as single item if documents exist.
         docs = list(vr.documents.all())
         if not docs:
             raise ValueError("لا توجد مستندات/بنود مرفوعة لهذا الطلب.")
-        # Create a synthetic requirement to proceed.
+
+        undecided_docs = [d for d in docs if d.is_approved is None]
+        if undecided_docs:
+            raise ValueError("يوجد مستندات legacy لم يتم اتخاذ قرار بشأنها بعد.")
+
+        approved_docs = [d for d in docs if d.is_approved is True]
+        if not approved_docs:
+            vr.reviewed_at = timezone.now()
+            vr.status = VerificationStatus.REJECTED
+            vr.reject_reason = "تم رفض جميع مستندات التوثيق."
+            vr.save(update_fields=["status", "reject_reason", "reviewed_at", "updated_at"])
+            _sync_verification_to_unified(vr=vr, changed_by=by_user)
+            return vr
+
         bt = vr.badge_type or VerificationBadgeType.BLUE
         definition = resolve_requirement_def(bt, "B1" if bt == VerificationBadgeType.BLUE else "G1")
-        reqs = [
-            VerificationRequirement.objects.create(
-                request=vr,
-                badge_type=bt,
-                code=definition["code"],
-                title=definition["title"],
-                is_approved=True,
-                decision_note="",
-                decided_by=by_user,
-                decided_at=timezone.now(),
+        legacy_req = VerificationRequirement.objects.create(
+            request=vr,
+            badge_type=bt,
+            code=definition["code"],
+            title=definition["title"],
+            is_approved=True,
+            decision_note="اعتماد مسار legacy بعد مراجعة المستندات.",
+            decided_by=by_user,
+            decided_at=timezone.now(),
+        )
+        for doc in approved_docs:
+            VerificationRequirementAttachment.objects.create(
+                requirement=legacy_req,
+                file=doc.file.name,
+                uploaded_by=doc.uploaded_by,
             )
-        ]
+        reqs = list(
+            VerificationRequirement.objects.filter(pk=legacy_req.pk).prefetch_related("attachments")
+        )
 
     undecided = [r for r in reqs if r.is_approved is None]
     if undecided:
@@ -436,6 +620,9 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
 
     approved_items = [r for r in reqs if r.is_approved is True]
     rejected_items = [r for r in reqs if r.is_approved is False]
+    approved_without_evidence = [r for r in approved_items if _requirement_attachment_count(r) <= 0]
+    if approved_without_evidence:
+        raise ValueError("يوجد بنود معتمدة بدون مرفقات إثبات.")
 
     vr.reviewed_at = timezone.now()
 
@@ -452,26 +639,30 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         vr.reject_reason = "تم رفض بعض البنود."
     vr.save(update_fields=["status", "approved_at", "reviewed_at", "reject_reason", "updated_at"])
 
-    # Create invoice with line items per approved requirement.
+    # Create invoice once per approved badge flow, not per approved requirement.
     if not vr.invoice_id:
         pricing_snapshot = verification_pricing_for_user(vr.requester)
         pricing_by_badge = pricing_snapshot.get("prices") or {}
+        approved_badge_types = _ordered_unique_badge_types(
+            item.badge_type for item in approved_items
+        )
         inv = Invoice.objects.create(
             user=vr.requester,
             title="رسوم التوثيق",
-            description="رسوم بنود التوثيق لمدة سنة",
+            description="رسوم التوثيق السنوية",
             subtotal=Decimal("0.00"),
+            vat_percent=VERIFICATION_ADDITIONAL_VAT_PERCENT,
             reference_type="verify_request",
             reference_id=vr.code,
             status=InvoiceStatus.DRAFT,
         )
-        for idx, item in enumerate(approved_items):
-            fee_payload = pricing_by_badge.get(item.badge_type) or {}
-            fee = Decimal(str(fee_payload.get("amount", _fee_for_badge(item.badge_type))))
+        for idx, badge_type in enumerate(approved_badge_types):
+            fee_payload = pricing_by_badge.get(badge_type) or {}
+            fee = Decimal(str(fee_payload.get("amount", _fee_for_badge(badge_type))))
             InvoiceLineItem.objects.create(
                 invoice=inv,
-                item_code=item.code,
-                title=item.title,
+                item_code=_badge_billing_code(badge_type),
+                title=_badge_billing_title(badge_type),
                 amount=fee,
                 sort_order=idx,
             )
@@ -502,10 +693,25 @@ def activate_after_payment(*, vr: VerificationRequest):
     - إنشاء VerifiedBadge
     - تحديث flags على ProviderProfile إن وجد
     """
-    vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
+    vr = VerificationRequest.objects.select_for_update().select_related("invoice", "requester").get(pk=vr.pk)
 
-    if not vr.invoice or vr.invoice.status != "paid":
+    if not vr.invoice or not vr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
+
+    if vr.status not in (
+        VerificationStatus.APPROVED,
+        VerificationStatus.PENDING_PAYMENT,
+        VerificationStatus.ACTIVE,
+    ):
+        raise ValueError("لا يمكن التفعيل قبل اعتماد الطلب.")
+
+    approved = list(vr.requirements.prefetch_related("attachments").filter(is_approved=True))
+    if not approved:
+        raise ValueError("لا توجد بنود معتمدة قابلة للتفعيل.")
+
+    approved_without_evidence = [item for item in approved if _requirement_attachment_count(item) <= 0]
+    if approved_without_evidence:
+        raise ValueError("لا يمكن التفعيل بدون مرفقات إثبات للبنود المعتمدة.")
 
     if vr.status == VerificationStatus.ACTIVE:
         return vr
@@ -515,13 +721,6 @@ def activate_after_payment(*, vr: VerificationRequest):
     vr.expires_at = now + vr.activation_window()
     vr.status = VerificationStatus.ACTIVE
     vr.save(update_fields=["activated_at", "expires_at", "status", "updated_at"])
-
-    approved = list(vr.requirements.filter(is_approved=True))
-    if not approved:
-        # Fallback: single badge based on legacy field.
-        bt = vr.badge_type or VerificationBadgeType.BLUE
-        d = resolve_requirement_def(bt, "B1" if bt == VerificationBadgeType.BLUE else "G1")
-        approved = [VerificationRequirement(request=vr, badge_type=bt, code=d["code"], title=d["title"], is_approved=True)]
 
     # Deactivate previous active items by code.
     for item in approved:
@@ -545,6 +744,45 @@ def activate_after_payment(*, vr: VerificationRequest):
 
     # Update ProviderProfile flags from source-of-truth badge records.
     sync_provider_badges(vr.requester)
+
+    _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
+    return vr
+
+
+@transaction.atomic
+def revoke_after_payment_reversal(*, vr: VerificationRequest):
+    vr = VerificationRequest.objects.select_for_update().select_related("invoice").get(pk=vr.pk)
+
+    if not vr.invoice or vr.invoice.is_payment_effective():
+        return vr
+
+    if vr.invoice.requires_payment_confirmation():
+        vr.status = VerificationStatus.PENDING_PAYMENT
+    elif vr.status == VerificationStatus.ACTIVE:
+        vr.status = VerificationStatus.APPROVED
+    vr.activated_at = None
+    vr.expires_at = None
+    vr.save(update_fields=["status", "activated_at", "expires_at", "updated_at"])
+
+    sync_verification_request_badge_state(vr=vr)
+
+    try:
+        from apps.audit.services import log_action
+        from apps.audit.models import AuditAction
+
+        log_action(
+            actor=vr.requester,
+            action=AuditAction.VERIFY_REQUEST_PAYMENT_REVOKED,
+            reference_type="verification",
+            reference_id=str(vr.pk),
+            extra={
+                "verification_code": vr.code,
+                "invoice_id": vr.invoice_id,
+                "invoice_status": getattr(vr.invoice, "status", ""),
+            },
+        )
+    except Exception:
+        pass
 
     _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
     return vr

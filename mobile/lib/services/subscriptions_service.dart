@@ -95,6 +95,31 @@ class SubscriptionsService {
     }
   }
 
+  static Map<String, dynamic> planOffer(Map<String, dynamic>? plan) {
+    final raw = plan?['provider_offer'];
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return const <String, dynamic>{};
+  }
+
+  static Map<String, dynamic> planAction(Map<String, dynamic>? plan) {
+    final offer = planOffer(plan);
+    final raw = offer['cta'];
+    if (raw is Map) {
+      return raw.map((key, value) => MapEntry(key.toString(), value));
+    }
+    return const <String, dynamic>{};
+  }
+
+  static String planDisplayTitle(Map<String, dynamic>? plan) {
+    final offer = planOffer(plan);
+    return _asString(offer['plan_name']) ??
+        _asString(plan?['title']) ??
+        _asString(plan?['name']) ??
+        'الباقة';
+  }
+
   static DateTime? parseSubscriptionEndAt(Map<String, dynamic>? subscription) {
     final raw = _asString(subscription?['end_at'] ?? subscription?['end_date']);
     if (raw == null) return null;

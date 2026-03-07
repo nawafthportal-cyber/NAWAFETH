@@ -8,7 +8,12 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.providers.models import ProviderProfile
-from apps.verification.models import VerifiedBadge, VerificationBadgeType, VerificationRequest
+from apps.verification.models import (
+    VerifiedBadge,
+    VerificationBadgeType,
+    VerificationRequest,
+    VerificationStatus,
+)
 from apps.verification.services import expire_verified_badges_and_sync, sync_provider_badges
 
 
@@ -80,13 +85,51 @@ def test_verified_badge_signal_syncs_profile_flags_on_save_update():
     assert user.provider_profile.is_verified_blue is False
 
 
+def test_request_state_change_revokes_badges_when_request_is_rejected():
+    user = _make_provider_user("0501000004")
+    vr = VerificationRequest.objects.create(
+        requester=user,
+        badge_type=VerificationBadgeType.BLUE,
+        status=VerificationStatus.ACTIVE,
+        activated_at=timezone.now() - timedelta(days=1),
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+
+    VerifiedBadge.objects.create(
+        user=user,
+        request=vr,
+        badge_type=VerificationBadgeType.BLUE,
+        verification_code="B1",
+        verification_title="توثيق أساسي",
+        activated_at=timezone.now() - timedelta(days=1),
+        expires_at=timezone.now() + timedelta(days=30),
+        is_active=True,
+    )
+
+    user.provider_profile.refresh_from_db()
+    assert user.provider_profile.is_verified_blue is True
+
+    vr.status = VerificationStatus.REJECTED
+    vr.save(update_fields=["status", "updated_at"])
+
+    user.provider_profile.refresh_from_db()
+    assert VerifiedBadge.objects.filter(request=vr, is_active=True).count() == 0
+    assert user.provider_profile.is_verified_blue is False
+
+
 def test_expire_verified_badges_and_sync_disables_expired_badges_and_flags():
     user = _make_provider_user("0501000003")
     profile = user.provider_profile
     profile.is_verified_blue = True
     profile.save(update_fields=["is_verified_blue"])
 
-    vr = _make_request(user, VerificationBadgeType.BLUE)
+    vr = VerificationRequest.objects.create(
+        requester=user,
+        badge_type=VerificationBadgeType.BLUE,
+        status=VerificationStatus.ACTIVE,
+        activated_at=timezone.now() - timedelta(days=10),
+        expires_at=timezone.now() - timedelta(minutes=1),
+    )
     badge = VerifiedBadge.objects.create(
         user=user,
         request=vr,
@@ -100,9 +143,11 @@ def test_expire_verified_badges_and_sync_disables_expired_badges_and_flags():
 
     changed = expire_verified_badges_and_sync()
 
+    vr.refresh_from_db()
     badge.refresh_from_db()
     profile.refresh_from_db()
     assert changed >= 1
+    assert vr.status == VerificationStatus.EXPIRED
     assert badge.is_active is False
     assert profile.is_verified_blue is False
 
