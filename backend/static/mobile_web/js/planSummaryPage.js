@@ -59,9 +59,9 @@ const PlanSummaryPage = (() => {
 
   function _renderRow(row) {
     return `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid #e5e7eb">
-        <span style="color:#475569;font-size:14px">${UI.text(row.label || '')}</span>
-        <strong style="color:#0f172a;font-size:14px;text-align:left">${UI.text(row.value || '')}</strong>
+      <div class="ps-compare-row">
+        <span class="ps-compare-label">${UI.text(row.label || '')}</span>
+        <strong class="ps-compare-value">${UI.text(row.value || '')}</strong>
       </div>
     `;
   }
@@ -76,54 +76,54 @@ const PlanSummaryPage = (() => {
 
     const container = document.getElementById('summary-card');
     container.innerHTML = `
-      <section style="display:grid;gap:18px">
-        <article style="background:linear-gradient(135deg,#0f4c5c,#2a9d8f);border-radius:28px;padding:24px;color:#fff;box-shadow:0 18px 40px rgba(15,76,92,.18)">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
-            <div>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-                <h2 style="margin:0;font-size:28px;font-weight:900">${UI.text(offer.plan_name || plan.title || 'الباقة')}</h2>
-                <span style="display:inline-flex;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.14);font-size:12px">${UI.text(buttonLabel)}</span>
+      <section class="plan-summary-layout">
+        <article class="ps-hero-card">
+          <div class="ps-hero-head">
+            <div class="ps-hero-main">
+              <div class="ps-title-row">
+                <h2 class="ps-hero-title">${UI.text(offer.plan_name || plan.title || 'الباقة')}</h2>
+                <span class="ps-hero-chip">${UI.text(buttonLabel)}</span>
               </div>
-              <p style="margin:10px 0 0;color:rgba(255,255,255,.82);line-height:1.9">${UI.text(offer.description || '')}</p>
+              <p class="ps-hero-description">${UI.text(offer.description || '')}</p>
             </div>
-            <div style="min-width:150px;border-radius:22px;background:rgba(255,255,255,.12);padding:14px 16px;text-align:center">
-              <div style="font-size:12px;color:rgba(255,255,255,.74)">المبلغ النهائي</div>
-              <div style="margin-top:6px;font-size:24px;font-weight:900">${UI.text(offer.final_payable_label || 'مجانية')}</div>
-              <div style="margin-top:4px;font-size:12px;color:rgba(255,255,255,.72)">${UI.text(offer.billing_cycle_label || 'سنوي')}</div>
+            <div class="ps-price-chip">
+              <div class="ps-price-label">المبلغ النهائي</div>
+              <div class="ps-price-value">${UI.text(offer.final_payable_label || 'مجانية')}</div>
+              <div class="ps-price-cycle">${UI.text(offer.billing_cycle_label || 'سنوي')}</div>
             </div>
           </div>
         </article>
 
-        <article style="background:#fff;border-radius:24px;padding:22px;box-shadow:0 12px 34px rgba(15,23,42,.08)">
-          <h3 style="margin:0 0 14px;font-size:18px;color:#0f172a">تفاصيل الاشتراك</h3>
-          <div style="display:grid;gap:12px;margin-bottom:10px">
-            <div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#64748b">الباقة المختارة</span><strong>${UI.text(offer.plan_name || plan.title || '')}</strong></div>
-            <div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#64748b">دورة الفوترة</span><strong>${UI.text(offer.billing_cycle_label || 'سنوي')}</strong></div>
-            <div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#64748b">سعر الباقة</span><strong>${UI.text(offer.annual_price_label || 'مجانية')}</strong></div>
-            <div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#64748b">أثر التوثيق</span><strong>${UI.text(offer.verification_effect_label || '')}</strong></div>
-            <div style="display:flex;justify-content:space-between;gap:16px"><span style="color:#64748b">المبلغ النهائي المستحق</span><strong>${UI.text(offer.final_payable_label || 'مجانية')}</strong></div>
+        <article class="ps-card ps-details-card">
+          <h3 class="ps-section-title">تفاصيل الاشتراك</h3>
+          <div class="ps-details-grid">
+            <div class="ps-details-row"><span>الباقة المختارة</span><strong>${UI.text(offer.plan_name || plan.title || '')}</strong></div>
+            <div class="ps-details-row"><span>دورة الفوترة</span><strong>${UI.text(offer.billing_cycle_label || 'سنوي')}</strong></div>
+            <div class="ps-details-row"><span>سعر الباقة</span><strong>${UI.text(offer.annual_price_label || 'مجانية')}</strong></div>
+            <div class="ps-details-row"><span>أثر التوثيق</span><strong>${UI.text(offer.verification_effect_label || '')}</strong></div>
+            <div class="ps-details-row"><span>المبلغ النهائي المستحق</span><strong>${UI.text(offer.final_payable_label || 'مجانية')}</strong></div>
           </div>
-          <div style="margin-top:14px;padding:14px 16px;border-radius:18px;background:#f8fafc;color:#334155;line-height:1.9">
-            <strong style="display:block;color:#0f172a;margin-bottom:6px">ملاحظة الضريبة</strong>
+          <div class="ps-tax-note">
+            <strong>ملاحظة الضريبة</strong>
             ${UI.text(offer.tax_note || '')}
           </div>
         </article>
 
-        <article style="background:#fff;border-radius:24px;padding:22px;box-shadow:0 12px 34px rgba(15,23,42,.08)">
-          <h3 style="margin:0 0 14px;font-size:18px;color:#0f172a">المزايا الرئيسية</h3>
-          <ul style="margin:0;padding:0;list-style:none">
-            ${features.map(item => `<li style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;color:#1e293b"><span style="color:#0f766e;font-weight:900">•</span><span>${UI.text(item || '')}</span></li>`).join('')}
+        <article class="ps-card ps-features-card">
+          <h3 class="ps-section-title">المزايا الرئيسية</h3>
+          <ul class="ps-features-list">
+            ${features.map(item => `<li class="ps-feature-item"><span class="ps-feature-bullet">•</span><span>${UI.text(item || '')}</span></li>`).join('')}
           </ul>
         </article>
 
-        <article style="background:#fff;border-radius:24px;padding:22px;box-shadow:0 12px 34px rgba(15,23,42,.08)">
-          <h3 style="margin:0 0 14px;font-size:18px;color:#0f172a">مقارنة سريعة</h3>
+        <article class="ps-card ps-compare-card">
+          <h3 class="ps-section-title">مقارنة سريعة</h3>
           <div>${rows.map(_renderRow).join('')}</div>
         </article>
 
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <button id="summary-submit" class="btn btn-primary" style="min-width:180px" ${canProceed ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
-          <a href="/plans/" class="btn btn-secondary">العودة إلى الباقات</a>
+        <div class="ps-action-row">
+          <button id="summary-submit" class="btn btn-primary ps-submit-btn" ${canProceed ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
+          <a href="/plans/" class="btn btn-secondary ps-back-btn">العودة إلى الباقات</a>
         </div>
       </section>
     `;

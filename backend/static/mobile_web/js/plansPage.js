@@ -46,19 +46,19 @@ const PlansPage = (() => {
     const cta = offer.cta || {};
     if (!cta.state) return '';
     if (cta.state === 'current' || cta.state === 'pending') {
-      return `<span style="display:inline-flex;padding:5px 10px;border-radius:999px;background:${offer._theme.badge};color:${offer._theme.text};font-size:12px;font-weight:700">${UI.text(cta.label || '')}</span>`;
+      return `<span class="plan-status plan-status-current">${UI.text(cta.label || '')}</span>`;
     }
     if (cta.state === 'unavailable') {
-      return `<span style="display:inline-flex;padding:5px 10px;border-radius:999px;background:rgba(255,255,255,.2);color:#fff;font-size:12px;font-weight:700">باقة أقل من الحالية</span>`;
+      return '<span class="plan-status plan-status-unavailable">باقة أقل من الحالية</span>';
     }
     return '';
   }
 
   function _buildRow(row) {
     return `
-      <li class="plan-feature" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.14)">
-        <span style="font-size:13px;color:rgba(255,255,255,.78)">${UI.text(row.label || '')}</span>
-        <strong style="font-size:13px;color:#fff;text-align:left">${UI.text(row.value || '')}</strong>
+      <li class="plan-feature">
+        <span class="plan-feature-label">${UI.text(row.label || '')}</span>
+        <strong class="plan-feature-value">${UI.text(row.value || '')}</strong>
       </li>
     `;
   }
@@ -98,49 +98,46 @@ const PlansPage = (() => {
   function _buildPlanCard(plan) {
     const offer = _offer(plan);
     const theme = _planTheme(plan.canonical_tier || offer.tier);
-    offer._theme = theme;
     const cta = _cta(plan);
     const rows = Array.isArray(offer.card_rows) ? offer.card_rows : [];
     const buttonLabel = cta.label || 'ترقية';
     const isEnabled = Boolean(cta.enabled);
     const buttonClass = isEnabled ? 'btn btn-primary' : 'btn btn-secondary';
     const actionHint = cta.current_plan_name
-      ? `<p style="margin:10px 0 0;color:rgba(255,255,255,.72);font-size:12px">الباقة الحالية: ${UI.text(cta.current_plan_name)}</p>`
+      ? `<p class="plan-current-hint">الباقة الحالية: ${UI.text(cta.current_plan_name)}</p>`
       : '';
 
     const card = document.createElement('article');
-    card.className = 'plan-card';
-    card.style.background = theme.shell;
-    card.style.borderRadius = '26px';
-    card.style.padding = '22px';
-    card.style.boxShadow = '0 14px 34px rgba(15,23,42,.12)';
-    card.style.color = '#fff';
+    card.className = 'plan-card plan-card-rich';
+    card.style.setProperty('--plan-shell', theme.shell);
+    card.style.setProperty('--plan-badge-bg', theme.badge);
+    card.style.setProperty('--plan-badge-text', theme.text);
 
     card.innerHTML = `
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
-        <div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <h2 style="margin:0;font-size:24px;font-weight:800">${UI.text(offer.plan_name || plan.title || 'باقة')}</h2>
+      <div class="plan-head">
+        <div class="plan-head-main">
+          <div class="plan-title-row">
+            <h2 class="plan-title">${UI.text(offer.plan_name || plan.title || 'باقة')}</h2>
             ${_statusBadge(offer)}
           </div>
-          <p style="margin:10px 0 0;color:rgba(255,255,255,.82);line-height:1.8">${UI.text(offer.description || '')}</p>
+          <p class="plan-description">${UI.text(offer.description || '')}</p>
         </div>
-        <div style="min-width:120px;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.14);text-align:center">
-          <div style="font-size:12px;color:rgba(255,255,255,.72)">السعر السنوي</div>
-          <div style="margin-top:6px;font-size:20px;font-weight:800">${UI.text(offer.annual_price_label || 'مجانية')}</div>
+        <div class="plan-price-chip">
+          <div class="plan-price-label">السعر السنوي</div>
+          <div class="plan-price-value">${UI.text(offer.annual_price_label || 'مجانية')}</div>
         </div>
       </div>
-      <div style="margin-top:18px;padding:16px;border-radius:20px;background:rgba(255,255,255,.08)">
-        <div style="font-size:13px;color:rgba(255,255,255,.72);margin-bottom:10px">أهم التفاصيل</div>
-        <ul class="plan-features" style="margin:0;padding:0;list-style:none">${rows.map(_buildRow).join('')}</ul>
+      <div class="plan-details-box">
+        <div class="plan-details-title">أهم التفاصيل</div>
+        <ul class="plan-features plan-features-list">${rows.map(_buildRow).join('')}</ul>
       </div>
-      <div style="margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
-        <div>
-          <div style="font-size:13px;color:rgba(255,255,255,.72)">أثر الباقة على التوثيق</div>
-          <div style="margin-top:6px;font-weight:700">${UI.text(offer.verification_effect_label || '')}</div>
+      <div class="plan-footer-row">
+        <div class="plan-effect-wrap">
+          <div class="plan-effect-label">أثر الباقة على التوثيق</div>
+          <div class="plan-effect-value">${UI.text(offer.verification_effect_label || '')}</div>
           ${actionHint}
         </div>
-        <button class="${buttonClass}" style="min-width:140px" ${isEnabled ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
+        <button class="${buttonClass} plan-cta-btn" ${isEnabled ? '' : 'disabled'}>${UI.text(buttonLabel)}</button>
       </div>
     `;
 
