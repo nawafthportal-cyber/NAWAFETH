@@ -26,6 +26,10 @@ services:
           name: nawafeth-redis
           type: keyvalue
           property: connectionString
+      - key: RUN_MIGRATIONS_ON_START
+        value: "0"
+      - key: RUN_COLLECTSTATIC_ON_START
+        value: "0"
 
   - type: keyvalue
     name: nawafeth-redis

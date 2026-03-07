@@ -27,6 +27,10 @@ services:
           name: nawafeth-redis
           type: keyvalue
           property: connectionString
+      - key: RUN_MIGRATIONS_ON_START
+        value: "0"
+      - key: RUN_COLLECTSTATIC_ON_START
+        value: "0"
       # Optional overrides:
       # - key: DJANGO_CSRF_TRUSTED_ORIGINS
       #   value: https://*.onrender.com,https://nawafeth.app,https://admin.nawafeth.app

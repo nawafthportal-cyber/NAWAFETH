@@ -7,22 +7,31 @@ cd "${PROJECT_ROOT}"
 
 export DJANGO_ENV="${DJANGO_ENV:-prod}"
 
-# ── Migrations (run in background to avoid blocking startup) ────────
-# On Render free plan, cold starts must be fast to avoid Cloudflare 524.
-# Run migrations with a timeout to prevent hanging on DB connection issues.
-if [ "${RUN_MIGRATIONS_ON_START:-1}" = "1" ]; then
-	echo "[start] Running migrations (timeout 30s)..."
-	timeout 30 python manage.py migrate --noinput 2>&1 || echo "[start] WARNING: migrate timed out or failed, continuing anyway."
+# Keep boot fast on Render so the platform can detect the HTTP port.
+# These tasks can be enabled explicitly per service if needed.
+RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
+RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
+
+# ── Migrations (optional, non-blocking) ─────────────────────────────
+if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
+	echo "[start] Running migrations in background (timeout 30s)..."
+	(
+		timeout 30 python manage.py migrate --noinput 2>&1 || echo "[start] WARNING: migrate timed out or failed."
+	) &
+else
+	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START})."
 fi
 
-# ── Static files ────────────────────────────────────────────
-# On Render free plan build artifacts may not persist to runtime.
-# If the manifest is missing we regenerate it before starting gunicorn.
-# WHITENOISE_MANIFEST_STRICT=False (in settings) prevents 500 errors
-# even if something goes wrong here.
+# ── Static files (optional, non-blocking) ───────────────────────────
 if [ ! -f "staticfiles/staticfiles.json" ]; then
-	echo "[start] Static manifest missing — running collectstatic (timeout 30s)..."
-	timeout 30 python manage.py collectstatic --noinput 2>&1 || echo "[start] WARNING: collectstatic failed, continuing anyway."
+	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
+		echo "[start] Static manifest missing — running collectstatic in background (timeout 30s)..."
+		(
+			timeout 30 python manage.py collectstatic --noinput 2>&1 || echo "[start] WARNING: collectstatic failed."
+		) &
+	else
+		echo "[start] Static manifest missing, but collectstatic on startup is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
+	fi
 else
 	echo "[start] Static manifest OK."
 fi
@@ -32,6 +41,8 @@ PORT_VALUE="${PORT:-8000}"
 WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY:-2}"
 LOG_LEVEL_VALUE="${GUNICORN_LOG_LEVEL:-info}"
 TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
+
+echo "[start] Launching gunicorn on 0.0.0.0:${PORT_VALUE}"
 
 exec gunicorn config.asgi:application \
 	-k uvicorn.workers.UvicornWorker \
