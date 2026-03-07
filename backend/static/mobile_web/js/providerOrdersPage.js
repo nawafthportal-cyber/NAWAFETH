@@ -202,9 +202,10 @@ const ProviderOrdersPage = (() => {
 
     const top = UI.el('div', { className: 'order-card-top po-card-top' });
     const start = UI.el('div', { className: 'po-card-head' });
+    const headTitle = (String(order.display_id || order.id || '-') + '  ' + String(order.client_name || '')).trim();
     start.appendChild(UI.el('span', {
       className: 'order-id',
-      textContent: '#' + String(order.display_id || order.id || '-'),
+      textContent: headTitle,
     }));
 
     const type = String(order.request_type || '').toLowerCase();
@@ -229,6 +230,7 @@ const ProviderOrdersPage = (() => {
       style: {
         color: _statusColor(order),
         borderColor: _statusColor(order),
+        backgroundColor: _statusBg(order),
       },
     });
 
@@ -295,6 +297,14 @@ const ProviderOrdersPage = (() => {
     if (group === 'cancelled') return '#C62828';
     if (group === 'in_progress') return '#E67E22';
     return '#A56800';
+  }
+
+  function _statusBg(order) {
+    const group = _statusGroup(order);
+    if (group === 'completed') return 'rgba(46, 125, 50, 0.11)';
+    if (group === 'cancelled') return 'rgba(198, 40, 40, 0.11)';
+    if (group === 'in_progress') return 'rgba(230, 126, 34, 0.11)';
+    return 'rgba(165, 104, 0, 0.11)';
   }
 
   function _typeLabel(type) {

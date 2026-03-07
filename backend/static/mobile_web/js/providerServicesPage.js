@@ -1,19 +1,52 @@
 "use strict";
 var ProviderServicesPage = (function () {
   var RAW_API = window.ApiClient;
+  var API = window.NwApiClient;
   var services = [];
   var categories = [];
   var editingId = null;
+  var providerId = null;
+  var readOnlyMode = false;
 
   function request(path, options) {
+    var opts = options || {};
     if (RAW_API && typeof RAW_API.request === "function") {
-      return RAW_API.request(path, options || {});
+      return RAW_API.request(path, opts);
     }
 
-    var opts = options || {};
     var method = opts.method || "GET";
-    if (method === "GET" && RAW_API && typeof RAW_API.get === "function") {
-      return RAW_API.get(path);
+    if (method === "GET") {
+      if (RAW_API && typeof RAW_API.get === "function") {
+        return RAW_API.get(path);
+      }
+      if (API && typeof API.get === "function") {
+        return API.get(path).then(function (data) {
+          return { ok: true, status: 200, data: data };
+        }).catch(function () {
+          return { ok: false, status: 0, data: null };
+        });
+      }
+    }
+    if (method === "POST" && API && typeof API.post === "function") {
+      return API.post(path, opts.body || {}).then(function (data) {
+        return { ok: !!data, status: data ? 200 : 0, data: data };
+      }).catch(function () {
+        return { ok: false, status: 0, data: null };
+      });
+    }
+    if (method === "PATCH" && API && typeof API.patch === "function") {
+      return API.patch(path, opts.body || {}).then(function (data) {
+        return { ok: !!data, status: data ? 200 : 0, data: data };
+      }).catch(function () {
+        return { ok: false, status: 0, data: null };
+      });
+    }
+    if (method === "DELETE" && API && typeof API.del === "function") {
+      return API.del(path).then(function (resp) {
+        return resp && typeof resp.ok === "boolean" ? resp : { ok: true, status: 204, data: null };
+      }).catch(function () {
+        return { ok: false, status: 0, data: null };
+      });
     }
     return Promise.resolve({ ok: false, status: 0, data: null });
   }
@@ -35,40 +68,117 @@ var ProviderServicesPage = (function () {
     return [];
   }
 
+  function extractProviderId(payload) {
+    if (!payload || typeof payload !== "object") return null;
+    if (payload.provider_profile_id) return payload.provider_profile_id;
+    if (payload.provider_profile && typeof payload.provider_profile === "number") return payload.provider_profile;
+    if (payload.provider_profile && typeof payload.provider_profile === "object") return payload.provider_profile.id || null;
+    return null;
+  }
+
+  function setComposerEnabled(enabled) {
+    var addBtn = document.getElementById("btn-add-service");
+    var addFirstBtn = document.getElementById("btn-add-first");
+    if (addBtn) {
+      addBtn.style.opacity = enabled ? "1" : "0.45";
+      addBtn.style.pointerEvents = enabled ? "" : "none";
+      addBtn.title = enabled ? "إضافة خدمة" : "غير متاح حالياً";
+    }
+    if (addFirstBtn) {
+      addFirstBtn.disabled = !enabled;
+      addFirstBtn.style.opacity = enabled ? "1" : "0.6";
+    }
+  }
+
+  function showError(msg) {
+    document.getElementById("ps-loading").style.display = "none";
+    var el = document.getElementById("ps-error");
+    el.style.display = "";
+    el.querySelector("p").textContent = msg || "تعذر جلب الخدمات";
+  }
+
+  function clearError() {
+    document.getElementById("ps-error").style.display = "none";
+  }
+
   function init() {
-    loadData();
     bindEvents();
+    loadData();
+  }
+
+  function loadProviderId() {
+    return request("/api/accounts/me/?mode=provider").then(function (resp) {
+      if (resp && resp.ok && resp.data) return resp;
+      return request("/api/accounts/me/");
+    }).then(function (resp) {
+      if (!resp || !resp.ok || !resp.data) return null;
+      providerId = extractProviderId(resp.data);
+      return providerId;
+    }).catch(function () {
+      return null;
+    });
+  }
+
+  function loadCategories() {
+    return request("/api/providers/categories/").then(function (resp) {
+      if (!resp || !resp.ok) return { ok: false, data: [] };
+      return { ok: true, data: extractList(resp.data) };
+    });
+  }
+
+  function loadServices() {
+    return request("/api/providers/me/services/").then(function (resp) {
+      if (resp && resp.ok) {
+        readOnlyMode = false;
+        return { ok: true, data: extractList(resp.data) };
+      }
+      return loadProviderId().then(function (pid) {
+        if (!pid) {
+          return { ok: false, reason: resp };
+        }
+        return request("/api/providers/" + pid + "/services/").then(function (fallbackResp) {
+          if (!fallbackResp || !fallbackResp.ok) {
+            return { ok: false, reason: fallbackResp || resp };
+          }
+          readOnlyMode = true;
+          return { ok: true, data: extractList(fallbackResp.data) };
+        });
+      });
+    });
   }
 
   function loadData() {
     document.getElementById("ps-loading").style.display = "";
-    document.getElementById("ps-error").style.display = "none";
+    clearError();
+    document.getElementById("ps-empty").style.display = "none";
+    document.getElementById("ps-list").style.display = "none";
 
-    Promise.all([
-      request("/api/providers/categories/"),
-      request("/api/providers/me/services/"),
+    Promise.allSettled([
+      loadCategories(),
+      loadServices(),
     ]).then(function (responses) {
-      var catResp = responses[0] || {};
-      var svcResp = responses[1] || {};
+      var catResp = (responses[0] && responses[0].status === "fulfilled") ? responses[0].value : { ok: false, data: [] };
+      var svcResp = (responses[1] && responses[1].status === "fulfilled") ? responses[1].value : { ok: false, data: [] };
 
-      if (!catResp.ok || !svcResp.ok) {
-        throw new Error(
-          apiErrorMessage(
-            (!catResp.ok ? catResp.data : svcResp.data),
-            "تعذر جلب الخدمات"
-          )
-        );
+      categories = catResp.ok ? catResp.data : [];
+      services = svcResp.ok ? svcResp.data : [];
+
+      if (!catResp.ok && !svcResp.ok) {
+        throw new Error("تعذر جلب الخدمات. تأكد من تسجيل الدخول كمزود");
       }
 
-      categories = Array.isArray(catResp.data) ? catResp.data : [];
-      services = extractList(svcResp.data);
+      setComposerEnabled(!readOnlyMode && categories.length > 0);
       populateCategoryDropdown();
       render();
+
+      if (!catResp.ok) {
+        showError("تم تحميل الخدمات، لكن تعذر تحميل التصنيفات");
+      } else if (!svcResp.ok) {
+        showError("تم تحميل التصنيفات، لكن تعذر تحميل الخدمات");
+      }
     }).catch(function (err) {
-      document.getElementById("ps-loading").style.display = "none";
-      var el = document.getElementById("ps-error");
-      el.style.display = "";
-      el.querySelector("p").textContent = (err && err.message) ? err.message : "تعذر جلب الخدمات";
+      setComposerEnabled(false);
+      showError((err && err.message) ? err.message : "تعذر جلب الخدمات");
     });
   }
 
@@ -85,15 +195,15 @@ var ProviderServicesPage = (function () {
 
   function render() {
     document.getElementById("ps-loading").style.display = "none";
+    var list = document.getElementById("ps-list");
+    list.style.display = "";
     if (!services.length) {
       document.getElementById("ps-empty").style.display = "";
-      document.getElementById("ps-list").style.display = "none";
+      list.style.display = "none";
       return;
     }
 
     document.getElementById("ps-empty").style.display = "none";
-    var list = document.getElementById("ps-list");
-    list.style.display = "";
     list.innerHTML = services.map(function (service) {
       var subcat = service.subcategory || {};
       var catName = subcat.category_name || (subcat.category && subcat.category.name) || "";
@@ -115,7 +225,7 @@ var ProviderServicesPage = (function () {
         '<p class="svc-cat">' + catName + (subName ? " \u2192 " + subName : "") + '</p>' +
         '<p class="svc-desc">' + (service.description || "").substring(0, 100) + '</p>' +
         '<div class="svc-footer"><span class="svc-price">' + priceStr + '</span><span class="svc-price-type">' + priceUnit + '</span></div>' +
-        '<div class="svc-actions"><button class="btn btn-sm btn-outline btn-edit" data-id="' + service.id + '">تعديل</button><button class="btn btn-sm btn-danger btn-delete" data-id="' + service.id + '">حذف</button></div>' +
+        (readOnlyMode ? '<div class="svc-readonly">عرض فقط</div>' : '<div class="svc-actions"><button class="btn btn-sm btn-outline btn-edit" data-id="' + service.id + '">تعديل</button><button class="btn btn-sm btn-danger btn-delete" data-id="' + service.id + '">حذف</button></div>') +
         '</div>';
     }).join("");
   }
@@ -165,6 +275,14 @@ var ProviderServicesPage = (function () {
   }
 
   function openModal(service) {
+    if (readOnlyMode) {
+      alert("الوضع الحالي للعرض فقط. تأكد من تسجيل الدخول كمزود.");
+      return;
+    }
+    if (!categories.length) {
+      alert("تعذر تحميل التصنيفات. حاول إعادة المحاولة.");
+      return;
+    }
     editingId = service ? service.id : null;
     document.getElementById("svc-modal-title").textContent = service ? "تعديل الخدمة" : "إضافة خدمة جديدة";
 
@@ -272,6 +390,7 @@ var ProviderServicesPage = (function () {
   }
 
   function reload() {
+    readOnlyMode = false;
     loadData();
   }
 
