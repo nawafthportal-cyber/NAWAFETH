@@ -14,7 +14,7 @@ from apps.dashboard.templatetags.dashboard_access import can_access
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.providers.models import Category, ProviderProfile, SubCategory
-from apps.subscriptions.models import Subscription, SubscriptionPlan, SubscriptionStatus
+from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.support.models import SupportTicket, SupportTicketType, SupportTicketStatus, SupportPriority, SupportTeam
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestStatus
@@ -963,7 +963,7 @@ def test_subscription_account_detail_page_and_actions():
 		bio="bio",
 	)
 	plan_basic = SubscriptionPlan.objects.create(code="BASIC_Y2", title="الأساسية", period="year", price="100.00", is_active=True)
-	plan_pro = SubscriptionPlan.objects.create(code="PRO_Y2", title="الاحترافية", period="year", price="999.00", is_active=True)
+	plan_pro = SubscriptionPlan.objects.create(code="PRO_Y2", tier=PlanTier.PRO, title="الاحترافية", period="year", price="999.00", is_active=True)
 	invoice = Invoice.objects.create(user=requester, title="فاتورة اشتراك", subtotal="100.00", reference_type="subscription", reference_id="77")
 	sub = Subscription.objects.create(user=requester, plan=plan_basic, status=SubscriptionStatus.ACTIVE, invoice=invoice)
 

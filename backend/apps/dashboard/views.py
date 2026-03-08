@@ -55,6 +55,7 @@ from apps.subscriptions.services import (
     activate_subscription_after_payment,
     get_effective_active_subscriptions_map,
     start_subscription_checkout,
+    start_subscription_renewal_checkout,
 )
 from apps.promo.models import PromoRequest, PromoRequestStatus
 from apps.promo.models import PromoAdPrice, PromoAdType
@@ -3870,7 +3871,7 @@ def subscription_account_add_note_action(request: HttpRequest, subscription_id: 
 def subscription_account_renew_action(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription.objects.select_related("user", "plan"), id=subscription_id)
     try:
-        new_sub = start_subscription_checkout(user=sub.user, plan=sub.plan)
+        new_sub = start_subscription_renewal_checkout(user=sub.user, plan=sub.plan)
         try:
             log_action(
                 actor=request.user,

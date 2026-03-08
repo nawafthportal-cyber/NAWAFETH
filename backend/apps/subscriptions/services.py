@@ -373,6 +373,12 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription
     if action_state == "current":
         raise ValueError("هذه هي باقتك الحالية بالفعل.")
 
+    return _create_pending_subscription_checkout(user=user, plan=plan, offer=offer)
+
+
+def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer: dict | None = None) -> Subscription:
+    offer = offer or subscription_offer_for_plan(plan, user=user)
+
     sub = Subscription.objects.create(
         user=user,
         plan=plan,
@@ -396,6 +402,30 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription
     sub.save(update_fields=["invoice", "updated_at"])
     _sync_subscription_to_unified(sub=sub, changed_by=user)
     return sub
+
+
+def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subscription:
+    """
+    إنشاء طلب تجديد إداري لنفس الباقة الحالية حتى لو كانت الباقة الحالية نفسها.
+    هذا المسار مخصص للداشبورد ويجب ألا يغير قيود الاشتراك العامة في الواجهات العامة.
+    """
+    ensure_provider_access(user)
+
+    existing = (
+        Subscription.objects.filter(
+            user=user,
+            plan=plan,
+            status=SubscriptionStatus.PENDING_PAYMENT,
+        )
+        .select_related("plan", "invoice")
+        .order_by("-id")
+        .first()
+    )
+    if existing is not None:
+        return existing
+
+    offer = subscription_offer_for_plan(plan, user=user)
+    return _create_pending_subscription_checkout(user=user, plan=plan, offer=offer)
 
 
 @transaction.atomic
