@@ -12,6 +12,10 @@ class AboutScreen extends StatefulWidget {
 
 class _AboutScreenState extends State<AboutScreen> {
   bool _isLoading = true;
+  String _heroTitle = 'منصة نوافذ';
+  String _heroSubtitle = 'حلول تقنية مبتكرة تربط مزوّدي الخدمات بطالبيها';
+  String _socialTitle = 'تواصل معنا';
+  String _websiteLabel = 'الموقع الرسمي';
 
   static const Map<String, String> _defaultTitles = {
     "about": "من نحن",
@@ -58,25 +62,6 @@ class _AboutScreenState extends State<AboutScreen> {
     _loadPublicContent();
   }
 
-  Map<String, dynamic>? _findBlock(
-    Map<String, dynamic> blocks,
-    List<String> candidateKeys,
-  ) {
-    for (final key in candidateKeys) {
-      final value = blocks[key];
-      if (value is Map<String, dynamic>) return value;
-    }
-
-    for (final entry in blocks.entries) {
-      final normalized = entry.key.trim().toLowerCase();
-      final matched = candidateKeys.any((k) => normalized.contains(k));
-      if (matched && entry.value is Map<String, dynamic>) {
-        return entry.value as Map<String, dynamic>;
-      }
-    }
-    return null;
-  }
-
   Future<void> _loadPublicContent() async {
     final result = await ContentService.fetchPublicContent();
     if (!mounted) return;
@@ -86,13 +71,21 @@ class _AboutScreenState extends State<AboutScreen> {
       final blocks = (data['blocks'] as Map<String, dynamic>?) ?? {};
       final links = (data['links'] as Map<String, dynamic>?) ?? {};
 
-      final aboutBlock = _findBlock(blocks, ['about', 'about_us', 'company_about']);
-      final visionBlock = _findBlock(blocks, ['vision']);
-      final goalsBlock = _findBlock(blocks, ['goals', 'goal', 'objectives']);
-      final valuesBlock = _findBlock(blocks, ['values', 'value']);
-      final appBlock = _findBlock(blocks, ['app', 'application', 'about_app']);
+      final aboutBlock = blocks['about_section_about'] as Map<String, dynamic>?;
+      final visionBlock = blocks['about_section_vision'] as Map<String, dynamic>?;
+      final goalsBlock = blocks['about_section_goals'] as Map<String, dynamic>?;
+      final valuesBlock = blocks['about_section_values'] as Map<String, dynamic>?;
+      final appBlock = blocks['about_section_app'] as Map<String, dynamic>?;
 
       setState(() {
+        final heroTitle = (blocks['about_hero_title']?['title_ar'] as String?)?.trim() ?? '';
+        final heroSubtitle = (blocks['about_hero_subtitle']?['title_ar'] as String?)?.trim() ?? '';
+        final socialTitle = (blocks['about_social_title']?['title_ar'] as String?)?.trim() ?? '';
+        final websiteLabel = (blocks['about_website_label']?['title_ar'] as String?)?.trim() ?? '';
+        if (heroTitle.isNotEmpty) _heroTitle = heroTitle;
+        if (heroSubtitle.isNotEmpty) _heroSubtitle = heroSubtitle;
+        if (socialTitle.isNotEmpty) _socialTitle = socialTitle;
+        if (websiteLabel.isNotEmpty) _websiteLabel = websiteLabel;
         if (aboutBlock != null) {
           _titles['about'] = (aboutBlock['title_ar'] as String?)?.trim().isNotEmpty == true
               ? aboutBlock['title_ar'] as String
@@ -344,7 +337,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 Icon(Icons.window_rounded, size: 42, color: Colors.white),
                 SizedBox(height: 10),
                 Text(
-                  "منصة نوافذ",
+                  _heroTitle,
                   style: TextStyle(
                     fontSize: 20,
                     fontFamily: 'Cairo',
@@ -354,7 +347,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 ),
                 SizedBox(height: 6),
                 Text(
-                  "حلول تقنية مبتكرة تربط مزوّدي الخدمات بطالبيها",
+                  _heroSubtitle,
                   style: TextStyle(
                     fontSize: 13,
                     fontFamily: 'Cairo',
@@ -426,7 +419,7 @@ class _AboutScreenState extends State<AboutScreen> {
               child: OutlinedButton.icon(
                 onPressed: () => _openExternalUrl(_websiteUrl),
                 icon: const Icon(Icons.public),
-                label: const Text('الموقع الرسمي'),
+                    label: Text(_websiteLabel),
               ),
             ),
           ],
@@ -435,8 +428,8 @@ class _AboutScreenState extends State<AboutScreen> {
           if (_xUrl.isNotEmpty || _whatsappUrl.isNotEmpty || _emailUrl.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Center(
-              child: Text(
-                'تواصل معنا',
+                child: Text(
+                  _socialTitle,
                 style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 15,

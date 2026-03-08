@@ -396,12 +396,6 @@ BILLING_WEBHOOK_SECRETS = env_json(
 
 # Settings للباقات (اختياري الآن)
 SUBS_GRACE_DAYS = 7  # فترة سماح بعد الانتهاء
-VERIFY_FEES_BY_TIER = {
-    # الاشتراك لا يمنح التوثيق تلقائيًا، لكنه يغير رسومه الافتراضية.
-    "basic": "100.00",
-    "pioneer": "50.00",
-    "professional": "0.00",
-}
 
 # إعدادات افتراضية للإضافات (اختياري الآن)
 EXTRAS_GRACE_DAYS = 0

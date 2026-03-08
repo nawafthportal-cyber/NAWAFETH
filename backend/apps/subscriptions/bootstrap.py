@@ -21,6 +21,32 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "period": PlanPeriod.YEAR,
         "price": Decimal("0.00"),
         "features": ["verify_green"],
+        "feature_bullets": [
+            "جميع الخدمات الأساسية لمقدم الخدمة داخل المنصة",
+            "الوصول الافتراضي المجاني مع إشعارات مفعلة",
+            "مناسبة للبداية مع حدود الاستخدام الأساسية",
+        ],
+        "notifications_enabled": True,
+        "competitive_visibility_delay_hours": 72,
+        "competitive_visibility_label": "بعد 72 ساعة",
+        "banner_images_limit": 1,
+        "banner_images_label": "صورة واحدة",
+        "direct_chat_quota": 3,
+        "direct_chat_label": "3 محادثات مباشرة",
+        "promotional_chat_messages_enabled": False,
+        "promotional_notification_messages_enabled": False,
+        "reminder_schedule_hours": [24],
+        "reminder_policy_label": "التذكير الأول بعد 24 ساعة",
+        "support_priority": "normal",
+        "support_is_priority": False,
+        "support_sla_hours": 120,
+        "support_sla_label": "خلال 5 أيام",
+        "storage_policy": "basic",
+        "storage_label": "السعة المجانية الأساسية",
+        "storage_multiplier": 1,
+        "storage_upload_max_mb": 10,
+        "verification_blue_fee": Decimal("100.00"),
+        "verification_green_fee": Decimal("100.00"),
         "is_active": True,
     },
     {
@@ -31,6 +57,32 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "period": PlanPeriod.YEAR,
         "price": Decimal("199.00"),
         "features": ["verify_green", "promo_ads"],
+        "feature_bullets": [
+            "كل مزايا الأساسية مع تحسين الوصول للطلبات",
+            "سعة أكبر للمحادثات ومواد المنصة",
+            "دعم فني أسرع ورسوم توثيق أقل",
+        ],
+        "notifications_enabled": True,
+        "competitive_visibility_delay_hours": 24,
+        "competitive_visibility_label": "بعد 24 ساعة",
+        "banner_images_limit": 3,
+        "banner_images_label": "3 صور",
+        "direct_chat_quota": 10,
+        "direct_chat_label": "10 محادثات مباشرة",
+        "promotional_chat_messages_enabled": False,
+        "promotional_notification_messages_enabled": False,
+        "reminder_schedule_hours": [24, 120],
+        "reminder_policy_label": "التذكير الأول ثم الثاني بعد 120 ساعة",
+        "support_priority": "high",
+        "support_is_priority": True,
+        "support_sla_hours": 48,
+        "support_sla_label": "خلال يومين",
+        "storage_policy": "double_basic",
+        "storage_label": "ضعف السعة المجانية",
+        "storage_multiplier": 2,
+        "storage_upload_max_mb": 20,
+        "verification_blue_fee": Decimal("50.00"),
+        "verification_green_fee": Decimal("50.00"),
         "is_active": True,
     },
     {
@@ -41,6 +93,32 @@ DEFAULT_SUBSCRIPTION_PLANS = [
         "period": PlanPeriod.YEAR,
         "price": Decimal("999.00"),
         "features": ["verify_blue", "verify_green", "promo_ads", "priority_support", "advanced_analytics"],
+        "feature_bullets": [
+            "كل مزايا الأساسية والريادية ضمن باقة واحدة",
+            "وصول فوري للطلبات التنافسية وصلاحيات دعائية كاملة",
+            "توثيق مشمول ودعم فني خلال 5 ساعات",
+        ],
+        "notifications_enabled": True,
+        "competitive_visibility_delay_hours": 0,
+        "competitive_visibility_label": "فوري",
+        "banner_images_limit": 10,
+        "banner_images_label": "10 صور",
+        "direct_chat_quota": 50,
+        "direct_chat_label": "50 محادثة مباشرة",
+        "promotional_chat_messages_enabled": True,
+        "promotional_notification_messages_enabled": True,
+        "reminder_schedule_hours": [24, 120, 240],
+        "reminder_policy_label": "التذكير الأول والثاني والثالث حتى 240 ساعة",
+        "support_priority": "high",
+        "support_is_priority": True,
+        "support_sla_hours": 5,
+        "support_sla_label": "خلال 5 ساعات",
+        "storage_policy": "open",
+        "storage_label": "سعة مفتوحة",
+        "storage_multiplier": None,
+        "storage_upload_max_mb": 100,
+        "verification_blue_fee": Decimal("0.00"),
+        "verification_green_fee": Decimal("0.00"),
         "is_active": True,
     },
 ]
@@ -142,27 +220,19 @@ def seed_default_subscription_plans(*, force_update: bool = True) -> int:
 
 
 def ensure_basic_subscription_plan() -> SubscriptionPlan:
-    defaults = dict(DEFAULT_BASIC_SUBSCRIPTION_PLAN)
-    code = defaults.pop("code")
+    code = DEFAULT_BASIC_SUBSCRIPTION_PLAN["code"]
     plan = SubscriptionPlan.objects.filter(code=code).first()
     if plan is None:
-        plan, _ = SubscriptionPlan.objects.get_or_create(code=code, defaults=defaults)
-        return plan
-
-    updates = {}
-    for field in ("tier", "price", "is_active"):
-        if getattr(plan, field) != defaults[field]:
-            updates[field] = defaults[field]
-    if updates:
-        SubscriptionPlan.objects.filter(pk=plan.pk).update(**updates)
-        for field, value in updates.items():
-            setattr(plan, field, value)
+        raise SubscriptionPlan.DoesNotExist("Canonical basic subscription plan is missing")
     return plan
 
 
 def ensure_subscription_plans_exist() -> None:
-    ensure_basic_subscription_plan()
-    has_canonical = SubscriptionPlan.objects.filter(code__in=CANONICAL_PLAN_CODES).count()
-    if has_canonical >= len(CANONICAL_PLAN_CODES):
-        return
-    seed_default_subscription_plans(force_update=False)
+    missing_codes = [
+        code for code in CANONICAL_PLAN_CODES
+        if not SubscriptionPlan.objects.filter(code=code).exists()
+    ]
+    if missing_codes:
+        raise SubscriptionPlan.DoesNotExist(
+            f"Missing canonical subscription plan rows: {', '.join(sorted(missing_codes))}"
+        )

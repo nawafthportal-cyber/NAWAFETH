@@ -55,7 +55,7 @@ def test_plans_list(api, user):
     assert plan_payload["tier_label"] == "أساسية"
     assert plan_payload["capabilities"]["competitive_requests"]["visibility_delay_hours"] == 72
     assert plan_payload["capabilities"]["banner_images"]["limit"] == 1
-    assert plan_payload["provider_offer"]["plan_name"] == "الأساسية"
+    assert plan_payload["provider_offer"]["plan_name"] == "أساسية"
     assert plan_payload["provider_offer"]["annual_price"] == "0.00"
     assert plan_payload["provider_offer"]["verification_blue_label"] == "100.00 ر.س سنويًا"
     assert plan_payload["provider_offer"]["cta"]["state"] == "current"
@@ -71,18 +71,28 @@ def test_plans_list_exposes_upgrade_cards_and_official_provider_offer(api, user)
         code="riyadi",
         defaults={
             "tier": "riyadi",
-            "title": "ريادية خام",
+            "title": "الريادية المرنة",
+            "description": "وصف قابل للتعديل من الإدارة",
             "period": PlanPeriod.MONTH,
             "price": Decimal("79.00"),
+            "feature_bullets": ["ميزة شهرية أولى", "ميزة شهرية ثانية"],
+            "competitive_visibility_delay_hours": 12,
+            "direct_chat_quota": 12,
+            "support_sla_hours": 36,
+            "verification_blue_fee": Decimal("12.00"),
+            "verification_green_fee": Decimal("8.00"),
         },
     )
     plan_professional, _ = SubscriptionPlan.objects.update_or_create(
         code="pro",
         defaults={
             "tier": "pro",
-            "title": "احترافية خام",
+            "title": "الاحترافية الكاملة",
             "period": PlanPeriod.MONTH,
-            "price": Decimal("99.00"),
+            "price": Decimal("149.00"),
+            "support_sla_hours": 8,
+            "promotional_chat_messages_enabled": True,
+            "promotional_notification_messages_enabled": True,
         },
     )
     api.force_authenticate(user=user)
@@ -94,19 +104,23 @@ def test_plans_list_exposes_upgrade_cards_and_official_provider_offer(api, user)
     pioneer_offer = by_id[plan_pioneer.id]["provider_offer"]
     professional_offer = by_id[plan_professional.id]["provider_offer"]
 
-    assert pioneer_offer["plan_name"] == "الريادية"
-    assert pioneer_offer["annual_price"] == "199.00"
-    assert pioneer_offer["billing_cycle_label"] == "سنوي"
-    assert pioneer_offer["verification_blue_label"] == "50.00 ر.س سنويًا"
-    assert pioneer_offer["verification_green_label"] == "50.00 ر.س سنويًا"
+    assert pioneer_offer["plan_name"] == "الريادية المرنة"
+    assert pioneer_offer["annual_price"] == "79.00"
+    assert pioneer_offer["billing_cycle_label"] == "شهري"
+    assert pioneer_offer["description"] == "وصف قابل للتعديل من الإدارة"
+    assert pioneer_offer["feature_bullets"] == ["ميزة شهرية أولى", "ميزة شهرية ثانية"]
+    assert pioneer_offer["verification_blue_label"] == "12.00 ر.س سنويًا"
+    assert pioneer_offer["verification_green_label"] == "8.00 ر.س سنويًا"
     assert pioneer_offer["cta"]["state"] == "upgrade"
     assert pioneer_offer["cta"]["label"] == "ترقية"
-    assert pioneer_offer["request_access_label"] == "بعد 24 ساعة"
+    assert pioneer_offer["request_access_label"] == "بعد 12 ساعة"
+    assert pioneer_offer["chats_quota"] == 12
+    assert pioneer_offer["support_sla_label"] == "خلال 36 ساعة"
 
-    assert professional_offer["plan_name"] == "الاحترافية"
-    assert professional_offer["annual_price"] == "999.00"
+    assert professional_offer["plan_name"] == "الاحترافية الكاملة"
+    assert professional_offer["annual_price"] == "149.00"
     assert professional_offer["promotional_permissions_label"] == "متاحة للمحادثات والإشعارات"
-    assert professional_offer["support_sla_label"] == "خلال 5 ساعات"
+    assert professional_offer["support_sla_label"] == "خلال 8 ساعات"
     assert professional_offer["cta"]["state"] == "upgrade"
 
 
@@ -131,6 +145,37 @@ def test_subscribe(api, user):
     assert ur.metadata_record.payload.get("invoice_id") == sub.invoice_id
 
 
+def test_subscription_plan_save_keeps_derived_labels_in_sync():
+    plan = SubscriptionPlan.objects.create(
+        code="riyadi_label_sync",
+        tier="riyadi",
+        title="ريادية",
+        period=PlanPeriod.YEAR,
+        price=Decimal("199.00"),
+        competitive_visibility_delay_hours=24,
+        competitive_visibility_label="بعد 24 ساعة",
+        direct_chat_quota=10,
+        direct_chat_label="10 محادثات مباشرة",
+        support_sla_hours=48,
+        support_sla_label="خلال يومين",
+        is_active=True,
+    )
+
+    plan.competitive_visibility_delay_hours = 12
+    plan.direct_chat_quota = 12
+    plan.support_sla_hours = 36
+    plan.save(update_fields=[
+        "competitive_visibility_delay_hours",
+        "direct_chat_quota",
+        "support_sla_hours",
+    ])
+
+    plan.refresh_from_db()
+    assert plan.competitive_visibility_label == "بعد 12 ساعة"
+    assert plan.direct_chat_label == "12 محادثات مباشرة"
+    assert plan.support_sla_label == "خلال 36 ساعة"
+
+
 def test_subscribe_allows_unverified_provider(api, user):
     plan = SubscriptionPlan.objects.create(
         code="PRO2",
@@ -147,7 +192,7 @@ def test_subscribe_allows_unverified_provider(api, user):
     assert Subscription.objects.filter(user=user, plan=plan).exists()
 
 
-def test_subscribe_uses_official_annual_amount_and_year_duration_for_canonical_plan(api, user):
+def test_subscribe_uses_selected_plan_amount_and_duration(api, user):
     plan, _ = SubscriptionPlan.objects.update_or_create(
         code="riyadi",
         defaults={
@@ -165,9 +210,9 @@ def test_subscribe_uses_official_annual_amount_and_year_duration_for_canonical_p
     assert response.status_code == 201
     sub = Subscription.objects.select_related("invoice", "plan").get(pk=response.data["id"])
     assert sub.invoice is not None
-    assert sub.invoice.subtotal == Decimal("199.00")
+    assert sub.invoice.subtotal == Decimal("79.00")
     assert sub.invoice.vat_percent == Decimal("0.00")
-    assert sub.invoice.total == Decimal("199.00")
+    assert sub.invoice.total == Decimal("79.00")
 
     sub.invoice.mark_payment_confirmed(
         provider="mock",
@@ -181,7 +226,7 @@ def test_subscribe_uses_official_annual_amount_and_year_duration_for_canonical_p
 
     assert sub.start_at is not None
     assert sub.end_at is not None
-    assert (sub.end_at - sub.start_at).days == 365
+    assert (sub.end_at - sub.start_at).days == 30
 
 
 def test_subscribe_rejects_current_or_lower_plan_selection(api, user):

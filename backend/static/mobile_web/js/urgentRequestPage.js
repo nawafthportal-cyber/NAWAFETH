@@ -111,7 +111,7 @@ const UrgentRequestPage = (() => {
     _showHintToast('سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة ' + city, {
       actionLabel: 'عرض الخريطة',
       onAction: () => {
-        const url = '/search/?city=' + encodeURIComponent(city) + '&sort=nearest&open_map=1&urgent=1';
+        const url = '/providers-map/?city=' + encodeURIComponent(city) + '&sort=nearest&urgent=1';
         window.location.href = url;
       },
     });

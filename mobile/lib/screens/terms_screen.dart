@@ -14,41 +14,13 @@ class TermsScreen extends StatefulWidget {
 class _TermsScreenState extends State<TermsScreen> {
   List<bool> _expanded = [false, false, false, false];
   bool _isLoading = true;
+  String _pageTitle = 'الشروط والأحكام';
+  String _emptyLabel = 'لا توجد مستندات متاحة حالياً';
+  String _openDocumentLabel = 'عرض المستند';
+  String _fileOnlyHint = 'اضغط على "عرض المستند" لفتح النسخة الرسمية.';
+  String _missingDocumentHint = 'لا توجد بيانات متاحة لهذا المستند حالياً.';
 
-  List<Map<String, dynamic>> _terms = [
-    {
-      "title": "اتفاقية الاستخدام",
-      "lastUpdate": "آخر تحديث: 10-08-2025",
-      "content":
-          "باستخدامك للمنصة، فإنك تقر وتوافق على الالتزام بجميع الشروط والأحكام. "
-          "يجب استخدام المنصة بما يتوافق مع الأنظمة واللوائح المعمول بها في المملكة العربية السعودية.",
-      "icon": Icons.article_outlined,
-    },
-    {
-      "title": "سياسة الخصوصية",
-      "lastUpdate": "آخر تحديث: 05-08-2025",
-      "content":
-          "تحرص المنصة على حماية بيانات مستخدميها. يتم جمع البيانات الأساسية فقط لأغراض تحسين الخدمات "
-          "ولا تتم مشاركتها مع أي طرف ثالث دون إذن المستخدم إلا بموجب الأنظمة السعودية.",
-      "icon": Icons.privacy_tip_outlined,
-    },
-    {
-      "title": "الأنظمة والتشريعات المتبعة",
-      "lastUpdate": "آخر تحديث: 01-08-2025",
-      "content":
-          "تخضع المنصة للأنظمة والتشريعات المعمول بها في المملكة العربية السعودية. "
-          "يتعين على جميع المستخدمين الالتزام بجميع القوانين ذات العلاقة عند استخدام المنصة.",
-      "icon": Icons.gavel_outlined,
-    },
-    {
-      "title": "الخدمات الممنوعة",
-      "lastUpdate": "آخر تحديث: 20-07-2025",
-      "content":
-          "يُمنع عرض أو طلب أي خدمات مخالفة للأنظمة أو الآداب العامة أو تتعارض مع التشريعات المعمول بها. "
-          "وأي مخالفة قد تؤدي إلى إيقاف الحساب بشكل نهائي.",
-      "icon": Icons.block_outlined,
-    },
-  ];
+  List<Map<String, dynamic>> _terms = [];
 
   // Map API doc_type → icon and fallback title
   static const Map<String, Map<String, dynamic>> _docMeta = {
@@ -75,7 +47,18 @@ class _TermsScreenState extends State<TermsScreen> {
     if (!mounted) return;
     if (result.isSuccess && result.dataAsMap != null) {
       final data = result.dataAsMap!;
+      final blocks = data['blocks'] as Map<String, dynamic>? ?? {};
       final documents = data['documents'] as Map<String, dynamic>?;
+      final pageTitle = (blocks['terms_page_title']?['title_ar'] ?? '').toString().trim();
+      final emptyLabel = (blocks['terms_empty_label']?['title_ar'] ?? '').toString().trim();
+      final openLabel = (blocks['terms_open_document_label']?['title_ar'] ?? '').toString().trim();
+      final fileOnlyHint = (blocks['terms_file_only_hint']?['title_ar'] ?? '').toString().trim();
+      final missingHint = (blocks['terms_missing_document_hint']?['title_ar'] ?? '').toString().trim();
+      if (pageTitle.isNotEmpty) _pageTitle = pageTitle;
+      if (emptyLabel.isNotEmpty) _emptyLabel = emptyLabel;
+      if (openLabel.isNotEmpty) _openDocumentLabel = openLabel;
+      if (fileOnlyHint.isNotEmpty) _fileOnlyHint = fileOnlyHint;
+      if (missingHint.isNotEmpty) _missingDocumentHint = missingHint;
       if (documents != null && documents.isNotEmpty) {
         final List<Map<String, dynamic>> apiTerms = [];
         final orderedKeys = [
@@ -98,8 +81,8 @@ class _TermsScreenState extends State<TermsScreen> {
                 body.isNotEmpty
                     ? body
                     : ((fileUrl ?? '').isNotEmpty
-                        ? 'اضغط على "عرض المستند" لفتح النسخة الرسمية.'
-                        : 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+                        ? _fileOnlyHint
+                        : _missingDocumentHint),
             'fileUrl': fileUrl,
             'icon': meta['icon'],
           });
@@ -158,13 +141,28 @@ class _TermsScreenState extends State<TermsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("الشروط والأحكام"),
+        title: Text(_pageTitle),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+          : _terms.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(
+                      _emptyLabel,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ),
+                )
           : ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: _terms.length,
@@ -266,7 +264,7 @@ class _TermsScreenState extends State<TermsScreen> {
                                       child: OutlinedButton.icon(
                                         onPressed: () => _openDocument(fileUrl),
                                         icon: const Icon(Icons.open_in_new_rounded),
-                                        label: const Text('عرض المستند'),
+                                        label: Text(_openDocumentLabel),
                                       ),
                                     ),
                                   ],

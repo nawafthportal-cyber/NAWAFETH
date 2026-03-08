@@ -10,12 +10,12 @@
     <div class="auth-card auth-card-tight">
       <div class="auth-header">
         <div class="auth-logo">نوافــذ</div>
-        <h1 class="auth-title">التحقق من الرمز</h1>
-        <p class="auth-desc">أدخل رمز التحقق المكوّن من 4 أرقام</p>
+        <h1 class="auth-title" id="twofa-title">...</h1>
+        <p class="auth-desc" id="twofa-desc">...</p>
       </div>
 
       <div class="otp-info">
-        <p>تم إرسال الرمز إلى <strong id="otp-phone-label" class="otp-phone-label"></strong></p>
+        <p><span id="twofa-phone-notice">...</span> <strong id="otp-phone-label" class="otp-phone-label"></strong></p>
       </div>
 
       <div class="otp-boxes" id="otp-boxes" dir="ltr">
@@ -28,15 +28,16 @@
       <div class="form-error hidden" id="otp-error"></div>
 
       <button class="btn-primary" id="btn-verify-otp" type="button">
-        <span id="verify-otp-text">تأكيد الرمز</span>
+        <span id="verify-otp-text">...</span>
         <span class="spinner hidden" id="verify-otp-spinner"></span>
       </button>
 
       <div class="otp-actions">
+        <span class="btn-link" id="twofa-resend-prompt">...</span>
         <button class="btn-link otp-resend-btn" id="btn-resend-otp" type="button" disabled>
-          إعادة الإرسال <span id="resend-timer" class="otp-resend-timer">(60)</span>
+          <span id="twofa-resend-label">...</span> <span id="resend-timer" class="otp-resend-timer">(60)</span>
         </button>
-        <a href="/login/" class="btn-link otp-change-phone-link">تغيير رقم الجوال</a>
+        <a href="/login/" class="btn-link otp-change-phone-link" id="twofa-change-phone-label">...</a>
       </div>
     </div>
   </div>

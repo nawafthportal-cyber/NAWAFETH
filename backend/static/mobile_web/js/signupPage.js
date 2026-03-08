@@ -29,8 +29,26 @@ const SignupPage = (() => {
     }
 
     _next = new URLSearchParams(window.location.search).get('next') || '/';
+    _loadContent();
     _initCities();
     _bindEvents();
+  }
+
+  async function _loadContent() {
+    const res = await ApiClient.get('/api/content/public/');
+    if (!res.ok || !res.data || typeof res.data !== 'object') return;
+    const blocks = res.data.blocks || {};
+    _setText('signup-title', _resolveTitle(blocks.signup_title, 'إكمال التسجيل'));
+    _setText('signup-desc', _resolveTitle(blocks.signup_description, 'أكمل بياناتك مرة واحدة لتفعيل الحساب والانتقال مباشرة إلى المنصة.'));
+    _setText('complete-signup-text', _resolveTitle(blocks.signup_submit_label, 'إكمال التسجيل'));
+
+    const terms = _resolveTitle(blocks.signup_terms_label, 'أوافق على الشروط والأحكام');
+    const linkLabel = 'الشروط والأحكام';
+    const prefix = terms.endsWith(linkLabel)
+      ? terms.slice(0, terms.length - linkLabel.length).trim()
+      : terms;
+    _setText('signup-terms-prefix', prefix || 'أوافق على');
+    _setText('signup-terms-link', linkLabel);
   }
 
   function _bindEvents() {
@@ -291,6 +309,18 @@ const SignupPage = (() => {
       'password-confirm',
       'accept-terms',
     ].forEach(_clearError);
+  }
+
+  function _resolveTitle(block, fallback) {
+    if (!block || typeof block !== 'object') return fallback;
+    const title = String(block.title_ar || '').trim();
+    return title || fallback;
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
   }
 
   if (document.readyState === 'loading') {

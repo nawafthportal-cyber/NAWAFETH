@@ -13,6 +13,12 @@
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
   <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
     <h2 class="text-xl font-bold text-gray-800 mb-4">بلوكات المحتوى</h2>
+    <div class="mb-4 rounded-2xl border border-violet-100 bg-violet-50/80 px-4 py-3 text-sm text-violet-900">
+      بلوكات <span class="font-bold">onboarding_*</span> و<span class="font-bold">home_*</span> و<span class="font-bold">login_*</span>
+      و<span class="font-bold">signup_*</span> و<span class="font-bold">twofa_*</span> تتحكم مباشرة في رحلة البداية. كما أن بلوكات
+      <span class="font-bold">about_*</span> و<span class="font-bold">terms_*</span> و<span class="font-bold">contact_*</span>
+      أصبحت تتحكم في الصفحات التحريرية والدعم داخل الموبايل والويب. أي تعديل هنا ينعكس مباشرة على الواجهات بدون نشر نصوص ثابتة داخل القوالب.
+    </div>
     <div class="space-y-4">
       {% for key, label in block_choices %}
       {% with block=blocks|get_item:key %}

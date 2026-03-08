@@ -6,6 +6,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../constants/colors.dart';
 import '../constants/saudi_cities.dart';
 import '../services/auth_api_service.dart';
+import '../services/content_service.dart';
 import 'terms_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -38,6 +39,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String? _generalError;
   Map<String, String>? _fieldErrors;
+  SignupContent _content = SignupContent.defaults();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadScreenContent();
+  }
 
   bool get _isPasswordValid => _passwordController.text.length >= 8;
   bool get _hasLowercase => _passwordController.text.contains(RegExp(r'[a-z]'));
@@ -72,6 +80,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadScreenContent() async {
+    try {
+      final result = await ContentService.fetchPublicContent();
+      if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
+      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      setState(() {
+        _content = SignupContent.fromBlocks(blocks);
+      });
+    } catch (_) {}
   }
 
   void _clearServerErrors() {
@@ -450,9 +469,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               spacing: 4,
               runSpacing: 1,
               children: [
-                const Text(
-                  'أوافق على',
-                  style: TextStyle(
+                Text(
+                  _content.termsLabelPrefix,
+                  style: const TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 12.5,
                     color: Colors.black87,
@@ -460,9 +479,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ),
                 GestureDetector(
                   onTap: _openTermsScreen,
-                  child: const Text(
-                    'الشروط والأحكام',
-                    style: TextStyle(
+                  child: Text(
+                    _content.termsLabelLink,
+                    style: const TextStyle(
                       fontFamily: 'Cairo',
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
@@ -495,9 +514,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text(
-          'إكمال التسجيل',
-          style: TextStyle(
+        title: Text(
+          _content.title,
+          style: const TextStyle(
             fontFamily: 'Cairo',
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -528,10 +547,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text(
-                      'أكمل بياناتك لتفعيل حسابك',
+                    Text(
+                      _content.title,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
@@ -539,10 +558,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'هذه البيانات مطلوبة مرة واحدة فقط',
+                    Text(
+                      _content.description,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 12.5,
                         color: Colors.black54,
@@ -729,9 +748,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'إكمال التسجيل',
-                              style: TextStyle(
+                            : Text(
+                              _content.submitLabel,
+                              style: const TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
@@ -746,6 +765,58 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class SignupContent {
+  final String title;
+  final String description;
+  final String submitLabel;
+  final String termsLabelPrefix;
+  final String termsLabelLink;
+
+  const SignupContent({
+    required this.title,
+    required this.description,
+    required this.submitLabel,
+    required this.termsLabelPrefix,
+    required this.termsLabelLink,
+  });
+
+  factory SignupContent.defaults() {
+    return const SignupContent(
+      title: 'إكمال التسجيل',
+      description: 'أكمل بياناتك مرة واحدة لتفعيل الحساب والانتقال مباشرة إلى المنصة.',
+      submitLabel: 'إكمال التسجيل',
+      termsLabelPrefix: 'أوافق على',
+      termsLabelLink: 'الشروط والأحكام',
+    );
+  }
+
+  factory SignupContent.fromBlocks(Map<String, dynamic> blocks) {
+    String resolve(String key, String fallback) {
+      final block = blocks[key];
+      if (block is! Map<String, dynamic>) return fallback;
+      final title = (block['title_ar'] as String?)?.trim() ?? '';
+      return title.isNotEmpty ? title : fallback;
+    }
+
+    final terms = resolve('signup_terms_label', 'أوافق على الشروط والأحكام');
+    const link = 'الشروط والأحكام';
+    final prefix = terms.endsWith(link)
+        ? terms.substring(0, terms.length - link.length).trim()
+        : terms;
+
+    return SignupContent(
+      title: resolve('signup_title', 'إكمال التسجيل'),
+      description: resolve(
+        'signup_description',
+        'أكمل بياناتك مرة واحدة لتفعيل الحساب والانتقال مباشرة إلى المنصة.',
+      ),
+      submitLabel: resolve('signup_submit_label', 'إكمال التسجيل'),
+      termsLabelPrefix: prefix.isNotEmpty ? prefix : 'أوافق على',
+      termsLabelLink: link,
     );
   }
 }

@@ -10,8 +10,10 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}">
 <style>
-  body.home-mobile-layout #top-navbar {
-    display: none;
+  @media (max-width: 1023px) {
+    body.home-mobile-layout #top-navbar {
+      display: none;
+    }
   }
 </style>
 {% endblock %}
@@ -43,12 +45,12 @@
 
   <div class="hero-content container">
     <div class="hero-text">
-      <h1 class="hero-tagline">اعثر على الخدمة المناسبة</h1>
-      <p class="hero-subtitle" id="hero-subtitle">أكثر من 100 مقدم خدمة بين يديك</p>
+      <h1 class="hero-tagline" id="hero-title">...</h1>
+      <p class="hero-subtitle" id="hero-subtitle">...</p>
     </div>
     <a href="/search/" class="search-bar" role="button" tabindex="0" aria-label="بحث">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <span>ابحث عن خدمة أو مقدم خدمة...</span>
+      <span id="home-search-placeholder">...</span>
     </a>
   </div>
 </section>
@@ -71,7 +73,7 @@
   <!-- ====== CATEGORIES (horizontal scroll mobile, grid desktop) ====== -->
   <section id="categories" class="section-block">
     <div class="container">
-      <h2 class="section-title">التصنيفات</h2>
+      <h2 class="section-title" id="categories-title">...</h2>
       <div class="categories-scroll" id="categories-list">
         <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
         <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
@@ -87,7 +89,7 @@
   <section id="providers" class="section-block">
     <div class="container">
       <div class="section-header">
-        <h2 class="section-title">مقدمو الخدمة</h2>
+        <h2 class="section-title" id="providers-title">...</h2>
         <a href="/search/" class="view-all-btn">عرض الكل</a>
       </div>
       <div class="providers-scroll" id="providers-list">
@@ -102,7 +104,7 @@
   <!-- ====== BANNERS (horizontal scroll mobile, grid desktop) ====== -->
   <section id="banners" class="section-block" style="display:none">
     <div class="container">
-      <h2 class="section-title">عروض ترويجية</h2>
+      <h2 class="section-title" id="banners-title">...</h2>
       <div class="banners-scroll" id="banners-list"></div>
     </div>
   </section>

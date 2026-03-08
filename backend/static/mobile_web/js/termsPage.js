@@ -12,23 +12,7 @@ const TermsPage = (() => {
     prohibited_services: { title: 'الخدمات الممنوعة', icon: '⛔' },
   };
   const DOC_ORDER = ['terms', 'privacy', 'regulations', 'prohibited_services'];
-
-  const FALLBACK = [
-    {
-      title: 'اتفاقية الاستخدام',
-      icon: '📘',
-      last_update: 'آخر تحديث: 10-08-2025',
-      content: 'باستخدامك للمنصة، فإنك توافق على الالتزام بالشروط والأحكام.',
-      file_url: '',
-    },
-    {
-      title: 'سياسة الخصوصية',
-      icon: '🛡️',
-      last_update: 'آخر تحديث: 05-08-2025',
-      content: 'تحرص المنصة على حماية بيانات المستخدمين وفق الأنظمة المعمول بها.',
-      file_url: '',
-    },
-  ];
+  let _content = {};
 
   function init() {
     _load();
@@ -40,6 +24,17 @@ const TermsPage = (() => {
     const empty = document.getElementById('terms-empty');
 
     const res = await ApiClient.get('/api/content/public/');
+    const data = (res.ok && res.data && typeof res.data === 'object') ? res.data : {};
+    const blocks = data.blocks || {};
+    _content = {
+      pageTitle: _resolve(blocks.terms_page_title, 'الشروط والأحكام'),
+      emptyLabel: _resolve(blocks.terms_empty_label, 'لا توجد مستندات متاحة حالياً'),
+      openDocumentLabel: _resolve(blocks.terms_open_document_label, 'عرض المستند'),
+      fileOnlyHint: _resolve(blocks.terms_file_only_hint, 'اضغط على "عرض المستند" لفتح النسخة الرسمية.'),
+      missingHint: _resolve(blocks.terms_missing_document_hint, 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+    };
+    _setText('terms-page-title', _content.pageTitle);
+    _setText('terms-empty-label', _content.emptyLabel);
     const cards = _extractCards(res);
 
     if (loading) loading.classList.add('hidden');
@@ -58,13 +53,13 @@ const TermsPage = (() => {
 
   function _extractCards(res) {
     if (!res.ok || !res.data || typeof res.data !== 'object') {
-      return FALLBACK;
+      return [];
     }
     const documents = res.data.documents || {};
     const orderedTypes = DOC_ORDER.filter((docType) => documents[docType]).concat(
       Object.keys(documents).filter((docType) => !DOC_ORDER.includes(docType)),
     );
-    if (!orderedTypes.length) return FALLBACK;
+    if (!orderedTypes.length) return [];
 
     return orderedTypes.map((docType) => {
       const doc = documents[docType] || {};
@@ -78,7 +73,7 @@ const TermsPage = (() => {
         title: doc.label_ar || meta.title,
         icon: meta.icon,
         last_update: subtitle,
-        content: body || (fileUrl ? 'اضغط على "عرض المستند" لفتح النسخة الرسمية.' : 'لا توجد بيانات متاحة لهذا المستند حالياً.'),
+        content: body || (fileUrl ? _content.fileOnlyHint : _content.missingHint),
         file_url: fileUrl,
       };
     });
@@ -119,7 +114,7 @@ const TermsPage = (() => {
         href: item.file_url,
         target: '_blank',
         rel: 'noopener',
-        textContent: 'عرض المستند',
+        textContent: _content.openDocumentLabel || 'عرض المستند',
       });
       body.appendChild(openBtn);
     }
@@ -138,6 +133,15 @@ const TermsPage = (() => {
     card.appendChild(head);
     card.appendChild(body);
     return card;
+  }
+
+  function _resolve(block, fallback) {
+    return String(block && block.title_ar || '').trim() || fallback;
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.textContent = value;
   }
 
   if (document.readyState === 'loading') {

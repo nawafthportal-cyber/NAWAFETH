@@ -394,13 +394,21 @@ body.page-provider-dashboard .btn {
     display: block !important;
   }
 
+  body.page-provider-dashboard #site-footer {
+    display: block !important;
+  }
+
   body.page-provider-dashboard #bottom-nav {
-    display: flex !important;
+    display: none !important;
   }
 
   body.page-provider-dashboard .page-content {
     padding-top: calc(var(--navbar-height) + var(--space-lg));
-    padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
+    padding-bottom: var(--space-2xl);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(103, 58, 183, 0.11), transparent 30%),
+      radial-gradient(circle at 0% 18%, rgba(33, 150, 243, 0.07), transparent 24%),
+      var(--color-bg);
   }
 
   body.page-provider-dashboard .container {
@@ -423,5 +431,68 @@ body.page-provider-dashboard .btn {
     max-width: 820px;
     margin-inline: auto;
     padding-inline: 0;
+  }
+
+  body.page-provider-dashboard .provider-hero {
+    border: 1px solid rgba(103, 58, 183, 0.08);
+    box-shadow: 0 18px 38px rgba(20, 20, 38, 0.08);
+    overflow: hidden;
+  }
+
+  body.page-provider-dashboard .pv2-name {
+    font-size: 28px;
+    font-weight: 900;
+  }
+
+  body.page-provider-dashboard .pv2-username {
+    font-size: 14px;
+  }
+
+  body.page-provider-dashboard .provider-stats {
+    box-shadow: 0 14px 28px rgba(20, 20, 38, 0.07);
+  }
+
+  body.page-provider-dashboard .provider-dashboard-strip {
+    border: 1px solid rgba(103, 58, 183, 0.08);
+    box-shadow: 0 14px 30px rgba(20, 20, 38, 0.06);
+  }
+
+  body.page-provider-dashboard .pv2-quick-row {
+    gap: 12px;
+  }
+
+  body.page-provider-dashboard .pv2-qa {
+    min-height: 108px;
+    border: 1px solid rgba(103, 58, 183, 0.08);
+  }
+
+  body.page-provider-dashboard .provider-kpi-order,
+  body.page-provider-dashboard .provider-kpi-button,
+  body.page-provider-dashboard .pv2-qa,
+  body.page-provider-dashboard .pv2-menu-tile,
+  body.page-provider-dashboard .provider-panel {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  body.page-provider-dashboard .provider-kpi-order:hover,
+  body.page-provider-dashboard .provider-kpi-button:hover,
+  body.page-provider-dashboard .pv2-qa:hover,
+  body.page-provider-dashboard .pv2-menu-tile:hover,
+  body.page-provider-dashboard .provider-panel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(20, 20, 38, 0.08);
+  }
+
+  body.page-provider-dashboard .provider-panel-desc {
+    font-size: 12.5px;
+    line-height: 1.8;
+  }
+
+  body.page-provider-dashboard .provider-menu {
+    box-shadow: 0 16px 32px rgba(20, 20, 38, 0.06);
+  }
+
+  body.page-provider-dashboard .provider-extra-card {
+    box-shadow: 0 14px 28px rgba(20, 20, 38, 0.06);
   }
 }

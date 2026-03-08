@@ -26,6 +26,14 @@ def test_seed_default_subscription_plans_creates_canonical_snapshot():
     assert plans.get(code="basic").price == Decimal("0.00")
     assert plans.get(code="riyadi").price == Decimal("199.00")
     assert plans.get(code="pro").price == Decimal("999.00")
+    assert plans.get(code="basic").direct_chat_quota == 3
+    assert plans.get(code="riyadi").storage_upload_max_mb == 20
+    assert plans.get(code="pro").verification_blue_fee == Decimal("0.00")
+    assert plans.get(code="pro").feature_bullets == [
+        "كل مزايا الأساسية والريادية ضمن باقة واحدة",
+        "وصول فوري للطلبات التنافسية وصلاحيات دعائية كاملة",
+        "توثيق مشمول ودعم فني خلال 5 ساعات",
+    ]
 
 
 def test_normalize_existing_subscription_plans_maps_legacy_codes_without_dropping_variants():

@@ -8,13 +8,15 @@
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  body.page-provider-detail #top-navbar,
-  body.page-provider-detail #site-footer {
-    display: none !important;
-  }
+  @media (max-width: 1023px) {
+    body.page-provider-detail #top-navbar,
+    body.page-provider-detail #site-footer {
+      display: none !important;
+    }
 
-  body.page-provider-detail .page-content {
-    padding-top: 0;
+    body.page-provider-detail .page-content {
+      padding-top: 0;
+    }
   }
 </style>
 {% endblock %}
@@ -56,7 +58,7 @@
     <h1 class="pd-name" id="pd-name"></h1>
     <p class="pd-handle" id="pd-handle"></p>
     <p class="pd-category-text" id="pd-category-line"></p>
-    <a class="pd-return-map hidden" id="btn-back-to-map" href="/search/?open_map=1" aria-label="العودة">
+    <a class="pd-return-map hidden" id="btn-back-to-map" href="/providers-map/" aria-label="العودة">
       العودة
     </a>
   </div>

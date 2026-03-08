@@ -5,32 +5,12 @@
 'use strict';
 
 const AboutPage = (() => {
-  const DEFAULTS = {
-    about: {
-      title: 'من نحن',
-      body: 'منصة نوافذ للخدمات لتقنية المعلومات مؤسسة سعودية مقرها الرياض، متخصصة في ربط مزودي الخدمات بطالبيها.',
-      icon: 'ℹ️',
-    },
-    vision: {
-      title: 'رؤيتنا',
-      body: 'أن نكون المنصة الأولى في المملكة العربية السعودية للوصول للخدمات بسهولة وشفافية.',
-      icon: '👁️',
-    },
-    goals: {
-      title: 'هدفنا',
-      body: 'تسهيل التواصل بين مزودي الخدمات والعملاء عبر تجربة سريعة ومنظمة.',
-      icon: '🎯',
-    },
-    values: {
-      title: 'قيمنا',
-      body: 'الشفافية، الموثوقية، الجودة، والابتكار.',
-      icon: '⭐',
-    },
-    app: {
-      title: 'عن التطبيق',
-      body: 'يمكنك استعراض الخدمات والتواصل مع مزوديها بسهولة عبر تطبيق نوافذ.',
-      icon: '📱',
-    },
+  const SECTION_META = {
+    about: { key: 'about_section_about', icon: 'ℹ️' },
+    vision: { key: 'about_section_vision', icon: '👁️' },
+    goals: { key: 'about_section_goals', icon: '🎯' },
+    values: { key: 'about_section_values', icon: '⭐' },
+    app: { key: 'about_section_app', icon: '📱' },
   };
 
   function init() {
@@ -47,6 +27,7 @@ const AboutPage = (() => {
     const blocks = data.blocks || {};
     const links = data.links || {};
 
+    _applyHeroContent(blocks);
     const mapped = _mapBlocks(blocks);
     if (sections) {
       sections.innerHTML = '';
@@ -69,6 +50,9 @@ const AboutPage = (() => {
     _bindLink('btn-x-url', links.x_url);
     _bindLink('btn-whatsapp', _normalizeWhatsapp(links.whatsapp_url));
     _bindLink('btn-email', _normalizeEmail(links.email));
+    const socialTitle = _resolveTitle(blocks.about_social_title, 'تواصل معنا');
+    const socialTitleEl = document.getElementById('about-social-title');
+    if (socialTitleEl) socialTitleEl.textContent = socialTitle;
     if (socialBox) {
       const visibleSocial = socialBox.querySelectorAll('a:not(.hidden)').length;
       socialBox.classList.toggle('hidden', visibleSocial === 0);
@@ -77,43 +61,44 @@ const AboutPage = (() => {
     if (loading) loading.classList.add('hidden');
   }
 
-  function _findBlockByCandidates(blocks, candidates) {
-    for (const key of candidates) {
-      if (blocks[key] && typeof blocks[key] === 'object') return blocks[key];
+  function _applyHeroContent(blocks) {
+    const heroTitle = document.getElementById('about-hero-title');
+    const heroSubtitle = document.getElementById('about-hero-subtitle');
+    const website = document.getElementById('btn-website');
+    if (heroTitle) heroTitle.textContent = _resolveTitle(blocks.about_hero_title, 'منصة نوافذ');
+    if (heroSubtitle) {
+      heroSubtitle.textContent = _resolveTitle(
+        blocks.about_hero_subtitle,
+        'حلول تقنية مبتكرة تربط مزودي الخدمات بطالبيها',
+      );
     }
-
-    const entries = Object.entries(blocks);
-    for (const [key, value] of entries) {
-      const normalized = String(key || '').toLowerCase().trim();
-      if (!candidates.some((c) => normalized.includes(c))) continue;
-      if (value && typeof value === 'object') return value;
-    }
-    return null;
+    if (website) website.textContent = _resolveTitle(blocks.about_website_label, 'الموقع الرسمي');
   }
 
   function _mapBlocks(blocks) {
-    const about = _findBlockByCandidates(blocks, ['about', 'about_us', 'company_about']);
-    const vision = _findBlockByCandidates(blocks, ['vision']);
-    const goals = _findBlockByCandidates(blocks, ['goals', 'goal', 'objectives']);
-    const values = _findBlockByCandidates(blocks, ['values', 'value']);
-    const app = _findBlockByCandidates(blocks, ['app', 'application', 'about_app']);
-
     return {
-      about: _mergeBlock(DEFAULTS.about, about),
-      vision: _mergeBlock(DEFAULTS.vision, vision),
-      goals: _mergeBlock(DEFAULTS.goals, goals),
-      values: _mergeBlock(DEFAULTS.values, values),
-      app: _mergeBlock(DEFAULTS.app, app),
+      about: _resolveSection(blocks[SECTION_META.about.key], 'من نحن', '', SECTION_META.about.icon),
+      vision: _resolveSection(blocks[SECTION_META.vision.key], 'رؤيتنا', '', SECTION_META.vision.icon),
+      goals: _resolveSection(blocks[SECTION_META.goals.key], 'أهدافنا', '', SECTION_META.goals.icon),
+      values: _resolveSection(blocks[SECTION_META.values.key], 'قيمنا', '', SECTION_META.values.icon),
+      app: _resolveSection(blocks[SECTION_META.app.key], 'عن التطبيق', '', SECTION_META.app.icon),
     };
   }
 
-  function _mergeBlock(defaultData, apiBlock) {
-    if (!apiBlock) return defaultData;
+  function _resolveSection(apiBlock, fallbackTitle, fallbackBody, icon) {
     return {
-      title: String(apiBlock.title_ar || '').trim() || defaultData.title,
-      body: String(apiBlock.body_ar || '').trim() || defaultData.body,
-      icon: defaultData.icon,
+      title: _resolveTitle(apiBlock, fallbackTitle),
+      body: _resolveBody(apiBlock, fallbackBody),
+      icon,
     };
+  }
+
+  function _resolveTitle(block, fallback) {
+    return String(block && block.title_ar || '').trim() || fallback;
+  }
+
+  function _resolveBody(block, fallback) {
+    return String(block && block.body_ar || '').trim() || fallback;
   }
 
   function _buildCard(key, data) {

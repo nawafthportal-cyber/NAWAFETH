@@ -8,6 +8,11 @@ from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.models import InvoiceLineItem
+from apps.subscriptions.configuration import (
+    canonical_subscription_plan_for_tier,
+    resolved_plan_decimal,
+    template_subscription_plan_for_plan,
+)
 from apps.subscriptions.tiering import (
     CanonicalPlanTier,
     canonical_tier_from_value,
@@ -74,21 +79,6 @@ BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
     },
 }
 
-
-DEFAULT_VERIFY_FEES_BY_TIER: dict[str, dict[str, str]] = {
-    "basic": {
-        VerificationBadgeType.BLUE: "100.00",
-        VerificationBadgeType.GREEN: "100.00",
-    },
-    "pioneer": {
-        VerificationBadgeType.BLUE: "50.00",
-        VerificationBadgeType.GREEN: "50.00",
-    },
-    "professional": {
-        VerificationBadgeType.BLUE: "0.00",
-        VerificationBadgeType.GREEN: "0.00",
-    },
-}
 
 VERIFICATION_PRICING_CURRENCY = "SAR"
 VERIFICATION_BILLING_CYCLE = "yearly"
@@ -278,38 +268,16 @@ def expire_verified_badges_and_sync(*, now=None, limit: int = 1000) -> int:
 
 def _fee_for_badge(badge_type: str) -> Decimal:
     """
-    احتياطي مطابق للسياسة الرسمية الحالية:
-    الأزرق 100 ر.س، والأخضر 100 ر.س ضمن الباقة الأساسية.
+    الرسم المرجعي يأتي من canonical basic plan داخل قاعدة البيانات.
     """
-    if badge_type == VerificationBadgeType.GREEN:
-        return Decimal("100.00")
-    return Decimal("100.00")
-
-
-def _normalize_verify_tier_matrix(raw_matrix):
-    out = {}
-    for key, raw_value in (raw_matrix or {}).items():
-        normalized_key = canonical_tier_from_value(key, fallback=None)
-        if not normalized_key:
-            continue
-        if isinstance(raw_value, dict):
-            out[normalized_key] = {
-                str(inner_key).strip().lower(): inner_value
-                for inner_key, inner_value in raw_value.items()
-            }
-        else:
-            out[normalized_key] = raw_value
-    return out
-
-
-def _resolve_verify_amount(entry, badge_type: str):
-    if isinstance(entry, dict):
-        normalized_badge = str(badge_type).strip().lower()
-        for key in (normalized_badge, str(badge_type).strip(), "default"):
-            if key in entry:
-                return entry[key]
-        return None
-    return entry
+    basic_plan = canonical_subscription_plan_for_tier(CanonicalPlanTier.BASIC)
+    field_name = (
+        "verification_green_fee"
+        if badge_type == VerificationBadgeType.GREEN
+        else "verification_blue_fee"
+    )
+    amount = getattr(basic_plan, field_name, None)
+    return Decimal(str(amount if amount is not None else "0.00"))
 
 
 def verification_billing_policy() -> dict[str, object]:
@@ -472,22 +440,21 @@ def verification_pricing_for_plan(plan=None) -> dict[str, object]:
     except Exception:
         plan_to_tier = None
 
-    plan_code = ((getattr(plan, "code", "") or "") if plan else "").strip().upper()
+    template_plan = template_subscription_plan_for_plan(plan, fallback_tier=CanonicalPlanTier.BASIC)
+    pricing_plan = plan or template_plan
+    plan_code = (getattr(pricing_plan, "code", "") or "").strip().upper()
     plan_tier = (
-        plan_to_tier(plan) if plan_to_tier and plan is not None else CanonicalPlanTier.BASIC
+        plan_to_tier(pricing_plan) if plan_to_tier and pricing_plan is not None else CanonicalPlanTier.BASIC
     )
     normalized_tier = canonical_tier_from_value(plan_tier, fallback=CanonicalPlanTier.BASIC) or CanonicalPlanTier.BASIC
-
-    raw_tier_matrix = getattr(settings, "VERIFY_FEES_BY_TIER", DEFAULT_VERIFY_FEES_BY_TIER) or DEFAULT_VERIFY_FEES_BY_TIER
-    tier_matrix = _normalize_verify_tier_matrix(raw_tier_matrix)
     pricing_policy = verification_billing_policy()
 
     prices = {}
-    for badge_type in (VerificationBadgeType.BLUE, VerificationBadgeType.GREEN):
-        amount = _resolve_verify_amount(tier_matrix.get(normalized_tier), badge_type)
-        if amount is None:
-            amount = _fee_for_badge(badge_type)
-        amount_decimal = Decimal(str(amount))
+    for badge_type, field_name in (
+        (VerificationBadgeType.BLUE, "verification_blue_fee"),
+        (VerificationBadgeType.GREEN, "verification_green_fee"),
+    ):
+        amount_decimal = resolved_plan_decimal(plan, template_plan, field_name, default="0.00")
         prices[badge_type] = {
             "badge_type": badge_type,
             "amount": str(amount_decimal.quantize(Decimal("0.01"))),
@@ -507,6 +474,16 @@ def verification_pricing_for_plan(plan=None) -> dict[str, object]:
         **pricing_policy,
         "prices": prices,
     }
+
+
+def verification_price_amount(pricing: dict[str, object], badge_type: str, *, prefer_final: bool = False) -> str:
+    price_entry = ((pricing.get("prices") or {}).get(badge_type) or {})
+    primary_key = "final_amount" if prefer_final else "amount"
+    fallback_key = "amount" if prefer_final else "final_amount"
+    value = price_entry.get(primary_key)
+    if value is None:
+        value = price_entry.get(fallback_key)
+    return str(value if value is not None else "0.00")
 
 
 def verification_pricing_for_user(user) -> dict[str, object]:

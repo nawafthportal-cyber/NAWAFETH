@@ -217,7 +217,7 @@ const ProviderDetailPage = (() => {
 
       if (!fromMap && !returnTo) return null;
 
-      const fallbackMapPath = '/search/?open_map=1';
+      const fallbackMapPath = '/providers-map/';
       const rawTarget = returnTo || fallbackMapPath;
       let href = _sanitizeInternalReturnPath(rawTarget);
       if (!href) return null;
@@ -236,7 +236,7 @@ const ProviderDetailPage = (() => {
       };
     } catch (_) {
       return {
-        href: '/search/?open_map=1',
+        href: '/providers-map/',
         label: 'العودة إلى الخريطة',
       };
     }

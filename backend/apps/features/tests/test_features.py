@@ -76,6 +76,11 @@ def test_my_features_returns_pioneer_capabilities_even_without_legacy_feature_fl
         period=PlanPeriod.YEAR,
         price=Decimal("199.00"),
         features=[],
+        competitive_visibility_delay_hours=6,
+        direct_chat_quota=12,
+        reminder_schedule_hours=[12, 72],
+        support_sla_hours=36,
+        storage_upload_max_mb=25,
         is_active=True,
     )
     Subscription.objects.create(
@@ -90,7 +95,51 @@ def test_my_features_returns_pioneer_capabilities_even_without_legacy_feature_fl
     assert r.data["current_tier"] == "pioneer"
     assert r.data["priority_support"] is True
     assert r.data["promo_ads"] is False
-    assert r.data["max_upload_mb"] == 20
-    assert r.data["capabilities"]["competitive_requests"]["visibility_delay_hours"] == 24
-    assert r.data["capabilities"]["messaging"]["direct_chat_quota"] == 10
-    assert r.data["capabilities"]["reminders"]["schedule_hours"] == [24, 120]
+    assert r.data["max_upload_mb"] == 25
+    assert r.data["capabilities"]["competitive_requests"]["visibility_delay_hours"] == 6
+    assert r.data["capabilities"]["messaging"]["direct_chat_quota"] == 12
+    assert r.data["capabilities"]["support"]["sla_hours"] == 36
+    assert r.data["capabilities"]["reminders"]["schedule_hours"] == [12, 72]
+
+
+def test_my_features_inherits_missing_plan_configuration_from_canonical_db_row(api, user):
+    canonical = SubscriptionPlan.objects.get(code="riyadi")
+    canonical.competitive_visibility_delay_hours = 9
+    canonical.direct_chat_quota = 17
+    canonical.storage_upload_max_mb = 35
+    canonical.reminder_schedule_hours = [6, 48]
+    canonical.support_sla_hours = 27
+    canonical.save(
+        update_fields=[
+            "competitive_visibility_delay_hours",
+            "direct_chat_quota",
+            "storage_upload_max_mb",
+            "reminder_schedule_hours",
+            "support_sla_hours",
+        ]
+    )
+
+    plan = SubscriptionPlan.objects.create(
+        code="riyadi_db_template_test",
+        title="ريادية مخصصة",
+        tier="riyadi",
+        period=PlanPeriod.YEAR,
+        price=Decimal("210.00"),
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
+
+    api.force_authenticate(user=user)
+    r = api.get("/api/features/my/")
+
+    assert r.status_code == 200
+    assert r.data["capabilities"]["competitive_requests"]["visibility_delay_hours"] == 9
+    assert r.data["capabilities"]["messaging"]["direct_chat_quota"] == 17
+    assert r.data["capabilities"]["support"]["sla_hours"] == 27
+    assert r.data["capabilities"]["reminders"]["schedule_hours"] == [6, 48]
+    assert r.data["max_upload_mb"] == 35

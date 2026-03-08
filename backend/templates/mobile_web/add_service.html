@@ -7,12 +7,14 @@
 
 {% block extra_css %}
 <style>
-  body.page-add-service #bottom-nav {
-    display: flex !important;
-  }
+  @media (max-width: 1023px) {
+    body.page-add-service #bottom-nav {
+      display: flex !important;
+    }
 
-  body.page-add-service .page-content {
-    padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
+    body.page-add-service .page-content {
+      padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
+    }
   }
 </style>
 {% endblock %}

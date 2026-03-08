@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
+import '../services/content_service.dart';
 import '../widgets/custom_drawer.dart';
 import 'twofa_screen.dart';
 
@@ -20,11 +21,29 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   bool _isGuestLoading = false;
   String? _errorMessage;
+  AuthEntryContent _content = AuthEntryContent.loginDefault();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadScreenContent();
+  }
 
   @override
   void dispose() {
     _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadScreenContent() async {
+    try {
+      final result = await ContentService.fetchPublicContent();
+      if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
+      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      setState(() {
+        _content = AuthEntryContent.loginFromBlocks(blocks);
+      });
+    } catch (_) {}
   }
 
   /// ✅ التحقق من صحة رقم الجوال
@@ -100,9 +119,9 @@ class _LoginScreenState extends State<LoginScreen> {
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
-        title: const Text(
-          "تسجيل الدخول",
-          style: TextStyle(
+        title: Text(
+          _content.title,
+          style: const TextStyle(
             fontFamily: 'Cairo',
             fontWeight: FontWeight.bold,
             color: Colors.white,
@@ -129,18 +148,18 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  "أدخل رقم الجوال لتسجيل الدخول",
-                  style: TextStyle(
+                Text(
+                  _content.title,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Cairo',
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  "سيتم إرسال رمز تحقق إلى جوالك",
-                  style: TextStyle(
+                Text(
+                  _content.description,
+                  style: const TextStyle(
                     fontSize: 13,
                     color: Colors.grey,
                     fontFamily: 'Cairo',
@@ -170,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     labelText: "رقم الجوال",
                     hintText: "05XXXXXXXX",
                     hintTextDirection: TextDirection.ltr,
-                    helperText: "الصيغة المعتمدة: 05XXXXXXXX",
+                    helperText: _content.phoneHint,
                     helperStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 12),
                     prefixIcon: const Icon(Icons.phone_android),
                     border: OutlineInputBorder(
@@ -203,9 +222,9 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            "إرسال رمز التحقق",
-                            style: TextStyle(
+                        : Text(
+                            _content.submitLabel,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontFamily: 'Cairo',
                               fontWeight: FontWeight.bold,
@@ -256,9 +275,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.person_outline_rounded, size: 18),
-                    label: const Text(
-                      "الاستمرار كزائر بدون تسجيل دخول",
-                      style: TextStyle(
+                    label: Text(
+                      _content.guestLabel,
+                      style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.w700,
                         fontSize: 13.5,
@@ -283,6 +302,52 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class AuthEntryContent {
+  final String title;
+  final String description;
+  final String phoneHint;
+  final String submitLabel;
+  final String guestLabel;
+
+  const AuthEntryContent({
+    required this.title,
+    required this.description,
+    required this.phoneHint,
+    required this.submitLabel,
+    required this.guestLabel,
+  });
+
+  factory AuthEntryContent.loginDefault() {
+    return const AuthEntryContent(
+      title: 'تسجيل الدخول',
+      description: 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.',
+      phoneHint: 'الصيغة المعتمدة: 05XXXXXXXX',
+      submitLabel: 'إرسال رمز التحقق',
+      guestLabel: 'المتابعة كضيف',
+    );
+  }
+
+  factory AuthEntryContent.loginFromBlocks(Map<String, dynamic> blocks) {
+    String resolve(String key, String fallback) {
+      final block = blocks[key];
+      if (block is! Map<String, dynamic>) return fallback;
+      final title = (block['title_ar'] as String?)?.trim() ?? '';
+      return title.isNotEmpty ? title : fallback;
+    }
+
+    return AuthEntryContent(
+      title: resolve('login_title', 'تسجيل الدخول'),
+      description: resolve(
+        'login_description',
+        'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.',
+      ),
+      phoneHint: resolve('login_phone_hint', 'الصيغة المعتمدة: 05XXXXXXXX'),
+      submitLabel: resolve('login_submit_label', 'إرسال رمز التحقق'),
+      guestLabel: resolve('login_guest_label', 'المتابعة كضيف'),
     );
   }
 }

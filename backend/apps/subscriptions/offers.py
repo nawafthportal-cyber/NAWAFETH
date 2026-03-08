@@ -3,7 +3,15 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
-from .capabilities import plan_capabilities_for_tier
+from .capabilities import plan_capabilities_for_plan
+from .configuration import (
+    canonical_subscription_plan_for_tier,
+    resolved_plan_decimal,
+    resolved_plan_string,
+    resolved_plan_string_list,
+    template_subscription_plan_for_plan,
+)
+from .models import PlanPeriod
 from .tiering import CanonicalPlanTier, canonical_tier_from_inputs, canonical_tier_order
 
 
@@ -11,8 +19,16 @@ def _money(value) -> Decimal:
     return Decimal(str(value or "0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-SUBSCRIPTION_BILLING_CYCLE = "yearly"
-SUBSCRIPTION_BILLING_CYCLE_LABEL = "سنوي"
+SUBSCRIPTION_BILLING_CYCLE_YEARLY = "yearly"
+SUBSCRIPTION_BILLING_CYCLE_MONTHLY = "monthly"
+SUBSCRIPTION_BILLING_CYCLE_LABELS = {
+    PlanPeriod.YEAR: "سنوي",
+    PlanPeriod.MONTH: "شهري",
+}
+SUBSCRIPTION_PRICE_INTERVAL_LABELS = {
+    PlanPeriod.YEAR: "سنويًا",
+    PlanPeriod.MONTH: "شهريًا",
+}
 SUBSCRIPTION_TAX_POLICY = "inclusive"
 SUBSCRIPTION_TAX_POLICY_LABEL = "شامل الضريبة"
 SUBSCRIPTION_ADDITIONAL_VAT_PERCENT = Decimal("0.00")
@@ -22,64 +38,40 @@ SUBSCRIPTION_TAX_NOTE = (
 )
 
 
-OFFICIAL_SUBSCRIPTION_OFFERS = {
-    CanonicalPlanTier.BASIC: {
-        "plan_name": "الأساسية",
-        "price": Decimal("0.00"),
-        "description": "تشمل الخدمات الأساسية لاكتشاف مقدم الخدمة واستخدام المنصة.",
-        "feature_bullets": [
-            "جميع الخدمات الأساسية لمقدم الخدمة داخل المنصة",
-            "الوصول الافتراضي المجاني مع إشعارات مفعلة",
-            "مناسبة للبداية مع حدود الاستخدام الأساسية",
-        ],
-    },
-    CanonicalPlanTier.PIONEER: {
-        "plan_name": "الريادية",
-        "price": Decimal("199.00"),
-        "description": "تشمل مزايا الأساسية مع وصول أسرع للطلبات وسعة استخدام أكبر.",
-        "feature_bullets": [
-            "كل مزايا الأساسية مع تحسين الوصول للطلبات",
-            "سعة أكبر للمحادثات ومواد المنصة",
-            "دعم فني أسرع ورسوم توثيق أقل",
-        ],
-    },
-    CanonicalPlanTier.PROFESSIONAL: {
-        "plan_name": "الاحترافية",
-        "price": Decimal("999.00"),
-        "description": "تشمل جميع المزايا مع وصول فوري وصلاحيات دعائية كاملة.",
-        "feature_bullets": [
-            "كل مزايا الأساسية والريادية ضمن باقة واحدة",
-            "وصول فوري للطلبات التنافسية وصلاحيات دعائية كاملة",
-            "توثيق مشمول ودعم فني خلال 5 ساعات",
-        ],
-    },
-}
+def _billing_cycle_payload(period: str) -> tuple[str, str, str]:
+    normalized_period = period if period in {PlanPeriod.YEAR, PlanPeriod.MONTH} else PlanPeriod.YEAR
+    billing_cycle = (
+        SUBSCRIPTION_BILLING_CYCLE_YEARLY
+        if normalized_period == PlanPeriod.YEAR
+        else SUBSCRIPTION_BILLING_CYCLE_MONTHLY
+    )
+    return (
+        billing_cycle,
+        SUBSCRIPTION_BILLING_CYCLE_LABELS[normalized_period],
+        SUBSCRIPTION_PRICE_INTERVAL_LABELS[normalized_period],
+    )
 
 
-def official_plan_name_for_tier(value) -> str:
-    canonical = canonical_tier_from_value(value)
-    return OFFICIAL_SUBSCRIPTION_OFFERS[canonical]["plan_name"]
-
-
-def canonical_tier_from_value(value, *, fallback: str = CanonicalPlanTier.BASIC) -> str:
-    return canonical_tier_from_inputs(tier=value, fallback=fallback)
-
-
-def subscription_offer_for_tier(value) -> dict[str, object]:
-    canonical = canonical_tier_from_value(value)
-    raw = OFFICIAL_SUBSCRIPTION_OFFERS[canonical]
-    price = _money(raw["price"])
+def _offer_payload_for_plan(plan, *, canonical: str) -> dict[str, object]:
+    template = template_subscription_plan_for_plan(plan, fallback_tier=canonical)
+    price = _money(resolved_plan_decimal(plan, template, "price", default="0.00"))
+    billing_cycle, billing_cycle_label, interval_label = _billing_cycle_payload(
+        resolved_plan_string(plan, template, "period", default=PlanPeriod.YEAR)
+    )
+    plan_name = resolved_plan_string(plan, template, "title")
+    description = resolved_plan_string(plan, template, "description")
+    feature_bullets = resolved_plan_string_list(plan, template, method_name="marketing_bullets")
     return {
         "tier": canonical,
-        "plan_name": raw["plan_name"],
-        "description": raw["description"],
-        "feature_bullets": list(raw["feature_bullets"]),
+        "plan_name": plan_name,
+        "description": description,
+        "feature_bullets": list(feature_bullets),
         "price": str(price),
         "price_amount": str(price),
         "annual_price": str(price),
-        "annual_price_label": "مجانية" if price <= Decimal("0.00") else f"{price} ر.س سنويًا",
-        "billing_cycle": SUBSCRIPTION_BILLING_CYCLE,
-        "billing_cycle_label": SUBSCRIPTION_BILLING_CYCLE_LABEL,
+        "annual_price_label": "مجانية" if price <= Decimal("0.00") else f"{price} ر.س {interval_label}",
+        "billing_cycle": billing_cycle,
+        "billing_cycle_label": billing_cycle_label,
         "tax_policy": SUBSCRIPTION_TAX_POLICY,
         "tax_policy_label": SUBSCRIPTION_TAX_POLICY_LABEL,
         "tax_included": True,
@@ -88,6 +80,20 @@ def subscription_offer_for_tier(value) -> dict[str, object]:
         "final_payable_amount": str(price),
         "final_payable_label": "مجانية" if price <= Decimal("0.00") else f"{price} ر.س",
     }
+
+
+def official_plan_name_for_tier(value) -> str:
+    return resolved_plan_string(None, canonical_subscription_plan_for_tier(value), "title")
+
+
+def canonical_tier_from_value(value, *, fallback: str = CanonicalPlanTier.BASIC) -> str:
+    return canonical_tier_from_inputs(tier=value, fallback=fallback)
+
+
+def subscription_offer_for_tier(value) -> dict[str, object]:
+    canonical = canonical_tier_from_value(value)
+    plan = canonical_subscription_plan_for_tier(canonical)
+    return _offer_payload_for_plan(plan, canonical=canonical)
 
 
 def _verification_label(amount_text: str) -> str:
@@ -119,7 +125,7 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
         tier=getattr(plan, "tier", ""),
         code=getattr(plan, "code", ""),
         title=getattr(plan, "title", ""),
-        features=getattr(plan, "features", []) or [],
+        features=getattr(plan, "feature_keys", lambda: [])(),
     )
     if not getattr(user, "is_authenticated", False):
         return {
@@ -127,7 +133,7 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
             "label": "ترقية",
             "enabled": True,
             "current_tier": CanonicalPlanTier.BASIC,
-            "current_plan_name": OFFICIAL_SUBSCRIPTION_OFFERS[CanonicalPlanTier.BASIC]["plan_name"],
+            "current_plan_name": official_plan_name_for_tier(CanonicalPlanTier.BASIC),
         }
 
     from .models import Subscription, SubscriptionStatus
@@ -197,16 +203,16 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
         tier=getattr(plan, "tier", ""),
         code=getattr(plan, "code", ""),
         title=getattr(plan, "title", ""),
-        features=getattr(plan, "features", []) or [],
+        features=getattr(plan, "feature_keys", lambda: [])(),
     )
-    offer = subscription_offer_for_tier(canonical)
-    capabilities = plan_capabilities_for_tier(canonical)
+    offer = _offer_payload_for_plan(plan, canonical=canonical)
+    capabilities = plan_capabilities_for_plan(plan)
 
-    from apps.verification.services import verification_pricing_for_plan
+    from apps.verification.services import verification_price_amount, verification_pricing_for_plan
 
     verification = verification_pricing_for_plan(plan)
-    blue_amount = ((verification.get("prices") or {}).get("blue") or {}).get("final_amount", "100.00")
-    green_amount = ((verification.get("prices") or {}).get("green") or {}).get("final_amount", "100.00")
+    blue_amount = verification_price_amount(verification, "blue", prefer_final=True)
+    green_amount = verification_price_amount(verification, "green", prefer_final=True)
 
     card_rows = [
         {"key": "annual_price", "label": "السعر السنوي", "value": offer["annual_price_label"]},
@@ -270,7 +276,8 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
 
 
 def subscription_offer_end_at(*, plan, start_at):
-    offer = subscription_offer_for_plan(plan)
-    if offer["billing_cycle"] == SUBSCRIPTION_BILLING_CYCLE:
+    template = template_subscription_plan_for_plan(plan, fallback_tier=CanonicalPlanTier.BASIC)
+    period = resolved_plan_string(plan, template, "period", default=PlanPeriod.YEAR)
+    if period == PlanPeriod.YEAR:
         return start_at + timedelta(days=365)
     return start_at + timedelta(days=30)

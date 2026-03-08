@@ -1796,7 +1796,14 @@ body.page-plan-summary .ps-submit-btn {
 /* ══════════════════════════════════════════════
    Service Detail
    ══════════════════════════════════════════════ */
-.sd-provider-row { display: flex; align-items: center; gap: 12px; }
+.sd-provider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.16s ease, opacity 0.16s ease;
+}
 .sd-provider-avatar { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #F3E5F5; }
 .sd-provider-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: var(--color-primary, #663D90); font-size: 22px; font-weight: 700; }
@@ -1815,6 +1822,43 @@ body.page-plan-summary .ps-submit-btn {
 .sd-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 .sd-actions { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.sd-provider-row:hover { transform: translateY(-1px); }
+.sd-provider-row.is-disabled,
+.sd-actions .is-disabled {
+  pointer-events: none;
+  opacity: 0.55;
+}
+.sd-provider {
+  border: 1px solid rgba(103, 58, 183, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(103, 58, 183, 0.08), transparent 42%),
+    #fff;
+}
+.sd-provider-avatar {
+  box-shadow: 0 8px 18px rgba(103, 58, 183, 0.14);
+}
+.sd-description {
+  color: #3f3a53;
+}
+.sd-price {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(103, 58, 183, 0.08);
+}
+.sd-actions .btn {
+  min-height: 48px;
+  border-radius: 14px;
+  font-weight: 800;
+}
+.sd-actions .btn:hover {
+  transform: translateY(-1px);
+}
+.sd-comments-section h3 {
+  margin-bottom: 8px;
+  font-size: 17px;
+}
 .sd-comment { padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
 .sd-comment strong { font-size: 14px; }
 .sd-comment p { margin: 4px 0; font-size: 13px; color: #444; }
@@ -3272,6 +3316,10 @@ body.page-search .map-provider-action.is-disabled {
     display: block !important;
   }
 
+  body.page-search #site-footer {
+    display: block !important;
+  }
+
   body.page-search #bottom-nav {
     display: none !important;
   }
@@ -3279,11 +3327,153 @@ body.page-search .map-provider-action.is-disabled {
   body.page-search .page-content {
     padding-top: calc(var(--navbar-height) + var(--space-lg));
     padding-bottom: var(--space-2xl);
+    background:
+      radial-gradient(circle at 100% 0%, rgba(103, 58, 183, 0.12), transparent 28%),
+      radial-gradient(circle at 0% 20%, rgba(33, 150, 243, 0.08), transparent 24%),
+      var(--color-bg);
   }
 
   body.page-search .providers-list-compact {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-lg);
+  }
+
+  body.page-search .search-mobile-header {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(103, 58, 183, 0.08);
+  }
+
+  body.page-search .container.search-mobile-body {
+    position: relative;
+  }
+
+  body.page-search .search-mobile-title {
+    font-size: 34px;
+    letter-spacing: -0.02em;
+  }
+
+  body.page-search .search-mobile-input-wrap {
+    max-width: 760px;
+    margin-inline: auto;
+    box-shadow: 0 16px 36px rgba(20, 20, 38, 0.08);
+  }
+
+  body.page-search .search-mobile-sort-row {
+    margin-bottom: 18px;
+    padding-inline: 4px;
+    align-items: center;
+  }
+
+  body.page-search .results-count {
+    font-size: 13px;
+    font-weight: 800;
+    color: #4a4462;
+  }
+
+  body.page-search .filter-row {
+    padding: 4px 2px 6px;
+  }
+
+  body.page-search .filter-chip {
+    border: 1px solid rgba(103, 58, 183, 0.12);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 6px 16px rgba(20, 20, 38, 0.04);
+  }
+
+  body.page-search .filter-chip.active {
+    box-shadow: 0 10px 20px rgba(103, 58, 183, 0.16);
+  }
+
+  body.page-search .provider-list-card {
+    border: 1px solid rgba(103, 58, 183, 0.08);
+    box-shadow: 0 14px 30px rgba(20, 20, 38, 0.06);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  body.page-search .provider-list-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 38px rgba(20, 20, 38, 0.1);
+    border-color: rgba(103, 58, 183, 0.18);
+  }
+
+  body.page-search .provider-list-body {
+    padding: 14px 14px;
+  }
+
+  body.page-search .provider-list-name {
+    font-size: 17px;
+    font-weight: 900;
+    color: #241e3e;
+  }
+
+  body.page-search .provider-list-meta,
+  body.page-search .provider-list-distance {
+    font-size: 12.5px;
+  }
+
+  body.page-add-service #top-navbar,
+  body.page-add-service #site-footer {
+    display: block !important;
+  }
+
+  body.page-add-service #bottom-nav {
+    display: none !important;
+  }
+
+  body.page-add-service .page-content {
+    padding-top: calc(var(--navbar-height) + 18px);
+    padding-bottom: 40px;
+    background:
+      radial-gradient(circle at 100% 0%, rgba(103, 58, 183, 0.1), transparent 26%),
+      radial-gradient(circle at 0% 20%, rgba(33, 150, 243, 0.06), transparent 22%),
+      var(--color-bg);
+  }
+
+  body.page-add-service .container {
+    max-width: 1120px;
+  }
+
+  body.page-add-service .add-service-topbar,
+  body.page-add-service .add-service-actions-panel,
+  body.page-add-service .add-service-categories-panel {
+    box-shadow: 0 16px 34px rgba(20, 20, 38, 0.06);
+  }
+
+  body.page-add-service .add-service-gradient-header {
+    min-height: 320px;
+    padding: 32px;
+  }
+
+  body.page-add-service .add-service-gradient-header h2 {
+    font-size: 36px;
+    letter-spacing: -0.02em;
+  }
+
+  body.page-add-service .add-service-gradient-header .page-subtitle {
+    font-size: 16px;
+    line-height: 1.9;
+    max-width: 560px;
+  }
+
+  body.page-add-service .add-service-hero-actions {
+    gap: 12px;
+  }
+
+  body.page-add-service .add-service-hero-btn {
+    min-height: 48px;
+    padding-inline: 18px;
+  }
+
+  body.page-add-service .service-action-card,
+  body.page-add-service .cat-item {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  body.page-add-service .service-action-card:hover,
+  body.page-add-service .cat-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 18px 34px rgba(20, 20, 38, 0.08);
   }
 }
 

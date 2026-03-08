@@ -554,3 +554,31 @@ def test_verification_fee_ignores_legacy_plan_matrix_override(settings, user):
     )
     assert ur.status == "active"
     assert ur.metadata_record.payload.get("invoice_id") == vr.invoice_id
+
+
+def test_verification_pricing_uses_canonical_db_row_not_settings_matrix(settings, user):
+    canonical = SubscriptionPlan.objects.get(code="riyadi")
+    canonical.verification_blue_fee = Decimal("12.00")
+    canonical.verification_green_fee = Decimal("7.00")
+    canonical.save(update_fields=["verification_blue_fee", "verification_green_fee"])
+
+    plan = SubscriptionPlan.objects.create(code="RIYADI_DB_MATRIX", tier="riyadi", title="Riyadi", features=[])
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now(),
+    )
+
+    settings.VERIFY_FEES_BY_TIER = {
+        "pioneer": {
+            "blue": "88.00",
+            "green": "44.00",
+        }
+    }
+
+    pricing = verification_pricing_for_user(user)
+
+    assert pricing["prices"]["blue"]["amount"] == "12.00"
+    assert pricing["prices"]["green"]["amount"] == "7.00"

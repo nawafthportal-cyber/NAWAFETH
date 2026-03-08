@@ -555,7 +555,7 @@ def user_has_feature(user, key: str) -> bool:
     active = get_effective_active_subscription(user)
     if not active:
         return False
-    features = {str(item or "").strip().lower() for item in (active.plan.features or [])}
+    features = {str(item or "").strip().lower() for item in getattr(active.plan, "feature_keys", lambda: [])()}
     return normalized_key in features
 
 
@@ -566,7 +566,7 @@ def plan_to_tier(plan: SubscriptionPlan | None) -> str:
         tier=getattr(plan, "tier", ""),
         code=getattr(plan, "code", ""),
         title=getattr(plan, "title", ""),
-        features=getattr(plan, "features", []) or [],
+        features=getattr(plan, "feature_keys", lambda: [])(),
     )
 
 

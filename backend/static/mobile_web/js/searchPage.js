@@ -645,7 +645,7 @@ const SearchPage = (() => {
         }
         return url.pathname + (url.search || '');
       } catch (_) {
-        return '/search/?open_map=1';
+        return '/providers-map/';
       }
     })();
     const profileUrl = providerId

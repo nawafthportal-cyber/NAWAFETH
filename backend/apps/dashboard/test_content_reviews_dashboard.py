@@ -143,6 +143,126 @@ def test_content_block_update_accepts_media_and_can_remove_it():
     assert not block.media_file
 
 
+def test_content_block_update_supports_third_onboarding_slide():
+    _admin_user, admin_client = _login_dashboard_user("0500011204", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["onboarding_get_started"]),
+        data={
+            "title_ar": "ابدأ من الداشبورد",
+            "body_ar": "هذا النص يجب أن يظهر في الشريحة الثالثة",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="onboarding_get_started")
+    assert block.title_ar == "ابدأ من الداشبورد"
+    assert block.body_ar == "هذا النص يجب أن يظهر في الشريحة الثالثة"
+
+
+def test_content_block_update_supports_home_hero_title():
+    _admin_user, admin_client = _login_dashboard_user("0500011205", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["home_hero_title"]),
+        data={
+            "title_ar": "عنوان رئيسي من الداشبورد",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="home_hero_title")
+    assert block.title_ar == "عنوان رئيسي من الداشبورد"
+
+
+def test_content_block_update_supports_login_title():
+    _admin_user, admin_client = _login_dashboard_user("0500011206", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["login_title"]),
+        data={
+            "title_ar": "دخول من الداشبورد",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="login_title")
+    assert block.title_ar == "دخول من الداشبورد"
+
+
+def test_content_block_update_supports_twofa_title():
+    _admin_user, admin_client = _login_dashboard_user("0500011207", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["twofa_title"]),
+        data={
+            "title_ar": "تحقق من الداشبورد",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="twofa_title")
+    assert block.title_ar == "تحقق من الداشبورد"
+
+
+def test_content_block_update_supports_twofa_phone_notice():
+    _admin_user, admin_client = _login_dashboard_user("0500011208", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["twofa_phone_notice"]),
+        data={
+            "title_ar": "تم إرسال الرمز إلى",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="twofa_phone_notice")
+    assert block.title_ar == "تم إرسال الرمز إلى"
+
+
+def test_content_block_update_supports_about_hero_title():
+    _admin_user, admin_client = _login_dashboard_user("0500011209", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["about_hero_title"]),
+        data={
+            "title_ar": "عن المنصة من الداشبورد",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="about_hero_title")
+    assert block.title_ar == "عن المنصة من الداشبورد"
+
+
+def test_content_block_update_supports_contact_page_title():
+    _admin_user, admin_client = _login_dashboard_user("0500011210", AccessLevel.ADMIN, ["content"])
+
+    res = admin_client.post(
+        reverse("dashboard:content_block_update_action", args=["contact_page_title"]),
+        data={
+            "title_ar": "الدعم من الداشبورد",
+            "body_ar": "",
+            "is_active": "on",
+        },
+    )
+
+    assert res.status_code == 302
+    block = SiteContentBlock.objects.get(key="contact_page_title")
+    assert block.title_ar == "الدعم من الداشبورد"
+
+
 def test_content_block_update_rejects_invalid_media_file():
     _admin_user, admin_client = _login_dashboard_user("0500011203", AccessLevel.ADMIN, ["content"])
 

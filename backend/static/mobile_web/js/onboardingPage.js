@@ -4,39 +4,27 @@
 'use strict';
 
 const OnboardingPage = (() => {
-  const DEFAULT_SLIDES = [
+  const SLIDE_DEFINITIONS = [
     {
       key: 'onboarding_first_time',
       icon: '🧩',
-      title: 'مرحباً بك في نوافذ',
-      desc: 'منصتك الأولى لربط العملاء بمقدمي الخدمات.',
-      media_url: '',
-      media_type: '',
     },
     {
       key: 'onboarding_intro',
       icon: '🤝',
-      title: 'لكل عميل ومقدم خدمة',
-      desc: 'اختر خدماتك أو اعرض خبراتك وابدأ التواصل مباشرة.',
-      media_url: '',
-      media_type: '',
     },
     {
-      key: 'onboarding_static_final',
+      key: 'onboarding_get_started',
       icon: '⚡',
-      title: 'انطلق الآن',
-      desc: 'تجربة سلسة وسريعة للوصول لما تحتاجه خلال ثوانٍ.',
-      media_url: '',
-      media_type: '',
     },
   ];
 
   let _index = 0;
-  let _slidesData = DEFAULT_SLIDES.map((item) => ({ ...item }));
+  let _slidesData = [];
 
   function init() {
     _bind();
-    _renderSlides();
+    _renderLoading();
     _loadSlidesFromApi();
   }
 
@@ -59,27 +47,39 @@ const OnboardingPage = (() => {
 
   async function _loadSlidesFromApi() {
     const res = await ApiClient.get('/api/content/public/');
-    if (!res.ok || !res.data || typeof res.data !== 'object') return;
+    if (!res.ok || !res.data || typeof res.data !== 'object') {
+      _renderStatus('تعذر تحميل شاشة البداية من الخادم.', true);
+      return;
+    }
 
     const blocks = res.data.blocks || {};
-    _slidesData = DEFAULT_SLIDES.map((slide) => _mergeSlideWithBlock(slide, blocks[slide.key]));
+    _slidesData = SLIDE_DEFINITIONS
+      .map((slide) => _mergeSlideWithBlock(slide, blocks[slide.key]))
+      .filter((slide) => slide && slide.title && slide.desc);
+
+    if (!_slidesData.length) {
+      _renderStatus('محتوى شاشة البداية غير مُعد في لوحة التحكم.', false);
+      return;
+    }
+
     _renderSlides();
   }
 
   function _mergeSlideWithBlock(fallback, block) {
-    if (!block || typeof block !== 'object') return { ...fallback };
+    if (!block || typeof block !== 'object') return null;
 
     const title = String(block.title_ar || '').trim();
     const desc = String(block.body_ar || '').trim();
+    if (!title && !desc) return null;
     const mediaUrl = ApiClient.mediaUrl(block.media_url || '');
     const mediaType = String(block.media_type || '').trim().toLowerCase();
 
     return {
       ...fallback,
-      title: title || fallback.title,
-      desc: desc || fallback.desc,
-      media_url: mediaUrl || fallback.media_url,
-      media_type: mediaType || fallback.media_type,
+      title,
+      desc,
+      media_url: mediaUrl || '',
+      media_type: mediaType || '',
     };
   }
 
@@ -122,6 +122,45 @@ const OnboardingPage = (() => {
       _index = _slidesData.length - 1;
     }
     _render();
+  }
+
+  function _renderLoading() {
+    _renderStatus('يتم جلب المحتوى مباشرة من لوحة التحكم.', false, true);
+  }
+
+  function _renderStatus(message, retryable, loading) {
+    const stage = document.getElementById('onboarding-stage');
+    const dots = document.getElementById('onboard-dots');
+    const nextBtn = document.getElementById('btn-onboard-next');
+    const skipBtn = document.getElementById('btn-onboard-skip');
+    if (!stage || !dots) return;
+
+    stage.innerHTML = '';
+    dots.innerHTML = '';
+
+    stage.appendChild(
+      UI.el('article', { className: 'onboard-status-card' }, [
+        UI.el('div', {
+          className: 'onboard-status-icon',
+          textContent: loading ? '⟳' : '✦',
+        }),
+        UI.el('h1', { textContent: loading ? 'جاري تحميل شاشة البداية' : 'شاشة البداية' }),
+        UI.el('p', { textContent: message }),
+        retryable
+          ? UI.el('button', {
+              className: 'onboard-status-action',
+              textContent: 'إعادة المحاولة',
+              onclick: () => {
+                _renderLoading();
+                _loadSlidesFromApi();
+              },
+            })
+          : null,
+      ].filter(Boolean)),
+    );
+
+    if (nextBtn) nextBtn.textContent = 'دخول';
+    if (skipBtn) skipBtn.textContent = retryable ? 'الرئيسية' : 'تخطي';
   }
 
   function _buildSlide(slide, idx) {

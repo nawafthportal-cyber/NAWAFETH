@@ -17,6 +17,7 @@ const LoginPage = (() => {
     const btnGuest = document.getElementById('btn-guest');
 
     if (!phoneInput || !btnSend || !btnGuest) return;
+    _loadContent();
 
     btnSend.addEventListener('click', () => _sendOTP(phoneInput));
     phoneInput.addEventListener('input', () => {
@@ -34,6 +35,17 @@ const LoginPage = (() => {
       Auth.logout();
       window.location.href = '/';
     });
+  }
+
+  async function _loadContent() {
+    const res = await ApiClient.get('/api/content/public/');
+    if (!res.ok || !res.data || typeof res.data !== 'object') return;
+    const blocks = res.data.blocks || {};
+    _setText('login-title', _resolveTitle(blocks.login_title, 'تسجيل الدخول'));
+    _setText('login-desc', _resolveTitle(blocks.login_description, 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.'));
+    _setText('login-phone-hint', _resolveTitle(blocks.login_phone_hint, 'الصيغة المعتمدة: 05XXXXXXXX'));
+    _setText('send-otp-text', _resolveTitle(blocks.login_submit_label, 'إرسال رمز التحقق'));
+    _setText('btn-guest', _resolveTitle(blocks.login_guest_label, 'المتابعة كضيف'));
   }
 
   function _sanitizePhoneInput(value) {
@@ -110,6 +122,18 @@ const LoginPage = (() => {
     if (!el) return;
     el.textContent = '';
     el.classList.add('hidden');
+  }
+
+  function _resolveTitle(block, fallback) {
+    if (!block || typeof block !== 'object') return fallback;
+    const title = String(block.title_ar || '').trim();
+    return title || fallback;
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
   }
 
   if (document.readyState === 'loading') {

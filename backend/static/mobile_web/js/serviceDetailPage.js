@@ -91,8 +91,36 @@ var ServiceDetailPage = (function () {
 
     // Buttons
     var providerId = d.provider_id || d.provider?.id || d.provider;
-    document.getElementById("sd-btn-request").href = "/service-request/?service_id=" + serviceId + "&provider_id=" + providerId;
-    document.getElementById("sd-btn-chat").href = "/chats/?start=" + providerId;
+    var providerLink = document.getElementById("sd-provider-link");
+    var requestBtn = document.getElementById("sd-btn-request");
+    var chatBtn = document.getElementById("sd-btn-chat");
+
+    if (providerId) {
+      var normalizedProviderId = encodeURIComponent(String(providerId));
+      if (providerLink) {
+        providerLink.href = "/provider/" + normalizedProviderId + "/";
+        providerLink.classList.remove("is-disabled");
+        providerLink.removeAttribute("aria-disabled");
+      }
+      if (requestBtn) {
+        requestBtn.href = "/service-request/?service_id=" + encodeURIComponent(String(serviceId)) + "&provider_id=" + normalizedProviderId;
+        requestBtn.classList.remove("is-disabled");
+        requestBtn.removeAttribute("aria-disabled");
+      }
+      if (chatBtn) {
+        chatBtn.href = "/chats/?start=" + normalizedProviderId;
+        chatBtn.classList.remove("is-disabled");
+        chatBtn.removeAttribute("aria-disabled");
+      }
+      return;
+    }
+
+    [providerLink, requestBtn, chatBtn].forEach(function (el) {
+      if (!el) return;
+      el.href = "#";
+      el.classList.add("is-disabled");
+      el.setAttribute("aria-disabled", "true");
+    });
   }
 
   function asNumber(value) {

@@ -46,6 +46,7 @@ from apps.verification.services import (
     finalize_request_and_create_invoice,
     decide_requirement,
     activate_after_payment as activate_verification_after_payment,
+    verification_price_amount,
     verification_pricing_for_plan,
     sync_provider_badges,
 )
@@ -2333,6 +2334,94 @@ def support_ticket_status_action(request: HttpRequest, ticket_id: int) -> HttpRe
 
 
 @staff_member_required
+@dashboard_access_required("support", write=True)
+@require_POST
+def support_ticket_quick_update_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(SupportTicket, id=ticket_id)
+
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    team_id = request.POST.get("assigned_team") or None
+    assigned_to = request.POST.get("assigned_to") or None
+    status_new = (request.POST.get("status") or "").strip()
+    description = (request.POST.get("description") or "").strip()
+    comment_text = (request.POST.get("comment") or request.POST.get("text") or "").strip()
+    note = (request.POST.get("note") or "").strip()
+    attachment = request.FILES.get("attachment") or request.FILES.get("file")
+
+    try:
+        team_id = int(team_id) if team_id else None
+    except Exception:
+        team_id = None
+    try:
+        assigned_to = int(assigned_to) if assigned_to else None
+    except Exception:
+        assigned_to = None
+
+    if ap and ap.level == "user" and assigned_to is not None and assigned_to != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    updated = False
+    try:
+        with transaction.atomic():
+            if description and description != (ticket.description or "").strip():
+                ticket.description = description
+                ticket.last_action_by = request.user
+                ticket.save(update_fields=["description", "last_action_by", "updated_at"])
+                updated = True
+
+            if team_id is not None or assigned_to is not None:
+                assign_ticket(
+                    ticket=ticket,
+                    team_id=team_id,
+                    user_id=assigned_to,
+                    by_user=request.user,
+                    note=note or comment_text,
+                )
+                updated = True
+
+            if status_new:
+                change_ticket_status(
+                    ticket=ticket,
+                    new_status=status_new,
+                    by_user=request.user,
+                    note=note or comment_text,
+                )
+                updated = True
+
+            if comment_text:
+                from apps.support.models import SupportComment
+
+                SupportComment.objects.create(
+                    ticket=ticket,
+                    created_by=request.user,
+                    text=comment_text[:300],
+                    is_internal=(request.POST.get("is_internal") == "1"),
+                )
+                updated = True
+
+            if attachment:
+                from apps.support.models import SupportAttachment
+
+                SupportAttachment.objects.create(
+                    ticket=ticket,
+                    uploaded_by=request.user,
+                    file=attachment,
+                )
+                updated = True
+
+        messages.success(request, "تم تحديث التذكرة بنجاح" if updated else "لم يتم إجراء أي تعديل")
+    except ValidationError as exc:
+        messages.error(request, exc.messages[0] if getattr(exc, "messages", None) else "تعذر تحديث التذكرة")
+    except Exception:
+        logger.exception("support_ticket_quick_update_action error")
+        messages.error(request, "تعذر تحديث التذكرة")
+    return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+
+@staff_member_required
 @dashboard_access_required("verify")
 def verification_requests_list(request: HttpRequest) -> HttpResponse:
     qs = (
@@ -3720,8 +3809,8 @@ def subscription_plans_compare(request: HttpRequest) -> HttpResponse:
 
     rows = []
     def _pricing_cell(plan: SubscriptionPlan, badge_type: str) -> str:
-        prices = (verification_pricing_for_plan(plan).get("prices") or {})
-        amount = ((prices.get(badge_type) or {}).get("amount") or "100.00")
+        pricing = verification_pricing_for_plan(plan)
+        amount = verification_price_amount(pricing, badge_type)
         return "مجاني" if str(amount) == "0.00" else f"{amount} ر.س"
 
     rows.extend(
@@ -4256,8 +4345,8 @@ def features_overview(request: HttpRequest) -> HttpResponse:
             {
                 "user": user,
                 "subscription_tier": pricing.get("tier_label", "أساسية"),
-                "verify_blue_fee": ((prices.get("blue") or {}).get("amount") or "100.00"),
-                "verify_green_fee": ((prices.get("green") or {}).get("amount") or "100.00"),
+                "verify_blue_fee": verification_price_amount(pricing, "blue"),
+                "verify_green_fee": verification_price_amount(pricing, "green"),
                 "promo_ads": has_feature(user, "promo_ads"),
                 "priority_support": has_feature(user, "priority_support"),
                 "extra_uploads": has_feature(user, "extra_uploads"),

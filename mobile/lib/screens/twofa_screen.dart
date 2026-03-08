@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
+import '../services/content_service.dart';
 import '../services/push_notification_service.dart';
 import 'signup_screen.dart';
 
@@ -37,6 +38,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
 
   int _resendCountdown = 60;
   bool _canResend = false;
+  TwofaContent _content = TwofaContent.defaults();
 
   String get _code => _digitControllers.map((c) => c.text).join();
   bool get _isCodeComplete => RegExp(r'^\d{4}$').hasMatch(_code);
@@ -44,6 +46,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
   @override
   void initState() {
     super.initState();
+    _loadScreenContent();
     _startCountdown();
   }
 
@@ -134,6 +137,17 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     });
   }
 
+  Future<void> _loadScreenContent() async {
+    try {
+      final result = await ContentService.fetchPublicContent();
+      if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
+      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      setState(() {
+        _content = TwofaContent.fromBlocks(blocks);
+      });
+    } catch (_) {}
+  }
+
   Future<void> _onVerifyOtp() async {
     if (!_isCodeComplete) {
       _setError('أدخل رمز التحقق المكوّن من 4 أرقام');
@@ -185,8 +199,8 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     if (result.success) {
       _startCountdown();
       final text = result.devCode != null
-          ? 'تم الإرسال - رمز التطوير: ${result.devCode}'
-          : 'تم إرسال رمز جديد';
+          ? '${_content.successResendLabel} - رمز التطوير: ${result.devCode}'
+          : _content.successResendLabel;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(text, style: const TextStyle(fontFamily: 'Cairo')),
@@ -276,9 +290,9 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back, color: AppColors.deepPurple),
         ),
-        title: const Text(
-          'التحقق من الرمز',
-          style: TextStyle(
+        title: Text(
+          _content.title,
+          style: const TextStyle(
             fontFamily: 'Cairo',
             fontSize: 17,
             fontWeight: FontWeight.w700,
@@ -325,10 +339,10 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'أدخل رمز التحقق',
+                    Text(
+                      _content.title,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -336,12 +350,22 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'تم إرسال رمز مكوّن من 4 أرقام إلى',
+                    Text(
+                      _content.description,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontFamily: 'Cairo',
                         fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _content.phoneNotice,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12.5,
                         color: Colors.black54,
                       ),
                     ),
@@ -398,9 +422,9 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text(
-                              'تأكيد الرمز',
-                              style: TextStyle(
+                          : Text(
+                              _content.submitLabel,
+                              style: const TextStyle(
                                 fontFamily: 'Cairo',
                                 fontSize: 14.5,
                                 fontWeight: FontWeight.w700,
@@ -413,7 +437,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'لم يصلك الرمز؟',
+                          _content.resendPrompt,
                           style: TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 12.5,
@@ -432,9 +456,9 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                                   height: 14,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : const Text(
-                                  'إعادة الإرسال',
-                                  style: TextStyle(
+                              : Text(
+                                  _content.resendLabel,
+                                  style: const TextStyle(
                                     fontFamily: 'Cairo',
                                     fontSize: 12.5,
                                     fontWeight: FontWeight.w700,
@@ -455,8 +479,8 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                             color: const Color(0xFFF4F1FF),
                             borderRadius: BorderRadius.circular(999),
                           ),
-                          child: Text(
-                            'يمكنك إعادة الإرسال بعد $_resendCountdown ثانية',
+                        child: Text(
+                            '${_content.resendLabel} بعد $_resendCountdown ثانية',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
                               fontSize: 11.5,
@@ -472,6 +496,60 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class TwofaContent {
+  final String title;
+  final String description;
+  final String submitLabel;
+  final String resendLabel;
+  final String successResendLabel;
+  final String phoneNotice;
+  final String resendPrompt;
+
+  const TwofaContent({
+    required this.title,
+    required this.description,
+    required this.submitLabel,
+    required this.resendLabel,
+    required this.successResendLabel,
+    required this.phoneNotice,
+    required this.resendPrompt,
+  });
+
+  factory TwofaContent.defaults() {
+    return const TwofaContent(
+      title: 'التحقق من الرمز',
+      description: 'أدخل رمز التحقق المكوّن من 4 أرقام الذي تم إرساله إلى رقم الجوال.',
+      submitLabel: 'تأكيد الرمز',
+      resendLabel: 'إعادة الإرسال',
+      successResendLabel: 'تم إرسال رمز جديد',
+      phoneNotice: 'تم إرسال الرمز إلى',
+      resendPrompt: 'لم يصلك الرمز؟',
+    );
+  }
+
+  factory TwofaContent.fromBlocks(Map<String, dynamic> blocks) {
+    String resolve(String key, String fallback) {
+      final block = blocks[key];
+      if (block is! Map<String, dynamic>) return fallback;
+      final title = (block['title_ar'] as String?)?.trim() ?? '';
+      return title.isNotEmpty ? title : fallback;
+    }
+
+    return TwofaContent(
+      title: resolve('twofa_title', 'التحقق من الرمز'),
+      description: resolve(
+        'twofa_description',
+        'أدخل رمز التحقق المكوّن من 4 أرقام الذي تم إرساله إلى رقم الجوال.',
+      ),
+      submitLabel: resolve('twofa_submit_label', 'تأكيد الرمز'),
+      resendLabel: resolve('twofa_resend_label', 'إعادة الإرسال'),
+      successResendLabel: resolve('twofa_success_resend_label', 'تم إرسال رمز جديد'),
+      phoneNotice: resolve('twofa_phone_notice', 'تم إرسال الرمز إلى'),
+      resendPrompt: resolve('twofa_resend_prompt', 'لم يصلك الرمز؟'),
     );
   }
 }

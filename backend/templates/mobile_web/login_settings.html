@@ -3,6 +3,7 @@
 {% block title %}إعدادات الدخول — نوافــذ{% endblock %}
 {% block body_class %}page-login-settings{% endblock %}
 {% block sidebar_settings %}active{% endblock %}
+{% block bnav_profile %}active{% endblock %}
 
 {% block content %}
 <main class="page-shell ls-page">
@@ -10,6 +11,14 @@
     <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
     <h1>إعدادات الدخول</h1>
   </div>
+
+  <section class="ls-hero">
+    <div class="ls-hero-copy">
+      <p class="ls-hero-eyebrow">الأمان والهوية</p>
+      <h2 class="ls-hero-title">أدِر وسائل الدخول والحماية من شاشة واحدة</h2>
+      <p class="ls-hero-subtitle">بيانات هذه الصفحة متزامنة مع الحساب الحالي، بينما رموز الدخول المحلية تبقى مرتبطة بالجهاز نفسه كما في التطبيق.</p>
+    </div>
+  </section>
 
   <div id="ls-loading" class="loading-center"><div class="spinner"></div></div>
   <div id="ls-error" class="detail-card hidden">

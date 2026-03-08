@@ -13,6 +13,7 @@ import '../models/media_item_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
+import '../services/content_service.dart';
 import '../services/unread_badge_service.dart';
 
 import 'search_provider_screen.dart';
@@ -35,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   List<ProviderPublicModel> _providers = [];
   List<BannerModel> _banners = [];
   List<MediaItemModel> _spotlights = [];
+  HomeScreenContent _content = HomeScreenContent.empty();
   bool _isLoading = true;
   int _notificationUnread = 0;
   int _chatUnread = 0;
@@ -61,6 +63,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _initVideo();
     final seeded = _seedFromCachedData();
+    _loadHomeContent();
     _loadData(showLoader: !seeded);
     _startReelsScroll();
     _loadUnreadBadges();
@@ -147,6 +150,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadHomeContent({bool forceRefresh = false}) async {
+    try {
+      final result = await ContentService.fetchPublicContent(forceRefresh: forceRefresh);
+      if (!mounted || !result.isSuccess || result.dataAsMap == null) return;
+      final blocks = (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
+      setState(() {
+        _content = HomeScreenContent.fromBlocks(blocks);
+      });
+    } catch (_) {
+      // Keep current content on transient failures.
+    }
+  }
+
   void _startReelsScroll() {
     _reelsTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (_reelsScroll.hasClients && mounted) {
@@ -203,7 +219,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
       body: RefreshIndicator(
-        onRefresh: () => _loadData(forceRefresh: true, showLoader: false),
+        onRefresh: () async {
+          await Future.wait([
+            _loadData(forceRefresh: true, showLoader: false),
+            _loadHomeContent(forceRefresh: true),
+          ]);
+        },
         color: purple,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -345,14 +366,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   const Spacer(),
 
                   // Tagline
-                  const Text(
-                    'اعثر على الخدمة المناسبة',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, fontFamily: 'Cairo', color: Colors.white,
+                  Text(
+                    _content.heroTitle,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, fontFamily: 'Cairo', color: Colors.white,
                       shadows: [Shadow(color: Colors.black38, blurRadius: 6)]),
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'أكثر من ${_providers.isNotEmpty ? _providers.length : "100"} مقدم خدمة بين يديك',
+                    _content.renderHeroSubtitle(providerCount: _providers.length),
                     style: TextStyle(fontSize: 11, fontFamily: 'Cairo', color: Colors.white.withValues(alpha: 0.85)),
                   ),
                   const SizedBox(height: 12),
@@ -371,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         children: [
                           Icon(Icons.search_rounded, size: 18, color: Colors.grey.shade500),
                           const SizedBox(width: 8),
-                          Text('ابحث عن خدمة أو مقدم خدمة...', style: TextStyle(fontSize: 12, fontFamily: 'Cairo', color: Colors.grey.shade500)),
+                          Text(_content.searchPlaceholder, style: TextStyle(fontSize: 12, fontFamily: 'Cairo', color: Colors.grey.shade500)),
                         ],
                       ),
                     ),
@@ -607,62 +628,73 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // =============================================
 
   Widget _buildCategories(bool isDark, Color purple) {
-    // Fallback static categories if API returns empty
-    final cats = _categories.isNotEmpty
-        ? _categories
-        : _defaultCategories;
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('التصنيفات', isDark),
+          _sectionTitle(_content.categoriesTitle, isDark),
           const SizedBox(height: 10),
-          SizedBox(
-            height: 82,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: cats.length,
-              itemBuilder: (context, index) {
-                final cat = cats[index];
-                final icon = _categoryIcon(cat.name);
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => SearchProviderScreen(initialCategoryId: cat.id > 0 ? cat.id : null),
-                    ));
-                  },
-                  child: Container(
-                    width: 76,
-                    margin: const EdgeInsets.only(left: 8),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 50, height: 50,
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
-                          ),
-                          child: Icon(icon, size: 22, color: purple),
-                        ),
-                        const SizedBox(height: 5),
-                        Text(
-                          cat.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
-                            color: isDark ? Colors.white70 : Colors.black87),
-                        ),
-                      ],
-                    ),
+          if (_categories.isEmpty)
+            SizedBox(
+              height: 72,
+              child: Center(
+                child: Text(
+                  'لا توجد تصنيفات متاحة حالياً',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white54 : Colors.black45,
                   ),
-                );
-              },
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              height: 82,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final icon = _categoryIcon(cat.name);
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => SearchProviderScreen(initialCategoryId: cat.id > 0 ? cat.id : null),
+                      ));
+                    },
+                    child: Container(
+                      width: 76,
+                      margin: const EdgeInsets.only(left: 8),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 50, height: 50,
+                            decoration: BoxDecoration(
+                              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              boxShadow: isDark ? null : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
+                            ),
+                            child: Icon(icon, size: 22, color: purple),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            cat.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, fontFamily: 'Cairo',
+                              color: isDark ? Colors.white70 : Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -680,7 +712,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         children: [
           Row(
             children: [
-              _sectionTitle('مقدمو الخدمة', isDark),
+              _sectionTitle(_content.providersTitle, isDark),
               const Spacer(),
               GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SearchProviderScreen())),
@@ -875,7 +907,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('عروض ترويجية', isDark),
+          _sectionTitle(_content.bannersTitle, isDark),
           const SizedBox(height: 10),
           SizedBox(
             height: 130,
@@ -979,15 +1011,60 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Icons.category_rounded;
   }
 
-  // Fallback categories when API returns empty
-  static final _defaultCategories = [
-    CategoryModel(id: 0, name: 'استشارات قانونية'),
-    CategoryModel(id: 0, name: 'خدمات هندسية'),
-    CategoryModel(id: 0, name: 'تصميم جرافيك'),
-    CategoryModel(id: 0, name: 'توصيل سريع'),
-    CategoryModel(id: 0, name: 'رعاية صحية'),
-    CategoryModel(id: 0, name: 'ترجمة لغات'),
-    CategoryModel(id: 0, name: 'برمجة مواقع'),
-    CategoryModel(id: 0, name: 'صيانة أجهزة'),
-  ];
+}
+
+class HomeScreenContent {
+  final String heroTitle;
+  final String heroSubtitle;
+  final String searchPlaceholder;
+  final String categoriesTitle;
+  final String providersTitle;
+  final String bannersTitle;
+
+  const HomeScreenContent({
+    required this.heroTitle,
+    required this.heroSubtitle,
+    required this.searchPlaceholder,
+    required this.categoriesTitle,
+    required this.providersTitle,
+    required this.bannersTitle,
+  });
+
+  factory HomeScreenContent.empty() {
+    return const HomeScreenContent(
+      heroTitle: '...',
+      heroSubtitle: '...',
+      searchPlaceholder: '...',
+      categoriesTitle: '...',
+      providersTitle: '...',
+      bannersTitle: '...',
+    );
+  }
+
+  factory HomeScreenContent.fromBlocks(Map<String, dynamic> blocks) {
+    String resolve(String key, String fallback) {
+      final block = blocks[key];
+      if (block is! Map<String, dynamic>) return fallback;
+      final title = (block['title_ar'] as String?)?.trim() ?? '';
+      return title.isNotEmpty ? title : fallback;
+    }
+
+    return HomeScreenContent(
+      heroTitle: resolve('home_hero_title', 'الرئيسية'),
+      heroSubtitle: resolve(
+        'home_hero_subtitle',
+        'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.',
+      ),
+      searchPlaceholder: resolve('home_search_placeholder', 'ابحث'),
+      categoriesTitle: resolve('home_categories_title', 'التصنيفات'),
+      providersTitle: resolve('home_providers_title', 'مقدمو الخدمة'),
+      bannersTitle: resolve('home_banners_title', 'عروض ترويجية'),
+    );
+  }
+
+  String renderHeroSubtitle({required int providerCount}) {
+    final value = heroSubtitle.trim();
+    if (value.isEmpty) return '';
+    return value.replaceAll('{provider_count}', providerCount.toString());
+  }
 }

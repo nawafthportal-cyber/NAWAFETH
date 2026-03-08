@@ -10,14 +10,14 @@
   <div class="container">
     <div id="auth-gate" class="auth-gate hidden">
       <div class="auth-gate-icon">🎫</div>
-      <h2>سجّل دخولك</h2>
-      <p>يجب تسجيل الدخول لعرض تذاكر الدعم</p>
-      <a href="/login/?next=/contact/" class="btn btn-primary">تسجيل الدخول</a>
+      <h2 id="contact-gate-title">سجّل دخولك</h2>
+      <p id="contact-gate-description">يجب تسجيل الدخول لعرض تذاكر الدعم</p>
+      <a id="contact-gate-login" href="/login/?next=/contact/" class="btn btn-primary">تسجيل الدخول</a>
     </div>
 
     <div id="support-content" class="hidden">
       <div class="page-header">
-        <h1>تواصل مع منصة نوافذ</h1>
+        <h1 id="contact-page-title">تواصل مع منصة نوافذ</h1>
       </div>
 
       <div class="support-toolbar">
@@ -27,30 +27,30 @@
 
       <div class="support-layout">
         <section class="support-card">
-          <h2 class="support-card-title">قائمة البلاغات</h2>
+          <h2 class="support-card-title" id="contact-list-title">قائمة البلاغات</h2>
           <div id="support-list-loading" class="text-center">
             <span class="spinner-inline"></span>
           </div>
           <div id="support-list-error" class="form-error hidden"></div>
           <div id="support-ticket-list" class="support-ticket-list hidden"></div>
           <div id="support-list-empty" class="empty-hint hidden">
-            <p>لا توجد بلاغات حتى الآن</p>
+            <p id="contact-empty-label">لا توجد بلاغات حتى الآن</p>
           </div>
         </section>
 
         <section class="support-card">
           <form id="new-ticket-form" class="hidden">
-            <h2 class="support-card-title">إنشاء بلاغ جديد</h2>
+            <h2 class="support-card-title" id="contact-create-title">إنشاء بلاغ جديد</h2>
             <div class="form-group">
-              <label class="form-label" for="support-team">فريق الدعم</label>
+              <label class="form-label" for="support-team" id="contact-team-label">فريق الدعم</label>
               <select id="support-team" class="form-select"></select>
             </div>
             <div class="form-group">
-              <label class="form-label" for="support-description">التفاصيل</label>
+              <label class="form-label" for="support-description" id="contact-description-label">التفاصيل</label>
               <textarea id="support-description" class="form-textarea" maxlength="300"></textarea>
             </div>
             <div class="form-group">
-              <label class="form-label" for="support-files">مرفقات (اختياري)</label>
+              <label class="form-label" for="support-files" id="contact-attachments-label">مرفقات (اختياري)</label>
               <input type="file" id="support-files" class="form-input" multiple>
             </div>
             <div class="form-error hidden" id="support-create-error"></div>
@@ -64,9 +64,9 @@
           </form>
 
           <div id="ticket-detail-view">
-            <h2 class="support-card-title">تفاصيل البلاغ</h2>
+            <h2 class="support-card-title" id="contact-detail-title">تفاصيل البلاغ</h2>
             <div class="empty-hint" id="ticket-detail-empty">
-              <p>اختر بلاغاً من القائمة لعرض التفاصيل</p>
+              <p id="contact-detail-empty-label">اختر بلاغاً من القائمة لعرض التفاصيل</p>
             </div>
             <div id="ticket-detail-body" class="hidden"></div>
           </div>

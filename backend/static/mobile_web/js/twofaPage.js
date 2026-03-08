@@ -10,6 +10,16 @@ const TwofaPage = (() => {
   let _next = '/';
   let _resendTimer = null;
   let _resendSeconds = 60;
+  let _content = {
+    title: 'التحقق من الرمز',
+    description: 'أدخل رمز التحقق المكوّن من 4 أرقام الذي تم إرساله إلى رقم الجوال.',
+    submitLabel: 'تأكيد الرمز',
+    resendLabel: 'إعادة الإرسال',
+    changePhoneLabel: 'تغيير رقم الجوال',
+    successResendLabel: 'تم إرسال رمز جديد',
+    phoneNotice: 'تم إرسال الرمز إلى',
+    resendPrompt: 'لم يصلك الرمز؟',
+  };
 
   function init() {
     if (Auth.isLoggedIn()) {
@@ -36,6 +46,7 @@ const TwofaPage = (() => {
     const resendBtn = document.getElementById('btn-resend-otp');
     if (verifyBtn) verifyBtn.addEventListener('click', _verifyOtp);
     if (resendBtn) resendBtn.addEventListener('click', _resendOtp);
+    _loadContent();
 
     const devCode = _sessionGet('nw_auth_dev_code');
     if (/^\d{4}$/.test(devCode || '')) {
@@ -192,6 +203,9 @@ const TwofaPage = (() => {
     }
 
     _hideError();
+    const message = res.data && res.data.dev_code
+      ? _content.successResendLabel + ' - رمز التطوير: ' + String(res.data.dev_code)
+      : _content.successResendLabel;
     if (res.data && res.data.dev_code) {
       _sessionSet('nw_auth_dev_code', String(res.data.dev_code));
       if (/^\d{4}$/.test(String(res.data.dev_code))) {
@@ -200,7 +214,33 @@ const TwofaPage = (() => {
     } else {
       _sessionRemove('nw_auth_dev_code');
     }
+    if (window.Toast && typeof window.Toast.show === 'function') {
+      window.Toast.show(message, { type: 'success' });
+    }
     _startResendTimer();
+  }
+
+  async function _loadContent() {
+    const res = await ApiClient.get('/api/content/public/');
+    if (!res.ok || !res.data || typeof res.data !== 'object') return;
+    const blocks = res.data.blocks || {};
+    _content = {
+      title: _resolveTitle(blocks.twofa_title, _content.title),
+      description: _resolveTitle(blocks.twofa_description, _content.description),
+      submitLabel: _resolveTitle(blocks.twofa_submit_label, _content.submitLabel),
+      resendLabel: _resolveTitle(blocks.twofa_resend_label, _content.resendLabel),
+      changePhoneLabel: _resolveTitle(blocks.twofa_change_phone_label, _content.changePhoneLabel),
+      successResendLabel: _resolveTitle(blocks.twofa_success_resend_label, _content.successResendLabel),
+      phoneNotice: _resolveTitle(blocks.twofa_phone_notice, _content.phoneNotice),
+      resendPrompt: _resolveTitle(blocks.twofa_resend_prompt, _content.resendPrompt),
+    };
+    _setText('twofa-title', _content.title);
+    _setText('twofa-desc', _content.description);
+    _setText('verify-otp-text', _content.submitLabel);
+    _setText('twofa-resend-prompt', _content.resendPrompt);
+    _setText('twofa-resend-label', _content.resendLabel);
+    _setText('twofa-change-phone-label', _content.changePhoneLabel);
+    _setText('twofa-phone-notice', _content.phoneNotice);
   }
 
   function _startResendTimer() {
@@ -247,6 +287,18 @@ const TwofaPage = (() => {
     if (!el) return;
     el.textContent = '';
     el.classList.add('hidden');
+  }
+
+  function _resolveTitle(block, fallback) {
+    if (!block || typeof block !== 'object') return fallback;
+    const title = String(block.title_ar || '').trim();
+    return title || fallback;
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = value;
   }
 
   if (document.readyState === 'loading') {

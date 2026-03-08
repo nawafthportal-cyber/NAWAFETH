@@ -20,7 +20,7 @@ const HomePage = (() => {
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
-  let $heroSubtitle, $reelsTrack, $offlineBanner;
+  let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
 
   // State
   let _isLoading = false;
@@ -28,6 +28,14 @@ const HomePage = (() => {
   let _reelsAutoTimer = null;    // auto-scroll interval
   let _reelsPaused = false;      // pause while user is touching/dragging
   let _reelsBound = false;       // bind track interaction handlers once
+  let _homeContent = {
+    heroTitle: '',
+    heroSubtitle: '',
+    searchPlaceholder: '',
+    categoriesTitle: '',
+    providersTitle: '',
+    bannersTitle: '',
+  };
 
   /* ----------------------------------------------------------
      INIT
@@ -37,10 +45,16 @@ const HomePage = (() => {
     $providersList  = document.getElementById('providers-list');
     $bannersList    = document.getElementById('banners-list');
     $bannersSection = document.getElementById('banners');
+    $heroTitle      = document.getElementById('hero-title');
     $heroSubtitle   = document.getElementById('hero-subtitle');
+    $searchPlaceholder = document.getElementById('home-search-placeholder');
+    $categoriesTitle = document.getElementById('categories-title');
+    $providersTitle = document.getElementById('providers-title');
+    $bannersTitle = document.getElementById('banners-title');
     $reelsTrack     = document.getElementById('reels-track');
     $offlineBanner  = document.getElementById('offline-banner');
     _bindReelsInteraction();
+    _applyHomeContent();
 
     // Network listener
     window.addEventListener('online',  () => _setOffline(false));
@@ -97,12 +111,26 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [catsRes, provsRes, bansRes, reelsRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, bansRes, reelsRes] = await Promise.allSettled([
+      ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
       ApiClient.get('/api/promo/banners/home/?limit=6'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
     ]);
+
+    if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
+      const blocks = contentRes.value.data.blocks || {};
+      _homeContent = {
+        heroTitle: _resolveBlockTitle(blocks.home_hero_title, 'الرئيسية'),
+        heroSubtitle: _resolveBlockTitle(blocks.home_hero_subtitle, 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.'),
+        searchPlaceholder: _resolveBlockTitle(blocks.home_search_placeholder, 'ابحث'),
+        categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'التصنيفات'),
+        providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'مقدمو الخدمة'),
+        bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'عروض ترويجية'),
+      };
+      _applyHomeContent();
+    }
 
     // Categories
     if (catsRes.status === 'fulfilled' && catsRes.value.ok && catsRes.value.data) {
@@ -112,7 +140,7 @@ const HomePage = (() => {
       NwCache.set(CACHE_CATEGORIES, list, TTL);
       _renderCategories(list);
     } else if (!NwCache.get(CACHE_CATEGORIES)) {
-      _renderDefaultCategories();
+      _renderCategoriesEmpty();
     }
 
     // Providers
@@ -153,7 +181,7 @@ const HomePage = (() => {
     }
 
     // Offline detection
-    const allFailed = [catsRes, provsRes, bansRes, reelsRes].every(
+    const allFailed = [contentRes, catsRes, provsRes, bansRes, reelsRes].every(
       r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)
     );
     if (allFailed && !navigator.onLine) _setOffline(true);
@@ -187,17 +215,12 @@ const HomePage = (() => {
     $categoriesList.appendChild(frag);
   }
 
-  function _renderDefaultCategories() {
-    _renderCategories([
-      { id: 0, name: 'استشارات قانونية' },
-      { id: 0, name: 'خدمات هندسية' },
-      { id: 0, name: 'تصميم جرافيك' },
-      { id: 0, name: 'توصيل سريع' },
-      { id: 0, name: 'رعاية صحية' },
-      { id: 0, name: 'ترجمة لغات' },
-      { id: 0, name: 'برمجة مواقع' },
-      { id: 0, name: 'صيانة أجهزة' },
-    ]);
+  function _renderCategoriesEmpty() {
+    if (!$categoriesList) return;
+    $categoriesList.textContent = '';
+    $categoriesList.appendChild(
+      UI.el('div', { className: 'providers-empty', textContent: 'لا توجد تصنيفات متاحة حالياً' })
+    );
   }
 
   /* ----------------------------------------------------------
@@ -438,9 +461,37 @@ const HomePage = (() => {
      HELPERS
   ---------------------------------------------------------- */
   function _updateSubtitle(count) {
+    if ($heroTitle) $heroTitle.textContent = _homeContent.heroTitle || 'الرئيسية';
     if (!$heroSubtitle) return;
-    const num = count > 0 ? count : '100';
-    $heroSubtitle.textContent = 'أكثر من ' + num + ' مقدم خدمة بين يديك';
+    const value = String(_homeContent.heroSubtitle || '').trim();
+    $heroSubtitle.textContent = (value || 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.')
+      .replaceAll('{provider_count}', String(count));
+  }
+
+  function _applyHomeContent() {
+    if ($heroTitle) $heroTitle.textContent = _homeContent.heroTitle || 'الرئيسية';
+    if ($heroSubtitle) {
+      $heroSubtitle.textContent = (_homeContent.heroSubtitle || 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.')
+        .replaceAll('{provider_count}', '0');
+    }
+    if ($searchPlaceholder) {
+      $searchPlaceholder.textContent = _homeContent.searchPlaceholder || 'ابحث';
+    }
+    if ($categoriesTitle) {
+      $categoriesTitle.textContent = _homeContent.categoriesTitle || 'التصنيفات';
+    }
+    if ($providersTitle) {
+      $providersTitle.textContent = _homeContent.providersTitle || 'مقدمو الخدمة';
+    }
+    if ($bannersTitle) {
+      $bannersTitle.textContent = _homeContent.bannersTitle || 'عروض ترويجية';
+    }
+  }
+
+  function _resolveBlockTitle(block, fallback) {
+    if (!block || typeof block !== 'object') return fallback;
+    const title = String(block.title_ar || '').trim();
+    return title || fallback;
   }
 
   function _setOffline(offline) {

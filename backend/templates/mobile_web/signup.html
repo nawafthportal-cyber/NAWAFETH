@@ -10,8 +10,8 @@
     <div class="auth-card auth-card-wide">
       <div class="auth-header">
         <div class="auth-logo">نوافــذ</div>
-        <h1 class="auth-title">إكمال التسجيل</h1>
-        <p class="auth-desc">أكمل بياناتك لتفعيل الحساب</p>
+        <h1 class="auth-title" id="signup-title">...</h1>
+        <p class="auth-desc" id="signup-desc">...</p>
       </div>
 
       <div class="form-error hidden" id="signup-general-error"></div>
@@ -64,12 +64,12 @@
 
       <label class="terms-check">
         <input type="checkbox" id="accept-terms">
-        <span>أوافق على <a href="/terms/" target="_blank" rel="noopener">الشروط والأحكام</a></span>
+        <span><span id="signup-terms-prefix">...</span> <a href="/terms/" target="_blank" rel="noopener" id="signup-terms-link">الشروط والأحكام</a></span>
       </label>
       <div class="form-error hidden" id="err-accept-terms"></div>
 
       <button class="btn-primary" id="btn-complete-signup">
-        <span id="complete-signup-text">إكمال التسجيل</span>
+        <span id="complete-signup-text">...</span>
         <span class="spinner hidden" id="complete-signup-spinner"></span>
       </button>
     </div>

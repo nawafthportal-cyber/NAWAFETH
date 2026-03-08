@@ -33,8 +33,10 @@ const ContactPage = (() => {
   let _teams = [];
   let _tickets = [];
   let _selectedTicket = null;
+  let _content = {};
 
-  function init() {
+  async function init() {
+    await _loadContent();
     if (!Auth.isLoggedIn()) {
       _showGate();
       return;
@@ -42,6 +44,50 @@ const ContactPage = (() => {
     _hideGate();
     _bindActions();
     _loadInitial();
+  }
+
+  async function _loadContent() {
+    const res = await ApiClient.get('/api/content/public/');
+    const data = (res.ok && res.data && typeof res.data === 'object') ? res.data : {};
+    const blocks = data.blocks || {};
+    _content = {
+      gateTitle: _resolve(blocks.contact_gate_title, 'سجّل دخولك'),
+      gateDescription: _resolve(blocks.contact_gate_description, 'يجب تسجيل الدخول لعرض تذاكر الدعم'),
+      gateLogin: _resolve(blocks.contact_gate_login_label, 'تسجيل الدخول'),
+      pageTitle: _resolve(blocks.contact_page_title, 'تواصل مع منصة نوافذ'),
+      refreshLabel: _resolve(blocks.contact_refresh_label, 'تحديث'),
+      newTicketLabel: _resolve(blocks.contact_new_ticket_label, 'بلاغ جديد'),
+      listTitle: _resolve(blocks.contact_list_title, 'قائمة البلاغات'),
+      createTitle: _resolve(blocks.contact_create_title, 'إنشاء بلاغ جديد'),
+      detailTitle: _resolve(blocks.contact_detail_title, 'تفاصيل البلاغ'),
+      emptyLabel: _resolve(blocks.contact_empty_label, 'لا توجد بلاغات حتى الآن'),
+      teamPlaceholder: _resolve(blocks.contact_team_placeholder, 'اختر فريق الدعم'),
+      descriptionLabel: _resolve(blocks.contact_description_label, 'التفاصيل'),
+      attachmentsLabel: _resolve(blocks.contact_attachments_label, 'مرفقات (اختياري)'),
+      cancelLabel: _resolve(blocks.contact_cancel_label, 'إلغاء'),
+      submitLabel: _resolve(blocks.contact_submit_label, 'إرسال البلاغ'),
+      replyPlaceholder: _resolve(blocks.contact_reply_placeholder, 'اكتب تعليقك...'),
+      replySubmitLabel: _resolve(blocks.contact_reply_submit_label, 'إرسال التعليق'),
+    };
+    _applyContent();
+  }
+
+  function _applyContent() {
+    _setText('contact-gate-title', _content.gateTitle);
+    _setText('contact-gate-description', _content.gateDescription);
+    _setText('contact-gate-login', _content.gateLogin);
+    _setText('contact-page-title', _content.pageTitle);
+    _setText('btn-support-refresh', _content.refreshLabel);
+    _setText('btn-new-ticket', _content.newTicketLabel);
+    _setText('contact-list-title', _content.listTitle);
+    _setText('contact-create-title', _content.createTitle);
+    _setText('contact-detail-title', _content.detailTitle);
+    _setText('contact-empty-label', _content.emptyLabel);
+    _setText('contact-team-label', _content.teamPlaceholder);
+    _setText('contact-description-label', _content.descriptionLabel);
+    _setText('contact-attachments-label', _content.attachmentsLabel);
+    _setText('btn-cancel-ticket', _content.cancelLabel);
+    _setText('submit-ticket-text', _content.submitLabel);
   }
 
   function _showGate() {
@@ -101,7 +147,7 @@ const ContactPage = (() => {
 
     const placeholder = UI.el('option', {
       value: '',
-      textContent: 'اختر فريق الدعم',
+      textContent: _content.teamPlaceholder || 'اختر فريق الدعم',
     });
     select.appendChild(placeholder);
 
@@ -283,7 +329,7 @@ const ContactPage = (() => {
 
     if (Array.isArray(ticket.attachments) && ticket.attachments.length) {
       const section = UI.el('div', { className: 'ticket-detail-section' });
-      section.appendChild(UI.el('h4', { textContent: 'المرفقات' }));
+      section.appendChild(UI.el('h4', { textContent: _content.attachmentsLabel || 'المرفقات' }));
       ticket.attachments.forEach((att) => {
         const href = ApiClient.mediaUrl(att.file);
         section.appendChild(
@@ -324,12 +370,12 @@ const ContactPage = (() => {
       id: 'ticket-reply-input',
       className: 'form-textarea',
       maxlength: '300',
-      placeholder: 'اكتب تعليقك...',
+      placeholder: _content.replyPlaceholder || 'اكتب تعليقك...',
     });
     const sendBtn = UI.el('button', {
       type: 'button',
       className: 'btn-primary',
-      textContent: 'إرسال التعليق',
+      textContent: _content.replySubmitLabel || 'إرسال التعليق',
     });
     sendBtn.addEventListener('click', () => _sendComment(ticket.id));
     reply.appendChild(input);
@@ -454,6 +500,15 @@ const ContactPage = (() => {
     if (!el) return;
     el.textContent = '';
     el.classList.add('hidden');
+  }
+
+  function _resolve(block, fallback) {
+    return String(block && block.title_ar || '').trim() || fallback;
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el && value) el.textContent = value;
   }
 
   if (document.readyState === 'loading') {
