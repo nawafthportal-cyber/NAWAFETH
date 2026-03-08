@@ -640,7 +640,7 @@ body.home-mobile-layout .section-reels {
   }
 
   body.home-mobile-layout #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.home-mobile-layout #main-content {
@@ -975,6 +975,16 @@ body.home-mobile-layout .section-reels {
 
   .sv-side {
     right: calc(50% - 240px - 60px);
+  }
+}
+
+@media (min-width: 1200px) {
+  body.home-mobile-layout #bottom-nav {
+    display: flex !important;
+  }
+
+  body.home-mobile-layout #main-content {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
   }
 }
 

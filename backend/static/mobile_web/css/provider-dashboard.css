@@ -399,7 +399,7 @@ body.page-provider-dashboard .btn {
   }
 
   body.page-provider-dashboard #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-provider-dashboard .page-content {
@@ -494,5 +494,15 @@ body.page-provider-dashboard .btn {
 
   body.page-provider-dashboard .provider-extra-card {
     box-shadow: 0 14px 28px rgba(20, 20, 38, 0.06);
+  }
+}
+
+@media (min-width: 1024px) {
+  body.page-provider-dashboard #bottom-nav {
+    display: flex !important;
+  }
+
+  body.page-provider-dashboard .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
   }
 }

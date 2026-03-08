@@ -440,7 +440,7 @@ body.page-provider-orders #po-status-tabs .status-tab.active[data-group=""] {
 
 @media (min-width: 1024px) {
   body.page-provider-orders #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-provider-orders .page-shell {
@@ -1033,7 +1033,7 @@ body.page-provider-order-detail .pod-toast.show {
 
 @media (min-width: 1024px) {
   body.page-provider-order-detail #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-provider-order-detail .pod-shell {
@@ -1443,7 +1443,7 @@ body.page-plans .plan-cta-btn {
 
 @media (min-width: 1024px) {
   body.page-plans #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-plans .page-shell {
@@ -1696,7 +1696,7 @@ body.page-plan-summary .ps-submit-btn {
 
 @media (min-width: 1024px) {
   body.page-plan-summary #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-plan-summary .page-shell {
@@ -1993,7 +1993,7 @@ body.page-provider-services .svc-readonly {
 
 @media (min-width: 1024px) {
   body.page-provider-services #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-provider-services .page-shell {
@@ -2112,7 +2112,7 @@ body.page-provider-reviews .review-card {
 
 @media (min-width: 1024px) {
   body.page-provider-reviews #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-provider-reviews .page-shell {
@@ -2454,7 +2454,7 @@ body.page-profile-completion .pc-section-tile.is-incomplete {
   }
 
   body.page-profile-completion #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-profile-completion .page-shell {
@@ -3321,7 +3321,7 @@ body.page-search .map-provider-action.is-disabled {
   }
 
   body.page-search #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-search .page-content {
@@ -3418,7 +3418,7 @@ body.page-search .map-provider-action.is-disabled {
   }
 
   body.page-add-service #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-add-service .page-content {
@@ -3492,5 +3492,34 @@ body.page-search .map-provider-action.is-disabled {
   body.page-search .provider-list-avatar {
     width: 36px;
     height: 36px;
+  }
+}
+
+@media (min-width: 1024px) {
+  body.page-search #bottom-nav,
+  body.page-add-service #bottom-nav,
+  body.page-provider-orders #bottom-nav,
+  body.page-provider-order-detail #bottom-nav,
+  body.page-plans #bottom-nav,
+  body.page-plan-summary #bottom-nav,
+  body.page-provider-services #bottom-nav,
+  body.page-provider-reviews #bottom-nav,
+  body.page-profile-completion #bottom-nav {
+    display: flex !important;
+  }
+
+  body.page-search .page-content,
+  body.page-add-service .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + 40px);
+  }
+
+  body.page-provider-orders .page-shell,
+  body.page-provider-order-detail .pod-shell,
+  body.page-plans .page-shell,
+  body.page-plan-summary .page-shell,
+  body.page-provider-services .page-shell,
+  body.page-provider-reviews .page-shell,
+  body.page-profile-completion .page-shell {
+    padding-bottom: calc(var(--bottom-nav-height) + 34px);
   }
 }

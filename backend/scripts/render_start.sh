@@ -8,17 +8,22 @@ cd "${PROJECT_ROOT}"
 export DJANGO_ENV="${DJANGO_ENV:-prod}"
 
 # Keep boot fast on Render so the platform can detect the HTTP port.
-# Migrations stay optional, but collectstatic defaults to enabled when
-# the manifest is missing because manifest storage otherwise returns 500.
+# Migrations stay optional, but when enabled they must complete before the
+# app starts serving traffic; otherwise schema drift can surface as runtime 500s.
+# Collectstatic defaults to enabled when the manifest is missing because
+# manifest storage otherwise returns 500.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
+MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
 
-# ── Migrations (optional, non-blocking) ─────────────────────────────
+# ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
-	echo "[start] Running migrations in background (timeout 30s)..."
-	(
-		timeout 30 python manage.py migrate --noinput 2>&1 || echo "[start] WARNING: migrate timed out or failed."
-	) &
+	echo "[start] Running migrations before startup (timeout ${MIGRATION_TIMEOUT_SECONDS}s)..."
+	if ! timeout "${MIGRATION_TIMEOUT_SECONDS}" python manage.py migrate --noinput 2>&1; then
+		echo "[start] ERROR: migrate failed or timed out; refusing to start with a potentially stale schema."
+		exit 1
+	fi
+	echo "[start] Migrations completed."
 else
 	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START})."
 fi

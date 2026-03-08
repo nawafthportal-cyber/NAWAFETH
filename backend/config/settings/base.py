@@ -1,4 +1,5 @@
 from pathlib import Path
+from importlib import import_module
 import json
 import os
 from datetime import timedelta
@@ -238,8 +239,8 @@ _r2_media_ready = USE_R2_MEDIA and all(
 R2_HEAD_BUCKET_STRICT = env_bool("R2_HEAD_BUCKET_STRICT", False)
 if _r2_media_ready:
     try:
-        import boto3
-        from botocore.config import Config as BotoConfig
+        boto3 = import_module("boto3")
+        BotoConfig = import_module("botocore.config").Config
         _test_client = boto3.client(
             "s3",
             endpoint_url=AWS_S3_ENDPOINT_URL,
@@ -263,7 +264,7 @@ if _r2_media_ready:
         _is_head_bucket_forbidden = False
         _error_code = ""
         try:
-            from botocore.exceptions import ClientError as _ClientError
+            _ClientError = import_module("botocore.exceptions").ClientError
             if isinstance(_r2_err, _ClientError):
                 _error_code = str(
                     ((_r2_err.response or {}).get("Error", {}) or {}).get("Code", "")

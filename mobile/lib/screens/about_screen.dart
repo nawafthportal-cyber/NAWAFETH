@@ -333,22 +333,22 @@ class _AboutScreenState extends State<AboutScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                Icon(Icons.window_rounded, size: 42, color: Colors.white),
-                SizedBox(height: 10),
+              children: [
+                const Icon(Icons.window_rounded, size: 42, color: Colors.white),
+                const SizedBox(height: 10),
                 Text(
                   _heroTitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 20,
                     fontFamily: 'Cairo',
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(height: 6),
+                const SizedBox(height: 6),
                 Text(
                   _heroSubtitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 13,
                     fontFamily: 'Cairo',
                     color: Colors.white70,
@@ -427,10 +427,10 @@ class _AboutScreenState extends State<AboutScreen> {
           // ✅ روابط التواصل الاجتماعي
           if (_xUrl.isNotEmpty || _whatsappUrl.isNotEmpty || _emailUrl.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Center(
-                child: Text(
-                  _socialTitle,
-                style: TextStyle(
+            Center(
+              child: Text(
+                _socialTitle,
+                style: const TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 15,
                   fontWeight: FontWeight.bold,

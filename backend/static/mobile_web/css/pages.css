@@ -2218,7 +2218,7 @@ body.page-profile #provider-section {
 @media (min-width: 1024px) {
   body.page-profile #top-navbar { display: block !important; }
   body.page-profile #site-footer { display: block !important; }
-  body.page-profile #bottom-nav { display: none !important; }
+  body.page-profile #bottom-nav { display: flex !important; }
 
   body.page-profile .page-content {
     padding-top: calc(var(--navbar-height) + var(--space-lg));
@@ -2320,7 +2320,7 @@ body.page-profile #provider-section {
   body.page-provider-orders #bottom-nav,
   body.page-chats #bottom-nav,
   body.page-notifications #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-orders .order-card,
@@ -6591,7 +6591,7 @@ body.page-login-settings .page-content {
 
   body.page-request-quote #bottom-nav,
   body.page-urgent-request #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-request-quote .page-content,
@@ -6673,7 +6673,7 @@ body.page-login-settings .page-content {
 
   body.page-settings #bottom-nav,
   body.page-login-settings #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.page-settings .page-content,
@@ -7287,5 +7287,30 @@ body.page-chats #chats-empty p {
 
   body.page-chats .chat-thread-skeleton {
     height: 116px;
+  }
+}
+
+@media (min-width: 1024px) {
+  body.page-profile #bottom-nav,
+  body.page-orders #bottom-nav,
+  body.page-provider-orders #bottom-nav,
+  body.page-chats #bottom-nav,
+  body.page-notifications #bottom-nav,
+  body.page-request-quote #bottom-nav,
+  body.page-urgent-request #bottom-nav,
+  body.page-settings #bottom-nav,
+  body.page-login-settings #bottom-nav {
+    display: flex !important;
+  }
+
+  body.page-profile .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
+  }
+
+  body.page-request-quote .page-content,
+  body.page-urgent-request .page-content,
+  body.page-settings .page-content,
+  body.page-login-settings .page-content {
+    padding-bottom: calc(var(--bottom-nav-height) + 40px);
   }
 }
