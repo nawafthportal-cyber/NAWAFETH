@@ -4,7 +4,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.accounts.models import User
+from apps.accounts.models import User, UserRole
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from apps.audit.models import AuditAction, AuditLog
 from apps.billing.models import Invoice
@@ -1700,3 +1700,67 @@ def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
 
     s = c.session
     assert s.get(SESSION_OTP_VERIFIED_KEY) is True
+
+
+@pytest.mark.django_db
+def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
+    support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=1)
+    staff_user = User.objects.create_user(
+        phone="0500000228",
+        password="Pass12345!",
+        is_staff=True,
+        role_state=UserRole.STAFF,
+    )
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([support_dashboard])
+
+    c = Client()
+    login_res = c.post(reverse("dashboard:login"), data={"phone": staff_user.phone})
+    assert login_res.status_code == 302
+    assert reverse("dashboard:otp") in login_res.url
+
+    otp_res = c.post(reverse("dashboard:otp"), data={"code": "1234"})
+    assert otp_res.status_code == 302
+    assert otp_res.url == reverse("dashboard:support_tickets_list")
+
+
+@pytest.mark.django_db
+def test_user_update_role_demotes_operational_access_and_revokes_profile():
+    access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=1)
+    support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=2)
+
+    admin_user = User.objects.create_user(
+        phone="0500000229",
+        password="Pass12345!",
+        is_staff=True,
+        role_state=UserRole.STAFF,
+    )
+    admin_ap = UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+    admin_ap.allowed_dashboards.set([access_dashboard])
+
+    target_user = User.objects.create_user(
+        phone="0500000230",
+        password="Pass12345!",
+        is_staff=True,
+        role_state=UserRole.STAFF,
+    )
+    target_ap = UserAccessProfile.objects.create(user=target_user, level=AccessLevel.USER)
+    target_ap.allowed_dashboards.set([support_dashboard])
+
+    c = Client()
+    assert c.login(phone=admin_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    res = c.post(
+        reverse("dashboard:user_update_role", args=[target_user.id]),
+        data={"role_state": UserRole.CLIENT},
+    )
+    assert res.status_code == 302
+
+    target_user.refresh_from_db()
+    target_ap.refresh_from_db()
+    assert target_user.role_state == UserRole.CLIENT
+    assert target_user.is_staff is False
+    assert target_ap.revoked_at is not None

@@ -5,6 +5,8 @@ from functools import wraps
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 
+from .access import first_allowed_dashboard_route
+
 
 SESSION_OTP_VERIFIED_KEY = "dashboard_otp_verified"
 SESSION_LOGIN_PHONE_KEY = "dashboard_login_phone"
@@ -30,6 +32,9 @@ def dashboard_login_required(view_func):
             return redirect("dashboard:login")
 
         if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+            fallback = first_allowed_dashboard_route(user)
+            if fallback:
+                return redirect(fallback)
             return HttpResponse("غير مصرح", status=403)
 
         if not is_dashboard_otp_verified(request):

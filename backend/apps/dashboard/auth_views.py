@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.accounts.models import OTP, User
 from apps.accounts.otp import generate_otp_code, otp_expiry
 
+from .access import first_allowed_dashboard_route, sync_dashboard_user_access
 from .auth import (
     SESSION_LOGIN_PHONE_KEY,
     SESSION_NEXT_URL_KEY,
@@ -92,6 +93,9 @@ def _client_ip(request: HttpRequest) -> str | None:
 def dashboard_login(request: HttpRequest) -> HttpResponse:
     user = getattr(request, "user", None)
     if getattr(user, "is_authenticated", False) and bool(request.session.get(SESSION_OTP_VERIFIED_KEY)):
+        fallback = first_allowed_dashboard_route(user)
+        if fallback:
+            return redirect(fallback)
         return redirect("dashboard:home")
 
     if request.method == "POST":
@@ -103,8 +107,13 @@ def dashboard_login(request: HttpRequest) -> HttpResponse:
             return render(request, "dashboard/login.html", {})
 
         staff_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
+        if staff_user:
+            changed_fields = sync_dashboard_user_access(staff_user, force_staff_role_state=False)
+            if changed_fields:
+                staff_user.save(update_fields=changed_fields)
+
         if not staff_user or not staff_user.is_active or not staff_user.is_staff:
-            messages.error(request, "لا يوجد حساب موظف بهذا الرقم")
+            messages.error(request, "لا يوجد حساب تشغيل فعّال بهذا الرقم")
             return render(request, "dashboard/login.html", {"phone": phone_raw})
 
         request.session[SESSION_LOGIN_PHONE_KEY] = staff_user.phone
@@ -128,6 +137,9 @@ def dashboard_login(request: HttpRequest) -> HttpResponse:
 
 def dashboard_otp(request: HttpRequest) -> HttpResponse:
     if bool(request.session.get(SESSION_OTP_VERIFIED_KEY)) and getattr(getattr(request, "user", None), "is_authenticated", False):
+        fallback = first_allowed_dashboard_route(request.user)
+        if fallback:
+            return redirect(fallback)
         return redirect("dashboard:home")
 
     phone = (request.session.get(SESSION_LOGIN_PHONE_KEY) or "").strip()
@@ -150,8 +162,13 @@ def dashboard_otp(request: HttpRequest) -> HttpResponse:
             otp.save(update_fields=["is_used"])
 
         staff_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
+        if staff_user:
+            changed_fields = sync_dashboard_user_access(staff_user, force_staff_role_state=False)
+            if changed_fields:
+                staff_user.save(update_fields=changed_fields)
+
         if not staff_user or not staff_user.is_active or not staff_user.is_staff:
-            messages.error(request, "لا يوجد حساب موظف صالح لهذا الرقم")
+            messages.error(request, "لا يوجد حساب تشغيل صالح لهذا الرقم")
             return redirect("dashboard:login")
 
         login(request, staff_user, backend="django.contrib.auth.backends.ModelBackend")
@@ -160,7 +177,13 @@ def dashboard_otp(request: HttpRequest) -> HttpResponse:
         next_url = (request.session.pop(SESSION_NEXT_URL_KEY, "") or "").strip()
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
-        return redirect("dashboard:home")
+        fallback = first_allowed_dashboard_route(staff_user)
+        if fallback:
+            return redirect(fallback)
+        request.session.pop(SESSION_OTP_VERIFIED_KEY, None)
+        logout(request)
+        messages.error(request, "لا توجد لوحات تشغيل مفعلة لهذا الحساب")
+        return redirect("dashboard:login")
 
     return render(
         request,

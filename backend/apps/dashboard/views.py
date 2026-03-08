@@ -82,6 +82,12 @@ from apps.unified_requests.workflows import (
     is_valid_transition,
 )
 from .forms import AcceptAssignProviderForm, CategoryForm, SubCategoryForm
+from .access import (
+    active_dashboard_choices,
+    dashboard_allowed,
+    first_allowed_dashboard_route,
+    sync_dashboard_user_access,
+)
 
 # إن كانت عندك Enums استوردها (عدّل حسب مشروعك)
 try:
@@ -183,24 +189,7 @@ def _dashboard_tile_meta(code: str) -> dict[str, str]:
 
 
 def _dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
-    if not getattr(user, "is_authenticated", False):
-        return False
-    if getattr(user, "is_superuser", False):
-        return True
-    if not getattr(user, "is_staff", False):
-        return False
-
-    ap = getattr(user, "access_profile", None)
-    if not ap:
-        return False
-
-    if ap.is_revoked() or ap.is_expired():
-        return False
-    if write and ap.is_readonly():
-        return False
-    if ap.level in {"admin", "power"}:
-        return True
-    return ap.is_allowed(dashboard_code)
+    return dashboard_allowed(user, dashboard_code, write=write)
 
 
 def _is_promo_operator_user(user) -> bool:
@@ -237,30 +226,13 @@ def _active_admin_profiles_count() -> int:
 
 
 def require_dashboard_access(dashboard_key: str, write: bool = False):
-    def _first_allowed_dashboard(user) -> str | None:
-        candidates = [
-            ("analytics", "dashboard:home"),
-            ("content", "dashboard:requests_list"),
-            ("billing", "dashboard:billing_invoices_list"),
-            ("support", "dashboard:support_tickets_list"),
-            ("verify", "dashboard:verification_ops"),
-            ("promo", "dashboard:promo_requests_list"),
-            ("subs", "dashboard:subscriptions_list"),
-            ("extras", "dashboard:extras_ops"),
-            ("access", "dashboard:access_profiles_list"),
-        ]
-        for code, route in candidates:
-            if _dashboard_allowed(user, code, write=False):
-                return route
-        return None
-
     def decorator(func):
         @wraps(func)
         def wrapped(request: HttpRequest, *args, **kwargs):
             if not _dashboard_allowed(request.user, dashboard_key, write=write):
                 messages.error(request, "لا تملك صلاحية الوصول لهذه اللوحة.")
-                fallback = _first_allowed_dashboard(request.user)
-                current = getattr(getattr(request, "resolver_match", None), "view_name", "")
+                fallback = first_allowed_dashboard_route(request.user)
+                current = getattr(request, "path", "")
                 if fallback and fallback != current:
                     return redirect(fallback)
                 return HttpResponse("غير مصرح", status=403)
@@ -4423,7 +4395,7 @@ def access_profiles_list(request: HttpRequest) -> HttpResponse:
             rows,
         )
 
-    all_dashboards = list(Dashboard.objects.filter(is_active=True).order_by("sort_order", "id"))
+    all_dashboards = active_dashboard_choices()
     for d in all_dashboards:
         meta = _dashboard_tile_meta(d.code)
         d.ui_icon = meta["icon"]
@@ -4497,6 +4469,9 @@ def access_profile_create_action(request: HttpRequest) -> HttpResponse:
         ap.save(update_fields=["level", "expires_at", "updated_at"])
 
     ap.allowed_dashboards.set(selected_dashboards)
+    changed_fields = sync_dashboard_user_access(target_user, access_profile=ap, force_staff_role_state=True)
+    if changed_fields:
+        target_user.save(update_fields=changed_fields)
 
     log_action(
         actor=request.user,
@@ -4558,6 +4533,9 @@ def access_profile_update_action(request: HttpRequest, profile_id: int) -> HttpR
     ap.expires_at = expires_at
     ap.save(update_fields=["level", "expires_at", "updated_at"])
     ap.allowed_dashboards.set(selected_dashboards)
+    changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap, force_staff_role_state=True)
+    if changed_fields:
+        ap.user.save(update_fields=changed_fields)
 
     new_dashboards = list(ap.allowed_dashboards.values_list("code", flat=True))
     log_action(
@@ -4598,6 +4576,9 @@ def access_profile_toggle_revoke_action(request: HttpRequest, profile_id: int) -
     if ap.revoked_at:
         ap.revoked_at = None
         ap.save(update_fields=["revoked_at", "updated_at"])
+        changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap, force_staff_role_state=True)
+        if changed_fields:
+            ap.user.save(update_fields=changed_fields)
         log_action(
             actor=request.user,
             action=AuditAction.ACCESS_PROFILE_UNREVOKED,
@@ -4617,6 +4598,9 @@ def access_profile_toggle_revoke_action(request: HttpRequest, profile_id: int) -
 
         ap.revoked_at = timezone.now()
         ap.save(update_fields=["revoked_at", "updated_at"])
+        changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap)
+        if changed_fields:
+            ap.user.save(update_fields=changed_fields)
         log_action(
             actor=request.user,
             action=AuditAction.ACCESS_PROFILE_REVOKED,

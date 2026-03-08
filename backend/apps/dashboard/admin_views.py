@@ -31,9 +31,11 @@ from apps.support.models import (
 )
 from apps.subscriptions.models import SubscriptionPlan, FeatureKey
 from apps.subscriptions.bootstrap import infer_plan_tier
+from apps.backoffice.models import UserAccessProfile
+from .access import sync_dashboard_user_access
 
 from .auth import dashboard_staff_required as staff_member_required
-from .views import require_dashboard_access as dashboard_access_required, _want_csv, _csv_response
+from .views import require_dashboard_access as dashboard_access_required, _want_csv, _csv_response, _dashboard_allowed
 
 logger = logging.getLogger(__name__)
 
@@ -240,13 +242,16 @@ def users_list(request: HttpRequest) -> HttpResponse:
 @dashboard_access_required("access")
 def user_detail(request: HttpRequest, user_id: int) -> HttpResponse:
     target_user = get_object_or_404(User, pk=user_id)
+    access_profile = UserAccessProfile.objects.filter(user=target_user).first()
 
     # Recent audit logs for this user
     recent_logs = AuditLog.objects.filter(actor=target_user).order_by("-id")[:20]
 
     return render(request, "dashboard/user_detail.html", {
         "target_user": target_user,
+        "access_profile": access_profile,
         "recent_logs": recent_logs,
+        "can_write": _dashboard_allowed(request.user, "access", write=True),
     })
 
 
@@ -297,9 +302,30 @@ def user_update_role(request: HttpRequest, user_id: int) -> HttpResponse:
         return redirect("dashboard:user_detail", user_id=target_user.pk)
 
     old_role = target_user.role_state
+    old_is_staff = target_user.is_staff
+    access_profile = UserAccessProfile.objects.filter(user=target_user).first()
     target_user.role_state = new_role
-    target_user.save(update_fields=["role_state"])
-    messages.success(request, f"تم تغيير الدور من {old_role} إلى {new_role}")
+    target_user.is_staff = new_role == UserRole.STAFF
+
+    if access_profile and new_role != UserRole.STAFF and not access_profile.is_revoked():
+        access_profile.revoked_at = timezone.now()
+        access_profile.save(update_fields=["revoked_at", "updated_at"])
+        sync_dashboard_user_access(target_user, access_profile=access_profile)
+    elif access_profile and new_role == UserRole.STAFF:
+        if access_profile.revoked_at is not None:
+            access_profile.revoked_at = None
+            access_profile.save(update_fields=["revoked_at", "updated_at"])
+        sync_dashboard_user_access(target_user, access_profile=access_profile, force_staff_role_state=True)
+
+    target_user.save(update_fields=["role_state", "is_staff"])
+    if new_role == UserRole.STAFF and target_user.is_staff:
+        messages.success(request, "تم تحويل المستخدم إلى موظف وتفعيل صلاحية التشغيل المرتبطة به.")
+    elif new_role == UserRole.STAFF and not access_profile:
+        messages.success(request, "تم تحويل المستخدم إلى موظف. يلزم الآن منحه لوحات تشغيل من صفحة صلاحيات التشغيل.")
+    elif new_role == UserRole.STAFF:
+        messages.success(request, "تم تحويل المستخدم إلى موظف، لكن لا توجد لوحات تشغيل فعالة مرتبطة به بعد.")
+    else:
+        messages.success(request, f"تم تغيير الدور من {old_role} إلى {new_role} وسحب صلاحية التشغيل.")
 
     try:
         log_action(
@@ -308,7 +334,7 @@ def user_update_role(request: HttpRequest, user_id: int) -> HttpResponse:
             reference_type="user",
             reference_id=str(target_user.pk),
             request=request,
-            extra={"old_role": old_role, "new_role": new_role},
+            extra={"old_role": old_role, "new_role": new_role, "old_is_staff": old_is_staff, "new_is_staff": target_user.is_staff},
         )
     except Exception:
         pass

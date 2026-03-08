@@ -57,6 +57,16 @@
         <span class="text-gray-500">موظف</span>
         <span>{{ target_user.is_staff|yesno:"نعم,لا" }}</span>
       </div>
+      <div class="flex justify-between border-b border-gray-50 pb-2">
+        <span class="text-gray-500">صلاحية التشغيل</span>
+        {% if access_profile and not access_profile.revoked_at and not access_profile.is_expired %}
+          <span class="text-emerald-600 font-semibold">مفعلة</span>
+        {% elif access_profile %}
+          <span class="text-amber-600 font-semibold">موجودة لكن غير فعالة</span>
+        {% else %}
+          <span class="text-gray-500">غير مرتبطة</span>
+        {% endif %}
+      </div>
       <div class="flex justify-between">
         <span class="text-gray-500">تاريخ الإنشاء</span>
         <span>{{ target_user.created_at|date:"Y-m-d H:i" }}</span>
@@ -69,6 +79,7 @@
     <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
       <h2 class="font-bold text-lg mb-4">عمليات</h2>
       <div class="space-y-3">
+        {% if can_write %}
         <!-- تفعيل / تعطيل -->
         <form method="post" action="{% url 'dashboard:user_toggle_active' target_user.id %}">
           {% csrf_token %}
@@ -98,6 +109,11 @@
             حفظ الدور
           </button>
         </form>
+        {% else %}
+        <div class="rounded-lg bg-amber-50 text-amber-800 px-4 py-3 text-sm font-semibold">
+          هذا الحساب يملك صلاحية عرض فقط ولا يمكنه تعديل بيانات المستخدمين.
+        </div>
+        {% endif %}
       </div>
     </div>
 

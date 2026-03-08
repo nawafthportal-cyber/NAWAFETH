@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
+from apps.dashboard.access import is_active_access_profile
+
 
 class BackofficeAccessPermission(BasePermission):
     """
@@ -18,13 +20,16 @@ class BackofficeAccessPermission(BasePermission):
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             return False
+        if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+            self.message = "هذا الحساب ليس حساب تشغيل."
+            return False
 
         # staff بدون access_profile لا نعطيه صلاحية تلقائية هنا
         access_profile = getattr(user, "access_profile", None)
         if not access_profile:
             return False
 
-        if access_profile.is_revoked() or access_profile.is_expired():
+        if not is_active_access_profile(access_profile):
             self.message = "صلاحيتك منتهية أو تم إيقافها."
             return False
 
