@@ -22,7 +22,6 @@ import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
 import 'interactive_screen.dart';
 import 'provider_dashboard/reviews_tab.dart';
-import 'service_request_form_screen.dart';
 
 class ProviderProfileScreen extends StatefulWidget {
   final String? providerId;
@@ -606,6 +605,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 'price_from': e['price_from'],
                 'price_to': e['price_to'],
                 'price_unit': e['price_unit'] ?? '',
+                'price_unit_label': e['price_unit_label'] ?? '',
                 'subcategory': _asMap(e['subcategory']),
                 'isLiked': false,
               };
@@ -759,7 +759,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   String _servicePriceLabel(Map<String, dynamic> service) {
     final from = _asDouble(service['price_from']);
     final to = _asDouble(service['price_to']);
-    final unit = (service['price_unit'] ?? '').toString().trim();
+    final unit = _serviceUnitLabel(service);
     final unitSuffix = unit.isEmpty ? '' : ' / $unit';
 
     if (from == null && to == null) {
@@ -773,6 +773,29 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     }
     final value = from ?? to!;
     return 'السعر: ${_formatCompactNumber(value)}$unitSuffix';
+  }
+
+  String _serviceUnitLabel(Map<String, dynamic> service) {
+    final explicitLabel = (service['price_unit_label'] ?? '').toString().trim();
+    if (explicitLabel.isNotEmpty) return explicitLabel;
+
+    final raw = (service['price_unit'] ?? '').toString().trim();
+    const labels = {
+      'fixed': 'سعر ثابت',
+      'starting_from': 'يبدأ من',
+      'hour': 'بالساعة',
+      'day': 'باليوم',
+      'negotiable': 'قابل للتفاوض',
+    };
+    return labels[raw] ?? raw;
+  }
+
+  String _serviceCountLabel(int count) {
+    if (count == 0) return '0 خدمة';
+    if (count == 1) return 'خدمة واحدة';
+    if (count == 2) return 'خدمتان';
+    if (count >= 3 && count <= 10) return '$count خدمات';
+    return '$count خدمة';
   }
 
   String _formatPhoneE164(String rawPhone) {
@@ -1922,50 +1945,67 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Widget _buildActionButtons(bool isDark) {
     return Row(
       children: [
-        // طلب خدمة
         Expanded(
-          flex: 2,
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => ServiceRequestFormScreen(
-                    providerName: providerName,
-                    providerId: _resolvedProviderId?.toString(),
-                  ),
-                ),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              decoration: BoxDecoration(
-                color: mainColor,
-                borderRadius: BorderRadius.circular(14),
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: _isFollowing
+                  ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                  : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _isFollowing
+                    ? mainColor.withValues(alpha: 0.28)
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : mainColor.withValues(alpha: 0.18)),
               ),
-              child: const Center(
-                child: Text(
-                  'طلب خدمة',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+              boxShadow: isDark
+                  ? null
+                  : [
+                      BoxShadow(
+                        color: mainColor.withValues(alpha: 0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+            ),
+            child: TextButton.icon(
+              onPressed: _isFollowLoading ? null : _toggleFollow,
+              icon: _isFollowLoading
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(mainColor),
+                      ),
+                    )
+                  : Icon(
+                      _isFollowing
+                          ? Icons.person_remove_alt_1_rounded
+                          : Icons.person_add_alt_1_rounded,
+                      size: 18,
+                      color: mainColor,
+                    ),
+              label: Text(
+                _isFollowing ? 'متابَع' : 'متابعة',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  color: mainColor,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: mainColor,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        _actionIconBtn(
-          _isFollowing
-              ? Icons.person_remove_alt_1_rounded
-              : Icons.person_add_alt_1_rounded,
-          _toggleFollow,
-          isDark,
-          isActive: _isFollowing,
-          isLoading: _isFollowLoading,
         ),
         const SizedBox(width: 8),
         _actionIconBtn(
@@ -2742,6 +2782,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _servicesIntroCard(isDark),
+        const SizedBox(height: 12),
         ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -2755,30 +2797,121 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             final serviceTitle = title.isNotEmpty ? title : 'خدمة بدون اسم';
             final categoryLabel = _serviceCategoryFromService(service);
             final subCategoryLabel = _serviceSubCategoryFromService(service);
-            final providerId = _resolvedProviderId?.toString();
 
             return _serviceCard(
               index: index + 1,
               title: serviceTitle,
               description: description,
               priceLabel: _servicePriceLabel(service),
+              priceUnitLabel: _serviceUnitLabel(service),
               categoryLabel: categoryLabel,
               subCategoryLabel: subCategoryLabel,
-              onRequest: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ServiceRequestFormScreen(
-                      providerName: providerName,
-                      providerId: providerId,
-                    ),
-                  ),
-                );
-              },
             );
           },
         ),
       ],
+    );
+  }
+
+  Widget _servicesIntroCard(bool isDark) {
+    final borderColor = mainColor.withValues(alpha: isDark ? 0.22 : 0.16);
+    final subtitleColor = isDark ? Colors.grey.shade400 : Colors.grey.shade700;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: borderColor),
+        gradient: LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: isDark
+              ? [
+                  Colors.white.withValues(alpha: 0.04),
+                  mainColor.withValues(alpha: 0.16),
+                ]
+              : [
+                  Colors.white,
+                  mainColor.withValues(alpha: 0.08),
+                ],
+        ),
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: mainColor.withValues(alpha: 0.06),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: mainColor.withValues(alpha: isDark ? 0.22 : 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome_rounded, size: 15, color: mainColor),
+                const SizedBox(width: 6),
+                Text(
+                  'خدمات المزود',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    color: mainColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'عرض منظم وواضح للخدمات المنشورة',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'يعرض هذا القسم الخدمات مع التسعير وطبيعة التنفيذ والتصنيف بشكل احترافي وسهل القراءة.',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 11,
+              height: 1.7,
+              color: subtitleColor,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: Text(
+              _serviceCountLabel(_servicesData.length),
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w900,
+                color: mainColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2847,9 +2980,9 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     required String title,
     required String description,
     required String priceLabel,
+    required String priceUnitLabel,
     required String categoryLabel,
     required String subCategoryLabel,
-    required VoidCallback onRequest,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? Colors.grey[850] : Colors.white;
@@ -2859,20 +2992,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     final hasDescription = description.isNotEmpty;
     final hasCategory = categoryLabel.isNotEmpty;
     final hasSubCategory = subCategoryLabel.isNotEmpty;
+    final footnoteColor = isDark ? Colors.grey.shade500 : Colors.grey.shade600;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cardColor,
         border: Border.all(color: borderColor),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: isDark
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.035),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  color: mainColor.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 8),
                 ),
               ],
       ),
@@ -2880,39 +3014,97 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: mainColor.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    '$index',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: mainColor,
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: mainColor.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$index',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: mainColor,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'خدمة منشورة',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.grey.shade500 : Colors.grey.shade600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: titleColor,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w800,
-                    color: titleColor,
-                    height: 1.35,
-                  ),
+              Container(
+                constraints: const BoxConstraints(minWidth: 106),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                decoration: BoxDecoration(
+                  color: mainColor.withValues(alpha: isDark ? 0.22 : 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: mainColor.withValues(alpha: 0.18)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'التسعير',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      priceLabel,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        color: mainColor,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2938,7 +3130,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             children: [
               _serviceInfoChip(
                 icon: Icons.sell_outlined,
-                text: priceLabel,
+                text: priceUnitLabel,
                 isPrimary: true,
               ),
               if (hasCategory)
@@ -2953,28 +3145,26 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          SizedBox(
+          const SizedBox(height: 12),
+          Container(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: onRequest,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: mainColor,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.only(top: 10),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: mainColor.withValues(alpha: isDark ? 0.18 : 0.12),
+                  width: 1,
                 ),
               ),
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text(
-                'اطلب الخدمة',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700,
-                ),
+            ),
+            child: Text(
+              'للتفاهم حول هذه الخدمة استخدم أزرار المتابعة أو المحادثة أو الاتصال أعلى الصفحة.',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: footnoteColor,
+                height: 1.6,
               ),
             ),
           ),

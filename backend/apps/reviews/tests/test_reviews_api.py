@@ -6,7 +6,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import User, UserRole
 from apps.providers.models import Category, SubCategory, ProviderProfile, ProviderCategory
 from apps.marketplace.models import ServiceRequest, RequestType, RequestStatus
-from apps.reviews.models import Review
+from apps.reviews.models import Review, ReviewModerationStatus
 from apps.notifications.models import Notification
 from apps.unified_requests.models import UnifiedRequest
 
@@ -178,10 +178,61 @@ def test_provider_rating_summary_and_reviews_list():
     assert float(r_sum.data["quality_avg"]) == 5.0
     assert float(r_sum.data["credibility_avg"]) == 5.0
     assert float(r_sum.data["on_time_avg"]) == 5.0
+    assert r_sum.data["distribution"]["5"] == 1
+    assert r_sum.data["distribution"]["1"] == 0
 
     r_list = api2.get(f"/api/reviews/providers/{provider.id}/reviews/")
     assert r_list.status_code == 200
     assert len(r_list.data) >= 1
+
+
+@pytest.mark.django_db
+def test_provider_rating_summary_uses_reviews_table_even_if_provider_cache_is_stale():
+    client_user = User.objects.create_user(phone="0510000191", role_state=UserRole.CLIENT)
+    provider_user = User.objects.create_user(phone="0510000192")
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+        rating_avg="0.00",
+        rating_count=0,
+    )
+
+    cat = Category.objects.create(name="تصوير")
+    sub = SubCategory.objects.create(category=cat, name="مناسبات")
+    ProviderCategory.objects.create(provider=provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.COMPETITIVE,
+        status=RequestStatus.COMPLETED,
+        city="الرياض",
+    )
+
+    Review.objects.create(
+        request=sr,
+        provider=provider,
+        client=client_user,
+        rating=4,
+        comment="جيد جدا",
+        moderation_status=ReviewModerationStatus.APPROVED,
+    )
+
+    api = APIClient()
+    r_sum = api.get(f"/api/reviews/providers/{provider.id}/rating/")
+    assert r_sum.status_code == 200
+    assert int(r_sum.data["rating_count"]) == 1
+    assert float(r_sum.data["rating_avg"]) == 4.0
+    assert r_sum.data["distribution"]["4"] == 1
 
 
 @pytest.mark.django_db

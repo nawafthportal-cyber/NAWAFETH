@@ -330,6 +330,53 @@ def test_spotlight_like_and_count_are_exposed(settings, tmp_path):
 
 
 @pytest.mark.django_db
+def test_portfolio_like_and_save_are_scoped_by_mode(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+
+    provider_api = APIClient()
+    provider_phone = "0500000745"
+    provider_access = _login_via_otp(provider_api, provider_phone)
+    _complete_registration(provider_api, provider_access, provider_phone)
+    provider_profile = _register_provider(provider_api)
+
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\xff\xff?\x00\x05\xfe\x02\xfeA\x89\x1e\x1b\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    upload = SimpleUploadedFile("portfolio_mode.png", png_bytes, content_type="image/png")
+
+    created = provider_api.post(
+        "/api/providers/me/portfolio/",
+        {"file_type": "image", "caption": "أعمالي: لقطة خاصة", "file": upload},
+        format="multipart",
+    )
+    assert created.status_code == 201
+    portfolio_id = created.json()["id"]
+
+    dual_api = APIClient()
+    dual_phone = "0500000746"
+    dual_access = _login_via_otp(dual_api, dual_phone)
+    _complete_registration(dual_api, dual_access, dual_phone)
+
+    liked_client = dual_api.post(f"/api/providers/portfolio/{portfolio_id}/like/?mode=client")
+    assert liked_client.status_code == 200
+    saved_client = dual_api.post(f"/api/providers/portfolio/{portfolio_id}/save/?mode=client")
+    assert saved_client.status_code == 200
+
+    client_view = dual_api.get(f"/api/providers/{provider_profile.id}/portfolio/?mode=client")
+    assert client_view.status_code == 200
+    client_item = next(x for x in client_view.json() if x["id"] == portfolio_id)
+    assert client_item.get("is_liked") is True
+    assert client_item.get("is_saved") is True
+
+    provider_view = dual_api.get(f"/api/providers/{provider_profile.id}/portfolio/?mode=provider")
+    assert provider_view.status_code == 200
+    provider_item = next(x for x in provider_view.json() if x["id"] == portfolio_id)
+    assert provider_item.get("is_liked") is False
+    assert provider_item.get("is_saved") is False
+
+
+@pytest.mark.django_db
 def test_spotlight_is_liked_is_scoped_by_mode(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
 

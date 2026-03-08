@@ -13,6 +13,7 @@ const ProviderDetailPage = (() => {
   let _providerData = null;
   let _providerPhone = '';
   let _spotlights = [];
+  let _portfolioItems = [];
   let _profileLikesBase = 0;
   let _portfolioLikes = 0;
   let _spotlightLikes = 0;
@@ -22,6 +23,7 @@ const ProviderDetailPage = (() => {
   let _spotlightSavedByMe = false;
   let _mediaLikesTotal = null;
   let _spotlightSyncBound = false;
+  let _portfolioSyncBound = false;
   let _derivedMainCategory = '';
   let _derivedSubCategory = '';
   let _returnNav = null;
@@ -48,6 +50,8 @@ const ProviderDetailPage = (() => {
     _bindTabs();
     _bindActions();
     _bindSpotlightSync();
+    _bindPortfolioSync();
+    _renderModeBadge();
     _loadAll();
   }
 
@@ -114,11 +118,6 @@ const ProviderDetailPage = (() => {
     if (msgBtn) msgBtn.addEventListener('click', () => {
       if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
       window.location.href = '/chats/?start=' + _providerId;
-    });
-
-    // Request service
-    document.getElementById('btn-request').addEventListener('click', () => {
-      window.location.href = '/service-request/?provider_id=' + encodeURIComponent(String(_providerId));
     });
 
     // Call
@@ -204,6 +203,30 @@ const ProviderDetailPage = (() => {
 
       _syncSpotlightEngagementTotals();
       _updateSpotlightBadge(target);
+      _recomputeEngagementView();
+    });
+  }
+
+  function _bindPortfolioSync() {
+    if (_portfolioSyncBound) return;
+    _portfolioSyncBound = true;
+    window.addEventListener('nw:portfolio-engagement-update', (event) => {
+      const detail = event?.detail || {};
+      const providerId = _safeInt(detail.provider_id);
+      if (!providerId || String(providerId) !== String(_providerId)) return;
+      const itemId = _safeInt(detail.id);
+      if (!itemId) return;
+
+      const target = _portfolioItems.find((item) => _safeInt(item.id) === itemId);
+      if (!target) return;
+
+      target.likes_count = _safeInt(detail.likes_count);
+      target.saves_count = _safeInt(detail.saves_count);
+      target.is_liked = _asBool(detail.is_liked);
+      target.is_saved = _asBool(detail.is_saved);
+
+      _syncPortfolioEngagementTotals();
+      _updatePortfolioBadge(target);
       _recomputeEngagementView();
     });
   }
@@ -631,8 +654,10 @@ const ProviderDetailPage = (() => {
     if (!raw.length) return;
 
     _spotlights = raw.map(item => {
+      const rawCaption = String(item.caption || item.title || '').trim();
       return {
         id: item.id,
+        source: 'spotlight',
         provider_id: item.provider_id || _safeInt(_providerId),
         provider_display_name: _pickFirstText(
           item.provider_display_name,
@@ -649,7 +674,10 @@ const ProviderDetailPage = (() => {
         file_type: item.file_type || 'image',
         file_url: item.file_url || item.media_url || '',
         thumbnail_url: item.thumbnail_url || item.file_url || item.media_url || '',
-        caption: item.caption || item.title || '',
+        mode_context: _mode || 'client',
+        section_title: 'لمحات',
+        media_label: _deriveSpotlightMediaLabel(item, rawCaption),
+        caption: rawCaption,
         likes_count: _safeInt(item.likes_count),
         saves_count: _safeInt(item.saves_count),
         is_liked: _asBool(item.is_liked),
@@ -703,7 +731,12 @@ const ProviderDetailPage = (() => {
 
       el.addEventListener('click', () => {
         if (typeof SpotlightViewer !== 'undefined') {
-          SpotlightViewer.open(_spotlights, idx);
+          SpotlightViewer.open(_spotlights, idx, {
+            source: 'spotlight',
+            label: 'لمحة',
+            eventName: 'nw:spotlight-engagement-update',
+            modeContext: _mode || 'client',
+          });
         }
       });
 
@@ -738,6 +771,7 @@ const ProviderDetailPage = (() => {
   async function _loadServices() {
     const container = document.getElementById('pd-services-list');
     const emptyEl = document.getElementById('pd-services-empty');
+    const countEl = document.getElementById('pd-services-count');
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
@@ -745,6 +779,9 @@ const ProviderDetailPage = (() => {
     _syncCategoryViews();
     container.textContent = '';
     if (emptyEl) emptyEl.classList.add('hidden');
+    if (countEl) {
+      countEl.textContent = _serviceCountLabel(list.length);
+    }
 
     if (!list.length) {
       if (emptyEl) emptyEl.classList.remove('hidden');
@@ -767,12 +804,25 @@ const ProviderDetailPage = (() => {
         svc.sub_category ||
         ''
       ).trim();
+      const serviceTypeLabel = _serviceUnitLabel(svc);
 
       const card = UI.el('div', { className: 'pd-service-list-card' });
+      card.appendChild(UI.el('div', { className: 'pd-service-list-glow' }));
 
       const head = UI.el('div', { className: 'pd-service-list-head' });
-      head.appendChild(UI.el('span', { className: 'pd-service-index', textContent: String(idx + 1) }));
-      head.appendChild(UI.el('h4', { className: 'pd-service-list-title', textContent: title }));
+      const headMain = UI.el('div', { className: 'pd-service-list-head-main' });
+      headMain.appendChild(UI.el('span', { className: 'pd-service-index', textContent: String(idx + 1) }));
+
+      const titleWrap = UI.el('div', { className: 'pd-service-list-title-wrap' });
+      titleWrap.appendChild(UI.el('span', { className: 'pd-service-list-kicker', textContent: 'خدمة منشورة' }));
+      titleWrap.appendChild(UI.el('h4', { className: 'pd-service-list-title', textContent: title }));
+      headMain.appendChild(titleWrap);
+      head.appendChild(headMain);
+
+      const priceBadge = UI.el('div', { className: 'pd-service-price-badge' });
+      priceBadge.appendChild(UI.el('span', { className: 'pd-service-price-label', textContent: 'التسعير' }));
+      priceBadge.appendChild(UI.el('strong', { className: 'pd-service-price-value', textContent: _servicePriceLabel(svc) }));
+      head.appendChild(priceBadge);
       card.appendChild(head);
 
       if (description) {
@@ -780,7 +830,9 @@ const ProviderDetailPage = (() => {
       }
 
       const chips = UI.el('div', { className: 'pd-service-list-chips' });
-      chips.appendChild(UI.el('span', { className: 'pd-service-chip primary', textContent: _servicePriceLabel(svc) }));
+      if (serviceTypeLabel) {
+        chips.appendChild(UI.el('span', { className: 'pd-service-chip primary', textContent: serviceTypeLabel }));
+      }
       if (categoryLabel) {
         chips.appendChild(UI.el('span', { className: 'pd-service-chip', textContent: categoryLabel }));
       }
@@ -789,18 +841,12 @@ const ProviderDetailPage = (() => {
       }
       card.appendChild(chips);
 
-      const requestBtn = UI.el('button', {
-        className: 'pd-service-list-request',
-        type: 'button',
-        textContent: 'اطلب الخدمة',
-      });
-      requestBtn.addEventListener('click', () => {
-        const params = new URLSearchParams();
-        params.set('provider_id', String(_providerId));
-        if (svc.id) params.set('service_id', String(svc.id));
-        window.location.href = '/service-request/?' + params.toString();
-      });
-      card.appendChild(requestBtn);
+      const footer = UI.el('div', { className: 'pd-service-list-footer' });
+      footer.appendChild(UI.el('span', {
+        className: 'pd-service-footnote',
+        textContent: 'للتفاهم حول هذه الخدمة استخدم أزرار المتابعة والتواصل أعلى الصفحة.',
+      }));
+      card.appendChild(footer);
 
       container.appendChild(card);
     });
@@ -809,7 +855,7 @@ const ProviderDetailPage = (() => {
   function _servicePriceLabel(service) {
     const from = _asNumber(service.price_from);
     const to = _asNumber(service.price_to);
-    const unit = String(service.price_unit || '').trim();
+    const unit = _serviceUnitLabel(service);
     const suffix = unit ? (' / ' + unit) : '';
 
     if (!Number.isFinite(from) && !Number.isFinite(to)) return 'السعر: حسب الاتفاق';
@@ -822,6 +868,29 @@ const ProviderDetailPage = (() => {
     const value = Number.isFinite(from) ? from : to;
     if (Number.isFinite(value)) return 'السعر: ' + _formatCompactNumber(value) + suffix;
     return 'السعر: حسب الاتفاق';
+  }
+
+  function _serviceUnitLabel(service) {
+    const explicitLabel = String(service.price_unit_label || service.priceUnitLabel || '').trim();
+    if (explicitLabel) return explicitLabel;
+
+    const raw = String(service.price_unit || service.priceUnit || '').trim();
+    const mapping = {
+      fixed: 'سعر ثابت',
+      starting_from: 'يبدأ من',
+      hour: 'بالساعة',
+      day: 'باليوم',
+      negotiable: 'قابل للتفاوض',
+    };
+    return mapping[raw] || raw;
+  }
+
+  function _serviceCountLabel(count) {
+    if (count === 0) return '0 خدمة';
+    if (count === 1) return 'خدمة واحدة';
+    if (count === 2) return 'خدمتان';
+    if (count >= 3 && count <= 10) return count + ' خدمات';
+    return count + ' خدمة';
   }
 
   function _asNumber(value) {
@@ -838,16 +907,6 @@ const ProviderDetailPage = (() => {
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
 
-    _portfolioLikes = 0;
-    _portfolioSaves = 0;
-    _portfolioSavedByMe = false;
-    list.forEach(item => {
-      _portfolioLikes += _safeInt(item.likes_count);
-      _portfolioSaves += _safeInt(item.saves_count);
-      if (_asBool(item.is_saved)) _portfolioSavedByMe = true;
-    });
-    _recomputeEngagementView();
-
     container.textContent = '';
 
     if (!list.length) {
@@ -857,6 +916,7 @@ const ProviderDetailPage = (() => {
     if (emptyEl) emptyEl.classList.add('hidden');
 
     const grouped = new Map();
+    _portfolioItems = [];
     list.forEach(item => {
       const fileType = String(item.file_type || 'image').toLowerCase();
       const fileUrl = String(item.file_url || item.image || item.media_url || item.file || '').trim();
@@ -869,18 +929,44 @@ const ProviderDetailPage = (() => {
       const description = _extractPortfolioItemDescription(rawCaption, sectionTitle);
 
       if (!grouped.has(sectionTitle)) grouped.set(sectionTitle, []);
-      grouped.get(sectionTitle).push({
+      const normalizedItem = {
         id: _safeInt(item.id),
+        source: 'portfolio',
+        provider_id: _safeInt(item.provider_id) || _safeInt(_providerId),
+        provider_display_name: _pickFirstText(
+          item.provider_display_name,
+          item.providerDisplayName,
+          _providerData?.display_name,
+          _providerData?.displayName
+        ),
+        provider_profile_image: _pickFirstText(
+          item.provider_profile_image,
+          item.providerProfileImage,
+          _providerData?.profile_image,
+          _providerData?.profileImage
+        ),
         type: fileType.startsWith('video') ? 'video' : 'image',
         media: media,
+        file_type: fileType.startsWith('video') ? 'video' : 'image',
+        file_url: fileUrl || media,
         thumbnail: thumbUrl,
+        thumbnail_url: thumbUrl || fileUrl || media,
+        mode_context: _mode || 'client',
+        section_title: sectionTitle,
+        media_label: _derivePortfolioMediaLabel(item, description, fileUrl),
+        caption: rawCaption,
         desc: description,
         likes_count: _safeInt(item.likes_count),
         saves_count: _safeInt(item.saves_count),
         is_liked: _asBool(item.is_liked),
         is_saved: _asBool(item.is_saved),
-      });
+      };
+      grouped.get(sectionTitle).push(normalizedItem);
+      _portfolioItems.push(normalizedItem);
     });
+
+    _syncPortfolioEngagementTotals();
+    _recomputeEngagementView();
 
     const sections = _resolvePortfolioSections(grouped);
     sections.forEach(({ sectionTitle, sectionDesc, items }) => {
@@ -904,8 +990,11 @@ const ProviderDetailPage = (() => {
       }
 
       const grid = UI.el('div', { className: 'pd-portfolio-grid' });
-      items.forEach(item => {
+      items.forEach((item, index) => {
         const el = UI.el('div', { className: 'pd-portfolio-item' });
+        el.dataset.itemId = String(_safeInt(item.id));
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
         const displayUrl = (item.type === 'video' && item.thumbnail) ? item.thumbnail : item.media;
         el.appendChild(UI.lazyImg(ApiClient.mediaUrl(displayUrl), item.desc || sectionTitle));
 
@@ -920,19 +1009,49 @@ const ProviderDetailPage = (() => {
         }
 
         const stats = UI.el('div', { className: 'pd-portfolio-item-stats' });
-        const likesStat = UI.el('div', { className: 'pd-portfolio-item-stat' });
+        const likesStat = UI.el('button', { className: 'pd-portfolio-item-stat pd-portfolio-item-action', type: 'button' });
         if (item.is_liked) likesStat.classList.add('active');
         likesStat.appendChild(_createSVG('<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>', 12));
         likesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.likes_count)) }));
+        likesStat.dataset.stat = 'likes';
+        likesStat.setAttribute('aria-label', 'إعجاب');
+        likesStat.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          _togglePortfolioLike(item, likesStat);
+        });
         stats.appendChild(likesStat);
 
-        const savesStat = UI.el('div', { className: 'pd-portfolio-item-stat' });
+        const savesStat = UI.el('button', { className: 'pd-portfolio-item-stat pd-portfolio-item-action', type: 'button' });
         if (item.is_saved) savesStat.classList.add('active');
         savesStat.appendChild(_createSVG('<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>', 12));
         savesStat.appendChild(UI.el('span', { textContent: String(_safeInt(item.saves_count)) }));
+        savesStat.dataset.stat = 'saves';
+        savesStat.setAttribute('aria-label', 'حفظ في المفضلة');
+        savesStat.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          _togglePortfolioSave(item, savesStat);
+        });
         stats.appendChild(savesStat);
 
         el.appendChild(stats);
+        el.addEventListener('click', () => {
+          if (typeof SpotlightViewer !== 'undefined') {
+            SpotlightViewer.open(items, index, {
+              source: 'portfolio',
+              label: 'معرض',
+              eventName: 'nw:portfolio-engagement-update',
+              modeContext: _mode || 'client',
+            });
+          }
+        });
+        el.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            el.click();
+          }
+        });
         grid.appendChild(el);
       });
 
@@ -943,6 +1062,110 @@ const ProviderDetailPage = (() => {
     if (!container.children.length && emptyEl) {
       emptyEl.classList.remove('hidden');
     }
+  }
+
+  function _syncPortfolioEngagementTotals() {
+    _portfolioLikes = _portfolioItems.reduce((sum, item) => sum + _safeInt(item.likes_count), 0);
+    _portfolioSaves = _portfolioItems.reduce((sum, item) => sum + _safeInt(item.saves_count), 0);
+    _portfolioSavedByMe = _portfolioItems.some((item) => !!item.is_saved);
+  }
+
+  function _updatePortfolioBadge(item) {
+    const key = String(_safeInt(item?.id));
+    if (!key) return;
+    const root = document.querySelector('.pd-portfolio-item[data-item-id="' + key + '"]');
+    if (!root) return;
+    const likesEl = root.querySelector('.pd-portfolio-item-stat[data-stat="likes"]');
+    const savesEl = root.querySelector('.pd-portfolio-item-stat[data-stat="saves"]');
+    if (likesEl) {
+      const likesCount = likesEl.querySelector('span');
+      if (likesCount) likesCount.textContent = String(_safeInt(item.likes_count));
+      likesEl.classList.toggle('active', _asBool(item.is_liked));
+    }
+    if (savesEl) {
+      const savesCount = savesEl.querySelector('span');
+      if (savesCount) savesCount.textContent = String(_safeInt(item.saves_count));
+      savesEl.classList.toggle('active', _asBool(item.is_saved));
+    }
+  }
+
+  async function _togglePortfolioLike(item, triggerBtn) {
+    const outcome = await _togglePortfolioReaction(item, 'like', triggerBtn);
+    if (outcome) _showToast(outcome);
+  }
+
+  async function _togglePortfolioSave(item, triggerBtn) {
+    const outcome = await _togglePortfolioReaction(item, 'save', triggerBtn);
+    if (outcome) _showToast(outcome);
+  }
+
+  async function _togglePortfolioReaction(item, action, triggerBtn) {
+    if (!Auth.isLoggedIn()) {
+      window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return '';
+    }
+
+    const isLike = action === 'like';
+    const previousFlag = isLike ? !!item.is_liked : !!item.is_saved;
+    const previousCount = _safeInt(isLike ? item.likes_count : item.saves_count);
+    const nextFlag = !previousFlag;
+    const nextCount = Math.max(0, previousCount + (nextFlag ? 1 : -1));
+
+    if (isLike) {
+      item.is_liked = nextFlag;
+      item.likes_count = nextCount;
+    } else {
+      item.is_saved = nextFlag;
+      item.saves_count = nextCount;
+    }
+
+    _syncPortfolioEngagementTotals();
+    _updatePortfolioBadge(item);
+    _recomputeEngagementView();
+    _emitPortfolioEngagementUpdate(item);
+
+    if (triggerBtn) triggerBtn.disabled = true;
+    const endpoint = '/api/providers/portfolio/' + item.id + '/' + (nextFlag ? action : 'un' + action) + '/';
+    const res = await ApiClient.request(_withMode(endpoint), { method: 'POST' });
+    if (triggerBtn) triggerBtn.disabled = false;
+
+    if (res.ok) {
+      return isLike
+        ? (nextFlag ? 'تم تسجيل الإعجاب بصفتك ' + _getModeLabel() : 'تم إلغاء الإعجاب بصفتك ' + _getModeLabel())
+        : (nextFlag ? 'تم الحفظ في المفضلة بصفتك ' + _getModeLabel() : 'تمت إزالة العنصر من المفضلة بصفتك ' + _getModeLabel());
+    }
+
+    if (isLike) {
+      item.is_liked = previousFlag;
+      item.likes_count = previousCount;
+    } else {
+      item.is_saved = previousFlag;
+      item.saves_count = previousCount;
+    }
+    _syncPortfolioEngagementTotals();
+    _updatePortfolioBadge(item);
+    _recomputeEngagementView();
+    _emitPortfolioEngagementUpdate(item);
+
+    if (res.status === 401) {
+      window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return '';
+    }
+    return isLike ? 'تعذر تحديث الإعجاب' : 'تعذر تحديث الحفظ';
+  }
+
+  function _emitPortfolioEngagementUpdate(item) {
+    if (!item || typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('nw:portfolio-engagement-update', {
+      detail: {
+        id: item.id,
+        provider_id: item.provider_id,
+        likes_count: Number(item.likes_count) || 0,
+        saves_count: Number(item.saves_count) || 0,
+        is_liked: !!item.is_liked,
+        is_saved: !!item.is_saved,
+      },
+    }));
   }
 
   function _recomputeEngagementView() {
@@ -973,19 +1196,23 @@ const ProviderDetailPage = (() => {
     // Rating summary
     if (ratingRes.ok && ratingRes.data && summaryEl) {
       const r = ratingRes.data;
+      const ratingCount = _safeInt(r.rating_count || r.count || 0);
+      const ratingAvgRaw = r.rating_avg !== undefined && r.rating_avg !== null ? r.rating_avg : r.average;
+      const ratingAvg = Number.parseFloat(ratingAvgRaw);
+      const distribution = r.distribution || {};
       summaryEl.textContent = '';
       const bigDiv = UI.el('div', { className: 'pd-rating-big' });
-      bigDiv.appendChild(UI.text(r.average ? parseFloat(r.average).toFixed(1) : '-'));
+      bigDiv.appendChild(UI.text(ratingCount > 0 && Number.isFinite(ratingAvg) ? ratingAvg.toFixed(1) : '-'));
       bigDiv.appendChild(UI.icon('star', 24, '#FFC107'));
       summaryEl.appendChild(bigDiv);
-      summaryEl.appendChild(UI.el('div', { className: 'pd-rating-count', textContent: (r.count || 0) + ' تقييم' }));
+      summaryEl.appendChild(UI.el('div', { className: 'pd-rating-count', textContent: ratingCount + ' تقييم' }));
 
       // Rating bars
-      if (r.distribution) {
+      if (distribution) {
         const bars = UI.el('div', { className: 'pd-rating-bars' });
         for (let i = 5; i >= 1; i--) {
-          const count = r.distribution[i] || r.distribution[String(i)] || 0;
-          const total = r.count || 1;
+          const count = distribution[i] || distribution[String(i)] || 0;
+          const total = ratingCount || 1;
           const pct = Math.round((count / total) * 100);
           const row = UI.el('div', { className: 'pd-rating-bar-row' });
           row.appendChild(UI.el('span', { className: 'pd-rating-bar-label', textContent: i }));
@@ -1308,6 +1535,45 @@ const ProviderDetailPage = (() => {
       }
     }
     return text;
+  }
+
+  function _derivePortfolioMediaLabel(item, description, fileUrl) {
+    const explicit = String(item?.title || item?.name || '').trim();
+    if (explicit) return explicit;
+    const desc = String(description || '').trim();
+    if (desc && desc !== 'بدون وصف') return desc;
+    const rawCaption = String(item?.caption || '').trim();
+    if (rawCaption) return rawCaption;
+    const fromPath = String(fileUrl || '').split('?')[0].split('/').pop() || '';
+    if (fromPath) return decodeURIComponent(fromPath);
+    return 'عنصر من المعرض';
+  }
+
+  function _deriveSpotlightMediaLabel(item, rawCaption) {
+    const explicit = String(item?.title || item?.name || '').trim();
+    if (explicit) return explicit;
+    const caption = String(rawCaption || '').trim();
+    if (caption) return caption;
+    const fromPath = String(item?.file_url || item?.media_url || '').split('?')[0].split('/').pop() || '';
+    if (fromPath) return decodeURIComponent(fromPath);
+    return 'لمحة';
+  }
+
+  function _renderModeBadge() {
+    const identity = document.querySelector('.pd-identity');
+    if (!identity) return;
+
+    let badge = document.getElementById('pd-mode-badge');
+    if (!badge) {
+      badge = UI.el('div', { className: 'pd-mode-badge', id: 'pd-mode-badge' });
+      identity.appendChild(badge);
+    }
+    badge.textContent = 'وضع التفاعل الحالي: ' + _getModeLabel();
+    badge.dataset.mode = _mode || 'client';
+  }
+
+  function _getModeLabel() {
+    return String(_mode || 'client') === 'provider' ? 'مزود' : 'عميل';
   }
 
   function _resolveServiceRangeKm(provider) {

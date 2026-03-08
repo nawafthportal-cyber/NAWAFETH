@@ -10,16 +10,18 @@ const SpotlightViewer = (() => {
   let _overlay = null;
   let _items = [];
   let _currentIndex = 0;
+  let _options = {};
   let _touchStartY = 0;
   let _swiping = false;
 
   /* ----------------------------------------------------------
      PUBLIC: open viewer
   ---------------------------------------------------------- */
-  function open(items, startIndex) {
+  function open(items, startIndex, options) {
     if (!items || !items.length) return;
     _items = items;
     _currentIndex = Math.max(0, Math.min(startIndex || 0, items.length - 1));
+    _options = options || {};
     _buildOverlay();
     _renderCurrent();
     document.body.style.overflow = 'hidden';
@@ -36,6 +38,7 @@ const SpotlightViewer = (() => {
     document.body.style.overflow = '';
     _items = [];
     _currentIndex = 0;
+    _options = {};
   }
 
   /* ----------------------------------------------------------
@@ -59,17 +62,42 @@ const SpotlightViewer = (() => {
     // Badge "لمحة" (top-right)
     const badge = document.createElement('div');
     badge.className = 'sv-badge';
-    badge.textContent = 'لمحة';
+    badge.textContent = _options.label || 'لمحة';
+
+    const modeBadge = document.createElement('div');
+    modeBadge.className = 'sv-mode-badge';
+    modeBadge.id = 'sv-mode-badge';
+    modeBadge.textContent = 'وضع التفاعل: ' + _getModeLabel();
 
     // Counter
     const counter = document.createElement('div');
     counter.className = 'sv-counter';
     counter.id = 'sv-counter';
 
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'sv-nav sv-nav-prev';
+    prevBtn.id = 'sv-nav-prev';
+    prevBtn.setAttribute('type', 'button');
+    prevBtn.setAttribute('aria-label', 'العنصر السابق');
+    prevBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 6L9 12L15 18" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    prevBtn.addEventListener('click', () => _goToIndex(_currentIndex - 1));
+
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'sv-nav sv-nav-next';
+    nextBtn.id = 'sv-nav-next';
+    nextBtn.setAttribute('type', 'button');
+    nextBtn.setAttribute('aria-label', 'العنصر التالي');
+    nextBtn.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    nextBtn.addEventListener('click', () => _goToIndex(_currentIndex + 1));
+
     // Media container
     const media = document.createElement('div');
     media.className = 'sv-media';
     media.id = 'sv-media';
+
+    const thumbs = document.createElement('div');
+    thumbs.className = 'sv-thumbs';
+    thumbs.id = 'sv-thumbs';
 
     // Bottom info
     const bottom = document.createElement('div');
@@ -83,8 +111,12 @@ const SpotlightViewer = (() => {
 
     _overlay.appendChild(closeBtn);
     _overlay.appendChild(badge);
+    _overlay.appendChild(modeBadge);
     _overlay.appendChild(counter);
+    _overlay.appendChild(prevBtn);
+    _overlay.appendChild(nextBtn);
     _overlay.appendChild(media);
+    _overlay.appendChild(thumbs);
     _overlay.appendChild(bottom);
     _overlay.appendChild(side);
 
@@ -109,6 +141,17 @@ const SpotlightViewer = (() => {
     // Counter
     const counter = document.getElementById('sv-counter');
     if (counter) counter.textContent = (_currentIndex + 1) + ' / ' + _items.length;
+
+    const prevBtn = document.getElementById('sv-nav-prev');
+    if (prevBtn) {
+      prevBtn.disabled = _currentIndex <= 0;
+      prevBtn.hidden = _items.length <= 1;
+    }
+    const nextBtn = document.getElementById('sv-nav-next');
+    if (nextBtn) {
+      nextBtn.disabled = _currentIndex >= (_items.length - 1);
+      nextBtn.hidden = _items.length <= 1;
+    }
 
     // Media
     const mediaEl = document.getElementById('sv-media');
@@ -151,12 +194,58 @@ const SpotlightViewer = (() => {
       }
     }
 
+    const thumbsEl = document.getElementById('sv-thumbs');
+    if (thumbsEl) {
+      thumbsEl.innerHTML = '';
+      if (_items.length <= 1) {
+        thumbsEl.hidden = true;
+      } else {
+        thumbsEl.hidden = false;
+        _items.forEach((entry, index) => {
+          const thumbBtn = document.createElement('button');
+          thumbBtn.className = 'sv-thumb' + (index === _currentIndex ? ' active' : '');
+          thumbBtn.setAttribute('type', 'button');
+          thumbBtn.setAttribute('aria-label', 'فتح العنصر ' + (index + 1));
+          thumbBtn.addEventListener('click', () => _goToIndex(index));
+
+          const thumbUrl = _resolveUrl(entry.thumbnail_url || entry.file_url);
+          if (thumbUrl) {
+            const img = document.createElement('img');
+            img.src = thumbUrl;
+            img.alt = entry.caption || ((_options.label || 'عنصر') + ' ' + (index + 1));
+            thumbBtn.appendChild(img);
+          } else {
+            const fallback = document.createElement('span');
+            fallback.className = 'sv-thumb-fallback';
+            fallback.textContent = String(index + 1);
+            thumbBtn.appendChild(fallback);
+          }
+
+          if (_isVideo(entry)) {
+            const videoBadge = document.createElement('span');
+            videoBadge.className = 'sv-thumb-video';
+            videoBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>';
+            thumbBtn.appendChild(videoBadge);
+          }
+
+          thumbsEl.appendChild(thumbBtn);
+        });
+
+        const activeThumb = thumbsEl.querySelector('.sv-thumb.active');
+        if (activeThumb && typeof activeThumb.scrollIntoView === 'function') {
+          activeThumb.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        }
+      }
+    }
+
     // Bottom info (provider + caption)
     const bottomEl = document.getElementById('sv-bottom');
     if (bottomEl) {
       bottomEl.innerHTML = '';
       const provName = (item.provider_display_name || '').trim();
       const caption = (item.caption || '').trim();
+      const sectionTitle = (item.section_title || '').trim();
+      const mediaLabel = _resolveMediaLabel(item);
       const provId = item.provider_id;
 
       if (provName) {
@@ -194,10 +283,50 @@ const SpotlightViewer = (() => {
       }
 
       if (caption) {
+        if (sectionTitle || mediaLabel) {
+          const meta = document.createElement('div');
+          meta.className = 'sv-meta';
+
+          if (sectionTitle) {
+            const sectionChip = document.createElement('span');
+            sectionChip.className = 'sv-section-chip';
+            sectionChip.textContent = sectionTitle;
+            meta.appendChild(sectionChip);
+          }
+
+          if (mediaLabel) {
+            const titleEl = document.createElement('div');
+            titleEl.className = 'sv-media-title';
+            titleEl.textContent = mediaLabel;
+            meta.appendChild(titleEl);
+          }
+
+          bottomEl.appendChild(meta);
+        }
+
         const cap = document.createElement('div');
         cap.className = 'sv-caption';
         cap.textContent = caption;
         bottomEl.appendChild(cap);
+      } else if (sectionTitle || mediaLabel) {
+        const meta = document.createElement('div');
+        meta.className = 'sv-meta';
+
+        if (sectionTitle) {
+          const sectionChip = document.createElement('span');
+          sectionChip.className = 'sv-section-chip';
+          sectionChip.textContent = sectionTitle;
+          meta.appendChild(sectionChip);
+        }
+
+        if (mediaLabel) {
+          const titleEl = document.createElement('div');
+          titleEl.className = 'sv-media-title';
+          titleEl.textContent = mediaLabel;
+          meta.appendChild(titleEl);
+        }
+
+        bottomEl.appendChild(meta);
       }
     }
 
@@ -284,6 +413,10 @@ const SpotlightViewer = (() => {
      TOGGLE LIKE / SAVE
   ---------------------------------------------------------- */
   async function _toggleLike(item) {
+    if (!_isAuthenticated()) {
+      _redirectToLogin();
+      return;
+    }
     const wasLiked = !!item.is_liked;
     // Optimistic update
     item.is_liked = !wasLiked;
@@ -293,11 +426,10 @@ const SpotlightViewer = (() => {
     _emitEngagementUpdate(item);
 
     try {
-      const endpoint = wasLiked
-        ? '/api/providers/spotlights/' + item.id + '/unlike/'
-        : '/api/providers/spotlights/' + item.id + '/like/';
+      const endpoint = _buildReactionEndpoint(item, 'like', wasLiked);
       const res = await ApiClient.request(endpoint, { method: 'POST' });
       if (!res.ok) throw new Error();
+      _showToast(item.is_liked ? 'تم تسجيل الإعجاب بصفتك ' + _getModeLabel() : 'تم إلغاء الإعجاب بصفتك ' + _getModeLabel());
     } catch (_) {
       // Revert
       item.is_liked = wasLiked;
@@ -308,6 +440,10 @@ const SpotlightViewer = (() => {
   }
 
   async function _toggleSave(item) {
+    if (!_isAuthenticated()) {
+      _redirectToLogin();
+      return;
+    }
     const wasSaved = !!item.is_saved;
     item.is_saved = !wasSaved;
     item.saves_count = (item.saves_count || 0) + (wasSaved ? -1 : 1);
@@ -316,11 +452,10 @@ const SpotlightViewer = (() => {
     _emitEngagementUpdate(item);
 
     try {
-      const endpoint = wasSaved
-        ? '/api/providers/spotlights/' + item.id + '/unsave/'
-        : '/api/providers/spotlights/' + item.id + '/save/';
+      const endpoint = _buildReactionEndpoint(item, 'save', wasSaved);
       const res = await ApiClient.request(endpoint, { method: 'POST' });
       if (!res.ok) throw new Error();
+      _showToast(item.is_saved ? 'تم الحفظ بصفتك ' + _getModeLabel() : 'تمت إزالة الحفظ بصفتك ' + _getModeLabel());
     } catch (_) {
       item.is_saved = wasSaved;
       item.saves_count += wasSaved ? 1 : -1;
@@ -331,7 +466,7 @@ const SpotlightViewer = (() => {
 
   function _emitEngagementUpdate(item) {
     if (!item || typeof window === 'undefined') return;
-    window.dispatchEvent(new CustomEvent('nw:spotlight-engagement-update', {
+    window.dispatchEvent(new CustomEvent(_options.eventName || 'nw:spotlight-engagement-update', {
       detail: {
         id: item.id,
         provider_id: item.provider_id,
@@ -358,6 +493,12 @@ const SpotlightViewer = (() => {
       _currentIndex--;
       _renderCurrent();
     }
+  }
+
+  function _goToIndex(index) {
+    if (index < 0 || index >= _items.length || index === _currentIndex) return;
+    _currentIndex = index;
+    _renderCurrent();
   }
 
   function _onTouchStart(e) {
@@ -400,10 +541,55 @@ const SpotlightViewer = (() => {
     return ApiClient.mediaUrl(path);
   }
 
+  function _isAuthenticated() {
+    try {
+      return !!sessionStorage.getItem('nw_access_token');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function _redirectToLogin() {
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    window.location.href = '/login/?next=' + next;
+  }
+
+  function _buildReactionEndpoint(item, action, wasActive) {
+    const source = String(item?.source || _options.source || 'spotlight').trim().toLowerCase();
+    const base = source === 'portfolio' ? '/api/providers/portfolio/' : '/api/providers/spotlights/';
+    const endpoint = base + encodeURIComponent(String(item.id)) + '/' + (wasActive ? 'un' + action : action) + '/';
+    return _withMode(endpoint, item?.mode_context || _options.modeContext || 'client');
+  }
+
+  function _withMode(path, mode) {
+    const sep = path.includes('?') ? '&' : '?';
+    return path + sep + 'mode=' + encodeURIComponent(mode || 'client');
+  }
+
   function _isVideo(item) {
     const url = (item.file_url || '').toLowerCase();
     return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.webm')
         || (item.media_type && item.media_type.toLowerCase() === 'video');
+  }
+
+  function _resolveMediaLabel(item) {
+    const explicit = String(item?.media_label || item?.title || item?.name || item?.desc || '').trim();
+    if (explicit && explicit !== 'بدون وصف') return explicit;
+
+    const caption = String(item?.caption || '').trim();
+    if (caption) return caption;
+
+    const rawPath = String(item?.file_url || item?.thumbnail_url || '').split('?')[0];
+    const tail = rawPath.split('/').pop() || '';
+    if (tail) {
+      try {
+        return decodeURIComponent(tail);
+      } catch (_) {
+        return tail;
+      }
+    }
+
+    return '';
   }
 
   function _formatCount(count) {
@@ -414,6 +600,27 @@ const SpotlightViewer = (() => {
       return (k === Math.floor(k)) ? Math.floor(k) + 'K' : k.toFixed(1) + 'K';
     }
     return Math.floor(count / 1000) + 'K';
+  }
+
+  function _getModeLabel() {
+    return String(_options.modeContext || 'client') === 'provider' ? 'مزود' : 'عميل';
+  }
+
+  function _showToast(message) {
+    if (!message || typeof document === 'undefined') return;
+    const existing = document.getElementById('sv-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = 'sv-toast';
+    toast.id = 'sv-toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    window.setTimeout(() => {
+      toast.classList.remove('show');
+      window.setTimeout(() => toast.remove(), 180);
+    }, 1800);
   }
 
   return { open, close };

@@ -162,6 +162,7 @@ class ProviderRatingSummarySerializer(serializers.Serializer):
     provider_id = serializers.IntegerField()
     rating_avg = serializers.DecimalField(max_digits=3, decimal_places=2)
     rating_count = serializers.IntegerField()
+    distribution = serializers.DictField(child=serializers.IntegerField(), required=False)
 
     response_speed_avg = serializers.DecimalField(
         max_digits=3, decimal_places=2, allow_null=True, required=False

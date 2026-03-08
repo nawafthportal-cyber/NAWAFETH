@@ -206,6 +206,7 @@ def test_provider_services_crud_and_public_list():
     service = create.json()
     assert service["title"] == "تصميم شعار احترافي"
     assert service["subcategory"]["id"] == sub.id
+    assert service["price_unit_label"] == "سعر ثابت"
     service_id = service["id"]
 
     me_list = client.get("/api/providers/me/services/")
@@ -232,6 +233,7 @@ def test_provider_services_crud_and_public_list():
     assert public_detail.json()["provider_id"] == provider_id
     assert public_detail.json()["provider_name"] == "محمد التصميم"
     assert public_detail.json()["category_name"] == "تصميم"
+    assert public_detail.json()["price_unit_label"] == "سعر ثابت"
 
     delete = client.delete(f"/api/providers/me/services/{service_id}/")
     assert delete.status_code in (200, 204)

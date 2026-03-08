@@ -443,6 +443,7 @@ class SubCategoryWithCategorySerializer(serializers.ModelSerializer):
 
 class ProviderServiceSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(read_only=True)
+    price_unit_label = serializers.CharField(source="get_price_unit_display", read_only=True)
     subcategory_id = serializers.PrimaryKeyRelatedField(
         source="subcategory",
         queryset=SubCategory.objects.filter(is_active=True),
@@ -460,6 +461,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             "price_from",
             "price_to",
             "price_unit",
+            "price_unit_label",
             "is_active",
             "subcategory",
             "subcategory_id",
@@ -476,6 +478,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
 
 
 class ProviderServicePublicSerializer(serializers.ModelSerializer):
+    price_unit_label = serializers.CharField(source="get_price_unit_display", read_only=True)
     subcategory = SubCategoryWithCategorySerializer(read_only=True)
 
     class Meta:
@@ -487,6 +490,7 @@ class ProviderServicePublicSerializer(serializers.ModelSerializer):
             "price_from",
             "price_to",
             "price_unit",
+            "price_unit_label",
             "subcategory",
             "created_at",
             "updated_at",
@@ -511,6 +515,7 @@ class ProviderServicePublicDetailSerializer(ProviderServicePublicSerializer):
             "price_from",
             "price_to",
             "price_unit",
+            "price_unit_label",
             "category_name",
             "subcategory",
             "created_at",

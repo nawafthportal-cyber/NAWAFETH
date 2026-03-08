@@ -249,145 +249,147 @@ class _ReviewsTabState extends State<ReviewsTab> {
       return _buildErrorState();
     }
 
+    final content = Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ⭐ التقييم العام
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  overallRating.toStringAsFixed(1),
+                  style: const TextStyle(
+                    fontSize: 60,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepPurple,
+                    height: 1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildStars(overallRating, size: 34),
+                const SizedBox(height: 6),
+                Text(
+                  "بناءً على $totalReviews مراجعة",
+                  style: const TextStyle(color: Colors.black54, fontSize: 14),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+
+          if (totalReviews > 0)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تفصيل البنود',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Cairo',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildCriteriaRow('سرعة الاستجابة', responseSpeedAvg),
+                  _buildCriteriaRow('التكلفة مقابل الخدمة', costValueAvg),
+                  _buildCriteriaRow('جودة الخدمة', qualityAvg),
+                  _buildCriteriaRow('المصداقية', credibilityAvg),
+                  _buildCriteriaRow('وقت الإنجاز', onTimeAvg),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 20),
+          const Text(
+            'مراجعات العملاء',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Cairo',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _sortOption,
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(12),
+                items: const [
+                  DropdownMenuItem(value: 'الأحدث', child: Text('الأحدث')),
+                  DropdownMenuItem(
+                    value: 'الأعلى تقييماً',
+                    child: Text('الأعلى تقييماً'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'الأقل تقييماً',
+                    child: Text('الأقل تقييماً'),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _sortOption = value;
+                      _applySorting();
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_reviews.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Column(
+                  children: [
+                    Icon(Icons.reviews_outlined, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'لا توجد مراجعات بعد',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 16,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ..._reviews.map((review) => _buildReviewTile(review)),
+        ],
+      ),
+    );
+
+    if (widget.embedded) {
+      return content;
+    }
+
     return RefreshIndicator(
       onRefresh: () => _loadData(silent: true),
       color: Colors.deepPurple,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ⭐ التقييم العام
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    overallRating.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontSize: 60,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.deepPurple,
-                      height: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  _buildStars(overallRating, size: 34),
-                  const SizedBox(height: 6),
-                  Text(
-                    "بناءً على $totalReviews مراجعة",
-                    style:
-                        const TextStyle(color: Colors.black54, fontSize: 14),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-
-            // 📊 تفاصيل البنود
-            if (totalReviews > 0)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'تفصيل البنود',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Cairo',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildCriteriaRow('سرعة الاستجابة', responseSpeedAvg),
-                    _buildCriteriaRow('التكلفة مقابل الخدمة', costValueAvg),
-                    _buildCriteriaRow('جودة الخدمة', qualityAvg),
-                    _buildCriteriaRow('المصداقية', credibilityAvg),
-                    _buildCriteriaRow('وقت الإنجاز', onTimeAvg),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 20),
-
-            // 🔽 عنوان + فلترة
-            const Text(
-              'مراجعات العملاء',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Cairo',
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _sortOption,
-                  isExpanded: true,
-                  borderRadius: BorderRadius.circular(12),
-                  items: const [
-                    DropdownMenuItem(
-                        value: 'الأحدث', child: Text('الأحدث')),
-                    DropdownMenuItem(
-                        value: 'الأعلى تقييماً',
-                        child: Text('الأعلى تقييماً')),
-                    DropdownMenuItem(
-                        value: 'الأقل تقييماً',
-                        child: Text('الأقل تقييماً')),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _sortOption = value;
-                        _applySorting();
-                      });
-                    }
-                  },
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (_reviews.isEmpty)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      Icon(Icons.reviews_outlined,
-                          size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text(
-                        'لا توجد مراجعات بعد',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 16,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              ..._reviews.map((review) => _buildReviewTile(review)).toList(),
-          ],
-        ),
+        child: content,
       ),
     );
   }

@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404
-from django.db.models import Avg
+from django.db.models import Avg, Count
 from django.utils import timezone
 from rest_framework import permissions, status, generics
 from rest_framework.views import APIView
@@ -163,23 +163,33 @@ class ProviderRatingSummaryView(APIView):
 
 	def get(self, request, provider_id):
 		provider = get_object_or_404(ProviderProfile, id=provider_id)
-
-		# تفصيل متوسطات التقييم من جدول المراجعات (قد تكون None إذا لم تُستخدم المحاور)
-		breakdown = Review.objects.filter(
+		reviews_qs = Review.objects.filter(
 			provider_id=provider_id,
 			moderation_status=ReviewModerationStatus.APPROVED,
-		).aggregate(
+		)
+
+		# تفصيل متوسطات التقييم من جدول المراجعات (قد تكون None إذا لم تُستخدم المحاور)
+		breakdown = reviews_qs.aggregate(
+			rating_avg=Avg("rating"),
+			rating_count=Count("id"),
 			response_speed_avg=Avg("response_speed"),
 			cost_value_avg=Avg("cost_value"),
 			quality_avg=Avg("quality"),
 			credibility_avg=Avg("credibility"),
 			on_time_avg=Avg("on_time"),
 		)
+		distribution_raw = reviews_qs.values("rating").annotate(count=Count("id")).order_by()
+		distribution = {str(i): 0 for i in range(1, 6)}
+		for row in distribution_raw:
+			rating_value = int(row.get("rating") or 0)
+			if 1 <= rating_value <= 5:
+				distribution[str(rating_value)] = int(row.get("count") or 0)
 
 		data = {
 			"provider_id": provider.id,
-			"rating_avg": provider.rating_avg,
-			"rating_count": provider.rating_count,
+			"rating_avg": breakdown.get("rating_avg") or 0,
+			"rating_count": int(breakdown.get("rating_count") or 0),
+			"distribution": distribution,
 			**breakdown,
 		}
 		return Response(ProviderRatingSummarySerializer(data).data, status=status.HTTP_200_OK)
