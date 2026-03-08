@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.support.apps.SupportConfig",
     "apps.billing.apps.BillingConfig",
     "apps.verification.apps.VerificationConfig",
+    "apps.excellence.apps.ExcellenceConfig",
     "apps.promo.apps.PromoConfig",
     "apps.subscriptions.apps.SubscriptionsConfig",
     "apps.extras.apps.ExtrasConfig",
@@ -178,6 +179,19 @@ CELERY_BEAT_SCHEDULE = {
         "task": "verification.expire_badges_and_sync",
         "schedule": timedelta(hours=1),
         "args": (1000, 10),
+    },
+    "excellence-generate-candidates": {
+        "task": "excellence.generate_candidates",
+        "schedule": timedelta(hours=12),
+    },
+    "excellence-expire-awards": {
+        "task": "excellence.expire_awards",
+        "schedule": timedelta(hours=1),
+        "args": (500, 10),
+    },
+    "excellence-sync-public-badges": {
+        "task": "excellence.sync_public_badges",
+        "schedule": timedelta(hours=6),
     },
 }
 

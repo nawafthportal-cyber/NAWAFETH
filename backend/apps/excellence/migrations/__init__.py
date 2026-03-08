@@ -1,0 +1,1 @@
+"""Excellence migrations package."""

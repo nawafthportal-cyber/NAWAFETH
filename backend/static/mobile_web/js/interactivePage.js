@@ -271,6 +271,13 @@ const InteractivePage = (() => {
     }
     meta.appendChild(nameRow);
 
+    const excellence = UI.buildExcellenceBadges(provider.excellence_badges, {
+      className: 'excellence-badges compact interactive-excellence-badges',
+      compact: true,
+      iconSize: 10,
+    });
+    if (excellence) meta.appendChild(excellence);
+
     const cityText = String(provider.city || '').trim() || 'غير محدد';
     const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
     const ratingText = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : '0.0';

@@ -1,3 +1,5 @@
+import 'excellence_badge_model.dart';
+
 class ServiceProviderLocation {
   final String id;
   final String name;
@@ -19,8 +21,10 @@ class ServiceProviderLocation {
   final int responseTime;             // متوسط وقت الرد (بالدقائق)
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
+  final List<ExcellenceBadgeModel> excellenceBadges;
 
   bool get verified => isVerifiedBlue || isVerifiedGreen;
+  bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
 
   ServiceProviderLocation({
     required this.id,
@@ -41,6 +45,7 @@ class ServiceProviderLocation {
     this.responseTime = 15,
     this.isVerifiedBlue = false,
     this.isVerifiedGreen = false,
+    this.excellenceBadges = const [],
   });
 
   // ✅ إنشاء من JSON (يدعم استجابة الباكند)
@@ -69,6 +74,7 @@ class ServiceProviderLocation {
         isVerifiedBlue: _toBool(json['is_verified_blue']),
         isVerifiedGreen: _toBool(json['is_verified_green']) ||
           (!_toBool(json['is_verified_blue']) && _toBool(json['verified'])),
+        excellenceBadges: _parseExcellenceBadges(json['excellence_badges']),
     );
   }
 
@@ -124,6 +130,7 @@ class ServiceProviderLocation {
       'responseTime': responseTime,
       'is_verified_blue': isVerifiedBlue,
       'is_verified_green': isVerifiedGreen,
+      'excellence_badges': excellenceBadges.map((item) => item.toJson()).toList(growable: false),
       'verified': verified,
     };
   }
@@ -148,6 +155,7 @@ class ServiceProviderLocation {
     int? responseTime,
     bool? isVerifiedBlue,
     bool? isVerifiedGreen,
+    List<ExcellenceBadgeModel>? excellenceBadges,
   }) {
     return ServiceProviderLocation(
       id: id ?? this.id,
@@ -168,6 +176,16 @@ class ServiceProviderLocation {
       responseTime: responseTime ?? this.responseTime,
       isVerifiedBlue: isVerifiedBlue ?? this.isVerifiedBlue,
       isVerifiedGreen: isVerifiedGreen ?? this.isVerifiedGreen,
+      excellenceBadges: excellenceBadges ?? this.excellenceBadges,
     );
+  }
+
+  static List<ExcellenceBadgeModel> _parseExcellenceBadges(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => ExcellenceBadgeModel.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.code.isNotEmpty || item.name.isNotEmpty)
+        .toList(growable: false);
   }
 }

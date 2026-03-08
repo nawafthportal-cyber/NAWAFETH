@@ -11,6 +11,7 @@ import '../services/interactive_service.dart';
 import '../models/provider_public_model.dart';
 import '../models/user_public_model.dart';
 import '../models/media_item_model.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 
@@ -416,6 +417,14 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                           ],
                         ],
                       ),
+                      if (provider.hasExcellenceBadges)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: ExcellenceBadgesWrap(
+                            badges: provider.excellenceBadges,
+                            compact: true,
+                          ),
+                        ),
                       if (provider.city != null && provider.city!.isNotEmpty)
                         Text(provider.city!, style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
                     ],

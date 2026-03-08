@@ -510,7 +510,15 @@ const SearchPage = (() => {
     card.appendChild(media);
 
     const body = UI.el('div', { className: 'provider-list-body' });
-    body.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
+    const nameWrap = UI.el('div', { className: 'provider-list-name-wrap' });
+    nameWrap.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
+    const excellence = UI.buildExcellenceBadges(provider.excellence_badges, {
+      className: 'excellence-badges compact provider-list-excellence',
+      compact: true,
+      iconSize: 10,
+    });
+    if (excellence) nameWrap.appendChild(excellence);
+    body.appendChild(nameWrap);
 
     if (city) {
       const cityRow = UI.el('div', { className: 'provider-list-meta' });

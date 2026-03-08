@@ -327,6 +327,27 @@ const ProviderDetailPage = (() => {
       badge.classList.remove('hidden');
       const color = p.is_verified_blue ? '#2196F3' : '#4CAF50';
       badge.querySelector('svg').setAttribute('fill', color);
+    } else {
+      badge.classList.add('hidden');
+    }
+
+    const excellenceWrap = _ensureExcellenceMount();
+    if (excellenceWrap) {
+      excellenceWrap.textContent = '';
+      const excellence = UI.buildExcellenceBadges(p.excellence_badges, {
+        className: 'excellence-badges pd-excellence-chip-row',
+        iconSize: 12,
+      });
+      if (excellence) {
+        excellenceWrap.classList.remove('hidden');
+        excellenceWrap.style.display = 'flex';
+        excellenceWrap.style.justifyContent = 'center';
+        excellenceWrap.style.marginTop = '10px';
+        excellenceWrap.appendChild(excellence);
+      } else {
+        excellenceWrap.classList.add('hidden');
+        excellenceWrap.style.display = 'none';
+      }
     }
 
     // ── Name & handle ──
@@ -1366,6 +1387,25 @@ const ProviderDetailPage = (() => {
     if (cleaned.startsWith('05') && cleaned.length === 10) return '+966' + cleaned.substring(1);
     if (cleaned.startsWith('5') && cleaned.length === 9) return '+966' + cleaned;
     return cleaned;
+  }
+
+  function _ensureExcellenceMount() {
+    let mount = document.getElementById('pd-excellence-badges');
+    if (mount) return mount;
+
+    const handle = document.getElementById('pd-handle');
+    const categoryLine = document.getElementById('pd-category-line');
+    if (!handle || !handle.parentNode) return null;
+
+    mount = document.createElement('div');
+    mount.id = 'pd-excellence-badges';
+    mount.className = 'pd-excellence-badges hidden';
+    if (categoryLine && categoryLine.parentNode === handle.parentNode) {
+      handle.parentNode.insertBefore(mount, categoryLine);
+    } else {
+      handle.insertAdjacentElement('afterend', mount);
+    }
+    return mount;
   }
 
   function _showToast(msg) {

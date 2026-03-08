@@ -1,0 +1,1 @@
+"""Excellence tests package."""

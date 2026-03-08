@@ -98,7 +98,11 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 	permission_classes = [IsAtLeastClient]
 
 	def get_object(self):
-		provider_profile = getattr(self.request.user, "provider_profile", None)
+		provider_profile = (
+			ProviderProfile.objects.select_related("user")
+			.filter(user=self.request.user)
+			.first()
+		)
 		if not provider_profile:
 			raise NotFound("provider_profile_not_found")
 		return provider_profile

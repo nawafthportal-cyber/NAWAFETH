@@ -1,3 +1,5 @@
+import 'excellence_badge_model.dart';
+
 /// نموذج بيانات ملف المزود (من /api/providers/me/profile/)
 class ProviderProfileModel {
   final int id;
@@ -25,6 +27,7 @@ class ProviderProfileModel {
   final bool acceptsUrgent;
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
+  final List<ExcellenceBadgeModel> excellenceBadges;
   final double ratingAvg;
   final int ratingCount;
   final String? createdAt;
@@ -55,6 +58,7 @@ class ProviderProfileModel {
     required this.acceptsUrgent,
     required this.isVerifiedBlue,
     required this.isVerifiedGreen,
+    this.excellenceBadges = const [],
     required this.ratingAvg,
     required this.ratingCount,
     this.createdAt,
@@ -94,11 +98,14 @@ class ProviderProfileModel {
       acceptsUrgent: json['accepts_urgent'] as bool? ?? false,
       isVerifiedBlue: json['is_verified_blue'] as bool? ?? false,
       isVerifiedGreen: json['is_verified_green'] as bool? ?? false,
+      excellenceBadges: _parseExcellenceBadges(json['excellence_badges']),
       ratingAvg: _parseDouble(json['rating_avg']) ?? 0.0,
       ratingCount: json['rating_count'] as int? ?? 0,
       createdAt: json['created_at'] as String?,
     );
   }
+
+  bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
 
   /// ─── حساب نسبة إكمال الملف التعريفي ───
   ///
@@ -163,5 +170,14 @@ class ProviderProfileModel {
       if (item is Iterable) return item.isNotEmpty;
       return true;
     });
+  }
+
+  static List<ExcellenceBadgeModel> _parseExcellenceBadges(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => ExcellenceBadgeModel.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.code.isNotEmpty || item.name.isNotEmpty)
+        .toList(growable: false);
   }
 }

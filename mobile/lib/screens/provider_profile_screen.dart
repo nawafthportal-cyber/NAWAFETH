@@ -13,8 +13,10 @@ import '../widgets/video_full_screen.dart';
 import '../services/auth_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
+import '../utils/value_parsing.dart';
 import '../models/media_item_model.dart';
 import '../models/provider_public_model.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/verified_badge_view.dart';
 import '../widgets/spotlight_viewer.dart';
 import 'chat_detail_screen.dart';
@@ -168,8 +170,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         'desc': desc,
         'likes_count': _asInt(item['likes_count']),
         'saves_count': _asInt(item['saves_count']),
-        'is_liked': _asBool(item['is_liked']),
-        'is_saved': _asBool(item['is_saved']),
+        'is_liked': asBool(item['is_liked']),
+        'is_saved': asBool(item['is_saved']),
       });
     }
 
@@ -626,7 +628,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             for (final item in _apiPortfolio) {
               portfolioLikes += _asInt(item['likes_count']);
               portfolioSaves += _asInt(item['saves_count']);
-              if (_asBool(item['is_saved'])) {
+              if (asBool(item['is_saved'])) {
                 portfolioSavedByMe = true;
               }
             }
@@ -701,30 +703,6 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     return null;
   }
 
-  bool _asBool(dynamic value) {
-    if (value is bool) return value;
-    if (value is num) return value != 0;
-    if (value is String) {
-      final text = value.trim().toLowerCase();
-      if (text == 'true' ||
-          text == '1' ||
-          text == 'yes' ||
-          text == 'y' ||
-          text == 'on') {
-        return true;
-      }
-      if (text == 'false' ||
-          text == '0' ||
-          text == 'no' ||
-          text == 'n' ||
-          text == 'off' ||
-          text.isEmpty) {
-        return false;
-      }
-    }
-    return false;
-  }
-
   MediaItemModel _mapSpotlightItem(Map<String, dynamic> item) {
     final id = _asInt(item['id']);
     final providerIdRaw = _asInt(item['provider_id']);
@@ -758,8 +736,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       caption: (item['caption'] ?? '').toString(),
       likesCount: _asInt(item['likes_count']),
       savesCount: _asInt(item['saves_count']),
-      isLiked: _asBool(item['is_liked']),
-      isSaved: _asBool(item['is_saved']),
+      isLiked: asBool(item['is_liked']),
+      isSaved: asBool(item['is_saved']),
       createdAt: createdAtRaw.isEmpty ? null : createdAtRaw,
       source: MediaItemSource.spotlight,
     );
@@ -1630,6 +1608,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
             right: 0,
             child: Column(
               children: [
+                if (_providerDetail?.hasExcellenceBadges ?? false)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: ExcellenceBadgesWrap(
+                      badges: _providerDetail?.excellenceBadges ?? const [],
+                      alignment: WrapAlignment.center,
+                    ),
+                  ),
                 // Avatar
                 Container(
                   decoration: BoxDecoration(
@@ -2174,7 +2160,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     for (final item in _apiPortfolio) {
       portfolioLikes += _asInt(item['likes_count']);
       portfolioSaves += _asInt(item['saves_count']);
-      if (_asBool(item['is_saved'])) {
+      if (asBool(item['is_saved'])) {
         portfolioSavedByMe = true;
       }
     }
@@ -3207,8 +3193,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     final desc = (item['desc'] ?? '').toString();
     final likesCount = _asInt(item['likes_count']);
     final savesCount = _asInt(item['saves_count']);
-    final isLiked = _asBool(item['is_liked']);
-    final isSaved = _asBool(item['is_saved']);
+    final isLiked = asBool(item['is_liked']);
+    final isSaved = asBool(item['is_saved']);
     final isVideo = type == 'video';
     final normalizedMedia = _normalizeMediaUrl(media);
 

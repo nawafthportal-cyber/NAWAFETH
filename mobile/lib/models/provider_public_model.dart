@@ -1,3 +1,5 @@
+import 'excellence_badge_model.dart';
+
 /// نموذج بيانات مزود الخدمة العام — يطابق ProviderPublicSerializer
 ///
 /// يُستخدم في:
@@ -25,6 +27,7 @@ class ProviderPublicModel {
   final bool acceptsUrgent;
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
+  final List<ExcellenceBadgeModel> excellenceBadges;
   final List<dynamic> qualifications;
   final List<dynamic> contentSections;
   final double ratingAvg;
@@ -58,6 +61,7 @@ class ProviderPublicModel {
     this.acceptsUrgent = false,
     this.isVerifiedBlue = false,
     this.isVerifiedGreen = false,
+    this.excellenceBadges = const [],
     this.qualifications = const [],
     this.contentSections = const [],
     this.ratingAvg = 0.0,
@@ -94,6 +98,7 @@ class ProviderPublicModel {
       acceptsUrgent: _parseBool(json['accepts_urgent']),
       isVerifiedBlue: _parseBool(json['is_verified_blue']),
       isVerifiedGreen: _parseBool(json['is_verified_green']),
+        excellenceBadges: _parseExcellenceBadges(json['excellence_badges']),
       qualifications: json['qualifications'] is List
           ? json['qualifications'] as List<dynamic>
           : [],
@@ -112,6 +117,8 @@ class ProviderPublicModel {
 
   /// هل المزود مُوثق (أزرق أو أخضر)
   bool get isVerified => isVerifiedBlue || isVerifiedGreen;
+
+  bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
 
   static String? _parseString(dynamic value) {
     if (value == null) return null;
@@ -166,5 +173,14 @@ class ProviderPublicModel {
       }
     }
     return false;
+  }
+
+  static List<ExcellenceBadgeModel> _parseExcellenceBadges(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => ExcellenceBadgeModel.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.code.isNotEmpty || item.name.isNotEmpty)
+        .toList(growable: false);
   }
 }

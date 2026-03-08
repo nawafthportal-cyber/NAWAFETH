@@ -4,6 +4,7 @@ from . import auth_views
 from . import content_views
 from . import reviews_views
 from . import admin_views
+from apps.excellence import dashboard_views as excellence_views
 
 app_name = "dashboard"
 
@@ -40,6 +41,11 @@ urlpatterns = [
     path("support/<int:ticket_id>/", views.support_ticket_detail, name="support_ticket_detail"),
     path("support/<int:ticket_id>/actions/assign/", views.support_ticket_assign_action, name="support_ticket_assign_action"),
     path("support/<int:ticket_id>/actions/status/", views.support_ticket_status_action, name="support_ticket_status_action"),
+    path(
+        "support/<int:ticket_id>/actions/quick-update/",
+        views.support_ticket_quick_update_action,
+        name="support_ticket_quick_update_action",
+    ),
     path(
         "support/<int:ticket_id>/actions/delete-reported/",
         views.support_ticket_delete_reported_object_action,
@@ -85,6 +91,23 @@ urlpatterns = [
         "verification/badges/<int:badge_id>/actions/renew/",
         views.verified_badge_renew_action,
         name="verified_badge_renew_action",
+    ),
+
+    path("excellence/", excellence_views.excellence_dashboard, name="excellence_dashboard"),
+    path(
+        "excellence/candidates/<int:candidate_id>/",
+        excellence_views.excellence_candidate_detail,
+        name="excellence_candidate_detail",
+    ),
+    path(
+        "excellence/candidates/<int:candidate_id>/actions/approve/",
+        excellence_views.excellence_candidate_approve_action,
+        name="excellence_candidate_approve_action",
+    ),
+    path(
+        "excellence/awards/<int:award_id>/actions/revoke/",
+        excellence_views.excellence_award_revoke_action,
+        name="excellence_award_revoke_action",
     ),
 
     path("promo/", views.promo_requests_list, name="promo_requests_list"),

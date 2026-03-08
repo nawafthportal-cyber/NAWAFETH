@@ -11,6 +11,7 @@ import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../constants/colors.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/verified_badge_view.dart';
 import 'chat_detail_screen.dart';
 import 'provider_profile_screen.dart';
@@ -932,6 +933,13 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                                 fontFamily: 'Cairo',
                               ),
                             ),
+                            if (provider.hasExcellenceBadges) ...[
+                              const SizedBox(height: 4),
+                              ExcellenceBadgesWrap(
+                                badges: provider.excellenceBadges,
+                                compact: true,
+                              ),
+                            ],
                           ],
                         ),
                       ),

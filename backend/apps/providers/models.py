@@ -73,6 +73,7 @@ class ProviderProfile(models.Model):
 
     is_verified_blue = models.BooleanField(default=False)
     is_verified_green = models.BooleanField(default=False)
+    excellence_badges_cache = models.JSONField(default=list, blank=True)
 
     rating_avg = models.DecimalField(
         max_digits=3,

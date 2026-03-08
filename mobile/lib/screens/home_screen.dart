@@ -10,6 +10,7 @@ import '../models/category_model.dart';
 import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 import '../services/unread_badge_service.dart';
@@ -803,6 +804,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ],
                           ],
                         ),
+                        if (p.hasExcellenceBadges)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: ExcellenceBadgesWrap(
+                              badges: p.excellenceBadges,
+                              compact: true,
+                            ),
+                          ),
                         if (p.city != null)
                           Text(p.city!, style: TextStyle(fontSize: 9, fontFamily: 'Cairo',
                             color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),

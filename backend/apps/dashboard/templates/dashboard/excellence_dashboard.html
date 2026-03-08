@@ -1,0 +1,134 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}إدارة التميز{% endblock %}
+
+{% block content %}
+<div class="flex flex-col gap-6">
+  <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">إدارة التميز</h1>
+      <p class="text-gray-500 mt-1">مرشحو ومنح شارات التميز المستقلة عن التوثيق والترويج.</p>
+      <p class="text-sm text-gray-400 mt-2">دورة المراجعة الحالية حتى {{ current_cycle_end|date:'Y-m-d H:i' }}</p>
+    </div>
+    <div class="grid grid-cols-2 gap-3 min-w-[240px]">
+      <div class="rounded-2xl border border-amber-100 bg-white p-4 shadow-sm">
+        <div class="text-xs text-gray-500">الشارات النشطة</div>
+        <div class="mt-2 text-2xl font-extrabold text-amber-700">{{ active_awards_count }}</div>
+      </div>
+      <div class="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+        <div class="text-xs text-gray-500">تنتهي قريبًا</div>
+        <div class="mt-2 text-2xl font-extrabold text-orange-700">{{ expiring_soon_count }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <div class="flex flex-wrap items-center gap-2 mb-4">
+      <a href="?status={{ status_val }}&q={{ q }}" class="px-4 py-2 rounded-full text-sm font-semibold {% if not selected_badge %}bg-amber-600 text-white{% else %}bg-amber-50 text-amber-700{% endif %}">الكل</a>
+      {% for badge in badge_types %}
+      <a href="?badge={{ badge.code }}&status={{ status_val }}&q={{ q }}" class="px-4 py-2 rounded-full text-sm font-semibold {% if selected_badge == badge.code %}bg-amber-600 text-white{% else %}bg-amber-50 text-amber-700{% endif %}">{{ badge.name_ar }}</a>
+      {% endfor %}
+    </div>
+
+    <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <input type="hidden" name="badge" value="{{ selected_badge }}">
+      <input name="q" value="{{ q }}" placeholder="اسم المزود / الجوال / التصنيف" class="rounded-lg border-gray-200 px-3 py-2">
+      <select name="status" class="rounded-lg border-gray-200 px-3 py-2">
+        <option value="">كل الحالات</option>
+        {% for value, label in status_choices %}
+        <option value="{{ value }}" {% if status_val == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <button class="rounded-lg bg-amber-600 text-white px-4 py-2 font-semibold">تطبيق</button>
+      <div class="flex flex-wrap gap-2 justify-start md:justify-end">
+        <a href="?badge={{ selected_badge }}&status={{ status_val }}&q={{ q }}&export=csv" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-semibold">CSV</a>
+        <a href="?badge={{ selected_badge }}&status={{ status_val }}&q={{ q }}&export=xlsx" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-semibold">Excel</a>
+        <a href="?badge={{ selected_badge }}&status={{ status_val }}&q={{ q }}&export=pdf" class="px-3 py-2 rounded-lg bg-gray-100 text-sm font-semibold">PDF</a>
+      </div>
+    </form>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-right px-4 py-3">المزود</th>
+          <th class="text-right px-4 py-3">النوع</th>
+          <th class="text-right px-4 py-3">الترتيب</th>
+          <th class="text-right px-4 py-3">المتابعون</th>
+          <th class="text-right px-4 py-3">الطلبات المكتملة</th>
+          <th class="text-right px-4 py-3">التقييم</th>
+          <th class="text-right px-4 py-3">الفئة</th>
+          <th class="text-right px-4 py-3">التصنيف</th>
+          <th class="text-right px-4 py-3">الحالة</th>
+          <th class="text-right px-4 py-3">الإجراءات</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for candidate in page_obj.object_list %}
+        <tr class="hover:bg-gray-50 align-top">
+          <td class="px-4 py-3">
+            <div class="font-semibold text-gray-900">{{ candidate.provider.display_name }}</div>
+            <div class="text-xs text-gray-500 mt-1">{{ candidate.provider.user.phone|default:'—' }}</div>
+          </td>
+          <td class="px-4 py-3">{{ candidate.badge_type.name_ar }}</td>
+          <td class="px-4 py-3 font-bold text-amber-700">#{{ candidate.rank_position }}</td>
+          <td class="px-4 py-3">{{ candidate.followers_count }}</td>
+          <td class="px-4 py-3">{{ candidate.completed_orders_count }}</td>
+          <td class="px-4 py-3">
+            <div>{{ candidate.rating_avg }}</div>
+            <div class="text-xs text-gray-500">{{ candidate.rating_count }} تقييم</div>
+          </td>
+          <td class="px-4 py-3">{{ candidate.category.name|default:'—' }}</td>
+          <td class="px-4 py-3">{{ candidate.subcategory.name|default:'—' }}</td>
+          <td class="px-4 py-3">
+            {% if candidate.status == 'approved' %}
+            <span class="inline-flex rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold">معتمد</span>
+            {% elif candidate.status == 'revoked' %}
+            <span class="inline-flex rounded-full bg-rose-50 text-rose-700 px-3 py-1 text-xs font-semibold">مسحوب</span>
+            {% elif candidate.status == 'expired' %}
+            <span class="inline-flex rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">منتهي</span>
+            {% else %}
+            <span class="inline-flex rounded-full bg-amber-50 text-amber-700 px-3 py-1 text-xs font-semibold">بانتظار الاعتماد</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex flex-wrap items-center gap-2">
+              <a href="{% url 'dashboard:excellence_candidate_detail' candidate.id %}" class="px-3 py-2 rounded-lg bg-white border border-gray-200 font-semibold text-xs">التفاصيل</a>
+              {% if candidate.active_award %}
+              <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' candidate.active_award.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="px-3 py-2 rounded-lg bg-rose-50 text-rose-700 font-semibold text-xs">سحب</button>
+              </form>
+              {% else %}
+              <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <button class="px-3 py-2 rounded-lg bg-amber-600 text-white font-semibold text-xs">اعتماد</button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="10" class="px-4 py-10 text-center text-gray-400">لا توجد بيانات مرشحين في دورة المراجعة الحالية.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-4 flex items-center justify-between">
+    <div class="text-sm text-gray-600">صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</div>
+    <div class="flex items-center gap-2">
+      {% if page_obj.has_previous %}
+      <a class="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold" href="?page={{ page_obj.previous_page_number }}&badge={{ selected_badge }}&status={{ status_val }}&q={{ q }}">← السابق</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a class="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm font-semibold" href="?page={{ page_obj.next_page_number }}&badge={{ selected_badge }}&status={{ status_val }}&q={{ q }}">التالي →</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

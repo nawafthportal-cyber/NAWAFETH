@@ -30,4 +30,24 @@ void main() {
     expect(provider.isVerifiedGreen, isTrue);
     expect(provider.verified, isTrue);
   });
+
+  test('parses excellence badge list for map cards', () {
+    final provider = ServiceProviderLocation.fromJson({
+      'id': 18,
+      'display_name': 'مزود خرائط',
+      'lat': 24.7,
+      'lng': 46.6,
+      'excellence_badges': [
+        {
+          'code': 'top_100_club',
+          'name': 'نادي المئة الكبار',
+          'icon': 'trophy',
+          'color': '#7C3AED',
+        },
+      ],
+    });
+
+    expect(provider.hasExcellenceBadges, isTrue);
+    expect(provider.excellenceBadges.single.code, 'top_100_club');
+  });
 }

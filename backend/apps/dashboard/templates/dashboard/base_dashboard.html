@@ -45,6 +45,7 @@
         {% can_access request.user "billing" as can_billing %}
         {% can_access request.user "support" as can_support %}
         {% can_access request.user "verify" as can_verify %}
+        {% can_access request.user "excellence" as can_excellence %}
         {% can_access request.user "promo" as can_promo %}
         {% can_access request.user "subs" as can_subs %}
         {% can_access request.user "extras" as can_extras %}
@@ -160,6 +161,16 @@
             ✅
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'verification_ops' or request.resolver_match.url_name == 'verification_inquiry_detail' or request.resolver_match.url_name == 'verification_requests_list' or request.resolver_match.url_name == 'verification_request_detail' or request.resolver_match.url_name == 'verified_badges_list' %}text-indigo-700{% else %}text-gray-700 group-hover:text-indigo-700{% endif %}">التوثيق</span>
+        </a>
+        {% endif %}
+
+        {% if can_excellence %}
+        <a href="{% url 'dashboard:excellence_dashboard' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'excellence_dashboard' or request.resolver_match.url_name == 'excellence_candidate_detail' %}bg-gradient-to-r from-amber-50 to-orange-50{% else %}hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            🏅
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'excellence_dashboard' or request.resolver_match.url_name == 'excellence_candidate_detail' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">إدارة التميز</span>
         </a>
         {% endif %}
 

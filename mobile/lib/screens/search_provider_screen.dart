@@ -7,6 +7,7 @@ import '../models/category_model.dart';
 import '../models/provider_public_model.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/verified_badge_view.dart';
 import 'provider_profile_screen.dart';
 
@@ -703,6 +704,13 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                                       ? Colors.white38
                                       : Colors.grey.shade500)),
                         ],
+                      ),
+                    ],
+                    if (p.hasExcellenceBadges) ...[
+                      const SizedBox(height: 4),
+                      ExcellenceBadgesWrap(
+                        badges: p.excellenceBadges,
+                        compact: true,
                       ),
                     ],
                     if (distanceKm != null) ...[

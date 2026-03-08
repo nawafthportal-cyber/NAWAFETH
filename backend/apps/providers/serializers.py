@@ -48,36 +48,36 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ProviderProfileSerializer(serializers.ModelSerializer):
-	subcategory_ids = serializers.ListField(
-		child=serializers.IntegerField(),
-		write_only=True,
-		required=False,
-		allow_empty=True,
-	)
+    subcategory_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
+        allow_empty=True,
+    )
 
-	class Meta:
-		model = ProviderProfile
-		fields = "__all__"
-		read_only_fields = ("user", "is_verified_blue", "is_verified_green")
+    class Meta:
+        model = ProviderProfile
+        exclude = ("excellence_badges_cache",)
+        read_only_fields = ("user", "is_verified_blue", "is_verified_green")
 
-	def create(self, validated_data):
-		subcategory_ids = validated_data.pop("subcategory_ids", [])
-		profile = super().create(validated_data)
+    def create(self, validated_data):
+        subcategory_ids = validated_data.pop("subcategory_ids", [])
+        profile = super().create(validated_data)
 
-		# Create ProviderCategory entries
-		if subcategory_ids:
-			from .models import ProviderCategory, SubCategory
+        # Create ProviderCategory entries
+        if subcategory_ids:
+            from .models import ProviderCategory, SubCategory
 
-			for sub_id in subcategory_ids:
-				try:
-					subcategory = SubCategory.objects.get(id=sub_id, is_active=True)
-					ProviderCategory.objects.get_or_create(
-						provider=profile, subcategory=subcategory
-					)
-				except SubCategory.DoesNotExist:
-					pass  # Skip invalid subcategory IDs
+            for sub_id in subcategory_ids:
+                try:
+                    subcategory = SubCategory.objects.get(id=sub_id, is_active=True)
+                    ProviderCategory.objects.get_or_create(
+                        provider=profile, subcategory=subcategory
+                    )
+                except SubCategory.DoesNotExist:
+                    pass  # Skip invalid subcategory IDs
 
-		return profile
+        return profile
 
 
 class ProviderProfileMeSerializer(serializers.ModelSerializer):
@@ -85,6 +85,8 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
 
     Keep sensitive/computed fields read-only.
     """
+
+    excellence_badges = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -114,6 +116,7 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
             "accepts_urgent",
             "is_verified_blue",
             "is_verified_green",
+            "excellence_badges",
             "rating_avg",
             "rating_count",
             "created_at",
@@ -127,6 +130,10 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
+    def get_excellence_badges(self, obj):
+        value = getattr(obj, "excellence_badges_cache", None)
+        return value if isinstance(value, list) else []
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -139,6 +146,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(read_only=True)
     completed_requests = serializers.IntegerField(read_only=True, required=False)
     following_count = serializers.SerializerMethodField()
+    excellence_badges = serializers.SerializerMethodField()
     phone = serializers.CharField(source="user.phone", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
 
@@ -165,6 +173,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "accepts_urgent",
             "is_verified_blue",
             "is_verified_green",
+            "excellence_badges",
             "qualifications",
             "content_sections",
             "rating_avg",
@@ -191,6 +200,10 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             )
         except Exception:
             return 0
+
+    def get_excellence_badges(self, obj):
+        value = getattr(obj, "excellence_badges_cache", None)
+        return value if isinstance(value, list) else []
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

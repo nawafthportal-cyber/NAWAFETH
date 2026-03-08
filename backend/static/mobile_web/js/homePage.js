@@ -235,6 +235,13 @@ const HomePage = (() => {
       nameRow.appendChild(UI.el('span', { className: 'provider-name', textContent: displayName }));
       meta.appendChild(nameRow);
 
+      const excellence = UI.buildExcellenceBadges(p.excellence_badges, {
+        className: 'excellence-badges compact provider-card-excellence',
+        compact: true,
+        iconSize: 10,
+      });
+      if (excellence) meta.appendChild(excellence);
+
       const isVerified = !!(p.is_verified_blue || p.is_verified_green || p.is_verified);
       if (isVerified) {
         const badgeClass = p.is_verified_blue

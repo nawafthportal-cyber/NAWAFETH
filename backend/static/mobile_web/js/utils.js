@@ -52,6 +52,9 @@ const UI = (() => {
   function icon(name, size, color) {
     const icons = {
       star: '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>',
+      sparkles: '<path d="M12 2l1.76 4.24L18 8l-4.24 1.76L12 14l-1.76-4.24L6 8l4.24-1.76L12 2zm6 9l.94 2.06L21 14l-2.06.94L18 17l-.94-2.06L15 14l2.06-.94L18 11zM6 15l1.17 2.83L10 19l-2.83 1.17L6 23l-1.17-2.83L2 19l2.83-1.17L6 15z"/>',
+      bolt: '<path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/>',
+      trophy: '<path d="M18 2H6v3H3v3c0 2.97 2.16 5.43 5 5.91V17H6v2h12v-2h-2v-3.09c2.84-.48 5-2.94 5-5.91V5h-3V2zm-9 9c-1.66 0-3-1.34-3-3V7h2v4h1zm9-3c0 1.66-1.34 3-3 3h-1V7h2v1z"/>',
       people: '<path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/>',
       heart: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>',
       verified_blue: '<path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/><path d="M10 15.17l-3.59-3.58L5 13l5 5 9-9-1.41-1.41L10 15.17z" fill="#fff"/>',
@@ -124,5 +127,87 @@ const UI = (() => {
     return img;
   }
 
-  return { el, text, icon, categoryIconKey, lazyImg };
+  function _excellenceFallbackColor(code) {
+    const normalized = String(code || '').trim().toLowerCase();
+    if (normalized === 'high_achievement') return '#0F766E';
+    if (normalized === 'top_100_club') return '#7C3AED';
+    return '#C0841A';
+  }
+
+  function _excellenceIconKey(badge) {
+    const code = String(badge && badge.code || '').trim().toLowerCase();
+    const iconName = String(badge && badge.icon || '').trim().toLowerCase();
+    if (code === 'featured_service' || iconName === 'sparkles') return 'sparkles';
+    if (code === 'high_achievement' || iconName === 'bolt') return 'bolt';
+    if (code === 'top_100_club' || iconName === 'trophy') return 'trophy';
+    return 'sparkles';
+  }
+
+  function normalizeExcellenceBadges(value) {
+    if (!Array.isArray(value)) return [];
+    return value
+      .filter(item => item && typeof item === 'object')
+      .map(item => ({
+        code: String(item.code || '').trim(),
+        name: String(item.name || item.title || '').trim(),
+        icon: String(item.icon || '').trim(),
+        color: String(item.color || '').trim(),
+        awarded_at: String(item.awarded_at || '').trim(),
+        valid_until: String(item.valid_until || '').trim(),
+      }))
+      .filter(item => item.code || item.name);
+  }
+
+  function buildExcellenceBadges(badges, options) {
+    const items = normalizeExcellenceBadges(badges);
+    if (!items.length) return null;
+
+    const opts = options || {};
+    const className = opts.className || 'excellence-badges';
+    const compact = !!opts.compact;
+    const wrap = el('div', { className: className + (compact ? ' compact' : '') });
+    wrap.style.display = 'flex';
+    wrap.style.flexWrap = 'wrap';
+    wrap.style.alignItems = 'center';
+    wrap.style.gap = compact ? '4px' : '6px';
+
+    items.forEach(item => {
+      const color = item.color || _excellenceFallbackColor(item.code);
+      const chip = el('span', {
+        className: 'excellence-badge-chip',
+        title: item.name || item.code,
+      });
+      chip.style.setProperty('--excellence-badge-color', color);
+      chip.style.display = 'inline-flex';
+      chip.style.alignItems = 'center';
+      chip.style.gap = '4px';
+      chip.style.minHeight = compact ? '20px' : '22px';
+      chip.style.padding = compact ? '2px 7px' : '3px 8px';
+      chip.style.borderRadius = '999px';
+      chip.style.border = '1px solid ' + color;
+      chip.style.background = 'rgba(255, 255, 255, 0.92)';
+      chip.style.color = color;
+      chip.style.fontFamily = 'Cairo, sans-serif';
+      chip.style.fontSize = compact ? '9.5px' : '10.5px';
+      chip.style.fontWeight = '800';
+      chip.style.lineHeight = '1';
+      chip.style.whiteSpace = 'nowrap';
+
+      const iconWrap = el('span', { className: 'excellence-badge-icon' });
+      iconWrap.style.display = 'inline-flex';
+      iconWrap.style.alignItems = 'center';
+      iconWrap.style.justifyContent = 'center';
+      iconWrap.appendChild(icon(_excellenceIconKey(item), opts.iconSize || (compact ? 10 : 12), color));
+      chip.appendChild(iconWrap);
+      chip.appendChild(el('span', {
+        className: 'excellence-badge-label',
+        textContent: item.name || item.code,
+      }));
+      wrap.appendChild(chip);
+    });
+
+    return wrap;
+  }
+
+  return { el, text, icon, categoryIconKey, lazyImg, normalizeExcellenceBadges, buildExcellenceBadges };
 })();
