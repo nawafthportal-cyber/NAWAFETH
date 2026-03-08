@@ -1,4 +1,5 @@
 from pathlib import Path
+import hashlib
 from importlib import import_module
 import json
 import os
@@ -372,10 +373,16 @@ REST_FRAMEWORK = {
 }
 
 # ✅ JWT
+JWT_SIGNING_KEY = (
+    (os.getenv("JWT_SIGNING_KEY", "") or "").strip()
+    or hashlib.sha256(f"jwt:{SECRET_KEY}".encode("utf-8")).hexdigest()
+)
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("JWT_ACCESS_MIN", "60"))),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_DAYS", "30"))),
     "AUTH_HEADER_TYPES": ("Bearer",),
+    "SIGNING_KEY": JWT_SIGNING_KEY,
 }
 
 # ✅ CORS (Flutter/Web)

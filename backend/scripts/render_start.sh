@@ -12,7 +12,7 @@ export DJANGO_ENV="${DJANGO_ENV:-prod}"
 # app starts serving traffic; otherwise schema drift can surface as runtime 500s.
 # Collectstatic defaults to enabled when the manifest is missing because
 # manifest storage otherwise returns 500.
-RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
+RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
 
