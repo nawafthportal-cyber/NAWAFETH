@@ -89,6 +89,9 @@ def test_available_competitive_matches_any_selected_subcategory():
         status=RequestStatus.NEW,
     )
     sr.subcategories.set([sub1.id, sub2.id])
+    ServiceRequest.objects.filter(id=sr.id).update(
+        created_at=timezone.now() - timedelta(hours=73),
+    )
 
     client = APIClient()
     client.force_authenticate(user=provider_user)

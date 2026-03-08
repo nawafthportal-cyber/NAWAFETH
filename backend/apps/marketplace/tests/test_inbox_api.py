@@ -241,6 +241,9 @@ def test_provider_competitive_available_lists_matching_sent_requests():
         city="Riyadh",
         is_urgent=False,
     )
+    ServiceRequest.objects.filter(id=sr.id).update(
+        created_at=timezone.now() - timedelta(hours=73),
+    )
 
     res = client.get("/api/marketplace/provider/competitive/available/")
     assert res.status_code == 200

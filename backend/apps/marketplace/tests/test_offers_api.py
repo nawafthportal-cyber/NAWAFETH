@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import OTP
@@ -62,6 +65,13 @@ def _ensure_provider_profile(client: APIClient, access: str, phone: str, city: s
     return ProviderProfile.objects.get(user__phone=res.wsgi_request.user.phone)
 
 
+def _make_request_visible_to_basic_providers(service_request: ServiceRequest) -> None:
+    ServiceRequest.objects.filter(id=service_request.id).update(
+        created_at=timezone.now() - timedelta(hours=73),
+    )
+    service_request.refresh_from_db(fields=["created_at"])
+
+
 @pytest.mark.django_db
 def test_provider_can_create_offer_once_for_competitive_sent_request():
     cat = Category.objects.create(name="خدمات", is_active=True)
@@ -88,6 +98,7 @@ def test_provider_can_create_offer_once_for_competitive_sent_request():
     service_request = ServiceRequest.objects.get(id=create.json()["id"])
     service_request.status = RequestStatus.NEW
     service_request.save(update_fields=["status"])
+    _make_request_visible_to_basic_providers(service_request)
 
     # Provider posts an offer
     provider_api = APIClient()
@@ -140,6 +151,7 @@ def test_client_can_list_offers_and_accept_one_updates_statuses():
     service_request = ServiceRequest.objects.get(id=create.json()["id"])
     service_request.status = RequestStatus.NEW
     service_request.save(update_fields=["status"])
+    _make_request_visible_to_basic_providers(service_request)
 
     # Two providers create offers
     p1_api = APIClient()
@@ -215,6 +227,7 @@ def test_accept_offer_forbidden_for_non_owner():
     service_request = ServiceRequest.objects.get(id=create.json()["id"])
     service_request.status = RequestStatus.NEW
     service_request.save(update_fields=["status"])
+    _make_request_visible_to_basic_providers(service_request)
 
     # Provider offer
     provider_api = APIClient()
@@ -270,6 +283,7 @@ def test_accept_offer_assigns_request_and_removes_from_competitive_available():
     sr = ServiceRequest.objects.get(id=request_id)
     sr.status = RequestStatus.NEW
     sr.save(update_fields=["status"])
+    _make_request_visible_to_basic_providers(sr)
 
     # Provider #1
     p1_api = APIClient()
