@@ -16,6 +16,9 @@ django-storages[s3]>=1.14
 boto3>=1.35
 firebase-admin>=6.6
 
+# reportlab pulls chardet; keep it within the range supported by requests.
+chardet<6
+
 # Dashboard exports (XLSX + PDF with Arabic shaping)
 openpyxl==3.1.5
 reportlab==4.2.2
