@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 from decimal import Decimal
+import logging
 
 from django.db import transaction
 from django.db.models import Q
@@ -21,12 +22,17 @@ from .selectors import (
     FEATURED_SERVICE_BADGE_CODE,
     HIGH_ACHIEVEMENT_BADGE_CODE,
     TOP_100_CLUB_BADGE_CODE,
+    build_excellence_badges_payload,
     build_public_badges_payload,
     current_review_window,
     get_featured_service_candidates,
     get_high_achievement_candidates,
     get_top_100_club_candidates,
 )
+
+
+logger = logging.getLogger(__name__)
+EXCELLENCE_CACHE_SYNC_SKIP_ATTR = "_skip_excellence_cache_sync"
 
 
 DEFAULT_EXCELLENCE_BADGES = [
@@ -186,15 +192,42 @@ def refresh_excellence_candidates(now=None) -> dict[str, object]:
     }
 
 
-def sync_provider_excellence_badges(*, provider_ids=None, now=None) -> int:
-    if provider_ids is None:
-        provider_ids = list(ProviderProfile.objects.values_list("id", flat=True))
-    provider_ids = [int(pid) for pid in provider_ids or [] if int(pid or 0) > 0]
-    if not provider_ids:
-        return 0
+def _normalize_provider_ids(*, provider=None, provider_id=None, provider_ids=None) -> list[int]:
+    raw_ids = []
+    if provider is not None:
+        raw_ids.append(getattr(provider, "id", provider))
+    if provider_id is not None:
+        raw_ids.append(provider_id)
+    if provider_ids is not None:
+        raw_ids.extend(provider_ids)
 
-    payload_map = build_public_badges_payload(provider_ids=provider_ids, now=now)
-    profiles = list(ProviderProfile.objects.filter(id__in=provider_ids).only("id", "excellence_badges_cache"))
+    normalized: list[int] = []
+    seen: set[int] = set()
+    for raw_id in raw_ids:
+        try:
+            value = int(raw_id or 0)
+        except (TypeError, ValueError):
+            continue
+        if value <= 0 or value in seen:
+            continue
+        seen.add(value)
+        normalized.append(value)
+    return normalized
+
+
+def _mark_manual_cache_sync(instance) -> None:
+    setattr(instance, EXCELLENCE_CACHE_SYNC_SKIP_ATTR, True)
+
+
+def sync_provider_excellence_cache(*, provider=None, provider_id=None, provider_ids=None, now=None, include_stats: bool = False):
+    normalized_ids = _normalize_provider_ids(provider=provider, provider_id=provider_id, provider_ids=provider_ids)
+    if not normalized_ids:
+        return {"processed": 0, "updated": 0, "payloads": {}} if include_stats else []
+
+    payload_map = build_excellence_badges_payload(provider_ids=normalized_ids, now=now)
+    profiles = list(
+        ProviderProfile.objects.filter(id__in=normalized_ids).only("id", "excellence_badges_cache")
+    )
     changed = []
     for profile in profiles:
         desired_payload = payload_map.get(profile.id, [])
@@ -203,7 +236,79 @@ def sync_provider_excellence_badges(*, provider_ids=None, now=None) -> int:
             changed.append(profile)
     if changed:
         ProviderProfile.objects.bulk_update(changed, ["excellence_badges_cache"])
-    return len(changed)
+
+    if include_stats:
+        return {
+            "processed": len(profiles),
+            "updated": len(changed),
+            "payloads": payload_map,
+        }
+    if len(normalized_ids) == 1:
+        return payload_map.get(normalized_ids[0], [])
+    return payload_map
+
+
+def schedule_provider_excellence_cache_sync(*, provider=None, provider_id=None, provider_ids=None, now=None) -> int:
+    normalized_ids = _normalize_provider_ids(provider=provider, provider_id=provider_id, provider_ids=provider_ids)
+    if not normalized_ids:
+        return 0
+
+    try:
+        sync_provider_excellence_cache(provider_ids=normalized_ids, now=now)
+    except Exception:
+        logger.exception(
+            "Failed to sync excellence badges cache for providers %s",
+            normalized_ids,
+        )
+        raise
+    return len(normalized_ids)
+
+
+def sync_provider_excellence_badges(*, provider_ids=None, now=None) -> int:
+    if provider_ids is None:
+        provider_ids = list(ProviderProfile.objects.order_by("id").values_list("id", flat=True))
+    result = sync_provider_excellence_cache(provider_ids=provider_ids, now=now, include_stats=True)
+    return int(result["updated"])
+
+
+def rebuild_excellence_badges_cache(*, provider_id=None, provider_ids=None, limit: int | None = None, batch_size: int = 500, now=None) -> dict[str, int]:
+    normalized_ids = _normalize_provider_ids(provider_id=provider_id, provider_ids=provider_ids)
+    queryset = ProviderProfile.objects.order_by("id")
+    if normalized_ids:
+        queryset = queryset.filter(id__in=normalized_ids)
+    target_ids = list(queryset.values_list("id", flat=True))
+    if limit is not None:
+        target_ids = target_ids[: max(0, int(limit or 0))]
+
+    processed = 0
+    updated = 0
+    errors = 0
+    batch_size = max(1, int(batch_size or 500))
+
+    for index in range(0, len(target_ids), batch_size):
+        batch_ids = target_ids[index : index + batch_size]
+        if not batch_ids:
+            continue
+        try:
+            stats = sync_provider_excellence_cache(
+                provider_ids=batch_ids,
+                now=now,
+                include_stats=True,
+            )
+            processed += int(stats["processed"])
+            updated += int(stats["updated"])
+        except Exception:
+            errors += len(batch_ids)
+            logger.exception(
+                "Failed to rebuild excellence badges cache for provider batch %s",
+                batch_ids,
+            )
+
+    return {
+        "processed": processed,
+        "updated": updated,
+        "errors": errors,
+    }
 
 
 def _get_or_create_direct_thread(user_a, user_b):
@@ -298,11 +403,13 @@ def approve_candidate(
             "revoke_note": "",
         }
         if award is None:
-            award = ExcellenceBadgeAward.objects.create(
+            award = ExcellenceBadgeAward(
                 badge_type=candidate.badge_type,
                 provider=candidate.provider,
                 **snapshot_defaults,
             )
+            _mark_manual_cache_sync(award)
+            award.save()
         else:
             dirty_fields = []
             for field_name, wanted_value in snapshot_defaults.items():
@@ -311,6 +418,7 @@ def approve_candidate(
                     dirty_fields.append(field_name)
             if dirty_fields:
                 dirty_fields.append("updated_at")
+                _mark_manual_cache_sync(award)
                 award.save(update_fields=dirty_fields)
 
         candidate.status = ExcellenceBadgeCandidateStatus.APPROVED
@@ -319,7 +427,7 @@ def approve_candidate(
         candidate.review_note = note
         candidate.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_note", "updated_at"])
 
-    sync_provider_excellence_badges(provider_ids=[candidate.provider_id], now=now)
+    schedule_provider_excellence_cache_sync(provider_id=candidate.provider_id, now=now)
     if should_notify:
         send_award_celebration(award, actor=approved_by)
     return award
@@ -345,6 +453,7 @@ def revoke_award(*, award: ExcellenceBadgeAward, revoked_by, note: str = "") -> 
         dirty_fields.append("valid_until")
     if dirty_fields:
         dirty_fields.append("updated_at")
+        _mark_manual_cache_sync(award)
         award.save(update_fields=dirty_fields)
 
     if award.candidate_id:
@@ -355,7 +464,7 @@ def revoke_award(*, award: ExcellenceBadgeAward, revoked_by, note: str = "") -> 
         candidate.review_note = note
         candidate.save(update_fields=["status", "reviewed_by", "reviewed_at", "review_note", "updated_at"])
 
-    sync_provider_excellence_badges(provider_ids=[award.provider_id], now=now)
+    schedule_provider_excellence_cache_sync(provider_id=award.provider_id, now=now)
     return award
 
 
@@ -373,6 +482,7 @@ def expire_excellence_awards(*, now=None, limit: int = 500) -> int:
     for award in awards:
         award.is_active = False
         award.revoked_at = award.revoked_at or now
+        _mark_manual_cache_sync(award)
         award.save(update_fields=["is_active", "revoked_at", "updated_at"])
         provider_ids.append(award.provider_id)
         if award.candidate_id and award.candidate.status == ExcellenceBadgeCandidateStatus.APPROVED:
@@ -380,5 +490,5 @@ def expire_excellence_awards(*, now=None, limit: int = 500) -> int:
             award.candidate.reviewed_at = now
             award.candidate.save(update_fields=["status", "reviewed_at", "updated_at"])
 
-    sync_provider_excellence_badges(provider_ids=provider_ids, now=now)
+    schedule_provider_excellence_cache_sync(provider_ids=provider_ids, now=now)
     return len(awards)

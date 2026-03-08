@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
+from itertools import groupby
 
 from django.db.models import Avg, Count, DecimalField, FloatField, Q, Value
 from django.db.models.functions import Coalesce
@@ -219,24 +220,44 @@ def active_awards_queryset(provider_ids=None, now=None):
     now = now or timezone.now()
     queryset = ExcellenceBadgeAward.objects.select_related("badge_type", "provider", "provider__user").filter(
         is_active=True,
+        revoked_at__isnull=True,
         valid_until__gt=now,
+        badge_type__is_active=True,
     )
     if provider_ids is not None:
         queryset = queryset.filter(provider_id__in=provider_ids)
-    return queryset.order_by("provider_id", "badge_type__sort_order", "-awarded_at", "id")
+    return queryset.order_by("provider_id", "badge_type__sort_order", "badge_type__code", "-awarded_at", "id")
 
 
-def build_public_badges_payload(provider_ids=None, now=None) -> dict[int, list[dict[str, object]]]:
-    payload: dict[int, list[dict[str, object]]] = defaultdict(list)
-    for award in active_awards_queryset(provider_ids=provider_ids, now=now):
-        payload[award.provider_id].append(
+def serialize_active_excellence_badges(awards) -> list[dict[str, object]]:
+    payload: list[dict[str, object]] = []
+    seen_codes: set[str] = set()
+    for award in awards:
+        badge_type = getattr(award, "badge_type", None)
+        badge_code = getattr(badge_type, "code", "") or ""
+        if not badge_code or badge_code in seen_codes:
+            continue
+        seen_codes.add(badge_code)
+        payload.append(
             {
-                "code": award.badge_type.code,
-                "name": award.badge_type.name_ar,
-                "icon": award.badge_type.icon,
-                "color": award.badge_type.color,
+                "code": badge_code,
+                "name": badge_type.name_ar,
+                "icon": badge_type.icon,
+                "color": badge_type.color,
                 "awarded_at": award.awarded_at.isoformat() if award.awarded_at else "",
                 "valid_until": award.valid_until.isoformat() if award.valid_until else "",
             }
         )
+    return payload
+
+
+def build_excellence_badges_payload(provider_ids=None, now=None) -> dict[int, list[dict[str, object]]]:
+    payload: dict[int, list[dict[str, object]]] = defaultdict(list)
+    awards = active_awards_queryset(provider_ids=provider_ids, now=now)
+    for provider_id, provider_awards in groupby(awards, key=lambda award: award.provider_id):
+        payload[provider_id] = serialize_active_excellence_badges(provider_awards)
     return dict(payload)
+
+
+def build_public_badges_payload(provider_ids=None, now=None) -> dict[int, list[dict[str, object]]]:
+    return build_excellence_badges_payload(provider_ids=provider_ids, now=now)

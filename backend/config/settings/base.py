@@ -2,6 +2,7 @@ from pathlib import Path
 import json
 import os
 from datetime import timedelta
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -189,9 +190,10 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=1),
         "args": (500, 10),
     },
-    "excellence-sync-public-badges": {
-        "task": "excellence.sync_public_badges",
-        "schedule": timedelta(hours=6),
+    "excellence-rebuild-all-cache": {
+        "task": "excellence.rebuild_all_cache",
+        "schedule": crontab(hour=3, minute=15),
+        "kwargs": {"batch_size": 500},
     },
 }
 

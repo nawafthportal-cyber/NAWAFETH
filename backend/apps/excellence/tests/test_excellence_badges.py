@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from io import StringIO
 
 import pytest
+from django.core.management import call_command
 from django.db.models import Q
 from django.test import Client
 from django.urls import reverse
@@ -15,6 +17,7 @@ from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.excellence.models import ExcellenceBadgeAward, ExcellenceBadgeCandidate, ExcellenceBadgeCandidateStatus
 from apps.excellence.selectors import FEATURED_SERVICE_BADGE_CODE, HIGH_ACHIEVEMENT_BADGE_CODE, TOP_100_CLUB_BADGE_CODE, current_review_window
 from apps.excellence.services import approve_candidate, expire_excellence_awards, refresh_excellence_candidates, sync_badge_type_catalog
+from apps.excellence.tasks import rebuild_all_excellence_badges_cache
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.notifications.models import Notification
@@ -170,6 +173,36 @@ def test_approve_candidate_creates_award_cache_notification_and_message():
     assert Message.objects.filter(thread=thread, sender=reviewer).exists()
 
 
+def test_award_creation_syncs_provider_excellence_cache_from_source_of_truth():
+    candidate = _make_candidate(FEATURED_SERVICE_BADGE_CODE)
+    reviewer = _make_staff("0507000191", dashboard_codes=["excellence"])
+
+    award = approve_candidate(candidate=candidate, approved_by=reviewer, note="مزامنة")
+
+    candidate.provider.refresh_from_db()
+    cached = candidate.provider.excellence_badges_cache
+
+    assert ExcellenceBadgeAward.objects.filter(id=award.id, is_active=True).exists()
+    assert len(cached) == 1
+    assert cached[0]["code"] == FEATURED_SERVICE_BADGE_CODE
+    assert set(cached[0].keys()) == {"code", "name", "icon", "color", "awarded_at", "valid_until"}
+
+
+def test_revoke_award_syncs_provider_excellence_cache():
+    candidate = _make_candidate(HIGH_ACHIEVEMENT_BADGE_CODE)
+    reviewer = _make_staff("0507000192", dashboard_codes=["excellence"])
+
+    award = approve_candidate(candidate=candidate, approved_by=reviewer)
+    from apps.excellence.services import revoke_award
+
+    revoke_award(award=award, revoked_by=reviewer, note="سحب")
+
+    award.refresh_from_db()
+    candidate.provider.refresh_from_db()
+    assert award.is_active is False
+    assert candidate.provider.excellence_badges_cache == []
+
+
 def test_expire_excellence_awards_marks_award_inactive_and_clears_payload_cache():
     candidate = _make_candidate(TOP_100_CLUB_BADGE_CODE)
     reviewer = _make_staff("0507000092", dashboard_codes=["excellence"])
@@ -187,6 +220,61 @@ def test_expire_excellence_awards_marks_award_inactive_and_clears_payload_cache(
     assert award.is_active is False
     assert candidate.status == ExcellenceBadgeCandidateStatus.EXPIRED
     assert candidate.provider.excellence_badges_cache == []
+
+
+def test_expire_award_syncs_provider_excellence_cache():
+    candidate = _make_candidate(TOP_100_CLUB_BADGE_CODE)
+    reviewer = _make_staff("0507000193", dashboard_codes=["excellence"])
+
+    award = approve_candidate(candidate=candidate, approved_by=reviewer)
+    ProviderProfile.objects.filter(id=candidate.provider_id).update(
+        excellence_badges_cache=[{"code": "drift", "name": "منحرفة"}],
+    )
+
+    award.valid_until = timezone.now() - timedelta(minutes=1)
+    award.save(update_fields=["valid_until"])
+    expire_excellence_awards()
+
+    candidate.provider.refresh_from_db()
+    assert candidate.provider.excellence_badges_cache == []
+
+
+def test_rebuild_task_fixes_excellence_badges_cache_drift():
+    candidate = _make_candidate(FEATURED_SERVICE_BADGE_CODE)
+    reviewer = _make_staff("0507000194", dashboard_codes=["excellence"])
+    approve_candidate(candidate=candidate, approved_by=reviewer)
+
+    ProviderProfile.objects.filter(id=candidate.provider_id).update(
+        excellence_badges_cache=[{"code": "wrong", "name": "خاطئة"}],
+    )
+
+    result = rebuild_all_excellence_badges_cache(batch_size=50)
+
+    candidate.provider.refresh_from_db()
+    assert result["processed"] >= 1
+    assert result["updated"] >= 1
+    assert candidate.provider.excellence_badges_cache[0]["code"] == FEATURED_SERVICE_BADGE_CODE
+
+
+def test_management_command_rebuilds_excellence_badges_cache():
+    candidate = _make_candidate(HIGH_ACHIEVEMENT_BADGE_CODE)
+    reviewer = _make_staff("0507000195", dashboard_codes=["excellence"])
+    approve_candidate(candidate=candidate, approved_by=reviewer)
+
+    ProviderProfile.objects.filter(id=candidate.provider_id).update(excellence_badges_cache=[])
+    out = StringIO()
+
+    call_command(
+        "rebuild_excellence_badges_cache",
+        provider_id=candidate.provider_id,
+        stdout=out,
+    )
+
+    candidate.provider.refresh_from_db()
+    output = out.getvalue()
+    assert candidate.provider.excellence_badges_cache[0]["code"] == HIGH_ACHIEVEMENT_BADGE_CODE
+    assert "processed=1" in output
+    assert "errors=0" in output
 
 
 def test_provider_public_and_owner_api_include_excellence_badges():
