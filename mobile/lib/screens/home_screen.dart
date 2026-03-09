@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, unused_element
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -15,11 +16,13 @@ import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 import '../services/content_service.dart';
 import '../services/unread_badge_service.dart';
+import '../services/auth_service.dart';
 
 import 'search_provider_screen.dart';
 import 'provider_profile_screen.dart';
 import 'notifications_screen.dart';
 import 'my_chats_screen.dart';
+import 'signup_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -61,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _redirectIfCompletionPending();
     _initVideo();
     final seeded = _seedFromCachedData();
     _loadHomeContent();
@@ -69,6 +73,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _loadUnreadBadges();
     _badgeTimer = Timer.periodic(const Duration(seconds: 20), (_) {
       _loadUnreadBadges();
+    });
+  }
+
+  Future<void> _redirectIfCompletionPending() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) return;
+    final needsCompletion = await AuthService.needsCompletion();
+    if (!mounted || !needsCompletion) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const SignUpScreen()),
+      );
     });
   }
 

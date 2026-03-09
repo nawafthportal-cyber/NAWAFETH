@@ -245,7 +245,7 @@ const OrderDetailPage = (() => {
     if (titleInput) titleInput.value = _order.title || '';
     if (descInput) descInput.value = _order.description || '';
 
-    _renderAttachments(_order.attachments || []);
+    _renderAttachments(_order);
     _renderStatusLogs(_order.status_logs || []);
     _renderFinanceSection();
     _renderProviderInputsDecisionSection();
@@ -441,32 +441,103 @@ const OrderDetailPage = (() => {
     section.classList.add('hidden');
   }
 
-  function _renderAttachments(items) {
-    const root = document.getElementById('order-attachments');
-    if (!root) return;
-    root.innerHTML = '';
+  function _renderAttachments(order) {
+    const emptyRoot = document.getElementById('order-attachments-empty');
+    const clientGroup = document.getElementById('order-client-attachments-group');
+    const clientRoot = document.getElementById('order-client-attachments');
+    const providerGroup = document.getElementById('order-provider-attachments-group');
+    const providerRoot = document.getElementById('order-provider-attachments');
+    if (!emptyRoot || !clientGroup || !clientRoot || !providerGroup || !providerRoot) return;
 
-    if (!Array.isArray(items) || !items.length) {
-      root.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا يوجد مرفقات' }));
+    emptyRoot.innerHTML = '';
+    clientRoot.innerHTML = '';
+    providerRoot.innerHTML = '';
+    emptyRoot.classList.add('hidden');
+    clientGroup.classList.add('hidden');
+    providerGroup.classList.add('hidden');
+
+    const groups = _splitAttachments(order);
+    if (!groups.client.length && !groups.provider.length) {
+      emptyRoot.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا يوجد مرفقات' }));
+      emptyRoot.classList.remove('hidden');
       return;
     }
 
-    items.forEach((item) => {
-      const href = ApiClient.mediaUrl(item.file_url || item.file || '');
-      const name = String(item.file_url || item.file || '').split('/').pop() || 'ملف';
-      const line = UI.el('a', {
-        className: 'order-line-link',
-        href,
-        target: '_blank',
-        rel: 'noopener',
+    if (groups.client.length) {
+      groups.client.forEach((item) => clientRoot.appendChild(_buildAttachmentLine(item)));
+      clientGroup.classList.remove('hidden');
+    }
+
+    if (groups.provider.length) {
+      groups.provider.forEach((item) => providerRoot.appendChild(_buildAttachmentLine(item)));
+      providerGroup.classList.remove('hidden');
+    }
+  }
+
+  function _buildAttachmentLine(item) {
+    const href = _resolveAttachmentHref(item);
+    const rawPath = String(item?.file_url || item?.file || item?.url || '').trim();
+    const pathBits = rawPath.split('?')[0].split('/');
+    const name = pathBits[pathBits.length - 1] || 'ملف';
+    const type = String(item?.file_type || '').toUpperCase() || 'FILE';
+    const attrs = {
+      className: 'order-line-link',
+      title: href ? 'فتح المرفق' : 'رابط المرفق غير متاح',
+    };
+    if (href) {
+      attrs.href = href;
+      attrs.rel = 'noopener';
+    }
+    const line = UI.el(href ? 'a' : 'div', attrs);
+    if (href) {
+      line.addEventListener('click', (event) => {
+        event.preventDefault();
+        window.location.href = href;
       });
-      line.appendChild(UI.el('span', { textContent: name }));
-      line.appendChild(UI.el('span', {
-        className: 'order-line-type',
-        textContent: String(item.file_type || '').toUpperCase(),
-      }));
-      root.appendChild(line);
+    }
+    line.appendChild(UI.el('span', { textContent: name }));
+    line.appendChild(UI.el('span', {
+      className: 'order-line-type',
+      textContent: type,
+    }));
+    return line;
+  }
+
+  function _splitAttachments(order) {
+    const items = Array.isArray(order?.attachments) ? order.attachments : [];
+    if (!items.length) return { client: [], provider: [] };
+
+    const deliveredAt = _asDate(order?.delivered_at);
+    if (!deliveredAt) {
+      return { client: items, provider: [] };
+    }
+
+    const client = [];
+    const provider = [];
+    items.forEach((item) => {
+      const createdAt = _asDate(item?.created_at);
+      if (createdAt && createdAt.getTime() >= deliveredAt.getTime()) provider.push(item);
+      else client.push(item);
     });
+    return { client, provider };
+  }
+
+  function _resolveAttachmentHref(item) {
+    const raw = String(item?.file_url || item?.file || item?.url || '').trim();
+    if (!raw) return '';
+    if (raw.startsWith('blob:') || raw.startsWith('data:')) return raw;
+    if (/^https?:\/\//i.test(raw)) {
+      try {
+        const url = new URL(raw);
+        if (url.pathname.startsWith('/media/')) {
+          return window.location.origin + url.pathname + url.search + url.hash;
+        }
+        return url.toString();
+      } catch (_) {
+        return raw;
+      }
+    }
+    return ApiClient.mediaUrl(raw) || '';
   }
 
   function _renderStatusLogs(items) {
@@ -658,11 +729,7 @@ const OrderDetailPage = (() => {
   function _canReview() {
     if (!_order || !_hasAssignedProvider(_order) || _hasReview()) return false;
     const group = _statusGroup(_order);
-    if (group === 'completed' || group === 'cancelled') return true;
-    if (group !== 'in_progress') return false;
-    const expected = _asDate(_order.expected_delivery_at);
-    if (!expected) return false;
-    return Date.now() >= (expected.getTime() + (48 * 60 * 60 * 1000));
+    return group === 'completed';
   }
 
   function _hasReview() {

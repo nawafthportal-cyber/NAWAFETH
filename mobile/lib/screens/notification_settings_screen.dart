@@ -126,7 +126,7 @@ class _NotificationSettingsScreenState
       opacity: pref.locked ? 0.35 : 1,
       child: SwitchListTile(
         dense: true,
-        activeColor: Colors.deepPurple,
+        activeThumbColor: Colors.deepPurple,
         title: Text(
           pref.title,
           style: TextStyle(
@@ -165,6 +165,7 @@ class _NotificationSettingsScreenState
     final label = _tierLabels[tier] ?? tier;
     final icon = _tierIcons[tier] ?? Icons.notifications;
     final allLocked = prefs.every((p) => p.locked);
+    final lockedReason = _sectionLockedReason(tier, prefs);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -207,9 +208,54 @@ class _NotificationSettingsScreenState
             ),
           ],
         ),
-        children: prefs.map((p) => _buildSwitchTile(p)).toList(),
+        children: [
+          if (lockedReason != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.deepPurple.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.14)),
+                ),
+                child: Text(
+                  lockedReason,
+                  style: const TextStyle(
+                    fontFamily: "Cairo",
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.deepPurple,
+                    height: 1.7,
+                  ),
+                ),
+              ),
+            ),
+          ...prefs.map((p) => _buildSwitchTile(p)),
+        ],
       ),
     );
+  }
+
+  String? _sectionLockedReason(String tier, List<NotificationPreference> prefs) {
+    if (_activeMode != 'provider' || tier == 'basic' || prefs.isEmpty) {
+      return null;
+    }
+    if (!prefs.every((p) => p.locked)) {
+      return null;
+    }
+    for (final pref in prefs) {
+      if (pref.lockedReason.contains('يلزم الاشتراك في الباقة')) {
+        return pref.lockedReason;
+      }
+    }
+    for (final pref in prefs) {
+      if (pref.lockedReason.isNotEmpty) {
+        return pref.lockedReason;
+      }
+    }
+    return null;
   }
 
   // ─── Dialog ترقية ───

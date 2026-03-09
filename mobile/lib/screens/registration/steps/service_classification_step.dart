@@ -699,12 +699,12 @@ class _ServiceClassificationStepState extends State<ServiceClassificationStep> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black12.withOpacity(0.04),
+                  color: Colors.black12.withValues(alpha: 0.04),
                   blurRadius: 12,
                   offset: const Offset(0, 6),
                 ),
               ],
-              border: Border.all(color: Colors.deepPurple.withOpacity(0.08)),
+              border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.08)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -841,7 +841,7 @@ class _ServiceClassificationStepState extends State<ServiceClassificationStep> {
                       color: Colors.black54,
                     ),
                   ),
-                  activeColor: theme.colorScheme.primary,
+                  activeThumbColor: theme.colorScheme.primary,
                   onChanged: (value) {
                     setState(() {
                       urgentRequests = value;

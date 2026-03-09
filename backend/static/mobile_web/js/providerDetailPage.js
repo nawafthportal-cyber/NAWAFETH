@@ -115,10 +115,7 @@ const ProviderDetailPage = (() => {
 
     // Message
     const msgBtn = document.getElementById('btn-message');
-    if (msgBtn) msgBtn.addEventListener('click', () => {
-      if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
-      window.location.href = '/chats/?start=' + _providerId;
-    });
+    if (msgBtn) msgBtn.addEventListener('click', _openDirectChat);
 
     // Call
     const callBtn = document.getElementById('btn-call');
@@ -148,8 +145,7 @@ const ProviderDetailPage = (() => {
     const qChat = document.getElementById('pd-btn-chat');
     if (qChat) qChat.addEventListener('click', e => {
       e.preventDefault();
-      if (!Auth.isLoggedIn()) { window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname); return; }
-      window.location.href = '/chats/?start=' + _providerId;
+      _openDirectChat();
     });
 
     // Bookmark
@@ -174,6 +170,31 @@ const ProviderDetailPage = (() => {
         try { await navigator.clipboard.writeText(url); _showToast('تم نسخ الرابط'); } catch {}
       }
     });
+  }
+
+  async function _openDirectChat() {
+    if (!Auth.isLoggedIn()) {
+      window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+
+    const providerId = _safeInt(_providerId);
+    if (!providerId) {
+      _showToast('تعذر فتح المحادثة: معرف المزود غير صالح');
+      return;
+    }
+
+    const res = await ApiClient.request(_withMode('/api/messaging/direct/thread/'), {
+      method: 'POST',
+      body: { provider_id: providerId },
+    });
+
+    if (res.ok && res.data && res.data.id) {
+      window.location.href = '/chat/' + res.data.id + '/';
+      return;
+    }
+
+    _showToast((res.data && (res.data.detail || res.data.error)) || 'تعذر فتح المحادثة حالياً');
   }
 
   function _bindSpotlightSync() {
@@ -415,9 +436,15 @@ const ProviderDetailPage = (() => {
   function _renderProfileTab(p) {
     const unavailable = 'غير متوفر';
     const serviceRangeKm = _resolveServiceRangeKm(p);
+    const bioText = _pickFirstText(p.bio, p.description);
+    const aboutText = _trimText(p.about_details);
+    const normalizedBio = _normalizeComparableText(bioText);
+    const normalizedAbout = _normalizeComparableText(aboutText);
+    const hasDistinctAbout = !!normalizedAbout && normalizedAbout !== normalizedBio;
+    const aboutCard = document.getElementById('pd-details-card');
 
     // Bio
-    _setText('pd-bio', p.bio || p.description || p.about_details || 'لا يوجد وصف');
+    _setText('pd-bio', bioText || aboutText || 'لا يوجد وصف');
 
     // Categories
     const mainCategory = _resolveMainCategory(p);
@@ -426,11 +453,15 @@ const ProviderDetailPage = (() => {
     _setText('pd-sub-category', _displayOrUnavailable(subCategory, unavailable));
 
     // About details
-    _setText('pd-about-details', _displayOrUnavailable(p.about_details || p.bio, unavailable));
+    if (aboutCard) aboutCard.classList.toggle('hidden', !hasDistinctAbout);
+    _setText('pd-about-details', _displayOrUnavailable(hasDistinctAbout ? aboutText : '', unavailable));
 
     // Qualifications
     const quals = p.qualifications || [];
-    const qualsText = quals.map(q => typeof q === 'string' ? q : (q.title || q.name || '')).filter(Boolean).join('، ');
+    const qualsText = _joinForDisplay(
+      quals.map(q => typeof q === 'string' ? q : (q.title || q.name || '')),
+      20,
+    );
     _setText('pd-qualifications', _displayOrUnavailable(qualsText, unavailable));
 
     // Experience
@@ -438,7 +469,10 @@ const ProviderDetailPage = (() => {
 
     // Languages
     const langs = p.languages || [];
-    const langsText = langs.map(l => typeof l === 'string' ? l : (l.name || '')).filter(Boolean).join('، ');
+    const langsText = _joinForDisplay(
+      langs.map(l => typeof l === 'string' ? l : (l.name || '')),
+      20,
+    );
     _setText('pd-languages', _displayOrUnavailable(langsText, unavailable));
 
     _setText('pd-city-name', _displayOrUnavailable(p.city, unavailable));
@@ -1350,6 +1384,10 @@ const ProviderDetailPage = (() => {
     return list.slice(0, limit).join('، ') + ' (+' + String(list.length - limit) + ')';
   }
 
+  function _normalizeComparableText(value) {
+    return _trimText(String(value || '').replace(/\s+/g, ' ')).toLowerCase();
+  }
+
   function _serviceCategoryFromService(service) {
     const subcategory = service && typeof service.subcategory === 'object' ? service.subcategory : null;
     return _pickFirstText(
@@ -1591,12 +1629,20 @@ const ProviderDetailPage = (() => {
       : [];
 
     if (definedSections.length) {
+      const merged = new Map();
       return definedSections.map(section => {
         const title = String(section.section_title || section.title || section.name || 'أعمالي').trim() || 'أعمالي';
         const desc = String(section.section_desc || section.description || '').trim();
+        if (merged.has(title)) {
+          const current = merged.get(title);
+          if (!current.sectionDesc && desc) current.sectionDesc = desc;
+          return null;
+        }
         const items = grouped.get(title) || [];
-        return { sectionTitle: title, sectionDesc: desc, items };
-      });
+        const entry = { sectionTitle: title, sectionDesc: desc, items };
+        merged.set(title, entry);
+        return entry;
+      }).filter(Boolean);
     }
 
     const results = [];

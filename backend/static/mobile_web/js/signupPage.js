@@ -29,6 +29,10 @@ const SignupPage = (() => {
     }
 
     _next = new URLSearchParams(window.location.search).get('next') || '/';
+    if (!Auth.needsCompletion || !Auth.needsCompletion()) {
+      window.location.href = _next;
+      return;
+    }
     _loadContent();
     _initCities();
     _bindEvents();

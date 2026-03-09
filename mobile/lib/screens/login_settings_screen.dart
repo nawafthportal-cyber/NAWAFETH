@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
 import '../services/profile_service.dart';
 import '../services/content_service.dart';
@@ -50,7 +52,12 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   // الأمان (محلي)
   final _securityCodeCtrl = TextEditingController();
   final _confirmSecurityCodeCtrl = TextEditingController();
-  final _faceIdCodeCtrl = TextEditingController();
+
+  // البيومتري (بصمة / معرف الوجه)
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _biometricAvailable = false;
+  bool _faceIdEnabled = false;
+  bool _faceIdLoading = false;
 
   // محتوى المساعدة من API (settings_help / settings_info)
   String? _helpTitle;
@@ -67,6 +74,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     super.initState();
     _loadProfile();
     _loadHelpContent();
+    _checkBiometrics();
   }
 
   @override
@@ -77,7 +85,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     _lastNameCtrl.dispose();
     _securityCodeCtrl.dispose();
     _confirmSecurityCodeCtrl.dispose();
-    _faceIdCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -305,11 +312,64 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
 
           // ─── طرق الدخول الإضافية ───
           _buildSection('طرق الدخول الإضافية', [
-            _buildPurpleButton(
-              iconWidget: const FaceIDIcon(size: 22, color: Colors.white),
-              label: 'الدخول بمعرف الوجه',
-              onPressed: _showFaceIdDialog,
-            ),
+            if (!_biometricAvailable)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.withAlpha(60)),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.info_outline, color: Colors.orange, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'جهازك لا يدعم التحقق البيومتري (معرف الوجه / البصمة)',
+                      style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.orange),
+                    ),
+                  ),
+                ]),
+              )
+            else if (_faceIdEnabled) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withAlpha(20),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withAlpha(60)),
+                ),
+                child: const Row(children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'معرف الوجه مفعّل على هذا الجهاز',
+                      style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w700, color: Colors.green),
+                    ),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _faceIdLoading ? null : _disableFaceId,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                  side: const BorderSide(color: Colors.red),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text('إلغاء التفعيل', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+              ),
+            ] else
+              _buildPurpleButton(
+                iconWidget: _faceIdLoading
+                    ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const FaceIDIcon(size: 22, color: Colors.white),
+                label: 'الدخول بمعرف الوجه',
+                onPressed: _faceIdLoading ? () {} : _enrollFaceId,
+              ),
           ]),
           const SizedBox(height: 20),
 
@@ -431,61 +491,95 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     );
   }
 
-  void _showFaceIdDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => Center(
-        child: Card(
-          color: Colors.white,
-          elevation: 12,
-          shadowColor: Colors.black45,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          margin: const EdgeInsets.symmetric(horizontal: 24),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: IntrinsicHeight(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Align(
-                    alignment: Alignment.topRight,
-                    child: IconButton(
-                        icon: const Icon(Icons.close, color: _mainColor),
-                        onPressed: () => Navigator.pop(context))),
-                const Text('إعداد الدخول بمعرف الوجه',
-                    style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                        color: _mainColor)),
-                const SizedBox(height: 10),
-                const Text(
-                    'قم بتأكيد هويتك عبر إدخال رمز تحقق لتفعيل الدخول بمعرف الوجه.',
-                    style: TextStyle(fontFamily: 'Cairo'),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 16),
-                TextField(
-                    controller: _faceIdCodeCtrl,
-                    decoration:
-                        const InputDecoration(labelText: 'أدخل رمز التحقق')),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _snack('تم تفعيل معرف الوجه');
-                  },
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: _mainColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                  child: const Text('تأكيد'),
-                ),
-              ]),
-            ),
-          ),
+  // ─── البيومتري (معرف الوجه / البصمة) ───
+
+  Future<void> _checkBiometrics() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isSupported = await _localAuth.isDeviceSupported();
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
+
+      if (!mounted) return;
+      setState(() {
+        _biometricAvailable = canCheck && isSupported;
+        _faceIdEnabled = enabled && _biometricAvailable;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _biometricAvailable = false);
+    }
+  }
+
+  Future<void> _enrollFaceId() async {
+    setState(() => _faceIdLoading = true);
+
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'قم بالتحقق من هويتك لتفعيل الدخول بمعرف الوجه',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
         ),
+      );
+
+      if (!mounted) return;
+
+      if (authenticated) {
+        final prefs = await SharedPreferences.getInstance();
+        final phone = _phoneCtrl.text.trim();
+        await prefs.setBool('nw_faceid_enabled', true);
+        if (phone.isNotEmpty) {
+          await prefs.setString('nw_faceid_phone', phone);
+        }
+
+        setState(() {
+          _faceIdEnabled = true;
+          _faceIdLoading = false;
+        });
+        _snack('تم تفعيل الدخول بمعرف الوجه بنجاح');
+      } else {
+        setState(() => _faceIdLoading = false);
+        _snack('تم إلغاء عملية التحقق');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _faceIdLoading = false);
+      _snack('فشل التحقق البيومتري');
+    }
+  }
+
+  Future<void> _disableFaceId() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('إلغاء معرف الوجه',
+            style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: _mainColor)),
+        content: const Text('هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟',
+            style: TextStyle(fontFamily: 'Cairo')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('لا', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('نعم', style: TextStyle(fontFamily: 'Cairo', color: Colors.red)),
+          ),
+        ],
       ),
     );
+
+    if (confirmed != true) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('nw_faceid_enabled', false);
+    await prefs.remove('nw_faceid_phone');
+
+    if (!mounted) return;
+    setState(() => _faceIdEnabled = false);
+    _snack('تم إلغاء تفعيل معرف الوجه');
   }
 
   // ─── مكونات UI ───

@@ -6,11 +6,11 @@
 
 const AboutPage = (() => {
   const SECTION_META = {
-    about: { key: 'about_section_about', icon: 'ℹ️' },
-    vision: { key: 'about_section_vision', icon: '👁️' },
-    goals: { key: 'about_section_goals', icon: '🎯' },
-    values: { key: 'about_section_values', icon: '⭐' },
-    app: { key: 'about_section_app', icon: '📱' },
+    about: { key: 'about_section_about', icon: 'ℹ️', tone: 'primary' },
+    vision: { key: 'about_section_vision', icon: '👁️', tone: 'violet' },
+    goals: { key: 'about_section_goals', icon: '🎯', tone: 'amber' },
+    values: { key: 'about_section_values', icon: '⭐', tone: 'emerald' },
+    app: { key: 'about_section_app', icon: '📱', tone: 'slate' },
   };
 
   function init() {
@@ -21,9 +21,13 @@ const AboutPage = (() => {
     const loading = document.getElementById('about-loading');
     const sections = document.getElementById('about-sections');
     const linksBox = document.getElementById('about-links');
+    const story = document.getElementById('about-story');
+    const empty = document.getElementById('about-empty');
+    const error = document.getElementById('about-error');
 
     const res = await ApiClient.get('/api/content/public/');
-    const data = (res.ok && res.data && typeof res.data === 'object') ? res.data : {};
+    const ok = !!(res.ok && res.data && typeof res.data === 'object');
+    const data = ok ? res.data : {};
     const blocks = data.blocks || {};
     const links = data.links || {};
 
@@ -31,17 +35,20 @@ const AboutPage = (() => {
     const mapped = _mapBlocks(blocks);
     if (sections) {
       sections.innerHTML = '';
-      Object.keys(mapped).forEach((key) => {
-        sections.appendChild(_buildCard(key, mapped[key]));
+      mapped.forEach((item) => {
+        sections.appendChild(_buildCard(item));
       });
-      sections.classList.remove('hidden');
+      sections.classList.toggle('hidden', mapped.length === 0);
     }
+    if (story) story.classList.toggle('hidden', !ok);
+    if (empty) empty.classList.toggle('hidden', mapped.length !== 0 || !ok);
+    if (error) error.classList.toggle('hidden', ok);
 
     _bindLink('btn-android-store', links.android_store);
     _bindLink('btn-ios-store', links.ios_store);
     _bindLink('btn-website', links.website_url);
     if (linksBox) {
-      const visibleCount = linksBox.querySelectorAll('a:not(.hidden)').length;
+      const visibleCount = linksBox.querySelectorAll('.about-link-tile:not(.hidden)').length;
       linksBox.classList.toggle('hidden', visibleCount === 0);
     }
 
@@ -65,6 +72,11 @@ const AboutPage = (() => {
     const heroTitle = document.getElementById('about-hero-title');
     const heroSubtitle = document.getElementById('about-hero-subtitle');
     const website = document.getElementById('btn-website');
+    const heroMediaWrap = document.getElementById('about-hero-media-wrap');
+    const heroMedia = document.getElementById('about-hero-media');
+    const heroVideo = document.getElementById('about-hero-video');
+    const mediaBlock = _pickHeroMedia(blocks);
+
     if (heroTitle) heroTitle.textContent = _resolveTitle(blocks.about_hero_title, 'منصة نوافذ');
     if (heroSubtitle) {
       heroSubtitle.textContent = _resolveTitle(
@@ -73,23 +85,40 @@ const AboutPage = (() => {
       );
     }
     if (website) website.textContent = _resolveTitle(blocks.about_website_label, 'الموقع الرسمي');
+    if (heroMediaWrap && heroMedia && heroVideo) {
+      heroMediaWrap.classList.add('hidden');
+      heroMedia.classList.add('hidden');
+      heroVideo.classList.add('hidden');
+      if (mediaBlock && mediaBlock.media_url) {
+        heroMediaWrap.classList.remove('hidden');
+        if (mediaBlock.media_type === 'video') {
+          heroVideo.src = mediaBlock.media_url;
+          heroVideo.classList.remove('hidden');
+        } else {
+          heroMedia.src = mediaBlock.media_url;
+          heroMedia.classList.remove('hidden');
+        }
+      }
+    }
   }
 
   function _mapBlocks(blocks) {
-    return {
-      about: _resolveSection(blocks[SECTION_META.about.key], 'من نحن', '', SECTION_META.about.icon),
-      vision: _resolveSection(blocks[SECTION_META.vision.key], 'رؤيتنا', '', SECTION_META.vision.icon),
-      goals: _resolveSection(blocks[SECTION_META.goals.key], 'أهدافنا', '', SECTION_META.goals.icon),
-      values: _resolveSection(blocks[SECTION_META.values.key], 'قيمنا', '', SECTION_META.values.icon),
-      app: _resolveSection(blocks[SECTION_META.app.key], 'عن التطبيق', '', SECTION_META.app.icon),
-    };
+    return [
+      _resolveSection('about', blocks[SECTION_META.about.key], 'من نحن', '', SECTION_META.about),
+      _resolveSection('vision', blocks[SECTION_META.vision.key], 'رؤيتنا', '', SECTION_META.vision),
+      _resolveSection('goals', blocks[SECTION_META.goals.key], 'أهدافنا', '', SECTION_META.goals),
+      _resolveSection('values', blocks[SECTION_META.values.key], 'قيمنا', '', SECTION_META.values),
+      _resolveSection('app', blocks[SECTION_META.app.key], 'عن التطبيق', '', SECTION_META.app),
+    ].filter((item) => item.body || item.title);
   }
 
-  function _resolveSection(apiBlock, fallbackTitle, fallbackBody, icon) {
+  function _resolveSection(id, apiBlock, fallbackTitle, fallbackBody, meta) {
     return {
+      id,
       title: _resolveTitle(apiBlock, fallbackTitle),
       body: _resolveBody(apiBlock, fallbackBody),
-      icon,
+      icon: meta.icon,
+      tone: meta.tone,
     };
   }
 
@@ -101,32 +130,24 @@ const AboutPage = (() => {
     return String(block && block.body_ar || '').trim() || fallback;
   }
 
-  function _buildCard(key, data) {
-    const card = UI.el('article', { className: 'expand-card', 'data-key': key });
-    const head = UI.el('button', { className: 'expand-head', type: 'button' });
-    const body = UI.el('div', { className: 'expand-body hidden' });
-
-    head.appendChild(UI.el('span', { className: 'expand-icon', textContent: data.icon || '📄' }));
-    const textWrap = UI.el('span', { className: 'expand-head-text' });
-    textWrap.appendChild(UI.el('span', { className: 'expand-title', textContent: data.title || '' }));
-    head.appendChild(textWrap);
-    head.appendChild(UI.el('span', { className: 'expand-arrow', textContent: '⌄' }));
-
-    body.appendChild(UI.el('p', { className: 'expand-content', textContent: data.body || '' }));
-
-    head.addEventListener('click', () => {
-      const isOpen = !body.classList.contains('hidden');
-      document.querySelectorAll('.expand-card').forEach((node) => node.classList.remove('active'));
-      document.querySelectorAll('.expand-card .expand-body').forEach((node) => node.classList.add('hidden'));
-      if (!isOpen) {
-        card.classList.add('active');
-        body.classList.remove('hidden');
-      }
+  function _buildCard(data) {
+    const card = UI.el('article', {
+      className: `about-card about-card-${data.tone || 'primary'}`,
+      'data-key': data.id || '',
     });
+    const badge = UI.el('div', { className: 'about-card-icon', textContent: data.icon || '📄' });
+    const title = UI.el('h3', { className: 'about-card-title', textContent: data.title || '' });
+    const body = UI.el('p', { className: 'about-card-body', textContent: data.body || '' });
 
-    card.appendChild(head);
+    card.appendChild(badge);
+    card.appendChild(title);
     card.appendChild(body);
     return card;
+  }
+
+  function _pickHeroMedia(blocks) {
+    const candidates = [blocks.about_hero_title, blocks.about_hero_subtitle];
+    return candidates.find((item) => item && item.media_url) || null;
   }
 
   /** تطبيع رابط واتساب — لا يضيف prefix إذا بدأ بـ http */

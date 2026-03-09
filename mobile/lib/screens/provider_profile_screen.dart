@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, unused_element
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -183,9 +184,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     // Prefer explicit sections configured in provider profile content.
     if (definedSections.isNotEmpty) {
       final result = <Map<String, dynamic>>[];
+      final seenTitles = <String>{};
       for (final section in definedSections) {
         final title = (section['title'] ?? '').toString().trim();
         if (title.isEmpty) continue;
+        if (!seenTitles.add(title)) continue;
         final sectionDesc = (section['description'] ?? '').toString().trim();
         result.add({
           'title': title,
@@ -297,13 +300,32 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   String get providerServicesDetails =>
       _providerDetail?.aboutDetails ?? _providerDetail?.bio ?? '';
 
+  String get providerBioSummary {
+    final bio = (_providerDetail?.bio ?? '').trim();
+    if (bio.isNotEmpty) return bio;
+    return (_providerDetail?.aboutDetails ?? '').trim();
+  }
+
+  String get providerDetailedServicesDetails {
+    final about = (_providerDetail?.aboutDetails ?? '').trim();
+    final bio = (_providerDetail?.bio ?? '').trim();
+    if (about.isEmpty) return '';
+    if (_normalizeComparableText(about) == _normalizeComparableText(bio)) {
+      return '';
+    }
+    return about;
+  }
+
   String get providerQualifications {
     final list = _providerDetail?.qualifications ?? [];
-    if (list.isEmpty) return '';
-    return list
-        .map((e) => e is Map ? (e['title'] ?? e.toString()) : e.toString())
-        .where((s) => s.toString().trim().isNotEmpty)
-        .join('، ');
+    return _joinForDisplay(
+      _uniqueNonEmpty(
+        list
+            .map((e) => e is Map ? (e['title'] ?? e['name'] ?? e.toString()) : e.toString())
+            .map((s) => s.toString().trim()),
+      ),
+      maxItems: 20,
+    );
   }
 
   String get providerExperienceYears {
@@ -314,11 +336,14 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   String get providerCommunicationLanguage {
     final list = _providerDetail?.languages ?? [];
-    if (list.isEmpty) return '';
-    return list
-        .map((e) => e is Map ? (e['name'] ?? e.toString()) : e.toString())
-        .where((s) => s.toString().trim().isNotEmpty)
-        .join('، ');
+    return _joinForDisplay(
+      _uniqueNonEmpty(
+        list
+            .map((e) => e is Map ? (e['name'] ?? e.toString()) : e.toString())
+            .map((s) => s.toString().trim()),
+      ),
+      maxItems: 20,
+    );
   }
 
   String get providerGeoScope {
@@ -389,6 +414,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     if (values.length <= maxItems) return values.join('، ');
     final shown = values.take(maxItems).join('، ');
     return '$shown (+${values.length - maxItems})';
+  }
+
+  String _normalizeComparableText(String value) {
+    return value.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
   }
 
   String _extractSocialHandle(String url) {
@@ -1819,7 +1848,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _statItem('$_completedRequests', 'عمليات', isDark),
+          _statItem('$_completedRequests', 'الطلبات المكتملة', isDark),
           _dividerVertical(isDark),
           _statItem(
             '$_followersCount',
@@ -2327,8 +2356,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ),
               const SizedBox(height: 10),
               Text(
-                providerServicesDetails.isNotEmpty
-                    ? providerServicesDetails
+                providerBioSummary.isNotEmpty
+                    ? providerBioSummary
                     : 'لا يوجد وصف',
                 style: TextStyle(
                   fontFamily: 'Cairo',
@@ -2363,35 +2392,37 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _formCard(
-          cardColor: cardColor,
-          borderColor: borderColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'شرح تفصيلي حول خدمات مقدم الخدمة',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: textColor,
+        if (providerDetailedServicesDetails.isNotEmpty) ...[
+          _formCard(
+            cardColor: cardColor,
+            borderColor: borderColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'شرح تفصيلي حول خدمات مقدم الخدمة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                providerServicesDetails,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11,
-                  color: secondaryTextColor,
-                  height: 1.6,
+                const SizedBox(height: 10),
+                Text(
+                  providerDetailedServicesDetails,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    color: secondaryTextColor,
+                    height: 1.6,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
+          const SizedBox(height: 12),
+        ],
         _formCard(
           cardColor: cardColor,
           borderColor: borderColor,

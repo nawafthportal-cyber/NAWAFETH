@@ -49,6 +49,10 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<!-- ✅ التحقق البيومتري (Face ID) -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>نستخدم معرف الوجه للتحقق من هويتك وتسجيل الدخول بأمان</string>
+
 	<!-- ✅ أذونات الموقع -->
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>نحتاج للوصول إلى موقعك لعرض مقدمي الخدمات القريبين على الخريطة</string>

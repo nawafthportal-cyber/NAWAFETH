@@ -497,13 +497,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.18),
+                  color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.45), width: 1),
+                      color: Colors.white.withValues(alpha: 0.45), width: 1),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
+                      color: Colors.black.withValues(alpha: 0.15),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -554,7 +554,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black12.withOpacity(0.05),
+                color: Colors.black12.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -695,7 +695,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 14,
-                  color: mainColor.withOpacity(0.8),
+                  color: mainColor.withValues(alpha: 0.8),
                 ),
               ],
             ),
@@ -758,7 +758,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   ? LinearGradient(
                       colors: [
                         mainColor,
-                        mainColor.withOpacity(0.6),
+                        mainColor.withValues(alpha: 0.6),
                       ],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
@@ -868,7 +868,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       color: Colors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black12.withOpacity(0.3),
+                          color: Colors.black12.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 4),
                         ),
@@ -976,7 +976,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 borderRadius: BorderRadius.circular(13),
                 boxShadow: [
                   BoxShadow(
-                    color: mainColor.withOpacity(0.12),
+                    color: mainColor.withValues(alpha: 0.12),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -1023,7 +1023,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: Colors.black12.withOpacity(0.05),
+                color: Colors.black12.withValues(alpha: 0.05),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),
@@ -1035,7 +1035,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: mainColor.withOpacity(0.1),
+                  color: mainColor.withValues(alpha: 0.1),
                 ),
                 child: Icon(Icons.list_alt, color: mainColor),
               ),
@@ -1245,9 +1245,9 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.10),
+          color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: color.withOpacity(0.35)),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1280,7 +1280,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12.withOpacity(0.04),
+              color: Colors.black12.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -1464,7 +1464,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                     borderRadius: BorderRadius.circular(20),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black12.withOpacity(0.04),
+                                        color: Colors.black12.withValues(alpha: 0.04),
                                         blurRadius: 8,
                                         offset: const Offset(0, 4),
                                       ),
@@ -1566,7 +1566,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                           const SizedBox(width: 6),
                                           _statItem(
                                             icon: Icons.person_outline,
-                                            label: "عملاء",
+                                            label: "الطلبات المكتملة",
                                             value: '$_clientsCount',
                                           ),
                                           const SizedBox(width: 6),

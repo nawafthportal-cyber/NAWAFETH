@@ -35,20 +35,13 @@ const LoginSettingsPage = (() => {
     _on("ls-pin-cancel", "click", () => _closeModal("ls-security-modal"));
     _on("ls-pin-save", "click", _savePin);
 
-    _on("ls-faceid-btn", "click", () => _openModal("ls-faceid-modal"));
-    _on("ls-faceid-cancel", "click", () => _closeModal("ls-faceid-modal"));
-    _on("ls-faceid-save", "click", _saveFaceIdCode);
+    _on("ls-faceid-btn", "click", _enrollFaceId);
+    _on("ls-faceid-disable", "click", _disableFaceId);
 
     const securityModal = document.getElementById("ls-security-modal");
-    const faceIdModal = document.getElementById("ls-faceid-modal");
     if (securityModal) {
       securityModal.addEventListener("click", (event) => {
         if (event.target === securityModal) _closeModal("ls-security-modal");
-      });
-    }
-    if (faceIdModal) {
-      faceIdModal.addEventListener("click", (event) => {
-        if (event.target === faceIdModal) _closeModal("ls-faceid-modal");
       });
     }
   }
@@ -72,6 +65,7 @@ const LoginSettingsPage = (() => {
     _fillProfile(_profile);
     _setLoading(false);
     _setContentVisible(true);
+    _initFaceId();
   }
 
   function _fillProfile(profile) {
@@ -181,15 +175,113 @@ const LoginSettingsPage = (() => {
   }
 
   function _saveFaceIdCode() {
-    const code = _norm(_val("ls-faceid-code"));
-    if (!code) {
-      _toast("أدخل رمز التحقق أولاً.", true);
+    // Legacy — replaced by WebAuthn enrollment
+  }
+
+  /* ── Face ID: WebAuthn Biometric Enrollment ── */
+
+  function _initFaceId() {
+    var btn = document.getElementById("ls-faceid-btn");
+    var hint = document.getElementById("ls-faceid-hint");
+
+    if (!window.PublicKeyCredential) {
+      if (hint) hint.textContent = "متصفحك لا يدعم التحقق البيومتري.";
+      if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+      _updateFaceIdStatus();
       return;
     }
-    localStorage.setItem("nw_faceid_enabled", "1");
-    _setVal("ls-faceid-code", "");
-    _closeModal("ls-faceid-modal");
-    _toast("تم تفعيل الدخول بمعرف الوجه.");
+
+    PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+      .then(function (available) {
+        if (!available) {
+          if (hint) hint.textContent = "جهازك لا يدعم التحقق البيومتري (معرف الوجه / البصمة).";
+          if (btn) { btn.disabled = true; btn.style.opacity = "0.5"; }
+        }
+        _updateFaceIdStatus();
+      })
+      .catch(function () {
+        _updateFaceIdStatus();
+      });
+  }
+
+  function _updateFaceIdStatus() {
+    var isEnabled = localStorage.getItem("nw_faceid_enabled") === "1";
+    var status = document.getElementById("ls-faceid-status");
+    var btn = document.getElementById("ls-faceid-btn");
+
+    if (status) status.classList.toggle("hidden", !isEnabled);
+    if (btn) btn.classList.toggle("hidden", isEnabled);
+  }
+
+  async function _enrollFaceId() {
+    var phone = _norm(_val("ls-phone")) || (_profile && _norm(_profile.phone));
+    if (!phone) {
+      _toast("لا يوجد رقم جوال مسجّل في الحساب.", true);
+      return;
+    }
+
+    var displayName = (
+      (_norm(_val("ls-first-name")) + " " + _norm(_val("ls-last-name"))).trim()
+      || _norm(_profile && _profile.username)
+      || "مستخدم"
+    );
+
+    var btn = document.getElementById("ls-faceid-btn");
+    if (btn) { btn.disabled = true; btn.style.opacity = "0.65"; }
+
+    try {
+      var challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      var userId = new TextEncoder().encode(phone);
+
+      var credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: challenge,
+          rp: { name: "نوافذ" },
+          user: {
+            id: userId,
+            name: phone,
+            displayName: displayName,
+          },
+          pubKeyCredParams: [
+            { alg: -7,   type: "public-key" },
+            { alg: -257, type: "public-key" },
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required",
+            residentKey: "preferred",
+          },
+          timeout: 60000,
+        },
+      });
+
+      var credIdArray = Array.from(new Uint8Array(credential.rawId));
+      localStorage.setItem("nw_faceid_cred_id", JSON.stringify(credIdArray));
+      localStorage.setItem("nw_faceid_phone", phone);
+      localStorage.setItem("nw_faceid_enabled", "1");
+
+      _updateFaceIdStatus();
+      _toast("تم تفعيل الدخول بمعرف الوجه بنجاح ✓");
+    } catch (err) {
+      if (err.name === "NotAllowedError") {
+        _toast("تم إلغاء عملية التحقق البيومتري.", true);
+      } else {
+        _toast("فشل تسجيل معرف الوجه.", true);
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+    }
+  }
+
+  function _disableFaceId() {
+    if (!window.confirm("هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟")) return;
+    localStorage.removeItem("nw_faceid_enabled");
+    localStorage.removeItem("nw_faceid_cred_id");
+    localStorage.removeItem("nw_faceid_phone");
+    _updateFaceIdStatus();
+    _toast("تم إلغاء تفعيل معرف الوجه.");
   }
 
   async function _logout() {

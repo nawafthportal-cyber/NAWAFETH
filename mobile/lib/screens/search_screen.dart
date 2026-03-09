@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, deprecated_member_use
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../services/home_service.dart';
@@ -81,7 +82,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               items:
                   _categories
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
@@ -105,7 +106,7 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedSubCategory,
+              initialValue: _selectedSubCategory,
               items:
                   _subCategories
                       .map((s) => DropdownMenuItem(value: s, child: Text(s)))

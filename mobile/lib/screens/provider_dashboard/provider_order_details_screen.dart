@@ -4,8 +4,10 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/service_request_model.dart';
+import '../../services/api_client.dart';
 import '../../services/marketplace_service.dart';
 
 class ProviderOrderDetailsScreen extends StatefulWidget {
@@ -1389,26 +1391,97 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _attachmentRow(RequestAttachment attachment) {
+    final fileName = _attachmentFileName(attachment);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(children: [
-        Icon(_attachIcon(attachment.fileType), size: 18, color: Colors.black45),
-        const SizedBox(width: 6),
-        Expanded(
-            child: Text(attachment.fileUrl.split('/').last,
-                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: _mainColor.withAlpha(25),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _mainColor.withAlpha(60)),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _openAttachment(attachment),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(children: [
+              Icon(_attachIcon(attachment.fileType),
+                  size: 18, color: Colors.black45),
+              const SizedBox(width: 6),
+              Expanded(
+                  child: Text(fileName,
+                      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _mainColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _mainColor.withAlpha(60)),
+                ),
+                child: Text(attachment.fileType.toUpperCase(),
+                    style: const TextStyle(
+                        fontFamily: 'Cairo', fontSize: 11, color: _mainColor)),
+              ),
+              const SizedBox(width: 6),
+              const Icon(Icons.open_in_new, size: 16, color: Colors.black38),
+            ]),
           ),
-          child: Text(attachment.fileType.toUpperCase(),
-              style: const TextStyle(
-                  fontFamily: 'Cairo', fontSize: 11, color: _mainColor)),
         ),
-      ]),
+      ),
+    );
+  }
+
+  String _attachmentFileName(RequestAttachment attachment) {
+    final uri = Uri.tryParse(attachment.fileUrl);
+    final segments = (uri?.pathSegments ?? const <String>[])
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isNotEmpty) return segments.last;
+    final raw = attachment.fileUrl.trim();
+    if (raw.isEmpty) return 'ملف';
+    return raw.split('/').last;
+  }
+
+  String? _normalizedAttachmentUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final parsed = Uri.tryParse(value);
+    if (parsed != null && parsed.hasScheme) {
+      if ((parsed.scheme == 'http' || parsed.scheme == 'https') &&
+          parsed.path.startsWith('/media/')) {
+        final base = Uri.parse(ApiClient.baseUrl);
+        return base
+            .resolve('${parsed.path}${parsed.hasQuery ? '?${parsed.query}' : ''}')
+            .toString();
+      }
+      return parsed.toString();
+    }
+    return ApiClient.buildMediaUrl(value);
+  }
+
+  Future<void> _openAttachment(RequestAttachment attachment) async {
+    final url = _normalizedAttachmentUrl(attachment.fileUrl);
+    if (url == null || url.isEmpty) {
+      _showAttachmentError();
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      _showAttachmentError();
+      return;
+    }
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) _showAttachmentError();
+  }
+
+  void _showAttachmentError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تعذر فتح المرفق',
+          style: TextStyle(fontFamily: 'Cairo'),
+        ),
+      ),
     );
   }
 

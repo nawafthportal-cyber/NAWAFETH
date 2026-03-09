@@ -8,7 +8,9 @@ const LoginPage = (() => {
   function init() {
     if (Auth.isLoggedIn()) {
       const next = new URLSearchParams(window.location.search).get('next') || '/';
-      window.location.href = next;
+      window.location.href = Auth.needsCompletion && Auth.needsCompletion()
+        ? '/signup/?next=' + encodeURIComponent(next)
+        : next;
       return;
     }
 
@@ -18,6 +20,7 @@ const LoginPage = (() => {
 
     if (!phoneInput || !btnSend || !btnGuest) return;
     _loadContent();
+    _initFaceIdLogin();
 
     btnSend.addEventListener('click', () => _sendOTP(phoneInput));
     phoneInput.addEventListener('input', () => {
@@ -101,6 +104,63 @@ const LoginPage = (() => {
     target.searchParams.set('phone', normalizedPhone);
     target.searchParams.set('next', next);
     window.location.href = target.toString();
+  }
+
+  /* ── Face ID Login ── */
+
+  function _initFaceIdLogin() {
+    var enabled = localStorage.getItem('nw_faceid_enabled') === '1';
+    var phone = localStorage.getItem('nw_faceid_phone');
+    var credJson = localStorage.getItem('nw_faceid_cred_id');
+    var section = document.getElementById('faceid-login-section');
+
+    if (!enabled || !phone || !credJson || !section) return;
+    if (!window.PublicKeyCredential) return;
+
+    section.classList.remove('hidden');
+
+    var btn = document.getElementById('btn-faceid-login');
+    if (btn) {
+      btn.addEventListener('click', function () { _loginWithFaceId(phone, credJson); });
+    }
+  }
+
+  async function _loginWithFaceId(phone, credJson) {
+    var btn = document.getElementById('btn-faceid-login');
+    var errEl = document.getElementById('phone-error');
+
+    if (btn) { btn.disabled = true; btn.style.opacity = '0.65'; }
+
+    try {
+      var credIdArray = JSON.parse(credJson);
+      var credId = new Uint8Array(credIdArray);
+      var challenge = new Uint8Array(32);
+      crypto.getRandomValues(challenge);
+
+      await navigator.credentials.get({
+        publicKey: {
+          challenge: challenge,
+          allowCredentials: [{
+            id: credId.buffer,
+            type: 'public-key',
+            transports: ['internal'],
+          }],
+          userVerification: 'required',
+          timeout: 60000,
+        },
+      });
+
+      // Biometric verified — auto-fill phone & send OTP
+      var phoneInput = document.getElementById('phone-input');
+      if (phoneInput) phoneInput.value = phone;
+      _sendOTP(phoneInput);
+    } catch (err) {
+      if (err.name !== 'NotAllowedError') {
+        _showError(errEl, 'فشل التحقق البيومتري.');
+      }
+    } finally {
+      if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+    }
   }
 
   function _setLoading(loading) {

@@ -244,7 +244,7 @@ class _PromotionScreenState extends State<PromotionScreen>
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple.withOpacity(0.1),
+                    color: Colors.deepPurple.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.campaign,
@@ -279,7 +279,7 @@ class _PromotionScreenState extends State<PromotionScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -349,7 +349,7 @@ class _CreatePromoRequestFormState extends State<_CreatePromoRequestForm> {
   DateTime? _startDate;
   DateTime? _endDate;
   String _targetCity = '';
-  String _targetCategory = '';
+  final String _targetCategory = '';
 
   bool _isSending = false;
 
@@ -606,7 +606,7 @@ class _CreatePromoRequestFormState extends State<_CreatePromoRequestForm> {
             _labelText('المدينة المستهدفة (اختياري)'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _targetCity.isNotEmpty ? _targetCity : null,
+              initialValue: _targetCity.isNotEmpty ? _targetCity : null,
               decoration: InputDecoration(
                 hintText: 'كل المدن',
                 hintStyle: const TextStyle(fontFamily: 'Cairo'),
@@ -728,7 +728,7 @@ class _CreatePromoRequestFormState extends State<_CreatePromoRequestForm> {
                 onPressed: _isSending ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.deepPurple,
-                  disabledBackgroundColor: Colors.deepPurple.withOpacity(0.4),
+                  disabledBackgroundColor: Colors.deepPurple.withValues(alpha: 0.4),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
                 ),

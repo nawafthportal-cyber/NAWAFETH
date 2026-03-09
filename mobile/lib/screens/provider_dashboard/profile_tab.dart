@@ -324,7 +324,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
             editing
                 ? (key == 'location'
                     ? DropdownButtonFormField<String>(
-                        value: SaudiCities.all.contains(controllers[key]?.text)
+                        initialValue: SaudiCities.all.contains(controllers[key]?.text)
                             ? controllers[key]!.text
                             : null,
                         decoration: InputDecoration(
@@ -457,7 +457,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                 readOnly: field['readOnly'] == true,
               ),
             )
-            .toList(),
+            ,
       ],
     );
   }

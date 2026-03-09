@@ -69,7 +69,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
     FontAwesomeIcons.youtube,
     FontAwesomeIcons.instagram,
     FontAwesomeIcons.xTwitter,
-    FontAwesomeIcons.snapchatGhost,
+    FontAwesomeIcons.snapchat,
     FontAwesomeIcons.pinterest,
     FontAwesomeIcons.tiktok,
     FontAwesomeIcons.behance,
@@ -677,7 +677,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.03),
+            color: Colors.black12.withValues(alpha: 0.03),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -685,7 +685,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
         border: Border.all(
           color:
               isOpen
-                  ? Colors.deepPurple.withOpacity(0.4)
+                  ? Colors.deepPurple.withValues(alpha: 0.4)
                   : Colors.grey.shade300,
         ),
       ),
@@ -693,7 +693,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
         children: [
           ListTile(
             leading: CircleAvatar(
-              backgroundColor: Colors.deepPurple.withOpacity(0.1),
+              backgroundColor: Colors.deepPurple.withValues(alpha: 0.1),
               child: Icon(icon, color: Colors.deepPurple),
             ),
             title: Text(
@@ -737,12 +737,12 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.04),
+            color: Colors.black12.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.06)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,7 +753,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
                 width: 26,
                 height: 26,
                 decoration: BoxDecoration(
-                  color: Colors.deepPurple.withOpacity(0.1),
+                  color: Colors.deepPurple.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: Colors.deepPurple, size: 16),
@@ -785,7 +785,7 @@ class _ContactInfoStepState extends State<ContactInfoStep> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F4FF),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

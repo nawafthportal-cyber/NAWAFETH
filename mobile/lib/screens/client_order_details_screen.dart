@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
+import '../services/api_client.dart';
 import '../services/marketplace_service.dart';
 import '../services/reviews_service.dart';
 import 'provider_profile_screen.dart';
@@ -1421,23 +1423,93 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   }
 
   Widget _attachmentRow(RequestAttachment attachment, bool isDark) {
+    final fileName = _attachmentFileName(attachment);
     return Padding(
       padding: const EdgeInsets.only(top: 6),
-      child: Row(children: [
-        Icon(_attachmentIcon(attachment.fileType),
-            size: 18, color: Colors.grey),
-        const SizedBox(width: 6),
-        Expanded(
-            child: Text(attachment.fileUrl.split('/').last,
-                style: TextStyle(
-                    fontFamily: 'Cairo',
-                    color: isDark ? Colors.white70 : Colors.black87))),
-        Text(attachment.fileType.toUpperCase(),
-            style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 12,
-                color: isDark ? Colors.white54 : Colors.black54)),
-      ]),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _openAttachment(attachment),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+            child: Row(children: [
+              Icon(_attachmentIcon(attachment.fileType),
+                  size: 18, color: Colors.grey),
+              const SizedBox(width: 6),
+              Expanded(
+                  child: Text(fileName,
+                      style: TextStyle(
+                          fontFamily: 'Cairo',
+                          color: isDark ? Colors.white70 : Colors.black87))),
+              const SizedBox(width: 8),
+              Text(attachment.fileType.toUpperCase(),
+                  style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      color: isDark ? Colors.white54 : Colors.black54)),
+              const SizedBox(width: 6),
+              Icon(Icons.open_in_new,
+                  size: 16, color: isDark ? Colors.white38 : Colors.black38),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _attachmentFileName(RequestAttachment attachment) {
+    final uri = Uri.tryParse(attachment.fileUrl);
+    final segments = (uri?.pathSegments ?? const <String>[])
+        .where((segment) => segment.isNotEmpty)
+        .toList();
+    if (segments.isNotEmpty) return segments.last;
+    final raw = attachment.fileUrl.trim();
+    if (raw.isEmpty) return 'ملف';
+    return raw.split('/').last;
+  }
+
+  String? _normalizedAttachmentUrl(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty) return null;
+    final parsed = Uri.tryParse(value);
+    if (parsed != null && parsed.hasScheme) {
+      if ((parsed.scheme == 'http' || parsed.scheme == 'https') &&
+          parsed.path.startsWith('/media/')) {
+        final base = Uri.parse(ApiClient.baseUrl);
+        return base
+            .resolve('${parsed.path}${parsed.hasQuery ? '?${parsed.query}' : ''}')
+            .toString();
+      }
+      return parsed.toString();
+    }
+    return ApiClient.buildMediaUrl(value);
+  }
+
+  Future<void> _openAttachment(RequestAttachment attachment) async {
+    final url = _normalizedAttachmentUrl(attachment.fileUrl);
+    if (url == null || url.isEmpty) {
+      _showAttachmentError();
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      _showAttachmentError();
+      return;
+    }
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) _showAttachmentError();
+  }
+
+  void _showAttachmentError() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'تعذر فتح المرفق',
+          style: TextStyle(fontFamily: 'Cairo'),
+        ),
+      ),
     );
   }
 

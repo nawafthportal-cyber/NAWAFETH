@@ -161,11 +161,26 @@ def notify_request_status_changed(sender, instance: RequestStatusLog, created, *
     if instance.to_status == "new" and "اختيار عرض" in note:
         # Offer selection already emits OFFER_SELECTED notification.
         return
-    body = f"تم تحديث حالة طلبك ({sr.title}) إلى: {status_label}"
-    if note:
-        body = f"{body}. {note}"
-
     for target in recipients:
+        is_provider_target = bool(sr.provider_id and target.id == sr.provider.user_id)
+        audience_mode = "provider" if is_provider_target else "client"
+        is_self_action = bool(instance.actor_id and target.id == instance.actor_id)
+
+        if instance.to_status == "completed" and is_provider_target and is_self_action:
+            continue
+
+        body = f"تم تحديث حالة طلبك ({sr.title}) إلى: {status_label}"
+        if instance.to_status == "completed":
+            if is_provider_target:
+                if note and "يرجى مراجعة الطلب وتقييم الخدمة" not in note:
+                    body = f"{body}. {note}"
+            else:
+                body = f"اكتمل طلبك ({sr.title}). يمكنك الآن مراجعة الطلب وتقييم الخدمة."
+                if note and "يرجى مراجعة الطلب وتقييم الخدمة" not in note:
+                    body = f"{body} {note}"
+        elif note:
+            body = f"{body}. {note}"
+
         create_notification(
             user=target,
             title=f"تحديث الطلب: {sr.title}",
@@ -181,5 +196,5 @@ def notify_request_status_changed(sender, instance: RequestStatusLog, created, *
                 "to_status": instance.to_status,
                 "note": note,
             },
-            audience_mode="provider" if sr.provider_id and target.id == sr.provider.user_id else "client",
+            audience_mode=audience_mode,
         )

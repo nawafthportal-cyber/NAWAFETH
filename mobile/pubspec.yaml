@@ -43,6 +43,7 @@ dependencies:
   url_launcher: ^6.3.1               # فتح روابط خارجية
   geolocator: ^13.0.2                # تحديد الموقع الجغرافي
   shared_preferences: ^2.3.3         # تخزين محلي (Login, Onboarding)
+  local_auth: ^2.3.0                 # التحقق البيومتري (بصمة / معرف الوجه)
   share_plus: ^10.1.2                # مشاركة نصوص وملفات
   http: ^1.2.0                       # HTTP client للاتصال بالـ Backend API
   flutter_local_notifications: ^18.0.1 # إشعارات محلية مع صوت

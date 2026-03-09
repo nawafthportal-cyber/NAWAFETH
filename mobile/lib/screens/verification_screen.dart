@@ -435,7 +435,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 26,
                       offset: const Offset(0, 16),
                     ),
@@ -471,7 +471,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -499,7 +499,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
               onPressed: (canNext && !_isSending) ? _nextStep : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.deepPurple,
-                disabledBackgroundColor: AppColors.deepPurple.withOpacity(0.25),
+                disabledBackgroundColor: AppColors.deepPurple.withValues(alpha: 0.25),
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -781,7 +781,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color:
-              selected ? AppColors.deepPurple.withOpacity(0.06) : Colors.white,
+              selected ? AppColors.deepPurple.withValues(alpha: 0.06) : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppColors.deepPurple : Colors.grey.shade300,
@@ -797,7 +797,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 color:
                     selected
                         ? AppColors.deepPurple
-                        : AppColors.deepPurple.withOpacity(0.08),
+                        : AppColors.deepPurple.withValues(alpha: 0.08),
               ),
               child: Icon(
                 icon,
@@ -892,7 +892,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       style: const TextStyle(fontFamily: "Cairo"),
                     ),
                     selected: selected,
-                    selectedColor: AppColors.deepPurple.withOpacity(0.12),
+                    selectedColor: AppColors.deepPurple.withValues(alpha: 0.12),
                     checkmarkColor: AppColors.deepPurple,
                     side: BorderSide(
                       color:
@@ -1068,7 +1068,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                                       ),
                                     ),
                                     backgroundColor: AppColors.deepPurple
-                                        .withOpacity(0.04),
+                                        .withValues(alpha: 0.04),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -1083,7 +1083,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.deepPurple.withOpacity(0.04),
+                      color: AppColors.deepPurple.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -1202,7 +1202,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           gradient:
               selected
                   ? LinearGradient(
-                    colors: [color.withOpacity(0.10), color.withOpacity(0.02)],
+                    colors: [color.withValues(alpha: 0.10), color.withValues(alpha: 0.02)],
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
                   )
@@ -1210,12 +1210,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
           color: selected ? null : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? color.withOpacity(0.55) : Colors.grey.shade200,
+            color: selected ? color.withValues(alpha: 0.55) : Colors.grey.shade200,
             width: selected ? 2 : 1,
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(selected ? 0.08 : 0.03),
+              color: Colors.black.withValues(alpha: selected ? 0.08 : 0.03),
               blurRadius: selected ? 18 : 10,
               spreadRadius: 1,
               offset: const Offset(0, 8),
@@ -1227,7 +1227,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: color.withOpacity(0.12),
+              backgroundColor: color.withValues(alpha: 0.12),
               child: Icon(Icons.verified, color: color, size: 26),
             ),
             const SizedBox(width: 12),
@@ -1283,7 +1283,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.12),
+                      color: color.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -1469,9 +1469,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
       margin: const EdgeInsets.only(top: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.deepPurple.withOpacity(0.05),
+        color: AppColors.deepPurple.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.deepPurple.withOpacity(0.16)),
+        border: Border.all(color: AppColors.deepPurple.withValues(alpha: 0.16)),
       ),
       child: Row(
         children: [
@@ -1535,7 +1535,7 @@ class _ProgressSteps extends StatelessWidget {
                                   isActive
                                       ? [
                                         AppColors.deepPurple,
-                                        AppColors.deepPurple.withOpacity(0.4),
+                                        AppColors.deepPurple.withValues(alpha: 0.4),
                                       ]
                                       : [
                                         Colors.grey.shade300,

@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field, use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -46,7 +47,7 @@ class _RegisterServiceProviderPageState
   final Map<String, dynamic> _registrationData = {};
   
   // تتبع نسبة إكمال كل صفحة (من 0.0 إلى 1.0)
-  Map<int, double> _stepCompletion = {
+  final Map<int, double> _stepCompletion = {
     0: 0.0, // المعلومات الأساسية
     1: 0.0, // تصنيف الاختصاص
     2: 0.0, // بيانات التواصل
@@ -197,7 +198,7 @@ class _RegisterServiceProviderPageState
                 isActive
                     ? [
                       BoxShadow(
-                        color: activeColor.withOpacity(0.35),
+                        color: activeColor.withValues(alpha: 0.35),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),
@@ -302,7 +303,7 @@ class _RegisterServiceProviderPageState
                           child: LinearProgressIndicator(
                             value: _completionPercent,
                             minHeight: 6,
-                            backgroundColor: Colors.white.withOpacity(0.25),
+                            backgroundColor: Colors.white.withValues(alpha: 0.25),
                             valueColor: const AlwaysStoppedAnimation<Color>(
                               Colors.orangeAccent,
                             ),
@@ -421,7 +422,7 @@ class _RegisterServiceProviderPageState
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.deepPurple.withOpacity(0.35),
+                        color: Colors.deepPurple.withValues(alpha: 0.35),
                         blurRadius: 18,
                         offset: const Offset(0, 6),
                       ),
@@ -498,7 +499,7 @@ class _RegisterServiceProviderPageState
                     color: const Color(0xFFF6F4FF),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: Colors.deepPurple.withOpacity(0.1),
+                      color: Colors.deepPurple.withValues(alpha: 0.1),
                     ),
                   ),
                   child: Column(
@@ -531,6 +532,7 @@ class _RegisterServiceProviderPageState
                     await AccountModeService.setProviderMode(true);
                     await prefs.setBool('isProviderRegistered', true);
                     
+                    if (!mounted) return;
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
@@ -607,7 +609,7 @@ class _RegisterServiceProviderPageState
           if (_showSuccessOverlay)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.55),
+                color: Colors.black.withValues(alpha: 0.55),
                 child: _buildSuccessCard(context),
               ),
             ),
@@ -616,7 +618,7 @@ class _RegisterServiceProviderPageState
           if (_isRegistering)
             Positioned.fill(
               child: Container(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withValues(alpha: 0.35),
                 child: const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -657,7 +659,7 @@ class _SuccessHintRow extends StatelessWidget {
           width: 24,
           height: 24,
           decoration: BoxDecoration(
-            color: Colors.deepPurple.withOpacity(0.08),
+            color: Colors.deepPurple.withValues(alpha: 0.08),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 14, color: Colors.deepPurple),

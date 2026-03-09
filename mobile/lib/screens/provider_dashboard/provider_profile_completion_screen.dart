@@ -293,7 +293,7 @@ class _ProviderProfileCompletionScreenState
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -354,9 +354,9 @@ class _ProviderProfileCompletionScreenState
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.orange.withOpacity(0.1),
+        color: Colors.orange.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.4)),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
@@ -423,7 +423,7 @@ class _ProviderProfileCompletionScreenState
         color: const Color(0xFFEEF2FF),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: AppColors.deepPurple.withOpacity(0.4),
+          color: AppColors.deepPurple.withValues(alpha: 0.4),
           width: 1.4,
         ),
       ),
@@ -476,13 +476,13 @@ class _ProviderProfileCompletionScreenState
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.04),
+            color: Colors.black12.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
         border: Border.all(
-          color: done ? color.withOpacity(0.4) : Colors.grey.shade200,
+          color: done ? color.withValues(alpha: 0.4) : Colors.grey.shade200,
           width: done ? 1.4 : 1,
         ),
       ),
@@ -490,7 +490,7 @@ class _ProviderProfileCompletionScreenState
         onTap: () => _openSection(id),
         leading: CircleAvatar(
           radius: 20,
-          backgroundColor: color.withOpacity(0.08),
+          backgroundColor: color.withValues(alpha: 0.08),
           child: Icon(icon, color: color, size: 20),
         ),
         title: Text(

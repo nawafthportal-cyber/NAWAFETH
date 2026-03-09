@@ -254,7 +254,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 7,
                     offset: const Offset(0, 3),
                   ),
@@ -286,7 +286,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
+                    color: Colors.black.withValues(alpha: 0.18),
                     blurRadius: 7,
                     offset: const Offset(0, 3),
                   ),
@@ -322,7 +322,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.18),
+                color: Colors.black.withValues(alpha: 0.18),
                 blurRadius: 7,
                 offset: const Offset(0, 3),
               ),
@@ -368,7 +368,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: _overlayColor.withOpacity(0.45),
+                  color: _overlayColor.withValues(alpha: 0.45),
                   blurRadius: 18,
                   spreadRadius: 2,
                 ),
@@ -468,7 +468,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
           if (hasMenu)
             Container(
               decoration: BoxDecoration(
-                color: AppColors.softBlue.withOpacity(0.55),
+                color: AppColors.softBlue.withValues(alpha: 0.55),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -481,7 +481,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
           if (canDelete)
             Container(
               decoration: BoxDecoration(
-                color: AppColors.softBlue.withOpacity(0.55),
+                color: AppColors.softBlue.withValues(alpha: 0.55),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -493,7 +493,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
           if (canDelete) const SizedBox(width: 10),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.softBlue.withOpacity(0.55),
+              color: AppColors.softBlue.withValues(alpha: 0.55),
               shape: BoxShape.circle,
             ),
             child: IconButton(
@@ -553,7 +553,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
         padding: const EdgeInsets.only(left: 12, right: 12, bottom: 10, top: 6),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Colors.transparent, AppColors.softBlue.withOpacity(0.92)],
+            colors: [Colors.transparent, AppColors.softBlue.withValues(alpha: 0.92)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -652,7 +652,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 20, color: AppColors.deepPurple),
@@ -673,7 +673,7 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.35),
+              color: Colors.black.withValues(alpha: 0.35),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -710,15 +710,15 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
                     width: 96,
                     height: 96,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withOpacity(0.35),
+                      color: AppColors.primaryLight.withValues(alpha: 0.35),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.deepPurple.withOpacity(0.7),
+                        color: AppColors.deepPurple.withValues(alpha: 0.7),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.25),
+                          color: Colors.black.withValues(alpha: 0.25),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -743,10 +743,10 @@ class _VideoFullScreenPageState extends State<VideoFullScreenPage>
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(999),
                         border: Border.all(
-                          color: AppColors.deepPurple.withOpacity(0.5),
+                          color: AppColors.deepPurple.withValues(alpha: 0.5),
                           width: 1,
                         ),
                       ),

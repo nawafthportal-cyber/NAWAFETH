@@ -62,6 +62,11 @@ class AuthService {
     return prefs.getString(_roleStateKey);
   }
 
+  static Future<bool> needsCompletion() async {
+    final role = (await getRoleState())?.trim().toLowerCase() ?? '';
+    return role == 'phone_only' || role == 'visitor';
+  }
+
   /// تسجيل الخروج — مسح جميع البيانات المحفوظة
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();

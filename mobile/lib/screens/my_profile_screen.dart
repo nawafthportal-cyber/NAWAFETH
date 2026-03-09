@@ -66,11 +66,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
     final isLoggedIn = await AuthService.isLoggedIn();
     if (!isLoggedIn) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _errorMessage = 'يجب تسجيل الدخول أولاً';
         });
+      }
       return;
     }
 

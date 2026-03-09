@@ -62,9 +62,20 @@
       <button class="btn btn-outlined btn-block" id="ls-security-btn">إضافة رمز دخول أمان</button>
     </section>
 
-    <section class="detail-card">
+    <section class="detail-card ls-faceid-section">
       <h3 class="ls-section-title">طرق الدخول الإضافية</h3>
-      <button class="btn btn-outlined btn-block" id="ls-faceid-btn">الدخول بمعرف الوجه</button>
+      <div id="ls-faceid-status" class="ls-faceid-status hidden">
+        <div class="ls-faceid-active-row">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span>معرف الوجه مفعّل على هذا الجهاز</span>
+        </div>
+        <button class="btn btn-danger-outline btn-block" id="ls-faceid-disable" style="margin-top:8px;min-height:36px;font-size:11.5px">إلغاء التفعيل</button>
+      </div>
+      <button class="ls-faceid-btn" id="ls-faceid-btn">
+        <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="22" height="22" rx="6"/><circle cx="14" cy="11.5" r="3.5"/><path d="M8.5 23c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6"/></svg>
+        <span>الدخول بمعرف الوجه</span>
+      </button>
+      <p class="ls-faceid-hint" id="ls-faceid-hint"></p>
     </section>
 
     <section class="detail-card ls-danger">
@@ -90,17 +101,7 @@
   </div>
 </div>
 
-<div id="ls-faceid-modal" class="ls-modal hidden">
-  <div class="ls-modal-card">
-    <h3>إعداد الدخول بمعرف الوجه</h3>
-    <p>قم بإدخال رمز تحقق لتأكيد التفعيل.</p>
-    <input id="ls-faceid-code" type="password" class="form-input" maxlength="10" placeholder="رمز التحقق" dir="ltr">
-    <div class="ls-modal-actions">
-      <button type="button" class="btn btn-secondary" id="ls-faceid-cancel">إلغاء</button>
-      <button type="button" class="btn btn-primary" id="ls-faceid-save">تأكيد</button>
-    </div>
-  </div>
-</div>
+
 
 <div id="ls-toast" class="ls-toast" aria-live="polite"></div>
 {% endblock %}

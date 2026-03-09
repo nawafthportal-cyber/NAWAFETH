@@ -48,7 +48,7 @@ class VerifiedBadgeView extends StatelessWidget {
       return;
     }
 
-    final payload = Map<String, dynamic>.from(data as Map);
+    final payload = Map<String, dynamic>.from(data);
     final title = (payload['title'] ?? '').toString().trim();
     final shortDescription =
         (payload['short_description'] ?? '').toString().trim();

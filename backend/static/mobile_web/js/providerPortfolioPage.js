@@ -53,7 +53,7 @@ var ProviderPortfolioPage = (function () {
     document.getElementById("pf-sections").innerHTML = sections.map(function (sec) {
       var items = sec.items || sec.images || sec.media || [];
       var itemCount = items.length;
-      return '<section class="detail-card pf-section" data-id="' + sec.id + '">' +
+      return '<section class="pf-section" data-id="' + sec.id + '">' +
         '<div class="pf-section-top">' +
           '<div class="pf-section-copy">' +
             '<h3>' + escapeHtml(sec.title || sec.name || "") + '</h3>' +

@@ -30,6 +30,11 @@ const Auth = (() => {
     try { return sessionStorage.getItem(KEY_ROLE) || 'guest'; } catch { return 'guest'; }
   }
 
+  function needsCompletion() {
+    const role = String(getRoleState() || '').trim().toLowerCase();
+    return role === 'phone_only' || role === 'visitor';
+  }
+
   function saveTokens(data) {
     try {
       if (data.access) sessionStorage.setItem(KEY_ACCESS, data.access);
@@ -102,6 +107,7 @@ const Auth = (() => {
 
   return {
     isLoggedIn, getAccessToken, getRefreshToken, getUserId, getRoleState,
+    needsCompletion,
     saveTokens, logout, clearProfileCache, refreshAccessToken, requireLogin, getProfile,
   };
 })();

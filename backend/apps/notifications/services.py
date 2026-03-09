@@ -339,7 +339,7 @@ def notification_preference_availability(
     if canonical_tier_order(user_tier) < canonical_tier_order(required_tier):
         return {
             "locked": True,
-            "reason": f"يتطلب الباقة {CanonicalPlanTier(required_tier).label}.",
+            "reason": f"يلزم الاشتراك في الباقة {CanonicalPlanTier(required_tier).label}.",
         }
 
     for capability_path in tuple(cfg.get("required_capabilities") or ()):

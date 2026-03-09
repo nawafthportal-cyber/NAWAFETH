@@ -266,7 +266,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black12.withOpacity(0.05),
+                      color: Colors.black12.withValues(alpha: 0.05),
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),
@@ -315,8 +315,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                             setState(() {
                               isSectionLiked = !isSectionLiked;
                               sectionLikes += isSectionLiked ? 1 : -1;
-                              if (sectionLikes < 0)
+                              if (sectionLikes < 0) {
                                 sectionLikes = 0; // أمان بسيط
+                              }
                             });
                           },
                         ),
@@ -474,7 +475,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black12.withOpacity(0.05),
+                        color: Colors.black12.withValues(alpha: 0.05),
                         blurRadius: 5,
                         offset: const Offset(0, 3),
                       ),
@@ -568,7 +569,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -580,7 +581,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: mainColor.withOpacity(0.08),
+              color: mainColor.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: mainColor),
@@ -621,7 +622,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -658,7 +659,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                             replyIndex: replyIndex,
                           ),
                         );
-                      }).toList(),
+                      }),
                       const Divider(),
                     ],
                   );
@@ -679,7 +680,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.deepPurple.withOpacity(0.05),
+                color: Colors.deepPurple.withValues(alpha: 0.05),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -871,7 +872,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   // 🔹 أسهم التنقل للصور
   Widget _navArrow(IconData icon, VoidCallback onTap) {
     return CircleAvatar(
-      backgroundColor: Colors.black.withOpacity(0.5),
+      backgroundColor: Colors.black.withValues(alpha: 0.5),
       child: IconButton(
         icon: Icon(icon, color: Colors.white, size: 18),
         onPressed: onTap,

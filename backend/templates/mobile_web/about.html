@@ -7,32 +7,81 @@
 
 {% block content %}
 <main class="page-content">
-  <div class="container">
-    <div class="about-hero">
-      <div class="about-hero-icon">◫</div>
-      <h1 id="about-hero-title">منصة نوافذ</h1>
-      <p id="about-hero-subtitle">حلول تقنية مبتكرة تربط مزودي الخدمات بطالبيها</p>
-    </div>
+  <div class="container about-shell">
+    <section class="about-hero">
+      <div class="about-hero-copy">
+        <span class="about-hero-badge">عن المنصة</span>
+        <div class="about-hero-icon" aria-hidden="true">◫</div>
+        <h1 id="about-hero-title">منصة نوافذ</h1>
+        <p id="about-hero-subtitle">حلول تقنية مبتكرة تربط مزودي الخدمات بطالبيها</p>
+      </div>
+      <div class="about-hero-media hidden" id="about-hero-media-wrap">
+        <img id="about-hero-media" alt="صورة تعريفية عن المنصة" class="hidden">
+        <video id="about-hero-video" class="hidden" autoplay muted loop playsinline></video>
+      </div>
+    </section>
 
-    <div id="about-loading" class="text-center">
+    <div id="about-loading" class="about-loading text-center">
       <span class="spinner-inline"></span>
     </div>
 
-    <div id="about-sections" class="expand-cards hidden"></div>
-
-    <div class="about-links hidden" id="about-links">
-      <a id="btn-android-store" class="store-pill hidden" href="#" target="_blank" rel="noopener">Google Play</a>
-      <a id="btn-ios-store" class="store-pill hidden" href="#" target="_blank" rel="noopener">App Store</a>
-      <a id="btn-website" class="store-pill store-pill-outline hidden" href="#" target="_blank" rel="noopener">الموقع الرسمي</a>
+    <div id="about-error" class="about-error hidden">
+      تعذر تحميل محتوى الصفحة الآن. حاول مرة أخرى بعد قليل.
     </div>
 
-    <div class="about-social hidden" id="about-social">
-      <p class="social-title" id="about-social-title">تواصل معنا</p>
-      <div class="social-icons">
-        <a id="btn-x-url" class="social-pill hidden" href="#" target="_blank" rel="noopener" title="X">𝕏</a>
-        <a id="btn-whatsapp" class="social-pill hidden" href="#" target="_blank" rel="noopener" title="واتساب">💬</a>
-        <a id="btn-email" class="social-pill hidden" href="#" title="البريد الإلكتروني">✉️</a>
+    <section class="about-section hidden" id="about-story">
+      <div class="about-section-head">
+        <div>
+          <p class="about-section-kicker">نبذة</p>
+          <h2>تعرف على نوافذ</h2>
+        </div>
       </div>
+      <div id="about-sections" class="about-grid hidden"></div>
+      <div id="about-empty" class="about-empty hidden">لا توجد أقسام تعريفية منشورة حاليًا.</div>
+    </section>
+
+    <div class="about-panels">
+      <section class="about-panel hidden" id="about-links">
+        <div class="about-panel-head">
+          <p class="about-panel-kicker">روابط</p>
+          <h3>تحميل وموقع المنصة</h3>
+        </div>
+        <div class="about-link-list">
+          <a id="btn-android-store" class="about-link-tile hidden" href="#" target="_blank" rel="noopener">
+            <span class="about-link-label">Google Play</span>
+            <span class="about-link-caption">تطبيق Android</span>
+          </a>
+          <a id="btn-ios-store" class="about-link-tile hidden" href="#" target="_blank" rel="noopener">
+            <span class="about-link-label">App Store</span>
+            <span class="about-link-caption">تطبيق iPhone</span>
+          </a>
+          <a id="btn-website" class="about-link-tile about-link-tile-outline hidden" href="#" target="_blank" rel="noopener">
+            <span class="about-link-label">الموقع الرسمي</span>
+            <span class="about-link-caption">زيارة موقع نوافذ</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="about-panel hidden" id="about-social">
+        <div class="about-panel-head">
+          <p class="about-panel-kicker">تواصل</p>
+          <h3 id="about-social-title">تواصل معنا</h3>
+        </div>
+        <div class="social-icons">
+          <a id="btn-x-url" class="social-pill hidden" href="#" target="_blank" rel="noopener" title="X">
+            <span>𝕏</span>
+            <small>X</small>
+          </a>
+          <a id="btn-whatsapp" class="social-pill hidden" href="#" target="_blank" rel="noopener" title="واتساب">
+            <span>💬</span>
+            <small>واتساب</small>
+          </a>
+          <a id="btn-email" class="social-pill hidden" href="#" title="البريد الإلكتروني">
+            <span>✉️</span>
+            <small>البريد</small>
+          </a>
+        </div>
+      </section>
     </div>
   </div>
 </main>

@@ -1,3 +1,4 @@
+// ignore_for_file: unused_field
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -429,7 +430,7 @@ class _ContactScreenState extends State<ContactScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? (isDark ? Colors.deepPurple.shade900.withOpacity(0.3) : Colors.deepPurple.shade50)
+              ? (isDark ? Colors.deepPurple.shade900.withValues(alpha: 0.3) : Colors.deepPurple.shade50)
               : (isDark ? Colors.grey.shade800 : Colors.white),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
@@ -880,7 +881,7 @@ class _ContactScreenState extends State<ContactScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.purple.shade50,
+              color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -993,7 +994,7 @@ class _ContactScreenState extends State<ContactScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.purple.shade50,
+              color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
@@ -1059,7 +1060,7 @@ class _ContactScreenState extends State<ContactScreen> {
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade800.withOpacity(0.5) : Colors.purple.shade50,
+                  color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(

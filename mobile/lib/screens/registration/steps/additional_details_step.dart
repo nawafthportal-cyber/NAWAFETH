@@ -281,7 +281,7 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         side: BorderSide(
-                          color: Colors.deepPurple.withOpacity(0.7),
+                          color: Colors.deepPurple.withValues(alpha: 0.7),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -391,7 +391,7 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F4FF),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,12 +423,12 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.06)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,13 +461,13 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                  color: Colors.deepPurple.withOpacity(0.35),
+                  color: Colors.deepPurple.withValues(alpha: 0.35),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide(
-                  color: Colors.deepPurple.withOpacity(0.25),
+                  color: Colors.deepPurple.withValues(alpha: 0.25),
                 ),
               ),
               focusedBorder: const OutlineInputBorder(
@@ -498,12 +498,12 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.06)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -599,12 +599,12 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.06)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.06)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -699,7 +699,7 @@ class _AdditionalDetailsStepState extends State<AdditionalDetailsStep> {
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: Colors.deepPurple.withOpacity(0.08),
+            color: Colors.deepPurple.withValues(alpha: 0.08),
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 16, color: Colors.deepPurple),

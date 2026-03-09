@@ -340,7 +340,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
                       horizontal: 20,
                       vertical: 10,
                     ),
-                    side: BorderSide(color: Colors.deepPurple.withOpacity(0.7)),
+                    side: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.7)),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(24),
                     ),
@@ -375,7 +375,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 13),
                         side: BorderSide(
-                          color: Colors.deepPurple.withOpacity(0.7),
+                          color: Colors.deepPurple.withValues(alpha: 0.7),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),
@@ -486,7 +486,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
       decoration: BoxDecoration(
         color: const Color(0xFFF6F4FF),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -523,12 +523,12 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black12.withOpacity(0.05),
+              color: Colors.black12.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 6),
             ),
           ],
-          border: Border.all(color: Colors.deepPurple.withOpacity(0.12)),
+          border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.12)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,7 +542,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.deepPurple.withOpacity(0.06),
+                    color: Colors.deepPurple.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
@@ -602,7 +602,7 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
               children: [
                 Switch(
                   value: item.isUrgent,
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                   onChanged: (val) {
                     setState(() {
                       item.isUrgent = val;
@@ -674,12 +674,12 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black12.withOpacity(0.05),
+            color: Colors.black12.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 6),
           ),
         ],
-        border: Border.all(color: Colors.deepPurple.withOpacity(0.08)),
+        border: Border.all(color: Colors.deepPurple.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -837,11 +837,11 @@ class _ServiceDetailsStepState extends State<ServiceDetailsStep> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.deepPurple.withOpacity(0.35)),
+          borderSide: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.35)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.deepPurple.withOpacity(0.25)),
+          borderSide: BorderSide(color: Colors.deepPurple.withValues(alpha: 0.25)),
         ),
         focusedBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(14)),

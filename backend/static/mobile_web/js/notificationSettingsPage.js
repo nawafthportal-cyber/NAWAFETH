@@ -171,9 +171,23 @@ const NotificationSettingsPage = (() => {
     Object.values(SECTION_CONFIG).forEach((section) => {
       const mount = document.getElementById(section.mountId);
       if (!mount) return;
+      const shouldShow = _shouldShowSection(section);
+      mount.classList.toggle('hidden', !shouldShow);
+      if (!shouldShow) {
+        mount.innerHTML = '';
+        return;
+      }
       mount.innerHTML = '';
       mount.appendChild(_buildSection(section));
     });
+  }
+
+  function _shouldShowSection(section) {
+    const mode = _activeMode();
+    if (mode === 'client') {
+      return section.key === 'basic';
+    }
+    return true;
   }
 
   function _buildSection(section) {
@@ -195,6 +209,14 @@ const NotificationSettingsPage = (() => {
     }));
     wrap.appendChild(header);
 
+    const sectionNotice = _sectionNotice(section, prefs);
+    if (sectionNotice) {
+      wrap.appendChild(UI.el('div', {
+        className: 'notif-section-notice',
+        textContent: sectionNotice,
+      }));
+    }
+
     const list = UI.el('div', { className: 'notif-toggle-list' });
     if (!prefs.length) {
       list.appendChild(UI.el('div', {
@@ -215,6 +237,21 @@ const NotificationSettingsPage = (() => {
     }
 
     return wrap;
+  }
+
+  function _sectionNotice(section, prefs) {
+    if (_activeMode() !== 'provider' || section.key === 'basic' || !prefs.length) {
+      return '';
+    }
+    if (!prefs.every((pref) => pref.locked)) {
+      return '';
+    }
+    const tierLocked = prefs.find((pref) => String(pref.locked_reason || '').includes('يلزم الاشتراك في الباقة'));
+    if (tierLocked) {
+      return tierLocked.locked_reason;
+    }
+    const genericLocked = prefs.find((pref) => pref.locked_reason);
+    return genericLocked ? genericLocked.locked_reason : 'هذه التنبيهات غير متاحة في حسابك الحالي.';
   }
 
   function _sectionPrefs(section) {

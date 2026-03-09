@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../constants/colors.dart';
@@ -43,11 +44,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
   Future<void> _loadUserData() async {
     final loggedIn = await AuthService.isLoggedIn();
     if (!loggedIn) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _isLoading = false;
           _isLoggedIn = false;
         });
+      }
       return;
     }
 
@@ -288,6 +290,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   onTap: () {
                     Navigator.pop(context); // إغلاق الـ Drawer
                     Future.delayed(const Duration(milliseconds: 100), () {
+                      if (!mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const LoginSettingsScreen(),
@@ -325,6 +328,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   onTap: () {
                     Navigator.pop(context); // إغلاق الـ Drawer
                     Future.delayed(const Duration(milliseconds: 100), () {
+                      if (!mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const TermsScreen()),
                       );
@@ -338,6 +342,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   onTap: () {
                     Navigator.pop(context); // إغلاق الـ Drawer
                     Future.delayed(const Duration(milliseconds: 100), () {
+                      if (!mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(
                             builder: (_) => const ContactScreen()),
@@ -352,6 +357,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   onTap: () {
                     Navigator.pop(context); // إغلاق الـ Drawer
                     Future.delayed(const Duration(milliseconds: 100), () {
+                      if (!mounted) return;
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const AboutScreen()),
                       );

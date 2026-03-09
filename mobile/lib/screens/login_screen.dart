@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/content_service.dart';
 import '../widgets/custom_drawer.dart';
+import 'signup_screen.dart';
 import 'twofa_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -20,13 +23,17 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   bool _isLoading = false;
   bool _isGuestLoading = false;
+  bool _isFaceIdLoading = false;
   String? _errorMessage;
   AuthEntryContent _content = AuthEntryContent.loginDefault();
+  bool _faceIdAvailable = false;
 
   @override
   void initState() {
     super.initState();
+    _redirectIfCompletionPending();
     _loadScreenContent();
+    _checkFaceIdAvailability();
   }
 
   @override
@@ -44,6 +51,23 @@ class _LoginScreenState extends State<LoginScreen> {
         _content = AuthEntryContent.loginFromBlocks(blocks);
       });
     } catch (_) {}
+  }
+
+  Future<void> _redirectIfCompletionPending() async {
+    final loggedIn = await AuthService.isLoggedIn();
+    if (!loggedIn) return;
+    final needsCompletion = await AuthService.needsCompletion();
+    if (!mounted) return;
+    if (needsCompletion) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SignUpScreen(redirectTo: widget.redirectTo),
+        ),
+      );
+      return;
+    }
+    Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
   /// ✅ التحقق من صحة رقم الجوال
@@ -108,6 +132,98 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isGuestLoading = false);
 
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+  }
+
+  Future<void> _checkFaceIdAvailability() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
+      final phone = prefs.getString('nw_faceid_phone');
+
+      if (!enabled || phone == null || phone.isEmpty) return;
+
+      final localAuth = LocalAuthentication();
+      final canCheck = await localAuth.canCheckBiometrics;
+      final isSupported = await localAuth.isDeviceSupported();
+
+      if (!mounted) return;
+      setState(() => _faceIdAvailable = canCheck && isSupported);
+    } catch (_) {}
+  }
+
+  Future<void> _loginWithFaceId() async {
+    if (_isFaceIdLoading || _isLoading) return;
+
+    setState(() {
+      _isFaceIdLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final localAuth = LocalAuthentication();
+      final authenticated = await localAuth.authenticate(
+        localizedReason: 'التحقق من هويتك لتسجيل الدخول',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (!authenticated) {
+        setState(() => _isFaceIdLoading = false);
+        return;
+      }
+
+      // البصمة ناجحة — نسترجع رقم الجوال المحفوظ ونرسل OTP
+      final prefs = await SharedPreferences.getInstance();
+      final phone = prefs.getString('nw_faceid_phone') ?? '';
+
+      if (phone.isEmpty) {
+        setState(() {
+          _isFaceIdLoading = false;
+          _errorMessage = 'لم يتم العثور على رقم جوال مرتبط. أعد تفعيل معرف الوجه من الإعدادات.';
+        });
+        return;
+      }
+
+      _phoneController.text = phone;
+      final result = await AuthApiService.sendOtp(phone);
+      if (!mounted) return;
+
+      setState(() => _isFaceIdLoading = false);
+
+      if (result.success) {
+        if (result.devCode != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('رمز التطوير: ${result.devCode}',
+                  style: const TextStyle(fontFamily: 'Cairo')),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => TwoFAScreen(
+              phone: phone,
+              redirectTo: widget.redirectTo,
+            ),
+          ),
+        );
+      } else {
+        setState(() => _errorMessage = result.error ?? 'فشل إرسال الرمز');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isFaceIdLoading = false;
+        _errorMessage = 'فشل التحقق البيومتري';
+      });
+    }
   }
 
   @override
@@ -234,6 +350,47 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
+
+                // ─── زر الدخول بمعرف الوجه ───
+                if (_faceIdAvailable) ...[
+                  Row(
+                    children: [
+                      Expanded(child: Container(height: 1, color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Text("أو", style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+                      ),
+                      Expanded(child: Container(height: 1, color: Colors.grey.shade300)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: (_isLoading || _isGuestLoading || _isFaceIdLoading) ? null : _loginWithFaceId,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.deepPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: _isFaceIdLoading
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Container(
+                              width: 22, height: 22,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.white, width: 1.5),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Icon(Icons.person_outline, color: Colors.white, size: 15),
+                            ),
+                      label: const Text('الدخول بمعرف الوجه',
+                          style: TextStyle(fontSize: 15, fontFamily: 'Cairo', fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 Row(
                   children: [
                     Expanded(

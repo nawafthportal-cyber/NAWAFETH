@@ -247,6 +247,43 @@ def test_notification_preferences_respect_subscription_notification_flag():
 
 
 @pytest.mark.django_db
+def test_basic_provider_sees_paid_tiers_as_locked_with_subscription_message():
+    user = User.objects.create_user(phone="0509000017", role_state=UserRole.PROVIDER)
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود أساسي",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    _active_subscription(
+        user=user,
+        tier="basic",
+        code="BASIC_PROVIDER_PLAN",
+        notifications_enabled=True,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    response = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert response.status_code == 200
+
+    rows = response.data["results"]
+    new_follow = next(row for row in rows if row["key"] == "new_follow")
+    positive_review = next(row for row in rows if row["key"] == "positive_review")
+    new_request = next(row for row in rows if row["key"] == "new_request")
+
+    assert new_request["locked"] is False
+    assert new_follow["locked"] is True
+    assert positive_review["locked"] is True
+    assert "يلزم الاشتراك في الباقة" in new_follow["locked_reason"]
+    assert "يلزم الاشتراك في الباقة" in positive_review["locked_reason"]
+
+
+@pytest.mark.django_db
 def test_notification_preferences_respect_promotional_capability_and_extras_entitlements():
     user = User.objects.create_user(phone="0509000016", role_state=UserRole.PROVIDER)
     provider = ProviderProfile.objects.create(
@@ -395,7 +432,7 @@ def test_notifications_are_filtered_by_active_mode_query_param():
 
 
 @pytest.mark.django_db
-def test_status_log_creates_notification_for_both_parties_with_request_title():
+def test_status_log_completion_notifies_client_only_with_review_prompt():
     client_user = User.objects.create_user(phone="0509000021")
     provider_user = User.objects.create_user(phone="0509000022")
 
@@ -429,31 +466,24 @@ def test_status_log_creates_notification_for_both_parties_with_request_title():
         actor=provider_user,
         from_status=RequestStatus.IN_PROGRESS,
         to_status=RequestStatus.COMPLETED,
-        note="تم إكمال الطلب",
+        note="تم الإكمال. يرجى مراجعة الطلب وتقييم الخدمة.",
     )
 
     client_notif = Notification.objects.filter(
         user=client_user,
         kind="request_status_change",
     ).order_by("-id").first()
-    provider_notif = Notification.objects.filter(
-        user=provider_user,
-        kind="request_status_change",
-    ).order_by("-id").first()
-
     assert client_notif is not None
-    assert provider_notif is not None
-
     assert client_notif.title == f"تحديث الطلب: {sr.title}"
-    assert provider_notif.title == f"تحديث الطلب: {sr.title}"
-
-    assert "مكتمل" in client_notif.body
-    assert "مكتمل" in provider_notif.body
+    assert "تقييم الخدمة" in client_notif.body
+    assert "اكتمل طلبك" in client_notif.body
 
     assert client_notif.url == f"/requests/{sr.id}"
-    assert provider_notif.url == f"/requests/{sr.id}"
     assert client_notif.audience_mode == "client"
-    assert provider_notif.audience_mode == "provider"
+    assert not Notification.objects.filter(
+        user=provider_user,
+        kind="request_status_change",
+    ).exists()
 
 
 @pytest.mark.django_db

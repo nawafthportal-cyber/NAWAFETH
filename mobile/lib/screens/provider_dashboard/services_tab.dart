@@ -1,3 +1,4 @@
+// ignore_for_file: unused_element
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -174,7 +175,7 @@ class _ServicesTabState extends State<ServicesTab> {
 
                     _buildLabel("التصنيف الرئيسي"),
                     DropdownButtonFormField<String>(
-                      value: categoryMap.containsKey(selectedMain) ? selectedMain : null,
+                      initialValue: categoryMap.containsKey(selectedMain) ? selectedMain : null,
                       decoration: _inputDecoration(),
                       items: categoryMap.keys
                           .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -190,7 +191,7 @@ class _ServicesTabState extends State<ServicesTab> {
 
                     _buildLabel("التصنيف الفرعي"),
                     DropdownButtonFormField<int>(
-                      value: currentSubList.any((s) => s['id'] == selectedSubId)
+                      initialValue: currentSubList.any((s) => s['id'] == selectedSubId)
                           ? selectedSubId
                           : null,
                       decoration: _inputDecoration(),
@@ -225,7 +226,7 @@ class _ServicesTabState extends State<ServicesTab> {
 
                     _buildLabel("نوع التسعير"),
                     DropdownButtonFormField<String>(
-                      value: priceUnit,
+                      initialValue: priceUnit,
                       decoration: _inputDecoration(),
                       items: const [
                         DropdownMenuItem(value: 'fixed', child: Text('سعر ثابت')),
@@ -280,7 +281,7 @@ class _ServicesTabState extends State<ServicesTab> {
                       title: const Text('الخدمة مفعلة',
                           style: TextStyle(fontFamily: 'Cairo')),
                       value: isActive,
-                      activeColor: Colors.deepPurple,
+                      activeThumbColor: Colors.deepPurple,
                       onChanged: (val) => setModalState(() => isActive = val),
                     ),
 
@@ -328,7 +329,7 @@ class _ServicesTabState extends State<ServicesTab> {
                                 setState(() => _isSaving = false);
 
                                 if (res.isSuccess) {
-                                  Navigator.pop(context);
+                                  if (context.mounted) Navigator.pop(context);
                                   _showSnack(svcId != null
                                       ? 'تم تحديث الخدمة بنجاح'
                                       : 'تم إضافة الخدمة بنجاح');

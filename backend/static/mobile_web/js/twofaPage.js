@@ -24,7 +24,9 @@ const TwofaPage = (() => {
   function init() {
     if (Auth.isLoggedIn()) {
       const next = new URLSearchParams(window.location.search).get('next') || '/';
-      window.location.href = next;
+      window.location.href = Auth.needsCompletion && Auth.needsCompletion()
+        ? '/signup/?next=' + encodeURIComponent(next)
+        : next;
       return;
     }
 

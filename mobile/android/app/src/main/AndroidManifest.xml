@@ -3,6 +3,9 @@
     <!-- ✅ السماح بالوصول إلى الإنترنت (مطلوب لـ url_launcher والخرائط) -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- ✅ التحقق البيومتري (بصمة / معرف الوجه) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     
     <!-- ✅ أذونات الموقع للخرائط -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

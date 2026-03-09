@@ -49,9 +49,9 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   DateTime? _quoteDeadline;
 
   // ─── المرفقات ───
-  List<File> _images = [];
-  List<File> _videos = [];
-  List<File> _files = [];
+  final List<File> _images = [];
+  final List<File> _videos = [];
+  final List<File> _files = [];
   String? _audioPath;
   bool _isRecording = false;
 
@@ -118,8 +118,9 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'xlsx', 'xls'],
     );
-    if (result != null)
+    if (result != null) {
       setState(() => _files.add(File(result.files.single.path!)));
+    }
   }
 
   Future<void> _initRecorder() async {
@@ -351,7 +352,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
               _label('المدينة'),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _selectedCity,
+                initialValue: _selectedCity,
                 decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
                 isExpanded: true,
                 menuMaxHeight: 300,
@@ -601,7 +602,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       );
     }
     return DropdownButtonFormField<int>(
-      value: _selectedCategoryId,
+      initialValue: _selectedCategoryId,
       decoration: _inputDeco(hint: 'اختر القسم'),
       items: _categories
           .map((c) => DropdownMenuItem<int>(
@@ -622,7 +623,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   Widget _subcategoryDropdown() {
     final subs = _subcategories;
     return DropdownButtonFormField<int>(
-      value: _selectedSubcategoryId,
+      initialValue: _selectedSubcategoryId,
       decoration: _inputDeco(hint: 'اختر التصنيف'),
       items: subs
           .map((s) => DropdownMenuItem<int>(
