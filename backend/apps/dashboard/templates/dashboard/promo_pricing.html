@@ -5,50 +5,56 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">أسعار الترويج</h1>
-    <p class="text-gray-500 mt-1">سعر اليوم (Base) لكل نوع إعلان. يتم استخدامه في التسعير تلقائيًا.</p>
+    <p class="text-gray-500 mt-1">تسعير نظامي داخلي لكل خدمة، مع إمكانية تعديل القواعد دون تغيير الكود.</p>
   </div>
 </div>
 
-<div class="flex items-center gap-2 mb-5">
-  <a href="{% url 'dashboard:promo_requests_list' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">طلبات الترويج</a>
-  <a href="{% url 'dashboard:promo_inquiries_list' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">استفسارات الترويج</a>
-  <a href="{% url 'dashboard:promo_pricing' %}" class="px-4 py-2 rounded-lg border bg-fuchsia-600 text-white border-fuchsia-600">الأسعار</a>
-</div>
+{% include "dashboard/_promo_nav.html" %}
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
-  <table class="min-w-full text-sm">
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="text-right px-4 py-3">نوع الإعلان</th>
-        <th class="text-right px-4 py-3">السعر لليوم (SAR)</th>
-        <th class="text-right px-4 py-3">مفعل</th>
-        <th class="text-right px-4 py-3">حفظ</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for r in rows %}
-      <tr class="hover:bg-gray-50">
-        <td class="px-4 py-3 font-semibold">{{ r.label }}</td>
-        <td class="px-4 py-3">
-          <form method="post" action="{% url 'dashboard:promo_pricing_update_action' %}" class="flex items-center gap-3">
-            {% csrf_token %}
-            <input type="hidden" name="ad_type" value="{{ r.ad_type }}" />
-            <input name="price_per_day" value="{{ r.price_per_day|default_if_none:'' }}" placeholder="0.00"
-                   class="w-40 rounded-lg border-gray-200 px-3 py-2" />
-        </td>
-        <td class="px-4 py-3">
-            <label class="inline-flex items-center gap-2">
-              <input type="checkbox" name="is_active" value="1" {% if r.is_active %}checked{% endif %} />
-              <span class="text-gray-700">نعم</span>
-            </label>
-        </td>
-        <td class="px-4 py-3">
-            <button class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white font-semibold">حفظ</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="space-y-6">
+  {% for group in groups %}
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
+      <div class="px-5 py-4 border-b border-gray-100">
+        <h2 class="font-bold text-xl text-fuchsia-700">{{ group.label }}</h2>
+      </div>
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-right px-4 py-3">القاعدة</th>
+            <th class="text-right px-4 py-3">الوحدة</th>
+            <th class="text-right px-4 py-3">التكلفة (SAR)</th>
+            <th class="text-right px-4 py-3">مفعلة</th>
+            <th class="text-right px-4 py-3">حفظ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for row in group.rows %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-3 font-semibold">{{ row.title }}</td>
+            <td class="px-4 py-3">{{ row.get_unit_display }}</td>
+            <td class="px-4 py-3">
+              <form method="post" action="{% url 'dashboard:promo_pricing_update_action' %}" class="flex items-center gap-3">
+                {% csrf_token %}
+                <input type="hidden" name="code" value="{{ row.code }}">
+                <input name="amount" value="{{ row.amount }}" class="w-40 rounded-lg border-gray-200 px-3 py-2">
+            </td>
+            <td class="px-4 py-3">
+                <label class="inline-flex items-center gap-2">
+                  <input type="checkbox" name="is_active" value="1" {% if row.is_active %}checked{% endif %}>
+                  <span class="text-gray-700">نعم</span>
+                </label>
+            </td>
+            <td class="px-4 py-3">
+                <button class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white font-semibold">حفظ</button>
+              </form>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">لا توجد قواعد تسعير لهذه الخدمة.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
 </div>
 {% endblock %}

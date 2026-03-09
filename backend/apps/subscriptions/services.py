@@ -65,7 +65,8 @@ def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None):
 
 
 def _grace_days() -> int:
-    return int(getattr(settings, "SUBS_GRACE_DAYS", 7))
+    from apps.core.models import PlatformConfig
+    return PlatformConfig.load().subscription_grace_days
 
 
 def is_current_subscription_status(status: str) -> bool:

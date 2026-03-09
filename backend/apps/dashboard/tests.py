@@ -1,6 +1,6 @@
 import pytest
 from datetime import timedelta
-from django.test import Client
+from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -1683,6 +1683,7 @@ def test_dashboard_home_requires_otp_verified_session_for_authenticated_staff():
 
 
 @pytest.mark.django_db
+@override_settings(DEBUG=True)
 def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
     analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
     staff_user = User.objects.create_user(phone="0500000227", password="Pass12345!", is_staff=True)
@@ -1703,6 +1704,7 @@ def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
 
 
 @pytest.mark.django_db
+@override_settings(DEBUG=True)
 def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
     support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=1)
     staff_user = User.objects.create_user(

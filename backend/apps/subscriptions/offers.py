@@ -276,8 +276,10 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
 
 
 def subscription_offer_end_at(*, plan, start_at):
+    from apps.core.models import PlatformConfig
+    config = PlatformConfig.load()
     template = template_subscription_plan_for_plan(plan, fallback_tier=CanonicalPlanTier.BASIC)
     period = resolved_plan_string(plan, template, "period", default=PlanPeriod.YEAR)
     if period == PlanPeriod.YEAR:
-        return start_at + timedelta(days=365)
-    return start_at + timedelta(days=30)
+        return start_at + timedelta(days=config.subscription_yearly_duration_days)
+    return start_at + timedelta(days=config.subscription_monthly_duration_days)

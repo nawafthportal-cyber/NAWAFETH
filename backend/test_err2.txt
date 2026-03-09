@@ -1,0 +1,30 @@
+============================= test session starts =============================
+platform win32 -- Python 3.12.3, pytest-9.0.2, pluggy-1.6.0
+django: version: 6.0.1, settings: config.settings.dev (from ini)
+rootdir: C:\Users\manso\nawafeth\backend
+configfile: pytest.ini
+plugins: asyncio-1.3.0, django-4.11.1, mock-3.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 3 items / 2 deselected / 1 selected
+
+apps\backoffice\tests\test_access.py F                                   [100%]
+
+================================== FAILURES ===================================
+______________________________ test_my_access_ok ______________________________
+
+api_client = <rest_framework.test.APIClient object at 0x000001FF4C22D9D0>
+user = <User: 0500000000>, access_profile = <UserAccessProfile: 1 access=user>
+
+    def test_my_access_ok(api_client, user, access_profile):
+        api_client.force_authenticate(user=user)
+        r = api_client.get("/api/backoffice/me/access/")
+>       assert r.status_code == 200
+E       assert 403 == 200
+E        +  where 403 = <Response status_code=403, "application/json">.status_code
+
+apps\backoffice\tests\test_access.py:48: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  django.request:log.py:249 Forbidden: /api/backoffice/me/access/
+=========================== short test summary info ===========================
+FAILED apps/backoffice/tests/test_access.py::test_my_access_ok - assert 403 =...
+====================== 1 failed, 2 deselected in 19.94s =======================

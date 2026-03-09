@@ -153,10 +153,12 @@ def _decorate_ranked_rows(rows, *, badge_code: str, metric_key: str, group_key: 
 
 
 def get_featured_service_candidates(now=None) -> list[dict[str, object]]:
+    from apps.core.models import PlatformConfig
+    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
-        if Decimal(str(row.get("rating_avg") or 0)) >= Decimal("4.50")
+        if Decimal(str(row.get("rating_avg") or 0)) >= config.excellence_min_rating
         and int(row.get("rating_count") or 0) >= 3
     ]
     return _decorate_ranked_rows(
@@ -168,10 +170,12 @@ def get_featured_service_candidates(now=None) -> list[dict[str, object]]:
 
 
 def get_high_achievement_candidates(now=None) -> list[dict[str, object]]:
+    from apps.core.models import PlatformConfig
+    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
-        if int(row.get("completed_orders_count") or 0) >= 5
+        if int(row.get("completed_orders_count") or 0) >= config.excellence_min_orders
     ]
     return _decorate_ranked_rows(
         base,
@@ -182,6 +186,8 @@ def get_high_achievement_candidates(now=None) -> list[dict[str, object]]:
 
 
 def get_top_100_club_candidates(now=None) -> list[dict[str, object]]:
+    from apps.core.models import PlatformConfig
+    config = PlatformConfig.load()
     base = [
         row
         for row in build_provider_metric_snapshots(now)
@@ -194,7 +200,7 @@ def get_top_100_club_candidates(now=None) -> list[dict[str, object]]:
         badge_code=TOP_100_CLUB_BADGE_CODE,
         metric_key="followers_count",
     )
-    return ranked[:100]
+    return ranked[:config.excellence_top_n_club]
 
 
 def current_cycle_candidates_queryset(now=None):

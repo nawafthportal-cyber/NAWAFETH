@@ -1,35 +1,17 @@
 from __future__ import annotations
 
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import BasePermission
+
+from apps.backoffice.permissions import BackofficeDashboardMixin
 
 
-class IsOwnerOrBackofficeExtras(BasePermission):
+class IsOwnerOrBackofficeExtras(BackofficeDashboardMixin, BasePermission):
     """
     - مستخدم التطبيق: مسموح له على endpoints العميل العادية (مع تقييد queryset في views)
     - Backoffice: يتطلب وصول لوحة extras
     - QA: قراءة فقط
     """
-
-    message = "غير مصرح."
-
-    def _is_backoffice_request(self, request) -> bool:
-        return "/backoffice/" in (getattr(request, "path", "") or "")
-
-    def _has_backoffice_access(self, request) -> bool:
-        ap = getattr(request.user, "access_profile", None)
-        if not ap:
-            return False
-        if ap.is_revoked() or ap.is_expired():
-            return False
-
-        if ap.is_readonly() and request.method not in SAFE_METHODS:
-            self.message = "حساب QA للعرض فقط."
-            return False
-
-        if ap.level in ("admin", "power"):
-            return True
-
-        return ap.is_allowed("extras")
+    dashboard_code = "extras"
 
     def has_permission(self, request, view):
         user = request.user

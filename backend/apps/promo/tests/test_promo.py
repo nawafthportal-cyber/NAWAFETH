@@ -10,8 +10,7 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
-from apps.promo.models import PromoRequest
-from apps.promo.models import PromoAsset, PromoRequestStatus
+from apps.promo.models import PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.promo.models import PromoAdPrice
 from apps.notifications.models import EventLog, Notification
 from apps.providers.models import ProviderProfile
@@ -19,6 +18,7 @@ from apps.subscriptions.models import SubscriptionPlan, Subscription, Subscripti
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
 from apps.promo.services import reject_request, activate_after_payment
+from apps.support.models import SupportTicket, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest
 
 
@@ -744,3 +744,138 @@ def test_banner_asset_limit_uses_subscription_capability(api, user):
     )
     assert second_upload.status_code == 400
     assert "الحد الأقصى" in str(second_upload.data.get("detail", ""))
+
+
+def test_create_multi_item_promo_request(api, user):
+    plan = SubscriptionPlan.objects.create(code="PRO_MULTI", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    api.force_authenticate(user=user)
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = start_at + timedelta(days=1)
+
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "طلب ترويج شامل",
+            "items": [
+                {
+                    "service_type": "home_banner",
+                    "title": "بنر الرئيسية",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                },
+                {
+                    "service_type": "search_results",
+                    "title": "ظهور في البحث",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scope": "main_results",
+                    "search_position": "top10",
+                },
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    pr = PromoRequest.objects.get(pk=response.data["id"])
+    assert pr.ad_type == "bundle"
+    assert pr.ops_status == PromoOpsStatus.NEW
+    assert pr.items.count() == 2
+
+
+def test_quote_multi_item_request_creates_invoice_lines(user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="طلب متعدد",
+        ad_type="bundle",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    banner_item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر الرئيسية",
+        start_at=start_at,
+        end_at=end_at,
+        sort_order=10,
+    )
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="بحث",
+        start_at=start_at,
+        end_at=end_at,
+        search_scope="main_results",
+        search_position="top10",
+        sort_order=20,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        item=banner_item,
+        asset_type="image",
+        title="banner",
+        file=SimpleUploadedFile(
+            "bundle.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="bundle")
+    pr.refresh_from_db()
+
+    assert pr.status == PromoRequestStatus.QUOTED
+    assert pr.invoice is not None
+    assert pr.invoice.lines.count() == 2
+    assert str(pr.subtotal) == "2200.00"
+    assert str(pr.invoice.vat_amount) == "330.00"
+    assert str(pr.invoice.total) == "2530.00"
+
+
+def test_promo_dashboard_pages_render(client, promo_operator_user, user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="dashboard promo",
+        ad_type="bundle",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="dashboard banner",
+        start_at=start_at,
+        end_at=end_at,
+    )
+    SupportTicket.objects.create(
+        requester=user,
+        ticket_type=SupportTicketType.ADS,
+        description="أحتاج حملة ترويج",
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    assert client.get("/dashboard/promo/").status_code == 200
+    assert client.get(f"/dashboard/promo/{pr.id}/").status_code == 200
+    assert client.get("/dashboard/promo/modules/home_banner/").status_code == 200

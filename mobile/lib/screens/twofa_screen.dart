@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
+import '../services/auth_service.dart';
 import '../services/content_service.dart';
 import '../services/push_notification_service.dart';
 import 'signup_screen.dart';
@@ -222,15 +222,13 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
 
   Future<void> _checkFaceIdAvailability() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
-      final savedPhone = prefs.getString('nw_faceid_phone') ?? '';
-      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
-
-      if (!enabled || savedPhone.isEmpty || deviceToken.isEmpty) return;
+      final biometricData =
+          await AuthService.getBiometricCredentials(clearInvalid: true);
+      if (biometricData == null) return;
 
       // التحقق أن الرقم المحفوظ هو نفس الرقم المستخدم حالياً
-      if (savedPhone != widget.phone) return;
+      final currentPhone = AuthService.normalizePhoneLocal05(widget.phone);
+      if (currentPhone == null || biometricData.phone != currentPhone) return;
 
       final localAuth = LocalAuthentication();
       final canCheck = await localAuth.canCheckBiometrics;
@@ -267,11 +265,10 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
       }
 
       // البصمة ناجحة → تسجيل الدخول بالـ device_token
-      final prefs = await SharedPreferences.getInstance();
-      final phone = prefs.getString('nw_faceid_phone') ?? '';
-      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
+      final biometricData =
+          await AuthService.getBiometricCredentials(clearInvalid: true);
 
-      if (phone.isEmpty || deviceToken.isEmpty) {
+      if (biometricData == null) {
         setState(() {
           _isFaceIdLoading = false;
           _errorMessage = 'بيانات المصادقة غير متوفرة. أعد تفعيل معرف الوجه.';
@@ -279,7 +276,20 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
         return;
       }
 
-      final result = await AuthApiService.biometricLogin(phone, deviceToken);
+      final currentPhone = AuthService.normalizePhoneLocal05(widget.phone);
+      if (currentPhone == null || biometricData.phone != currentPhone) {
+        setState(() {
+          _isFaceIdLoading = false;
+          _errorMessage =
+              'معرف الوجه مفعّل لرقم جوال مختلف. استخدم OTP أو أعد تفعيل معرف الوجه.';
+        });
+        return;
+      }
+
+      final result = await AuthApiService.biometricLogin(
+        biometricData.phone,
+        biometricData.deviceToken,
+      );
       if (!mounted) return;
 
       setState(() => _isFaceIdLoading = false);

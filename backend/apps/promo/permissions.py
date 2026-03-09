@@ -1,34 +1,17 @@
 from __future__ import annotations
 
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import BasePermission
+
+from apps.backoffice.permissions import BackofficeDashboardMixin
 
 
-class IsOwnerOrBackofficePromo(BasePermission):
+class IsOwnerOrBackofficePromo(BackofficeDashboardMixin, BasePermission):
     """
     - المالك يرى طلبه
     - فريق الإعلانات يتطلب وصول لوحة promo
     - QA عرض فقط
     """
-    message = "غير مصرح."
-
-    def _is_backoffice_request(self, request) -> bool:
-        return "/backoffice/" in (getattr(request, "path", "") or "")
-
-    def _has_backoffice_access(self, request) -> bool:
-        ap = getattr(request.user, "access_profile", None)
-        if not ap:
-            return False
-        if ap.is_revoked() or ap.is_expired():
-            return False
-
-        if ap.is_readonly() and request.method not in SAFE_METHODS:
-            self.message = "حساب QA للعرض فقط."
-            return False
-
-        if ap.level in ("admin", "power"):
-            return True
-
-        return ap.is_allowed("promo")
+    dashboard_code = "promo"
 
     def has_permission(self, request, view):
         user = request.user
@@ -39,21 +22,14 @@ class IsOwnerOrBackofficePromo(BasePermission):
         return True
 
     def has_object_permission(self, request, view, obj):
-        user = request.user
-
         if self._is_backoffice_request(request):
             if not self._has_backoffice_access(request):
                 return False
-
-            ap = getattr(user, "access_profile", None)
-            if ap and ap.level == "user":
-                assigned_to_id = getattr(obj, "assigned_to_id", None)
-                if assigned_to_id is not None and assigned_to_id != user.id:
-                    self.message = "غير مصرح: هذا الطلب ليس ضمن المهام المكلّف بها."
-                    return False
+            if not self._check_assigned_to(request, obj):
+                return False
             return True
 
-        if obj.requester_id == user.id:
+        if obj.requester_id == request.user.id:
             return True
 
         return self._has_backoffice_access(request)

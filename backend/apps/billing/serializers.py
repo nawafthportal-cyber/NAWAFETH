@@ -27,7 +27,8 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         user = self.context["request"].user
-        vat = getattr(settings, "DEFAULT_VAT_PERCENT", 15)
+        from apps.core.models import PlatformConfig
+        vat = PlatformConfig.load().vat_percent
         invoice = Invoice.objects.create(
             user=user,
             vat_percent=Decimal(str(vat)),

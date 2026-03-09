@@ -6,6 +6,7 @@ from django.db import models
 from django.utils import timezone
 
 from apps.providers.models import ProviderProfile, ProviderPortfolioItem
+from apps.support.models import SupportTicket
 
 from .validators import validate_file_size, validate_extension
 
@@ -16,12 +17,14 @@ class PromoRequestStatus(models.TextChoices):
     QUOTED = "quoted", "تم التسعير"
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
     ACTIVE = "active", "مفعل"
+    COMPLETED = "completed", "مكتمل"
     REJECTED = "rejected", "مرفوض"
     EXPIRED = "expired", "منتهي"
     CANCELLED = "cancelled", "ملغي"
 
 
 class PromoAdType(models.TextChoices):
+    BUNDLE = "bundle", "طلب ترويج متعدد الخدمات"
     BANNER_HOME = "banner_home", "بانر الصفحة الرئيسية"
     BANNER_CATEGORY = "banner_category", "بانر صفحة القسم"
     BANNER_SEARCH = "banner_search", "بانر صفحة البحث"
@@ -46,6 +49,43 @@ class PromoFrequency(models.TextChoices):
     S20 = "20s", "كل 20 ثانية"
     S30 = "30s", "كل 30 ثانية"
     S60 = "60s", "كل 60 ثانية"
+    S300 = "300s", "كل 5 دقائق"
+    S900 = "900s", "كل 15 دقيقة"
+    S1800 = "1800s", "كل 30 دقيقة"
+    S3600 = "3600s", "كل ساعة"
+
+
+class PromoOpsStatus(models.TextChoices):
+    NEW = "new", "جديد"
+    IN_PROGRESS = "in_progress", "تحت المعالجة"
+    COMPLETED = "completed", "مكتمل"
+
+
+class PromoServiceType(models.TextChoices):
+    HOME_BANNER = "home_banner", "بنر الصفحة الرئيسية"
+    FEATURED_SPECIALISTS = "featured_specialists", "شريط أبرز المختصين"
+    PORTFOLIO_SHOWCASE = "portfolio_showcase", "شريط البنرات والمشاريع"
+    SNAPSHOTS = "snapshots", "شريط اللمحات"
+    SEARCH_RESULTS = "search_results", "الظهور في قوائم البحث"
+    PROMO_MESSAGES = "promo_messages", "الرسائل الدعائية"
+    SPONSORSHIP = "sponsorship", "الرعاية"
+
+
+class PromoSearchScope(models.TextChoices):
+    DEFAULT = "default", "قائمة البحث الافتراضية"
+    MAIN_RESULTS = "main_results", "نتائج البحث الرئيسية"
+    CATEGORY_MATCH = "category_match", "نتائج البحث المطابقة لتصنيف المختص"
+
+
+class PromoMessageChannel(models.TextChoices):
+    NOTIFICATION = "notification", "رسائل التنبيه الدعائية"
+    CHAT = "chat", "رسائل المحادثات الدعائية"
+
+
+class PromoPriceUnit(models.TextChoices):
+    DAY = "day", "لكل يوم"
+    CAMPAIGN = "campaign", "لكل حملة"
+    MONTH = "month", "لكل شهر"
 
 
 class PromoAssetType(models.TextChoices):
@@ -123,6 +163,7 @@ class PromoRequest(models.Model):
 
     quote_note = models.CharField(max_length=300, blank=True)
     reject_reason = models.CharField(max_length=300, blank=True)
+    ops_status = models.CharField(max_length=20, choices=PromoOpsStatus.choices, default=PromoOpsStatus.NEW)
 
     invoice = models.ForeignKey(
         "billing.Invoice",
@@ -134,6 +175,8 @@ class PromoRequest(models.Model):
 
     reviewed_at = models.DateTimeField(null=True, blank=True)
     activated_at = models.DateTimeField(null=True, blank=True)
+    ops_started_at = models.DateTimeField(null=True, blank=True)
+    ops_completed_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -155,8 +198,73 @@ class PromoRequest(models.Model):
         return self.code or f"MD-request-{self.pk}"
 
 
+class PromoRequestItem(models.Model):
+    request = models.ForeignKey(PromoRequest, on_delete=models.CASCADE, related_name="items")
+    service_type = models.CharField(max_length=40, choices=PromoServiceType.choices)
+    title = models.CharField(max_length=160, blank=True, default="")
+
+    start_at = models.DateTimeField(null=True, blank=True)
+    end_at = models.DateTimeField(null=True, blank=True)
+    send_at = models.DateTimeField(null=True, blank=True)
+
+    frequency = models.CharField(max_length=10, choices=PromoFrequency.choices, blank=True, default="")
+    search_scope = models.CharField(max_length=30, choices=PromoSearchScope.choices, blank=True, default="")
+    search_position = models.CharField(max_length=10, choices=PromoPosition.choices, blank=True, default="")
+
+    target_category = models.CharField(max_length=80, blank=True, default="")
+    target_city = models.CharField(max_length=80, blank=True, default="")
+    target_provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_request_items",
+    )
+    target_portfolio_item = models.ForeignKey(
+        ProviderPortfolioItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_request_items",
+    )
+
+    redirect_url = models.URLField(blank=True)
+    message_title = models.CharField(max_length=160, blank=True, default="")
+    message_body = models.CharField(max_length=500, blank=True, default="")
+    use_notification_channel = models.BooleanField(default=False)
+    use_chat_channel = models.BooleanField(default=False)
+    sponsor_name = models.CharField(max_length=160, blank=True, default="")
+    sponsor_url = models.URLField(blank=True)
+    sponsorship_months = models.PositiveIntegerField(default=0)
+    attachment_specs = models.CharField(max_length=300, blank=True, default="")
+    operator_note = models.CharField(max_length=300, blank=True, default="")
+
+    subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    duration_days = models.PositiveIntegerField(default=0)
+    pricing_rule_code = models.CharField(max_length=50, blank=True, default="")
+    sort_order = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "بند طلب ترويج"
+        verbose_name_plural = "بنود طلبات الترويج"
+
+    def __str__(self):
+        return f"{self.request.code} item#{self.pk} {self.service_type}"
+
+
 class PromoAsset(models.Model):
     request = models.ForeignKey(PromoRequest, on_delete=models.CASCADE, related_name="assets")
+    item = models.ForeignKey(
+        PromoRequestItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="assets",
+    )
 
     asset_type = models.CharField(max_length=20, choices=PromoAssetType.choices, default=PromoAssetType.IMAGE)
     title = models.CharField(max_length=160, blank=True)
@@ -190,3 +298,105 @@ class PromoAdPrice(models.Model):
 
     def __str__(self):
         return f"{self.ad_type}: {self.price_per_day}"
+
+
+class PromoPricingRule(models.Model):
+    code = models.CharField(max_length=50, unique=True)
+    service_type = models.CharField(max_length=40, choices=PromoServiceType.choices)
+    title = models.CharField(max_length=160)
+    unit = models.CharField(max_length=20, choices=PromoPriceUnit.choices, default=PromoPriceUnit.DAY)
+    frequency = models.CharField(max_length=10, choices=PromoFrequency.choices, blank=True, default="")
+    search_position = models.CharField(max_length=10, choices=PromoPosition.choices, blank=True, default="")
+    message_channel = models.CharField(max_length=20, choices=PromoMessageChannel.choices, blank=True, default="")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "قاعدة تسعير ترويجي"
+        verbose_name_plural = "قواعد التسعير الترويجي"
+
+    def __str__(self):
+        return f"{self.code}: {self.amount}"
+
+
+class HomeBannerMediaType(models.TextChoices):
+    IMAGE = "image", "صورة"
+    VIDEO = "video", "فيديو"
+
+
+class HomeBanner(models.Model):
+    """Dashboard-managed promotional banners displayed on the homepage carousel.
+
+    Admins create/edit these directly from the dashboard promo section.
+    Supports static images and short video clips with auto-rotation.
+    """
+
+    title = models.CharField("عنوان البانر", max_length=200)
+    media_type = models.CharField(
+        "نوع الوسائط",
+        max_length=10,
+        choices=HomeBannerMediaType.choices,
+        default=HomeBannerMediaType.IMAGE,
+    )
+    media_file = models.FileField(
+        "ملف الوسائط",
+        upload_to="promo/home_banners/%Y/%m/",
+        validators=[validate_file_size, validate_extension],
+    )
+    link_url = models.URLField("رابط التوجيه", blank=True)
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="مقدم الخدمة",
+        related_name="home_banners",
+    )
+
+    display_order = models.PositiveIntegerField("ترتيب العرض", default=0)
+    is_active = models.BooleanField("مفعل", default=True)
+    start_at = models.DateTimeField("تاريخ البداية", null=True, blank=True)
+    end_at = models.DateTimeField("تاريخ النهاية", null=True, blank=True)
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_home_banners",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["display_order", "-created_at"]
+        verbose_name = "بانر الصفحة الرئيسية"
+        verbose_name_plural = "بانرات الصفحة الرئيسية"
+
+    def __str__(self):
+        return self.title
+
+
+class PromoInquiryProfile(models.Model):
+    ticket = models.OneToOneField(SupportTicket, on_delete=models.CASCADE, related_name="promo_profile")
+    linked_request = models.ForeignKey(
+        PromoRequest,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_inquiries",
+    )
+    detailed_request_url = models.URLField(blank=True)
+    documentation_note = models.CharField(max_length=300, blank=True, default="")
+    operator_comment = models.CharField(max_length=300, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ملف استفسار ترويجي"
+        verbose_name_plural = "ملفات الاستفسارات الترويجية"
+
+    def __str__(self):
+        return f"Promo inquiry profile #{self.pk}"

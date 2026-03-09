@@ -1,78 +1,122 @@
 {% extends "mobile_web/base.html" %}{% load static %}
-{% block title %}الترويج والإعلانات — نوافــذ{% endblock %}
+{% block title %}إدارة الترويج — نوافــذ{% endblock %}
 {% block body_class %}page-promotion{% endblock %}
 
 {% block content %}
 <main class="page-shell">
   <div class="page-header">
     <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>الترويج والإعلانات</h1>
+    <h1>إدارة الترويج</h1>
   </div>
 
-  <!-- Tabs -->
   <div class="tabs-row" id="promo-tabs">
     <button class="tab active" data-tab="requests">طلباتي</button>
     <button class="tab" data-tab="new">طلب جديد</button>
   </div>
 
-  <!-- Tab: My Requests -->
-  <div class="tab-panel active" data-panel="requests" id="promo-requests-panel">
+  <section class="tab-panel active" data-panel="requests">
     <div id="promo-loading" class="loading-center"><div class="spinner"></div></div>
     <div id="promo-list"></div>
     <div id="promo-empty" class="empty-state" style="display:none">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><path d="M22 12h-9l-3 9L5.6 2.7 2 12h3"/></svg>
       <p>لا توجد طلبات ترويج حتى الآن</p>
-      <button class="btn btn-primary" id="btn-go-new">أنشئ طلبك الأول</button>
+      <button class="btn btn-primary" id="btn-go-new">ابدأ طلب جديد</button>
     </div>
-  </div>
+  </section>
 
-  <!-- Tab: New Request Form -->
-  <div class="tab-panel" data-panel="new">
+  <section class="tab-panel" data-panel="new">
+    <div class="detail-card" style="margin-bottom:12px">
+      <h3 style="margin:0 0 8px;font-size:18px">طلب ترويج متعدد الخدمات</h3>
+      <p class="text-muted" style="margin:0">يمكنك جمع أكثر من خدمة ترويجية في طلب واحد، ثم متابعة الحالة والتسعير من تبويب طلباتي.</p>
+    </div>
+
     <form id="promo-form" class="detail-card">
       <div class="form-group">
-        <label class="form-label">عنوان الحملة</label>
-        <input id="promo-title" type="text" class="form-input" placeholder="عنوان الإعلان" required>
+        <label class="form-label">عنوان الطلب</label>
+        <input id="promo-title" type="text" class="form-input" placeholder="مثال: حملة إبراز الحساب" required>
       </div>
+
       <div class="form-group">
-        <label class="form-label">نوع الإعلان</label>
-        <select id="promo-ad-type" class="form-select" required>
-          <option value="banner_home">بانر الصفحة الرئيسية</option>
-          <option value="banner_category">بانر صفحة القسم</option>
-          <option value="banner_search">بانر صفحة البحث</option>
-          <option value="popup_home">نافذة منبثقة رئيسية</option>
-          <option value="popup_category">نافذة منبثقة داخل قسم</option>
-          <option value="featured_top5">تمييز ضمن أول 5</option>
-          <option value="featured_top10">تمييز ضمن أول 10</option>
-          <option value="boost_profile">تعزيز ملف مقدم الخدمة</option>
-          <option value="push_notification">إشعار دفع (Push)</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">رابط التوجيه (اختياري)</label>
-        <input id="promo-redirect" type="url" class="form-input" placeholder="https://...">
-      </div>
-      <div class="form-row">
-        <div class="form-group half">
-          <label class="form-label">تاريخ البداية</label>
-          <input id="promo-start" type="date" class="form-input">
-        </div>
-        <div class="form-group half">
-          <label class="form-label">تاريخ النهاية</label>
-          <input id="promo-end" type="date" class="form-input">
+        <label class="form-label">اختر خدمات الترويج</label>
+        <div id="promo-service-picks" class="chips-wrap">
+          <button type="button" class="chip-btn" data-service="home_banner">بنر الصفحة الرئيسية</button>
+          <button type="button" class="chip-btn" data-service="featured_specialists">شريط أبرز المختصين</button>
+          <button type="button" class="chip-btn" data-service="portfolio_showcase">شريط البنرات والمشاريع</button>
+          <button type="button" class="chip-btn" data-service="snapshots">شريط اللمحات</button>
+          <button type="button" class="chip-btn" data-service="search_results">الظهور في قوائم البحث</button>
+          <button type="button" class="chip-btn" data-service="promo_messages">الرسائل الدعائية</button>
+          <button type="button" class="chip-btn" data-service="sponsorship">الرعاية</button>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">المدن المستهدفة</label>
-        <input id="promo-cities" type="text" class="form-input" placeholder="الرياض، جدة (اختياري)">
+
+      <div id="promo-service-blocks">
+        <div class="promo-service-block" data-service-block="home_banner" hidden>
+          <h4>بنر الصفحة الرئيسية</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
+          <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+          <div class="form-group"><label class="form-label">مرفقات البانر</label><input data-field="files" type="file" class="form-input" multiple></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="featured_specialists" hidden>
+          <h4>شريط أبرز المختصين</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="portfolio_showcase" hidden>
+          <h4>شريط البنرات والمشاريع</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="snapshots" hidden>
+          <h4>شريط اللمحات</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="search_results" hidden>
+          <h4>الظهور في قوائم البحث</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">تصنيف المختص</label><input data-field="target_category" type="text" class="form-input"></div>
+          <div class="form-group"><label class="form-label">قائمة الظهور</label><select data-field="search_scope" class="form-select"><option value="default">قائمة البحث الافتراضية</option><option value="main_results">نتائج البحث الرئيسية</option><option value="category_match">نتائج البحث المطابقة للتصنيف</option></select></div>
+          <div class="form-group"><label class="form-label">ترتيب الظهور</label><select data-field="search_position" class="form-select"><option value="first">الأول في القائمة</option><option value="second">الثاني في القائمة</option><option value="top5">من أول خمسة أسماء</option><option value="top10">من أول عشرة أسماء</option></select></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="promo_messages" hidden>
+          <h4>الرسائل الدعائية</h4>
+          <div class="form-group"><label class="form-label">وقت الإرسال</label><input data-field="send_at" type="datetime-local" class="form-input"></div>
+          <div class="check-row"><label><input data-field="use_notification_channel" type="checkbox" checked> رسائل التنبيه</label><label><input data-field="use_chat_channel" type="checkbox"> رسائل المحادثات</label></div>
+          <div class="form-group"><label class="form-label">نص الرسالة الترويجية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
+          <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+          <div class="form-group"><label class="form-label">مرفقات الرسالة</label><input data-field="files" type="file" class="form-input" multiple></div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="sponsorship" hidden>
+          <h4>الرعاية</h4>
+          <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
+          <div class="form-group"><label class="form-label">اسم الراعي</label><input data-field="sponsor_name" type="text" class="form-input"></div>
+          <div class="form-group"><label class="form-label">مدة الرعاية بالأشهر</label><input data-field="sponsorship_months" type="number" min="1" class="form-input" value="1"></div>
+          <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
+          <div class="form-group"><label class="form-label">نص رسالة الرعاية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
+          <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+          <div class="form-group"><label class="form-label">شعار الراعي</label><input data-field="files" type="file" class="form-input" multiple></div>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">صورة الإعلان</label>
-        <input id="promo-image" type="file" accept="image/*" class="form-input">
-      </div>
-      <button type="submit" class="btn btn-primary btn-block" id="promo-submit">إرسال الطلب</button>
+
+      <button type="submit" class="btn btn-primary btn-block" id="promo-submit">إرسال طلب الترويج</button>
     </form>
-  </div>
+  </section>
 </main>
+
+<style>
+  .chips-wrap{display:flex;flex-wrap:wrap;gap:8px}
+  .chip-btn{border:1px solid #c8b3ea;background:#fff;color:#663d90;border-radius:999px;padding:10px 14px;font:inherit}
+  .chip-btn.active{background:#efe7fb;border-color:#663d90}
+  .promo-service-block{border:1px solid #eee;border-radius:16px;padding:14px;margin:0 0 12px;background:#fff}
+  .promo-service-block h4{margin:0 0 12px;color:#663d90}
+  .check-row{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px}
+</style>
 {% endblock %}
 
 {% block extra_js %}

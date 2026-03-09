@@ -77,6 +77,7 @@ class AuthApiService {
         roleState: roleState,
       );
     }
+    await AuthService.saveLastLoginPhone(phone);
 
     return OtpVerifyResult(
       success: true,
@@ -242,6 +243,7 @@ class AuthApiService {
     if (userId != null) {
       await AuthService.saveUserBasicInfo(userId: userId, roleState: roleState);
     }
+    await AuthService.saveLastLoginPhone(phone);
 
     return OtpVerifyResult(
       success: true,

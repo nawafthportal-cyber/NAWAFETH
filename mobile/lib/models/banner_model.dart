@@ -1,40 +1,37 @@
-/// نموذج بانر الإعلان — يطابق PromoHomeBannerAssetSerializer
+/// نموذج بانر الإعلان — يطابق HomeBannerSerializer
 class BannerModel {
   final int id;
+  final String? title;
+  final String mediaType; // "image" | "video"
+  final String? mediaUrl;
+  final String? linkUrl;
   final int? providerId;
   final String? providerDisplayName;
-  final String? providerUsername;
-  final String fileType; // "image" | "video"
-  final String? fileUrl;
-  final String? caption;
-  final String? redirectUrl;
-  final String? createdAt;
+  final int displayOrder;
 
   BannerModel({
     required this.id,
+    this.title,
+    this.mediaType = 'image',
+    this.mediaUrl,
+    this.linkUrl,
     this.providerId,
     this.providerDisplayName,
-    this.providerUsername,
-    this.fileType = 'image',
-    this.fileUrl,
-    this.caption,
-    this.redirectUrl,
-    this.createdAt,
+    this.displayOrder = 0,
   });
 
   factory BannerModel.fromJson(Map<String, dynamic> json) {
     return BannerModel(
       id: json['id'] as int? ?? 0,
+      title: json['title'] as String?,
+      mediaType: json['media_type'] as String? ?? 'image',
+      mediaUrl: json['media_url'] as String?,
+      linkUrl: json['link_url'] as String?,
       providerId: json['provider_id'] as int?,
       providerDisplayName: json['provider_display_name'] as String?,
-      providerUsername: json['provider_username'] as String?,
-      fileType: json['file_type'] as String? ?? 'image',
-      fileUrl: json['file_url'] as String?,
-      caption: json['caption'] as String?,
-      redirectUrl: json['redirect_url'] as String?,
-      createdAt: json['created_at'] as String?,
+      displayOrder: json['display_order'] as int? ?? 0,
     );
   }
 
-  bool get isVideo => fileType == 'video';
+  bool get isVideo => mediaType == 'video';
 }

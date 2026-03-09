@@ -1,0 +1,98 @@
+{% extends 'extras_portal/base_portal.html' %}
+
+{% block title %}طلب #{{ sr.id }}{% endblock %}
+{% block header %}تفاصيل الطلب #{{ sr.id }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <a href="{% url 'extras_portal:finance' %}" class="inline-flex items-center text-sky-600 hover:underline mb-4 text-sm">&larr; العودة لكشف الحساب</a>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow p-6 space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div>
+        <span class="block text-gray-500 text-xs">رقم الطلب</span>
+        <span class="font-bold text-lg">#{{ sr.id }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">الحالة</span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+          {% if sr.status == 'completed' %}bg-green-100 text-green-800
+          {% elif sr.status == 'canceled' %}bg-red-100 text-red-800
+          {% elif sr.status == 'in_progress' %}bg-blue-100 text-blue-800
+          {% else %}bg-gray-100 text-gray-800{% endif %}">{{ sr.get_status_display }}</span>
+      </div>
+
+      <div>
+        <span class="block text-gray-500 text-xs">العميل</span>
+        <span>{{ sr.client.phone|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">التصنيف</span>
+        <span>{{ sr.subcategory|default:"—" }}</span>
+      </div>
+
+      <div>
+        <span class="block text-gray-500 text-xs">العنوان</span>
+        <span>{{ sr.title|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">المدينة</span>
+        <span>{{ sr.city|default:"—" }}</span>
+      </div>
+
+      <div class="md:col-span-2">
+        <span class="block text-gray-500 text-xs">الوصف</span>
+        <p class="text-gray-700 mt-1">{{ sr.description|default:"—" }}</p>
+      </div>
+    </div>
+
+    <hr class="border-gray-100">
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+      <div>
+        <span class="block text-gray-500 text-xs">المبلغ التقديري</span>
+        <span class="font-semibold">{{ sr.estimated_service_amount|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">المبلغ المستلم</span>
+        <span class="font-semibold text-green-700">{{ sr.received_amount|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">المبلغ المتبقي</span>
+        <span class="font-semibold text-orange-600">{{ sr.remaining_amount|default:"—" }}</span>
+      </div>
+      <div>
+        <span class="block text-gray-500 text-xs">المبلغ الفعلي</span>
+        <span class="font-semibold">{{ sr.actual_service_amount|default:"—" }}</span>
+      </div>
+    </div>
+
+    <hr class="border-gray-100">
+
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+      <div>
+        <span class="block text-gray-500 text-xs">تاريخ الإنشاء</span>
+        <span>{{ sr.created_at|date:"Y-m-d H:i" }}</span>
+      </div>
+      {% if sr.delivered_at %}
+      <div>
+        <span class="block text-gray-500 text-xs">تاريخ التسليم</span>
+        <span>{{ sr.delivered_at|date:"Y-m-d H:i" }}</span>
+      </div>
+      {% endif %}
+      {% if sr.canceled_at %}
+      <div>
+        <span class="block text-gray-500 text-xs">تاريخ الإلغاء</span>
+        <span>{{ sr.canceled_at|date:"Y-m-d H:i" }}</span>
+      </div>
+      {% endif %}
+      {% if sr.cancel_reason %}
+      <div class="md:col-span-3">
+        <span class="block text-gray-500 text-xs">سبب الإلغاء</span>
+        <span class="text-red-600">{{ sr.cancel_reason }}</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

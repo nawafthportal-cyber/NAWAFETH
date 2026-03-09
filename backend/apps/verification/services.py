@@ -80,7 +80,12 @@ BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
 }
 
 
-VERIFICATION_PRICING_CURRENCY = "SAR"
+def _get_verification_currency():
+    from apps.core.models import PlatformConfig
+    return PlatformConfig.load().verification_currency
+
+
+VERIFICATION_PRICING_CURRENCY = "SAR"  # kept as module-level fallback
 VERIFICATION_BILLING_CYCLE = "yearly"
 VERIFICATION_BILLING_CYCLE_LABEL = "سنوي"
 VERIFICATION_CHARGE_MODEL = "per_verification"

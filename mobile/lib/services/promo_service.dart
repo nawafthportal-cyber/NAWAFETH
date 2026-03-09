@@ -4,12 +4,15 @@ import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/upload_optimizer.dart';
 
 class PromoService {
-  /// إنشاء طلب ترويج (إعلان) جديد
+  /// إنشاء طلب ترويج جديد.
+  ///
+  /// يدعم المسار الجديد متعدد البنود عبر [items]،
+  /// ويحتفظ بالتوافق مع الطلب الأحادي القديم عند عدم تمرير البنود.
   static Future<ApiResponse> createRequest({
     required String title,
-    required String adType,
-    required String startAt,
-    required String endAt,
+    String? adType,
+    String? startAt,
+    String? endAt,
     String frequency = '60s',
     String position = 'normal',
     String? targetCategory,
@@ -18,15 +21,20 @@ class PromoService {
     String? messageTitle,
     String? messageBody,
     String? redirectUrl,
+    List<Map<String, dynamic>>? items,
   }) async {
-    final body = <String, dynamic>{
-      'title': title,
+    final body = <String, dynamic>{'title': title};
+    if (items != null && items.isNotEmpty) {
+      body['items'] = items;
+      return ApiClient.post('/api/promo/requests/create/', body: body);
+    }
+    body.addAll({
       'ad_type': adType,
       'start_at': startAt,
       'end_at': endAt,
       'frequency': frequency,
       'position': position,
-    };
+    });
     if (targetCategory != null && targetCategory.isNotEmpty) {
       body['target_category'] = targetCategory;
     }
@@ -48,6 +56,13 @@ class PromoService {
     return ApiClient.post('/api/promo/requests/create/', body: body);
   }
 
+  static Future<ApiResponse> createBundleRequest({
+    required String title,
+    required List<Map<String, dynamic>> items,
+  }) {
+    return createRequest(title: title, items: items);
+  }
+
   /// جلب طلبات الترويج الخاصة بي
   static Future<ApiResponse> fetchMyRequests() {
     return ApiClient.get('/api/promo/requests/my/');
@@ -64,6 +79,7 @@ class PromoService {
     required File file,
     required String assetType,
     String title = '',
+    int? itemId,
   }) async {
     final optimized = await UploadOptimizer.optimizeForUpload(
       file,
@@ -75,6 +91,7 @@ class PromoService {
       (request) async {
         request.fields['asset_type'] = assetType;
         if (title.isNotEmpty) request.fields['title'] = title;
+        if (itemId != null) request.fields['item_id'] = itemId.toString();
         request.files.add(
           await http.MultipartFile.fromPath('file', optimized.path),
         );

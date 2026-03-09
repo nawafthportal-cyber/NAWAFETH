@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter_sound/flutter_sound.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/chat_message_model.dart';
 import '../models/service_request_model.dart';
 import '../services/messaging_service.dart';
@@ -38,6 +40,8 @@ class ChatDetailScreen extends StatefulWidget {
 class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
+  final FlutterSoundPlayer _player = FlutterSoundPlayer();
 
   bool _isRecording = false;
   int _recordSeconds = 0;
@@ -59,6 +63,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   int? _myUserId;
   int? _resolvedThreadId;
   String? _errorMessage;
+  bool _recorderInitialized = false;
+  bool _playerInitialized = false;
+  int? _playingMessageId;
   bool _isChatConnected = true;
   bool _isReconnecting = false;
   bool _isProviderAccount = false;
@@ -259,10 +266,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     // التحقق من وجود محتوى
     final text = _controller.text.trim();
     final hasPendingFile =
-        _pendingType != null && _pendingType != "text" && _pendingFile != null;
-    final hasPendingAudio = _pendingType == "audio" && _pendingDuration != null;
+        _pendingType != null && _pendingType != "text" && _pendingFile is File;
 
-    if (text.isEmpty && !hasPendingFile && !hasPendingAudio) return;
+    if (text.isEmpty && !hasPendingFile) return;
     if (_resolvedThreadId == null) return;
 
     setState(() => _isSending = true);
@@ -346,8 +352,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final updatedMessages = page.messages.reversed.toList();
       final updatedLastId =
           updatedMessages.isNotEmpty ? updatedMessages.last.id : null;
-      final hasNewMessages =
-          updatedMessages.length != previousCount || updatedLastId != previousLastId;
+      final hasNewMessages = updatedMessages.length != previousCount ||
+          updatedLastId != previousLastId;
 
       setState(() {
         _messages = updatedMessages;
@@ -376,32 +382,181 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   bool _isNearBottom() {
     if (!_scrollController.hasClients) return true;
-    final remaining =
-        _scrollController.position.maxScrollExtent - _scrollController.position.pixels;
+    final remaining = _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
     return remaining <= 140;
   }
 
-  // ✅ التسجيل الصوتي
-  void _startRecording() {
-    setState(() {
-      _isRecording = true;
-      _pendingType = null;
-      _pendingFile = null;
-      _recordSeconds = 0;
-    });
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() => _recordSeconds++);
-    });
+  void _snack(String message, {Color? backgroundColor}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(fontFamily: 'Cairo'),
+        ),
+        backgroundColor: backgroundColor,
+      ),
+    );
   }
 
-  void _stopRecording() {
+  Future<bool> _ensureRecorderReady() async {
+    if (_recorderInitialized) return true;
+    try {
+      final permission = await Permission.microphone.request();
+      if (permission != PermissionStatus.granted) {
+        _snack('يجب السماح بالوصول إلى الميكروفون',
+            backgroundColor: Colors.red);
+        return false;
+      }
+      await _recorder.openRecorder();
+      _recorderInitialized = true;
+      return true;
+    } catch (_) {
+      _snack('تعذر تهيئة التسجيل الصوتي', backgroundColor: Colors.red);
+      return false;
+    }
+  }
+
+  Future<bool> _ensurePlayerReady() async {
+    if (_playerInitialized) return true;
+    try {
+      await _player.openPlayer();
+      _playerInitialized = true;
+      return true;
+    } catch (_) {
+      _snack('تعذر تهيئة تشغيل الصوت', backgroundColor: Colors.red);
+      return false;
+    }
+  }
+
+  Future<void> _stopAudioPlayback({bool refreshUi = true}) async {
+    try {
+      if (_playerInitialized && _player.isPlaying) {
+        await _player.stopPlayer();
+      }
+    } catch (_) {}
+
+    if (refreshUi && mounted) {
+      setState(() => _playingMessageId = null);
+    } else {
+      _playingMessageId = null;
+    }
+  }
+
+  // ✅ التسجيل الصوتي
+  Future<void> _startRecording() async {
+    if (_isRecording) return;
+    final isRecorderReady = await _ensureRecorderReady();
+    if (!isRecorderReady || !mounted) return;
+
+    try {
+      await _stopAudioPlayback(refreshUi: false);
+      final path =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}chat_audio_${DateTime.now().millisecondsSinceEpoch}.aac';
+      await _recorder.startRecorder(
+        toFile: path,
+        codec: Codec.aacADTS,
+      );
+
+      _timer?.cancel();
+      setState(() {
+        _isRecording = true;
+        _pendingType = null;
+        _pendingFile = null;
+        _pendingDuration = null;
+        _recordSeconds = 0;
+      });
+
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() => _recordSeconds++);
+      });
+    } catch (_) {
+      _timer?.cancel();
+      if (!mounted) return;
+      setState(() => _isRecording = false);
+      _snack('تعذر بدء التسجيل الصوتي', backgroundColor: Colors.red);
+    }
+  }
+
+  Future<void> _stopRecording() async {
     _timer?.cancel();
-    setState(() {
-      _isRecording = false;
-      _pendingType = "audio";
-      _pendingDuration = _recordSeconds;
-    });
+    try {
+      final path = await _recorder.stopRecorder();
+      if (!mounted) return;
+
+      if (path == null || path.isEmpty) {
+        setState(() {
+          _isRecording = false;
+          _pendingType = null;
+          _pendingFile = null;
+          _pendingDuration = null;
+          _recordSeconds = 0;
+        });
+        _snack('لم يتم حفظ الرسالة الصوتية', backgroundColor: Colors.red);
+        return;
+      }
+
+      setState(() {
+        _isRecording = false;
+        _pendingType = "audio";
+        _pendingFile = File(path);
+        _pendingDuration = _recordSeconds;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isRecording = false;
+        _pendingType = null;
+        _pendingFile = null;
+        _pendingDuration = null;
+        _recordSeconds = 0;
+      });
+      _snack('تعذر إيقاف التسجيل الصوتي', backgroundColor: Colors.red);
+    }
+  }
+
+  Future<void> _toggleAudioPlayback(ChatMessage msg) async {
+    final fullUrl = ApiClient.buildMediaUrl(msg.attachmentUrl);
+    if (fullUrl == null || fullUrl.isEmpty) {
+      _snack('ملف الرسالة الصوتية غير متوفر', backgroundColor: Colors.red);
+      return;
+    }
+
+    final isPlayerReady = await _ensurePlayerReady();
+    if (!isPlayerReady) return;
+
+    try {
+      if (_playingMessageId == msg.id && _player.isPlaying) {
+        await _stopAudioPlayback();
+        return;
+      }
+
+      await _stopAudioPlayback(refreshUi: false);
+      if (mounted) {
+        setState(() => _playingMessageId = msg.id);
+      } else {
+        _playingMessageId = msg.id;
+      }
+
+      await _player.startPlayer(
+        fromURI: fullUrl,
+        whenFinished: () {
+          if (!mounted) {
+            _playingMessageId = null;
+            return;
+          }
+          setState(() => _playingMessageId = null);
+        },
+      );
+    } catch (_) {
+      await _stopAudioPlayback();
+      _snack('تعذر تشغيل الرسالة الصوتية', backgroundColor: Colors.red);
+    }
   }
 
   // ✅ اختيار صورة من المعرض
@@ -1340,20 +1495,64 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         );
       } else if (msg.attachmentType == 'audio') {
-        content = Row(
-          mainAxisSize: MainAxisSize.min,
+        final isPlayingThisMessage =
+            _playingMessageId == msg.id && _player.isPlaying;
+        content = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.play_circle_fill, color: textColor, size: 32),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                msg.attachmentName.isNotEmpty
-                    ? msg.attachmentName
-                    : "رسالة صوتية",
-                style: TextStyle(color: textColor, fontFamily: "Cairo"),
-                overflow: TextOverflow.ellipsis,
+            InkWell(
+              onTap: fullUrl == null ? null : () => _toggleAudioPlayback(msg),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isMe
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isPlayingThisMessage
+                          ? Icons.stop_circle
+                          : Icons.play_circle_fill,
+                      color: isMe ? Colors.white : Colors.deepPurple,
+                      size: 30,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        isPlayingThisMessage
+                            ? "إيقاف الرسالة الصوتية"
+                            : (msg.attachmentName.isNotEmpty
+                                ? msg.attachmentName
+                                : "تشغيل الرسالة الصوتية"),
+                        style: TextStyle(
+                          color: isMe ? Colors.white : Colors.black87,
+                          fontFamily: "Cairo",
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
+            if (msg.body.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                msg.body,
+                style: TextStyle(
+                  color: textColor,
+                  fontFamily: "Cairo",
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ],
         );
       } else {
@@ -1522,6 +1721,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             icon: const Icon(Icons.close, color: Colors.red),
             onPressed: () => setState(() {
               _pendingType = null;
+              _pendingFile = null;
               _pendingDuration = null;
             }),
           ),
@@ -1580,6 +1780,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void dispose() {
     _timer?.cancel();
     _liveSyncTimer?.cancel();
+    if (_playerInitialized) {
+      _player.closePlayer();
+    }
+    if (_recorderInitialized) {
+      _recorder.closeRecorder();
+    }
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();

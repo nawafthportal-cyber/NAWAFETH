@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 
 from apps.accounts.models import OTP, User
-from apps.accounts.otp import generate_otp_code, otp_expiry
+from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
@@ -31,15 +31,12 @@ from .models import (
 
 
 def _portal_accept_any_otp_code() -> bool:
-    # Keep same dev behavior as dashboard OTP.
-    return True
+    return accept_any_otp_code()
 
 
 def _client_ip(request: HttpRequest) -> str | None:
-    xff = (request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
-    if xff:
-        return xff.split(",")[0].strip() or None
-    return (request.META.get("REMOTE_ADDR") or "").strip() or None
+    from apps.accounts.otp import client_ip
+    return client_ip(request)
 
 
 def _get_provider_or_403(request: HttpRequest) -> ProviderProfile:
@@ -102,13 +99,7 @@ def portal_login(request: HttpRequest) -> HttpResponse:
         request.session[SESSION_PORTAL_LOGIN_USER_ID_KEY] = user.id
 
         if not _portal_accept_any_otp_code():
-            code = generate_otp_code()
-            OTP.objects.create(
-                phone=user.phone,
-                ip_address=_client_ip(request),
-                code=code,
-                expires_at=otp_expiry(5),
-            )
+            create_otp(user.phone, request)
 
         return redirect("extras_portal:otp")
 
@@ -134,16 +125,13 @@ def portal_otp(request: HttpRequest) -> HttpResponse:
         code = form.cleaned_data["code"]
 
         if not _portal_accept_any_otp_code():
-            otp = OTP.objects.filter(phone=portal_user.phone, is_used=False).order_by("-id").first()
-            if not otp or otp.expires_at < timezone.now() or otp.code != code:
+            if not verify_otp(portal_user.phone, code):
                 messages.error(request, "الكود غير صحيح أو منتهي")
                 return render(
                     request,
                     "extras_portal/otp.html",
                     {"form": form, "phone": portal_user.phone, "dev_accept_any": False},
                 )
-            otp.is_used = True
-            otp.save(update_fields=["is_used"])
 
         login(request, portal_user, backend="django.contrib.auth.backends.ModelBackend")
         request.session[SESSION_PORTAL_OTP_VERIFIED_KEY] = True
@@ -208,7 +196,9 @@ def portal_reports(request: HttpRequest) -> HttpResponse:
 @extras_portal_login_required
 def portal_reports_export_xlsx(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:2000]
+    from apps.core.models import PlatformConfig
+    _limit = PlatformConfig.load().export_xlsx_max_rows
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
 
     rows = []
     for r in qs:
@@ -235,7 +225,9 @@ def portal_reports_export_xlsx(request: HttpRequest) -> HttpResponse:
 @extras_portal_login_required
 def portal_reports_export_pdf(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:200]
+    from apps.core.models import PlatformConfig
+    _limit = PlatformConfig.load().export_pdf_max_rows
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
     rows = []
     for r in qs:
         rows.append([r.id, r.title, r.get_status_display(), getattr(r.client, "phone", ""), r.created_at])
@@ -390,7 +382,9 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
 @extras_portal_login_required
 def portal_finance_export_xlsx(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:2000]
+    from apps.core.models import PlatformConfig
+    _limit = PlatformConfig.load().export_xlsx_max_rows
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
 
     rows = []
     for r in qs:
@@ -427,7 +421,9 @@ def portal_finance_export_xlsx(request: HttpRequest) -> HttpResponse:
 @extras_portal_login_required
 def portal_finance_export_pdf(request: HttpRequest) -> HttpResponse:
     provider = _get_provider_or_403(request)
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:200]
+    from apps.core.models import PlatformConfig
+    _limit = PlatformConfig.load().export_pdf_max_rows
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
 
     rows = []
     for r in qs:
@@ -447,4 +443,19 @@ def portal_finance_export_pdf(request: HttpRequest) -> HttpResponse:
         headers=["رقم الطلب", "جوال العميل", "الحالة", "التاريخ", "المستلم"],
         rows=rows,
         landscape=True,
+    )
+
+
+@extras_portal_login_required
+def portal_invoice_detail(request: HttpRequest, pk: int) -> HttpResponse:
+    """تفاصيل طلب / فاتورة واحدة."""
+    provider = _get_provider_or_403(request)
+    sr = ServiceRequest.objects.filter(pk=pk, provider=provider).select_related("client", "subcategory").first()
+    if sr is None:
+        from django.http import Http404
+        raise Http404
+    return render(
+        request,
+        "extras_portal/invoice_detail.html",
+        {"provider": provider, "sr": sr},
     )

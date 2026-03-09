@@ -58,9 +58,25 @@ from apps.subscriptions.services import (
     start_subscription_checkout,
     start_subscription_renewal_checkout,
 )
-from apps.promo.models import PromoRequest, PromoRequestStatus
-from apps.promo.models import PromoAdPrice, PromoAdType
-from apps.promo.services import quote_and_create_invoice, reject_request, activate_after_payment as activate_promo_after_payment
+from apps.promo.models import (
+    HomeBanner,
+    HomeBannerMediaType,
+    PromoInquiryProfile,
+    PromoOpsStatus,
+    PromoPricingRule,
+    PromoRequest,
+    PromoRequestItem,
+    PromoRequestStatus,
+    PromoServiceType,
+)
+from apps.promo.services import (
+    activate_after_payment as activate_promo_after_payment,
+    ensure_default_pricing_rules,
+    quote_and_create_invoice,
+    reject_request,
+    set_promo_ops_status,
+    _sync_promo_to_unified,
+)
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.extras.services import activate_extra_after_payment
 from apps.features.checks import has_feature
@@ -203,6 +219,82 @@ def _is_promo_operator_user(user) -> bool:
     if ap.level in {AccessLevel.ADMIN, AccessLevel.POWER}:
         return True
     return ap.level == AccessLevel.USER and ap.is_allowed("promo")
+
+
+PROMO_MODULE_MENU: tuple[tuple[str, str], ...] = (
+    (PromoServiceType.HOME_BANNER, "بنر الصفحة الرئيسية"),
+    (PromoServiceType.FEATURED_SPECIALISTS, "شريط أبرز المختصين"),
+    (PromoServiceType.PORTFOLIO_SHOWCASE, "شريط البنرات والمشاريع"),
+    (PromoServiceType.SNAPSHOTS, "شريط اللمحات"),
+    (PromoServiceType.SEARCH_RESULTS, "الظهور في قوائم البحث"),
+    (PromoServiceType.PROMO_MESSAGES, "الرسائل الدعائية"),
+    (PromoServiceType.SPONSORSHIP, "الرعاية"),
+)
+
+
+def _promo_staff_users():
+    return [
+        u
+        for u in User.objects.filter(is_staff=True).order_by("-id")[:300]
+        if _is_promo_operator_user(u)
+    ][:150]
+
+
+def _promo_requests_queryset():
+    return (
+        PromoRequest.objects.select_related("requester", "invoice", "assigned_to")
+        .prefetch_related("items", "items__assets", "assets")
+        .order_by("-id")
+    )
+
+
+def _promo_inquiries_queryset():
+    return (
+        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to")
+        .filter(ticket_type=SupportTicketType.ADS)
+        .order_by("-id")
+    )
+
+
+def _promo_service_counts():
+    counts = {
+        row["service_type"]: row["c"]
+        for row in PromoRequestItem.objects.values("service_type").annotate(c=Count("id"))
+    }
+    return [{"key": key, "label": label, "count": counts.get(key, 0)} for key, label in PROMO_MODULE_MENU]
+
+
+def _promo_unified_request(pr: PromoRequest):
+    return UnifiedRequest.objects.select_related("assigned_user").filter(
+        source_app="promo",
+        source_model="PromoRequest",
+        source_object_id=str(pr.id),
+    ).first()
+
+
+def _promo_attach_note_to_latest_log(*, ur: UnifiedRequest | None, model_cls, to_value: str, note: str, changed_by):
+    if not ur or not note:
+        return
+    log = (
+        model_cls.objects.filter(
+            request=ur,
+            to_status=to_value,
+            changed_by=changed_by,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if log and not log.note:
+        log.note = note[:200]
+        log.save(update_fields=["note"])
+
+
+def _promo_dashboard_menu_context(*, active: str):
+    return {
+        "promo_menu": [{"key": key, "label": label} for key, label in PROMO_MODULE_MENU],
+        "promo_active": active,
+        "promo_service_counts": _promo_service_counts(),
+    }
 
 
 def _is_active_admin_profile(ap: UserAccessProfile) -> bool:
@@ -1934,16 +2026,7 @@ def support_ticket_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
 @staff_member_required
 @dashboard_access_required("promo")
 def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
-    """Promo inquiries are SupportTickets of type ADS.
-
-    This is intentionally separate from promo requests (PromoRequest).
-    """
-
-    qs = (
-        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to")
-        .filter(ticket_type=SupportTicketType.ADS)
-        .order_by("-id")
-    )
+    qs = _promo_inquiries_queryset()
     q = (request.GET.get("q") or "").strip()
     status_val = (request.GET.get("status") or "").strip()
     priority_val = (request.GET.get("priority") or "").strip()
@@ -1982,19 +2065,17 @@ def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
 
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
-    return render(
-        request,
-        "dashboard/promo_inquiries_list.html",
-        {
-            "page_obj": page_obj,
-            "q": q,
-            "status_val": status_val,
-            "priority_val": priority_val,
-            "status_choices": SupportTicketStatus.choices,
-            "priority_choices": SupportTicket._meta.get_field("priority").choices,
-            "can_write": _dashboard_allowed(request.user, "promo", write=True),
-        },
-    )
+    ctx = {
+        "page_obj": page_obj,
+        "q": q,
+        "status_val": status_val,
+        "priority_val": priority_val,
+        "status_choices": SupportTicketStatus.choices,
+        "priority_choices": SupportTicket._meta.get_field("priority").choices,
+        "can_write": _dashboard_allowed(request.user, "promo", write=True),
+    }
+    ctx.update(_promo_dashboard_menu_context(active="inquiries"))
+    return render(request, "dashboard/promo_inquiries_list.html", ctx)
 
 
 @staff_member_required
@@ -2013,32 +2094,28 @@ def promo_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
-    staff_users = [
-        u
-        for u in User.objects.filter(is_staff=True).order_by("-id")[:300]
-        if _is_promo_operator_user(u)
-    ][:150]
+    staff_users = _promo_staff_users()
     can_write = _dashboard_allowed(request.user, "promo", write=True)
+    profile, _ = PromoInquiryProfile.objects.get_or_create(ticket=ticket)
+    linked_requests = _promo_requests_queryset().filter(requester=ticket.requester)[:20]
 
-    return render(
-        request,
-        "dashboard/support_ticket_detail.html",
-        {
-            "ticket": ticket,
-            "comments": comments,
-            "logs": logs,
-            "teams": teams,
-            "staff_users": staff_users,
-            "status_choices": SupportTicketStatus.choices,
-            "reported_user_profile_url": "",
-            "reported_target_label": "",
-            "reported_target_url": "",
-            "can_write": can_write,
-            "back_url": reverse("dashboard:promo_inquiries_list"),
-            "assign_action_url": reverse("dashboard:promo_assign_action", args=[ticket.id]),
-            "status_action_url": reverse("dashboard:promo_inquiry_status_action", args=[ticket.id]),
-        },
-    )
+    ctx = {
+        "ticket": ticket,
+        "profile": profile,
+        "comments": comments,
+        "logs": logs,
+        "teams": teams,
+        "staff_users": staff_users,
+        "linked_requests": linked_requests,
+        "status_choices": SupportTicketStatus.choices,
+        "can_write": can_write,
+        "back_url": reverse("dashboard:promo_inquiries_list"),
+        "assign_action_url": reverse("dashboard:promo_assign_action", args=[ticket.id]),
+        "status_action_url": reverse("dashboard:promo_inquiry_status_action", args=[ticket.id]),
+        "profile_action_url": reverse("dashboard:promo_inquiry_profile_action", args=[ticket.id]),
+    }
+    ctx.update(_promo_dashboard_menu_context(active="inquiries"))
+    return render(request, "dashboard/promo_inquiry_detail.html", ctx)
 
 
 @staff_member_required
@@ -2097,6 +2174,22 @@ def promo_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
 @staff_member_required
 @dashboard_access_required("promo", write=True)
 @require_POST
+def promo_inquiry_profile_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
+    ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
+    profile, _ = PromoInquiryProfile.objects.get_or_create(ticket=ticket)
+    linked_request_id = (request.POST.get("linked_request") or "").strip()
+    profile.linked_request = PromoRequest.objects.filter(id=linked_request_id).first() if linked_request_id else None
+    profile.detailed_request_url = (request.POST.get("detailed_request_url") or "").strip()
+    profile.documentation_note = (request.POST.get("documentation_note") or "").strip()[:300]
+    profile.operator_comment = (request.POST.get("operator_comment") or "").strip()[:300]
+    profile.save(update_fields=["linked_request", "detailed_request_url", "documentation_note", "operator_comment", "updated_at"])
+    messages.success(request, "تم حفظ بيانات الاستفسار الترويجي")
+    return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
 def promo_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
 
@@ -2123,36 +2216,30 @@ def promo_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpRes
 @staff_member_required
 @dashboard_access_required("promo")
 def promo_pricing(request: HttpRequest) -> HttpResponse:
-    rows = {p.ad_type: p for p in PromoAdPrice.objects.all()}
-    data = []
-    for ad_type, label in PromoAdType.choices:
-        obj = rows.get(ad_type)
-        data.append(
-            {
-                "ad_type": ad_type,
-                "label": label,
-                "price_per_day": getattr(obj, "price_per_day", None),
-                "is_active": bool(getattr(obj, "is_active", True)) if obj else True,
-            }
-        )
-    return render(request, "dashboard/promo_pricing.html", {"rows": data})
+    ensure_default_pricing_rules()
+    rows = list(PromoPricingRule.objects.all().order_by("sort_order", "id"))
+    groups = []
+    for key, label in PROMO_MODULE_MENU:
+        groups.append({"key": key, "label": label, "rows": [row for row in rows if row.service_type == key]})
+    ctx = {"groups": groups}
+    ctx.update(_promo_dashboard_menu_context(active="pricing"))
+    return render(request, "dashboard/promo_pricing.html", ctx)
 
 
 @staff_member_required
 @dashboard_access_required("promo", write=True)
 @require_POST
 def promo_pricing_update_action(request: HttpRequest) -> HttpResponse:
-    ad_type = (request.POST.get("ad_type") or "").strip()
-    raw_price = (request.POST.get("price_per_day") or "").strip()
+    code = (request.POST.get("code") or "").strip()
+    raw_price = (request.POST.get("amount") or "").strip()
     is_active = (request.POST.get("is_active") or "").strip().lower() in {"1", "true", "on", "yes"}
 
-    if ad_type not in PromoAdType.values:
-        messages.error(request, "نوع الإعلان غير صحيح")
+    rule = PromoPricingRule.objects.filter(code=code).first()
+    if not rule:
+        messages.error(request, "قاعدة التسعير غير صحيحة")
         return redirect("dashboard:promo_pricing")
 
     try:
-        from decimal import Decimal
-
         price = Decimal(raw_price)
         if price < 0:
             raise ValueError
@@ -2160,7 +2247,9 @@ def promo_pricing_update_action(request: HttpRequest) -> HttpResponse:
         messages.error(request, "السعر غير صحيح")
         return redirect("dashboard:promo_pricing")
 
-    PromoAdPrice.objects.update_or_create(ad_type=ad_type, defaults={"price_per_day": price, "is_active": is_active})
+    rule.amount = price
+    rule.is_active = is_active
+    rule.save(update_fields=["amount", "is_active", "updated_at"])
     messages.success(request, "تم حفظ التسعير")
     return redirect("dashboard:promo_pricing")
 
@@ -2791,56 +2880,50 @@ def verification_inquiry_status_action(request: HttpRequest, ticket_id: int) -> 
 @staff_member_required
 @dashboard_access_required("promo")
 def promo_requests_list(request: HttpRequest) -> HttpResponse:
-    qs = PromoRequest.objects.select_related("requester", "invoice", "assigned_to").all().order_by("-id")
+    qs = _promo_requests_queryset()
+    inquiries_qs = _promo_inquiries_queryset()
     q = (request.GET.get("q") or "").strip()
     status_val = (request.GET.get("status") or "").strip()
-    ad_type = (request.GET.get("ad_type") or "").strip()
+    ops_status_val = (request.GET.get("ops_status") or "").strip()
     if q:
         qs = qs.filter(Q(code__icontains=q) | Q(title__icontains=q) | Q(requester__phone__icontains=q))
+        inquiries_qs = inquiries_qs.filter(
+            Q(code__icontains=q) | Q(description__icontains=q) | Q(requester__phone__icontains=q)
+        )
     if status_val:
         qs = qs.filter(status=status_val)
-    if ad_type:
-        qs = qs.filter(ad_type=ad_type)
+    if ops_status_val:
+        qs = qs.filter(ops_status=ops_status_val)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user":
         qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
-
-    if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
-        headers_ar = ["الكود", "العميل", "العنوان", "النوع", "الحالة", "الفاتورة", "إجراءات"]
-        export_rows = []
-        for pr in qs[:2000]:
-            code = pr.code or pr.id
-            phone = getattr(getattr(pr, "requester", None), "phone", "—") or "—"
-            ad_label = getattr(pr, "get_ad_type_display", lambda: pr.ad_type)() or "—"
-            status_label = getattr(pr, "get_status_display", lambda: pr.status)() or "—"
-            invoice_code = getattr(getattr(pr, "invoice", None), "code", "—") or "—"
-            detail_path = f"/dashboard/promo/{pr.id}/"
-            export_rows.append([code, phone, pr.title or "—", ad_label, status_label, invoice_code, detail_path])
-
-        if _want_csv(request):
-            return _csv_response("promo_requests.csv", headers_ar, export_rows)
-
-        from .exports import pdf_response, xlsx_response
-
-        if _want_xlsx(request):
-            return xlsx_response("promo_requests.xlsx", "الترويج", headers_ar, export_rows)
-        return pdf_response("promo_requests.pdf", "إدارة الترويج", headers_ar, export_rows, landscape=True)
+        inquiries_qs = inquiries_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
 
     paginator = Paginator(qs, 25)
-    page_obj = paginator.get_page(request.GET.get("page") or "1")
-    return render(
-        request,
-        "dashboard/promo_requests_list.html",
-        {
-            "page_obj": page_obj,
-            "q": q,
-            "status_val": status_val,
-            "ad_type": ad_type,
-            "status_choices": PromoRequestStatus.choices,
-            "ad_type_choices": PromoRequest._meta.get_field("ad_type").choices,
-        },
-    )
+    requests_page = paginator.get_page(request.GET.get("page") or "1")
+    inquiries_rows = list(inquiries_qs[:8])
+    recent_requests = list(qs[:8])
+    stats = {
+        "total_requests": qs.count(),
+        "active_requests": qs.filter(status=PromoRequestStatus.ACTIVE).count(),
+        "completed_requests": qs.filter(ops_status=PromoOpsStatus.COMPLETED).count(),
+        "new_inquiries": inquiries_qs.filter(status=SupportTicketStatus.NEW).count(),
+    }
+    ctx = {
+        "requests_page": requests_page,
+        "inquiries_rows": inquiries_rows,
+        "recent_requests": recent_requests,
+        "q": q,
+        "status_val": status_val,
+        "ops_status_val": ops_status_val,
+        "status_choices": PromoRequestStatus.choices,
+        "ops_status_choices": PromoOpsStatus.choices,
+        "stats": stats,
+        "can_write": _dashboard_allowed(request.user, "promo", write=True),
+    }
+    ctx.update(_promo_dashboard_menu_context(active="dashboard"))
+    return render(request, "dashboard/promo_requests_list.html", ctx)
 
 
 @staff_member_required
@@ -2860,12 +2943,150 @@ def promo_request_detail(request: HttpRequest, promo_id: int) -> HttpResponse:
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
-    assets = pr.assets.all().order_by("-id")
-    return render(
-        request,
-        "dashboard/promo_request_detail.html",
-        {"pr": pr, "assets": assets},
+    items = pr.items.select_related("target_provider", "target_portfolio_item").prefetch_related("assets").all().order_by("sort_order", "id")
+    assets = pr.assets.select_related("item").all().order_by("-id")
+    ur = _promo_unified_request(pr)
+    status_logs = ur.status_logs.select_related("changed_by").all() if ur else []
+    assignment_logs = ur.assignment_logs.select_related("from_user", "to_user", "changed_by").all() if ur else []
+    staff_users = _promo_staff_users()
+    invoice_lines = pr.invoice.lines.all() if pr.invoice_id and hasattr(pr.invoice, "lines") else []
+    active_key = items[0].service_type if len(items) == 1 else "dashboard"
+    ctx = {
+        "pr": pr,
+        "items": items,
+        "assets": assets,
+        "ur": ur,
+        "status_logs": status_logs,
+        "assignment_logs": assignment_logs,
+        "staff_users": staff_users,
+        "invoice_lines": invoice_lines,
+        "can_write": _dashboard_allowed(request.user, "promo", write=True),
+        "back_url": reverse("dashboard:promo_requests_list"),
+    }
+    ctx.update(_promo_dashboard_menu_context(active=active_key))
+    return render(request, "dashboard/promo_request_detail.html", ctx)
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_request_assign_action(request: HttpRequest, promo_id: int) -> HttpResponse:
+    pr = get_object_or_404(PromoRequest, id=promo_id)
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+
+    assigned_to = request.POST.get("assigned_to") or None
+    note = (request.POST.get("note") or "").strip()
+    try:
+        assigned_to = int(assigned_to) if assigned_to else None
+    except Exception:
+        assigned_to = None
+
+    if ap and ap.level == "user" and assigned_to not in (None, request.user.id):
+        return HttpResponse("غير مصرح", status=403)
+    assignee = None
+    if assigned_to is not None:
+        assignee = User.objects.filter(id=assigned_to, is_staff=True).first()
+        if not assignee or not _is_promo_operator_user(assignee):
+            messages.error(request, "المكلّف غير صحيح")
+            return redirect("dashboard:promo_request_detail", promo_id=pr.id)
+
+    pr.assigned_to = assignee
+    pr.assigned_at = timezone.now() if assignee else None
+    pr.save(update_fields=["assigned_to", "assigned_at", "updated_at"])
+    _sync_promo_to_unified(pr=pr, changed_by=request.user)
+    if note:
+        ur = _promo_unified_request(pr)
+        log = UnifiedRequestAssignmentLog.objects.filter(request=ur, changed_by=request.user).order_by("-id").first() if ur else None
+        if log and not log.note:
+            log.note = note[:200]
+            log.save(update_fields=["note"])
+    messages.success(request, "تم تحديث الإسناد")
+    return redirect("dashboard:promo_request_detail", promo_id=pr.id)
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_request_ops_status_action(request: HttpRequest, promo_id: int) -> HttpResponse:
+    pr = get_object_or_404(PromoRequest, id=promo_id)
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+        return HttpResponse("غير مصرح", status=403)
+    status_new = (request.POST.get("status") or "").strip()
+    note = (request.POST.get("note") or "").strip()
+    if status_new not in PromoOpsStatus.values:
+        messages.warning(request, "حالة التنفيذ غير صحيحة")
+        return redirect("dashboard:promo_request_detail", promo_id=pr.id)
+    try:
+        old_status = pr.ops_status
+        set_promo_ops_status(pr=pr, new_status=status_new, by_user=request.user, note=note)
+        if old_status != status_new and note:
+            ur = _promo_unified_request(pr)
+            _promo_attach_note_to_latest_log(
+                ur=ur,
+                model_cls=UnifiedRequestStatusLog,
+                to_value=status_new,
+                note=note,
+                changed_by=request.user,
+            )
+        messages.success(request, "تم تحديث حالة التنفيذ")
+    except Exception as e:
+        messages.error(request, str(e) or "تعذر تحديث حالة التنفيذ")
+    return redirect("dashboard:promo_request_detail", promo_id=pr.id)
+
+
+@staff_member_required
+@dashboard_access_required("promo")
+def promo_service_board(request: HttpRequest, service_key: str) -> HttpResponse:
+    service_map = dict(PROMO_MODULE_MENU)
+    if service_key not in service_map:
+        return HttpResponse("غير موجود", status=404)
+    qs = (
+        PromoRequestItem.objects.select_related(
+            "request",
+            "request__requester",
+            "request__invoice",
+            "request__assigned_to",
+            "target_provider",
+            "target_portfolio_item",
+        )
+        .prefetch_related("assets")
+        .filter(service_type=service_key)
+        .order_by("-id")
     )
+    q = (request.GET.get("q") or "").strip()
+    status_val = (request.GET.get("status") or "").strip()
+    ops_status_val = (request.GET.get("ops_status") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q)
+            | Q(request__code__icontains=q)
+            | Q(request__requester__phone__icontains=q)
+        )
+    if status_val:
+        qs = qs.filter(request__status=status_val)
+    if ops_status_val:
+        qs = qs.filter(request__ops_status=ops_status_val)
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == "user":
+        qs = qs.filter(Q(request__assigned_to=request.user) | Q(request__assigned_to__isnull=True))
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or "1")
+    ctx = {
+        "page_obj": page_obj,
+        "service_key": service_key,
+        "service_label": service_map[service_key],
+        "q": q,
+        "status_val": status_val,
+        "ops_status_val": ops_status_val,
+        "status_choices": PromoRequestStatus.choices,
+        "ops_status_choices": PromoOpsStatus.choices,
+    }
+    ctx.update(_promo_dashboard_menu_context(active=service_key))
+    return render(request, "dashboard/promo_service_board.html", ctx)
 
 
 @staff_member_required
@@ -2922,6 +3143,158 @@ def promo_activate_action(request: HttpRequest, promo_id: int) -> HttpResponse:
     except Exception as e:
         messages.error(request, str(e) or "تعذر تفعيل الحملة")
     return redirect("dashboard:promo_request_detail", promo_id=promo_id)
+
+
+# ---------- Home Banner (Carousel) Management ----------
+
+
+@staff_member_required
+@dashboard_access_required("promo")
+def promo_home_banners_list(request: HttpRequest) -> HttpResponse:
+    qs = HomeBanner.objects.select_related("provider", "created_by").all().order_by("display_order", "-created_at")
+    ctx = {
+        "banners": qs,
+        "media_type_choices": HomeBannerMediaType.choices,
+    }
+    ctx.update(_promo_dashboard_menu_context(active=PromoServiceType.HOME_BANNER))
+    return render(request, "dashboard/promo_home_banners.html", ctx)
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_home_banner_create(request: HttpRequest) -> HttpResponse:
+    title = (request.POST.get("title") or "").strip()
+    media_type = (request.POST.get("media_type") or "image").strip()
+    link_url = (request.POST.get("link_url") or "").strip()
+    display_order = request.POST.get("display_order") or "0"
+    provider_id = request.POST.get("provider") or ""
+    start_at = (request.POST.get("start_at") or "").strip()
+    end_at = (request.POST.get("end_at") or "").strip()
+    media_file = request.FILES.get("media_file")
+
+    if not title or not media_file:
+        messages.error(request, "العنوان وملف الوسائط مطلوبان")
+        return redirect("dashboard:promo_home_banners")
+
+    try:
+        order = int(display_order)
+    except (ValueError, TypeError):
+        order = 0
+
+    provider = None
+    if provider_id:
+        provider = ProviderProfile.objects.filter(id=provider_id).first()
+
+    banner = HomeBanner(
+        title=title,
+        media_type=media_type,
+        media_file=media_file,
+        link_url=link_url,
+        display_order=order,
+        provider=provider,
+        created_by=request.user,
+        is_active=True,
+    )
+
+    if start_at:
+        try:
+            banner.start_at = make_aware(datetime.strptime(start_at, "%Y-%m-%dT%H:%M"))
+        except (ValueError, TypeError):
+            pass
+
+    if end_at:
+        try:
+            banner.end_at = make_aware(datetime.strptime(end_at, "%Y-%m-%dT%H:%M"))
+        except (ValueError, TypeError):
+            pass
+
+    banner.save()
+    messages.success(request, f"تم إنشاء البانر: {title}")
+    return redirect("dashboard:promo_home_banners")
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_home_banner_update(request: HttpRequest, banner_id: int) -> HttpResponse:
+    banner = get_object_or_404(HomeBanner, id=banner_id)
+
+    title = (request.POST.get("title") or "").strip()
+    if title:
+        banner.title = title
+
+    media_type = (request.POST.get("media_type") or "").strip()
+    if media_type:
+        banner.media_type = media_type
+
+    link_url = request.POST.get("link_url")
+    if link_url is not None:
+        banner.link_url = link_url.strip()
+
+    display_order = request.POST.get("display_order")
+    if display_order is not None:
+        try:
+            banner.display_order = int(display_order)
+        except (ValueError, TypeError):
+            pass
+
+    provider_id = request.POST.get("provider") or ""
+    if provider_id:
+        banner.provider = ProviderProfile.objects.filter(id=provider_id).first()
+    elif "provider" in request.POST:
+        banner.provider = None
+
+    start_at = (request.POST.get("start_at") or "").strip()
+    if start_at:
+        try:
+            banner.start_at = make_aware(datetime.strptime(start_at, "%Y-%m-%dT%H:%M"))
+        except (ValueError, TypeError):
+            pass
+    elif "start_at" in request.POST:
+        banner.start_at = None
+
+    end_at = (request.POST.get("end_at") or "").strip()
+    if end_at:
+        try:
+            banner.end_at = make_aware(datetime.strptime(end_at, "%Y-%m-%dT%H:%M"))
+        except (ValueError, TypeError):
+            pass
+    elif "end_at" in request.POST:
+        banner.end_at = None
+
+    media_file = request.FILES.get("media_file")
+    if media_file:
+        banner.media_file = media_file
+
+    is_active = request.POST.get("is_active")
+    banner.is_active = is_active == "on" or is_active == "1"
+
+    banner.save()
+    messages.success(request, f"تم تحديث البانر: {banner.title}")
+    return redirect("dashboard:promo_home_banners")
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_home_banner_toggle(request: HttpRequest, banner_id: int) -> HttpResponse:
+    banner = get_object_or_404(HomeBanner, id=banner_id)
+    banner.is_active = not banner.is_active
+    banner.save(update_fields=["is_active", "updated_at"])
+    status_text = "مفعل" if banner.is_active else "معطل"
+    messages.success(request, f"تم تبديل حالة البانر: {status_text}")
+    return redirect("dashboard:promo_home_banners")
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+@require_POST
+def promo_home_banner_delete(request: HttpRequest, banner_id: int) -> HttpResponse:
+    banner = get_object_or_404(HomeBanner, id=banner_id)
+    banner.delete()
+    messages.success(request, "تم حذف البانر")
+    return redirect("dashboard:promo_home_banners")
 
 
 @staff_member_required
@@ -4294,6 +4667,102 @@ def extra_activate_action(request: HttpRequest, extra_id: int) -> HttpResponse:
     except Exception as e:
         messages.error(request, str(e) or "تعذر تفعيل الإضافة")
     return redirect("dashboard:extras_list")
+
+
+# ── Extras: Finance / IBAN ──────────────────────────────────────────
+
+@staff_member_required
+@dashboard_access_required("extras")
+def extras_finance_list(request: HttpRequest) -> HttpResponse:
+    """عرض البيانات المالية (IBAN) لمقدمي الخدمات الإضافية."""
+    from apps.extras_portal.models import ExtrasPortalFinanceSettings
+
+    qs = (
+        ExtrasPortalFinanceSettings.objects.select_related("provider", "provider__user")
+        .all()
+        .order_by("-updated_at")
+    )
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(provider__user__phone__icontains=q)
+            | Q(iban__icontains=q)
+            | Q(bank_name__icontains=q)
+            | Q(account_name__icontains=q)
+        )
+
+    if _want_csv(request):
+        rows = []
+        for fs in qs[:2000]:
+            rows.append([
+                fs.provider.user.phone if fs.provider and fs.provider.user else "",
+                fs.bank_name,
+                fs.account_name,
+                fs.iban,
+                fs.updated_at.isoformat() if fs.updated_at else "",
+            ])
+        return _csv_response(
+            "extras_finance.csv",
+            ["جوال المزود", "اسم البنك", "اسم صاحب الحساب", "IBAN", "آخر تحديث"],
+            rows,
+        )
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or "1")
+    return render(
+        request,
+        "dashboard/extras_finance_list.html",
+        {"page_obj": page_obj, "q": q},
+    )
+
+
+# ── Extras: Client list ─────────────────────────────────────────────
+
+@staff_member_required
+@dashboard_access_required("extras")
+def extras_clients_list(request: HttpRequest) -> HttpResponse:
+    """عرض قائمة عملاء الخدمات الإضافية."""
+    from apps.extras_portal.models import ExtrasPortalSubscription
+
+    qs = (
+        ExtrasPortalSubscription.objects
+        .select_related("user", "provider", "provider__user")
+        .all()
+        .order_by("-created_at")
+    )
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        qs = qs.filter(
+            Q(user__phone__icontains=q) | Q(provider__user__phone__icontains=q)
+        )
+    active_filter = (request.GET.get("active") or "").strip()
+    if active_filter == "1":
+        qs = qs.filter(is_active=True)
+    elif active_filter == "0":
+        qs = qs.filter(is_active=False)
+
+    if _want_csv(request):
+        rows = []
+        for s in qs[:2000]:
+            rows.append([
+                s.user.phone if s.user else "",
+                s.provider.user.phone if s.provider and s.provider.user else "",
+                s.is_active,
+                s.created_at.isoformat() if s.created_at else "",
+            ])
+        return _csv_response(
+            "extras_clients.csv",
+            ["جوال العميل", "جوال المزود", "فعّال", "تاريخ الاشتراك"],
+            rows,
+        )
+
+    paginator = Paginator(qs, 25)
+    page_obj = paginator.get_page(request.GET.get("page") or "1")
+    return render(
+        request,
+        "dashboard/extras_clients_list.html",
+        {"page_obj": page_obj, "q": q, "active_filter": active_filter},
+    )
 
 
 @staff_member_required

@@ -21,6 +21,7 @@ const HomePage = (() => {
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
   let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
+  let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
 
   // State
   let _isLoading = false;
@@ -28,6 +29,12 @@ const HomePage = (() => {
   let _reelsAutoTimer = null;    // auto-scroll interval
   let _reelsPaused = false;      // pause while user is touching/dragging
   let _reelsBound = false;       // bind track interaction handlers once
+  let _carouselItems = [];       // carousel banner data
+  let _carouselIdx = 0;          // current slide index
+  let _carouselTimer = null;     // auto-rotate timer
+  let _carouselPaused = false;   // pause on interaction
+  let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
+  let _popupShown = false;       // only show popup once per session
   let _homeContent = {
     heroTitle: '',
     heroSubtitle: '',
@@ -43,7 +50,7 @@ const HomePage = (() => {
   function init() {
     $categoriesList = document.getElementById('categories-list');
     $providersList  = document.getElementById('providers-list');
-    $bannersList    = document.getElementById('banners-list');
+    $bannersList    = document.getElementById('carousel-track');
     $bannersSection = document.getElementById('banners');
     $heroTitle      = document.getElementById('hero-title');
     $heroSubtitle   = document.getElementById('hero-subtitle');
@@ -53,6 +60,10 @@ const HomePage = (() => {
     $bannersTitle = document.getElementById('banners-title');
     $reelsTrack     = document.getElementById('reels-track');
     $offlineBanner  = document.getElementById('offline-banner');
+    $carouselTrack  = document.getElementById('carousel-track');
+    $carouselDots   = document.getElementById('carousel-dots');
+    $carouselPrev   = document.getElementById('carousel-prev');
+    $carouselNext   = document.getElementById('carousel-next');
     _bindReelsInteraction();
     _applyHomeContent();
 
@@ -111,12 +122,14 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, bansRes, reelsRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, bansRes, reelsRes, featuredRes, popupRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
-      ApiClient.get('/api/promo/banners/home/?limit=6'),
+      ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
+      ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
+      ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
     ]);
 
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
@@ -180,6 +193,24 @@ const HomePage = (() => {
       _renderReelsEmpty();
     }
 
+    // Featured providers (paid promotion — boost to top)
+    if (featuredRes.status === 'fulfilled' && featuredRes.value.ok && featuredRes.value.data) {
+      const list = Array.isArray(featuredRes.value.data) ? featuredRes.value.data : [];
+      _featuredProviderIds = new Set();
+      list.forEach(promo => {
+        if (promo.target_provider_id) _featuredProviderIds.add(promo.target_provider_id);
+      });
+    }
+
+    // Popup promo (home)
+    if (!_popupShown && popupRes.status === 'fulfilled' && popupRes.value.ok && popupRes.value.data) {
+      const list = Array.isArray(popupRes.value.data) ? popupRes.value.data : [];
+      if (list.length > 0) {
+        _popupShown = true;
+        _showPromoPopup(list[0]);
+      }
+    }
+
     // Offline detection
     const allFailed = [contentRes, catsRes, provsRes, bansRes, reelsRes].every(
       r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)
@@ -231,14 +262,22 @@ const HomePage = (() => {
     if (!$providersList) return;
     if (!providers.length) { _renderProvidersEmpty(); return; }
 
+    // Sort: featured (paid) providers first
+    const sorted = [...providers].sort((a, b) => {
+      const aFeat = _featuredProviderIds.has(a.id) ? 0 : 1;
+      const bFeat = _featuredProviderIds.has(b.id) ? 0 : 1;
+      return aFeat - bFeat;
+    });
+
     const frag = document.createDocumentFragment();
-    providers.forEach(p => {
+    sorted.forEach(p => {
       const profileUrl = ApiClient.mediaUrl(p.profile_image);
       const displayName = (p.display_name || '').trim() || 'مقدم خدمة';
       const initial = displayName.charAt(0) || '؟';
       const providerHref = p.id ? '/provider/' + encodeURIComponent(String(p.id)) + '/' : '/search/';
+      const isFeatured = _featuredProviderIds.has(p.id);
 
-      const card = UI.el('a', { className: 'provider-card no-cover', href: providerHref });
+      const card = UI.el('a', { className: 'provider-card no-cover' + (isFeatured ? ' promo-featured' : ''), href: providerHref });
 
       // Info section: avatar + name + verification + rating
       const info = UI.el('div', { className: 'provider-info' });
@@ -256,6 +295,9 @@ const HomePage = (() => {
 
       const nameRow = UI.el('div', { className: 'provider-name-row' });
       nameRow.appendChild(UI.el('span', { className: 'provider-name', textContent: displayName }));
+      if (isFeatured) {
+        nameRow.appendChild(UI.el('span', { className: 'promo-featured-badge', textContent: 'مميز' }));
+      }
       meta.appendChild(nameRow);
 
       const excellence = UI.buildExcellenceBadges(p.excellence_badges, {
@@ -319,35 +361,171 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     RENDER: BANNERS
-     Flutter: horizontal ListView, 220×130, image+gradient+caption
+     RENDER: BANNERS CAROUSEL
+     Full-width auto-rotating carousel with images & videos.
+     Auto-rotates every 2 seconds. Supports swipe on mobile.
   ---------------------------------------------------------- */
   function _renderBanners(banners) {
-    if (!$bannersList || !$bannersSection) return;
+    if (!$carouselTrack || !$bannersSection) return;
     if (!banners.length) { $bannersSection.style.display = 'none'; return; }
     $bannersSection.style.display = '';
 
+    _carouselItems = banners;
+    _carouselIdx = 0;
+
+    // Build slides
     const frag = document.createDocumentFragment();
-    banners.forEach(b => {
-      const url = ApiClient.mediaUrl(b.file_url);
-      const providerId = parseInt(b.provider_id, 10);
-      const hasProvider = Number.isFinite(providerId) && providerId > 0;
-      const card = hasProvider
-        ? UI.el('a', { className: 'banner-card', href: '/provider/' + providerId + '/' })
-        : UI.el('div', { className: 'banner-card' });
+    banners.forEach((b, i) => {
+      const slide = UI.el('div', { className: 'carousel-slide' + (i === 0 ? ' active' : '') });
+      slide.setAttribute('data-index', String(i));
 
-      if (url) card.appendChild(UI.lazyImg(url, b.caption || ''));
+      const url = ApiClient.mediaUrl(b.media_url);
+      const isVideo = (b.media_type || '').toLowerCase() === 'video';
 
-      if (b.caption || b.provider_display_name) {
-        const overlay = UI.el('div', { className: 'banner-overlay' });
-        if (b.caption) overlay.appendChild(UI.el('div', { className: 'banner-caption', textContent: b.caption }));
-        if (b.provider_display_name) overlay.appendChild(UI.el('div', { className: 'banner-provider', textContent: b.provider_display_name }));
-        card.appendChild(overlay);
+      if (isVideo && url) {
+        const vid = UI.el('video', {
+          className: 'carousel-media',
+          src: url,
+          autoplay: false,
+          muted: true,
+          loop: true,
+          playsInline: true,
+          preload: 'metadata',
+        });
+        vid.setAttribute('playsinline', '');
+        slide.appendChild(vid);
+      } else if (url) {
+        const img = UI.el('img', {
+          className: 'carousel-media',
+          loading: 'lazy',
+          alt: b.title || '',
+        });
+        img.src = url;
+        slide.appendChild(img);
       }
-      frag.appendChild(card);
+
+      // Overlay with title & provider
+      const overlay = UI.el('div', { className: 'carousel-overlay' });
+      if (b.title) overlay.appendChild(UI.el('div', { className: 'carousel-caption', textContent: b.title }));
+      if (b.provider_display_name) overlay.appendChild(UI.el('div', { className: 'carousel-provider', textContent: b.provider_display_name }));
+      slide.appendChild(overlay);
+
+      // Link wrapper
+      if (b.link_url) {
+        slide.style.cursor = 'pointer';
+        slide.addEventListener('click', () => { window.open(b.link_url, '_blank', 'noopener'); });
+      } else if (b.provider_id && b.provider_id > 0) {
+        slide.style.cursor = 'pointer';
+        slide.addEventListener('click', () => { window.location.href = '/provider/' + b.provider_id + '/'; });
+      }
+
+      frag.appendChild(slide);
     });
-    $bannersList.textContent = '';
-    $bannersList.appendChild(frag);
+    $carouselTrack.textContent = '';
+    $carouselTrack.appendChild(frag);
+
+    // Build dots
+    if ($carouselDots) {
+      $carouselDots.textContent = '';
+      banners.forEach((_, i) => {
+        const dot = UI.el('button', { className: 'carousel-dot' + (i === 0 ? ' active' : '') });
+        dot.setAttribute('aria-label', 'شريحة ' + (i + 1));
+        dot.addEventListener('click', () => _goToSlide(i));
+        $carouselDots.appendChild(dot);
+      });
+    }
+
+    // Arrow bindings
+    if ($carouselPrev) $carouselPrev.onclick = () => _goToSlide((_carouselIdx - 1 + banners.length) % banners.length);
+    if ($carouselNext) $carouselNext.onclick = () => _goToSlide((_carouselIdx + 1) % banners.length);
+
+    // Show/hide arrows for single item
+    if (banners.length <= 1) {
+      if ($carouselPrev) $carouselPrev.style.display = 'none';
+      if ($carouselNext) $carouselNext.style.display = 'none';
+      if ($carouselDots) $carouselDots.style.display = 'none';
+    }
+
+    // Swipe support
+    _bindCarouselSwipe();
+
+    // Start auto-rotate
+    _startCarouselAutoRotate();
+  }
+
+  function _goToSlide(idx) {
+    if (!_carouselItems.length) return;
+    const slides = $carouselTrack.querySelectorAll('.carousel-slide');
+    const dots = $carouselDots ? $carouselDots.querySelectorAll('.carousel-dot') : [];
+
+    // Pause current video
+    const currentSlide = slides[_carouselIdx];
+    if (currentSlide) {
+      const vid = currentSlide.querySelector('video');
+      if (vid) vid.pause();
+      currentSlide.classList.remove('active');
+    }
+    if (dots[_carouselIdx]) dots[_carouselIdx].classList.remove('active');
+
+    _carouselIdx = idx;
+
+    // Activate new slide
+    const newSlide = slides[_carouselIdx];
+    if (newSlide) {
+      newSlide.classList.add('active');
+      const vid = newSlide.querySelector('video');
+      if (vid) { vid.currentTime = 0; vid.play().catch(() => {}); }
+    }
+    if (dots[_carouselIdx]) dots[_carouselIdx].classList.add('active');
+  }
+
+  function _startCarouselAutoRotate() {
+    _stopCarouselAutoRotate();
+    if (_carouselItems.length <= 1) return;
+    _carouselTimer = setInterval(() => {
+      if (_carouselPaused) return;
+      _goToSlide((_carouselIdx + 1) % _carouselItems.length);
+    }, 2000);
+  }
+
+  function _stopCarouselAutoRotate() {
+    if (_carouselTimer) { clearInterval(_carouselTimer); _carouselTimer = null; }
+  }
+
+  function _bindCarouselSwipe() {
+    if (!$carouselTrack) return;
+    let startX = 0;
+    let dragging = false;
+
+    $carouselTrack.addEventListener('pointerdown', e => {
+      startX = e.clientX;
+      dragging = true;
+      _carouselPaused = true;
+    }, { passive: true });
+
+    $carouselTrack.addEventListener('pointerup', e => {
+      if (!dragging) return;
+      dragging = false;
+      const dx = e.clientX - startX;
+      // RTL: swipe left = prev, swipe right = next
+      if (Math.abs(dx) > 40) {
+        if (dx > 0) {
+          _goToSlide((_carouselIdx + 1) % _carouselItems.length);
+        } else {
+          _goToSlide((_carouselIdx - 1 + _carouselItems.length) % _carouselItems.length);
+        }
+      }
+      setTimeout(() => { _carouselPaused = false; }, 3000);
+    }, { passive: true });
+
+    $carouselTrack.addEventListener('pointercancel', () => {
+      dragging = false;
+      _carouselPaused = false;
+    }, { passive: true });
+
+    // Pause on hover (desktop)
+    $carouselTrack.addEventListener('mouseenter', () => { _carouselPaused = true; });
+    $carouselTrack.addEventListener('mouseleave', () => { _carouselPaused = false; });
   }
 
   /* ----------------------------------------------------------
@@ -497,6 +675,46 @@ const HomePage = (() => {
   function _setOffline(offline) {
     if (!$offlineBanner) return;
     $offlineBanner.style.display = offline ? 'flex' : 'none';
+  }
+
+  /* ----------------------------------------------------------
+     PROMO: POPUP HOME
+     Shown once per page load when an active popup_home promo exists.
+  ---------------------------------------------------------- */
+  function _showPromoPopup(promo) {
+    const asset = (promo.assets && promo.assets.length) ? promo.assets[0] : null;
+    const imageUrl = asset ? ApiClient.mediaUrl(asset.file_url) : null;
+    const redirectUrl = promo.redirect_url || '';
+    const title = promo.title || '';
+
+    const overlay = UI.el('div', { className: 'promo-popup-overlay' });
+    const modal = UI.el('div', { className: 'promo-popup-modal' });
+
+    const closeBtn = UI.el('button', { className: 'promo-popup-close', textContent: '✕', type: 'button' });
+    closeBtn.setAttribute('aria-label', 'إغلاق');
+    closeBtn.addEventListener('click', () => overlay.remove());
+    modal.appendChild(closeBtn);
+
+    if (imageUrl) {
+      const img = UI.el('img', { className: 'promo-popup-img' });
+      img.src = imageUrl;
+      img.alt = title;
+      if (redirectUrl) {
+        const link = UI.el('a', { href: redirectUrl, target: '_blank', rel: 'noopener' });
+        link.appendChild(img);
+        modal.appendChild(link);
+      } else {
+        modal.appendChild(img);
+      }
+    }
+
+    if (title) {
+      modal.appendChild(UI.el('p', { className: 'promo-popup-title', textContent: title }));
+    }
+
+    overlay.appendChild(modal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
   }
 
   /* ----------------------------------------------------------

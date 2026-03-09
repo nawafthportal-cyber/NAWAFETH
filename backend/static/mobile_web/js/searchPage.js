@@ -20,6 +20,8 @@ const SearchPage = (() => {
   let _mapModalOpen = false;
   let _mapInstance = null;
   let _mapMarkersLayer = null;
+  let _featuredProviderIds = new Set();
+  let _promoBannerEl = null;
 
   let _input;
   let _clearBtn;
@@ -46,11 +48,14 @@ const SearchPage = (() => {
 
     if (!_input || !_providersList) return;
 
+    _promoBannerEl = document.getElementById('search-promo-banner');
+
     _bindHeader();
     _bindSearch();
     _bindCategoryFilter();
     _bindSortSheet();
     _bindMapModal();
+    _loadSearchPromos();
 
     const params = new URLSearchParams(window.location.search);
     const urlQ = (params.get('q') || '').trim();
@@ -330,7 +335,14 @@ const SearchPage = (() => {
 
   function _renderProviders() {
     if (!_providersList) return;
-    const sorted = _sortProviders(_providers);
+    let sorted = _sortProviders(_providers);
+
+    // Boost featured providers to top
+    if (_featuredProviderIds.size) {
+      const featured = sorted.filter(p => _featuredProviderIds.has(String(p.id)));
+      const rest = sorted.filter(p => !_featuredProviderIds.has(String(p.id)));
+      sorted = [...featured, ...rest];
+    }
 
     if (_resultsCount) _resultsCount.textContent = sorted.length + ' نتيجة';
     if (_mapBtn) _mapBtn.classList.toggle('hidden', sorted.length === 0);
@@ -344,7 +356,13 @@ const SearchPage = (() => {
     if (_emptyState) _emptyState.classList.add('hidden');
 
     const frag = document.createDocumentFragment();
-    sorted.forEach(provider => frag.appendChild(_buildProviderCard(provider)));
+    sorted.forEach(provider => {
+      const card = _buildProviderCard(provider);
+      if (_featuredProviderIds.has(String(provider.id))) {
+        card.classList.add('promo-featured');
+      }
+      frag.appendChild(card);
+    });
     _providersList.appendChild(frag);
 
     if (_openMapAfterFirstRender) {
@@ -512,6 +530,9 @@ const SearchPage = (() => {
     const body = UI.el('div', { className: 'provider-list-body' });
     const nameWrap = UI.el('div', { className: 'provider-list-name-wrap' });
     nameWrap.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
+    if (_featuredProviderIds.has(String(provider.id))) {
+      nameWrap.appendChild(UI.el('span', { className: 'promo-featured-badge', textContent: 'مميز' }));
+    }
     const excellence = UI.buildExcellenceBadges(provider.excellence_badges, {
       className: 'excellence-badges compact provider-list-excellence',
       compact: true,
@@ -689,6 +710,50 @@ const SearchPage = (() => {
       '</div>',
       '</div>',
     ].join('');
+  }
+
+  async function _loadSearchPromos() {
+    try {
+      const [bannerRes, featuredRes] = await Promise.allSettled([
+        ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=5'),
+        ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
+      ]);
+      // Banner
+      if (bannerRes.status === 'fulfilled' && bannerRes.value.ok) {
+        const banners = bannerRes.value.data?.results || bannerRes.value.data || [];
+        if (banners.length && _promoBannerEl) {
+          const promo = banners[0];
+          const asset = (promo.assets || [])[0];
+          if (asset && asset.file) {
+            const img = document.createElement('img');
+            img.src = ApiClient.mediaUrl(asset.file);
+            img.alt = promo.title || '';
+            if (promo.redirect_url) {
+              const link = document.createElement('a');
+              link.href = promo.redirect_url;
+              link.className = 'promo-slide';
+              link.appendChild(img);
+              _promoBannerEl.appendChild(link);
+            } else {
+              const wrap = document.createElement('div');
+              wrap.className = 'promo-slide';
+              wrap.appendChild(img);
+              _promoBannerEl.appendChild(wrap);
+            }
+            _promoBannerEl.classList.remove('hidden');
+          }
+        }
+      }
+      // Featured providers
+      if (featuredRes.status === 'fulfilled' && featuredRes.value.ok) {
+        const items = featuredRes.value.data?.results || featuredRes.value.data || [];
+        _featuredProviderIds = new Set();
+        items.forEach(p => {
+          if (p.target_provider_id) _featuredProviderIds.add(String(p.target_provider_id));
+        });
+        if (_featuredProviderIds.size && _providers.length) _renderProviders();
+      }
+    } catch (_) { /* non-critical */ }
   }
 
   function _showToast(message) {

@@ -10,7 +10,7 @@ from django.db.models import Q, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from .models import PromoRequest, PromoAsset, PromoRequestStatus, PromoAdType
+from .models import HomeBanner, PromoAdType, PromoAsset, PromoRequest, PromoRequestItem, PromoRequestStatus
 from .serializers import (
     PromoRequestCreateSerializer,
     PromoRequestDetailSerializer,
@@ -19,6 +19,7 @@ from .serializers import (
     PromoRejectSerializer,
     PromoHomeBannerAssetSerializer,
     PromoActivePlacementSerializer,
+    HomeBannerSerializer,
 )
 from .permissions import IsOwnerOrBackofficePromo
 from .services import quote_and_create_invoice, reject_request, _sync_promo_to_unified
@@ -103,7 +104,7 @@ class PublicActivePromosView(generics.ListAPIView):
                 "target_provider",
                 "target_portfolio_item",
             )
-            .prefetch_related("assets")
+            .prefetch_related("assets", "items", "items__assets")
             .filter(
                 status=PromoRequestStatus.ACTIVE,
                 start_at__lte=now,
@@ -137,6 +138,34 @@ class PublicActivePromosView(generics.ListAPIView):
         return qs
 
 
+class PublicHomeCarouselView(generics.ListAPIView):
+    """Public list of dashboard-managed homepage carousel banners.
+
+    Returns active banners within their scheduled date range,
+    ordered by display_order. Supports images and short videos.
+    """
+
+    permission_classes = [AllowAny]
+    serializer_class = HomeBannerSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        now = timezone.now()
+        qs = HomeBanner.objects.select_related("provider").filter(is_active=True)
+        qs = qs.filter(
+            Q(start_at__isnull=True) | Q(start_at__lte=now),
+            Q(end_at__isnull=True) | Q(end_at__gte=now),
+        )
+        limit_raw = self.request.query_params.get("limit")
+        if limit_raw not in (None, ""):
+            try:
+                limit = max(1, min(int(limit_raw), 20))
+            except Exception:
+                limit = 10
+            qs = qs[:limit]
+        return qs
+
+
 # ---------- Client ----------
 
 class PromoRequestCreateView(generics.CreateAPIView):
@@ -154,13 +183,13 @@ class MyPromoRequestsListView(generics.ListAPIView):
     serializer_class = PromoRequestDetailSerializer
 
     def get_queryset(self):
-        return PromoRequest.objects.filter(requester=self.request.user).order_by("-id")
+        return PromoRequest.objects.filter(requester=self.request.user).prefetch_related("items", "items__assets", "assets").order_by("-id")
 
 
 class PromoRequestDetailView(generics.RetrieveAPIView):
     permission_classes = [IsOwnerOrBackofficePromo]
     serializer_class = PromoRequestDetailSerializer
-    queryset = PromoRequest.objects.all()
+    queryset = PromoRequest.objects.prefetch_related("items", "items__assets", "assets").all()
 
     def get_object(self):
         obj = super().get_object()
@@ -183,6 +212,16 @@ class PromoAddAssetView(generics.CreateAPIView):
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response({"detail": "file مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
+
+        item = None
+        item_id = request.data.get("item_id")
+        if item_id not in (None, ""):
+            try:
+                item = PromoRequestItem.objects.get(id=int(item_id), request=pr)
+            except Exception:
+                return Response({"detail": "item_id غير صحيح"}, status=status.HTTP_400_BAD_REQUEST)
+        elif pr.items.count() == 1:
+            item = pr.items.first()
 
         from django.core.exceptions import ValidationError as DjangoValidationError
         from apps.features.upload_limits import user_max_upload_mb
@@ -209,6 +248,7 @@ class PromoAddAssetView(generics.CreateAPIView):
 
         asset = PromoAsset.objects.create(
             request=pr,
+            item=item,
             asset_type=asset_type,
             title=title[:160],
             file=file_obj,
@@ -232,7 +272,7 @@ class BackofficePromoRequestsListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = PromoRequest.objects.all().order_by("-id")
+        qs = PromoRequest.objects.prefetch_related("items").all().order_by("-id")
 
         ap = getattr(user, "access_profile", None)
         if not ap:

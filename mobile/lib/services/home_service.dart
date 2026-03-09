@@ -84,7 +84,7 @@ class HomeService {
 
   // ── البانرات الإعلانية ──
   static Future<List<BannerModel>> fetchHomeBanners({
-    int limit = 6,
+    int limit = 10,
     bool forceRefresh = false,
   }) async {
     final cached = _homeBannersCache[limit];
@@ -92,7 +92,7 @@ class HomeService {
       return List<BannerModel>.from(cached.data);
     }
 
-    final res = await ApiClient.get('/api/promo/banners/home/?limit=$limit');
+    final res = await ApiClient.get('/api/promo/home-carousel/?limit=$limit');
     if (res.isSuccess && res.data != null) {
       final list = res.data is List ? res.data as List : [];
       final parsed = list.map((e) => BannerModel.fromJson(e as Map<String, dynamic>)).toList();

@@ -8,6 +8,7 @@ from .views import (
 
     PublicHomeBannersView,
     PublicActivePromosView,
+    PublicHomeCarouselView,
 
     BackofficePromoRequestsListView,
     BackofficeQuoteView,
@@ -24,6 +25,7 @@ urlpatterns = [
 
     # public ads
     path("banners/home/", PublicHomeBannersView.as_view(), name="public_home_banners"),
+    path("home-carousel/", PublicHomeCarouselView.as_view(), name="public_home_carousel"),
     path("active/", PublicActivePromosView.as_view(), name="public_active"),
 
     # backoffice

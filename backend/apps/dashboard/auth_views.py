@@ -2,15 +2,13 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
-from django.utils import timezone
 
-from apps.accounts.models import OTP, User
-from apps.accounts.otp import generate_otp_code, otp_expiry
+from apps.accounts.models import User
+from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
 
 from .access import first_allowed_dashboard_route, sync_dashboard_user_access
 from .auth import (
@@ -21,19 +19,6 @@ from .auth import (
 
 
 logger = logging.getLogger(__name__)
-_dashboard_otp_bypass_warning_logged = False
-
-
-def _dashboard_accept_any_otp_code() -> bool:
-    # Requested temporary behavior: allow any 4-digit code for dashboard OTP.
-    # This intentionally bypasses OTP persistence/validation for dashboard login.
-    # TODO: Switch this to an explicit environment/settings flag before production hardening.
-    global _dashboard_otp_bypass_warning_logged
-    enabled = True
-    if enabled and not getattr(settings, "DEBUG", False) and not _dashboard_otp_bypass_warning_logged:
-        logger.warning("Dashboard OTP bypass (accept any 4-digit code) is active while DEBUG=False")
-        _dashboard_otp_bypass_warning_logged = True
-    return enabled
 
 
 def _keep_digits(value: str) -> str:
@@ -83,13 +68,6 @@ def _phone_candidates(phone: str) -> list[str]:
     return [c for c in candidates if c]
 
 
-def _client_ip(request: HttpRequest) -> str | None:
-    xff = (request.META.get("HTTP_X_FORWARDED_FOR") or "").strip()
-    if xff:
-        return xff.split(",")[0].strip() or None
-    return (request.META.get("REMOTE_ADDR") or "").strip() or None
-
-
 def dashboard_login(request: HttpRequest) -> HttpResponse:
     user = getattr(request, "user", None)
     if getattr(user, "is_authenticated", False) and bool(request.session.get(SESSION_OTP_VERIFIED_KEY)):
@@ -120,14 +98,8 @@ def dashboard_login(request: HttpRequest) -> HttpResponse:
 
         # Dev mode: user can enter ANY 4 digits.
         # Production mode: generate/store OTP (delivery is external).
-        if not _dashboard_accept_any_otp_code():
-            code = generate_otp_code()
-            OTP.objects.create(
-                phone=staff_user.phone,
-                ip_address=_client_ip(request),
-                code=code,
-                expires_at=otp_expiry(5),
-            )
+        if not accept_any_otp_code():
+            create_otp(staff_user.phone, request)
             logger.info("Dashboard OTP generated phone=%s", staff_user.phone)
 
         return redirect("dashboard:otp")
@@ -152,14 +124,11 @@ def dashboard_otp(request: HttpRequest) -> HttpResponse:
             messages.error(request, "الكود يجب أن يكون 4 أرقام")
             return render(request, "dashboard/otp.html", {"phone": phone})
 
-        dev_accept_any = _dashboard_accept_any_otp_code()
+        dev_accept_any = accept_any_otp_code()
         if not dev_accept_any:
-            otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
-            if not otp or otp.expires_at < timezone.now() or otp.code != code:
+            if not verify_otp(phone, code):
                 messages.error(request, "الكود غير صحيح أو منتهي")
                 return render(request, "dashboard/otp.html", {"phone": phone})
-            otp.is_used = True
-            otp.save(update_fields=["is_used"])
 
         staff_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
         if staff_user:
@@ -190,7 +159,7 @@ def dashboard_otp(request: HttpRequest) -> HttpResponse:
         "dashboard/otp.html",
         {
             "phone": phone,
-            "dev_accept_any": _dashboard_accept_any_otp_code(),
+            "dev_accept_any": accept_any_otp_code(),
         },
     )
 

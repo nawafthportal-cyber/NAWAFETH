@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
@@ -136,18 +135,21 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _checkFaceIdAvailability() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
-      final phone = prefs.getString('nw_faceid_phone');
-
-      if (!enabled || phone == null || phone.isEmpty) return;
+      final biometricData =
+          await AuthService.getBiometricCredentials(clearInvalid: true);
+      if (biometricData == null) return;
 
       final localAuth = LocalAuthentication();
       final canCheck = await localAuth.canCheckBiometrics;
       final isSupported = await localAuth.isDeviceSupported();
 
       if (!mounted) return;
-      setState(() => _faceIdAvailable = canCheck && isSupported);
+      setState(() {
+        _faceIdAvailable = canCheck && isSupported;
+        if (_phoneController.text.trim().isEmpty) {
+          _phoneController.text = biometricData.phone;
+        }
+      });
     } catch (_) {}
   }
 
@@ -177,11 +179,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // البصمة ناجحة — تسجيل الدخول مباشرة عبر device_token
-      final prefs = await SharedPreferences.getInstance();
-      final phone = prefs.getString('nw_faceid_phone') ?? '';
-      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
+      final biometricData =
+          await AuthService.getBiometricCredentials(clearInvalid: true);
 
-      if (phone.isEmpty || deviceToken.isEmpty) {
+      if (biometricData == null) {
         setState(() {
           _isFaceIdLoading = false;
           _errorMessage = 'لم يتم العثور على بيانات المصادقة. أعد تفعيل معرف الوجه من الإعدادات.';
@@ -189,7 +190,10 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final result = await AuthApiService.biometricLogin(phone, deviceToken);
+      final result = await AuthApiService.biometricLogin(
+        biometricData.phone,
+        biometricData.deviceToken,
+      );
       if (!mounted) return;
 
       setState(() => _isFaceIdLoading = false);

@@ -5,6 +5,43 @@ from rest_framework.permissions import BasePermission, SAFE_METHODS
 from apps.dashboard.access import is_active_access_profile
 
 
+class BackofficeDashboardMixin:
+    """Shared helpers for permissions that guard backoffice + client endpoints.
+
+    Subclasses set ``dashboard_code`` to the dashboard key (e.g. "verify",
+    "support", "promo", "extras", "subs").
+    """
+
+    dashboard_code: str = ""
+    message: str = "غير مصرح."
+
+    def _is_backoffice_request(self, request) -> bool:
+        return "/backoffice/" in (getattr(request, "path", "") or "")
+
+    def _has_backoffice_access(self, request) -> bool:
+        ap = getattr(request.user, "access_profile", None)
+        if not ap:
+            return False
+        if ap.is_revoked() or ap.is_expired():
+            return False
+        if ap.is_readonly() and request.method not in SAFE_METHODS:
+            self.message = "حساب QA للعرض فقط."
+            return False
+        if ap.level in ("admin", "power"):
+            return True
+        return ap.is_allowed(self.dashboard_code)
+
+    def _check_assigned_to(self, request, obj) -> bool:
+        """For user-level staff, enforce assigned_to boundary."""
+        ap = getattr(request.user, "access_profile", None)
+        if ap and ap.level == "user":
+            assigned_to_id = getattr(obj, "assigned_to_id", None)
+            if assigned_to_id is not None and assigned_to_id != request.user.id:
+                self.message = "غير مصرح: هذا العنصر ليس ضمن المهام المكلّف بها."
+                return False
+        return True
+
+
 class BackofficeAccessPermission(BasePermission):
     """
     صلاحيات Backoffice:

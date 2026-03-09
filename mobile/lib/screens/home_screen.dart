@@ -43,10 +43,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   int _notificationUnread = 0;
   int _chatUnread = 0;
+  Set<int> _featuredProviderIds = {};
+  bool _promoPopupShown = false;
 
   // -- Banner video --
   VideoPlayerController? _videoController;
   bool _videoReady = false;
+
+  // -- Banner carousel --
+  final PageController _bannerPageController = PageController();
+  Timer? _bannerAutoTimer;
+  int _bannerCurrentPage = 0;
 
   // -- Reels auto scroll --
   final ScrollController _reelsScroll = ScrollController();
@@ -102,7 +109,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _seedFromCachedData() {
     final cached = HomeService.getCachedHomeData(
       providersLimit: 10,
-      bannersLimit: 6,
+      bannersLimit: 10,
       spotlightsLimit: 16,
     );
     if (!cached.hasAnyData) return false;
@@ -129,13 +136,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       forceRefresh: forceRefresh,
     );
     final bannersFuture = HomeService.fetchHomeBanners(
-      limit: 6,
+      limit: 10,
       forceRefresh: forceRefresh,
     );
     final spotlightsFuture = HomeService.fetchSpotlightFeed(
       limit: 16,
       forceRefresh: forceRefresh,
     );
+
+    // Fetch promo placements (non-blocking)
+    _loadPromoFeatured();
+    if (!_promoPopupShown) _loadPromoPopup();
 
     categoriesFuture.then((categories) {
       if (!mounted) return;
@@ -145,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     bannersFuture.then((banners) {
       if (!mounted) return;
       setState(() => _banners = banners);
+      _startBannerAutoRotate();
     });
 
     spotlightsFuture.then((spotlights) {
@@ -166,6 +178,96 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadPromoFeatured() async {
+    try {
+      final res = await ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10');
+      if (!mounted || !res.isSuccess || res.data == null) return;
+      final items = res.data is List ? res.data as List : (res.data['results'] as List?) ?? [];
+      final ids = <int>{};
+      for (final item in items) {
+        final pid = item['target_provider_id'];
+        if (pid != null) ids.add(pid is int ? pid : int.tryParse('$pid') ?? 0);
+      }
+      ids.remove(0);
+      if (ids.isEmpty) return;
+      setState(() {
+        _featuredProviderIds = ids;
+        // Re-sort: featured first
+        final featured = _providers.where((p) => ids.contains(p.id)).toList();
+        final rest = _providers.where((p) => !ids.contains(p.id)).toList();
+        _providers = [...featured, ...rest];
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _loadPromoPopup() async {
+    try {
+      final res = await ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1');
+      if (!mounted || !res.isSuccess || res.data == null) return;
+      final items = res.data is List ? res.data as List : (res.data['results'] as List?) ?? [];
+      if (items.isEmpty) return;
+      final promo = items[0] as Map<String, dynamic>;
+      final assets = (promo['assets'] as List?) ?? [];
+      final imageUrl = assets.isNotEmpty ? ApiClient.buildMediaUrl(assets[0]['file']) : null;
+      final title = (promo['title'] as String?) ?? '';
+      final redirectUrl = promo['redirect_url'] as String?;
+
+      if (imageUrl == null) return;
+      _promoPopupShown = true;
+
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                        child: Image.network(imageUrl, fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      ),
+                      if (title.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Text(title,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, fontFamily: 'Cairo')),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8, left: 8,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: Container(
+                    width: 32, height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (_) {}
   }
 
   Future<void> _loadHomeContent({bool forceRefresh = false}) async {
@@ -205,6 +307,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _videoController?.dispose();
     _reelsTimer?.cancel();
     _badgeTimer?.cancel();
+    _bannerAutoTimer?.cancel();
+    _bannerPageController.dispose();
     _reelsScroll.dispose();
     super.dispose();
   }
@@ -852,6 +956,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 iconSize: 11,
                               ),
                             ],
+                            if (_featuredProviderIds.contains(p.id)) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text('مميز', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
+                              ),
+                            ],
                           ],
                         ),
                         if (p.hasExcellenceBadges)
@@ -916,8 +1031,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   // =============================================
-  //  PROMO BANNERS
+  //  PROMO BANNERS — Full-width auto-rotating carousel
   // =============================================
+
+  void _startBannerAutoRotate() {
+    _bannerAutoTimer?.cancel();
+    if (_banners.length <= 1) return;
+    _bannerAutoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted || !_bannerPageController.hasClients) return;
+      final next = (_bannerCurrentPage + 1) % _banners.length;
+      _bannerPageController.animateToPage(
+        next,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
 
   Widget _buildPromoBanners(bool isDark, Color purple) {
     return Padding(
@@ -928,67 +1057,93 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _sectionTitle(_content.bannersTitle, isDark),
           const SizedBox(height: 10),
           SizedBox(
-            height: 130,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _banners.length,
-              itemBuilder: (context, index) {
-                final b = _banners[index];
-                final url = ApiClient.buildMediaUrl(b.fileUrl);
-                return GestureDetector(
-                  onTap: () {
-                    if (b.providerId != null && b.providerId! > 0) {
-                      Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => ProviderProfileScreen(
-                          providerId: b.providerId.toString(),
-                          providerName: b.providerDisplayName,
-                        ),
-                      ));
-                    }
-                  },
-                  child: Container(
-                  width: 220,
-                  margin: const EdgeInsets.only(left: 10),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        url != null
-                            ? Image.network(url, fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _gradientPlaceholder())
-                            : _gradientPlaceholder(),
-                        // Bottom info
-                        Positioned(
-                          bottom: 0, left: 0, right: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.black.withValues(alpha: 0.65), Colors.transparent],
-                                begin: Alignment.bottomCenter, end: Alignment.topCenter,
+            height: 170,
+            child: Stack(
+              children: [
+                // -- PageView carousel --
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: PageView.builder(
+                    controller: _bannerPageController,
+                    itemCount: _banners.length,
+                    onPageChanged: (idx) {
+                      setState(() => _bannerCurrentPage = idx);
+                    },
+                    itemBuilder: (context, index) {
+                      final b = _banners[index];
+                      final url = ApiClient.buildMediaUrl(b.mediaUrl);
+                      return GestureDetector(
+                        onTap: () {
+                          if (b.providerId != null && b.providerId! > 0) {
+                            Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => ProviderProfileScreen(
+                                providerId: b.providerId.toString(),
+                                providerName: b.providerDisplayName,
+                              ),
+                            ));
+                          }
+                        },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            url != null
+                                ? Image.network(url, fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => _gradientPlaceholder())
+                                : _gradientPlaceholder(),
+                            // Bottom overlay
+                            Positioned(
+                              bottom: 0, left: 0, right: 0,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [Colors.black.withValues(alpha: 0.65), Colors.transparent],
+                                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (b.title != null && b.title!.isNotEmpty)
+                                      Text(b.title!, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: Colors.white)),
+                                    if (b.providerDisplayName != null)
+                                      Text(b.providerDisplayName!, maxLines: 1,
+                                        style: TextStyle(fontSize: 10, fontFamily: 'Cairo', color: Colors.white.withValues(alpha: 0.8))),
+                                  ],
+                                ),
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (b.caption != null && b.caption!.isNotEmpty)
-                                  Text(b.caption!, maxLines: 1, overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, fontFamily: 'Cairo', color: Colors.white)),
-                                if (b.providerDisplayName != null)
-                                  Text(b.providerDisplayName!, maxLines: 1,
-                                    style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: Colors.white.withValues(alpha: 0.8))),
-                              ],
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
+                      );
+                    },
+                  ),
+                ),
+                // -- Dots indicator --
+                if (_banners.length > 1)
+                  Positioned(
+                    bottom: 8,
+                    left: 0, right: 0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_banners.length, (i) {
+                        final active = i == _bannerCurrentPage;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: active ? 18 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: active ? Colors.white : Colors.white.withValues(alpha: 0.4),
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                        );
+                      }),
                     ),
                   ),
-                  ),
-                );
-              },
+              ],
             ),
           ),
         ],

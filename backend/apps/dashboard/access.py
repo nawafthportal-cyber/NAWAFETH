@@ -29,6 +29,11 @@ def access_profile_grants_any_dashboard(access_profile: UserAccessProfile | None
         return False
     if access_profile.level in (AccessLevel.ADMIN, AccessLevel.POWER):
         return True
+    if access_profile.level == AccessLevel.CLIENT:
+        # Client always gets extras; check it's active
+        return Dashboard.objects.filter(
+            code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS, is_active=True
+        ).exists()
     return access_profile.allowed_dashboards.filter(is_active=True).exists()
 
 
@@ -47,6 +52,8 @@ def dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
         return False
     if access_profile.level in (AccessLevel.ADMIN, AccessLevel.POWER):
         return True
+    if access_profile.level == AccessLevel.CLIENT:
+        return dashboard_code in UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS
     return access_profile.allowed_dashboards.filter(code=dashboard_code, is_active=True).exists()
 
 

@@ -114,13 +114,23 @@ urlpatterns = [
     path("promo/inquiries/", views.promo_inquiries_list, name="promo_inquiries_list"),
     path("promo/inquiries/<int:ticket_id>/", views.promo_inquiry_detail, name="promo_inquiry_detail"),
     path("promo/inquiries/<int:ticket_id>/actions/assign/", views.promo_assign_action, name="promo_assign_action"),
+    path("promo/inquiries/<int:ticket_id>/actions/profile/", views.promo_inquiry_profile_action, name="promo_inquiry_profile_action"),
     path("promo/inquiries/<int:ticket_id>/actions/status/", views.promo_inquiry_status_action, name="promo_inquiry_status_action"),
     path("promo/pricing/", views.promo_pricing, name="promo_pricing"),
     path("promo/pricing/actions/update/", views.promo_pricing_update_action, name="promo_pricing_update_action"),
+    path("promo/modules/<slug:service_key>/", views.promo_service_board, name="promo_service_board"),
     path("promo/<int:promo_id>/", views.promo_request_detail, name="promo_request_detail"),
+    path("promo/<int:promo_id>/actions/assign/", views.promo_request_assign_action, name="promo_request_assign_action"),
+    path("promo/<int:promo_id>/actions/ops-status/", views.promo_request_ops_status_action, name="promo_request_ops_status_action"),
     path("promo/<int:promo_id>/actions/quote/", views.promo_quote_action, name="promo_quote_action"),
     path("promo/<int:promo_id>/actions/reject/", views.promo_reject_action, name="promo_reject_action"),
     path("promo/<int:promo_id>/actions/activate/", views.promo_activate_action, name="promo_activate_action"),
+
+    path("promo/banners/", views.promo_home_banners_list, name="promo_home_banners"),
+    path("promo/banners/create/", views.promo_home_banner_create, name="promo_home_banner_create"),
+    path("promo/banners/<int:banner_id>/update/", views.promo_home_banner_update, name="promo_home_banner_update"),
+    path("promo/banners/<int:banner_id>/toggle/", views.promo_home_banner_toggle, name="promo_home_banner_toggle"),
+    path("promo/banners/<int:banner_id>/delete/", views.promo_home_banner_delete, name="promo_home_banner_delete"),
 
     path("subscriptions/ops/", views.subscriptions_ops, name="subscriptions_ops"),
     path("subscriptions/inquiries/<int:ticket_id>/", views.subscription_inquiry_detail, name="subscription_inquiry_detail"),
@@ -177,6 +187,8 @@ urlpatterns = [
     ),
 
     path("extras/", views.extras_list, name="extras_list"),
+    path("extras/finance/", views.extras_finance_list, name="extras_finance_list"),
+    path("extras/clients/", views.extras_clients_list, name="extras_clients_list"),
     path("extras/<int:extra_id>/actions/activate/", views.extra_activate_action, name="extra_activate_action"),
 
     path("features/", views.features_overview, name="features_overview"),

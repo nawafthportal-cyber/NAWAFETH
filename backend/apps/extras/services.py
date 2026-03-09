@@ -90,10 +90,12 @@ def infer_duration(sku: str) -> timedelta:
     - *_7d => 7 أيام
     """
     if sku.endswith("_month"):
-        return timedelta(days=30)
+        from apps.core.models import PlatformConfig
+        return timedelta(days=PlatformConfig.load().extras_default_duration_days)
     if sku.endswith("_7d"):
         return timedelta(days=7)
-    return timedelta(days=30)
+    from apps.core.models import PlatformConfig
+    return timedelta(days=PlatformConfig.load().extras_default_duration_days)
 
 
 def infer_credits(sku: str) -> int:

@@ -63,9 +63,14 @@ class UserAccessProfile(models.Model):
     def is_readonly(self) -> bool:
         return self.level == AccessLevel.QA
 
+    # Dashboards that Client-level users can access
+    CLIENT_ALLOWED_DASHBOARDS = frozenset({"extras"})
+
     def is_allowed(self, dashboard_code: str) -> bool:
         if self.level in (AccessLevel.ADMIN, AccessLevel.POWER):
             return True
+        if self.level == AccessLevel.CLIENT:
+            return dashboard_code in self.CLIENT_ALLOWED_DASHBOARDS
         return self.allowed_dashboards.filter(code=dashboard_code, is_active=True).exists()
 
     def __str__(self) -> str:

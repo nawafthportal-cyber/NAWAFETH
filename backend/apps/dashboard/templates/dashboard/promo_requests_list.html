@@ -1,84 +1,134 @@
 {% extends "dashboard/base_dashboard.html" %}
-{% block title %}إدارة الترويج{% endblock %}
+{% block title %}لوحة إدارة الترويج{% endblock %}
 
 {% block content %}
 <div class="flex items-center justify-between mb-6">
   <div>
-    <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">إدارة الترويج</h1>
-    <p class="text-gray-500 mt-1">تشغيل حملات الترويج من التسعير حتى التفعيل.</p>
-  </div>
-  <div class="flex items-center gap-2">
-    <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=csv" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير CSV</a>
-    <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=xlsx" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير Excel</a>
-    <a href="?q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}&export=pdf" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">تصدير PDF</a>
-    <a href="{% url 'admin:promo_promorequest_changelist' %}" class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white font-semibold">فتح Admin</a>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">لوحة إدارة الترويج</h1>
+    <p class="text-gray-500 mt-1">إدارة الاستفسارات، الطلبات، البنود الترويجية، والتسعير من شاشة واحدة.</p>
   </div>
 </div>
 
-<div class="flex items-center gap-2 mb-5">
-  <a href="{% url 'dashboard:promo_requests_list' %}" class="px-4 py-2 rounded-lg border {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200{% endif %}">طلبات الترويج</a>
-  <a href="{% url 'dashboard:promo_inquiries_list' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">استفسارات الترويج</a>
-  <a href="{% url 'dashboard:promo_pricing' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">الأسعار</a>
+{% include "dashboard/_promo_nav.html" %}
+
+<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <div class="text-sm text-gray-500">إجمالي الطلبات</div>
+    <div class="text-3xl font-bold text-fuchsia-700 mt-2">{{ stats.total_requests }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <div class="text-sm text-gray-500">طلبات مفعلة</div>
+    <div class="text-3xl font-bold text-blue-700 mt-2">{{ stats.active_requests }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <div class="text-sm text-gray-500">طلبات مكتملة</div>
+    <div class="text-3xl font-bold text-emerald-700 mt-2">{{ stats.completed_requests }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <div class="text-sm text-gray-500">استفسارات جديدة</div>
+    <div class="text-3xl font-bold text-amber-700 mt-2">{{ stats.new_inquiries }}</div>
+  </div>
 </div>
 
 <form method="get" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">
   <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-    <input name="q" value="{{ q }}" placeholder="كود/عنوان/جوال" class="rounded-lg border-gray-200 px-3 py-2">
+    <input name="q" value="{{ q }}" placeholder="كود الطلب / الجوال / العنوان" class="rounded-lg border-gray-200 px-3 py-2">
     <select name="status" class="rounded-lg border-gray-200 px-3 py-2">
-      <option value="">كل الحالات</option>
+      <option value="">كل الحالات المالية</option>
       {% for v, l in status_choices %}<option value="{{ v }}" {% if status_val == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
     </select>
-    <select name="ad_type" class="rounded-lg border-gray-200 px-3 py-2">
-      <option value="">كل الأنواع</option>
-      {% for v, l in ad_type_choices %}<option value="{{ v }}" {% if ad_type == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
+    <select name="ops_status" class="rounded-lg border-gray-200 px-3 py-2">
+      <option value="">كل حالات التنفيذ</option>
+      {% for v, l in ops_status_choices %}<option value="{{ v }}" {% if ops_status_val == v %}selected{% endif %}>{{ l }}</option>{% endfor %}
     </select>
     <button class="rounded-lg bg-fuchsia-600 text-white px-4 py-2 font-semibold">تطبيق</button>
   </div>
 </form>
 
-<div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
-  <table class="min-w-full text-sm">
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="text-right px-4 py-3">الكود</th>
-        <th class="text-right px-4 py-3">العميل</th>
-        <th class="text-right px-4 py-3">العنوان</th>
-        <th class="text-right px-4 py-3">النوع</th>
-        <th class="text-right px-4 py-3">الحالة</th>
-        <th class="text-right px-4 py-3">الفاتورة</th>
-        <th class="text-right px-4 py-3">إجراءات</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for pr in page_obj.object_list %}
-      <tr class="hover:bg-gray-50">
-        <td class="px-4 py-3 font-bold text-fuchsia-700">{{ pr.code|default:pr.id }}</td>
-        <td class="px-4 py-3">{{ pr.requester.phone|default:"—" }}</td>
-        <td class="px-4 py-3">{{ pr.title }}</td>
-        <td class="px-4 py-3">{{ pr.get_ad_type_display }}</td>
-        <td class="px-4 py-3">{{ pr.get_status_display }}</td>
-        <td class="px-4 py-3">{{ pr.invoice.code|default:"—" }}</td>
-        <td class="px-4 py-3"><a href="{% url 'dashboard:promo_request_detail' pr.id %}" class="text-fuchsia-700 font-semibold">تفاصيل</a></td>
-      </tr>
-      {% empty %}
-      <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">لا توجد حملات.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+  <div class="xl:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-bold text-xl text-fuchsia-700">قائمة طلبات الترويج</h2>
+    </div>
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="text-right px-4 py-3">رقم الطلب</th>
+          <th class="text-right px-4 py-3">العميل</th>
+          <th class="text-right px-4 py-3">الملخص</th>
+          <th class="text-right px-4 py-3">الحالة</th>
+          <th class="text-right px-4 py-3">التنفيذ</th>
+          <th class="text-right px-4 py-3">الفاتورة</th>
+          <th class="text-right px-4 py-3">تفاصيل</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for pr in requests_page.object_list %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3 font-bold text-fuchsia-700">{{ pr.code|default:pr.id }}</td>
+          <td class="px-4 py-3">{{ pr.requester.phone|default:"—" }}</td>
+          <td class="px-4 py-3">
+            <div class="font-semibold">{{ pr.title|default:"—" }}</div>
+            <div class="text-xs text-gray-500 mt-1">{{ pr.items.count }} بند</div>
+          </td>
+          <td class="px-4 py-3">{{ pr.get_status_display }}</td>
+          <td class="px-4 py-3">{{ pr.get_ops_status_display }}</td>
+          <td class="px-4 py-3">{{ pr.invoice.code|default:"—" }}</td>
+          <td class="px-4 py-3">
+            <a href="{% url 'dashboard:promo_request_detail' pr.id %}" class="text-fuchsia-700 font-semibold">فتح</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-4 py-8 text-center text-gray-400">لا توجد طلبات ترويج مطابقة.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="space-y-6">
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="font-bold text-lg mb-4 text-fuchsia-700">قائمة استفسارات الترويج</h2>
+      <div class="space-y-3">
+        {% for ticket in inquiries_rows %}
+          <div class="rounded-xl border border-gray-100 p-4 bg-gray-50">
+            <div class="flex items-center justify-between gap-3">
+              <a href="{% url 'dashboard:promo_inquiry_detail' ticket.id %}" class="font-bold text-fuchsia-700">{{ ticket.code|default:ticket.id }}</a>
+              <span class="text-xs text-gray-500">{{ ticket.get_status_display }}</span>
+            </div>
+            <div class="text-sm text-gray-700 mt-2">{{ ticket.requester.phone|default:"—" }}</div>
+            <div class="text-xs text-gray-500 mt-1">{{ ticket.description }}</div>
+          </div>
+        {% empty %}
+          <div class="text-sm text-gray-400">لا توجد استفسارات حالية.</div>
+        {% endfor %}
+      </div>
+      <a href="{% url 'dashboard:promo_inquiries_list' %}" class="inline-block mt-4 text-fuchsia-700 font-semibold">عرض كل الاستفسارات</a>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="font-bold text-lg mb-4 text-fuchsia-700">خدمات الترويج</h2>
+      <div class="space-y-3">
+        {% for row in promo_service_counts %}
+          <a href="{% url 'dashboard:promo_service_board' row.key %}" class="flex items-center justify-between rounded-xl border border-gray-100 px-4 py-3 hover:bg-fuchsia-50 transition-colors">
+            <span class="font-semibold text-gray-800">{{ row.label }}</span>
+            <span class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded-full bg-fuchsia-100 text-fuchsia-700 text-xs font-bold">{{ row.count }}</span>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="mt-4 flex items-center justify-between">
-  <div class="text-sm text-gray-600">
-    صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
-  </div>
+  <div class="text-sm text-gray-600">صفحة {{ requests_page.number }} من {{ requests_page.paginator.num_pages }}</div>
   <div class="flex items-center gap-2">
-    {% if page_obj.has_previous %}
+    {% if requests_page.has_previous %}
       <a class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-semibold"
-         href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}">← السابق</a>
+         href="?page={{ requests_page.previous_page_number }}&q={{ q }}&status={{ status_val }}&ops_status={{ ops_status_val }}">← السابق</a>
     {% endif %}
-    {% if page_obj.has_next %}
+    {% if requests_page.has_next %}
       <a class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-semibold"
-         href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status_val }}&ad_type={{ ad_type }}">التالي →</a>
+         href="?page={{ requests_page.next_page_number }}&q={{ q }}&status={{ status_val }}&ops_status={{ ops_status_val }}">التالي →</a>
     {% endif %}
   </div>
 </div>

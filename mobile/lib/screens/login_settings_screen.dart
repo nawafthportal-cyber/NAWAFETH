@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
 import '../services/auth_api_service.dart';
+import '../services/auth_service.dart';
 import '../services/profile_service.dart';
 import '../services/content_service.dart';
 import '../models/user_profile.dart';
@@ -498,13 +498,13 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     try {
       final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
-      final prefs = await SharedPreferences.getInstance();
-      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
+      final biometricData =
+          await AuthService.getBiometricCredentials(clearInvalid: true);
 
       if (!mounted) return;
       setState(() {
         _biometricAvailable = canCheck && isSupported;
-        _faceIdEnabled = enabled && _biometricAvailable;
+        _faceIdEnabled = biometricData != null && _biometricAvailable;
       });
     } catch (_) {
       if (!mounted) return;
@@ -537,13 +537,20 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
           return;
         }
 
-        final prefs = await SharedPreferences.getInstance();
-        final phone = _phoneCtrl.text.trim();
-        await prefs.setBool('nw_faceid_enabled', true);
-        await prefs.setString('nw_faceid_device_token', enrollResult.deviceToken!);
-        if (phone.isNotEmpty) {
-          await prefs.setString('nw_faceid_phone', phone);
+        final phone =
+            AuthService.normalizePhoneLocal05(_phoneCtrl.text.trim()) ??
+            await AuthService.getLastLoginPhone();
+        if (phone == null) {
+          setState(() => _faceIdLoading = false);
+          _snack(
+            'تعذر تحديد رقم الجوال المرتبط بالحساب. أعد تسجيل الدخول عبر OTP ثم حاول مرة أخرى.',
+          );
+          return;
         }
+        await AuthService.saveBiometricCredentials(
+          phone: phone,
+          deviceToken: enrollResult.deviceToken!,
+        );
 
         setState(() {
           _faceIdEnabled = true;
@@ -588,10 +595,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     // إلغاء من السيرفر
     await AuthApiService.biometricRevoke();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('nw_faceid_enabled', false);
-    await prefs.remove('nw_faceid_phone');
-    await prefs.remove('nw_faceid_device_token');
+    await AuthService.clearBiometricCredentials();
 
     if (!mounted) return;
     setState(() => _faceIdEnabled = false);

@@ -46,6 +46,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   String _selectedSort = 'default';
   Position? _clientPosition;
   final Map<int, double> _distanceKmByProviderId = {};
+  Set<int> _featuredProviderIds = {};
+  String? _searchBannerImageUrl;
+  String? _searchBannerRedirectUrl;
 
   @override
   void initState() {
@@ -58,6 +61,58 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Future<void> _loadInitial() async {
     await Future.wait([_loadCategories(), _searchProviders()]);
     if (mounted) setState(() => _initialLoad = false);
+    _loadSearchPromos();
+  }
+
+  Future<void> _loadSearchPromos() async {
+    try {
+      final results = await Future.wait([
+        ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=1'),
+        ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
+      ]);
+      final bannerRes = results[0];
+      final featuredRes = results[1];
+
+      if (bannerRes.isSuccess && bannerRes.data != null) {
+        final items = bannerRes.data is List
+            ? bannerRes.data as List
+            : (bannerRes.data['results'] as List?) ?? [];
+        if (items.isNotEmpty) {
+          final promo = items[0] as Map<String, dynamic>;
+          final assets = (promo['assets'] as List?) ?? [];
+          if (assets.isNotEmpty) {
+            final url = ApiClient.buildMediaUrl(assets[0]['file'] as String?);
+            if (url != null && mounted) {
+              setState(() {
+                _searchBannerImageUrl = url;
+                _searchBannerRedirectUrl = promo['redirect_url'] as String?;
+              });
+            }
+          }
+        }
+      }
+
+      if (featuredRes.isSuccess && featuredRes.data != null) {
+        final items = featuredRes.data is List
+            ? featuredRes.data as List
+            : (featuredRes.data['results'] as List?) ?? [];
+        final ids = <int>{};
+        for (final item in items) {
+          final pid = item['target_provider_id'];
+          if (pid != null) ids.add(pid is int ? pid : int.tryParse('$pid') ?? 0);
+        }
+        ids.remove(0);
+        if (ids.isNotEmpty && mounted) {
+          setState(() {
+            _featuredProviderIds = ids;
+            // Re-sort: featured first
+            final featured = _providers.where((p) => ids.contains(p.id)).toList();
+            final rest = _providers.where((p) => !ids.contains(p.id)).toList();
+            _providers = [...featured, ...rest];
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadCategories() async {
@@ -564,8 +619,25 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      itemCount: _providers.length,
-      itemBuilder: (_, i) => _providerCard(_providers[i], isDark, purple),
+      itemCount: _providers.length + (_searchBannerImageUrl != null ? 1 : 0),
+      itemBuilder: (_, i) {
+        // Promo banner as first item
+        if (_searchBannerImageUrl != null && i == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(_searchBannerImageUrl!,
+                fit: BoxFit.cover,
+                height: 120,
+                width: double.infinity,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+            ),
+          );
+        }
+        final idx = _searchBannerImageUrl != null ? i - 1 : i;
+        return _providerCard(_providers[idx], isDark, purple);
+      },
     );
   }
 
@@ -596,8 +668,15 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border:
-              Border.all(color: isDark ? Colors.white10 : Colors.grey.shade200),
+          border: Border.all(
+            color: _featuredProviderIds.contains(p.id)
+                ? const Color(0xFFF59E0B)
+                : (isDark ? Colors.white10 : Colors.grey.shade200),
+            width: _featuredProviderIds.contains(p.id) ? 1.5 : 1,
+          ),
+          boxShadow: _featuredProviderIds.contains(p.id)
+              ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), blurRadius: 6)]
+              : null,
         ),
         child: Row(
           children: [
@@ -678,14 +757,31 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Name
-                    Text(p.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            fontFamily: 'Cairo',
-                            color: isDark ? Colors.white : Colors.black87)),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(p.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  fontFamily: 'Cairo',
+                                  color: isDark ? Colors.white : Colors.black87)),
+                        ),
+                        if (_featuredProviderIds.contains(p.id)) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text('مميز', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ],
+                      ],
+                    ),
                     if (p.city != null) ...[
                       const SizedBox(height: 2),
                       Row(

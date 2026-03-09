@@ -1,0 +1,20 @@
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+  <a href="{% url 'dashboard:promo_requests_list' %}"
+     class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'dashboard' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+    لوحة التحكم
+  </a>
+  <a href="{% url 'dashboard:promo_inquiries_list' %}"
+     class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'inquiries' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+    الاستفسارات
+  </a>
+  {% for item in promo_menu %}
+    <a href="{% url 'dashboard:promo_service_board' item.key %}"
+       class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == item.key %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+      {{ item.label }}
+    </a>
+  {% endfor %}
+  <a href="{% url 'dashboard:promo_pricing' %}"
+     class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'pricing' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+    الأسعار
+  </a>
+</div>

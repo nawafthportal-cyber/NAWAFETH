@@ -80,7 +80,7 @@
           <tbody>
             {% for r in statement %}
               <tr class="border-t border-gray-100">
-                <td class="p-3">{{ r.id }}</td>
+                <td class="p-3"><a href="{% url 'extras_portal:invoice_detail' r.id %}" class="text-sky-600 hover:underline">{{ r.id }}</a></td>
                 <td class="p-3">{{ r.client.phone|default:'—' }}</td>
                 <td class="p-3">{{ r.get_status_display }}</td>
                 <td class="p-3">{{ r.created_at }}</td>

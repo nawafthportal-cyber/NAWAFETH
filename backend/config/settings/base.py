@@ -197,6 +197,19 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=3, minute=15),
         "kwargs": {"batch_size": 500},
     },
+    # ── Phase 2: تنبيهات الانتهاء والتجديد ──
+    "core-subscription-renewal-reminders": {
+        "task": "core.send_subscription_renewal_reminders",
+        "schedule": timedelta(hours=6),
+    },
+    "core-verification-expiry-reminders": {
+        "task": "core.send_verification_expiry_reminders",
+        "schedule": timedelta(hours=12),
+    },
+    "core-auto-complete-expired-promos": {
+        "task": "core.auto_complete_expired_promos",
+        "schedule": timedelta(hours=1),
+    },
 }
 
 STATIC_URL = "/static/"

@@ -21,4 +21,6 @@ urlpatterns = [
     path("finance/", views.portal_finance, name="finance"),
     path("finance/export/pdf/", views.portal_finance_export_pdf, name="finance_export_pdf"),
     path("finance/export/xlsx/", views.portal_finance_export_xlsx, name="finance_export_xlsx"),
+
+    path("finance/invoice/<int:pk>/", views.portal_invoice_detail, name="invoice_detail"),
 ]

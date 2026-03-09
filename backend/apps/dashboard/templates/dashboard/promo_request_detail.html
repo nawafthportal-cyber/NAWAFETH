@@ -5,70 +5,226 @@
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-2xl font-bold text-fuchsia-700">طلب {{ pr.code|default:pr.id }}</h1>
-    <p class="text-gray-500 mt-1">{{ pr.title }} - {{ pr.requester.phone|default:"—" }}</p>
+    <p class="text-gray-500 mt-1">{{ pr.requester.phone|default:"—" }} - {{ pr.title }}</p>
   </div>
-  <a href="{% url 'dashboard:promo_requests_list' %}" class="px-4 py-2 rounded-lg bg-gray-100 font-semibold">رجوع</a>
+  <div class="flex items-center gap-2">
+    <a href="{{ back_url }}" class="px-4 py-2 rounded-lg bg-gray-100 font-semibold">رجوع</a>
+    {% if pr.invoice %}
+      <a href="{% url 'dashboard:billing_invoices_list' %}?q={{ pr.invoice.code|default:pr.invoice_id }}" class="px-4 py-2 rounded-lg bg-blue-700 text-white font-semibold">الفاتورة</a>
+    {% endif %}
+  </div>
 </div>
 
-<div class="flex items-center gap-2 mb-5">
-  <a href="{% url 'dashboard:promo_requests_list' %}" class="px-4 py-2 rounded-lg border bg-fuchsia-600 text-white border-fuchsia-600">طلبات الترويج</a>
-  <a href="{% url 'dashboard:promo_inquiries_list' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">استفسارات الترويج</a>
-  <a href="{% url 'dashboard:promo_pricing' %}" class="px-4 py-2 rounded-lg border bg-white border-gray-200">الأسعار</a>
-</div>
+{% include "dashboard/_promo_nav.html" %}
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
-    <h2 class="font-bold text-lg mb-3">بيانات الحملة</h2>
-    <div class="space-y-2 text-sm">
-      <div>النوع: <b>{{ pr.get_ad_type_display }}</b></div>
-      <div>الحالة: <b>{{ pr.get_status_display }}</b></div>
-      <div>الفترة: <b>{{ pr.start_at|date:"Y-m-d" }} → {{ pr.end_at|date:"Y-m-d" }}</b></div>
-      <div>الظهور: <b>{{ pr.get_frequency_display }}</b> - <b>{{ pr.get_position_display }}</b></div>
-      {% if pr.target_city or pr.target_category %}
-      <div>الاستهداف: <b>{{ pr.target_city|default:"—" }}</b> / <b>{{ pr.target_category|default:"—" }}</b></div>
-      {% endif %}
-      {% if pr.target_provider %}
-      <div>المستهدف: <b>{{ pr.target_provider.display_name }}</b> (ID: {{ pr.target_provider.id }})</div>
-      {% endif %}
-      {% if pr.target_portfolio_item %}
-      <div>عنصر أعمال: <b>#{{ pr.target_portfolio_item.id }}</b> (Provider: {{ pr.target_portfolio_item.provider_id }})</div>
-      {% endif %}
-      {% if pr.message_title or pr.message_body %}
-      <div>رسالة: <b>{{ pr.message_title|default:"—" }}</b></div>
-      <div class="text-gray-600">{{ pr.message_body|default:"" }}</div>
-      {% endif %}
-      <div>التسعير: <b>{{ pr.subtotal }} SAR</b></div>
-      <div>الفاتورة: <b>{{ pr.invoice.code|default:"—" }}</b></div>
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+  <div class="xl:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <h2 class="font-bold text-lg mb-4">ملخص طلب الترويج والتكلفة</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="rounded-lg bg-gray-50 p-3">اسم العميل: <b>{{ pr.requester.phone|default:"—" }}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">حالة الطلب: <b>{{ pr.get_status_display }}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">حالة التنفيذ: <b>{{ pr.get_ops_status_display }}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">المكلّف: <b>{{ pr.assigned_to.phone|default:"—" }}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">عدد البنود: <b>{{ items|length }}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">المدة المرجعية: <b>{{ pr.total_days|default:"0" }} يوم</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">التكلفة قبل الضريبة: <b>{{ pr.subtotal }} SAR</b></div>
+      <div class="rounded-lg bg-yellow-50 border border-yellow-200 p-3">إجمالي الفاتورة: <b>{% if pr.invoice %}{{ pr.invoice.total }}{% else %}0.00{% endif %} SAR</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">VAT: <b>{% if pr.invoice %}{{ pr.invoice.vat_amount }}{% else %}0.00{% endif %} SAR</b></div>
+      <div class="rounded-lg bg-gray-50 p-3">حالة الفاتورة: <b>{% if pr.invoice %}{{ pr.invoice.get_status_display }}{% else %}—{% endif %}</b></div>
+      <div class="rounded-lg bg-gray-50 p-3 md:col-span-2">الفترة العامة: <b>{{ pr.start_at|date:"Y-m-d H:i" }} → {{ pr.end_at|date:"Y-m-d H:i" }}</b></div>
     </div>
 
-    <div class="mt-5 space-y-3">
-      <form method="post" action="{% url 'dashboard:promo_quote_action' pr.id %}" class="space-y-2">
-        {% csrf_token %}
-        <input name="quote_note" class="w-full rounded-lg border-gray-200 px-3 py-2" placeholder="ملاحظة التسعير">
-        <button class="rounded-lg bg-fuchsia-600 text-white px-4 py-2 font-semibold">تسعير + فاتورة</button>
-      </form>
-      <form method="post" action="{% url 'dashboard:promo_reject_action' pr.id %}" class="space-y-2">
-        {% csrf_token %}
-        <input name="reject_reason" class="w-full rounded-lg border-gray-200 px-3 py-2" placeholder="سبب الرفض">
-        <button class="rounded-lg bg-rose-600 text-white px-4 py-2 font-semibold">رفض الطلب</button>
-      </form>
-      <form method="post" action="{% url 'dashboard:promo_activate_action' pr.id %}">
-        {% csrf_token %}
-        <button class="rounded-lg bg-emerald-600 text-white px-4 py-2 font-semibold">تفعيل بعد الدفع</button>
-      </form>
-    </div>
-  </div>
-
-  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
-    <h2 class="font-bold text-lg mb-3">مواد الإعلان</h2>
-    <div class="space-y-2">
-      {% for a in assets %}
-      <div class="rounded-lg bg-gray-50 p-3 text-sm">
-        <div class="font-semibold">{{ a.get_asset_type_display }} - {{ a.title|default:"—" }}</div>
-        <div class="text-gray-500">{{ a.uploaded_at|date:"Y-m-d H:i" }}</div>
+    {% if invoice_lines %}
+    <div class="mt-6">
+      <h3 class="font-bold text-lg mb-3">بنود الفاتورة</h3>
+      <div class="overflow-x-auto border border-gray-100 rounded-xl">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-right px-4 py-3">البند</th>
+              <th class="text-right px-4 py-3">الكود</th>
+              <th class="text-right px-4 py-3">التكلفة</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for line in invoice_lines %}
+            <tr>
+              <td class="px-4 py-3">{{ line.title }}</td>
+              <td class="px-4 py-3">{{ line.item_code|default:"—" }}</td>
+              <td class="px-4 py-3 font-semibold">{{ line.amount }} SAR</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <h2 class="font-bold text-lg mb-4">إجراءات التنفيذ</h2>
+    {% if can_write %}
+      <div class="space-y-4">
+        <form method="post" action="{% url 'dashboard:promo_request_assign_action' pr.id %}" class="space-y-2">
+          {% csrf_token %}
+          <div class="font-semibold text-sm">إسناد الطلب</div>
+          <select name="assigned_to" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+            <option value="">غير مكلّف</option>
+            {% for u in staff_users %}
+              <option value="{{ u.id }}" {% if pr.assigned_to_id == u.id %}selected{% endif %}>{{ u.phone|default:u.id }}</option>
+            {% endfor %}
+          </select>
+          <input name="note" maxlength="200" placeholder="ملاحظة إسناد" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+          <button class="w-full rounded-lg bg-fuchsia-600 text-white px-4 py-2 font-semibold">حفظ الإسناد</button>
+        </form>
+
+        <form method="post" action="{% url 'dashboard:promo_request_ops_status_action' pr.id %}" class="space-y-2">
+          {% csrf_token %}
+          <div class="font-semibold text-sm">حالة التنفيذ</div>
+          <select name="status" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+            <option value="new" {% if pr.ops_status == 'new' %}selected{% endif %}>جديد</option>
+            <option value="in_progress" {% if pr.ops_status == 'in_progress' %}selected{% endif %}>تحت المعالجة</option>
+            <option value="completed" {% if pr.ops_status == 'completed' %}selected{% endif %}>مكتمل</option>
+          </select>
+          <input name="note" maxlength="200" placeholder="ملاحظة حالة التنفيذ" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+          <button class="w-full rounded-lg bg-blue-600 text-white px-4 py-2 font-semibold">حفظ الحالة</button>
+        </form>
+
+        <form method="post" action="{% url 'dashboard:promo_quote_action' pr.id %}" class="space-y-2">
+          {% csrf_token %}
+          <input name="quote_note" maxlength="300" placeholder="ملاحظة التسعير" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+          <button class="w-full rounded-lg bg-amber-500 text-white px-4 py-2 font-semibold">احتساب التكلفة وإنشاء الفاتورة</button>
+        </form>
+
+        <form method="post" action="{% url 'dashboard:promo_activate_action' pr.id %}">
+          {% csrf_token %}
+          <button class="w-full rounded-lg bg-emerald-600 text-white px-4 py-2 font-semibold">اعتماد الطلب بعد الدفع</button>
+        </form>
+
+        <form method="post" action="{% url 'dashboard:promo_reject_action' pr.id %}" class="space-y-2">
+          {% csrf_token %}
+          <input name="reject_reason" maxlength="300" placeholder="سبب الرفض" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+          <button class="w-full rounded-lg bg-rose-600 text-white px-4 py-2 font-semibold">رفض الطلب</button>
+        </form>
+      </div>
+    {% else %}
+      <div class="text-sm text-gray-500">صلاحية القراءة فقط.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">
+  <h2 class="font-bold text-lg mb-4">بنود طلب الترويج</h2>
+  <div class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+    {% for item in items %}
+      <div class="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="font-bold text-fuchsia-700">{{ item.get_service_type_display }}</div>
+            <div class="text-sm text-gray-500 mt-1">{{ item.title|default:"بدون عنوان تفصيلي" }}</div>
+          </div>
+          <div class="text-left">
+            <div class="text-xs text-gray-500">التكلفة</div>
+            <div class="font-bold text-gray-900">{{ item.subtotal }} SAR</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mt-4">
+          {% if item.start_at or item.end_at %}
+            <div class="rounded-lg bg-white p-3">الفترة: <b>{{ item.start_at|date:"Y-m-d H:i"|default:"—" }} → {{ item.end_at|date:"Y-m-d H:i"|default:"—" }}</b></div>
+          {% endif %}
+          {% if item.send_at %}
+            <div class="rounded-lg bg-white p-3">وقت الإرسال: <b>{{ item.send_at|date:"Y-m-d H:i" }}</b></div>
+          {% endif %}
+          {% if item.frequency %}
+            <div class="rounded-lg bg-white p-3">معدل الظهور: <b>{{ item.get_frequency_display }}</b></div>
+          {% endif %}
+          {% if item.search_scope %}
+            <div class="rounded-lg bg-white p-3">قائمة الظهور: <b>{{ item.get_search_scope_display }}</b></div>
+          {% endif %}
+          {% if item.search_position %}
+            <div class="rounded-lg bg-white p-3">ترتيب الظهور: <b>{{ item.get_search_position_display }}</b></div>
+          {% endif %}
+          {% if item.use_notification_channel or item.use_chat_channel %}
+            <div class="rounded-lg bg-white p-3">
+              القنوات:
+              <b>
+                {% if item.use_notification_channel %}تنبيه{% endif %}
+                {% if item.use_notification_channel and item.use_chat_channel %} + {% endif %}
+                {% if item.use_chat_channel %}محادثات{% endif %}
+              </b>
+            </div>
+          {% endif %}
+          {% if item.sponsor_name %}
+            <div class="rounded-lg bg-white p-3">اسم الراعي: <b>{{ item.sponsor_name }}</b></div>
+          {% endif %}
+          {% if item.sponsorship_months %}
+            <div class="rounded-lg bg-white p-3">مدة الرعاية: <b>{{ item.sponsorship_months }} شهر</b></div>
+          {% endif %}
+          {% if item.target_provider %}
+            <div class="rounded-lg bg-white p-3">المختص المستهدف: <b>{{ item.target_provider.display_name|default:item.target_provider_id }}</b></div>
+          {% endif %}
+          {% if item.target_category %}
+            <div class="rounded-lg bg-white p-3">التصنيف: <b>{{ item.target_category }}</b></div>
+          {% endif %}
+          {% if item.redirect_url %}
+            <div class="rounded-lg bg-white p-3 md:col-span-2">الرابط: <b>{{ item.redirect_url }}</b></div>
+          {% endif %}
+          {% if item.message_body %}
+            <div class="rounded-lg bg-white p-3 md:col-span-2">النص: <b>{{ item.message_body }}</b></div>
+          {% endif %}
+          {% if item.operator_note %}
+            <div class="rounded-lg bg-white p-3 md:col-span-2">ملاحظة تشغيلية: <b>{{ item.operator_note }}</b></div>
+          {% endif %}
+        </div>
+
+        <div class="mt-4">
+          <div class="font-semibold text-sm mb-2">المرفقات</div>
+          <div class="space-y-2">
+            {% for asset in item.assets.all %}
+              <div class="rounded-lg bg-white p-3 text-sm">
+                <div class="font-semibold">{{ asset.get_asset_type_display }} - {{ asset.title|default:"—" }}</div>
+                <div class="text-gray-500 mt-1">{{ asset.uploaded_at|date:"Y-m-d H:i" }}</div>
+              </div>
+            {% empty %}
+              <div class="text-sm text-gray-400">لا توجد مرفقات مرتبطة بهذا البند.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="text-sm text-gray-400">هذا الطلب لا يحتوي بنودًا تفصيلية بعد.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <h2 class="font-bold text-lg mb-3">سجل الحالات</h2>
+    <div class="space-y-2">
+      {% for log in status_logs %}
+        <div class="rounded-lg bg-gray-50 p-3 text-sm">
+          <div class="font-semibold">{{ log.from_status|default:"—" }} → {{ log.to_status }}</div>
+          <div class="text-gray-500 mt-1">{{ log.created_at|date:"Y-m-d H:i" }}{% if log.changed_by %} - {{ log.changed_by.phone|default:log.changed_by.id }}{% endif %}</div>
+          {% if log.note %}<div class="mt-1">{{ log.note }}</div>{% endif %}
+        </div>
       {% empty %}
-      <div class="text-gray-400 text-sm">لا توجد مواد مرفوعة.</div>
+        <div class="text-sm text-gray-400">لا يوجد سجل حالات.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+    <h2 class="font-bold text-lg mb-3">سجل الإسناد</h2>
+    <div class="space-y-2">
+      {% for log in assignment_logs %}
+        <div class="rounded-lg bg-gray-50 p-3 text-sm">
+          <div class="font-semibold">المكلّف: {{ log.from_user.phone|default:"—" }} → {{ log.to_user.phone|default:"—" }}</div>
+          <div class="text-gray-500 mt-1">{{ log.created_at|date:"Y-m-d H:i" }}{% if log.changed_by %} - {{ log.changed_by.phone|default:log.changed_by.id }}{% endif %}</div>
+          {% if log.note %}<div class="mt-1">{{ log.note }}</div>{% endif %}
+        </div>
+      {% empty %}
+        <div class="text-sm text-gray-400">لا يوجد سجل إسناد.</div>
       {% endfor %}
     </div>
   </div>

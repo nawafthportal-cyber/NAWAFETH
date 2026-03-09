@@ -1,10 +1,116 @@
 import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../constants/saudi_cities.dart';
 import 'package:nawafeth/services/promo_service.dart';
 
-/// صفحة الترويج / الإعلانات — مربوطة بالـ API
+const _brandColor = Colors.deepPurple;
+
+const _statusLabels = {
+  'new': 'جديد',
+  'in_review': 'قيد المراجعة',
+  'quoted': 'تم التسعير',
+  'pending_payment': 'بانتظار الدفع',
+  'active': 'مفعل',
+  'completed': 'مكتمل',
+  'rejected': 'مرفوض',
+  'expired': 'منتهي',
+  'cancelled': 'ملغي',
+};
+
+const _opsLabels = {
+  'new': 'جديد',
+  'in_progress': 'تحت المعالجة',
+  'completed': 'مكتمل',
+};
+
+const _frequencyLabels = {
+  '10s': 'كل 10 ثواني',
+  '30s': 'كل 30 ثانية',
+  '60s': 'كل دقيقة',
+  '300s': 'كل 5 دقائق',
+  '900s': 'كل 15 دقيقة',
+  '1800s': 'كل 30 دقيقة',
+  '3600s': 'كل ساعة',
+};
+
+const _searchScopeLabels = {
+  'default': 'قائمة البحث الافتراضية',
+  'main_results': 'نتائج البحث الرئيسية',
+  'category_match': 'نتائج البحث المطابقة للتصنيف',
+};
+
+const _searchPositionLabels = {
+  'first': 'الأول في القائمة',
+  'second': 'الثاني في القائمة',
+  'top5': 'من أول خمسة أسماء',
+  'top10': 'من أول عشرة أسماء',
+};
+
+const _promoServices = [
+  _PromoServiceDef(
+    type: 'home_banner',
+    label: 'بنر الصفحة الرئيسية',
+    icon: Icons.web_asset_rounded,
+    needsRange: true,
+    needsAssets: true,
+    needsRedirect: true,
+    needsSpecs: true,
+    attachmentsRequired: true,
+  ),
+  _PromoServiceDef(
+    type: 'featured_specialists',
+    label: 'شريط أبرز المختصين',
+    icon: Icons.star_rounded,
+    needsRange: true,
+    needsFrequency: true,
+  ),
+  _PromoServiceDef(
+    type: 'portfolio_showcase',
+    label: 'شريط البنرات والمشاريع',
+    icon: Icons.collections_rounded,
+    needsRange: true,
+    needsFrequency: true,
+  ),
+  _PromoServiceDef(
+    type: 'snapshots',
+    label: 'شريط اللمحات',
+    icon: Icons.view_carousel_rounded,
+    needsRange: true,
+    needsFrequency: true,
+  ),
+  _PromoServiceDef(
+    type: 'search_results',
+    label: 'الظهور في قوائم البحث',
+    icon: Icons.manage_search_rounded,
+    needsRange: true,
+    needsSearch: true,
+    needsCategory: true,
+  ),
+  _PromoServiceDef(
+    type: 'promo_messages',
+    label: 'الرسائل الدعائية',
+    icon: Icons.campaign_rounded,
+    needsSendAt: true,
+    needsChannels: true,
+    needsMessage: true,
+    needsAssets: true,
+    needsSpecs: true,
+  ),
+  _PromoServiceDef(
+    type: 'sponsorship',
+    label: 'الرعاية',
+    icon: Icons.workspace_premium_rounded,
+    needsRange: true,
+    needsAssets: true,
+    needsRedirect: true,
+    needsMessage: true,
+    needsSpecs: true,
+    needsSponsor: true,
+    attachmentsRequired: true,
+  ),
+];
+
 class PromotionScreen extends StatefulWidget {
   const PromotionScreen({super.key});
 
@@ -14,18 +120,16 @@ class PromotionScreen extends StatefulWidget {
 
 class _PromotionScreenState extends State<PromotionScreen>
     with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  // ────── حالة التحميل ──────
+  late final TabController _tabController;
   bool _isLoading = true;
-  String? _errorMessage;
-  List<Map<String, dynamic>> _myRequests = [];
+  String? _error;
+  List<Map<String, dynamic>> _requests = [];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadMyRequests();
+    _loadRequests();
   }
 
   @override
@@ -34,56 +138,27 @@ class _PromotionScreenState extends State<PromotionScreen>
     super.dispose();
   }
 
-  Future<void> _loadMyRequests({bool silent = false}) async {
-    if (!silent) setState(() => _isLoading = true);
+  Future<void> _loadRequests({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
     final res = await PromoService.fetchMyRequests();
     if (!mounted) return;
-
     if (res.isSuccess) {
       final list =
-          res.dataAsList ?? (res.dataAsMap?['results'] as List?) ?? [];
-      _myRequests = list.cast<Map<String, dynamic>>();
+          res.dataAsList ?? (res.dataAsMap?['results'] as List<dynamic>? ?? []);
+      _requests = list
+          .whereType<Map>()
+          .map((row) => Map<String, dynamic>.from(row))
+          .toList();
     } else {
-      _errorMessage = res.error ?? 'تعذر تحميل طلبات الترويج';
+      _error = res.error ?? 'تعذر تحميل طلبات الترويج';
     }
-
     setState(() => _isLoading = false);
   }
-
-  // ──── خريطة حالات الطلب ────
-  static const _statusLabels = {
-    'new': 'جديد',
-    'in_review': 'قيد المراجعة',
-    'quoted': 'تم التسعير',
-    'pending_payment': 'بانتظار الدفع',
-    'active': 'مفعل',
-    'rejected': 'مرفوض',
-    'expired': 'منتهي',
-    'cancelled': 'ملغي',
-  };
-
-  static const _statusColors = {
-    'new': Colors.blue,
-    'in_review': Colors.orange,
-    'quoted': Colors.teal,
-    'pending_payment': Colors.amber,
-    'active': Colors.green,
-    'rejected': Colors.red,
-    'expired': Colors.grey,
-    'cancelled': Colors.blueGrey,
-  };
-
-  static const _adTypeLabels = {
-    'banner_home': 'بانر الصفحة الرئيسية',
-    'banner_category': 'بانر صفحة القسم',
-    'banner_search': 'بانر صفحة البحث',
-    'popup_home': 'نافذة منبثقة رئيسية',
-    'popup_category': 'نافذة منبثقة داخل قسم',
-    'featured_top5': 'تمييز ضمن أول 5',
-    'featured_top10': 'تمييز ضمن أول 10',
-    'boost_profile': 'تعزيز ملف مقدم الخدمة',
-    'push_notification': 'إشعار دفع (Push)',
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -92,40 +167,33 @@ class _PromotionScreenState extends State<PromotionScreen>
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
         appBar: AppBar(
-          backgroundColor: Colors.deepPurple,
-          elevation: 0,
+          backgroundColor: _brandColor,
           centerTitle: true,
           iconTheme: const IconThemeData(color: Colors.white),
           title: const Text(
-            'الترويج والإعلانات',
+            'إدارة الترويج',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontWeight: FontWeight.bold,
               color: Colors.white,
+              fontWeight: FontWeight.bold,
             ),
           ),
           bottom: TabBar(
             controller: _tabController,
             indicatorColor: Colors.white,
-            labelStyle:
-                const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-            unselectedLabelStyle: const TextStyle(fontFamily: 'Cairo'),
             labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
-            tabs: const [
-              Tab(text: 'طلباتي'),
-              Tab(text: 'طلب جديد'),
-            ],
+            unselectedLabelColor: Colors.white70,
+            tabs: const [Tab(text: 'طلباتي'), Tab(text: 'طلب جديد')],
           ),
         ),
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildMyRequestsTab(),
-            _CreatePromoRequestForm(
+            _buildRequestsTab(),
+            _PromoComposer(
               onCreated: () {
                 _tabController.animateTo(0);
-                _loadMyRequests(silent: true);
+                _loadRequests(silent: true);
               },
             ),
           ],
@@ -134,106 +202,295 @@ class _PromotionScreenState extends State<PromotionScreen>
     );
   }
 
-  // ──── تبويب طلباتي ────
-  Widget _buildMyRequestsTab() {
+  Widget _buildRequestsTab() {
     if (_isLoading) {
       return const Center(
-          child: CircularProgressIndicator(color: Colors.deepPurple));
+        child: CircularProgressIndicator(color: _brandColor),
+      );
     }
-
-    if (_errorMessage != null) {
+    if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.cloud_off, size: 52, color: Colors.grey[400]),
-            const SizedBox(height: 12),
-            Text(
-              _errorMessage!,
-              style: const TextStyle(fontFamily: 'Cairo', color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _loadMyRequests,
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              label: const Text('إعادة المحاولة',
-                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_error!, style: const TextStyle(fontFamily: 'Cairo')),
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: _loadRequests,
+                style: ElevatedButton.styleFrom(backgroundColor: _brandColor),
+                child: const Text(
+                  'إعادة المحاولة',
+                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
-
-    if (_myRequests.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.campaign_outlined, size: 64, color: Colors.grey[400]),
-            const SizedBox(height: 16),
-            const Text(
-              'لا توجد طلبات ترويج حتى الآن',
-              style: TextStyle(fontFamily: 'Cairo', fontSize: 16, color: Colors.black54),
-            ),
-            const SizedBox(height: 12),
-            ElevatedButton(
-              onPressed: () => _tabController.animateTo(1),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              child: const Text('أنشئ طلبك الأول',
-                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
-            ),
-          ],
+    if (_requests.isEmpty) {
+      return const Center(
+        child: Text(
+          'لا توجد طلبات ترويج حتى الآن',
+          style: TextStyle(fontFamily: 'Cairo', color: Colors.black54),
         ),
       );
     }
-
     return RefreshIndicator(
-      onRefresh: () => _loadMyRequests(silent: true),
-      color: Colors.deepPurple,
+      onRefresh: () => _loadRequests(silent: true),
+      color: _brandColor,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _myRequests.length,
-        itemBuilder: (_, i) => _buildRequestCard(_myRequests[i]),
+        itemCount: _requests.length,
+        itemBuilder: (_, index) => _buildRequestCard(_requests[index]),
       ),
     );
   }
 
-  Widget _buildRequestCard(Map<String, dynamic> req) {
-    final code = req['code'] as String? ?? '';
-    final title = req['title'] as String? ?? 'طلب ترويج';
-    final status = req['status'] as String? ?? 'new';
-    final adType = req['ad_type'] as String? ?? '';
-    final createdAt = req['created_at'] as String? ?? '';
-
-    final statusLabel = _statusLabels[status] ?? status;
-    final statusColor = _statusColors[status] ?? Colors.grey;
-    final adLabel = _adTypeLabels[adType] ?? adType;
-
-    String dateStr = '';
-    if (createdAt.isNotEmpty) {
-      try {
-        final dt = DateTime.parse(createdAt);
-        dateStr =
-            '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-      } catch (_) {
-        dateStr = createdAt;
-      }
-    }
-
+  Widget _buildRequestCard(Map<String, dynamic> request) {
+    final status = (request['status'] as String? ?? 'new').trim();
+    final opsStatus = (request['ops_status'] as String? ?? '').trim();
+    final items = _asMapList(request['items']);
+    final labels = items
+        .take(3)
+        .map((item) => _serviceLabel(item['service_type'] as String?))
+        .join('، ');
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      elevation: 3,
-      shadowColor: Colors.black12,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _showRequestDialog(request),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.campaign_rounded, color: _brandColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (request['title'] as String? ?? 'طلب ترويج').trim(),
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          (request['code'] as String? ?? '').trim(),
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            color: Colors.black45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _badge(_statusLabels[status] ?? status),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _chip('${items.length} خدمة'),
+                  if (opsStatus.isNotEmpty) _chip(_opsLabels[opsStatus] ?? opsStatus),
+                  if (request['invoice_total'] != null)
+                    _chip('${_money(request['invoice_total'])} ريال'),
+                ],
+              ),
+              if (labels.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  labels,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRequestDialog(Map<String, dynamic> request) {
+    final items = _asMapList(request['items']);
+    showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          (request['title'] as String? ?? 'طلب ترويج').trim(),
+          style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _line('رقم الطلب', (request['code'] as String? ?? '').trim()),
+                _line('الحالة', _statusLabels[request['status']] ?? '${request['status']}'),
+                _line(
+                  'التنفيذ',
+                  _opsLabels[request['ops_status']] ?? '${request['ops_status'] ?? ''}',
+                ),
+                if (request['invoice_total'] != null)
+                  _line('الإجمالي', '${_money(request['invoice_total'])} ريال'),
+                if (request['invoice_vat'] != null)
+                  _line('VAT', '${_money(request['invoice_vat'])} ريال'),
+                const SizedBox(height: 10),
+                const Text(
+                  'الخدمات',
+                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '- ${_serviceLabel(item['service_type'] as String?)}',
+                      style: const TextStyle(fontFamily: 'Cairo'),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PromoComposer extends StatefulWidget {
+  final VoidCallback onCreated;
+
+  const _PromoComposer({required this.onCreated});
+
+  @override
+  State<_PromoComposer> createState() => _PromoComposerState();
+}
+
+class _PromoComposerState extends State<_PromoComposer> {
+  final _title = TextEditingController();
+  late final Map<String, _PromoDraft> _drafts;
+  final List<String> _selected = [];
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _drafts = {
+      for (final service in _promoServices) service.type: _PromoDraft(service),
+    };
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    for (final draft in _drafts.values) {
+      draft.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'طلب ترويج متعدد الخدمات',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _title,
+            decoration: _decoration('عنوان الطلب', Icons.title_rounded),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final service in _promoServices)
+                FilterChip(
+                  selected: _selected.contains(service.type),
+                  selectedColor: const Color(0xFFE9E0FA),
+                  label: Text(
+                    service.label,
+                    style: const TextStyle(fontFamily: 'Cairo'),
+                  ),
+                  onSelected: (_) {
+                    setState(() {
+                      if (_selected.contains(service.type)) {
+                        _selected.remove(service.type);
+                      } else {
+                        _selected.add(service.type);
+                      }
+                    });
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          for (int i = 0; i < _selected.length; i++) ...[
+            _buildDraftCard(i, _drafts[_selected[i]]!),
+            const SizedBox(height: 12),
+          ],
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: _sending ? null : _submit,
+              style: ElevatedButton.styleFrom(backgroundColor: _brandColor),
+              child: _sending
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      'إرسال طلب الترويج',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDraftCard(int index, _PromoDraft draft) {
+    final service = draft.service;
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -241,632 +498,624 @@ class _PromotionScreenState extends State<PromotionScreen>
           children: [
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.campaign,
-                      color: Colors.deepPurple, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          fontFamily: 'Cairo',
-                        ),
-                      ),
-                      if (code.isNotEmpty)
-                        Text(
-                          code,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black45,
-                            fontFamily: 'Cairo',
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.ad_units, size: 16, color: Colors.black45),
-                const SizedBox(width: 6),
+                Icon(service.icon, color: _brandColor),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    adLabel,
+                    '${index + 1}. ${service.label}',
                     style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        color: Colors.black54),
-                  ),
-                ),
-                const Icon(Icons.calendar_today,
-                    size: 14, color: Colors.black45),
-                const SizedBox(width: 4),
-                Text(
-                  dateStr,
-                  style: const TextStyle(fontSize: 12, color: Colors.black45),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ──── نموذج إنشاء طلب ترويج جديد ────
-class _CreatePromoRequestForm extends StatefulWidget {
-  final VoidCallback onCreated;
-  const _CreatePromoRequestForm({required this.onCreated});
-
-  @override
-  State<_CreatePromoRequestForm> createState() =>
-      _CreatePromoRequestFormState();
-}
-
-class _CreatePromoRequestFormState extends State<_CreatePromoRequestForm> {
-  final _formKey = GlobalKey<FormState>();
-  final _titleCtrl = TextEditingController();
-  final _redirectCtrl = TextEditingController();
-  final _msgTitleCtrl = TextEditingController();
-  final _msgBodyCtrl = TextEditingController();
-
-  String _adType = 'banner_home';
-  String _frequency = '60s';
-  String _position = 'normal';
-  DateTime? _startDate;
-  DateTime? _endDate;
-  String _targetCity = '';
-  final String _targetCategory = '';
-
-  bool _isSending = false;
-
-  final List<File> _assetFiles = [];
-  final ImagePicker _picker = ImagePicker();
-
-  @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _redirectCtrl.dispose();
-    _msgTitleCtrl.dispose();
-    _msgBodyCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickDate({required bool isStart}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: isStart ? now.add(const Duration(days: 1)) : (now.add(const Duration(days: 2))),
-      firstDate: now,
-      lastDate: DateTime(now.year + 2),
-      builder: (ctx, child) {
-        return Theme(
-          data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Colors.deepPurple,
-              onPrimary: Colors.white,
-            ),
-          ),
-          child: Directionality(
-            textDirection: TextDirection.rtl,
-            child: child!,
-          ),
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        if (isStart) {
-          _startDate = picked;
-        } else {
-          _endDate = picked;
-        }
-      });
-    }
-  }
-
-  Future<void> _pickAsset() async {
-    final xf = await _picker.pickImage(source: ImageSource.gallery);
-    if (xf != null) {
-      setState(() => _assetFiles.add(File(xf.path)));
-    }
-  }
-
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_startDate == null || _endDate == null) {
-      _showSnack('يرجى تحديد تاريخ البداية والنهاية', isError: true);
-      return;
-    }
-    if (_endDate!.isBefore(_startDate!) ||
-        _endDate!.isAtSameMomentAs(_startDate!)) {
-      _showSnack('تاريخ النهاية يجب أن يكون بعد البداية', isError: true);
-      return;
-    }
-
-    setState(() => _isSending = true);
-
-    final res = await PromoService.createRequest(
-      title: _titleCtrl.text.trim(),
-      adType: _adType,
-      startAt: _startDate!.toUtc().toIso8601String(),
-      endAt: _endDate!.toUtc().toIso8601String(),
-      frequency: _frequency,
-      position: _position,
-      targetCategory: _targetCategory.trim().isNotEmpty ? _targetCategory.trim() : null,
-      targetCity: _targetCity.trim().isNotEmpty ? _targetCity.trim() : null,
-      redirectUrl:
-          _redirectCtrl.text.trim().isNotEmpty ? _redirectCtrl.text.trim() : null,
-      messageTitle:
-          _msgTitleCtrl.text.trim().isNotEmpty ? _msgTitleCtrl.text.trim() : null,
-      messageBody:
-          _msgBodyCtrl.text.trim().isNotEmpty ? _msgBodyCtrl.text.trim() : null,
-    );
-
-    if (!mounted) return;
-
-    if (!res.isSuccess) {
-      setState(() => _isSending = false);
-      _showSnack(res.error ?? 'فشل في إنشاء الطلب', isError: true);
-      return;
-    }
-
-    final requestId = res.dataAsMap?['id'] as int?;
-
-    // رفع الملفات
-    if (requestId != null && _assetFiles.isNotEmpty) {
-      for (final f in _assetFiles) {
-        await PromoService.uploadAsset(
-          requestId: requestId,
-          file: f,
-          assetType: 'image',
-        );
-      }
-    }
-
-    if (!mounted) return;
-    setState(() => _isSending = false);
-    _showSnack('تم إرسال طلب الترويج بنجاح');
-    widget.onCreated();
-  }
-
-  void _showSnack(String msg, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle,
-              color: Colors.white,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(msg, style: const TextStyle(fontFamily: 'Cairo')),
-            ),
-          ],
-        ),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  String _fmtDate(DateTime? d) {
-    if (d == null) return 'اختر التاريخ';
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'إنشاء طلب ترويج جديد',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'أنشئ طلب إعلان وسيتم مراجعته من فريق نوافذ.',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                color: Colors.black54,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // عنوان الحملة
-            TextFormField(
-              controller: _titleCtrl,
-              decoration: _inputDecoration('عنوان الحملة', Icons.title),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'العنوان مطلوب' : null,
-              style: const TextStyle(fontFamily: 'Cairo'),
-            ),
-            const SizedBox(height: 14),
-
-            // نوع الإعلان
-            _labelText('نوع الإعلان'),
-            const SizedBox(height: 6),
-            _dropdown<String>(
-              value: _adType,
-              items: const {
-                'banner_home': 'بانر الصفحة الرئيسية',
-                'banner_category': 'بانر صفحة القسم',
-                'banner_search': 'بانر صفحة البحث',
-                'popup_home': 'نافذة منبثقة رئيسية',
-                'popup_category': 'نافذة منبثقة داخل قسم',
-                'featured_top5': 'تمييز ضمن أول 5',
-                'featured_top10': 'تمييز ضمن أول 10',
-                'boost_profile': 'تعزيز الملف',
-                'push_notification': 'إشعار دفع',
-              },
-              onChanged: (v) => setState(() => _adType = v!),
-            ),
-            const SizedBox(height: 14),
-
-            // تاريخ البداية والنهاية
-            Row(
-              children: [
-                Expanded(
-                  child: _datePickerField(
-                    label: 'بداية',
-                    value: _fmtDate(_startDate),
-                    onTap: () => _pickDate(isStart: true),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _datePickerField(
-                    label: 'نهاية',
-                    value: _fmtDate(_endDate),
-                    onTap: () => _pickDate(isStart: false),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // معدل الظهور
-            _labelText('معدل الظهور'),
-            const SizedBox(height: 6),
-            _dropdown<String>(
-              value: _frequency,
-              items: const {
-                '10s': 'كل 10 ثواني',
-                '20s': 'كل 20 ثانية',
-                '30s': 'كل 30 ثانية',
-                '60s': 'كل 60 ثانية',
-              },
-              onChanged: (v) => setState(() => _frequency = v!),
-            ),
-            const SizedBox(height: 14),
-
-            // الموقع
-            _labelText('موقع الظهور'),
-            const SizedBox(height: 6),
-            _dropdown<String>(
-              value: _position,
-              items: const {
-                'first': 'الأول',
-                'second': 'الثاني',
-                'top5': 'ضمن أول 5',
-                'top10': 'ضمن أول 10',
-                'normal': 'عادي',
-              },
-              onChanged: (v) => setState(() => _position = v!),
-            ),
-            const SizedBox(height: 14),
-
-            // المدينة المستهدفة
-            _labelText('المدينة المستهدفة (اختياري)'),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              initialValue: _targetCity.isNotEmpty ? _targetCity : null,
-              decoration: InputDecoration(
-                hintText: 'كل المدن',
-                hintStyle: const TextStyle(fontFamily: 'Cairo'),
-                prefixIcon: const Icon(Icons.location_city, color: Colors.deepPurple),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  borderSide: const BorderSide(color: Colors.deepPurple, width: 1.4),
-                ),
-              ),
-              isExpanded: true,
-              menuMaxHeight: 300,
-              items: [
-                const DropdownMenuItem<String>(
-                  value: '',
-                  child: Text('كل المدن', style: TextStyle(fontFamily: 'Cairo')),
-                ),
-                ...SaudiCities.all.map((city) => DropdownMenuItem(
-                      value: city,
-                      child: Text(city, style: const TextStyle(fontFamily: 'Cairo')),
-                    )),
-              ],
-              onChanged: (v) => setState(() => _targetCity = v ?? ''),
-            ),
-            const SizedBox(height: 14),
-
-            // رابط التوجيه
-            TextFormField(
-              controller: _redirectCtrl,
-              decoration:
-                  _inputDecoration('رابط التوجيه (اختياري)', Icons.link),
-              keyboardType: TextInputType.url,
-              style: const TextStyle(fontFamily: 'Cairo'),
-            ),
-            const SizedBox(height: 14),
-
-            // رسالة / عنوان الإشعار
-            TextFormField(
-              controller: _msgTitleCtrl,
-              decoration: _inputDecoration(
-                  'عنوان الرسالة (اختياري)', Icons.text_fields),
-              style: const TextStyle(fontFamily: 'Cairo'),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _msgBodyCtrl,
-              decoration: _inputDecoration(
-                  'نص الرسالة (اختياري)', Icons.message_outlined),
-              maxLines: 3,
-              style: const TextStyle(fontFamily: 'Cairo'),
-            ),
-            const SizedBox(height: 18),
-
-            // ملفات الإعلان
-            _labelText('صور / ملفات الإعلان'),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickAsset,
-              child: Container(
-                height: 80,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  border:
-                      Border.all(color: Colors.grey.shade300, width: 1.5),
-                  borderRadius: BorderRadius.circular(14),
-                  color: Colors.white,
-                ),
-                child: const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.cloud_upload_outlined,
-                          color: Colors.deepPurple, size: 28),
-                      SizedBox(height: 4),
-                      Text(
-                        'اضغط لإضافة صورة أو فيديو',
-                        style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            if (_assetFiles.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (int i = 0; i < _assetFiles.length; i++)
-                    Chip(
-                      label: Text('ملف ${i + 1}',
-                          style: const TextStyle(fontFamily: 'Cairo')),
-                      deleteIcon: const Icon(Icons.close, size: 16),
-                      onDeleted: () =>
-                          setState(() => _assetFiles.removeAt(i)),
-                      backgroundColor: Colors.grey.shade100,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.bold,
                     ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _selected.remove(service.type)),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            if (service.needsRange) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _dateTile(
+                      'البداية',
+                      _fmtDate(draft.startAt),
+                      () => _pickDateTime((value) {
+                        setState(() {
+                          draft.startAt = value;
+                          draft.syncSponsorship();
+                        });
+                      }, draft.startAt),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _dateTile(
+                      'النهاية',
+                      _fmtDate(draft.endAt),
+                      service.needsSponsor
+                          ? null
+                          : () => _pickDateTime(
+                                (value) => setState(() => draft.endAt = value),
+                                draft.endAt,
+                              ),
+                    ),
+                  ),
                 ],
               ),
             ],
-            const SizedBox(height: 24),
-
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isSending ? null : _submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  disabledBackgroundColor: Colors.deepPurple.withValues(alpha: 0.4),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+            if (service.needsFrequency) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: draft.frequency,
+                decoration: _decoration('معدل الظهور', Icons.repeat_rounded),
+                items: _frequencyLabels.entries
+                    .map((e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(
+                            e.value,
+                            style: const TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(
+                  () => draft.frequency = value ?? '60s',
                 ),
-                child: _isSending
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text(
-                        'إرسال الطلب',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
               ),
-            ),
-            const SizedBox(height: 32),
+            ],
+            if (service.needsSearch) ...[
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: draft.searchScope,
+                decoration: _decoration(
+                  'قائمة الظهور',
+                  Icons.manage_search_rounded,
+                ),
+                items: _searchScopeLabels.entries
+                    .map((e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(
+                            e.value,
+                            style: const TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(
+                  () => draft.searchScope = value ?? 'default',
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: draft.searchPosition,
+                decoration: _decoration(
+                  'ترتيب الظهور',
+                  Icons.format_list_numbered_rounded,
+                ),
+                items: _searchPositionLabels.entries
+                    .map((e) => DropdownMenuItem(
+                          value: e.key,
+                          child: Text(
+                            e.value,
+                            style: const TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ))
+                    .toList(),
+                onChanged: (value) => setState(
+                  () => draft.searchPosition = value ?? 'first',
+                ),
+              ),
+            ],
+            if (service.needsCategory) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.category,
+                decoration: _decoration(
+                  'تصنيف المختص',
+                  Icons.category_rounded,
+                ),
+              ),
+            ],
+            if (service.needsSendAt) ...[
+              const SizedBox(height: 8),
+              _dateTile(
+                'وقت الإرسال',
+                _fmtDate(draft.sendAt),
+                () => _pickDateTime(
+                  (value) => setState(() => draft.sendAt = value),
+                  draft.sendAt,
+                ),
+              ),
+            ],
+            if (service.needsChannels) ...[
+              CheckboxListTile(
+                value: draft.notify,
+                title: const Text(
+                  'رسائل التنبيه',
+                  style: TextStyle(fontFamily: 'Cairo'),
+                ),
+                onChanged: (value) =>
+                    setState(() => draft.notify = value ?? false),
+              ),
+              CheckboxListTile(
+                value: draft.chat,
+                title: const Text(
+                  'رسائل المحادثات',
+                  style: TextStyle(fontFamily: 'Cairo'),
+                ),
+                onChanged: (value) =>
+                    setState(() => draft.chat = value ?? false),
+              ),
+            ],
+            if (service.needsMessage) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.message,
+                maxLines: 3,
+                decoration: _decoration(
+                  service.needsSponsor
+                      ? 'نص رسالة الرعاية'
+                      : 'نص الرسالة الترويجية',
+                  Icons.notes_rounded,
+                ),
+              ),
+            ],
+            if (service.needsRedirect) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.redirect,
+                decoration: _decoration('رابط التوجيه', Icons.link_rounded),
+              ),
+            ],
+            if (service.needsSponsor) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.sponsorName,
+                decoration: _decoration('اسم الراعي', Icons.badge_rounded),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.months,
+                keyboardType: TextInputType.number,
+                decoration: _decoration(
+                  'مدة الرعاية بالأشهر',
+                  Icons.calendar_month_rounded,
+                ),
+                onChanged: (_) => setState(draft.syncSponsorship),
+              ),
+            ],
+            if (service.needsSpecs) ...[
+              const SizedBox(height: 8),
+              TextField(
+                controller: draft.specs,
+                decoration: _decoration(
+                  'مواصفات الملف المرفوع',
+                  Icons.info_outline_rounded,
+                ),
+              ),
+            ],
+            if (service.needsAssets) ...[
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: () => _pickAttachment(draft),
+                icon: const Icon(Icons.attach_file_rounded),
+                label: const Text(
+                  'إضافة مرفقات',
+                  style: TextStyle(fontFamily: 'Cairo'),
+                ),
+              ),
+              if (draft.files.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (int i = 0; i < draft.files.length; i++)
+                      Chip(
+                        label: Text(
+                          _name(draft.files[i]),
+                          style: const TextStyle(fontFamily: 'Cairo'),
+                        ),
+                        onDeleted: () =>
+                            setState(() => draft.files.removeAt(i)),
+                      ),
+                  ],
+                ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _labelText(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontFamily: 'Cairo',
-        fontWeight: FontWeight.w600,
-        fontSize: 14,
-      ),
-    );
-  }
-
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  InputDecoration _decoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(fontFamily: 'Cairo'),
-      prefixIcon: Icon(icon, color: Colors.deepPurple),
+      prefixIcon: Icon(icon, color: _brandColor),
       filled: true,
       fillColor: Colors.white,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.deepPurple, width: 1.4),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Colors.red),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 
-  Widget _dropdown<T>({
-    required T value,
-    required Map<T, String> items,
-    required ValueChanged<T?> onChanged,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<T>(
-          value: value,
-          isExpanded: true,
-          borderRadius: BorderRadius.circular(12),
-          items: items.entries
-              .map((e) => DropdownMenuItem(
-                    value: e.key,
-                    child: Text(e.value,
-                        style: const TextStyle(fontFamily: 'Cairo')),
-                  ))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-
-  Widget _datePickerField({
-    required String label,
-    required String value,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
+  Widget _dateTile(String label, String value, VoidCallback? onTap) {
+    return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: onTap == null ? Colors.grey.shade100 : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.calendar_today,
-                size: 18, color: Colors.deepPurple),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11,
-                        color: Colors.black45),
-                  ),
-                  Text(
-                    value,
-                    style: const TextStyle(
-                        fontFamily: 'Cairo', fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
+            Text(label, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(value, style: const TextStyle(fontFamily: 'Cairo')),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _pickDateTime(
+    ValueChanged<DateTime> onPick,
+    DateTime? initial,
+  ) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial ?? now.add(const Duration(days: 1)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 2),
+      builder: (ctx, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: child!,
+      ),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial ?? now),
+      builder: (ctx, child) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: child!,
+      ),
+    );
+    if (time == null) return;
+    onPick(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+  }
+
+  Future<void> _pickAttachment(_PromoDraft draft) async {
+    final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+    if (result == null) return;
+    setState(() {
+      draft.files.addAll(
+        result.files
+            .where((f) => f.path != null && f.path!.isNotEmpty)
+            .map((f) => File(f.path!)),
+      );
+    });
+  }
+
+  Future<void> _submit() async {
+    if (_title.text.trim().isEmpty) {
+      _snack('أدخل عنوان الطلب', true);
+      return;
+    }
+    if (_selected.isEmpty) {
+      _snack('اختر خدمة واحدة على الأقل', true);
+      return;
+    }
+
+    final items = <Map<String, dynamic>>[];
+    for (int i = 0; i < _selected.length; i++) {
+      final draft = _drafts[_selected[i]]!;
+      final error = draft.validate();
+      if (error != null) {
+        _snack('${draft.service.label}: $error', true);
+        return;
+      }
+      items.add(draft.toPayload(i));
+    }
+
+    setState(() => _sending = true);
+    final createRes = await PromoService.createBundleRequest(
+      title: _title.text.trim(),
+      items: items,
+    );
+    if (!mounted) return;
+    if (!createRes.isSuccess) {
+      setState(() => _sending = false);
+      _snack(createRes.error ?? 'فشل إنشاء الطلب', true);
+      return;
+    }
+
+    final requestId = createRes.dataAsMap?['id'] as int?;
+    final detailRes = requestId == null
+        ? null
+        : await PromoService.fetchRequestDetail(requestId);
+    final createdItems =
+        _asMapList(detailRes?.dataAsMap?['items'] ?? createRes.dataAsMap?['items']);
+    final ids = <String, int>{};
+    for (final item in createdItems) {
+      final id = item['id'] as int?;
+      if (id != null) {
+        ids['${item['service_type']}:${item['sort_order'] ?? 0}'] = id;
+      }
+    }
+
+    if (requestId != null) {
+      for (int i = 0; i < _selected.length; i++) {
+        final draft = _drafts[_selected[i]]!;
+        for (final file in draft.files) {
+          await PromoService.uploadAsset(
+            requestId: requestId,
+            itemId: ids['${draft.service.type}:$i'],
+            file: file,
+            assetType: _assetType(file),
+            title: draft.service.label,
+          );
+        }
+      }
+    }
+
+    _title.clear();
+    for (final draft in _drafts.values) {
+      draft.reset();
+    }
+    setState(() {
+      _selected.clear();
+      _sending = false;
+    });
+    widget.onCreated();
+    _snack('تم إرسال طلب الترويج بنجاح', false);
+  }
+
+  void _snack(String message, bool error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: error ? Colors.red : Colors.green,
+        content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
+      ),
+    );
+  }
+}
+
+class _PromoServiceDef {
+  final String type;
+  final String label;
+  final IconData icon;
+  final bool needsRange;
+  final bool needsSendAt;
+  final bool needsFrequency;
+  final bool needsSearch;
+  final bool needsCategory;
+  final bool needsMessage;
+  final bool needsRedirect;
+  final bool needsSponsor;
+  final bool needsChannels;
+  final bool needsAssets;
+  final bool needsSpecs;
+  final bool attachmentsRequired;
+
+  const _PromoServiceDef({
+    required this.type,
+    required this.label,
+    required this.icon,
+    this.needsRange = false,
+    this.needsSendAt = false,
+    this.needsFrequency = false,
+    this.needsSearch = false,
+    this.needsCategory = false,
+    this.needsMessage = false,
+    this.needsRedirect = false,
+    this.needsSponsor = false,
+    this.needsChannels = false,
+    this.needsAssets = false,
+    this.needsSpecs = false,
+    this.attachmentsRequired = false,
+  });
+}
+
+class _PromoDraft {
+  final _PromoServiceDef service;
+  final category = TextEditingController();
+  final message = TextEditingController();
+  final redirect = TextEditingController();
+  final sponsorName = TextEditingController();
+  final months = TextEditingController(text: '1');
+  final specs = TextEditingController();
+  final files = <File>[];
+  DateTime? startAt;
+  DateTime? endAt;
+  DateTime? sendAt;
+  String frequency = '60s';
+  String searchScope = 'default';
+  String searchPosition = 'first';
+  bool notify = true;
+  bool chat = false;
+
+  _PromoDraft(this.service);
+
+  int get monthCount => int.tryParse(months.text.trim()) ?? 0;
+
+  void syncSponsorship() {
+    if (!service.needsSponsor || startAt == null || monthCount <= 0) return;
+    endAt = DateTime(
+      startAt!.year,
+      startAt!.month + monthCount,
+      startAt!.day,
+      startAt!.hour,
+      startAt!.minute,
+    );
+  }
+
+  String? validate() {
+    if (service.needsRange) {
+      if (startAt == null || endAt == null) return 'حدد تاريخ البداية والنهاية';
+      if (!endAt!.isAfter(startAt!)) return 'النهاية يجب أن تكون بعد البداية';
+      if (!service.needsSponsor && endAt!.difference(startAt!).inHours < 24) {
+        return 'الحد الأدنى لمدة الحملة 24 ساعة';
+      }
+    }
+    if (service.needsSendAt && sendAt == null) return 'حدد وقت الإرسال';
+    if (service.needsChannels && !notify && !chat) return 'اختر قناة إرسال';
+    if (service.needsMessage && message.text.trim().isEmpty) return 'اكتب نص الرسالة';
+    if (service.needsSponsor && sponsorName.text.trim().isEmpty) return 'أدخل اسم الراعي';
+    if (service.needsSponsor && monthCount <= 0) return 'أدخل مدة الرعاية';
+    if (service.attachmentsRequired && files.isEmpty) return 'أضف المرفقات المطلوبة';
+    return null;
+  }
+
+  Map<String, dynamic> toPayload(int sortOrder) {
+    final body = <String, dynamic>{
+      'service_type': service.type,
+      'title': service.label,
+      'sort_order': sortOrder,
+    };
+    if (service.needsRange) {
+      body['start_at'] = startAt!.toUtc().toIso8601String();
+      body['end_at'] = endAt!.toUtc().toIso8601String();
+    }
+    if (service.needsSendAt) body['send_at'] = sendAt!.toUtc().toIso8601String();
+    if (service.needsFrequency) body['frequency'] = frequency;
+    if (service.needsSearch) {
+      body['search_scope'] = searchScope;
+      body['search_position'] = searchPosition;
+    }
+    if (category.text.trim().isNotEmpty) body['target_category'] = category.text.trim();
+    if (message.text.trim().isNotEmpty) body['message_body'] = message.text.trim();
+    if (redirect.text.trim().isNotEmpty) body['redirect_url'] = redirect.text.trim();
+    if (service.needsChannels) {
+      body['use_notification_channel'] = notify;
+      body['use_chat_channel'] = chat;
+    }
+    if (service.needsSponsor) {
+      body['sponsor_name'] = sponsorName.text.trim();
+      body['sponsorship_months'] = monthCount;
+    }
+    if (specs.text.trim().isNotEmpty) body['attachment_specs'] = specs.text.trim();
+    return body;
+  }
+
+  void reset() {
+    category.clear();
+    message.clear();
+    redirect.clear();
+    sponsorName.clear();
+    months.text = '1';
+    specs.clear();
+    files.clear();
+    startAt = null;
+    endAt = null;
+    sendAt = null;
+    frequency = '60s';
+    searchScope = 'default';
+    searchPosition = 'first';
+    notify = true;
+    chat = false;
+  }
+
+  void dispose() {
+    category.dispose();
+    message.dispose();
+    redirect.dispose();
+    sponsorName.dispose();
+    months.dispose();
+    specs.dispose();
+  }
+}
+
+Widget _badge(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _brandColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontFamily: 'Cairo', color: _brandColor),
+      ),
+    );
+
+Widget _chip(String text) => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1ECFA),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12,
+          color: _brandColor,
+        ),
+      ),
+    );
+
+Widget _line(String label, String value) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                color: Colors.black54,
+              ),
+            ),
+          ),
+          Expanded(child: Text(value, style: const TextStyle(fontFamily: 'Cairo'))),
+        ],
+      ),
+    );
+
+List<Map<String, dynamic>> _asMapList(dynamic value) {
+  if (value is List) {
+    return value
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+  }
+  return const [];
+}
+
+String _serviceLabel(String? type) {
+  for (final service in _promoServices) {
+    if (service.type == type) return service.label;
+  }
+  return type ?? '';
+}
+
+String _fmtDate(DateTime? value) {
+  if (value == null) return 'اختر التاريخ والوقت';
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  final hour = value.hour.toString().padLeft(2, '0');
+  final minute = value.minute.toString().padLeft(2, '0');
+  return '$day/$month/${value.year} - $hour:$minute';
+}
+
+String _money(dynamic value) {
+  final parsed = num.tryParse('${value ?? ''}');
+  return parsed == null ? '0.00' : parsed.toStringAsFixed(2);
+}
+
+String _name(File file) => file.path.split(RegExp(r'[\\/]')).last;
+
+String _assetType(File file) {
+  final ext = _name(file).split('.').last.toLowerCase();
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp'].contains(ext)) return 'image';
+  if (['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(ext)) return 'video';
+  if (ext == 'pdf') return 'pdf';
+  return 'other';
 }

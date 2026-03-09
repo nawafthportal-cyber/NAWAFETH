@@ -10,7 +10,7 @@ def user_max_upload_mb(user) -> int:
     - Basic: 10MB
     - Pioneer: 20MB
     - Professional: 100MB
-    - Extra Uploads: 100MB
+    - Extra Uploads: from PlatformConfig
     """
     if not user or not getattr(user, "is_authenticated", False):
         return 10
@@ -19,6 +19,7 @@ def user_max_upload_mb(user) -> int:
 
     # Extra uploads (اشتراك أو add-on)
     if user_has_active_extra(user, "uploads_"):
-        return max(base_limit, 100)
+        from apps.core.models import PlatformConfig
+        return max(base_limit, PlatformConfig.load().upload_max_file_size_mb)
 
     return base_limit
