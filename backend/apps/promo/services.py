@@ -290,6 +290,46 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
 )
 
 
+def _platform_config():
+    from apps.core.models import PlatformConfig
+
+    return PlatformConfig.load()
+
+
+def promo_min_campaign_hours() -> int:
+    return max(1, int(_platform_config().promo_min_campaign_hours or 24))
+
+
+def promo_min_campaign_message(*, prefix: str = "الحد الأدنى لمدة الحملة هو") -> str:
+    return f"{prefix} {promo_min_campaign_hours()} ساعة."
+
+
+def _promo_base_prices_map() -> dict[str, Decimal]:
+    config = _platform_config()
+    raw = config.get_promo_base_prices() or getattr(settings, "PROMO_BASE_PRICES", {}) or {}
+    return {str(key): Decimal(str(value)) for key, value in raw.items()}
+
+
+def _promo_position_multipliers_map() -> dict[str, Decimal]:
+    config = _platform_config()
+    raw = (
+        config.get_promo_position_multipliers()
+        or getattr(settings, "PROMO_POSITION_MULTIPLIER", {})
+        or {}
+    )
+    return {str(key): Decimal(str(value)) for key, value in raw.items()}
+
+
+def _promo_frequency_multipliers_map() -> dict[str, Decimal]:
+    config = _platform_config()
+    raw = (
+        config.get_promo_frequency_multipliers()
+        or getattr(settings, "PROMO_FREQUENCY_MULTIPLIER", {})
+        or {}
+    )
+    return {str(key): Decimal(str(value)) for key, value in raw.items()}
+
+
 def _promo_status_label(status: str) -> str:
     return {
         PromoRequestStatus.NEW: "جديد",
@@ -391,13 +431,11 @@ def _promo_request_summary(pr: PromoRequest) -> str:
 
 
 def _legacy_frequency_value(freq: str) -> Decimal:
-    mf = getattr(settings, "PROMO_FREQUENCY_MULTIPLIER", {})
-    return Decimal(str(mf.get(freq, 1.0)))
+    return _promo_frequency_multipliers_map().get(freq, Decimal("1.0"))
 
 
 def _legacy_position_value(position: str) -> Decimal:
-    mp = getattr(settings, "PROMO_POSITION_MULTIPLIER", {})
-    return Decimal(str(mp.get(position, 1.0)))
+    return _promo_position_multipliers_map().get(position, Decimal("1.0"))
 
 
 def _get_base_price(ad_type: str) -> Decimal:
@@ -410,8 +448,7 @@ def _get_base_price(ad_type: str) -> Decimal:
     except Exception:
         pass
 
-    base_prices = getattr(settings, "PROMO_BASE_PRICES", {})
-    return Decimal(str(base_prices.get(ad_type, 300)))
+    return _promo_base_prices_map().get(ad_type, Decimal("300"))
 
 
 def calc_promo_quote(*, pr: PromoRequest) -> dict:
@@ -448,8 +485,8 @@ def _require_campaign_dates(item: PromoRequestItem) -> None:
         raise ValueError(f"{item.get_service_type_display()}: تاريخ البداية والنهاية مطلوبان.")
     if item.end_at <= item.start_at:
         raise ValueError(f"{item.get_service_type_display()}: تاريخ النهاية يجب أن يكون بعد البداية.")
-    if (item.end_at - item.start_at).total_seconds() < 24 * 60 * 60:
-        raise ValueError(f"{item.get_service_type_display()}: الحد الأدنى لمدة الحملة هو 24 ساعة.")
+    if (item.end_at - item.start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
+        raise ValueError(f"{item.get_service_type_display()}: {promo_min_campaign_message()}")
 
 
 def _get_pricing_rule(*, service_type: str, frequency: str = "", search_position: str = "", message_channel: str = "") -> PromoPricingRule:
@@ -591,7 +628,7 @@ def _sync_invoice_from_items(*, pr: PromoRequest) -> Invoice:
             reference_type="promo_request",
             reference_id=pr.code,
             status=InvoiceStatus.DRAFT,
-            vat_percent=Decimal(str(getattr(settings, "PROMO_VAT_PERCENT", 15))),
+            vat_percent=Decimal(str(_platform_config().promo_vat_percent)),
         )
     else:
         inv = pr.invoice
@@ -599,7 +636,7 @@ def _sync_invoice_from_items(*, pr: PromoRequest) -> Invoice:
         inv.description = _promo_request_summary(pr)[:300]
         inv.reference_type = "promo_request"
         inv.reference_id = pr.code or inv.reference_id
-        inv.vat_percent = Decimal(str(getattr(settings, "PROMO_VAT_PERCENT", 15)))
+        inv.vat_percent = Decimal(str(_platform_config().promo_vat_percent))
         inv.save(update_fields=["title", "description", "reference_type", "reference_id", "vat_percent", "updated_at"])
         inv.lines.all().delete()
 
@@ -772,9 +809,6 @@ def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: st
     if new_status == PromoOpsStatus.COMPLETED:
         pr.ops_completed_at = now
         update_fields.append("ops_completed_at")
-        if pr.status == PromoRequestStatus.ACTIVE:
-            pr.status = PromoRequestStatus.COMPLETED
-            update_fields.append("status")
     pr.save(update_fields=update_fields)
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
     return pr

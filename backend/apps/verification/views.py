@@ -11,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.billing.models import InvoiceLineItem
+from apps.dashboard.access import dashboard_assignee_user
 
 from .models import (
     VerificationRequest,
@@ -237,9 +238,9 @@ class BackofficeVerificationAssignView(APIView):
 
         assigned_user = None
         if user_id is not None:
-            from apps.accounts.models import User
-
-            assigned_user = get_object_or_404(User, pk=user_id, is_staff=True)
+            assigned_user = dashboard_assignee_user(user_id, "verify", write=True)
+            if assigned_user is None:
+                return Response({"detail": "assigned_to غير صالح لهذه اللوحة"}, status=status.HTTP_400_BAD_REQUEST)
 
         vr.assigned_to = assigned_user
         vr.assigned_at = timezone.now() if assigned_user else None

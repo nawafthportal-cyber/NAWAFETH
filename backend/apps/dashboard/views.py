@@ -29,6 +29,7 @@ from apps.marketplace.services.actions import allowed_actions, execute_action
 from apps.providers.models import ProviderProfile, ProviderService, Category, SubCategory
 from apps.providers.models import ProviderPortfolioItem
 from apps.accounts.models import User
+from apps.core.models import PlatformConfig
 from apps.messaging.models import Message
 from apps.reviews.models import Review
 from apps.support.models import SupportTicket, SupportTicketStatus, SupportTeam, SupportTicketType
@@ -100,7 +101,10 @@ from apps.unified_requests.workflows import (
 from .forms import AcceptAssignProviderForm, CategoryForm, SubCategoryForm
 from .access import (
     active_dashboard_choices,
+    backoffice_assignment_users,
     dashboard_allowed,
+    dashboard_assignee_user,
+    dashboard_assignment_users,
     first_allowed_dashboard_route,
     sync_dashboard_user_access,
 )
@@ -186,6 +190,24 @@ def _want_pdf(request: HttpRequest) -> bool:
     return (request.GET.get("export") or "").strip().lower() == "pdf"
 
 
+def _tabular_export_limit() -> int:
+    return max(1, int(PlatformConfig.load().export_xlsx_max_rows or 2000))
+
+
+def _pdf_export_limit() -> int:
+    return max(1, int(PlatformConfig.load().export_pdf_max_rows or 200))
+
+
+def _current_export_limit(request: HttpRequest) -> int:
+    if _want_pdf(request):
+        return _pdf_export_limit()
+    return _tabular_export_limit()
+
+
+def _limited_export_queryset(request: HttpRequest, qs):
+    return qs[:_current_export_limit(request)]
+
+
 def _dashboard_tile_meta(code: str) -> dict[str, str]:
     mapping = {
         "analytics": {"icon": "🏠", "from": "from-purple-500", "to": "to-indigo-600"},
@@ -209,16 +231,7 @@ def _dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
 
 
 def _is_promo_operator_user(user) -> bool:
-    if not user or not getattr(user, "is_staff", False):
-        return False
-    ap = getattr(user, "access_profile", None)
-    if not ap:
-        return False
-    if ap.is_revoked() or ap.is_expired():
-        return False
-    if ap.level in {AccessLevel.ADMIN, AccessLevel.POWER}:
-        return True
-    return ap.level == AccessLevel.USER and ap.is_allowed("promo")
+    return bool(user and dashboard_allowed(user, "promo", write=True))
 
 
 PROMO_MODULE_MENU: tuple[tuple[str, str], ...] = (
@@ -233,11 +246,7 @@ PROMO_MODULE_MENU: tuple[tuple[str, str], ...] = (
 
 
 def _promo_staff_users():
-    return [
-        u
-        for u in User.objects.filter(is_staff=True).order_by("-id")[:300]
-        if _is_promo_operator_user(u)
-    ][:150]
+    return dashboard_assignment_users("promo", write=True, limit=150)
 
 
 def _promo_requests_queryset():
@@ -641,7 +650,7 @@ def unified_requests_list(request: HttpRequest) -> HttpResponse:
             "إجراءات",
         ]
         export_rows = []
-        for r in qs[:5000]:
+        for r in _limited_export_queryset(request, qs):
             unified_detail_path = reverse("dashboard:unified_request_detail", args=[r.id])
             source_path = _unified_request_dashboard_link(r)
             reference = f"{r.source_app}.{r.source_model}#{r.source_object_id}" if r.source_app else "—"
@@ -672,7 +681,7 @@ def unified_requests_list(request: HttpRequest) -> HttpResponse:
             return xlsx_response("unified_requests.xlsx", "الطلبات الموحدة", headers_ar, export_rows)
         return pdf_response("unified_requests.pdf", "الطلبات الموحدة", headers_ar, export_rows, landscape=True)
 
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = backoffice_assignment_users(write=False, limit=150)
     paginator = Paginator(qs, 25)
     page_obj = paginator.get_page(request.GET.get("page") or "1")
     for row in page_obj.object_list:
@@ -1043,7 +1052,7 @@ def requests_list(request):
                 detail_path,
             ]
 
-        export_rows = [_row(r) for r in qs[:2000]]
+        export_rows = [_row(r) for r in _limited_export_queryset(request, qs)]
 
         if _want_csv(request):
             return _csv_response("requests.csv", headers_ar, export_rows)
@@ -1132,7 +1141,7 @@ def providers_list(request: HttpRequest) -> HttpResponse:
                 p.rating_avg,
                 p.rating_count,
             ]
-            for p in qs[:2000]
+            for p in _limited_export_queryset(request, qs)
         ]
         return _csv_response(
             "providers.csv",
@@ -1229,7 +1238,7 @@ def services_list(request: HttpRequest) -> HttpResponse:
                 bool(s.is_active),
                 s.updated_at.isoformat() if s.updated_at else "",
             ]
-            for s in qs[:2000]
+            for s in _limited_export_queryset(request, qs)
         ]
         return _csv_response(
             "provider_services.csv",
@@ -1545,7 +1554,7 @@ def categories_list(request: HttpRequest) -> HttpResponse:
     if _want_csv(request):
         rows = [
             [c.id, c.name, bool(c.is_active), c.subcategories_count]
-            for c in categories[:2000]
+            for c in _limited_export_queryset(request, categories)
         ]
         return _csv_response(
             "categories.csv",
@@ -1752,7 +1761,7 @@ def billing_invoices_list(request: HttpRequest) -> HttpResponse:
         headers_ar = ["الكود", "العميل", "العنوان", "الإجمالي", "الحالة", "المرجع", "محاولات", "إجراءات", "تاريخ"]
 
         export_rows = []
-        for inv in qs[:2000]:
+        for inv in _limited_export_queryset(request, qs):
             code = inv.code or inv.id
             phone = getattr(getattr(inv, "user", None), "phone", "—") or "—"
             total_str = f"{inv.total} {inv.currency}".strip()
@@ -1909,7 +1918,7 @@ def support_tickets_list(request: HttpRequest) -> HttpResponse:
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "العميل", "النوع", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
         export_rows = []
-        for t in qs[:2000]:
+        for t in _limited_export_queryset(request, qs):
             code = t.code or t.id
             phone = getattr(getattr(t, "requester", None), "phone", "—") or "—"
             type_label = getattr(t, "get_ticket_type_display", lambda: t.ticket_type)() or "—"
@@ -1961,7 +1970,7 @@ def support_ticket_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("support", write=True, limit=150)
 
     can_write = _dashboard_allowed(request.user, "support", write=True)
 
@@ -2044,7 +2053,7 @@ def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "العميل", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
         export_rows = []
-        for t in qs[:2000]:
+        for t in _limited_export_queryset(request, qs):
             code = t.code or t.id
             phone = getattr(getattr(t, "requester", None), "phone", "—") or "—"
             priority_label = getattr(t, "get_priority_display", lambda: t.priority)() or "—"
@@ -2150,7 +2159,7 @@ def promo_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
             return HttpResponse("غير مصرح", status=403)
 
     if assigned_to is not None:
-        assignee = User.objects.filter(id=assigned_to, is_staff=True).first()
+        assignee = dashboard_assignee_user(assigned_to, "promo", write=True)
         if not assignee:
             messages.error(request, "المستخدم المحدد غير صالح")
             return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
@@ -2356,6 +2365,9 @@ def support_ticket_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
     if ap and ap.level == "user":
         if assigned_to is not None and assigned_to != request.user.id:
             return HttpResponse("غير مصرح", status=403)
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "support", write=True) is None:
+        messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
     try:
         assign_ticket(
             ticket=ticket,
@@ -2423,6 +2435,9 @@ def support_ticket_quick_update_action(request: HttpRequest, ticket_id: int) -> 
 
     if ap and ap.level == "user" and assigned_to is not None and assigned_to != request.user.id:
         return HttpResponse("غير مصرح", status=403)
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "support", write=True) is None:
+        messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
     updated = False
     try:
@@ -2505,7 +2520,7 @@ def verification_requests_list(request: HttpRequest) -> HttpResponse:
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "المستخدم", "نوع/بنود التوثيق", "الأولوية", "الحالة", "فاتورة", "إجراءات"]
         export_rows = []
-        for vr in qs[:2000]:
+        for vr in _limited_export_queryset(request, qs):
             code = vr.code or vr.id
             phone = getattr(getattr(vr, "requester", None), "phone", "—") or "—"
             if vr.badge_type:
@@ -2791,7 +2806,7 @@ def verification_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpRes
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("verify", write=True, limit=150)
     can_write = _dashboard_allowed(request.user, "verify", write=True)
 
     return render(
@@ -2840,6 +2855,9 @@ def verification_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> 
     if ap and ap.level == "user":
         if assigned_to is not None and assigned_to != request.user.id:
             return HttpResponse("غير مصرح", status=403)
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "verify", write=True) is None:
+        messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+        return redirect("dashboard:verification_inquiry_detail", ticket_id=ticket.id)
 
     try:
         assign_ticket(ticket=ticket, team_id=team_id, user_id=assigned_to, by_user=request.user, note=note)
@@ -2987,7 +3005,7 @@ def promo_request_assign_action(request: HttpRequest, promo_id: int) -> HttpResp
         return HttpResponse("غير مصرح", status=403)
     assignee = None
     if assigned_to is not None:
-        assignee = User.objects.filter(id=assigned_to, is_staff=True).first()
+        assignee = dashboard_assignee_user(assigned_to, "promo", write=True)
         if not assignee or not _is_promo_operator_user(assignee):
             messages.error(request, "المكلّف غير صحيح")
             return redirect("dashboard:promo_request_detail", promo_id=pr.id)
@@ -3379,7 +3397,7 @@ def subscription_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpRes
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("subs", write=True, limit=150)
     can_write = _dashboard_allowed(request.user, "subs", write=True)
 
     return render(
@@ -3426,6 +3444,9 @@ def subscription_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> 
 
     if ap and ap.level == "user" and assigned_to not in (None, request.user.id):
         return HttpResponse("غير مصرح", status=403)
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "subs", write=True) is None:
+        messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+        return redirect("dashboard:subscription_inquiry_detail", ticket_id=ticket.id)
 
     try:
         assign_ticket(ticket=ticket, team_id=team_id, user_id=assigned_to, by_user=request.user, note=note)
@@ -3484,7 +3505,7 @@ def subscription_request_detail(request: HttpRequest, subscription_id: int) -> H
     if sub.invoice_id and _dashboard_allowed(request.user, "billing", write=False):
         q = getattr(sub.invoice, "code", "") or str(sub.invoice_id)
         invoice_url = f"{reverse('dashboard:billing_invoices_list')}?q={q}"
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("subs", write=True, limit=150)
 
     return render(
         request,
@@ -3658,7 +3679,7 @@ def subscription_request_assign_action(request: HttpRequest, subscription_id: in
         if assigned_to not in (None, request.user.id):
             return HttpResponse("غير مصرح", status=403)
 
-    if assigned_to is not None and not User.objects.filter(id=assigned_to, is_staff=True).exists():
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "subs", write=True) is None:
         messages.error(request, "المكلّف غير صحيح")
         return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
 
@@ -3786,7 +3807,7 @@ def extras_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
     teams = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("extras", write=True, limit=150)
     can_write = _dashboard_allowed(request.user, "extras", write=True)
 
     return render(
@@ -3833,6 +3854,9 @@ def extras_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
 
     if ap and ap.level == "user" and assigned_to not in (None, request.user.id):
         return HttpResponse("غير مصرح", status=403)
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "extras", write=True) is None:
+        messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+        return redirect("dashboard:extras_inquiry_detail", ticket_id=ticket.id)
 
     try:
         assign_ticket(ticket=ticket, team_id=team_id, user_id=assigned_to, by_user=request.user, note=note)
@@ -3897,7 +3921,7 @@ def extras_request_detail(request: HttpRequest, unified_request_id: int) -> Http
             q = getattr(purchase.invoice, "code", "") or str(purchase.invoice_id)
             invoice_url = f"{reverse('dashboard:billing_invoices_list')}?q={q}"
 
-    staff_users = User.objects.filter(is_staff=True).order_by("-id")[:150]
+    staff_users = dashboard_assignment_users("extras", write=True, limit=150)
 
     return render(
         request,
@@ -3938,7 +3962,7 @@ def extras_request_assign_action(request: HttpRequest, unified_request_id: int) 
     if ap and ap.level == "user" and assigned_to not in (None, request.user.id):
         return HttpResponse("غير مصرح", status=403)
 
-    if assigned_to is not None and not User.objects.filter(id=assigned_to, is_staff=True).exists():
+    if assigned_to is not None and dashboard_assignee_user(assigned_to, "extras", write=True) is None:
         messages.error(request, "المكلّف غير صحيح")
         return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
 
@@ -4544,7 +4568,7 @@ def subscriptions_list(request: HttpRequest) -> HttpResponse:
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["#", "المستخدم", "الخطة", "الحالة", "البداية/النهاية", "الفاتورة", "تشغيل"]
         export_rows = []
-        for s in qs[:2000]:
+        for s in _limited_export_queryset(request, qs):
             phone = getattr(getattr(s, "user", None), "phone", "—") or "—"
             plan_title = getattr(getattr(s, "plan", None), "title", "—") or "—"
             plan_code = getattr(getattr(s, "plan", None), "code", "—") or "—"
@@ -4625,7 +4649,7 @@ def extras_list(request: HttpRequest) -> HttpResponse:
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["#", "المستخدم", "SKU", "النوع", "الحالة", "الفاتورة", "إجراءات"]
         export_rows = []
-        for e in qs[:2000]:
+        for e in _limited_export_queryset(request, qs):
             phone = getattr(getattr(e, "user", None), "phone", "—") or "—"
             type_label = getattr(e, "get_extra_type_display", lambda: e.extra_type)() or "—"
             status_label = getattr(e, "get_status_display", lambda: e.status)() or "—"
@@ -4693,7 +4717,7 @@ def extras_finance_list(request: HttpRequest) -> HttpResponse:
 
     if _want_csv(request):
         rows = []
-        for fs in qs[:2000]:
+        for fs in _limited_export_queryset(request, qs):
             rows.append([
                 fs.provider.user.phone if fs.provider and fs.provider.user else "",
                 fs.bank_name,
@@ -4743,7 +4767,7 @@ def extras_clients_list(request: HttpRequest) -> HttpResponse:
 
     if _want_csv(request):
         rows = []
-        for s in qs[:2000]:
+        for s in _limited_export_queryset(request, qs):
             rows.append([
                 s.user.phone if s.user else "",
                 s.provider.user.phone if s.provider and s.provider.user else "",
@@ -4845,7 +4869,7 @@ def access_profiles_list(request: HttpRequest) -> HttpResponse:
 
     if _want_csv(request):
         rows = []
-        for ap in qs[:2000]:
+        for ap in _limited_export_queryset(request, qs):
             dashboards = ",".join(ap.allowed_dashboards.values_list("code", flat=True))
             rows.append(
                 [
@@ -4901,10 +4925,6 @@ def access_profile_create_action(request: HttpRequest) -> HttpResponse:
         messages.error(request, "لا يوجد مستخدم بهذا الجوال")
         return redirect("dashboard:access_profiles_list")
 
-    if not (target_user.is_staff or target_user.is_superuser):
-        messages.error(request, "لا يمكن منح صلاحيات تشغيل لمستخدم غير موظف")
-        return redirect("dashboard:access_profiles_list")
-
     level = (request.POST.get("level") or "").strip().lower()
     if level not in {choice[0] for choice in AccessLevel.choices}:
         messages.error(request, "مستوى الصلاحية غير صالح")
@@ -4918,6 +4938,11 @@ def access_profile_create_action(request: HttpRequest) -> HttpResponse:
 
     dashboard_ids = request.POST.getlist("dashboard_ids")
     selected_dashboards = Dashboard.objects.filter(id__in=dashboard_ids, is_active=True)
+    if level == AccessLevel.CLIENT:
+        selected_dashboards = Dashboard.objects.filter(
+            code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS,
+            is_active=True,
+        )
 
     ap, created = UserAccessProfile.objects.get_or_create(
         user=target_user,
@@ -4997,6 +5022,11 @@ def access_profile_update_action(request: HttpRequest, profile_id: int) -> HttpR
 
     dashboard_ids = request.POST.getlist("dashboard_ids")
     selected_dashboards = Dashboard.objects.filter(id__in=dashboard_ids, is_active=True)
+    if level == AccessLevel.CLIENT:
+        selected_dashboards = Dashboard.objects.filter(
+            code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS,
+            is_active=True,
+        )
 
     ap.level = level
     ap.expires_at = expires_at

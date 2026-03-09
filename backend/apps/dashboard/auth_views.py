@@ -10,7 +10,7 @@ from django.shortcuts import redirect, render
 from apps.accounts.models import User
 from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
 
-from .access import first_allowed_dashboard_route, sync_dashboard_user_access
+from .access import dashboard_portal_eligible, first_allowed_dashboard_route, sync_dashboard_user_access
 from .auth import (
     SESSION_LOGIN_PHONE_KEY,
     SESSION_NEXT_URL_KEY,
@@ -84,23 +84,23 @@ def dashboard_login(request: HttpRequest) -> HttpResponse:
             messages.error(request, "رقم الجوال مطلوب")
             return render(request, "dashboard/login.html", {})
 
-        staff_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
-        if staff_user:
-            changed_fields = sync_dashboard_user_access(staff_user, force_staff_role_state=False)
+        dashboard_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
+        if dashboard_user:
+            changed_fields = sync_dashboard_user_access(dashboard_user, force_staff_role_state=False)
             if changed_fields:
-                staff_user.save(update_fields=changed_fields)
+                dashboard_user.save(update_fields=changed_fields)
 
-        if not staff_user or not staff_user.is_active or not staff_user.is_staff:
+        if not dashboard_user or not dashboard_user.is_active or not dashboard_portal_eligible(dashboard_user):
             messages.error(request, "لا يوجد حساب تشغيل فعّال بهذا الرقم")
             return render(request, "dashboard/login.html", {"phone": phone_raw})
 
-        request.session[SESSION_LOGIN_PHONE_KEY] = staff_user.phone
+        request.session[SESSION_LOGIN_PHONE_KEY] = dashboard_user.phone
 
         # Dev mode: user can enter ANY 4 digits.
         # Production mode: generate/store OTP (delivery is external).
         if not accept_any_otp_code():
-            create_otp(staff_user.phone, request)
-            logger.info("Dashboard OTP generated phone=%s", staff_user.phone)
+            create_otp(dashboard_user.phone, request)
+            logger.info("Dashboard OTP generated phone=%s", dashboard_user.phone)
 
         return redirect("dashboard:otp")
 
@@ -130,23 +130,23 @@ def dashboard_otp(request: HttpRequest) -> HttpResponse:
                 messages.error(request, "الكود غير صحيح أو منتهي")
                 return render(request, "dashboard/otp.html", {"phone": phone})
 
-        staff_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
-        if staff_user:
-            changed_fields = sync_dashboard_user_access(staff_user, force_staff_role_state=False)
+        dashboard_user = User.objects.filter(phone__in=_phone_candidates(phone)).order_by("id").first()
+        if dashboard_user:
+            changed_fields = sync_dashboard_user_access(dashboard_user, force_staff_role_state=False)
             if changed_fields:
-                staff_user.save(update_fields=changed_fields)
+                dashboard_user.save(update_fields=changed_fields)
 
-        if not staff_user or not staff_user.is_active or not staff_user.is_staff:
+        if not dashboard_user or not dashboard_user.is_active or not dashboard_portal_eligible(dashboard_user):
             messages.error(request, "لا يوجد حساب تشغيل صالح لهذا الرقم")
             return redirect("dashboard:login")
 
-        login(request, staff_user, backend="django.contrib.auth.backends.ModelBackend")
+        login(request, dashboard_user, backend="django.contrib.auth.backends.ModelBackend")
         request.session[SESSION_OTP_VERIFIED_KEY] = True
 
         next_url = (request.session.pop(SESSION_NEXT_URL_KEY, "") or "").strip()
         if next_url and next_url.startswith("/"):
             return redirect(next_url)
-        fallback = first_allowed_dashboard_route(staff_user)
+        fallback = first_allowed_dashboard_route(dashboard_user)
         if fallback:
             return redirect(fallback)
         request.session.pop(SESSION_OTP_VERIFIED_KEY, None)

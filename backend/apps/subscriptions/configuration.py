@@ -11,9 +11,12 @@ def canonical_subscription_plan_for_tier(value) -> SubscriptionPlan:
     canonical_code = db_tier_for_canonical(canonical_tier)
     plan = SubscriptionPlan.objects.filter(code__iexact=canonical_code).order_by("id").first()
     if plan is None:
-        raise SubscriptionPlan.DoesNotExist(
-            f"Missing canonical subscription plan for tier '{canonical_tier}'"
-        )
+        from .bootstrap import seed_default_subscription_plans
+
+        seed_default_subscription_plans(force_update=False)
+        plan = SubscriptionPlan.objects.filter(code__iexact=canonical_code).order_by("id").first()
+    if plan is None:
+        raise SubscriptionPlan.DoesNotExist(f"Missing canonical subscription plan for tier '{canonical_tier}'")
     return plan
 
 

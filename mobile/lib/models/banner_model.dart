@@ -20,16 +20,27 @@ class BannerModel {
     this.displayOrder = 0,
   });
 
+  static String? _readString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse('${value ?? ''}');
+  }
+
   factory BannerModel.fromJson(Map<String, dynamic> json) {
     return BannerModel(
-      id: json['id'] as int? ?? 0,
-      title: json['title'] as String?,
-      mediaType: json['media_type'] as String? ?? 'image',
-      mediaUrl: json['media_url'] as String?,
-      linkUrl: json['link_url'] as String?,
-      providerId: json['provider_id'] as int?,
-      providerDisplayName: json['provider_display_name'] as String?,
-      displayOrder: json['display_order'] as int? ?? 0,
+      id: _readInt(json['id']) ?? 0,
+      title: _readString(json['title']) ?? _readString(json['caption']),
+      mediaType: _readString(json['media_type']) ?? _readString(json['file_type']) ?? 'image',
+      mediaUrl: _readString(json['media_url']) ?? _readString(json['file_url']),
+      linkUrl: _readString(json['link_url']) ?? _readString(json['redirect_url']),
+      providerId: _readInt(json['provider_id']),
+      providerDisplayName: _readString(json['provider_display_name']),
+      displayOrder: _readInt(json['display_order']) ?? 0,
     );
   }
 

@@ -107,8 +107,9 @@ class VerificationRequest(models.Model):
         return self.code or f"AD-request-{self.pk}"
 
     def activation_window(self):
-        # سنة كاملة
-        return timedelta(days=365)
+        from apps.core.models import PlatformConfig
+
+        return timedelta(days=int(PlatformConfig.load().verification_validity_days or 365))
 
 
 class VerificationDocument(models.Model):

@@ -1,4 +1,5 @@
 import pytest
+from django.core.cache import cache
 
 
 @pytest.fixture(autouse=True)
@@ -17,3 +18,10 @@ def use_local_file_storage_for_tests(settings, tmp_path):
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+
+
+@pytest.fixture(autouse=True)
+def clear_runtime_cache_between_tests():
+    cache.clear()
+    yield
+    cache.clear()

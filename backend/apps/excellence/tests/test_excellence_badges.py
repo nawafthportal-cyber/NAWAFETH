@@ -6,6 +6,7 @@ from io import StringIO
 import pytest
 from django.core.management import call_command
 from django.db.models import Q
+from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -13,6 +14,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
+from apps.core.models import PlatformConfig
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.excellence.models import ExcellenceBadgeAward, ExcellenceBadgeCandidate, ExcellenceBadgeCandidateStatus
 from apps.excellence.selectors import FEATURED_SERVICE_BADGE_CODE, HIGH_ACHIEVEMENT_BADGE_CODE, TOP_100_CLUB_BADGE_CODE, current_review_window
@@ -95,11 +97,16 @@ def _add_completed_requests(provider: ProviderProfile, subcategory: SubCategory,
         )
 
 
-def _make_candidate(badge_code: str = FEATURED_SERVICE_BADGE_CODE) -> ExcellenceBadgeCandidate:
+def _make_candidate(
+    badge_code: str = FEATURED_SERVICE_BADGE_CODE,
+    *,
+    phone: str = "0507000001",
+    display_name: str = "مزود تميز",
+) -> ExcellenceBadgeCandidate:
     sync_badge_type_catalog()
     category = Category.objects.create(name="الاستشارات", is_active=True)
     subcategory = SubCategory.objects.create(category=category, name="قانوني", is_active=True)
-    provider = _make_provider("0507000001", subcategory, "مزود تميز")
+    provider = _make_provider(phone, subcategory, display_name)
     period_start, period_end = current_review_window()
     badge_type = {item.code: item for item in sync_badge_type_catalog()}[badge_code]
     return ExcellenceBadgeCandidate.objects.create(
@@ -336,3 +343,32 @@ def test_excellence_dashboard_requires_access_and_supports_approve_revoke_and_ex
     assert award.is_active is False
     candidate.refresh_from_db()
     assert candidate.status == ExcellenceBadgeCandidateStatus.REVOKED
+
+
+def test_excellence_dashboard_export_uses_platform_config_limit(mocker):
+    candidate_a = _make_candidate(FEATURED_SERVICE_BADGE_CODE, phone="0507000291", display_name="مرشح أول")
+    candidate_b = _make_candidate(HIGH_ACHIEVEMENT_BADGE_CODE, phone="0507000292", display_name="مرشح ثان")
+    excellence_user = _make_staff("0507000096", dashboard_codes=["excellence"])
+
+    config = PlatformConfig.load()
+    config.export_xlsx_max_rows = 1
+    config.save()
+
+    captured: dict[str, list] = {}
+
+    def _fake_xlsx_response(filename, sheet_name, headers, rows):
+        captured["rows"] = rows
+        return HttpResponse(
+            b"PK",
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+    mocker.patch("apps.excellence.dashboard_views.xlsx_response", side_effect=_fake_xlsx_response)
+
+    client = _dashboard_client(excellence_user)
+    response = client.get(reverse("dashboard:excellence_dashboard"), {"export": "xlsx"})
+
+    assert response.status_code == 200
+    assert candidate_a.provider.display_name != ""
+    assert candidate_b.provider.display_name != ""
+    assert len(captured["rows"]) == 1

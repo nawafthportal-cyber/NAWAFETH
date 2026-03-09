@@ -87,8 +87,6 @@ class ClientRBACTests(TestCase):
         self.analytics_dash = Dashboard.objects.create(code="analytics", name_ar="تحليلات", is_active=True)
 
         self.client_user = User.objects.create_user(phone="0501000001", password="Pass12345!")
-        self.client_user.is_staff = True
-        self.client_user.save()
 
         self.profile = UserAccessProfile.objects.create(
             user=self.client_user,
@@ -112,6 +110,24 @@ class ClientRBACTests(TestCase):
         self.assertTrue(dashboard_allowed(self.client_user, "extras"))
         self.assertFalse(dashboard_allowed(self.client_user, "subs"))
         self.assertFalse(dashboard_allowed(self.client_user, "analytics"))
+
+    def test_client_profile_sync_keeps_role_non_staff(self):
+        from apps.accounts.models import UserRole
+        from apps.dashboard.access import sync_dashboard_user_access
+
+        self.client_user.role_state = UserRole.CLIENT
+        self.client_user.save(update_fields=["role_state"])
+        changed_fields = sync_dashboard_user_access(
+            self.client_user,
+            access_profile=self.profile,
+            force_staff_role_state=True,
+        )
+        if changed_fields:
+            self.client_user.save(update_fields=changed_fields)
+        self.client_user.refresh_from_db()
+
+        self.assertFalse(self.client_user.is_staff)
+        self.assertEqual(self.client_user.role_state, UserRole.CLIENT)
 
     def test_admin_level_not_restricted(self):
         admin_user = User.objects.create_user(phone="0501000002", password="Pass12345!")

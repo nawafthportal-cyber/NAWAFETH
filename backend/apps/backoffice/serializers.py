@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+
 from .models import Dashboard, UserAccessProfile
 
 
@@ -23,6 +24,11 @@ class MyAccessSerializer(serializers.ModelSerializer):
     def get_dashboards(self, obj: UserAccessProfile):
         if obj.level in ("admin", "power"):
             qs = Dashboard.objects.filter(is_active=True).order_by("sort_order", "id")
+        elif obj.level == "client":
+            qs = Dashboard.objects.filter(
+                code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS,
+                is_active=True,
+            ).order_by("sort_order", "id")
         else:
             qs = obj.allowed_dashboards.filter(is_active=True).order_by("sort_order", "id")
         return DashboardSerializer(qs, many=True).data

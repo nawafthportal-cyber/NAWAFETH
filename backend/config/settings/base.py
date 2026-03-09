@@ -473,8 +473,19 @@ PROMO_FREQUENCY_MULTIPLIER = {
 NOTIFICATIONS_RETENTION_DAYS = int(os.getenv("NOTIFICATIONS_RETENTION_DAYS", "90"))
 
 # ✅ OTP (Development)
-# When enabled (and DEBUG=True), any 4-digit code will be accepted by /otp/verify.
-OTP_DEV_ACCEPT_ANY_CODE = os.getenv("OTP_DEV_ACCEPT_ANY_CODE", "0") == "1"
+# Explicit development-only OTP bypass contract.
+OTP_DEV_BYPASS_ENABLED = env_bool(
+    "OTP_DEV_BYPASS_ENABLED",
+    env_bool("OTP_DEV_ACCEPT_ANY_CODE", False),
+)
+OTP_DEV_ACCEPT_ANY_4_DIGITS = env_bool(
+    "OTP_DEV_ACCEPT_ANY_4_DIGITS",
+    OTP_DEV_BYPASS_ENABLED,
+)
+OTP_DEV_TEST_CODE = (os.getenv("OTP_DEV_TEST_CODE", "") or "").strip()
+
+# Backward-compatible alias for older code/tests until all call-sites converge.
+OTP_DEV_ACCEPT_ANY_CODE = OTP_DEV_BYPASS_ENABLED and OTP_DEV_ACCEPT_ANY_4_DIGITS
 
 # ✅ OTP (Testing/Staging)
 # For internal testing only: return the generated OTP code when a secret header matches.

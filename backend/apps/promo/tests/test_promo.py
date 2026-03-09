@@ -10,14 +10,16 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
+from apps.core.models import PlatformConfig
 from apps.promo.models import PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.promo.models import PromoAdPrice
+from apps.promo.serializers import PromoRequestCreateSerializer
 from apps.notifications.models import EventLog, Notification
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import SubscriptionPlan, Subscription, SubscriptionStatus
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
-from apps.promo.services import reject_request, activate_after_payment
+from apps.promo.services import reject_request, activate_after_payment, set_promo_ops_status
 from apps.support.models import SupportTicket, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest
 
@@ -435,6 +437,51 @@ def test_reject_and_activate_send_promo_status_notifications(user):
     assert activate_event.meta.get("payload", {}).get("status") == PromoRequestStatus.ACTIVE
 
 
+def test_ops_completion_does_not_end_active_home_banner_campaign(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بانر",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="بنر الصفحة الرئيسية",
+        ad_type="banner_home",
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+        activated_at=now - timedelta(hours=1),
+    )
+    asset = PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="banner asset",
+        file=SimpleUploadedFile(
+            "home-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    set_promo_ops_status(pr=pr, new_status=PromoOpsStatus.COMPLETED, by_user=user)
+    pr.refresh_from_db()
+
+    assert pr.ops_status == PromoOpsStatus.COMPLETED
+    assert pr.status == PromoRequestStatus.ACTIVE
+
+    response = api.get("/api/promo/banners/home/?limit=10")
+    assert response.status_code == 200
+    assert any(item["id"] == asset.id for item in response.data)
+
+
 def test_calc_quote_uses_db_price_override(user):
     PromoAdPrice.objects.update_or_create(ad_type="banner_home", defaults={"price_per_day": "123.45", "is_active": True})
 
@@ -473,16 +520,43 @@ def test_calc_quote_ignores_zero_db_price(user):
         status=PromoRequestStatus.NEW,
     )
 
-    from django.conf import settings
-
-    settings.PROMO_BASE_PRICES = {"banner_home": 300}
-    settings.PROMO_POSITION_MULTIPLIER = {"normal": 1.0}
-    settings.PROMO_FREQUENCY_MULTIPLIER = {"60s": 1.0}
+    config = PlatformConfig.load()
+    config.promo_base_prices = {"banner_home": 300}
+    config.promo_position_multipliers = {"normal": 1.0}
+    config.promo_frequency_multipliers = {"60s": 1.0}
+    config.save()
 
     q = calc_promo_quote(pr=pr)
     assert q["days"] == 2
     # Falls back to default base price (300) when settings has no override.
     assert str(q["subtotal"]) == "600.00"
+
+
+def test_promo_item_validation_uses_platform_config_min_campaign_hours(user):
+    config = PlatformConfig.load()
+    config.promo_min_campaign_hours = 48
+    config.save()
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(hours=24)
+
+    request_stub = type("RequestStub", (), {"user": user})()
+    serializer = PromoRequestCreateSerializer(
+        data={
+            "title": "طلب متعدد",
+            "items": [
+                {
+                    "service_type": PromoServiceType.HOME_BANNER,
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                }
+            ],
+        },
+        context={"request": request_stub},
+    )
+
+    assert serializer.is_valid() is False
+    assert "48 ساعة" in str(serializer.errors)
 
 
 def test_public_active_promos_returns_targeting_and_assets(api, user):

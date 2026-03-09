@@ -134,6 +134,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")
         send_at = attrs.get("send_at")
+        from .services import promo_min_campaign_hours, promo_min_campaign_message
 
         if service_type in {
             PromoServiceType.HOME_BANNER,
@@ -148,8 +149,8 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("تاريخ النهاية يجب أن يكون بعد البداية.")
             if start_at < timezone.now():
                 raise serializers.ValidationError("لا يمكن بدء حملة بتاريخ ماض.")
-            if (end_at - start_at).total_seconds() < 24 * 60 * 60:
-                raise serializers.ValidationError("الحد الأدنى لمدة الحملة هو 24 ساعة.")
+            if (end_at - start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
+                raise serializers.ValidationError(promo_min_campaign_message())
 
         if service_type in {
             PromoServiceType.FEATURED_SPECIALISTS,
@@ -263,6 +264,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = getattr(request, "user", None)
         items = attrs.get("items") or []
+        from .services import promo_min_campaign_hours, promo_min_campaign_message
 
         if items:
             has_notification = any(item.get("use_notification_channel") for item in items)
@@ -293,8 +295,10 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("تاريخ النهاية يجب أن يكون بعد البداية.")
         if start_at < timezone.now():
             raise serializers.ValidationError("لا يمكن بدء حملة بتاريخ ماضي.")
-        if (end_at - start_at).total_seconds() < 24 * 60 * 60:
-            raise serializers.ValidationError("الحد الأدنى لمدة الحملة الإعلانية هو 24 ساعة.")
+        if (end_at - start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
+            raise serializers.ValidationError(
+                promo_min_campaign_message(prefix="الحد الأدنى لمدة الحملة الإعلانية هو")
+            )
         if attrs.get("ad_type") not in PromoAdType.values:
             raise serializers.ValidationError("نوع الإعلان غير صحيح.")
         if attrs.get("frequency") not in PromoFrequency.values:

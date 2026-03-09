@@ -32,10 +32,16 @@ from apps.support.models import (
 from apps.subscriptions.models import SubscriptionPlan, FeatureKey
 from apps.subscriptions.bootstrap import infer_plan_tier
 from apps.backoffice.models import UserAccessProfile
-from .access import sync_dashboard_user_access
+from .access import dashboard_assignee_user, dashboard_assignment_users, sync_dashboard_user_access
 
 from .auth import dashboard_staff_required as staff_member_required
-from .views import require_dashboard_access as dashboard_access_required, _want_csv, _csv_response, _dashboard_allowed
+from .views import (
+    require_dashboard_access as dashboard_access_required,
+    _csv_response,
+    _dashboard_allowed,
+    _tabular_export_limit,
+    _want_csv,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +77,10 @@ def support_ticket_add_comment(request: HttpRequest, ticket_id: int) -> HttpResp
 @dashboard_access_required("support", write=True)
 def support_ticket_create(request: HttpRequest) -> HttpResponse:
     teams = SupportTeam.objects.filter(is_active=True)
-    staff_users = User.objects.filter(is_staff=True, is_active=True).order_by("phone")
+    staff_users = sorted(
+        dashboard_assignment_users("support", write=True, limit=150),
+        key=lambda user: ((user.phone or ""), int(getattr(user, "id", 0) or 0)),
+    )
     type_choices = SupportTicketType.choices
     priority_choices = SupportPriority.choices
 
@@ -82,6 +91,7 @@ def support_ticket_create(request: HttpRequest) -> HttpResponse:
         description = (request.POST.get("description") or "").strip()
         team_id = request.POST.get("assigned_team") or None
         assigned_to_id = request.POST.get("assigned_to") or None
+        assigned_user = None
 
         requester = User.objects.filter(phone=phone).first() if phone else None
         if not requester:
@@ -98,14 +108,27 @@ def support_ticket_create(request: HttpRequest) -> HttpResponse:
                 "type_choices": type_choices, "priority_choices": priority_choices,
             })
 
+        if assigned_to_id not in (None, ""):
+            try:
+                assigned_to_id = int(assigned_to_id)
+            except Exception:
+                assigned_to_id = None
+            assigned_user = dashboard_assignee_user(assigned_to_id, "support", write=True)
+            if assigned_user is None:
+                messages.error(request, "المكلّف المحدد غير صالح لهذه اللوحة")
+                return render(request, "dashboard/support_ticket_create.html", {
+                    "teams": teams, "staff_users": staff_users,
+                    "type_choices": type_choices, "priority_choices": priority_choices,
+                })
+
         ticket = SupportTicket.objects.create(
             requester=requester,
             ticket_type=ticket_type or SupportTicketType.TECH,
             priority=priority,
             description=description[:300],
             assigned_team_id=int(team_id) if team_id else None,
-            assigned_to_id=int(assigned_to_id) if assigned_to_id else None,
-            assigned_at=timezone.now() if assigned_to_id else None,
+            assigned_to=assigned_user,
+            assigned_at=timezone.now() if assigned_user else None,
             last_action_by=request.user,
         )
 
@@ -154,7 +177,7 @@ def audit_log_list(request: HttpRequest) -> HttpResponse:
 
     if _want_csv(request):
         rows = []
-        for log in qs[:5000]:
+        for log in qs[:_tabular_export_limit()]:
             rows.append([
                 log.id,
                 log.actor.phone if log.actor else "",
@@ -208,7 +231,7 @@ def users_list(request: HttpRequest) -> HttpResponse:
 
     if _want_csv(request):
         rows = []
-        for u in qs[:5000]:
+        for u in qs[:_tabular_export_limit()]:
             rows.append([
                 u.id,
                 u.phone or "",

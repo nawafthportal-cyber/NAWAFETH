@@ -5,7 +5,7 @@ from functools import wraps
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 
-from .access import first_allowed_dashboard_route
+from .access import dashboard_portal_eligible, first_allowed_dashboard_route
 
 
 SESSION_OTP_VERIFIED_KEY = "dashboard_otp_verified"
@@ -18,7 +18,7 @@ def is_dashboard_otp_verified(request: HttpRequest) -> bool:
 
 
 def dashboard_login_required(view_func):
-    """Require authenticated staff + OTP-verified session for dashboard."""
+    """Require authenticated dashboard-access user + OTP-verified session."""
 
     @wraps(view_func)
     def wrapped(request: HttpRequest, *args, **kwargs):
@@ -31,7 +31,7 @@ def dashboard_login_required(view_func):
                 pass
             return redirect("dashboard:login")
 
-        if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+        if not dashboard_portal_eligible(user):
             fallback = first_allowed_dashboard_route(user)
             if fallback:
                 return redirect(fallback)

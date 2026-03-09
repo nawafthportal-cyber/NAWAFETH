@@ -92,16 +92,45 @@ class HomeService {
       return List<BannerModel>.from(cached.data);
     }
 
-    final res = await ApiClient.get('/api/promo/home-carousel/?limit=$limit');
-    if (res.isSuccess && res.data != null) {
-      final list = res.data is List ? res.data as List : [];
-      final parsed = list.map((e) => BannerModel.fromJson(e as Map<String, dynamic>)).toList();
+    List<BannerModel> parseBannerList(dynamic data) {
+      final list = data is List ? data : const [];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(BannerModel.fromJson)
+          .where((banner) => (banner.mediaUrl ?? '').isNotEmpty)
+          .toList();
+    }
+
+    final promoRes = await ApiClient.get('/api/promo/banners/home/?limit=$limit');
+    final promoBanners = (promoRes.isSuccess && promoRes.data != null)
+        ? parseBannerList(promoRes.data)
+        : <BannerModel>[];
+
+    final remaining = limit > promoBanners.length ? limit - promoBanners.length : 0;
+    final fallbackLimit = remaining > 0 ? remaining : 0;
+
+    List<BannerModel> carouselBanners = const <BannerModel>[];
+    if (fallbackLimit > 0 || promoBanners.isEmpty) {
+      final carouselLimit = promoBanners.isEmpty ? limit : fallbackLimit;
+      final carouselRes = await ApiClient.get('/api/promo/home-carousel/?limit=$carouselLimit');
+      if (carouselRes.isSuccess && carouselRes.data != null) {
+        carouselBanners = parseBannerList(carouselRes.data);
+      }
+    }
+
+    final parsed = <BannerModel>[
+      ...promoBanners,
+      ...carouselBanners,
+    ];
+
+    if (parsed.isNotEmpty) {
       _homeBannersCache[limit] = _CacheEntry<List<BannerModel>>(
         List<BannerModel>.unmodifiable(parsed),
         DateTime.now(),
       );
       return parsed;
     }
+
     if (cached != null) {
       return List<BannerModel>.from(cached.data);
     }

@@ -22,13 +22,17 @@ TOP_100_CLUB_BADGE_CODE = "top_100_club"
 
 
 def current_review_window(now=None):
+    from apps.core.models import PlatformConfig
+
     now = now or timezone.now()
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     if month_start.month == 12:
         period_end = month_start.replace(year=month_start.year + 1, month=1)
     else:
         period_end = month_start.replace(month=month_start.month + 1)
-    period_start = period_end - timedelta(days=365)
+    period_start = period_end - timedelta(
+        days=int(PlatformConfig.load().excellence_review_cycle_days or 365)
+    )
     return period_start, period_end
 
 

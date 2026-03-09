@@ -10,6 +10,8 @@ from django.db.models import Q, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from apps.dashboard.access import dashboard_assignee_user
+
 from .models import HomeBanner, PromoAdType, PromoAsset, PromoRequest, PromoRequestItem, PromoRequestStatus
 from .serializers import (
     PromoRequestCreateSerializer,
@@ -319,9 +321,9 @@ class BackofficePromoAssignView(APIView):
         # Only staff users can be assigned
         assigned_user = None
         if user_id is not None:
-            from apps.accounts.models import User
-
-            assigned_user = get_object_or_404(User, pk=user_id, is_staff=True)
+            assigned_user = dashboard_assignee_user(user_id, "promo", write=True)
+            if assigned_user is None:
+                return Response({"detail": "assigned_to غير صالح لهذه اللوحة"}, status=status.HTTP_400_BAD_REQUEST)
 
         pr.assigned_to = assigned_user
         pr.assigned_at = timezone.now() if assigned_user else None

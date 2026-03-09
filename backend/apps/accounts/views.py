@@ -25,7 +25,14 @@ from .serializers import (
 
 from .permissions import IsAtLeastPhoneOnly
 from .role_context import get_active_role
-from .otp import generate_otp_code, otp_expiry
+from .otp import (
+    accept_any_otp_code,
+    generate_otp_code,
+    matches_dev_test_code,
+    otp_dev_bypass_enabled,
+    otp_dev_test_code,
+    otp_expiry,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -413,10 +420,11 @@ def otp_send(request):
             )
 
     # Generate a new code.
-    # For staging QA only, you can force a fixed OTP via OTP_TEST_CODE (e.g. 0000)
-    # but only when OTP_TEST_MODE is enabled and the secret header matches.
     test_code = (getattr(settings, "OTP_TEST_CODE", "") or "").strip()
-    if test_code and _otp_test_authorized(request):
+    dev_code = otp_dev_test_code()
+    if dev_code:
+        code = dev_code
+    elif test_code and _otp_test_authorized(request):
         code = test_code
     else:
         code = generate_otp_code()
@@ -443,11 +451,13 @@ def otp_send(request):
     except Exception:
         pass
 
-    # ✅ Dev/Test helpers
-    # - DEBUG: return dev_code for local development only.
-    # - OTP_TEST_MODE: staging-only helper guarded by a secret header.
     payload = {"ok": True}
-    if bool(getattr(settings, "DEBUG", False)):
+    if otp_dev_bypass_enabled():
+        payload["dev_mode"] = True
+        payload["dev_accept_any_4_digits"] = accept_any_otp_code()
+        if dev_code:
+            payload["dev_code"] = dev_code
+    elif bool(getattr(settings, "DEBUG", False)):
         payload["dev_code"] = code
     elif _otp_test_authorized(request):
         payload["dev_code"] = code
@@ -514,18 +524,25 @@ def otp_verify(request):
 
         return Response(payload, status=status.HTTP_200_OK)
 
-    # FORCE BYPASS if configured (Resolves user frustration with Development/Testing)
-    # Check settings directly, default to True (temporary/testing mode).
-    # Temporary/testing-friendly behavior (user requested):
-    # accept any 4-digit code unless explicitly disabled in settings.
-    dev_accept_any = getattr(settings, "OTP_DEV_ACCEPT_ANY_CODE", True)
-    
-    # Also considering DEBUG just to be consistent, but prioritized dev_accept_any
-    # User request: Accept ANY random numbers without verification (bypassing strict check)
-    if dev_accept_any or settings.DEBUG:
+    if matches_dev_test_code(code):
+        if not (len(code) == 4 and code.isdigit()):
+            return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
+
+        otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
+        if otp:
+            otp.is_used = True
+            otp.save(update_fields=["is_used"])
+
+        payload, created = _issue_tokens_for_phone(phone)
+        if payload is None:
+            return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+    if accept_any_otp_code():
         # Validate format only
         if not (len(code) == 4 and code.isdigit()):
-             return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Skip DB check, mark LAST OTP as used if exists (for cleanup)
         otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
@@ -538,8 +555,6 @@ def otp_verify(request):
             return Response({"detail": "الحساب غير نشط"}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(payload, status=status.HTTP_200_OK)
-
-    # Normal Production Logic
 
     otp = OTP.objects.filter(phone=phone, is_used=False).order_by("-id").first()
     if not otp:

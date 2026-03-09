@@ -287,7 +287,7 @@ def _fee_for_badge(badge_type: str) -> Decimal:
 
 def verification_billing_policy() -> dict[str, object]:
     return {
-        "currency": VERIFICATION_PRICING_CURRENCY,
+        "currency": _get_verification_currency() or VERIFICATION_PRICING_CURRENCY,
         "billing_cycle": VERIFICATION_BILLING_CYCLE,
         "billing_cycle_label": VERIFICATION_BILLING_CYCLE_LABEL,
         "charge_model": VERIFICATION_CHARGE_MODEL,

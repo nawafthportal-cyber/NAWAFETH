@@ -3,6 +3,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.billing.models import Invoice
+from apps.core.models import PlatformConfig
 from apps.extras.models import ExtraPurchase
 from apps.extras.services import activate_extra_after_payment, consume_credit
 from apps.unified_requests.models import UnifiedRequest
@@ -75,3 +76,25 @@ def test_extra_activation_and_credit_consumption_syncs_unified(user, settings):
     assert p.status == "consumed"
     assert ur.status == "completed"
     assert ur.metadata_record.payload.get("purchase_status") == "consumed"
+
+
+def test_time_based_extras_use_platform_config_duration_and_currency(user, settings):
+    settings.EXTRA_SKUS = {"promo_boost_7d": {"title": "Boost", "price": 99}}
+    config = PlatformConfig.load()
+    config.extras_short_duration_days = 9
+    config.extras_currency = "USD"
+    config.save()
+
+    from apps.extras.services import create_extra_purchase_checkout
+
+    purchase = create_extra_purchase_checkout(user=user, sku="promo_boost_7d")
+    invoice: Invoice = purchase.invoice
+    invoice.mark_paid()
+    invoice.save()
+    purchase = activate_extra_after_payment(purchase=purchase)
+
+    assert purchase.currency == "USD"
+    assert purchase.invoice.currency == "USD"
+    assert purchase.end_at is not None
+    assert purchase.start_at is not None
+    assert (purchase.end_at - purchase.start_at).days == 9

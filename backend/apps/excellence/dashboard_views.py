@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.db.models import Q
 from django.views.decorators.http import require_POST
 
+from apps.core.models import PlatformConfig
 from apps.dashboard.auth import dashboard_staff_required as staff_member_required
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.dashboard.views import (
@@ -136,15 +137,24 @@ def excellence_dashboard(request: HttpRequest) -> HttpResponse:
     ]
     rows = _export_rows(candidates)
     if _want_csv(request):
-        return _csv_response("excellence_candidates.csv", headers, rows)
+        return _csv_response(
+            "excellence_candidates.csv",
+            headers,
+            rows[: max(1, int(PlatformConfig.load().export_xlsx_max_rows or 2000))],
+        )
     if _want_xlsx(request):
-        return xlsx_response("excellence_candidates.xlsx", "excellence", headers, rows)
+        return xlsx_response(
+            "excellence_candidates.xlsx",
+            "excellence",
+            headers,
+            rows[: max(1, int(PlatformConfig.load().export_xlsx_max_rows or 2000))],
+        )
     if _want_pdf(request):
         return pdf_response(
             "excellence_candidates.pdf",
             "تقرير مرشحي شارات التميز",
             headers,
-            rows,
+            rows[: max(1, int(PlatformConfig.load().export_pdf_max_rows or 200))],
             landscape=True,
         )
 

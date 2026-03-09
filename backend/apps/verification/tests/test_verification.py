@@ -9,6 +9,7 @@ from django.utils import timezone
 from apps.accounts.models import User, UserRole
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
+from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
 from apps.verification.models import VerifiedBadge
 from apps.verification.models import VerificationBadgeType
@@ -22,6 +23,7 @@ from apps.verification.services import (
     activate_after_payment,
     decide_document,
     finalize_request_and_create_invoice,
+    verification_billing_policy,
     verification_pricing_for_user,
 )
 
@@ -49,6 +51,26 @@ def _make_provider(user, *, sync_role: bool = True):
         display_name=f"Provider {user.phone}",
         bio="bio",
     )
+
+
+def test_verification_billing_policy_uses_platform_config_currency():
+    config = PlatformConfig.load()
+    config.verification_currency = "USD"
+    config.save()
+
+    policy = verification_billing_policy()
+
+    assert policy["currency"] == "USD"
+
+
+def test_verification_activation_window_uses_platform_config_days(user):
+    config = PlatformConfig.load()
+    config.verification_validity_days = 120
+    config.save()
+
+    request = VerificationRequest.objects.create(requester=user)
+
+    assert request.activation_window().days == 120
 
 
 @pytest.fixture

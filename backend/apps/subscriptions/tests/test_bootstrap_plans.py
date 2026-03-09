@@ -3,9 +3,11 @@ from decimal import Decimal
 
 from apps.subscriptions.bootstrap import (
     CANONICAL_PLAN_CODES,
+    ensure_basic_subscription_plan,
     normalize_existing_subscription_plans,
     seed_default_subscription_plans,
 )
+from apps.subscriptions.configuration import canonical_subscription_plan_for_tier
 from apps.subscriptions.models import PlanPeriod, PlanTier, SubscriptionPlan
 
 
@@ -84,3 +86,14 @@ def test_normalize_existing_subscription_plans_maps_legacy_codes_without_droppin
     assert SubscriptionPlan.objects.filter(code="basic").exists()
     assert SubscriptionPlan.objects.filter(code="riyadi").exists()
     assert SubscriptionPlan.objects.filter(code="pro").exists()
+
+
+def test_canonical_plan_lookup_reseeds_missing_defaults():
+    SubscriptionPlan.objects.all().delete()
+
+    plan = canonical_subscription_plan_for_tier("basic")
+    basic = ensure_basic_subscription_plan()
+
+    assert plan.code == "basic"
+    assert basic.code == "basic"
+    assert SubscriptionPlan.objects.filter(code__in=CANONICAL_PLAN_CODES).count() == 3

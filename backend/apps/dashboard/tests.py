@@ -1,5 +1,6 @@
 import pytest
 from datetime import timedelta
+from django.http import HttpResponse
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -9,6 +10,7 @@ from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from apps.audit.models import AuditAction, AuditLog
 from apps.billing.models import Invoice
 from apps.content.models import SiteLinks
+from apps.core.models import PlatformConfig
 from apps.dashboard.views import _compute_actions, _dashboard_allowed
 from apps.dashboard.templatetags.dashboard_access import can_access
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
@@ -1218,7 +1220,7 @@ def test_access_profile_create_action_creates_profile_and_audit():
 	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([access_dashboard])
 
-	target_user = User.objects.create_user(phone="0500000213", password="Pass12345!", is_staff=True)
+	target_user = User.objects.create_user(phone="0500000213", password="Pass12345!")
 	assert not hasattr(target_user, "access_profile")
 
 	c = Client()
@@ -1241,6 +1243,8 @@ def test_access_profile_create_action_creates_profile_and_audit():
 	target_ap = UserAccessProfile.objects.get(user=target_user)
 	assert target_ap.level == AccessLevel.USER
 	assert list(target_ap.allowed_dashboards.values_list("code", flat=True)) == ["content"]
+	target_user.refresh_from_db()
+	assert target_user.is_staff is True
 
 	log = AuditLog.objects.filter(
 		action=AuditAction.ACCESS_PROFILE_CREATED,
@@ -1329,7 +1333,7 @@ def test_access_profile_create_action_updates_existing_profile():
 	support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=30)
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([access_dashboard])
 
-	target_user = User.objects.create_user(phone="0500000215", password="Pass12345!", is_staff=True)
+	target_user = User.objects.create_user(phone="0500000215", password="Pass12345!")
 	target_ap = UserAccessProfile.objects.create(user=target_user, level=AccessLevel.QA)
 	target_ap.allowed_dashboards.set([support_dashboard])
 
@@ -1352,6 +1356,8 @@ def test_access_profile_create_action_updates_existing_profile():
 	target_ap.refresh_from_db()
 	assert target_ap.level == AccessLevel.POWER
 	assert list(target_ap.allowed_dashboards.values_list("code", flat=True)) == ["content"]
+	target_user.refresh_from_db()
+	assert target_user.is_staff is True
 
 	log = AuditLog.objects.filter(
 		action=AuditAction.ACCESS_PROFILE_UPDATED,
@@ -1683,10 +1689,10 @@ def test_dashboard_home_requires_otp_verified_session_for_authenticated_staff():
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True)
+@override_settings(DEBUG=True, OTP_DEV_BYPASS_ENABLED=True, OTP_DEV_ACCEPT_ANY_4_DIGITS=True)
 def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
     analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
-    staff_user = User.objects.create_user(phone="0500000227", password="Pass12345!", is_staff=True)
+    staff_user = User.objects.create_user(phone="0500000227", password="Pass12345!")
     ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
     ap.allowed_dashboards.set([analytics_dashboard])
 
@@ -1701,17 +1707,17 @@ def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
 
     s = c.session
     assert s.get(SESSION_OTP_VERIFIED_KEY) is True
+    staff_user.refresh_from_db()
+    assert staff_user.is_staff is True
 
 
 @pytest.mark.django_db
-@override_settings(DEBUG=True)
+@override_settings(DEBUG=True, OTP_DEV_BYPASS_ENABLED=True, OTP_DEV_ACCEPT_ANY_4_DIGITS=True)
 def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
     support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=1)
     staff_user = User.objects.create_user(
         phone="0500000228",
         password="Pass12345!",
-        is_staff=True,
-        role_state=UserRole.STAFF,
     )
     ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
     ap.allowed_dashboards.set([support_dashboard])
@@ -1724,6 +1730,77 @@ def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
     otp_res = c.post(reverse("dashboard:otp"), data={"code": "1234"})
     assert otp_res.status_code == 302
     assert otp_res.url == reverse("dashboard:support_tickets_list")
+
+
+@pytest.mark.django_db
+@override_settings(DEBUG=False, OTP_DEV_BYPASS_ENABLED=False, OTP_DEV_ACCEPT_ANY_4_DIGITS=False)
+def test_dashboard_otp_requires_real_code_when_dev_bypass_disabled():
+    analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
+    staff_user = User.objects.create_user(phone="0500000231", password="Pass12345!")
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([analytics_dashboard])
+
+    c = Client()
+    login_res = c.post(reverse("dashboard:login"), data={"phone": staff_user.phone})
+    assert login_res.status_code == 302
+    assert reverse("dashboard:otp") in login_res.url
+
+    otp_res = c.post(reverse("dashboard:otp"), data={"code": "1234"})
+    assert otp_res.status_code == 200
+    assert SESSION_OTP_VERIFIED_KEY not in c.session
+
+
+@pytest.mark.django_db
+def test_requests_list_export_uses_platform_config_limits(mocker):
+    content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+    staff_user = User.objects.create_user(phone="0500000232", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([content_dashboard])
+
+    config = PlatformConfig.load()
+    config.export_xlsx_max_rows = 1
+    config.export_pdf_max_rows = 1
+    config.save()
+
+    cat = Category.objects.create(name="تصميم", is_active=True)
+    sub = SubCategory.objects.create(category=cat, name="شعارات", is_active=True)
+    client_user = User.objects.create_user(phone="0500000233")
+    for idx in range(3):
+        ServiceRequest.objects.create(
+            client=client_user,
+            subcategory=sub,
+            title=f"طلب {idx}",
+            description="وصف",
+            request_type="competitive",
+            status=RequestStatus.NEW,
+            city="الرياض",
+        )
+
+    captured: dict[str, list] = {}
+
+    def _fake_xlsx_response(filename, sheet_name, headers, rows):
+        captured["xlsx"] = rows
+        return HttpResponse(b"PK", content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    def _fake_pdf_response(filename, title, headers, rows, landscape=False):
+        captured["pdf"] = rows
+        return HttpResponse(b"%PDF", content_type="application/pdf")
+
+    mocker.patch("apps.dashboard.exports.xlsx_response", side_effect=_fake_xlsx_response)
+    mocker.patch("apps.dashboard.exports.pdf_response", side_effect=_fake_pdf_response)
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    xlsx_res = c.get(reverse("dashboard:requests_list"), {"export": "xlsx"})
+    pdf_res = c.get(reverse("dashboard:requests_list"), {"export": "pdf"})
+
+    assert xlsx_res.status_code == 200
+    assert pdf_res.status_code == 200
+    assert len(captured["xlsx"]) == 1
+    assert len(captured["pdf"]) == 1
 
 
 @pytest.mark.django_db

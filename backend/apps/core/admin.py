@@ -28,10 +28,17 @@ class PlatformConfigAdmin(admin.ModelAdmin):
             "fields": (
                 "promo_vat_percent",
                 "promo_min_campaign_hours",
+                "promo_base_prices",
+                "promo_position_multipliers",
+                "promo_frequency_multipliers",
             ),
         }),
         ("الخدمات الإضافية", {
-            "fields": ("extras_default_duration_days",),
+            "fields": (
+                "extras_default_duration_days",
+                "extras_short_duration_days",
+                "extras_currency",
+            ),
         }),
         ("التميز", {
             "fields": (

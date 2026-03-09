@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from rest_framework.permissions import BasePermission, SAFE_METHODS
 
-from apps.dashboard.access import is_active_access_profile
+from apps.dashboard.access import active_access_profile_for_user, dashboard_portal_eligible
 
 
 class BackofficeDashboardMixin:
@@ -19,10 +19,8 @@ class BackofficeDashboardMixin:
         return "/backoffice/" in (getattr(request, "path", "") or "")
 
     def _has_backoffice_access(self, request) -> bool:
-        ap = getattr(request.user, "access_profile", None)
+        ap = active_access_profile_for_user(request.user)
         if not ap:
-            return False
-        if ap.is_revoked() or ap.is_expired():
             return False
         if ap.is_readonly() and request.method not in SAFE_METHODS:
             self.message = "حساب QA للعرض فقط."
@@ -55,19 +53,14 @@ class BackofficeAccessPermission(BasePermission):
 
     def has_permission(self, request, view) -> bool:
         user = getattr(request, "user", None)
-        if not user or not user.is_authenticated:
+        if not user or not user.is_authenticated or not getattr(user, "is_active", False):
             return False
-        if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
-            self.message = "هذا الحساب ليس حساب تشغيل."
+        if not dashboard_portal_eligible(user):
+            self.message = "هذا الحساب لا يملك صلاحية تشغيل فعّالة."
             return False
 
-        # staff بدون access_profile لا نعطيه صلاحية تلقائية هنا
-        access_profile = getattr(user, "access_profile", None)
+        access_profile = active_access_profile_for_user(user)
         if not access_profile:
-            return False
-
-        if not is_active_access_profile(access_profile):
-            self.message = "صلاحيتك منتهية أو تم إيقافها."
             return False
 
         # QA => قراءة فقط

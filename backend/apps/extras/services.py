@@ -65,6 +65,16 @@ def get_extra_catalog() -> dict:
     return getattr(settings, "EXTRA_SKUS", {}) or {}
 
 
+def _platform_config():
+    from apps.core.models import PlatformConfig
+
+    return PlatformConfig.load()
+
+
+def extras_currency() -> str:
+    return str(_platform_config().extras_currency or "SAR").strip() or "SAR"
+
+
 def sku_info(sku: str) -> dict:
     catalog = get_extra_catalog()
     if sku not in catalog:
@@ -90,12 +100,10 @@ def infer_duration(sku: str) -> timedelta:
     - *_7d => 7 أيام
     """
     if sku.endswith("_month"):
-        from apps.core.models import PlatformConfig
-        return timedelta(days=PlatformConfig.load().extras_default_duration_days)
+        return timedelta(days=int(_platform_config().extras_default_duration_days or 30))
     if sku.endswith("_7d"):
-        return timedelta(days=7)
-    from apps.core.models import PlatformConfig
-    return timedelta(days=PlatformConfig.load().extras_default_duration_days)
+        return timedelta(days=int(_platform_config().extras_short_duration_days or 7))
+    return timedelta(days=int(_platform_config().extras_default_duration_days or 30))
 
 
 def infer_credits(sku: str) -> int:
@@ -128,6 +136,7 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
         title=title,
         extra_type=etype,
         subtotal=price,
+        currency=extras_currency(),
         status=ExtraPurchaseStatus.PENDING_PAYMENT,
     )
 
@@ -140,6 +149,7 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
         user=user,
         title="فاتورة إضافة مدفوعة",
         description=f"{title}",
+        currency=extras_currency(),
         subtotal=purchase.subtotal,
         reference_type="extra_purchase",
         reference_id=str(purchase.pk),

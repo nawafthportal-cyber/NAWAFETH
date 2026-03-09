@@ -2,8 +2,10 @@ import pytest
 from datetime import timedelta
 from rest_framework.test import APIClient
 from decimal import Decimal
+from django.utils import timezone
 
 from apps.accounts.models import User, UserRole
+from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import SubscriptionPlan, PlanPeriod, Subscription, SubscriptionStatus
 from apps.subscriptions.services import activate_subscription_after_payment, refresh_subscription_status
@@ -33,6 +35,23 @@ def _make_provider(user, *, sync_role: bool = True):
         display_name=f"Provider {user.phone}",
         bio="bio",
     )
+
+
+def test_subscription_calc_end_date_uses_platform_config(user):
+    config = PlatformConfig.load()
+    config.subscription_monthly_duration_days = 45
+    config.subscription_yearly_duration_days = 400
+    config.save()
+
+    start_at = timezone.now()
+    monthly_plan = SubscriptionPlan.objects.create(code="CFG_MONTH", title="شهري", period=PlanPeriod.MONTH, price=0)
+    yearly_plan = SubscriptionPlan.objects.create(code="CFG_YEAR", title="سنوي", period=PlanPeriod.YEAR, price=0)
+
+    monthly_sub = Subscription(user=user, plan=monthly_plan, status=SubscriptionStatus.PENDING_PAYMENT)
+    yearly_sub = Subscription(user=user, plan=yearly_plan, status=SubscriptionStatus.PENDING_PAYMENT)
+
+    assert (monthly_sub.calc_end_date(start_at) - start_at).days == 45
+    assert (yearly_sub.calc_end_date(start_at) - start_at).days == 400
 
 
 def test_plans_list(api, user):

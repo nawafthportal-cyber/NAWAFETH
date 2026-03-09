@@ -1,9 +1,13 @@
 import random
 from datetime import timedelta
+
+from django.conf import settings
 from django.utils import timezone
+
 
 def generate_otp_code() -> str:
     return f"{random.randint(0, 9999):04d}"
+
 
 def otp_expiry(minutes: int = 5):
     return timezone.now() + timedelta(minutes=minutes)
@@ -41,7 +45,25 @@ def verify_otp(phone: str, code: str) -> bool:
     return True
 
 
+def otp_dev_bypass_enabled() -> bool:
+    return bool(getattr(settings, "DEBUG", False)) and bool(
+        getattr(settings, "OTP_DEV_BYPASS_ENABLED", False)
+    )
+
+
+def otp_dev_test_code() -> str:
+    code = (getattr(settings, "OTP_DEV_TEST_CODE", "") or "").strip()
+    if otp_dev_bypass_enabled() and len(code) == 4 and code.isdigit():
+        return code
+    return ""
+
+
 def accept_any_otp_code() -> bool:
-    """Dev bypass — accept any 4-digit code when DEBUG=True."""
-    from django.conf import settings
-    return getattr(settings, "DEBUG", False)
+    """Development OTP mode: accept any 4-digit code only in explicit dev bypass."""
+    return otp_dev_bypass_enabled() and bool(
+        getattr(settings, "OTP_DEV_ACCEPT_ANY_4_DIGITS", False)
+    )
+
+
+def matches_dev_test_code(code: str) -> bool:
+    return bool(otp_dev_test_code()) and str(code or "").strip() == otp_dev_test_code()

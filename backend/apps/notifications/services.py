@@ -223,7 +223,7 @@ NOTIFICATION_CATALOG = {
         "default_enabled": True,
         "audience_modes": ("provider",),
         "expose_in_settings": False,
-        "required_tier": CanonicalPlanTier.PROFESSIONAL,
+        "required_tier": CanonicalPlanTier.BASIC,
     },
 }
 

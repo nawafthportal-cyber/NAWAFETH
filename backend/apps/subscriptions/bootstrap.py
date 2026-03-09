@@ -223,6 +223,9 @@ def ensure_basic_subscription_plan() -> SubscriptionPlan:
     code = DEFAULT_BASIC_SUBSCRIPTION_PLAN["code"]
     plan = SubscriptionPlan.objects.filter(code=code).first()
     if plan is None:
+        seed_default_subscription_plans(force_update=False)
+        plan = SubscriptionPlan.objects.filter(code=code).first()
+    if plan is None:
         raise SubscriptionPlan.DoesNotExist("Canonical basic subscription plan is missing")
     return plan
 
@@ -233,6 +236,12 @@ def ensure_subscription_plans_exist() -> None:
         if not SubscriptionPlan.objects.filter(code=code).exists()
     ]
     if missing_codes:
-        raise SubscriptionPlan.DoesNotExist(
-            f"Missing canonical subscription plan rows: {', '.join(sorted(missing_codes))}"
-        )
+        seed_default_subscription_plans(force_update=False)
+        still_missing = [
+            code for code in CANONICAL_PLAN_CODES
+            if not SubscriptionPlan.objects.filter(code=code).exists()
+        ]
+        if still_missing:
+            raise SubscriptionPlan.DoesNotExist(
+                f"Missing canonical subscription plan rows: {', '.join(sorted(still_missing))}"
+            )

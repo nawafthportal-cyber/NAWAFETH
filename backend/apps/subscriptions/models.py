@@ -261,9 +261,12 @@ class Subscription(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def calc_end_date(self, start: timezone.datetime):
+        from apps.core.models import PlatformConfig
+
+        config = PlatformConfig.load()
         if self.plan.period == PlanPeriod.YEAR:
-            return start + timedelta(days=365)
-        return start + timedelta(days=30)
+            return start + timedelta(days=int(config.subscription_yearly_duration_days or 365))
+        return start + timedelta(days=int(config.subscription_monthly_duration_days or 30))
 
     def __str__(self):
         return f"SUB#{self.pk} {self.user_id} {self.plan.code} {self.status}"
