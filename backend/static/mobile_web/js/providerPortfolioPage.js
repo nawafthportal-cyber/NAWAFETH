@@ -2,6 +2,8 @@
 var ProviderPortfolioPage = (function () {
   var API = window.NwApiClient;
   var sections = [];
+  var _allViewerItems = []; // normalized items for SpotlightViewer
+  var _providerInfo = null; // { id, display_name, profile_image }
 
   function escapeHtml(value) {
     return String(value || "")
@@ -17,6 +19,8 @@ var ProviderPortfolioPage = (function () {
     if (node) node.textContent = String(value);
   }
 
+  function toInt(v) { var n = Number(v); return Number.isFinite(n) ? n : 0; }
+
   function renderStats() {
     var itemCount = sections.reduce(function (sum, sec) {
       var items = sec.items || sec.images || sec.media || [];
@@ -26,20 +30,111 @@ var ProviderPortfolioPage = (function () {
     setText("pf-item-count", itemCount);
   }
 
-  function init() {
-    load();
+  async function init() {
     bindEvents();
+    _bindSpotlightSync();
+    _providerInfo = await _fetchProviderInfo();
+    load();
+  }
+
+  async function _fetchProviderInfo() {
+    try {
+      var profile = await Auth.getProfile();
+      if (profile) {
+        return {
+          id: toInt(profile.provider_id || profile.id),
+          display_name: profile.display_name || profile.full_name || 'مزود خدمة',
+          profile_image: profile.profile_image || '',
+        };
+      }
+    } catch (_) {}
+    return { id: 0, display_name: 'مزود خدمة', profile_image: '' };
   }
 
   function load() {
     API.get("/api/providers/me/portfolio/").then(function (data) {
       sections = Array.isArray(data) ? data : (data && data.results ? data.results : data && data.sections ? data.sections : []);
+      _buildAllViewerItems();
       render();
       document.getElementById("pf-loading").style.display = "none";
       document.getElementById("pf-content").style.display = "";
     }).catch(function () {
       document.getElementById("pf-loading").innerHTML = '<p class="text-muted">تعذر تحميل المعرض</p>';
     });
+  }
+
+  /* Build normalized items for SpotlightViewer */
+  function _buildAllViewerItems() {
+    _allViewerItems = [];
+    sections.forEach(function (sec) {
+      var items = sec.items || sec.images || sec.media || [];
+      var sectionTitle = sec.title || sec.name || '';
+      items.forEach(function (item) {
+        var src = typeof item === 'string' ? item : item.image || item.file || item.url || item.file_url || '';
+        var fileType = (item.file_type || 'image').toString().toLowerCase();
+        var isVideo = fileType === 'video' || /\.(mp4|mov|avi|webm)/i.test(src);
+        _allViewerItems.push({
+          id: toInt(item.id),
+          source: 'portfolio',
+          provider_id: _providerInfo ? _providerInfo.id : 0,
+          provider_display_name: _providerInfo ? _providerInfo.display_name : '',
+          provider_profile_image: _providerInfo ? _providerInfo.profile_image : '',
+          file_type: isVideo ? 'video' : 'image',
+          media_type: isVideo ? 'video' : 'image',
+          file_url: src,
+          thumbnail_url: item.thumbnail_url || src,
+          caption: item.caption || '',
+          section_title: sectionTitle,
+          likes_count: toInt(item.likes_count),
+          saves_count: toInt(item.saves_count),
+          is_liked: !!(item.is_liked),
+          is_saved: !!(item.is_saved),
+          mode_context: 'provider',
+        });
+      });
+    });
+  }
+
+  /* Find the global viewer-item index for a section + local index */
+  function _viewerIndex(sectionId, localIndex) {
+    var offset = 0;
+    for (var i = 0; i < sections.length; i++) {
+      var items = sections[i].items || sections[i].images || sections[i].media || [];
+      if (String(sections[i].id) === String(sectionId)) return offset + localIndex;
+      offset += items.length;
+    }
+    return localIndex;
+  }
+
+  /* Sync engagement updates from SpotlightViewer back to sections data */
+  function _bindSpotlightSync() {
+    window.addEventListener('nw:portfolio-engagement-update', function (event) {
+      var d = event.detail;
+      if (!d) return;
+      var itemId = toInt(d.id);
+      var target = _allViewerItems.find(function (it) { return toInt(it.id) === itemId; });
+      if (!target) return;
+      target.likes_count = toInt(d.likes_count);
+      target.saves_count = toInt(d.saves_count);
+      target.is_liked = !!d.is_liked;
+      target.is_saved = !!d.is_saved;
+      _updateItemBadge(itemId, target);
+    });
+  }
+
+  /* Update the overlay stats for a specific item in the DOM */
+  function _updateItemBadge(itemId, data) {
+    var el = document.querySelector('.pf-item[data-item-id="' + itemId + '"]');
+    if (!el) return;
+    var stats = el.querySelectorAll('.pf-item-stat');
+    if (stats[0]) {
+      stats[0].textContent = '♥ ' + toInt(data.likes_count);
+      stats[0].classList.toggle('active', !!data.is_liked);
+    }
+    if (stats[1]) {
+      stats[1].textContent = '⚑ ' + toInt(data.saves_count);
+      stats[1].classList.toggle('active', !!data.is_saved);
+    }
   }
 
   function render() {
@@ -65,20 +160,21 @@ var ProviderPortfolioPage = (function () {
           '<label class="btn btn-secondary pf-upload-btn">رفع عناصر<input type="file" accept="image/*,video/*" multiple hidden data-section="' + sec.id + '"></label>' +
           '<button class="btn btn-danger pf-del-section" data-id="' + sec.id + '">حذف القسم</button>' +
         '</div>' +
-        (itemCount ? '<div class="pf-grid">' + items.map(function (item) {
-          var src = typeof item === "string" ? item : item.image || item.file || item.url || "";
+        (itemCount ? '<div class="pf-grid">' + items.map(function (item, idx) {
+          var src = typeof item === "string" ? item : item.image || item.file || item.url || item.file_url || "";
           var itemId = item.id || "";
-          var isVideo = /\.(mp4|mov|avi|webm)/i.test(src);
-          var likesCount = Number(item && item.likes_count) || 0;
-          var savesCount = Number(item && item.saves_count) || 0;
-          var isLiked = !!(item && item.is_liked);
-          var isSaved = !!(item && item.is_saved);
+          var fileType = (item.file_type || 'image').toString().toLowerCase();
+          var isVideo = fileType === 'video' || /\.(mp4|mov|avi|webm)/i.test(src);
+          var likesCount = toInt(item.likes_count);
+          var savesCount = toInt(item.saves_count);
+          var isLiked = !!(item.is_liked);
+          var isSaved = !!(item.is_saved);
           var overlayHtml = '<div class="pf-item-overlay">' +
             '<span class="pf-item-stat' + (isLiked ? ' active' : '') + '">♥ ' + likesCount + '</span>' +
             '<span class="pf-item-stat' + (isSaved ? ' active' : '') + '">⚑ ' + savesCount + '</span>' +
             '</div>';
           var videoBadge = isVideo ? '<span class="pf-video-badge">▶</span>' : '';
-          return '<div class="pf-item" data-item-id="' + itemId + '">' +
+          return '<div class="pf-item" data-item-id="' + itemId + '" data-section-id="' + sec.id + '" data-local-index="' + idx + '">' +
             (isVideo ? '<video src="' + API.mediaUrl(src) + '" class="pf-media" muted></video>' : '<img src="' + API.mediaUrl(src) + '" class="pf-media" loading="lazy" alt="">') +
             videoBadge +
             overlayHtml +
@@ -113,7 +209,8 @@ var ProviderPortfolioPage = (function () {
     });
     // Delete items
     document.querySelectorAll(".pf-item-delete").forEach(function (btn) {
-      btn.addEventListener("click", function () {
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
         if (!confirm("حذف هذا العنصر؟")) return;
         var sectionId = this.dataset.section;
         var itemId = this.dataset.item;
@@ -129,6 +226,21 @@ var ProviderPortfolioPage = (function () {
         API.del("/api/providers/me/portfolio/" + this.dataset.id + "/")
           .then(function () { load(); })
           .catch(function () { alert("فشل الحذف"); });
+      });
+    });
+    // Open SpotlightViewer on item click
+    document.querySelectorAll('.pf-item').forEach(function (el) {
+      el.addEventListener('click', function () {
+        if (typeof SpotlightViewer === 'undefined' || !_allViewerItems.length) return;
+        var sectionId = this.dataset.sectionId;
+        var localIndex = parseInt(this.dataset.localIndex, 10) || 0;
+        var globalIndex = _viewerIndex(sectionId, localIndex);
+        SpotlightViewer.open(_allViewerItems, globalIndex, {
+          source: 'portfolio',
+          label: 'معرض',
+          eventName: 'nw:portfolio-engagement-update',
+          modeContext: 'provider',
+        });
       });
     });
   }

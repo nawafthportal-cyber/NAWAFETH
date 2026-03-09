@@ -533,7 +533,10 @@ const InteractivePage = (() => {
   function _openFavoriteViewer(index) {
     if (!_favorites.length) return;
     if (typeof SpotlightViewer !== 'undefined') {
-      SpotlightViewer.open(_favorites, index);
+      SpotlightViewer.open(_favorites, index, {
+        label: 'مفضلتي',
+        modeContext: _mode || 'client',
+      });
       return;
     }
     _toast('تعذر فتح العارض حالياً', 'error');

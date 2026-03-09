@@ -10,7 +10,6 @@ import 'package:latlong2/latlong.dart';
 import '../widgets/auto_scrolling_reels_row.dart';
 import '../widgets/platform_report_dialog.dart';
 import '../widgets/video_reels.dart';
-import '../widgets/video_full_screen.dart';
 import '../services/auth_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
@@ -3505,81 +3504,55 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     required int indexInSection,
   }) async {
     final items = (section['items'] as List).cast<Map<String, dynamic>>();
-    final tapped = items[indexInSection];
-    final type = (tapped['type'] ?? 'image').toString();
-    final media = _normalizeMediaUrl((tapped['media'] ?? '').toString());
+    if (items.isEmpty) return;
 
-    if (type == 'video') {
-      final videoPaths = items
-          .where((e) => (e['type'] ?? '').toString() == 'video')
-          .map((e) => (e['media'] ?? '').toString())
-          .where((p) => p.isNotEmpty)
-          .toList();
-      final videoIndex = videoPaths.indexOf(media);
+    final pId = int.tryParse(widget.providerId ?? '') ?? 0;
+    final pName = providerName;
+    final pImage = _providerDetail?.profileImage ?? widget.providerImage;
 
-      if (videoPaths.isEmpty) return;
-
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => VideoFullScreenPage(
-            videoPaths: videoPaths,
-            initialIndex: videoIndex < 0 ? 0 : videoIndex,
-          ),
-        ),
+    final mediaItems = items.map((item) {
+      final fileType = (item['type'] ?? 'image').toString();
+      final media = (item['media'] ?? '').toString();
+      return MediaItemModel(
+        id: _asInt(item['id']),
+        providerId: pId,
+        providerDisplayName: pName,
+        providerProfileImage: pImage,
+        fileType: fileType,
+        fileUrl: media,
+        thumbnailUrl: fileType == 'video' ? media : null,
+        caption: (item['desc'] ?? '').toString(),
+        likesCount: _asInt(item['likes_count']),
+        savesCount: _asInt(item['saves_count']),
+        isLiked: asBool(item['is_liked']),
+        isSaved: asBool(item['is_saved']),
+        source: MediaItemSource.portfolio,
       );
-      return;
-    }
+    }).toList();
+
+    MediaItemModel.applyInteractionOverrides(mediaItems);
+
+    final safeIndex = indexInSection.clamp(0, mediaItems.length - 1);
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SpotlightViewerPage(
+          items: mediaItems,
+          initialIndex: safeIndex,
+        ),
+      ),
+    );
 
     if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: const EdgeInsets.all(16),
-          child: Stack(
-            children: [
-              InteractiveViewer(
-                child: media.startsWith('http')
-                    ? Image.network(
-                        media,
-                        fit: BoxFit.contain,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(Icons.broken_image,
-                              color: Colors.white70, size: 42),
-                        ),
-                      )
-                    : media.startsWith('assets/')
-                        ? Image.asset(
-                            media,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(Icons.broken_image,
-                                  color: Colors.white70, size: 42),
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(Icons.broken_image,
-                                color: Colors.white70, size: 42),
-                          ),
-              ),
-              Positioned(
-                top: 6,
-                left: 6,
-                child: IconButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+    // Sync engagement state back to raw maps
+    for (int i = 0; i < mediaItems.length && i < items.length; i++) {
+      items[i]['likes_count'] = mediaItems[i].likesCount;
+      items[i]['saves_count'] = mediaItems[i].savesCount;
+      items[i]['is_liked'] = mediaItems[i].isLiked;
+      items[i]['is_saved'] = mediaItems[i].isSaved;
+    }
+    _recomputeEngagementFromLists();
+    setState(() {});
   }
 }
