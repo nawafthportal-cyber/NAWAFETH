@@ -8,6 +8,8 @@ import 'excellence_badge_model.dart';
 /// - أي قائمة عامة لمزودي الخدمة
 class ProviderPublicModel {
   final int id;
+  final String? providerType;
+  final String? providerTypeLabel;
   final String displayName;
   final String? username;
   final String? profileImage;
@@ -39,9 +41,16 @@ class ProviderPublicModel {
   final int likesCount;
   final int followingCount;
   final int completedRequests;
+  final String? primaryCategoryName;
+  final String? primarySubcategoryName;
+  final List<dynamic> mainCategories;
+  final List<dynamic> selectedSubcategories;
+  final List<int> subcategoryIds;
 
   ProviderPublicModel({
     required this.id,
+    this.providerType,
+    this.providerTypeLabel,
     required this.displayName,
     this.username,
     this.profileImage,
@@ -71,11 +80,18 @@ class ProviderPublicModel {
     this.likesCount = 0,
     this.followingCount = 0,
     this.completedRequests = 0,
+    this.primaryCategoryName,
+    this.primarySubcategoryName,
+    this.mainCategories = const [],
+    this.selectedSubcategories = const [],
+    this.subcategoryIds = const [],
   });
 
   factory ProviderPublicModel.fromJson(Map<String, dynamic> json) {
     return ProviderPublicModel(
       id: _parseInt(json['id']) ?? 0,
+      providerType: _parseString(json['provider_type']),
+      providerTypeLabel: _parseString(json['provider_type_label']),
       displayName: _parseString(json['display_name']) ?? '',
       username: _parseString(json['username']),
       profileImage: _parseString(json['profile_image']),
@@ -112,6 +128,20 @@ class ProviderPublicModel {
       likesCount: _parseInt(json['likes_count']) ?? 0,
       followingCount: _parseInt(json['following_count']) ?? 0,
       completedRequests: _parseInt(json['completed_requests']) ?? 0,
+      primaryCategoryName: _parseString(json['primary_category_name']),
+      primarySubcategoryName: _parseString(json['primary_subcategory_name']),
+      mainCategories: json['main_categories'] is List
+          ? json['main_categories'] as List<dynamic>
+          : const [],
+      selectedSubcategories: json['selected_subcategories'] is List
+          ? json['selected_subcategories'] as List<dynamic>
+          : const [],
+      subcategoryIds: json['subcategory_ids'] is List
+          ? (json['subcategory_ids'] as List<dynamic>)
+              .map((e) => _parseInt(e))
+              .whereType<int>()
+              .toList(growable: false)
+          : const [],
     );
   }
 

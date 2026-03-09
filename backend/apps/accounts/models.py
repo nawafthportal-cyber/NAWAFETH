@@ -92,3 +92,20 @@ class OTP(models.Model):
 			models.Index(fields=["phone", "created_at"]),
 			models.Index(fields=["ip_address", "created_at"]),
         ]
+
+
+class BiometricToken(models.Model):
+    """Device-specific token issued when user enrolls Face ID / fingerprint."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="biometric_tokens")
+    phone = models.CharField(max_length=20, db_index=True)
+    token = models.CharField(max_length=128, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["phone", "token"]),
+        ]
+
+    def __str__(self):
+        return f"BiometricToken({self.phone})"

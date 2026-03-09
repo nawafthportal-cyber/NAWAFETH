@@ -25,9 +25,16 @@ const Nav = (() => {
     profileNav.setAttribute('href', mode === 'provider' ? '/provider-dashboard/' : '/profile/');
   }
 
+  function _setOrdersNavVisibility(mode) {
+    const ordersNav = document.querySelector('#bottom-nav a.bnav-item[data-index="1"]');
+    if (!ordersNav) return;
+    ordersNav.classList.toggle('hidden', mode === 'provider');
+  }
+
   function _initModeAwareProfileNav() {
     const mode = _activeMode();
     _setProfileNavHref(mode);
+    _setOrdersNavVisibility(mode);
   }
 
   function _ensureSingleBottomNav() {
@@ -129,6 +136,7 @@ const Nav = (() => {
 
     if (!Auth.isLoggedIn()) {
       _setProfileNavHref('client');
+      _setOrdersNavVisibility('client');
       if (loginLink) loginLink.classList.remove('hidden');
       if (logoutBtn) logoutBtn.classList.add('hidden');
       if (nameEl) nameEl.textContent = 'زائر';
@@ -161,6 +169,7 @@ const Nav = (() => {
       sessionStorage.setItem('nw_account_mode', effectiveMode);
     } catch (_) {}
     _setProfileNavHref(effectiveMode);
+    _setOrdersNavVisibility(effectiveMode);
 
     const display = profile.display_name || profile.first_name || profile.username || 'مستخدم';
     const role = profile.role_state === 'provider'

@@ -156,6 +156,13 @@
         <div class="pd-card" id="pd-categories-card">
           <div class="pd-field-row">
             <div class="pd-field">
+              <span class="pd-field-label">صفة الحساب</span>
+              <span class="pd-field-value" id="pd-provider-type">-</span>
+            </div>
+          </div>
+          <div class="pd-field-divider"></div>
+          <div class="pd-field-row">
+            <div class="pd-field">
               <span class="pd-field-label">التصنيف الرئيسي للخدمات المقدمة</span>
               <span class="pd-field-value" id="pd-main-category">-</span>
             </div>
@@ -163,29 +170,14 @@
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">التصنيف الفرعي للخدمات المقدمة</span>
+              <span class="pd-field-label">التخصصات المحددة عند التسجيل</span>
               <span class="pd-field-value" id="pd-sub-category">-</span>
             </div>
           </div>
         </div>
 
-        <!-- Details card -->
-        <div class="pd-card" id="pd-details-card">
-          <h4 class="pd-card-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zM13 9V3.5L18.5 9H13z"/></svg>
-            شرح تفصيلي حول خدمات مقدم الخدمة
-          </h4>
-          <p class="pd-bio-text" id="pd-about-details">-</p>
-        </div>
-
-        <!-- Qualifications card -->
-        <div class="pd-card" id="pd-qualifications-card">
-          <div class="pd-field-row">
-            <div class="pd-field">
-              <span class="pd-field-label">المؤهلات</span>
-              <span class="pd-field-value" id="pd-qualifications">-</span>
-            </div>
-          </div>
+        <!-- Contact card -->
+        <div class="pd-card" id="pd-contact-card">
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
@@ -196,45 +188,28 @@
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">لغة التواصل</span>
-              <span class="pd-field-value" id="pd-languages">-</span>
+              <span class="pd-field-label">رقم الواتساب</span>
+              <span class="pd-field-value" id="pd-whatsapp">-</span>
             </div>
           </div>
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
             <div class="pd-field">
-              <span class="pd-field-label">المدينة</span>
-              <span class="pd-field-value" id="pd-city-name">-</span>
+              <span class="pd-field-label">الموقع الالكتروني</span>
+              <span class="pd-field-value" id="pd-website">-</span>
             </div>
           </div>
           <div class="pd-field-divider"></div>
-          <div class="pd-field-row">
-            <div class="pd-field">
-              <span class="pd-field-label">نطاق الخدمة الجغرافي</span>
-              <span class="pd-field-value" id="pd-geo-scope">-</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Website + map card -->
-        <div class="pd-card" id="pd-website-card">
           <div class="pd-field-row">
             <div class="pd-field pd-field-with-action">
               <div class="pd-field-main">
-                <span class="pd-field-label">الموقع الالكتروني</span>
-                <span class="pd-field-value" id="pd-website">-</span>
+                <span class="pd-field-label">المدينة</span>
+                <span class="pd-field-value" id="pd-city-name">-</span>
               </div>
-              <button class="pd-field-open-link" id="pd-website-open" type="button" aria-label="فتح الموقع">
+              <button class="pd-field-open-link" id="pd-website-open" type="button" aria-label="فتح الموقع الإلكتروني">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </button>
             </div>
-          </div>
-          <div class="pd-map-wrap hidden" id="pd-map-wrap">
-            <h4 class="pd-card-title pd-map-title">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-              نطاق الخدمة
-            </h4>
-            <div class="pd-map-container" id="pd-map"></div>
           </div>
         </div>
 
@@ -284,21 +259,6 @@
           </div>
         </div>
 
-        <!-- Quick action buttons row -->
-        <div class="pd-quick-actions">
-          <a class="pd-quick-btn" id="pd-btn-call" href="#">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.32.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-            زر اتصال
-          </a>
-          <a class="pd-quick-btn" id="pd-btn-whatsapp" href="#">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-            زر واتس اب
-          </a>
-        </div>
-        <a class="pd-quick-btn pd-quick-btn-full" id="pd-btn-chat" href="#">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-          محادثة داخل التطبيق
-        </a>
       </div>
 
       <!-- Services Tab -->

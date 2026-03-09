@@ -248,6 +248,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   String get providerCategory {
     final fromWidget = (widget.providerCategory ?? '').trim();
     if (fromWidget.isNotEmpty) return fromWidget;
+    final detail = _providerDetail;
+    if (detail != null) {
+      final direct = (detail.primaryCategoryName ?? '').trim();
+      if (direct.isNotEmpty) return direct;
+      final categories = _uniqueNonEmpty(
+        detail.mainCategories.map((item) => item.toString().trim()),
+      );
+      if (categories.isNotEmpty) return _joinForDisplay(categories);
+    }
     final categories = _uniqueNonEmpty(
       _apiServices.map((service) => _serviceCategoryFromService(service)),
     );
@@ -257,6 +266,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   String get providerSubCategory {
     final fromWidget = (widget.providerSubCategory ?? '').trim();
     if (fromWidget.isNotEmpty) return fromWidget;
+    final detail = _providerDetail;
+    if (detail != null) {
+      final direct = (detail.primarySubcategoryName ?? '').trim();
+      if (direct.isNotEmpty) {
+        final selected = _selectedSubcategoryNames;
+        if (selected.length <= 1) return direct;
+      }
+      final selected = _selectedSubcategoryNames;
+      if (selected.isNotEmpty) return _joinForDisplay(selected, maxItems: 20);
+    }
     final subcategories = _uniqueNonEmpty(
       _apiServices.map((service) => _serviceSubCategoryFromService(service)),
     );
@@ -295,37 +314,16 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   String get providerEnglishName => '';
 
-  String get providerAccountType => providerCategory;
+  String get providerAccountType =>
+      (_providerDetail?.providerTypeLabel ?? '').trim();
 
   String get providerServicesDetails =>
-      _providerDetail?.aboutDetails ?? _providerDetail?.bio ?? '';
+      _providerDetail?.bio ?? '';
 
   String get providerBioSummary {
     final bio = (_providerDetail?.bio ?? '').trim();
     if (bio.isNotEmpty) return bio;
     return (_providerDetail?.aboutDetails ?? '').trim();
-  }
-
-  String get providerDetailedServicesDetails {
-    final about = (_providerDetail?.aboutDetails ?? '').trim();
-    final bio = (_providerDetail?.bio ?? '').trim();
-    if (about.isEmpty) return '';
-    if (_normalizeComparableText(about) == _normalizeComparableText(bio)) {
-      return '';
-    }
-    return about;
-  }
-
-  String get providerQualifications {
-    final list = _providerDetail?.qualifications ?? [];
-    return _joinForDisplay(
-      _uniqueNonEmpty(
-        list
-            .map((e) => e is Map ? (e['title'] ?? e['name'] ?? e.toString()) : e.toString())
-            .map((s) => s.toString().trim()),
-      ),
-      maxItems: 20,
-    );
   }
 
   String get providerExperienceYears {
@@ -334,25 +332,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     return '$years سنوات';
   }
 
-  String get providerCommunicationLanguage {
-    final list = _providerDetail?.languages ?? [];
-    return _joinForDisplay(
-      _uniqueNonEmpty(
-        list
-            .map((e) => e is Map ? (e['name'] ?? e.toString()) : e.toString())
-            .map((s) => s.toString().trim()),
-      ),
-      maxItems: 20,
+  List<String> get _selectedSubcategoryNames {
+    final list = _providerDetail?.selectedSubcategories ?? const [];
+    return _uniqueNonEmpty(
+      list.map((e) {
+        if (e is Map) {
+          final map = Map<String, dynamic>.from(e);
+          return (map['name'] ?? map['subcategory_name'] ?? '').toString().trim();
+        }
+        return e.toString().trim();
+      }),
     );
-  }
-
-  String get providerGeoScope {
-    final radius = _providerDetail?.coverageRadiusKm;
-    final city = _providerDetail?.city ?? '';
-    if (radius != null && radius > 0) {
-      return '$city (ضمن نطاق ${radius.toStringAsFixed(0)} كم)';
-    }
-    return city;
   }
 
   String get providerCityName => _providerDetail?.city ?? '';
@@ -2335,6 +2325,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     final borderColor = isDark ? Colors.grey[700]! : Colors.grey.shade200;
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey[700];
+    final hasSocialAccounts =
+        providerInstagramUrl.isNotEmpty ||
+        providerXUrl.isNotEmpty ||
+        providerSnapchatUrl.isNotEmpty;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2376,6 +2370,13 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           child: Column(
             children: [
               _labeledField(
+                label: 'صفة الحساب',
+                value: providerAccountType,
+                borderColor: borderColor,
+                isDark: isDark,
+              ),
+              const Divider(height: 18),
+              _labeledField(
                 label: 'التصنيف الرئيسي للخدمات المقدمة',
                 value: providerCategory,
                 borderColor: borderColor,
@@ -2392,49 +2393,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (providerDetailedServicesDetails.isNotEmpty) ...[
-          _formCard(
-            cardColor: cardColor,
-            borderColor: borderColor,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'شرح تفصيلي حول خدمات مقدم الخدمة',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  providerDetailedServicesDetails,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 11,
-                    color: secondaryTextColor,
-                    height: 1.6,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
         _formCard(
           cardColor: cardColor,
           borderColor: borderColor,
           child: Column(
             children: [
-              _labeledField(
-                label: 'مؤهلات مقدم الخدمة',
-                value: providerQualifications,
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const Divider(height: 18),
               _labeledField(
                 label: 'سنوات الخبرة',
                 value: providerExperienceYears,
@@ -2443,10 +2406,27 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
               ),
               const Divider(height: 18),
               _labeledField(
-                label: 'لغة التواصل',
-                value: providerCommunicationLanguage,
+                label: 'رقم الواتساب',
+                value: (_providerDetail?.whatsapp ?? '').trim(),
                 borderColor: borderColor,
                 isDark: isDark,
+              ),
+              const Divider(height: 18),
+              _labeledField(
+                label: 'الموقع الالكتروني',
+                value: providerWebsite,
+                borderColor: borderColor,
+                isDark: isDark,
+                trailing: InkWell(
+                  onTap: providerWebsite.isNotEmpty
+                      ? () => _openExternalUrl(providerWebsite)
+                      : null,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Icon(Icons.open_in_new, color: mainColor, size: 18),
+                  ),
+                ),
               ),
               const Divider(height: 18),
               _labeledField(
@@ -2455,125 +2435,59 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                 borderColor: borderColor,
                 isDark: isDark,
               ),
-              const Divider(height: 18),
-              _labeledField(
-                label: 'نطاق الخدمة الجغرافي',
-                value: _geoScopeDisplayValue(),
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        _formCard(
-          cardColor: cardColor,
-          borderColor: borderColor,
-          child: Column(
-            children: [
-              _labeledField(
-                label: 'الموقع الالكتروني',
-                value: providerWebsite,
-                borderColor: borderColor,
-                isDark: isDark,
-                trailing: InkWell(
-                  onTap: () => _openExternalUrl(providerWebsite),
-                  child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                    child: Icon(Icons.open_in_new, color: mainColor, size: 18),
+        if (hasSocialAccounts) ...[
+          const SizedBox(height: 12),
+          _formCard(
+            cardColor: cardColor,
+            borderColor: borderColor,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'حسابات التواصل الاجتماعي',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: textColor,
                   ),
                 ),
-              ),
-              if (_serviceRangeKm > 0 &&
-                  providerLat != 0 &&
-                  providerLng != 0) ...[
-                const SizedBox(height: 12),
-                _serviceRangeMap(
-                  borderColor: borderColor,
-                  isDark: isDark,
-                ),
+                const SizedBox(height: 10),
+                if (providerInstagramUrl.isNotEmpty)
+                  _socialAccountRow(
+                    icon: FontAwesomeIcons.instagram,
+                    label: 'حساب انستقرام',
+                    url: providerInstagramUrl,
+                    borderColor: borderColor,
+                    isDark: isDark,
+                  ),
+                if (providerInstagramUrl.isNotEmpty && (providerXUrl.isNotEmpty || providerSnapchatUrl.isNotEmpty))
+                  const SizedBox(height: 10),
+                if (providerXUrl.isNotEmpty)
+                  _socialAccountRow(
+                    icon: FontAwesomeIcons.xTwitter,
+                    label: 'حساب X',
+                    url: providerXUrl,
+                    borderColor: borderColor,
+                    isDark: isDark,
+                  ),
+                if (providerXUrl.isNotEmpty && providerSnapchatUrl.isNotEmpty)
+                  const SizedBox(height: 10),
+                if (providerSnapchatUrl.isNotEmpty)
+                  _socialAccountRow(
+                    icon: FontAwesomeIcons.snapchat,
+                    label: 'حساب سناب شات',
+                    url: providerSnapchatUrl,
+                    borderColor: borderColor,
+                    isDark: isDark,
+                  ),
               ],
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        _formCard(
-          cardColor: cardColor,
-          borderColor: borderColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'حسابات التواصل الاجتماعي',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: textColor,
-                ),
-              ),
-              const SizedBox(height: 10),
-              _socialAccountRow(
-                icon: FontAwesomeIcons.instagram,
-                label: 'حساب انستقرام',
-                url: providerInstagramUrl,
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const SizedBox(height: 10),
-              _socialAccountRow(
-                icon: FontAwesomeIcons.xTwitter,
-                label: 'حساب X',
-                url: providerXUrl,
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-              const SizedBox(height: 10),
-              _socialAccountRow(
-                icon: FontAwesomeIcons.snapchat,
-                label: 'حساب سناب شات',
-                url: providerSnapchatUrl,
-                borderColor: borderColor,
-                isDark: isDark,
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _openPhoneCall,
-                icon: const Icon(Icons.call, size: 18),
-                label: const Text('زر اتصال',
-                    style: TextStyle(fontFamily: 'Cairo')),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _openWhatsApp,
-                icon: const Icon(Icons.chat, size: 18),
-                label: const Text('زر واتس اب',
-                    style: TextStyle(fontFamily: 'Cairo')),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _openInAppChat,
-            icon: const Icon(Icons.forum_outlined, size: 18),
-            label: const Text(
-              'محادثة داخل التطبيق',
-              style: TextStyle(fontFamily: 'Cairo'),
             ),
           ),
-        ),
+        ],
       ],
     );
   }

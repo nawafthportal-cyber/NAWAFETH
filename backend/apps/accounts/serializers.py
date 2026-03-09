@@ -29,6 +29,20 @@ class OTPVerifySerializer(serializers.Serializer):
         return _validate_phone_local05(value)
 
 
+class BiometricEnrollSerializer(serializers.Serializer):
+    """Issued by authenticated user to register a biometric device token."""
+    pass  # no body needed; phone is taken from request.user
+
+
+class BiometricLoginSerializer(serializers.Serializer):
+    """Used to login via biometric: phone + device_token."""
+    phone = serializers.CharField(max_length=20)
+    device_token = serializers.CharField(max_length=128)
+
+    def validate_phone(self, value: str) -> str:
+        return _validate_phone_local05(value)
+
+
 class CompleteRegistrationSerializer(serializers.Serializer):
     first_name = serializers.CharField(
         max_length=150,

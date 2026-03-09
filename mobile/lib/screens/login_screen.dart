@@ -176,46 +176,37 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      // البصمة ناجحة — نسترجع رقم الجوال المحفوظ ونرسل OTP
+      // البصمة ناجحة — تسجيل الدخول مباشرة عبر device_token
       final prefs = await SharedPreferences.getInstance();
       final phone = prefs.getString('nw_faceid_phone') ?? '';
+      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
 
-      if (phone.isEmpty) {
+      if (phone.isEmpty || deviceToken.isEmpty) {
         setState(() {
           _isFaceIdLoading = false;
-          _errorMessage = 'لم يتم العثور على رقم جوال مرتبط. أعد تفعيل معرف الوجه من الإعدادات.';
+          _errorMessage = 'لم يتم العثور على بيانات المصادقة. أعد تفعيل معرف الوجه من الإعدادات.';
         });
         return;
       }
 
-      _phoneController.text = phone;
-      final result = await AuthApiService.sendOtp(phone);
+      final result = await AuthApiService.biometricLogin(phone, deviceToken);
       if (!mounted) return;
 
       setState(() => _isFaceIdLoading = false);
 
       if (result.success) {
-        if (result.devCode != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('رمز التطوير: ${result.devCode}',
-                  style: const TextStyle(fontFamily: 'Cairo')),
-              backgroundColor: Colors.blue,
-              duration: const Duration(seconds: 5),
+        if (result.needsCompletion) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SignUpScreen(redirectTo: widget.redirectTo),
             ),
           );
+        } else {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
         }
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TwoFAScreen(
-              phone: phone,
-              redirectTo: widget.redirectTo,
-            ),
-          ),
-        );
       } else {
-        setState(() => _errorMessage = result.error ?? 'فشل إرسال الرمز');
+        setState(() => _errorMessage = result.error ?? 'فشل تسجيل الدخول');
       }
     } catch (e) {
       if (!mounted) return;

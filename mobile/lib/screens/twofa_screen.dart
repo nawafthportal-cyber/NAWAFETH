@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/colors.dart';
 import '../services/auth_api_service.dart';
@@ -43,11 +45,15 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
   String get _code => _digitControllers.map((c) => c.text).join();
   bool get _isCodeComplete => RegExp(r'^\d{4}$').hasMatch(_code);
 
+  bool _faceIdAvailable = false;
+  bool _isFaceIdLoading = false;
+
   @override
   void initState() {
     super.initState();
     _loadScreenContent();
     _startCountdown();
+    _checkFaceIdAvailability();
   }
 
   @override
@@ -212,6 +218,96 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     }
 
     _setError(result.error ?? 'فشل إعادة الإرسال');
+  }
+
+  Future<void> _checkFaceIdAvailability() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('nw_faceid_enabled') ?? false;
+      final savedPhone = prefs.getString('nw_faceid_phone') ?? '';
+      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
+
+      if (!enabled || savedPhone.isEmpty || deviceToken.isEmpty) return;
+
+      // التحقق أن الرقم المحفوظ هو نفس الرقم المستخدم حالياً
+      if (savedPhone != widget.phone) return;
+
+      final localAuth = LocalAuthentication();
+      final canCheck = await localAuth.canCheckBiometrics;
+      final isSupported = await localAuth.isDeviceSupported();
+
+      if (!mounted) return;
+      setState(() => _faceIdAvailable = canCheck && isSupported);
+    } catch (_) {}
+  }
+
+  Future<void> _loginWithFaceId() async {
+    if (_isFaceIdLoading || _isLoading) return;
+
+    setState(() {
+      _isFaceIdLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final localAuth = LocalAuthentication();
+      final authenticated = await localAuth.authenticate(
+        localizedReason: 'التحقق من هويتك لتسجيل الدخول',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+
+      if (!mounted) return;
+
+      if (!authenticated) {
+        setState(() => _isFaceIdLoading = false);
+        return;
+      }
+
+      // البصمة ناجحة → تسجيل الدخول بالـ device_token
+      final prefs = await SharedPreferences.getInstance();
+      final phone = prefs.getString('nw_faceid_phone') ?? '';
+      final deviceToken = prefs.getString('nw_faceid_device_token') ?? '';
+
+      if (phone.isEmpty || deviceToken.isEmpty) {
+        setState(() {
+          _isFaceIdLoading = false;
+          _errorMessage = 'بيانات المصادقة غير متوفرة. أعد تفعيل معرف الوجه.';
+        });
+        return;
+      }
+
+      final result = await AuthApiService.biometricLogin(phone, deviceToken);
+      if (!mounted) return;
+
+      setState(() => _isFaceIdLoading = false);
+
+      if (result.success) {
+        if (result.needsCompletion) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SignUpScreen(
+                redirectTo: widget.redirectTo ?? widget.nextPage,
+              ),
+            ),
+          );
+        } else {
+          _navigateAfterLogin();
+        }
+        return;
+      }
+
+      _setError(result.error ?? 'فشل تسجيل الدخول بالمعرف');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isFaceIdLoading = false;
+        _errorMessage = 'فشل التحقق البيومتري';
+      });
+    }
   }
 
   void _navigateAfterLogin() {
@@ -433,6 +529,53 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                             ),
                     ),
                     const SizedBox(height: 10),
+                    if (_faceIdAvailable) ...[
+                      Row(
+                        children: [
+                          const Expanded(child: Divider(endIndent: 8)),
+                          Text(
+                            'أو',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12.5,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          const Expanded(child: Divider(indent: 8)),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _isFaceIdLoading ? null : _loginWithFaceId,
+                        icon: _isFaceIdLoading
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppColors.deepPurple,
+                                ),
+                              )
+                            : const Icon(Icons.face, size: 22),
+                        label: Text(
+                          _isFaceIdLoading ? 'جاري التحقق...' : 'الدخول بمعرف الوجه',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.deepPurple,
+                          side: const BorderSide(color: AppColors.deepPurple, width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

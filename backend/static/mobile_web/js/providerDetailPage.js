@@ -435,63 +435,29 @@ const ProviderDetailPage = (() => {
   /* ── Render profile tab details ── */
   function _renderProfileTab(p) {
     const unavailable = 'غير متوفر';
-    const serviceRangeKm = _resolveServiceRangeKm(p);
     const bioText = _pickFirstText(p.bio, p.description);
-    const aboutText = _trimText(p.about_details);
-    const normalizedBio = _normalizeComparableText(bioText);
-    const normalizedAbout = _normalizeComparableText(aboutText);
-    const hasDistinctAbout = !!normalizedAbout && normalizedAbout !== normalizedBio;
-    const aboutCard = document.getElementById('pd-details-card');
+    const providerTypeLabel = _pickFirstText(p.provider_type_label, p.providerTypeLabel);
+    const whatsappRaw = _pickFirstText(p.whatsapp, p.phone, p.phone_number, p.phoneNumber);
+    const websiteRaw = String(p.website || '').trim();
+    const socialCard = document.getElementById('pd-social-card');
 
     // Bio
-    _setText('pd-bio', bioText || aboutText || 'لا يوجد وصف');
+    _setText('pd-bio', bioText || 'لا يوجد وصف');
 
-    // Categories
+    // Registration data
     const mainCategory = _resolveMainCategory(p);
     const subCategory = _resolveSubCategory(p);
+    _setText('pd-provider-type', _displayOrUnavailable(providerTypeLabel, unavailable));
     _setText('pd-main-category', _displayOrUnavailable(mainCategory, unavailable));
     _setText('pd-sub-category', _displayOrUnavailable(subCategory, unavailable));
 
-    // About details
-    if (aboutCard) aboutCard.classList.toggle('hidden', !hasDistinctAbout);
-    _setText('pd-about-details', _displayOrUnavailable(hasDistinctAbout ? aboutText : '', unavailable));
-
-    // Qualifications
-    const quals = p.qualifications || [];
-    const qualsText = _joinForDisplay(
-      quals.map(q => typeof q === 'string' ? q : (q.title || q.name || '')),
-      20,
-    );
-    _setText('pd-qualifications', _displayOrUnavailable(qualsText, unavailable));
-
     // Experience
     _setText('pd-experience', p.years_experience ? p.years_experience + ' سنوات' : unavailable);
-
-    // Languages
-    const langs = p.languages || [];
-    const langsText = _joinForDisplay(
-      langs.map(l => typeof l === 'string' ? l : (l.name || '')),
-      20,
-    );
-    _setText('pd-languages', _displayOrUnavailable(langsText, unavailable));
-
+    _setText('pd-whatsapp', _displayOrUnavailable(whatsappRaw, unavailable));
+    _setText('pd-website', websiteRaw || unavailable);
     _setText('pd-city-name', _displayOrUnavailable(p.city, unavailable));
 
-    // Geo scope
-    const city = p.city || '';
-    if (serviceRangeKm > 0 && city) {
-      _setText('pd-geo-scope', 'ضمن نطاق محدد: ' + serviceRangeKm + ' كم (' + city + ')');
-    } else if (city) {
-      _setText('pd-geo-scope', 'مدينتي: ' + city);
-    } else if (serviceRangeKm > 0) {
-      _setText('pd-geo-scope', 'ضمن نطاق محدد: ' + serviceRangeKm + ' كم');
-    } else {
-      _setText('pd-geo-scope', unavailable);
-    }
-
     // ── Website ──
-    const websiteRaw = String(p.website || '').trim();
-    _setText('pd-website', websiteRaw || unavailable);
     const websiteBtn = document.getElementById('pd-website-open');
     if (websiteBtn) {
       websiteBtn.disabled = !websiteRaw;
@@ -507,35 +473,16 @@ const ProviderDetailPage = (() => {
     _socialUrls.instagram = _findSocialUrl(p, 'instagram');
     _socialUrls.x = _findSocialUrl(p, 'x.com') || _findSocialUrl(p, 'twitter');
     _socialUrls.snapchat = _findSocialUrl(p, 'snapchat');
+    if (socialCard) {
+      socialCard.classList.toggle(
+        'hidden',
+        !_socialUrls.instagram && !_socialUrls.x && !_socialUrls.snapchat,
+      );
+    }
 
     _setSocialRow('instagram', 'pd-social-instagram', 'pd-social-open-instagram', unavailable);
     _setSocialRow('x', 'pd-social-x', 'pd-social-open-x', unavailable);
     _setSocialRow('snapchat', 'pd-social-snapchat', 'pd-social-open-snapchat', unavailable);
-
-    // ── Map ──
-    const lat = parseFloat(p.lat);
-    const lng = parseFloat(p.lng);
-    if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0 && typeof L !== 'undefined') {
-      const mapCard = document.getElementById('pd-map-wrap');
-      const mapEl = document.getElementById('pd-map');
-      if (mapCard && mapEl) {
-        mapCard.classList.remove('hidden');
-        setTimeout(() => {
-          const map = L.map(mapEl, { scrollWheelZoom: false }).setView([lat, lng], 12);
-          L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
-          }).addTo(map);
-          L.marker([lat, lng]).addTo(map);
-          if (serviceRangeKm > 0) {
-            L.circle([lat, lng], {
-              radius: serviceRangeKm * 1000,
-              color: '#673AB7', fillColor: '#673AB7',
-              fillOpacity: 0.08, weight: 2
-            }).addTo(map);
-          }
-        }, 300);
-      }
-    }
   }
 
   async function _openConnectionsSheet(kind) {
@@ -1415,6 +1362,10 @@ const ProviderDetailPage = (() => {
 
   function _providerMainCategory(provider) {
     return _pickFirstText(
+      provider ? provider.primary_category_name : '',
+      provider ? provider.primaryCategoryName : '',
+      provider && Array.isArray(provider.main_categories) ? provider.main_categories.join('، ') : '',
+      provider && Array.isArray(provider.mainCategories) ? provider.mainCategories.join('، ') : '',
       provider ? provider.category_name : '',
       provider ? provider.main_category : '',
       provider ? provider.categoryName : '',
@@ -1423,7 +1374,18 @@ const ProviderDetailPage = (() => {
   }
 
   function _providerSubCategory(provider) {
+    const selectedSubcategories = provider && Array.isArray(provider.selected_subcategories)
+      ? provider.selected_subcategories
+      : (provider && Array.isArray(provider.selectedSubcategories) ? provider.selectedSubcategories : []);
+    const selectedNames = selectedSubcategories.map((item) => _pickFirstText(
+      item && item.name,
+      item && item.subcategory_name,
+      item && item.subCategoryName
+    ));
     return _pickFirstText(
+      provider ? provider.primary_subcategory_name : '',
+      provider ? provider.primarySubcategoryName : '',
+      _joinForDisplay(selectedNames, 20),
       provider ? provider.subcategory_name : '',
       provider ? provider.sub_category : '',
       provider ? provider.subcategoryName : '',

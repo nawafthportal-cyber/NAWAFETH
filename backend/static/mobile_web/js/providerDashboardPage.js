@@ -85,7 +85,6 @@ const ProviderDashboardPage = (() => {
     _bindUploads();
     _bindModeToggle();
     _bindQrAction();
-    _bindOrdersCard();
   }
 
   async function _loadData() {
@@ -443,15 +442,6 @@ const ProviderDashboardPage = (() => {
         }
       });
     }
-  }
-
-  function _bindOrdersCard() {
-    const card = document.getElementById('orders-card');
-    if (!card) return;
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('a,button,input,label')) return;
-      window.location.href = '/provider-orders/';
-    });
   }
 
   function _setText(parentId, selector, val) {

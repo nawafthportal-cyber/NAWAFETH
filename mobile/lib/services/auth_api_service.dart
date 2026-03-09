@@ -197,7 +197,69 @@ class AuthApiService {
   }
 
   // ────────────────────────────────────────
-  // 🛠️ مساعدات
+  // � المصادقة البيومترية (Face ID / بصمة)
+  // ────────────────────────────────────────
+
+  /// تسجيل جهاز بيومتري → يعيد device_token يُحفظ محلياً
+  static Future<BiometricEnrollResult> biometricEnroll() async {
+    final resp = await ApiClient.post('/api/accounts/biometric/enroll/', body: {});
+
+    if (resp.isSuccess) {
+      final data = resp.dataAsMap;
+      final token = data?['device_token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        return BiometricEnrollResult(success: true, deviceToken: token);
+      }
+    }
+    return BiometricEnrollResult(success: false, error: _extractError(resp));
+  }
+
+  /// تسجيل الدخول بالبايومتري → phone + device_token → JWT tokens
+  static Future<OtpVerifyResult> biometricLogin(String phone, String deviceToken) async {
+    final resp = await ApiClient.post(
+      '/api/accounts/biometric/login/',
+      body: {'phone': phone, 'device_token': deviceToken},
+    );
+
+    if (!resp.isSuccess) {
+      return OtpVerifyResult(success: false, error: _extractError(resp));
+    }
+
+    final data = resp.dataAsMap;
+    if (data == null) {
+      return OtpVerifyResult(success: false, error: 'استجابة غير صالحة');
+    }
+
+    final access = data['access'] as String?;
+    final refresh = data['refresh'] as String?;
+    if (access == null || refresh == null) {
+      return OtpVerifyResult(success: false, error: 'لم يتم استلام التوكنات');
+    }
+
+    await AuthService.saveTokens(access: access, refresh: refresh);
+    final userId = data['user_id'] as int?;
+    final roleState = data['role_state'] as String? ?? 'phone_only';
+    if (userId != null) {
+      await AuthService.saveUserBasicInfo(userId: userId, roleState: roleState);
+    }
+
+    return OtpVerifyResult(
+      success: true,
+      userId: userId,
+      roleState: roleState,
+      isNewUser: data['is_new_user'] as bool? ?? false,
+      needsCompletion: data['needs_completion'] as bool? ?? false,
+    );
+  }
+
+  /// إلغاء تسجيل البايومتري على السيرفر
+  static Future<bool> biometricRevoke() async {
+    final resp = await ApiClient.post('/api/accounts/biometric/revoke/', body: {});
+    return resp.isSuccess;
+  }
+
+  // ────────────────────────────────────────
+  // �🛠️ مساعدات
   // ────────────────────────────────────────
 
   static String _extractError(ApiResponse resp) {
@@ -279,4 +341,12 @@ class CompleteResult {
     this.error,
     this.fieldErrors,
   });
+}
+
+class BiometricEnrollResult {
+  final bool success;
+  final String? deviceToken;
+  final String? error;
+
+  BiometricEnrollResult({required this.success, this.deviceToken, this.error});
 }

@@ -100,6 +100,7 @@ class MyProviderProfileView(generics.RetrieveUpdateAPIView):
 	def get_object(self):
 		provider_profile = (
 			ProviderProfile.objects.select_related("user")
+			.prefetch_related("providercategory_set__subcategory__category")
 			.filter(user=self.request.user)
 			.first()
 		)
@@ -276,6 +277,7 @@ class ProviderListView(generics.ListAPIView):
 		# Public list must include only real active provider accounts.
 		qs = (
 			ProviderProfile.objects.select_related("user")
+			.prefetch_related("providercategory_set__subcategory__category")
 			.filter(
 				user__is_active=True,
 			)
@@ -334,6 +336,7 @@ class ProviderDetailView(generics.RetrieveAPIView):
 		from apps.marketplace.models import RequestStatus
 		return (
 			ProviderProfile.objects.select_related("user")
+			.prefetch_related("providercategory_set__subcategory__category")
 			.filter(
 				user__is_active=True,
 			)

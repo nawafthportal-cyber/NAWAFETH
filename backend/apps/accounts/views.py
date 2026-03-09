@@ -12,8 +12,10 @@ from rest_framework.throttling import ScopedRateThrottle
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .models import OTP, User, UserRole, Wallet
+from .models import OTP, BiometricToken, User, UserRole, Wallet
 from .serializers import (
+    BiometricEnrollSerializer,
+    BiometricLoginSerializer,
     CompleteRegistrationSerializer,
     MeUpdateSerializer,
     OTPSendSerializer,
@@ -598,6 +600,96 @@ def otp_verify(request):
 # Needed for ScopedRateThrottle on function-based views
 otp_send.throttle_scope = "otp"
 otp_verify.throttle_scope = "otp"
+
+
+# ────────────────────────────────────────
+# 🔐 Biometric (Face ID / Fingerprint) endpoints
+# ────────────────────────────────────────
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def biometric_enroll(request):
+    """Authenticated user enrolls biometric → receives a device_token."""
+    user = request.user
+    phone = _normalize_phone_local05(user.phone or "")
+    if not phone:
+        return Response(
+            {"detail": "لا يوجد رقم جوال مرتبط بالحساب"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Deactivate any old tokens for this user
+    BiometricToken.objects.filter(user=user).update(is_active=False)
+
+    # Generate a secure random token
+    device_token = secrets.token_urlsafe(64)
+    BiometricToken.objects.create(
+        user=user,
+        phone=phone,
+        token=device_token,
+    )
+
+    return Response({"ok": True, "device_token": device_token})
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([ScopedRateThrottle])
+def biometric_login(request):
+    """Login via biometric: phone + device_token → JWT tokens (no OTP needed)."""
+    s = BiometricLoginSerializer(data=request.data)
+    s.is_valid(raise_exception=True)
+
+    phone = _normalize_phone_local05(s.validated_data["phone"])
+    device_token = s.validated_data["device_token"]
+
+    bt = BiometricToken.objects.filter(
+        phone=phone, token=device_token, is_active=True
+    ).select_related("user").first()
+
+    if not bt or not bt.user.is_active:
+        return Response(
+            {"detail": "رمز المصادقة البيومترية غير صالح أو منتهي"},
+            status=status.HTTP_401_UNAUTHORIZED,
+        )
+
+    user = bt.user
+    refresh = RefreshToken.for_user(user)
+    payload = {
+        "ok": True,
+        "user_id": user.id,
+        "role_state": user.role_state,
+        "is_new_user": False,
+        "needs_completion": user.role_state in (UserRole.VISITOR, UserRole.PHONE_ONLY),
+        "refresh": str(refresh),
+        "access": str(refresh.access_token),
+    }
+
+    try:
+        from apps.audit.services import log_action
+        from apps.audit.models import AuditAction
+        log_action(
+            actor=user,
+            action=AuditAction.LOGIN_OTP_VERIFIED,
+            reference_type="user",
+            reference_id=str(user.id),
+            request=request,
+        )
+    except Exception:
+        pass
+
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+biometric_login.throttle_scope = "otp"
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def biometric_revoke(request):
+    """Revoke all biometric tokens for the current user."""
+    count = BiometricToken.objects.filter(user=request.user, is_active=True).update(is_active=False)
+    return Response({"ok": True, "revoked": count})
 
 
 @api_view(["POST"])

@@ -389,6 +389,41 @@ def test_provider_profile_hides_missing_media_urls(settings, tmp_path):
 
 
 @pytest.mark.django_db
+def test_provider_profile_returns_registration_classification_fields():
+    client = APIClient()
+    _register_and_auth_provider(client, phone="0500000101")
+
+    profile = ProviderProfile.objects.get(user__phone="0500000101")
+    cat = Category.objects.create(name="خدمات تقنية", is_active=True)
+    sub1 = SubCategory.objects.create(category=cat, name="تصميم واجهات", is_active=True)
+    sub2 = SubCategory.objects.create(category=cat, name="تطوير مواقع", is_active=True)
+    ProviderCategory.objects.create(provider=profile, subcategory=sub1)
+    ProviderCategory.objects.create(provider=profile, subcategory=sub2)
+
+    me = client.get("/api/providers/me/profile/")
+    assert me.status_code == 200
+    me_payload = me.json()
+    assert me_payload["provider_type"] == "individual"
+    assert me_payload["provider_type_label"] == "فرد"
+    assert me_payload["primary_category_name"] == "خدمات تقنية"
+    assert me_payload["primary_subcategory_name"] == "تصميم واجهات"
+    assert me_payload["main_categories"] == ["خدمات تقنية"]
+    assert me_payload["subcategory_ids"] == [sub1.id, sub2.id]
+    assert [row["name"] for row in me_payload["selected_subcategories"]] == ["تصميم واجهات", "تطوير مواقع"]
+
+    public = client.get(f"/api/providers/{profile.id}/")
+    assert public.status_code == 200
+    public_payload = public.json()
+    assert public_payload["provider_type"] == "individual"
+    assert public_payload["provider_type_label"] == "فرد"
+    assert public_payload["primary_category_name"] == "خدمات تقنية"
+    assert public_payload["primary_subcategory_name"] == "تصميم واجهات"
+    assert public_payload["main_categories"] == ["خدمات تقنية"]
+    assert public_payload["subcategory_ids"] == [sub1.id, sub2.id]
+    assert [row["name"] for row in public_payload["selected_subcategories"]] == ["تصميم واجهات", "تطوير مواقع"]
+
+
+@pytest.mark.django_db
 def test_provider_following_count_in_detail_and_stats_is_scoped_by_mode():
     from apps.accounts.models import User
 

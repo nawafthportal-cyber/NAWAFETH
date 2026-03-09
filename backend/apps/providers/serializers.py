@@ -87,12 +87,19 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
     """
 
     excellence_badges = serializers.SerializerMethodField()
+    provider_type_label = serializers.CharField(source="get_provider_type_display", read_only=True)
+    primary_category_name = serializers.SerializerMethodField()
+    primary_subcategory_name = serializers.SerializerMethodField()
+    main_categories = serializers.SerializerMethodField()
+    selected_subcategories = serializers.SerializerMethodField()
+    subcategory_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
         fields = (
             "id",
             "provider_type",
+            "provider_type_label",
             "display_name",
             "profile_image",
             "cover_image",
@@ -120,6 +127,11 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
             "rating_avg",
             "rating_count",
             "created_at",
+            "primary_category_name",
+            "primary_subcategory_name",
+            "main_categories",
+            "selected_subcategories",
+            "subcategory_ids",
         )
         read_only_fields = (
             "id",
@@ -134,6 +146,48 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
         value = getattr(obj, "excellence_badges_cache", None)
         return value if isinstance(value, list) else []
 
+    def _provider_subcategory_rows(self, obj):
+        rows = []
+        relation_rows = getattr(obj, "_prefetched_objects_cache", {}).get("providercategory_set")
+        if relation_rows is None:
+            relation_rows = (
+                obj.providercategory_set.select_related("subcategory", "subcategory__category")
+                .order_by("subcategory__category__name", "subcategory__name", "id")
+            )
+
+        for relation in relation_rows:
+            subcategory = getattr(relation, "subcategory", None)
+            category = getattr(subcategory, "category", None) if subcategory else None
+            if not subcategory or not category:
+                continue
+            rows.append(
+                {
+                    "id": subcategory.id,
+                    "name": subcategory.name,
+                    "category_id": category.id,
+                    "category_name": category.name,
+                }
+            )
+        return rows
+
+    def get_primary_category_name(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return rows[0]["category_name"] if rows else ""
+
+    def get_primary_subcategory_name(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return rows[0]["name"] if rows else ""
+
+    def get_main_categories(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return list(dict.fromkeys(row["category_name"] for row in rows if row["category_name"]))
+
+    def get_selected_subcategories(self, obj):
+        return self._provider_subcategory_rows(obj)
+
+    def get_subcategory_ids(self, obj):
+        return [row["id"] for row in self._provider_subcategory_rows(obj)]
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -142,6 +196,8 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
 
 
 class ProviderPublicSerializer(serializers.ModelSerializer):
+    provider_type = serializers.CharField(read_only=True)
+    provider_type_label = serializers.CharField(source="get_provider_type_display", read_only=True)
     followers_count = serializers.IntegerField(read_only=True)
     likes_count = serializers.IntegerField(read_only=True)
     completed_requests = serializers.IntegerField(read_only=True, required=False)
@@ -149,11 +205,18 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     excellence_badges = serializers.SerializerMethodField()
     phone = serializers.CharField(source="user.phone", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
+    primary_category_name = serializers.SerializerMethodField()
+    primary_subcategory_name = serializers.SerializerMethodField()
+    main_categories = serializers.SerializerMethodField()
+    selected_subcategories = serializers.SerializerMethodField()
+    subcategory_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
         fields = (
             "id",
+            "provider_type",
+            "provider_type_label",
             "display_name",
             "username",
             "profile_image",
@@ -183,6 +246,11 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "likes_count",
             "following_count",
             "completed_requests",
+            "primary_category_name",
+            "primary_subcategory_name",
+            "main_categories",
+            "selected_subcategories",
+            "subcategory_ids",
         )
 
     def get_following_count(self, obj):
@@ -204,6 +272,48 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     def get_excellence_badges(self, obj):
         value = getattr(obj, "excellence_badges_cache", None)
         return value if isinstance(value, list) else []
+
+    def _provider_subcategory_rows(self, obj):
+        rows = []
+        relation_rows = getattr(obj, "_prefetched_objects_cache", {}).get("providercategory_set")
+        if relation_rows is None:
+            relation_rows = (
+                obj.providercategory_set.select_related("subcategory", "subcategory__category")
+                .order_by("subcategory__category__name", "subcategory__name", "id")
+            )
+
+        for relation in relation_rows:
+            subcategory = getattr(relation, "subcategory", None)
+            category = getattr(subcategory, "category", None) if subcategory else None
+            if not subcategory or not category:
+                continue
+            rows.append(
+                {
+                    "id": subcategory.id,
+                    "name": subcategory.name,
+                    "category_id": category.id,
+                    "category_name": category.name,
+                }
+            )
+        return rows
+
+    def get_primary_category_name(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return rows[0]["category_name"] if rows else ""
+
+    def get_primary_subcategory_name(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return rows[0]["name"] if rows else ""
+
+    def get_main_categories(self, obj):
+        rows = self._provider_subcategory_rows(obj)
+        return list(dict.fromkeys(row["category_name"] for row in rows if row["category_name"]))
+
+    def get_selected_subcategories(self, obj):
+        return self._provider_subcategory_rows(obj)
+
+    def get_subcategory_ids(self, obj):
+        return [row["id"] for row in self._provider_subcategory_rows(obj)]
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

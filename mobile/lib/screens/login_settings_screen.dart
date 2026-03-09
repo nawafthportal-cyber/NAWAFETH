@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_client.dart';
+import '../services/auth_api_service.dart';
 import '../services/profile_service.dart';
 import '../services/content_service.dart';
 import '../models/user_profile.dart';
@@ -526,9 +527,20 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
       if (!mounted) return;
 
       if (authenticated) {
+        // تسجيل device_token من السيرفر
+        final enrollResult = await AuthApiService.biometricEnroll();
+        if (!mounted) return;
+
+        if (!enrollResult.success || enrollResult.deviceToken == null) {
+          setState(() => _faceIdLoading = false);
+          _snack(enrollResult.error ?? 'فشل تسجيل المصادقة البيومترية');
+          return;
+        }
+
         final prefs = await SharedPreferences.getInstance();
         final phone = _phoneCtrl.text.trim();
         await prefs.setBool('nw_faceid_enabled', true);
+        await prefs.setString('nw_faceid_device_token', enrollResult.deviceToken!);
         if (phone.isNotEmpty) {
           await prefs.setString('nw_faceid_phone', phone);
         }
@@ -573,9 +585,13 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
 
     if (confirmed != true) return;
 
+    // إلغاء من السيرفر
+    await AuthApiService.biometricRevoke();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('nw_faceid_enabled', false);
     await prefs.remove('nw_faceid_phone');
+    await prefs.remove('nw_faceid_device_token');
 
     if (!mounted) return;
     setState(() => _faceIdEnabled = false);

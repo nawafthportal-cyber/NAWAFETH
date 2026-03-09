@@ -2,6 +2,9 @@ from django.urls import path
 from .views import (
     ThrottledTokenObtainPairView,
     ThrottledTokenRefreshView,
+    biometric_enroll,
+    biometric_login,
+    biometric_revoke,
     complete_registration,
     delete_account_view,
     logout_view,
@@ -17,6 +20,9 @@ app_name = "accounts"
 urlpatterns = [
     path("otp/send/", otp_send, name="otp_send"),
     path("otp/verify/", otp_verify, name="otp_verify"),
+    path("biometric/enroll/", biometric_enroll, name="biometric_enroll"),
+    path("biometric/login/", biometric_login, name="biometric_login"),
+    path("biometric/revoke/", biometric_revoke, name="biometric_revoke"),
     path("username-availability/", username_availability, name="username_availability"),
     path("complete/", complete_registration, name="complete"),
     path("wallet/", wallet_view, name="wallet"),
