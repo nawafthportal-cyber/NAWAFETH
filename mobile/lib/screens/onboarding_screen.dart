@@ -334,7 +334,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 560),
-        padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(32),
@@ -347,98 +347,103 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
           ],
         ),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5EEFF),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '0${_currentPage + 1} / ${_slides.length}',
-                  style: const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.deepPurple,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: Column(
-                children: [
-                  BounceInDown(
-                    child: ContentBlockMedia(
-                      mediaUrl: item.mediaUrl,
-                      mediaType: item.mediaType,
-                      isActive: isActive,
-                      borderRadius: 28,
-                      aspectRatio: 1.02,
-                      fallback: Container(
-                        width: 188,
-                        height: 188,
-                        padding: const EdgeInsets.all(28),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: Column(
+                  children: [
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFF4EDFF),
-                              Color(0xFFECE3FF),
-                              Color(0xFFEAF2FF),
+                          color: const Color(0xFFF5EEFF),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '0${_currentPage + 1} / ${_slides.length}',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.deepPurple,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    BounceInDown(
+                      child: ContentBlockMedia(
+                        mediaUrl: item.mediaUrl,
+                        mediaType: item.mediaType,
+                        isActive: isActive,
+                        borderRadius: 28,
+                        aspectRatio: 1.04,
+                        fallback: Container(
+                          width: 172,
+                          height: 172,
+                          padding: const EdgeInsets.all(26),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Color(0xFFF4EDFF),
+                                Color(0xFFECE3FF),
+                                Color(0xFFEAF2FF),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.deepPurple.withValues(alpha: 0.16),
+                                blurRadius: 30,
+                                offset: const Offset(0, 12),
+                              ),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(999),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.deepPurple.withValues(alpha: 0.16),
-                              blurRadius: 30,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
+                          child: Center(child: item.icon),
                         ),
-                        child: Center(child: item.icon),
                       ),
                     ),
-                  ),
-                  const Spacer(),
-                  FadeInUp(
-                    delay: const Duration(milliseconds: 180),
-                    child: Text(
-                      item.title,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF24163C),
+                    const SizedBox(height: 20),
+                    FadeInUp(
+                      delay: const Duration(milliseconds: 180),
+                      child: Text(
+                        item.title,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          height: 1.35,
+                          color: Color(0xFF24163C),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
-                  FadeInUp(
-                    delay: const Duration(milliseconds: 320),
-                    child: Text(
-                      item.desc,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 16,
-                        height: 1.9,
-                        color: Color(0xFF6F6482),
+                    const SizedBox(height: 12),
+                    FadeInUp(
+                      delay: const Duration(milliseconds: 320),
+                      child: Text(
+                        item.desc,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 15,
+                          height: 1.85,
+                          color: Color(0xFF6F6482),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
+                    const SizedBox(height: 8),
+                  ],
+                ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -481,42 +486,47 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildGhostButton(label: 'تخطي', onPressed: _finishOnboarding),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppColors.deepPurple, Color(0xFF7E53C4)],
-                  ),
-                  borderRadius: BorderRadius.circular(999),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x336A3FB1),
-                      blurRadius: 18,
-                      offset: Offset(0, 10),
+              Flexible(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.deepPurple, Color(0xFF7E53C4)],
                     ),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  onPressed: _nextPage,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(158, 56),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(999),
+                    borderRadius: BorderRadius.circular(999),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x336A3FB1),
+                        blurRadius: 18,
+                        offset: Offset(0, 10),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: _nextPage,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(148, 54),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
-                  ),
-                  icon: Icon(
-                    _currentPage == _slides.length - 1
-                        ? Icons.check_rounded
-                        : Icons.arrow_forward_rounded,
-                  ),
-                  label: Text(
-                    _currentPage == _slides.length - 1 ? 'ابدأ الآن' : 'التالي',
-                    style: const TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    icon: Icon(
+                      _currentPage == _slides.length - 1
+                          ? Icons.check_rounded
+                          : Icons.arrow_forward_rounded,
+                    ),
+                    label: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        _currentPage == _slides.length - 1 ? 'ابدأ الآن' : 'التالي',
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
                 ),

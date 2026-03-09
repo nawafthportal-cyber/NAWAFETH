@@ -10,6 +10,7 @@ const NotificationSettingsPage = (() => {
     basic: {
       key: 'basic',
       label: 'الباقة الأساسية',
+      description: 'تنبيهات التشغيل الأساسية المرتبطة بالطلبات والمحادثات والتحديثات العامة.',
       mountId: 'notif-basic-section',
       className: 'notif-tier-basic',
       items: [
@@ -25,6 +26,7 @@ const NotificationSettingsPage = (() => {
     pioneer: {
       key: 'pioneer',
       label: 'الباقة الريادية',
+      description: 'تنبيهات التفاعل والنمو المرتبطة بالمتابعات والتعليقات واهتمام العملاء.',
       mountId: 'notif-leading-section',
       className: 'notif-tier-pioneer',
       items: [
@@ -38,6 +40,7 @@ const NotificationSettingsPage = (() => {
     professional: {
       key: 'professional',
       label: 'الباقة الاحترافية',
+      description: 'تنبيهات متقدمة للمراجعات والمنافسة والظهور التجاري.',
       mountId: 'notif-professional-section',
       className: 'notif-tier-professional',
       items: [
@@ -51,6 +54,7 @@ const NotificationSettingsPage = (() => {
     extra: {
       key: 'extra',
       label: 'تنبيهات الخدمات الإضافية',
+      description: 'تنبيهات مرتبطة بالخدمات الإضافية والبوابات التشغيلية المتخصصة.',
       mountId: 'notif-extra-section',
       className: 'notif-tier-extra',
       items: [
@@ -160,7 +164,7 @@ const NotificationSettingsPage = (() => {
     const enabledNode = document.getElementById('notif-settings-enabled-count');
     const totalNode = document.getElementById('notif-settings-total-count');
     if (enabledNode) enabledNode.textContent = '(' + String(enabled) + ')';
-    if (totalNode) totalNode.textContent = String(total) + ' تنبيه متاح';
+    if (totalNode) totalNode.textContent = String(enabled) + ' مفعّل من أصل ' + String(total);
   }
 
   function _renderSections() {
@@ -173,20 +177,29 @@ const NotificationSettingsPage = (() => {
   }
 
   function _buildSection(section) {
+    const prefs = _sectionPrefs(section);
     const wrap = UI.el('section', {
-      className: 'notif-section-card ' + section.className,
+      className: 'notif-section-card ' + section.className + (prefs.length ? '' : ' is-empty'),
     });
 
     const header = UI.el('header', { className: 'notif-section-header' });
-    header.appendChild(UI.el('h2', { className: 'notif-section-title', textContent: section.label }));
-    const prefs = _sectionPrefs(section);
+    const copy = UI.el('div', { className: 'notif-section-copy' });
+    copy.appendChild(UI.el('h2', { className: 'notif-section-title', textContent: section.label }));
+    if (section.description) {
+      copy.appendChild(UI.el('p', { className: 'notif-section-description', textContent: section.description }));
+    }
+    header.appendChild(copy);
+    header.appendChild(UI.el('span', {
+      className: 'notif-section-count',
+      textContent: String(prefs.filter((pref) => pref.enabled && !pref.locked).length) + '/' + String(prefs.length || 0),
+    }));
     wrap.appendChild(header);
 
     const list = UI.el('div', { className: 'notif-toggle-list' });
     if (!prefs.length) {
       list.appendChild(UI.el('div', {
         className: 'notif-empty-state',
-        textContent: 'لا توجد إعدادات متاحة في هذا القسم حاليًا',
+        textContent: 'لا توجد إعدادات متاحة في هذا القسم حاليًا.',
       }));
     } else {
       prefs.forEach((pref) => list.appendChild(_buildPrefRow(pref, section.key === 'extra')));
@@ -231,8 +244,12 @@ const NotificationSettingsPage = (() => {
       row.title = pref.locked_reason;
     }
 
-    const title = UI.el('span', { className: 'notif-pref-title', textContent: pref.title || pref.key });
-    row.appendChild(title);
+    const textWrap = UI.el('span', { className: 'notif-pref-text' });
+    textWrap.appendChild(UI.el('span', { className: 'notif-pref-title', textContent: pref.title || pref.key }));
+    if (pref.locked && pref.locked_reason) {
+      textWrap.appendChild(UI.el('span', { className: 'notif-pref-meta', textContent: pref.locked_reason }));
+    }
+    row.appendChild(textWrap);
 
     const control = UI.el('span', { className: 'notif-pref-control' });
     if (pref.locked) {

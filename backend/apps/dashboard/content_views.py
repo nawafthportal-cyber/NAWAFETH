@@ -17,6 +17,77 @@ from .auth import dashboard_staff_required as staff_member_required
 from .views import _dashboard_allowed, dashboard_access_required
 
 
+CONTENT_BLOCK_GROUPS = (
+    {
+        "slug": "onboarding",
+        "title": "شاشات التعريف والانطلاق",
+        "description": "النصوص والوسائط التي تظهر للمستخدم في أول دخول للتطبيق.",
+        "prefixes": ("onboarding_",),
+    },
+    {
+        "slug": "home",
+        "title": "الصفحة الرئيسية",
+        "description": "العناوين والنصوص المختصرة المعروضة في الواجهة الرئيسية.",
+        "prefixes": ("home_",),
+    },
+    {
+        "slug": "login_signup",
+        "title": "تسجيل الدخول والتسجيل",
+        "description": "العناوين، الأوصاف، وأزرار مسارات الدخول وإنشاء الحساب.",
+        "prefixes": ("login_", "signup_", "twofa_"),
+    },
+    {
+        "slug": "about_terms",
+        "title": "من نحن والشروط",
+        "description": "محتوى الصفحات التعريفية والمحتوى النصي المرتبط بالشروط.",
+        "prefixes": ("about_", "terms_"),
+    },
+    {
+        "slug": "contact",
+        "title": "التواصل والبلاغات",
+        "description": "كل النصوص الخاصة ببوابة الدعم، إنشاء البلاغات، وتفاصيلها.",
+        "prefixes": ("contact_",),
+    },
+    {
+        "slug": "settings",
+        "title": "الإعدادات والمساعدة",
+        "description": "النصوص العامة المعروضة داخل صفحة الإعدادات والمساعدة.",
+        "prefixes": ("settings_",),
+    },
+)
+
+
+def _group_block_choices(block_choices: list[tuple[str, str]]) -> list[dict[str, object]]:
+    grouped: list[dict[str, object]] = []
+    remaining = list(block_choices)
+
+    for group in CONTENT_BLOCK_GROUPS:
+        items = [choice for choice in remaining if any(choice[0].startswith(prefix) for prefix in group["prefixes"])]
+        if not items:
+            continue
+        grouped.append(
+            {
+                "slug": group["slug"],
+                "title": group["title"],
+                "description": group["description"],
+                "items": items,
+            }
+        )
+        remaining = [choice for choice in remaining if choice not in items]
+
+    if remaining:
+        grouped.append(
+            {
+                "slug": "other",
+                "title": "بلوكات إضافية",
+                "description": "عناصر محتوى غير مصنفة ضمن المجموعات الرئيسية أعلاه.",
+                "items": remaining,
+            }
+        )
+
+    return grouped
+
+
 @staff_member_required
 @dashboard_access_required("content", write=False)
 def content_management(request):
@@ -33,13 +104,14 @@ def content_management(request):
 
     links = SiteLinks.objects.order_by("-updated_at", "-id").first()
     can_write = _dashboard_allowed(request.user, "content", write=True)
+    block_choices = list(ContentBlockKey.choices)
 
     return render(
         request,
         "dashboard/content_management.html",
         {
             "blocks": blocks,
-            "block_choices": ContentBlockKey.choices,
+            "grouped_block_choices": _group_block_choices(block_choices),
             "doc_choices": LegalDocumentType.choices,
             "latest_docs": latest_docs,
             "links": links,

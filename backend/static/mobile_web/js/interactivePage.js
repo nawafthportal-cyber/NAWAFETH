@@ -466,6 +466,7 @@ const InteractivePage = (() => {
     if (imageUrl) {
       const img = UI.lazyImg(imageUrl, item.caption || '');
       img.classList.add('interactive-favorite-thumb');
+      img.setAttribute('loading', 'lazy');
       media.appendChild(img);
     } else {
       const ph = UI.el('div', { className: 'interactive-favorite-placeholder' });
@@ -484,24 +485,26 @@ const InteractivePage = (() => {
       textContent: item.source === 'spotlight' ? 'أضواء' : 'معرض',
     }));
 
+    // Stats overlay — visible on hover (Instagram style)
     const statsBar = UI.el('div', { className: 'interactive-favorite-stats' });
 
     const likesStat = UI.el('span', {
       className: 'interactive-favorite-stat' + (item.is_liked ? ' active' : ''),
     });
-    likesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: item.is_liked ? '❤' : '♡' }));
+    likesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: '♥' }));
     likesStat.appendChild(UI.el('span', { textContent: String(_toInt(item.likes_count)) }));
     statsBar.appendChild(likesStat);
 
     const savesStat = UI.el('span', {
       className: 'interactive-favorite-stat' + (item.is_saved ? ' active' : ''),
     });
-    savesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: item.is_saved ? '🔖' : '📑' }));
+    savesStat.appendChild(UI.el('span', { className: 'interactive-favorite-stat-icon', textContent: '⚑' }));
     savesStat.appendChild(UI.el('span', { textContent: String(_toInt(item.saves_count)) }));
     statsBar.appendChild(savesStat);
 
     media.appendChild(statsBar);
 
+    // Bottom gradient bar with provider name
     const bottom = UI.el('div', { className: 'interactive-favorite-bottom' });
     bottom.appendChild(UI.el('strong', {
       className: 'interactive-favorite-provider',

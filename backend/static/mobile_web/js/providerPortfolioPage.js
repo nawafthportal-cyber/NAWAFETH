@@ -73,13 +73,15 @@ var ProviderPortfolioPage = (function () {
           var savesCount = Number(item && item.saves_count) || 0;
           var isLiked = !!(item && item.is_liked);
           var isSaved = !!(item && item.is_saved);
-          var statsHtml = '<div class="pf-item-stats">' +
-            '<span class="pf-item-stat' + (isLiked ? ' active' : '') + '">❤ ' + likesCount + '</span>' +
-            '<span class="pf-item-stat' + (isSaved ? ' active' : '') + '">🔖 ' + savesCount + '</span>' +
+          var overlayHtml = '<div class="pf-item-overlay">' +
+            '<span class="pf-item-stat' + (isLiked ? ' active' : '') + '">♥ ' + likesCount + '</span>' +
+            '<span class="pf-item-stat' + (isSaved ? ' active' : '') + '">⚑ ' + savesCount + '</span>' +
             '</div>';
+          var videoBadge = isVideo ? '<span class="pf-video-badge">▶</span>' : '';
           return '<div class="pf-item" data-item-id="' + itemId + '">' +
-            (isVideo ? '<video src="' + API.mediaUrl(src) + '" class="pf-media"></video>' : '<img src="' + API.mediaUrl(src) + '" class="pf-media" alt="">') +
-            statsHtml +
+            (isVideo ? '<video src="' + API.mediaUrl(src) + '" class="pf-media" muted></video>' : '<img src="' + API.mediaUrl(src) + '" class="pf-media" loading="lazy" alt="">') +
+            videoBadge +
+            overlayHtml +
             '<button class="pf-item-delete" data-section="' + sec.id + '" data-item="' + itemId + '">×</button></div>';
         }).join("") + '</div>' : '<div class="pf-section-empty">لا توجد عناصر في هذا القسم بعد. ابدأ برفع صور أو فيديوهات توضح أعمالك.</div>') +
       '</section>';
