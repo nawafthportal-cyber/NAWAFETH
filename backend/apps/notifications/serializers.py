@@ -30,10 +30,11 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):
     canonical_tier = serializers.SerializerMethodField()
+    audience_mode = serializers.CharField(read_only=True)
 
     def get_canonical_tier(self, obj: NotificationPreference) -> str:
         return notification_tier_to_canonical(obj.tier)
 
     class Meta:
         model = NotificationPreference
-        fields = ("key", "enabled", "tier", "canonical_tier", "updated_at")
+        fields = ("key", "enabled", "tier", "canonical_tier", "audience_mode", "updated_at")

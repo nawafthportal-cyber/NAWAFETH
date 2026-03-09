@@ -3,6 +3,29 @@ var ProviderPortfolioPage = (function () {
   var API = window.NwApiClient;
   var sections = [];
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function setText(id, value) {
+    var node = document.getElementById(id);
+    if (node) node.textContent = String(value);
+  }
+
+  function renderStats() {
+    var itemCount = sections.reduce(function (sum, sec) {
+      var items = sec.items || sec.images || sec.media || [];
+      return sum + items.length;
+    }, 0);
+    setText("pf-section-count", sections.length);
+    setText("pf-item-count", itemCount);
+  }
+
   function init() {
     load();
     bindEvents();
@@ -20,6 +43,7 @@ var ProviderPortfolioPage = (function () {
   }
 
   function render() {
+    renderStats();
     if (!sections.length) {
       document.getElementById("pf-empty").style.display = "";
       document.getElementById("pf-sections").innerHTML = "";
@@ -28,13 +52,20 @@ var ProviderPortfolioPage = (function () {
     document.getElementById("pf-empty").style.display = "none";
     document.getElementById("pf-sections").innerHTML = sections.map(function (sec) {
       var items = sec.items || sec.images || sec.media || [];
-      return '<div class="pf-section" data-id="' + sec.id + '">' +
-        '<div class="pf-section-header"><h3>' + (sec.title || sec.name || "") + '</h3>' +
+      var itemCount = items.length;
+      return '<section class="detail-card pf-section" data-id="' + sec.id + '">' +
+        '<div class="pf-section-top">' +
+          '<div class="pf-section-copy">' +
+            '<h3>' + escapeHtml(sec.title || sec.name || "") + '</h3>' +
+            '<p class="pf-section-desc' + (sec.description ? '' : ' is-empty') + '">' + (sec.description ? escapeHtml(sec.description) : 'أضف وصفًا مختصرًا لهذا القسم لشرح نوع الأعمال المعروضة فيه.') + '</p>' +
+          '</div>' +
+          '<span class="pf-section-count">' + itemCount + ' عنصر</span>' +
+        '</div>' +
         '<div class="pf-section-actions">' +
-        '<label class="btn btn-sm btn-outline pf-upload-btn">رفع<input type="file" accept="image/*,video/*" multiple hidden data-section="' + sec.id + '"></label>' +
-        '<button class="btn btn-sm btn-danger pf-del-section" data-id="' + sec.id + '">حذف القسم</button></div></div>' +
-        (sec.description ? '<p class="text-muted">' + sec.description + '</p>' : '') +
-        '<div class="pf-grid">' + items.map(function (item) {
+          '<label class="btn btn-secondary pf-upload-btn">رفع عناصر<input type="file" accept="image/*,video/*" multiple hidden data-section="' + sec.id + '"></label>' +
+          '<button class="btn btn-danger pf-del-section" data-id="' + sec.id + '">حذف القسم</button>' +
+        '</div>' +
+        (itemCount ? '<div class="pf-grid">' + items.map(function (item) {
           var src = typeof item === "string" ? item : item.image || item.file || item.url || "";
           var itemId = item.id || "";
           var isVideo = /\.(mp4|mov|avi|webm)/i.test(src);
@@ -50,7 +81,8 @@ var ProviderPortfolioPage = (function () {
             (isVideo ? '<video src="' + API.mediaUrl(src) + '" class="pf-media"></video>' : '<img src="' + API.mediaUrl(src) + '" class="pf-media" alt="">') +
             statsHtml +
             '<button class="pf-item-delete" data-section="' + sec.id + '" data-item="' + itemId + '">×</button></div>';
-        }).join("") + '</div></div>';
+        }).join("") + '</div>' : '<div class="pf-section-empty">لا توجد عناصر في هذا القسم بعد. ابدأ برفع صور أو فيديوهات توضح أعمالك.</div>') +
+      '</section>';
     }).join("");
     bindItemEvents();
   }

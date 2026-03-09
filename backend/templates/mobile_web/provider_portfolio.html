@@ -4,11 +4,29 @@
 
 {% block content %}
 <main class="page-shell">
-  <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+  <div class="page-header pf-page-header">
+    <button class="btn-back" onclick="history.back()" aria-label="رجوع"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
     <h1>معرض الأعمال</h1>
-    <button class="btn-icon" id="btn-add-section" title="إضافة قسم"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    <button class="btn-icon pf-add-btn" id="btn-add-section" title="إضافة قسم" aria-label="إضافة قسم"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   </div>
+
+  <section class="detail-card pf-hero">
+    <div class="pf-hero-copy">
+      <p class="pf-hero-kicker">محتوى أعمالك</p>
+      <h2 class="pf-hero-title">اعرض أفضل نماذجك بصورة مرتبة وواضحة</h2>
+      <p class="pf-hero-desc">قسّم أعمالك إلى أقسام مستقلة، ثم أضف الصور أو الفيديوهات التي تساعد العميل على فهم خبرتك بسرعة كما في تجربة التطبيق.</p>
+    </div>
+    <div class="pf-hero-stats" aria-label="إحصاءات معرض الأعمال">
+      <div class="pf-stat-card">
+        <strong id="pf-section-count">0</strong>
+        <span>أقسام</span>
+      </div>
+      <div class="pf-stat-card">
+        <strong id="pf-item-count">0</strong>
+        <span>عناصر</span>
+      </div>
+    </div>
+  </section>
 
   <div id="pf-loading" class="loading-center"><div class="spinner"></div></div>
 
@@ -16,6 +34,7 @@
     <div id="pf-empty" class="empty-state" style="display:none">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       <p>لا يوجد محتوى في معرض الأعمال بعد</p>
+      <span class="pf-empty-note">ابدأ بإضافة أول قسم ثم ارفع أمثلة مختصرة تساعد العميل على تقييم أعمالك السابقة.</span>
       <button class="btn btn-primary" id="btn-add-first-section">أضف قسمك الأول</button>
     </div>
     <div id="pf-sections"></div>

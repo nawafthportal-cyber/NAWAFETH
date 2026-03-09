@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Notification Settings Visual Test</title>
+</head>
+<body>
+  <p>Preparing session...</p>
+  <script>
+    (function () {
+      var params = new URLSearchParams(window.location.search);
+      var access = params.get('access') || '';
+      var refresh = params.get('refresh') || '';
+      var role = params.get('role') || 'provider';
+      var mode = params.get('mode') || 'provider';
+      var userId = params.get('user_id') || '';
+
+      try {
+        if (access) sessionStorage.setItem('nw_access_token', access);
+        if (refresh) sessionStorage.setItem('nw_refresh_token', refresh);
+        if (role) sessionStorage.setItem('nw_role_state', role);
+        if (mode) sessionStorage.setItem('nw_account_mode', mode);
+        if (userId) sessionStorage.setItem('nw_user_id', userId);
+      } catch (err) {
+        console.error(err);
+      }
+
+      window.location.replace('/notification-settings/');
+    })();
+  </script>
+</body>
+</html>

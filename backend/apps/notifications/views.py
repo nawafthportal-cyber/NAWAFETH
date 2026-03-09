@@ -13,13 +13,15 @@ from .pagination import NotificationPagination
 from .serializers import (
     NotificationSerializer,
     DeviceTokenSerializer,
-    NotificationPreferenceSerializer,
 )
 from .services import (
     NOTIFICATION_CATALOG,
     get_or_create_notification_preferences,
     _is_pref_locked,
+    _notification_entitlement_context,
+    notification_preference_availability,
     notification_tier_to_canonical,
+    normalize_preference_mode,
 )
 
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly
@@ -39,6 +41,53 @@ _PROVIDER_ONLY_KINDS = {
     "urgent_request",
     "offer_selected",
 }
+
+
+def _preferred_preferences_for_mode(*, prefs, mode: str):
+    if mode not in {"client", "provider"}:
+        priority = {"shared": 0, "provider": 1, "client": 2}
+        selected = {}
+        for pref in prefs:
+            current = selected.get(pref.key)
+            if current is None or priority.get(pref.audience_mode, 99) < priority.get(current.audience_mode, 99):
+                selected[pref.key] = pref
+        return list(selected.values())
+
+    selected = {}
+    for pref in prefs:
+        if pref.audience_mode not in {mode, "shared"}:
+            continue
+        current = selected.get(pref.key)
+        if current is None or (current.audience_mode == "shared" and pref.audience_mode == mode):
+            selected[pref.key] = pref
+    return list(selected.values())
+
+
+def _serialize_preferences_for_response(*, user, prefs, mode: str):
+    data = []
+    entitlement_context = _notification_entitlement_context(user)
+    for pref in _preferred_preferences_for_mode(prefs=prefs, mode=mode):
+        cfg = NOTIFICATION_CATALOG.get(pref.key, {})
+        availability = notification_preference_availability(
+            user=user,
+            pref_key=pref.key,
+            audience_mode=pref.audience_mode,
+            context=entitlement_context,
+        )
+        data.append(
+            {
+                "key": pref.key,
+                "title": cfg.get("title", pref.key),
+                "enabled": bool(pref.enabled),
+                "tier": pref.tier,
+                "canonical_tier": notification_tier_to_canonical(pref.tier),
+                "audience_mode": pref.audience_mode,
+                "locked": bool(availability["locked"]),
+                "locked_reason": str(availability["reason"] or ""),
+                "updated_at": pref.updated_at,
+            }
+        )
+    return data
 
 
 def _notification_matches_mode(*, notif: Notification, user, mode: str) -> bool:
@@ -205,26 +254,15 @@ class NotificationPreferencesView(APIView):
     permission_classes = [IsAtLeastPhoneOnly]
 
     def get(self, request):
-        prefs = get_or_create_notification_preferences(request.user)
-        data = []
-        for p in prefs:
-            cfg = NOTIFICATION_CATALOG.get(p.key, {})
-            data.append(
-                {
-                    "key": p.key,
-                    "title": cfg.get("title", p.key),
-                    "enabled": bool(p.enabled),
-                    "tier": p.tier,
-                    "canonical_tier": notification_tier_to_canonical(p.tier),
-                    "locked": bool(_is_pref_locked(request.user, p.key)),
-                    "updated_at": p.updated_at,
-                }
-            )
+        mode = normalize_preference_mode(request.query_params.get("mode"))
+        prefs = get_or_create_notification_preferences(request.user, mode=mode, exposed_only=True)
+        data = _serialize_preferences_for_response(user=request.user, prefs=prefs, mode=mode)
         return Response({"results": data}, status=status.HTTP_200_OK)
 
     def patch(self, request):
-        prefs = get_or_create_notification_preferences(request.user)
-        by_key = {p.key: p for p in prefs}
+        mode = normalize_preference_mode(request.query_params.get("mode"))
+        prefs = get_or_create_notification_preferences(request.user, mode=mode, exposed_only=True)
+        by_key = {pref.key: pref for pref in _preferred_preferences_for_mode(prefs=prefs, mode=mode)}
         updates = request.data.get("updates") or []
         if not isinstance(updates, list):
             return Response({"detail": "صيغة updates غير صحيحة"}, status=status.HTTP_400_BAD_REQUEST)
@@ -236,23 +274,27 @@ class NotificationPreferencesView(APIView):
             key = (raw.get("key") or "").strip()
             if not key or key not in by_key:
                 continue
-            if _is_pref_locked(request.user, key):
-                continue
             enabled = raw.get("enabled")
             if not isinstance(enabled, bool):
                 continue
             obj = by_key[key]
+            if _is_pref_locked(request.user, key, obj.audience_mode):
+                continue
             if obj.enabled == enabled:
                 continue
             obj.enabled = enabled
             obj.save(update_fields=["enabled", "updated_at"])
             changed += 1
 
-        serialized = NotificationPreferenceSerializer(
-            get_or_create_notification_preferences(request.user),
-            many=True,
+        refreshed = get_or_create_notification_preferences(request.user, mode=mode, exposed_only=True)
+        return Response(
+            {
+                "ok": True,
+                "changed": changed,
+                "results": _serialize_preferences_for_response(user=request.user, prefs=refreshed, mode=mode),
+            },
+            status=status.HTTP_200_OK,
         )
-        return Response({"ok": True, "changed": changed, "results": serialized.data}, status=status.HTTP_200_OK)
 
 
 class RegisterDeviceTokenView(APIView):

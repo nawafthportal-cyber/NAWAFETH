@@ -69,6 +69,97 @@
           <div id="order-attachments" class="order-lines"></div>
         </section>
 
+        <section id="order-finance-section" class="order-detail-card hidden">
+          <h2 id="order-finance-title">تفاصيل التنفيذ</h2>
+          <div id="order-finance-grid" class="order-info-grid"></div>
+        </section>
+
+        <section id="order-provider-decision-section" class="order-detail-card hidden">
+          <h2>قرارك على تفاصيل التنفيذ</h2>
+          <div id="order-provider-inputs-grid" class="order-info-grid"></div>
+          <div id="order-provider-decision-note" class="order-inline-note hidden"></div>
+          <div id="order-provider-decision-form" class="order-decision-form">
+            <label for="order-provider-reject-note" class="order-form-label">سبب الرفض عند الحاجة</label>
+            <textarea id="order-provider-reject-note" class="form-textarea order-inline-textarea" rows="3" placeholder="اكتب سبب رفض التفاصيل ليصل إلى مقدم الخدمة"></textarea>
+            <div class="order-inline-actions">
+              <button type="button" class="btn-secondary" id="btn-reject-provider-inputs">رفض التفاصيل</button>
+              <button type="button" class="btn-primary" id="btn-approve-provider-inputs">اعتماد وبدء التنفيذ</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="order-cancelled-section" class="order-detail-card hidden">
+          <h2>بيانات الإلغاء</h2>
+          <div id="order-cancelled-grid" class="order-info-grid"></div>
+        </section>
+
+        <section id="order-review-section" class="order-detail-card hidden">
+          <h2>تقييم الخدمة</h2>
+          <div id="order-review-summary" class="order-inline-note hidden"></div>
+          <form id="order-review-form" class="order-review-form">
+            <div class="order-review-grid">
+              <label class="order-review-field">
+                <span>سرعة الاستجابة</span>
+                <select id="review-response-speed" class="form-input">
+                  <option value="">اختر</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label class="order-review-field">
+                <span>القيمة مقابل السعر</span>
+                <select id="review-cost-value" class="form-input">
+                  <option value="">اختر</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label class="order-review-field">
+                <span>جودة العمل</span>
+                <select id="review-quality" class="form-input">
+                  <option value="">اختر</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label class="order-review-field">
+                <span>المصداقية</span>
+                <select id="review-credibility" class="form-input">
+                  <option value="">اختر</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+              <label class="order-review-field">
+                <span>الالتزام بالموعد</span>
+                <select id="review-on-time" class="form-input">
+                  <option value="">اختر</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4</option>
+                  <option value="5">5</option>
+                </select>
+              </label>
+            </div>
+            <label for="review-comment" class="order-form-label">تعليقك</label>
+            <textarea id="review-comment" class="form-textarea order-inline-textarea" rows="4" maxlength="500" placeholder="اكتب تعليقًا مختصرًا عن التجربة"></textarea>
+            <button type="submit" class="btn-primary" id="btn-submit-review">إرسال التقييم</button>
+          </form>
+        </section>
+
         <section class="order-detail-card order-logs-card">
           <h2>سجل الحالة</h2>
           <div id="order-status-logs" class="order-lines"></div>
@@ -81,6 +172,12 @@
           </div>
           <div id="order-offers-feedback" class="order-offers-feedback hidden"></div>
           <div id="order-offers" class="order-offers-list"></div>
+        </section>
+
+        <section id="order-actions-section" class="order-detail-card hidden">
+          <h2>إجراءات الطلب</h2>
+          <div id="order-action-feedback" class="order-offers-feedback hidden"></div>
+          <div id="order-actions-body" class="order-actions-body"></div>
         </section>
 
         <div class="order-bottom-actions">

@@ -5,19 +5,69 @@
 'use strict';
 
 const NotificationSettingsPage = (() => {
-  const TIER_ORDER = ['basic', 'pioneer', 'professional', 'extra'];
-  const TIER_LABELS = {
-    basic: 'الباقة الأساسية',
-    pioneer: 'الباقة الريادية',
-    professional: 'الباقة الاحترافية',
-    extra: 'الباقة المميزة',
+  const MODE_KEY = 'nw_account_mode';
+  const SECTION_CONFIG = {
+    basic: {
+      key: 'basic',
+      label: 'الباقة الأساسية',
+      mountId: 'notif-basic-section',
+      className: 'notif-tier-basic',
+      items: [
+        'new_request',
+        'request_status_change',
+        'urgent_request',
+        'report_status_change',
+        'new_chat_message',
+        'service_reply',
+        'platform_recommendations',
+      ],
+    },
+    pioneer: {
+      key: 'pioneer',
+      label: 'الباقة الريادية',
+      mountId: 'notif-leading-section',
+      className: 'notif-tier-pioneer',
+      items: [
+        'new_follow',
+        'new_comment_services',
+        'new_like_profile',
+        'new_like_services',
+        'competitive_offer_request',
+      ],
+    },
+    professional: {
+      key: 'professional',
+      label: 'الباقة الاحترافية',
+      mountId: 'notif-professional-section',
+      className: 'notif-tier-professional',
+      items: [
+        'positive_review',
+        'negative_review',
+        'new_provider_same_category',
+        'highlight_same_category',
+        'ads_and_offers',
+      ],
+    },
+    extra: {
+      key: 'extra',
+      label: 'تنبيهات الخدمات الإضافية',
+      mountId: 'notif-extra-section',
+      className: 'notif-tier-extra',
+      items: [
+        'new_payment',
+        'new_ad_visit',
+        'report_completed',
+        'verification_completed',
+        'paid_subscription_completed',
+        'customer_service_package_completed',
+        'finance_package_completed',
+        'scheduled_ticket_reminder',
+      ],
+      noteTitle: 'إدارة العملاء',
+      noteBody: 'مخصص للعملاء وخدمتهم المتكررة مثل الصيانة الدورية، ويشمل مواعيد ورسائل تنبيه.',
+    },
   };
-  const TIER_ICONS = {
-    basic: '⭐',
-    pioneer: '🚀',
-    professional: '✨',
-    extra: '💎',
-  };
+
   const TIER_ALIASES = {
     basic: 'basic',
     leading: 'pioneer',
@@ -29,6 +79,16 @@ const NotificationSettingsPage = (() => {
 
   let _prefs = [];
   const _savingKeys = new Set();
+
+  function _activeMode() {
+    try {
+      return (sessionStorage.getItem(MODE_KEY) || 'client').trim().toLowerCase() === 'provider'
+        ? 'provider'
+        : 'client';
+    } catch {
+      return 'client';
+    }
+  }
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -56,7 +116,7 @@ const NotificationSettingsPage = (() => {
   async function _load() {
     _setLoading(true);
     _setError('');
-    const res = await ApiClient.get('/api/notifications/preferences/');
+    const res = await ApiClient.get('/api/notifications/preferences/?mode=' + encodeURIComponent(_activeMode()));
     _setLoading(false);
 
     if (!res.ok || !res.data) {
@@ -87,14 +147,75 @@ const NotificationSettingsPage = (() => {
     errorEl.classList.remove('hidden');
   }
 
-  function _groupByTier() {
-    const grouped = {};
-    _prefs.forEach((pref) => {
-      const tier = _normalizeTier(pref);
-      if (!grouped[tier]) grouped[tier] = [];
-      grouped[tier].push(pref);
+  function _render() {
+    _renderStats();
+    _renderSections();
+    const list = document.getElementById('notif-settings-list');
+    if (list) list.classList.remove('hidden');
+  }
+
+  function _renderStats() {
+    const enabled = _prefs.filter((pref) => pref.enabled && !pref.locked).length;
+    const total = _prefs.length;
+    const enabledNode = document.getElementById('notif-settings-enabled-count');
+    const totalNode = document.getElementById('notif-settings-total-count');
+    if (enabledNode) enabledNode.textContent = '(' + String(enabled) + ')';
+    if (totalNode) totalNode.textContent = String(total) + ' تنبيه متاح';
+  }
+
+  function _renderSections() {
+    Object.values(SECTION_CONFIG).forEach((section) => {
+      const mount = document.getElementById(section.mountId);
+      if (!mount) return;
+      mount.innerHTML = '';
+      mount.appendChild(_buildSection(section));
     });
-    return grouped;
+  }
+
+  function _buildSection(section) {
+    const wrap = UI.el('section', {
+      className: 'notif-section-card ' + section.className,
+    });
+
+    const header = UI.el('header', { className: 'notif-section-header' });
+    header.appendChild(UI.el('h2', { className: 'notif-section-title', textContent: section.label }));
+    const prefs = _sectionPrefs(section);
+    wrap.appendChild(header);
+
+    const list = UI.el('div', { className: 'notif-toggle-list' });
+    if (!prefs.length) {
+      list.appendChild(UI.el('div', {
+        className: 'notif-empty-state',
+        textContent: 'لا توجد إعدادات متاحة في هذا القسم حاليًا',
+      }));
+    } else {
+      prefs.forEach((pref) => list.appendChild(_buildPrefRow(pref, section.key === 'extra')));
+    }
+    wrap.appendChild(list);
+
+    if (section.noteTitle && section.noteBody) {
+      const note = UI.el('div', { className: 'notif-extra-note' });
+      note.appendChild(UI.el('div', { className: 'notif-extra-note-arrow', textContent: '↓' }));
+      note.appendChild(UI.el('div', { className: 'notif-extra-note-title', textContent: section.noteTitle }));
+      note.appendChild(UI.el('p', { className: 'notif-extra-note-body', textContent: section.noteBody }));
+      wrap.appendChild(note);
+    }
+
+    return wrap;
+  }
+
+  function _sectionPrefs(section) {
+    const byKey = new Map(_prefs.map((pref) => [pref.key, pref]));
+    const ordered = section.items
+      .map((key) => byKey.get(key))
+      .filter(Boolean);
+
+    const fallback = _prefs.filter((pref) => (
+      _normalizeTier(pref) === section.key &&
+      !section.items.includes(pref.key)
+    ));
+
+    return ordered.concat(fallback);
   }
 
   function _normalizeTier(pref) {
@@ -102,93 +223,43 @@ const NotificationSettingsPage = (() => {
     return TIER_ALIASES[raw] || raw || 'basic';
   }
 
-  function _render() {
-    const list = document.getElementById('notif-settings-list');
-    if (!list) return;
-    list.innerHTML = '';
-
-    const grouped = _groupByTier();
-    const tiers = [
-      ...TIER_ORDER.filter((tier) => grouped[tier]),
-      ...Object.keys(grouped).filter((tier) => !TIER_ORDER.includes(tier)),
-    ];
-
-    if (!tiers.length) {
-      const empty = UI.el('div', { className: 'empty-hint' }, [
-        UI.el('p', { textContent: 'لا توجد إعدادات متاحة حالياً' }),
-      ]);
-      list.appendChild(empty);
-      list.classList.remove('hidden');
-      return;
-    }
-
-    tiers.forEach((tier) => {
-      list.appendChild(_buildTierCard(tier, grouped[tier]));
-    });
-
-    list.classList.remove('hidden');
-  }
-
-  function _buildTierCard(tier, prefs) {
-    const card = UI.el('article', { className: 'tier-card' });
-    const head = UI.el('header', { className: 'tier-head' });
-    const label = TIER_LABELS[tier] || tier;
-    const icon = TIER_ICONS[tier] || '🔔';
-
-    head.appendChild(UI.el('span', { className: 'tier-icon', textContent: icon }));
-    head.appendChild(UI.el('h2', { className: 'tier-title', textContent: label }));
-    head.appendChild(
-      UI.el('span', {
-        className: 'tier-count',
-        textContent: prefs.filter((p) => p.enabled && !p.locked).length + '/' + prefs.length,
-      }),
-    );
-    card.appendChild(head);
-
-    const body = UI.el('div', { className: 'tier-body' });
-    prefs.forEach((pref) => {
-      body.appendChild(_buildPrefRow(pref));
-    });
-    card.appendChild(body);
-
-    return card;
-  }
-
-  function _buildPrefRow(pref) {
+  function _buildPrefRow(pref, compact) {
     const row = UI.el('label', {
-      className: 'pref-row' + (pref.locked ? ' locked' : ''),
+      className: 'notif-pref-row' + (pref.locked ? ' locked' : '') + (_savingKeys.has(pref.key) ? ' saving' : '') + (compact ? ' compact' : ''),
     });
-
-    const info = UI.el('span', { className: 'pref-info' });
-    info.appendChild(UI.el('span', { className: 'pref-title', textContent: pref.title || pref.key }));
-    if (pref.locked) {
-      info.appendChild(UI.el('span', { className: 'pref-subtitle', textContent: 'يتطلب ترقية الباقة' }));
+    if (pref.locked && pref.locked_reason) {
+      row.title = pref.locked_reason;
     }
-    row.appendChild(info);
 
-    const controlWrap = UI.el('span', { className: 'pref-control' });
+    const title = UI.el('span', { className: 'notif-pref-title', textContent: pref.title || pref.key });
+    row.appendChild(title);
+
+    const control = UI.el('span', { className: 'notif-pref-control' });
     if (pref.locked) {
-      controlWrap.appendChild(UI.el('span', { className: 'pref-lock', textContent: '🔒' }));
+      control.appendChild(UI.el('span', { className: 'notif-pref-lock', textContent: 'مقفل' }));
     } else if (_savingKeys.has(pref.key)) {
-      controlWrap.appendChild(UI.el('span', { className: 'spinner-inline pref-spinner' }));
+      control.appendChild(UI.el('span', { className: 'spinner-inline pref-spinner' }));
     } else {
       const input = UI.el('input', {
         type: 'checkbox',
-        className: 'pref-switch',
+        className: 'notif-pref-switch',
+        'aria-label': pref.title || pref.key,
       });
       input.checked = !!pref.enabled;
-      input.addEventListener('change', (e) => {
-        e.preventDefault();
+      input.addEventListener('change', (event) => {
+        event.preventDefault();
         _toggle(pref, input.checked);
       });
-      controlWrap.appendChild(input);
+      control.appendChild(input);
+      control.appendChild(UI.el('span', { className: 'notif-pref-slider' }));
     }
-    row.appendChild(controlWrap);
+
+    row.appendChild(control);
 
     if (pref.locked) {
-      row.addEventListener('click', (e) => {
-        e.preventDefault();
-        _showUpgradeDialog();
+      row.addEventListener('click', (event) => {
+        event.preventDefault();
+        _showUpgradeDialog(pref.locked_reason);
       });
     }
 
@@ -197,14 +268,14 @@ const NotificationSettingsPage = (() => {
 
   async function _toggle(pref, enabled) {
     if (pref.locked || _savingKeys.has(pref.key)) {
-      if (pref.locked) _showUpgradeDialog();
+      if (pref.locked) _showUpgradeDialog(pref.locked_reason);
       return;
     }
 
     _savingKeys.add(pref.key);
     _render();
 
-    const res = await ApiClient.request('/api/notifications/preferences/', {
+    const res = await ApiClient.request('/api/notifications/preferences/?mode=' + encodeURIComponent(_activeMode()), {
       method: 'PATCH',
       body: { updates: [{ key: pref.key, enabled }] },
     });
@@ -217,16 +288,20 @@ const NotificationSettingsPage = (() => {
       return;
     }
 
-    _prefs = _prefs.map((p) => (
-      p.key === pref.key
-        ? { ...p, enabled: enabled }
-        : p
-    ));
+    if (res.data && Array.isArray(res.data.results)) {
+      _prefs = res.data.results;
+    } else {
+      _prefs = _prefs.map((item) => (
+        item.key === pref.key
+          ? { ...item, enabled }
+          : item
+      ));
+    }
     _render();
   }
 
-  function _showUpgradeDialog() {
-    alert('هذه الإشعارات تتطلب ترقية الباقة.');
+  function _showUpgradeDialog(reason) {
+    alert(reason || 'هذه الإشعارات غير متاحة في اشتراكك الحالي.');
   }
 
   if (document.readyState === 'loading') {

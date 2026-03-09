@@ -77,26 +77,37 @@ class NotificationTier(models.TextChoices):
 
 
 class NotificationPreference(models.Model):
+	class AudienceMode(models.TextChoices):
+		CLIENT = "client", "عميل"
+		PROVIDER = "provider", "مزود"
+		SHARED = "shared", "مشترك"
+
 	user = models.ForeignKey(
 		settings.AUTH_USER_MODEL,
 		on_delete=models.CASCADE,
 		related_name="notification_preferences",
 	)
 	key = models.CharField(max_length=80)
+	audience_mode = models.CharField(
+		max_length=20,
+		choices=AudienceMode.choices,
+		default=AudienceMode.SHARED,
+		db_index=True,
+	)
 	enabled = models.BooleanField(default=True)
 	tier = models.CharField(max_length=20, choices=NotificationTier.choices)
 	created_at = models.DateTimeField(default=timezone.now)
 	updated_at = models.DateTimeField(auto_now=True)
 
 	class Meta:
-		unique_together = ("user", "key")
+		unique_together = ("user", "key", "audience_mode")
 		indexes = [
-			models.Index(fields=["user", "tier"]),
-			models.Index(fields=["user", "key"]),
+			models.Index(fields=["user", "tier", "audience_mode"]),
+			models.Index(fields=["user", "key", "audience_mode"]),
 		]
 
 	def __str__(self):
-		return f"{self.user_id}: {self.key}={self.enabled}"
+		return f"{self.user_id}: {self.key}@{self.audience_mode}={self.enabled}"
 
 
 class DeviceToken(models.Model):

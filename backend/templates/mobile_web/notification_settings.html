@@ -16,16 +16,26 @@
     </div>
 
     <div id="notif-settings-content" class="hidden">
-      <div class="page-header">
-        <h1>إعدادات الإشعارات</h1>
-      </div>
+      <section class="notif-settings-heading">
+        <div class="notif-settings-heading-copy">
+          <h1>قائمة التنبيهات <span id="notif-settings-enabled-count">(0)</span></h1>
+          <p id="notif-settings-total-count" class="notif-settings-heading-meta">0 تنبيه متاح</p>
+        </div>
+      </section>
 
       <div id="notif-settings-loading" class="text-center">
         <span class="spinner-inline"></span>
       </div>
 
       <div id="notif-settings-error" class="form-error hidden"></div>
-      <div id="notif-settings-list" class="tier-cards hidden"></div>
+      <div id="notif-settings-list" class="notif-settings-layout hidden">
+        <section class="notif-settings-main">
+          <div id="notif-basic-section" class="notif-tier-panel" data-tier-label="الباقة الأساسية"></div>
+          <div id="notif-leading-section" class="notif-tier-panel" data-tier-label="الباقة الريادية"></div>
+          <div id="notif-professional-section" class="notif-tier-panel" data-tier-label="الباقة الاحترافية"></div>
+        </section>
+        <aside id="notif-extra-section" class="notif-extra-panel" data-tier-label="تنبيهات الخدمات الإضافية"></aside>
+      </div>
     </div>
   </div>
 </main>

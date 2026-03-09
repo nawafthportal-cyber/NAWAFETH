@@ -26,7 +26,7 @@ class _NotificationSettingsScreenState
     'basic': 'الباقة الأساسية',
     'pioneer': 'الباقة الريادية',
     'professional': 'الباقة الاحترافية',
-    'extra': 'الباقة المميزة',
+    'extra': 'تنبيهات الخدمات الإضافية',
   };
 
   static const _tierIcons = {
@@ -74,7 +74,7 @@ class _NotificationSettingsScreenState
   // ─── تحديث تفضيل واحد ───
   Future<void> _togglePreference(NotificationPreference pref, bool newVal) async {
     if (pref.locked) {
-      _showUpgradeDialog();
+      _showLockedDialog(pref.lockedReason);
       return;
     }
 
@@ -88,13 +88,16 @@ class _NotificationSettingsScreenState
     setState(() => _savingKeys.remove(pref.key));
 
     if (result.success) {
-      // تحديث القيمة محلياً
       setState(() {
-        final idx = _preferences.indexWhere((p) => p.key == pref.key);
-        if (idx >= 0) {
-          _preferences[idx] = pref.copyWith(enabled: newVal);
+        if (result.preferences.isNotEmpty) {
+          _preferences = result.preferences;
+        } else {
+          final idx = _preferences.indexWhere((p) => p.key == pref.key);
+          if (idx >= 0) {
+            _preferences[idx] = pref.copyWith(enabled: newVal);
+          }
         }
-      });
+      }); 
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -133,7 +136,10 @@ class _NotificationSettingsScreenState
           ),
         ),
         subtitle: pref.locked
-            ? const Text("يتطلب ترقية الباقة", style: TextStyle(fontFamily: "Cairo", fontSize: 11, color: Colors.orange))
+            ? Text(
+                pref.lockedReason.isNotEmpty ? pref.lockedReason : "غير متاح في الاشتراك الحالي",
+                style: const TextStyle(fontFamily: "Cairo", fontSize: 11, color: Colors.orange),
+              )
             : null,
         secondary: isSaving
             ? const SizedBox(
@@ -146,7 +152,7 @@ class _NotificationSettingsScreenState
                 : null,
         value: pref.enabled,
         onChanged: pref.locked
-            ? (_) => _showUpgradeDialog()
+            ? (_) => _showLockedDialog(pref.lockedReason)
             : isSaving
                 ? null
                 : (val) => _togglePreference(pref, val),
@@ -207,7 +213,10 @@ class _NotificationSettingsScreenState
   }
 
   // ─── Dialog ترقية ───
-  void _showUpgradeDialog() {
+  void _showLockedDialog(String reason) {
+    final message = reason.isNotEmpty
+        ? reason
+        : "هذه الإشعارات غير متاحة في اشتراكك الحالي.";
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -220,7 +229,7 @@ class _NotificationSettingsScreenState
               const Icon(Icons.auto_awesome, color: Colors.deepPurple, size: 50),
               const SizedBox(height: 12),
               const Text(
-                "ترقية الباقة",
+                "سبب عدم الإتاحة",
                 style: TextStyle(
                   fontFamily: "Cairo",
                   fontWeight: FontWeight.bold,
@@ -229,10 +238,10 @@ class _NotificationSettingsScreenState
                 ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                "للاستفادة من هذه الإشعارات يجب ترقية باقتك الحالية.",
+              Text(
+                message,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: "Cairo",
                   fontSize: 14,
                   color: Colors.black87,
@@ -249,15 +258,15 @@ class _NotificationSettingsScreenState
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // TODO: الانتقال لصفحة الباقات
-                      },
-                      child: const Text(
-                        "ترقية الآن",
-                        style: TextStyle(fontFamily: "Cairo", fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          // TODO: فتح الوجهة المناسبة حسب سبب القفل (الباقات/الإضافات)
+                        },
+                        child: const Text(
+                          "حسنًا",
+                          style: TextStyle(fontFamily: "Cairo", fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
                       ),
-                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -269,7 +278,7 @@ class _NotificationSettingsScreenState
                       ),
                       onPressed: () => Navigator.pop(context),
                       child: const Text(
-                        "إلغاء",
+                        "إغلاق",
                         style: TextStyle(fontFamily: "Cairo", fontSize: 14, color: Colors.deepPurple),
                       ),
                     ),

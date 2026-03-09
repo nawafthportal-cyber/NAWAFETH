@@ -1,11 +1,35 @@
+from datetime import timedelta
+
 import pytest
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
+from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus, ExtraType
+from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
 from apps.providers.models import Category, SubCategory, ProviderProfile, ProviderCategory
 from apps.marketplace.models import ServiceRequest, RequestType, RequestStatus, Offer, RequestStatusLog
 from apps.messaging.models import Thread, Message
-from apps.notifications.models import Notification
+from apps.notifications.models import Notification, NotificationPreference
+from apps.notifications.services import create_notification
+from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
+
+
+def _active_subscription(*, user, tier="basic", code="BASIC_TEST", notifications_enabled=True, promo_notifications=False):
+    plan = SubscriptionPlan.objects.create(
+        code=code,
+        tier=tier,
+        title=code,
+        period=PlanPeriod.MONTH,
+        price="0.00",
+        notifications_enabled=notifications_enabled,
+        promotional_notification_messages_enabled=promo_notifications,
+    )
+    return Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+    )
 
 
 @pytest.mark.django_db
@@ -86,6 +110,204 @@ def test_notification_preferences_api_exposes_canonical_tier_compatibly():
     rows = response.data["results"]
     assert any(row["tier"] == "leading" and row["canonical_tier"] == "pioneer" for row in rows)
     assert any(row["tier"] == "professional" and row["canonical_tier"] == "professional" for row in rows)
+
+
+@pytest.mark.django_db
+def test_notification_preferences_are_filtered_by_requested_mode():
+    user = User.objects.create_user(phone="0509000013", role_state=UserRole.CLIENT)
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    provider_response = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert provider_response.status_code == 200
+    provider_rows = provider_response.data["results"]
+    provider_keys = {row["key"] for row in provider_rows}
+    provider_modes = {row["key"]: row["audience_mode"] for row in provider_rows}
+
+    assert len(provider_rows) == len(provider_keys)
+    assert "new_request" in provider_keys
+    assert "new_follow" in provider_keys
+    assert "new_chat_message" in provider_keys
+    assert provider_modes["new_request"] == "provider"
+    assert provider_modes["new_chat_message"] == "provider"
+
+    client_response = api.get("/api/notifications/preferences/", {"mode": "client"})
+    assert client_response.status_code == 200
+    client_rows = client_response.data["results"]
+    client_keys = {row["key"] for row in client_rows}
+    client_modes = {row["key"]: row["audience_mode"] for row in client_rows}
+
+    assert len(client_rows) == len(client_keys)
+    assert "new_request" not in client_keys
+    assert "new_follow" not in client_keys
+    assert "new_chat_message" in client_keys
+    assert client_modes["new_chat_message"] == "client"
+    assert all(row["key"] != "promo_status_change" for row in client_rows)
+
+
+@pytest.mark.django_db
+def test_notification_preferences_patch_isolated_per_mode():
+    user = User.objects.create_user(phone="0509000014", role_state=UserRole.CLIENT)
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود/عميل",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    initial_provider = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert initial_provider.status_code == 200
+    assert any(row["key"] == "new_chat_message" and row["enabled"] is True for row in initial_provider.data["results"])
+
+    patch_response = api.patch(
+        "/api/notifications/preferences/?mode=provider",
+        {"updates": [{"key": "new_chat_message", "enabled": False}]},
+        format="json",
+    )
+    assert patch_response.status_code == 200
+    assert patch_response.data["changed"] == 1
+
+    provider_pref = NotificationPreference.objects.get(
+        user=user,
+        key="new_chat_message",
+        audience_mode="provider",
+    )
+    shared_pref = NotificationPreference.objects.get(
+        user=user,
+        key="new_chat_message",
+        audience_mode="shared",
+    )
+
+    assert provider_pref.enabled is False
+    assert shared_pref.enabled is True
+
+    client_response = api.get("/api/notifications/preferences/", {"mode": "client"})
+    assert client_response.status_code == 200
+    client_row = next(row for row in client_response.data["results"] if row["key"] == "new_chat_message")
+    assert client_row["enabled"] is True
+    assert client_row["audience_mode"] == "client"
+
+    client_pref = NotificationPreference.objects.get(
+        user=user,
+        key="new_chat_message",
+        audience_mode="client",
+    )
+    assert client_pref.enabled is True
+
+
+@pytest.mark.django_db
+def test_notification_preferences_respect_subscription_notification_flag():
+    user = User.objects.create_user(phone="0509000015", role_state=UserRole.PROVIDER)
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    _active_subscription(
+        user=user,
+        tier="pro",
+        code="PRO_NOTIFS_OFF",
+        notifications_enabled=False,
+        promo_notifications=True,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    response = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert response.status_code == 200
+    rows = response.data["results"]
+    new_request = next(row for row in rows if row["key"] == "new_request")
+    ads_and_offers = next(row for row in rows if row["key"] == "ads_and_offers")
+
+    assert new_request["locked"] is True
+    assert "معطلة" in new_request["locked_reason"]
+    assert ads_and_offers["locked"] is True
+
+    created = create_notification(
+        user=user,
+        title="طلب جديد",
+        body="تفاصيل",
+        kind="request_created",
+        pref_key="new_request",
+        audience_mode="provider",
+    )
+    assert created is None
+
+
+@pytest.mark.django_db
+def test_notification_preferences_respect_promotional_capability_and_extras_entitlements():
+    user = User.objects.create_user(phone="0509000016", role_state=UserRole.PROVIDER)
+    provider = ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود متقدم",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    _active_subscription(
+        user=user,
+        tier="pro",
+        code="PRO_NO_PROMO_NOTIFS",
+        notifications_enabled=True,
+        promo_notifications=False,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    initial = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert initial.status_code == 200
+    initial_rows = initial.data["results"]
+
+    ads_and_offers = next(row for row in initial_rows if row["key"] == "ads_and_offers")
+    new_ad_visit = next(row for row in initial_rows if row["key"] == "new_ad_visit")
+    finance_package = next(row for row in initial_rows if row["key"] == "finance_package_completed")
+
+    assert ads_and_offers["locked"] is True
+    assert "الدعائية" in ads_and_offers["locked_reason"]
+    assert new_ad_visit["locked"] is True
+    assert "ترويج" in new_ad_visit["locked_reason"]
+    assert finance_package["locked"] is True
+    assert "الإدارة المالية" in finance_package["locked_reason"]
+
+    ExtraPurchase.objects.create(
+        user=user,
+        sku="promo_boost_7d",
+        title="Boost",
+        extra_type=ExtraType.TIME_BASED,
+        status=ExtraPurchaseStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=7),
+    )
+    ExtrasPortalSubscription.objects.create(
+        provider=provider,
+        status=ExtrasPortalSubscriptionStatus.ACTIVE,
+        plan_title="بوابة الخدمات الإضافية",
+    )
+
+    updated = api.get("/api/notifications/preferences/", {"mode": "provider"})
+    assert updated.status_code == 200
+    updated_rows = updated.data["results"]
+
+    updated_new_ad_visit = next(row for row in updated_rows if row["key"] == "new_ad_visit")
+    updated_finance_package = next(row for row in updated_rows if row["key"] == "finance_package_completed")
+
+    assert updated_new_ad_visit["locked"] is False
+    assert updated_finance_package["locked"] is False
 
 
 @pytest.mark.django_db

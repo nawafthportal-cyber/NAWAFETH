@@ -88,6 +88,7 @@ class NotificationPreference {
   final bool enabled;
   final String tier; // basic, pioneer, professional, extra
   final bool locked;
+  final String lockedReason;
   final DateTime? updatedAt;
 
   NotificationPreference({
@@ -96,6 +97,7 @@ class NotificationPreference {
     required this.enabled,
     required this.tier,
     required this.locked,
+    required this.lockedReason,
     this.updatedAt,
   });
 
@@ -106,17 +108,19 @@ class NotificationPreference {
       enabled: json['enabled'] as bool? ?? true,
       tier: _normalizeNotificationTier(json['canonical_tier'] ?? json['tier']),
       locked: json['locked'] as bool? ?? false,
+      lockedReason: json['locked_reason'] as String? ?? '',
       updatedAt: DateTime.tryParse(json['updated_at'] ?? ''),
     );
   }
 
-  NotificationPreference copyWith({bool? enabled}) {
+  NotificationPreference copyWith({bool? enabled, bool? locked, String? lockedReason}) {
     return NotificationPreference(
       key: key,
       title: title,
       enabled: enabled ?? this.enabled,
       tier: tier,
-      locked: locked,
+      locked: locked ?? this.locked,
+      lockedReason: lockedReason ?? this.lockedReason,
       updatedAt: updatedAt,
     );
   }
