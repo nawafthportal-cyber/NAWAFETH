@@ -27,7 +27,7 @@ from django.views.decorators.http import require_POST
 from apps.marketplace.models import ServiceRequest
 from apps.marketplace.services.actions import allowed_actions, execute_action
 from apps.providers.models import ProviderProfile, ProviderService, Category, SubCategory
-from apps.providers.models import ProviderPortfolioItem
+from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 from apps.accounts.models import User
 from apps.core.models import PlatformConfig
 from apps.messaging.models import Message
@@ -1177,9 +1177,23 @@ def provider_detail(request: HttpRequest, provider_id: int) -> HttpResponse:
         .order_by("-updated_at")
     )
 
+    portfolio_items = (
+        ProviderPortfolioItem.objects
+        .filter(provider_id=provider_id)
+        .order_by("-created_at")
+    )
+
+    spotlight_items = (
+        ProviderSpotlightItem.objects
+        .filter(provider_id=provider_id)
+        .order_by("-created_at")
+    )
+
     ctx = {
         "provider": provider,
         "services": list(services),
+        "portfolio_items": list(portfolio_items),
+        "spotlight_items": list(spotlight_items),
     }
     return render(request, "dashboard/provider_detail.html", ctx)
 

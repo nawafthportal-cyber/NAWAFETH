@@ -82,6 +82,26 @@
         {% endif %}
 
         {% if can_content %}
+        <a href="{% url 'dashboard:portfolio_moderation_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'portfolio_moderation_list' %}bg-gradient-to-r from-pink-50 to-rose-50{% else %}hover:bg-gradient-to-r hover:from-pink-50 hover:to-rose-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            🖼️
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'portfolio_moderation_list' %}text-pink-700{% else %}text-gray-700 group-hover:text-pink-700{% endif %}">معرض الأعمال</span>
+        </a>
+        {% endif %}
+
+        {% if can_content %}
+        <a href="{% url 'dashboard:spotlight_moderation_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'spotlight_moderation_list' %}bg-gradient-to-r from-amber-50 to-yellow-50{% else %}hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+            ✨
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'spotlight_moderation_list' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">الأضواء</span>
+        </a>
+        {% endif %}
+
+        {% if can_content %}
         <a href="{% url 'dashboard:reviews_dashboard_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'reviews_dashboard_list' or request.resolver_match.url_name == 'reviews_dashboard_detail' %}bg-gradient-to-r from-fuchsia-50 to-purple-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-purple-50{% endif %}">
           <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">

@@ -12,6 +12,7 @@ from apps.audit.models import AuditAction
 from apps.audit.services import log_action
 from apps.content.models import ContentBlockKey, LegalDocumentType, SiteContentBlock, SiteLegalDocument, SiteLinks
 from apps.content.services import sanitize_multiline_text, sanitize_text
+from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 
 from .auth import dashboard_staff_required as staff_member_required
 from .views import _dashboard_allowed, dashboard_access_required
@@ -317,3 +318,117 @@ def content_links_update_action(request):
     )
     messages.success(request, "تم تحديث روابط المنصة")
     return redirect("dashboard:content_management")
+
+
+# ── Portfolio & Spotlight Moderation ──
+
+@staff_member_required
+@dashboard_access_required("content")
+def portfolio_moderation_list(request):
+    """Dashboard view for browsing all provider portfolio items."""
+    from django.core.paginator import Paginator
+
+    qs = (
+        ProviderPortfolioItem.objects
+        .select_related("provider", "provider__user")
+        .order_by("-created_at")
+    )
+
+    provider_q = request.GET.get("provider", "").strip()
+    file_type = request.GET.get("file_type", "").strip()
+    if provider_q:
+        qs = qs.filter(provider__display_name__icontains=provider_q)
+    if file_type in ("image", "video"):
+        qs = qs.filter(file_type=file_type)
+
+    paginator = Paginator(qs, 40)
+    page = paginator.get_page(request.GET.get("page", 1))
+    can_write = _dashboard_allowed(request.user, "content", write=True)
+
+    return render(request, "dashboard/portfolio_moderation_list.html", {
+        "page": page,
+        "provider_q": provider_q,
+        "file_type": file_type,
+        "can_write": can_write,
+    })
+
+
+@require_POST
+@staff_member_required
+@dashboard_access_required("content", write=True)
+def portfolio_item_delete_action(request, item_id: int):
+    """Delete a portfolio item (content moderation)."""
+    item = get_object_or_404(ProviderPortfolioItem, id=item_id)
+    provider_id = item.provider_id
+    log_action(
+        actor=request.user,
+        request=request,
+        action=AuditAction.CONTENT_BLOCK_UPDATED,
+        reference_type="providers.provider_portfolio_item",
+        reference_id=str(item.id),
+        extra={
+            "action": "delete",
+            "provider_id": provider_id,
+            "file_type": item.file_type,
+            "caption": item.caption,
+        },
+    )
+    item.delete()
+    messages.success(request, "تم حذف العنصر من معرض الأعمال")
+    return redirect("dashboard:portfolio_moderation_list")
+
+
+@staff_member_required
+@dashboard_access_required("content")
+def spotlight_moderation_list(request):
+    """Dashboard view for browsing all provider spotlight items."""
+    from django.core.paginator import Paginator
+
+    qs = (
+        ProviderSpotlightItem.objects
+        .select_related("provider", "provider__user")
+        .order_by("-created_at")
+    )
+
+    provider_q = request.GET.get("provider", "").strip()
+    file_type = request.GET.get("file_type", "").strip()
+    if provider_q:
+        qs = qs.filter(provider__display_name__icontains=provider_q)
+    if file_type in ("image", "video"):
+        qs = qs.filter(file_type=file_type)
+
+    paginator = Paginator(qs, 40)
+    page = paginator.get_page(request.GET.get("page", 1))
+    can_write = _dashboard_allowed(request.user, "content", write=True)
+
+    return render(request, "dashboard/spotlight_moderation_list.html", {
+        "page": page,
+        "provider_q": provider_q,
+        "file_type": file_type,
+        "can_write": can_write,
+    })
+
+
+@require_POST
+@staff_member_required
+@dashboard_access_required("content", write=True)
+def spotlight_item_delete_action(request, item_id: int):
+    """Delete a spotlight item (content moderation)."""
+    item = get_object_or_404(ProviderSpotlightItem, id=item_id)
+    provider_id = item.provider_id
+    log_action(
+        actor=request.user,
+        request=request,
+        action=AuditAction.CONTENT_BLOCK_UPDATED,
+        reference_type="providers.provider_spotlight_item",
+        reference_id=str(item.id),
+        extra={
+            "action": "delete",
+            "provider_id": provider_id,
+            "file_type": item.file_type,
+            "caption": item.caption,
+        },
+    )
+    item.delete()
+    messages.success(request, "تم حذف عنصر الأضواء")
+    return redirect("dashboard:spotlight_moderation_list")

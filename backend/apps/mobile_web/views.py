@@ -169,3 +169,11 @@ class MobileWebProviderPortfolioView(TemplateView):
 
 class MobileWebProfileCompletionView(TemplateView):
     template_name = "mobile_web/profile_completion.html"
+
+
+class MobileWebProvidersMapView(TemplateView):
+    template_name = "mobile_web/providers_map.html"
+
+
+class MobileWebSearchProvidersView(TemplateView):
+    template_name = "mobile_web/search_providers.html"

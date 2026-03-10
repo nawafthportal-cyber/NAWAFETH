@@ -151,4 +151,76 @@
       {{ provider.bio|default:"—" }}
     </div>
   </div>
+
+  {# ── معرض الأعمال (Portfolio) ── #}
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mt-8">
+    <div class="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white text-lg">🖼️</div>
+      <h2 class="font-bold text-lg text-gray-800">معرض الأعمال</h2>
+      <span class="px-3 py-1 rounded-full bg-pink-100 text-pink-700 text-xs font-bold">{{ portfolio_items|length }}</span>
+    </div>
+    {% if portfolio_items %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+        {% for item in portfolio_items %}
+          <div class="group relative rounded-xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all">
+            {% if item.file_type == "image" %}
+              <img class="w-full h-40 object-cover" src="{{ item.file.url }}" alt="{{ item.caption|default:'portfolio' }}" loading="lazy">
+            {% else %}
+              <div class="w-full h-40 bg-gray-900 flex items-center justify-center">
+                <span class="text-4xl">🎬</span>
+              </div>
+            {% endif %}
+            <div class="p-3">
+              <div class="text-xs text-gray-500">{{ item.created_at|date:"Y-m-d" }}</div>
+              {% if item.caption %}
+                <div class="text-sm text-gray-700 mt-1 truncate">{{ item.caption }}</div>
+              {% endif %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full {% if item.file_type == 'image' %}bg-blue-100 text-blue-700{% else %}bg-purple-100 text-purple-700{% endif %} text-xs mt-1">{{ item.get_file_type_display }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="p-12 text-gray-400 text-center">
+        <span class="text-4xl block mb-2">🖼️</span>
+        <span>لا توجد عناصر في معرض الأعمال.</span>
+      </div>
+    {% endif %}
+  </div>
+
+  {# ── الأضواء (Spotlights) ── #}
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mt-8 mb-8">
+    <div class="px-6 py-5 bg-gradient-to-r from-gray-50 to-white border-b border-gray-100 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-white text-lg">✨</div>
+      <h2 class="font-bold text-lg text-gray-800">الأضواء (Spotlights)</h2>
+      <span class="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{{ spotlight_items|length }}</span>
+    </div>
+    {% if spotlight_items %}
+      <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+        {% for item in spotlight_items %}
+          <div class="group relative rounded-xl overflow-hidden border border-gray-200 hover:shadow-lg transition-all">
+            {% if item.file_type == "image" %}
+              <img class="w-full h-40 object-cover" src="{{ item.file.url }}" alt="{{ item.caption|default:'spotlight' }}" loading="lazy">
+            {% else %}
+              <div class="w-full h-40 bg-gray-900 flex items-center justify-center">
+                <span class="text-4xl">🎬</span>
+              </div>
+            {% endif %}
+            <div class="p-3">
+              <div class="text-xs text-gray-500">{{ item.created_at|date:"Y-m-d" }}</div>
+              {% if item.caption %}
+                <div class="text-sm text-gray-700 mt-1 truncate">{{ item.caption }}</div>
+              {% endif %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full {% if item.file_type == 'image' %}bg-blue-100 text-blue-700{% else %}bg-purple-100 text-purple-700{% endif %} text-xs mt-1">{{ item.get_file_type_display }}</span>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="p-12 text-gray-400 text-center">
+        <span class="text-4xl block mb-2">✨</span>
+        <span>لا توجد عناصر أضواء.</span>
+      </div>
+    {% endif %}
+  </div>
 {% endblock %}

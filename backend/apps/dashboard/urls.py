@@ -20,6 +20,12 @@ urlpatterns = [
     path("content/docs/<str:doc_type>/upload/", content_views.content_doc_upload_action, name="content_doc_upload_action"),
     path("content/links/update/", content_views.content_links_update_action, name="content_links_update_action"),
 
+    # ── Content Moderation: Portfolio & Spotlights ──
+    path("content/portfolio/", content_views.portfolio_moderation_list, name="portfolio_moderation_list"),
+    path("content/portfolio/<int:item_id>/actions/delete/", content_views.portfolio_item_delete_action, name="portfolio_item_delete_action"),
+    path("content/spotlights/", content_views.spotlight_moderation_list, name="spotlight_moderation_list"),
+    path("content/spotlights/<int:item_id>/actions/delete/", content_views.spotlight_item_delete_action, name="spotlight_item_delete_action"),
+
     path("reviews/", reviews_views.reviews_dashboard_list, name="reviews_dashboard_list"),
     path("reviews/<int:review_id>/", reviews_views.reviews_dashboard_detail, name="reviews_dashboard_detail"),
     path("reviews/<int:review_id>/actions/moderate/", reviews_views.reviews_dashboard_moderate_action, name="reviews_dashboard_moderate_action"),

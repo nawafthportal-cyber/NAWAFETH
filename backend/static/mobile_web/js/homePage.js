@@ -4,7 +4,8 @@
    Fetches same API endpoints:
      • GET /api/providers/categories/
      • GET /api/providers/list/?page_size=10
-     • GET /api/promo/banners/home/?limit=6
+     • GET /api/promo/banners/home/?limit=10
+     • GET /api/promo/home-carousel/?limit=10
      • GET /api/providers/spotlights/feed/?limit=16
    SWR caching, auto-scroll reels, SpotlightViewer on tap.
    =================================================================== */
@@ -115,6 +116,46 @@ const HomePage = (() => {
     return any;
   }
 
+  function _readBannerString(value) {
+    if (value == null) return '';
+    return String(value).trim();
+  }
+
+  function _readBannerInt(value) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function _normalizeBanner(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const mediaUrl = _readBannerString(raw.media_url || raw.file_url);
+    if (!mediaUrl) return null;
+    return {
+      id: _readBannerInt(raw.id),
+      title: _readBannerString(raw.title || raw.caption),
+      media_type: (_readBannerString(raw.media_type || raw.file_type) || 'image').toLowerCase(),
+      media_url: mediaUrl,
+      link_url: _readBannerString(raw.link_url || raw.redirect_url),
+      provider_id: _readBannerInt(raw.provider_id),
+      provider_display_name: _readBannerString(raw.provider_display_name),
+      display_order: _readBannerInt(raw.display_order),
+    };
+  }
+
+  function _parseBannerList(data) {
+    const list = Array.isArray(data)
+      ? data
+      : (data && Array.isArray(data.results) ? data.results : []);
+    return list.map(_normalizeBanner).filter(Boolean);
+  }
+
+  function _mergeBannerLists(primaryBanners, fallbackBanners, limit = 10) {
+    const cappedPrimary = primaryBanners.slice(0, limit);
+    const remaining = Math.max(0, limit - cappedPrimary.length);
+    if (!remaining) return cappedPrimary;
+    return cappedPrimary.concat(fallbackBanners.slice(0, remaining));
+  }
+
   /* ----------------------------------------------------------
      LOAD DATA (parallel API calls — same as Flutter)
   ---------------------------------------------------------- */
@@ -122,10 +163,11 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, bansRes, reelsRes, featuredRes, popupRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, popupRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
+      ApiClient.get('/api/promo/banners/home/?limit=10'),
       ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
       ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
@@ -169,12 +211,18 @@ const HomePage = (() => {
     }
 
     // Banners
-    if (bansRes.status === 'fulfilled' && bansRes.value.ok && bansRes.value.data) {
-      const list = Array.isArray(bansRes.value.data)
-        ? bansRes.value.data
-        : [];
-      NwCache.set(CACHE_BANNERS, list, TTL);
-      _renderBanners(list);
+    const promoBanners = (promoBansRes.status === 'fulfilled' && promoBansRes.value.ok && promoBansRes.value.data)
+      ? _parseBannerList(promoBansRes.value.data)
+      : [];
+    const carouselBanners = (carouselRes.status === 'fulfilled' && carouselRes.value.ok && carouselRes.value.data)
+      ? _parseBannerList(carouselRes.value.data)
+      : [];
+    const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
+    if (mergedBanners.length) {
+      NwCache.set(CACHE_BANNERS, mergedBanners, TTL);
+      _renderBanners(mergedBanners);
+    } else if (!NwCache.get(CACHE_BANNERS)) {
+      _renderBanners([]);
     }
 
     // Spotlights (reels)
@@ -212,7 +260,7 @@ const HomePage = (() => {
     }
 
     // Offline detection
-    const allFailed = [contentRes, catsRes, provsRes, bansRes, reelsRes].every(
+    const allFailed = [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes].every(
       r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)
     );
     if (allFailed && !navigator.onLine) _setOffline(true);
@@ -444,6 +492,10 @@ const HomePage = (() => {
       if ($carouselPrev) $carouselPrev.style.display = 'none';
       if ($carouselNext) $carouselNext.style.display = 'none';
       if ($carouselDots) $carouselDots.style.display = 'none';
+    } else {
+      if ($carouselPrev) $carouselPrev.style.display = '';
+      if ($carouselNext) $carouselNext.style.display = '';
+      if ($carouselDots) $carouselDots.style.display = '';
     }
 
     // Swipe support

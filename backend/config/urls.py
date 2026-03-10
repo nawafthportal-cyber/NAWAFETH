@@ -63,6 +63,8 @@ from apps.mobile_web.views import (
     MobileWebProviderProfileEditView,
     MobileWebProviderPortfolioView,
     MobileWebProfileCompletionView,
+    MobileWebProvidersMapView,
+    MobileWebSearchProvidersView,
 )
 
 admin.site.site_header = _("إدارة منصة نوافذ")
@@ -163,6 +165,8 @@ urlpatterns = [
     path("provider-profile-edit/", MobileWebProviderProfileEditView.as_view(), name="provider_profile_edit"),
     path("provider-portfolio/", MobileWebProviderPortfolioView.as_view(), name="provider_portfolio"),
     path("profile-completion/", MobileWebProfileCompletionView.as_view(), name="profile_completion"),
+    path("providers-map/", MobileWebProvidersMapView.as_view(), name="providers_map"),
+    path("search-providers/", MobileWebSearchProvidersView.as_view(), name="search_providers"),
 ]
 
 if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
