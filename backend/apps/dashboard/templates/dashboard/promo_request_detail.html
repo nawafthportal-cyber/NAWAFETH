@@ -180,11 +180,25 @@
 
         <div class="mt-4">
           <div class="font-semibold text-sm mb-2">المرفقات</div>
-          <div class="space-y-2">
+          <div class="space-y-3">
             {% for asset in item.assets.all %}
               <div class="rounded-lg bg-white p-3 text-sm">
-                <div class="font-semibold">{{ asset.get_asset_type_display }} - {{ asset.title|default:"—" }}</div>
-                <div class="text-gray-500 mt-1">{{ asset.uploaded_at|date:"Y-m-d H:i" }}</div>
+                <div class="font-semibold mb-2">{{ asset.get_asset_type_display }} - {{ asset.title|default:"—" }}</div>
+                {% if asset.file %}
+                  {% if asset.asset_type == 'image' %}
+                    <a href="{{ asset.file.url }}" target="_blank">
+                      <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق' }}" class="rounded-lg max-h-64 w-auto border border-gray-200">
+                    </a>
+                  {% elif asset.asset_type == 'video' %}
+                    <video src="{{ asset.file.url }}" controls class="rounded-lg max-h-64 w-full border border-gray-200"></video>
+                  {% else %}
+                    <a href="{{ asset.file.url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-fuchsia-50 text-fuchsia-700 font-semibold hover:bg-fuchsia-100">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                      تحميل الملف
+                    </a>
+                  {% endif %}
+                {% endif %}
+                <div class="text-gray-500 mt-2">{{ asset.uploaded_at|date:"Y-m-d H:i" }}</div>
               </div>
             {% empty %}
               <div class="text-sm text-gray-400">لا توجد مرفقات مرتبطة بهذا البند.</div>
@@ -197,6 +211,37 @@
     {% endfor %}
   </div>
 </div>
+
+{% if assets %}
+<div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">
+  <h2 class="font-bold text-lg mb-4">جميع مرفقات الطلب</h2>
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    {% for asset in assets %}
+      <div class="rounded-xl border border-gray-100 bg-gray-50 p-4">
+        <div class="font-semibold text-sm mb-2">{{ asset.get_asset_type_display }} - {{ asset.title|default:"—" }}</div>
+        {% if asset.item %}
+          <div class="text-xs text-gray-400 mb-2">بند: {{ asset.item.get_service_type_display|default:asset.item_id }}</div>
+        {% endif %}
+        {% if asset.file %}
+          {% if asset.asset_type == 'image' %}
+            <a href="{{ asset.file.url }}" target="_blank">
+              <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق' }}" class="rounded-lg max-h-52 w-full object-cover border border-gray-200">
+            </a>
+          {% elif asset.asset_type == 'video' %}
+            <video src="{{ asset.file.url }}" controls class="rounded-lg max-h-52 w-full border border-gray-200"></video>
+          {% else %}
+            <a href="{{ asset.file.url }}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-fuchsia-50 text-fuchsia-700 font-semibold hover:bg-fuchsia-100">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              تحميل الملف
+            </a>
+          {% endif %}
+        {% endif %}
+        <div class="text-gray-500 text-xs mt-2">{{ asset.uploaded_at|date:"Y-m-d H:i" }}</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
   <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
