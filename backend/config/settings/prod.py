@@ -35,8 +35,8 @@ OTP_DEV_ACCEPT_ANY_4_DIGITS = False
 OTP_DEV_TEST_CODE = ""
 OTP_DEV_ACCEPT_ANY_CODE = False
 
-# Emergency OTP bypass can be enabled in production only through environment
-# variables. The runtime verification path still requires an explicit allowlist.
+# Emergency OTP bypass can be enabled in production through environment
+# variables. When enabled, any 4-digit code is accepted after otp/send.
 OTP_APP_BYPASS = os.getenv("OTP_APP_BYPASS", "0") == "1"
 OTP_APP_BYPASS_ALLOWLIST = [
 	p.strip()

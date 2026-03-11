@@ -84,31 +84,8 @@ def _phone_candidates(phone: str) -> list[str]:
     return [c for c in candidates if c]
 
 
-def _otp_app_bypass_allowlist() -> set[str]:
-    phones: set[str] = set()
-    raw_phones = list(getattr(settings, "OTP_APP_BYPASS_ALLOWLIST", []) or [])
-    for raw_phone in raw_phones:
-        candidate = _normalize_phone_local05(raw_phone)
-        if len(_keep_digits(candidate)) == 10 and candidate.startswith("05"):
-            phones.add(candidate)
-            continue
-        logger.warning("Ignoring invalid OTP_APP_BYPASS_ALLOWLIST entry: %s", raw_phone)
-    return phones
-
-
 def _otp_app_bypass_allowed(phone: str) -> bool:
-    if not bool(getattr(settings, "OTP_APP_BYPASS", False)):
-        return False
-
-    allowlist = _otp_app_bypass_allowlist()
-    if allowlist:
-        return phone in allowlist
-
-    if bool(getattr(settings, "DEBUG", False)):
-        return True
-
-    logger.warning("OTP_APP_BYPASS ignored in production without OTP_APP_BYPASS_ALLOWLIST")
-    return False
+    return bool(getattr(settings, "OTP_APP_BYPASS", False))
 
 
 def _is_valid_username(username: str) -> bool:
@@ -533,7 +510,7 @@ def otp_verify(request):
 
     # App QA bypass (no headers): accept ANY 4-digit code.
     # - Must be explicitly enabled via OTP_APP_BYPASS=1
-    # - Production requires OTP_APP_BYPASS_ALLOWLIST and only those numbers are allowed
+    # - Applies to any phone number while enabled
     # - Requires an existing OTP record to keep send limits/cooldowns meaningful
     app_bypass = _otp_app_bypass_allowed(phone)
 
