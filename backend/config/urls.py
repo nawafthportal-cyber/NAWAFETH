@@ -18,12 +18,10 @@ from django.urls import include, path
 from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
-from django.templatetags.static import static as static_url
-from django.views.generic import RedirectView
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView, healthz
-from apps.core.views import UnreadBadgesView
+from apps.core.views import RootFaviconView, RootRobotsTxtView, UnreadBadgesView
 from apps.mobile_web.views import (
     MobileWebHomeView,
     MobileWebLoginView,
@@ -75,8 +73,8 @@ admin.site.site_title = _("لوحة إدارة نوافذ")
 admin.site.index_title = _("مرحبًا بك في لوحة التحكم")
 
 urlpatterns = [
-    path("favicon.ico", RedirectView.as_view(url=static_url("icons/favicon.svg"), permanent=False)),
-    path("robots.txt", RedirectView.as_view(url=static_url("robots.txt"), permanent=False)),
+    path("favicon.ico", RootFaviconView.as_view(), name="favicon"),
+    path("robots.txt", RootRobotsTxtView.as_view(), name="robots_txt"),
     path("healthz/", healthz, name="healthz"),
     path("health/", HealthCheckView.as_view(), name="health"),
     path("health/live/", HealthLiveView.as_view(), name="health_live"),

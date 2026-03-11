@@ -7,6 +7,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.test import Client
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -262,3 +263,20 @@ class PromoScheduledMessageTaskTests(TestCase):
         _, kwargs = mock_send_due.call_args
         self.assertEqual(kwargs["limit"], 100)
         self.assertIsNotNone(kwargs["now"])
+
+
+class RootAssetRouteTests(TestCase):
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_favicon_route_is_served_without_manifest_lookup_failure(self):
+        response = self.client.get("/favicon.ico")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Type"].startswith("image/svg+xml"))
+
+    def test_robots_route_is_served_from_root(self):
+        response = self.client.get("/robots.txt")
+        self.assertEqual(response.status_code, 200)
+        content = b"".join(response.streaming_content) if getattr(response, "streaming", False) else response.content
+        self.assertIn(b"User-agent", content)

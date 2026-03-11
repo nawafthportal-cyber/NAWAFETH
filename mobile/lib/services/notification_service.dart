@@ -53,12 +53,15 @@ class NotificationService {
 
   // ─── 2. عدد غير المقروءة ───
   static Future<int> fetchUnreadCount({String? mode}) async {
-    String url = '$_base/unread-count/';
-    if (mode != null) url += '?mode=$mode';
+    final normalizedMode = (mode ?? '').trim();
+    String url = '/api/core/unread-badges/';
+    if (normalizedMode.isNotEmpty) {
+      url += '?mode=$normalizedMode';
+    }
     final res = await ApiClient.get(url);
     if (!res.isSuccess) return 0;
     final data = res.dataAsMap ?? {};
-    return data['unread'] as int? ?? 0;
+    return data['notifications'] as int? ?? 0;
   }
 
   // ─── 3. تمييز كمقروء ───

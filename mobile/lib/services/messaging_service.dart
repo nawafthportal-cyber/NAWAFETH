@@ -74,13 +74,14 @@ class MessagingService {
 
   /// جلب إجمالي الرسائل غير المقروءة للمحادثات المباشرة
   static Future<int> fetchUnreadCount({String? mode}) async {
-    final path = mode != null
-        ? '/api/messaging/direct/unread-count/?mode=$mode'
-        : '/api/messaging/direct/unread-count/';
+    final normalizedMode = (mode ?? '').trim();
+    final path = normalizedMode.isNotEmpty
+        ? '/api/core/unread-badges/?mode=$normalizedMode'
+        : '/api/core/unread-badges/';
     final res = await ApiClient.get(path);
     if (!res.isSuccess) return 0;
     final data = res.dataAsMap ?? {};
-    return data['unread'] as int? ?? 0;
+    return data['chats'] as int? ?? 0;
   }
 
   // ──────────────────────────────────────────
