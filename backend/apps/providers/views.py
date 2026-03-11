@@ -535,7 +535,7 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 			Q(target_provider_id=OuterRef("provider_id"))
 			| Q(
 				target_provider__isnull=True,
-				request__requester__provider_profile_id=OuterRef("provider_id"),
+				request__requester__provider_profile__id=OuterRef("provider_id"),
 			)
 		)
 		qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
