@@ -1,6 +1,11 @@
+import logging
+
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.unread_badges import invalidate_unread_badge_cache
 from apps.extras.services import user_has_active_extra
 from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
 from apps.subscriptions.capabilities import plan_capabilities_for_user
@@ -15,6 +20,9 @@ from .models import (
     NotificationTier,
 )
 from .push import send_push_for_notification
+
+
+logger = logging.getLogger(__name__)
 
 
 NOTIFICATION_CATALOG = {
@@ -516,4 +524,42 @@ def create_notification(
         # Fail-open: in-app notifications must still be persisted.
         pass
 
+    invalidate_unread_badge_cache(user_id=user.id)
+    _broadcast_notification_created(notif)
+
     return notif
+
+
+def _broadcast_notification_created(notification: Notification) -> None:
+    channel_layer = get_channel_layer()
+    if channel_layer is None:
+        return
+
+    payload = {
+        "id": notification.id,
+        "title": notification.title,
+        "body": notification.body,
+        "kind": notification.kind,
+        "url": notification.url,
+        "audience_mode": notification.audience_mode,
+        "is_read": notification.is_read,
+        "is_pinned": notification.is_pinned,
+        "is_follow_up": notification.is_follow_up,
+        "is_urgent": notification.is_urgent,
+        "created_at": notification.created_at.isoformat(),
+    }
+
+    try:
+        async_to_sync(channel_layer.group_send)(
+            f"notifications_user_{notification.user_id}",
+            {
+                "type": "notification_created",
+                "notification": payload,
+            },
+        )
+    except Exception:
+        logger.exception(
+            "notification websocket broadcast failed notification_id=%s user_id=%s",
+            notification.id,
+            notification.user_id,
+        )

@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,22 +38,23 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   bool _isProviderMode = false;
   int _notificationUnread = 0;
   int _chatUnread = 0;
-  Timer? _badgeTimer;
+  ValueListenable<UnreadBadges>? _badgeListenable;
   bool get isProviderRegistered => _userProfile?.hasProviderProfile ?? false;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
-    _loadUnreadBadges();
-    _badgeTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      _loadUnreadBadges();
-    });
+    _badgeListenable = UnreadBadgeService.acquire();
+    _badgeListenable!.addListener(_handleBadgeChange);
+    _handleBadgeChange();
+    UnreadBadgeService.refresh(force: true);
   }
 
   @override
   void dispose() {
-    _badgeTimer?.cancel();
+    _badgeListenable?.removeListener(_handleBadgeChange);
+    UnreadBadgeService.release();
     super.dispose();
   }
 
@@ -152,16 +153,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Future<void> _loadUnreadBadges() async {
-    try {
-      final badges = await UnreadBadgeService.fetch();
-      if (!mounted) return;
-      setState(() {
-        _notificationUnread = badges.notifications;
-        _chatUnread = badges.chats;
-      });
-    } catch (_) {
-      // Keep old values on transient failures.
-    }
+    await UnreadBadgeService.refresh(force: true);
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeListenable?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   // =============================================

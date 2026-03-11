@@ -515,11 +515,30 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):
+		from django.utils import timezone
+		from apps.promo.models import PromoAdType, PromoRequestItem, PromoRequestStatus, PromoServiceType
+
 		qs = (
 			ProviderSpotlightItem.objects.select_related("provider", "provider__user")
 			.annotate(likes_count=Count("likes", distinct=True))
 			.annotate(saves_count=Count("saves", distinct=True))
 		)
+
+		now = timezone.now()
+		active_snapshot_promos = PromoRequestItem.objects.filter(
+			request__status=PromoRequestStatus.ACTIVE,
+			request__ad_type=PromoAdType.BUNDLE,
+			service_type=PromoServiceType.SNAPSHOTS,
+			start_at__lte=now,
+			end_at__gte=now,
+		).filter(
+			Q(target_provider_id=OuterRef("provider_id"))
+			| Q(
+				target_provider__isnull=True,
+				request__requester__provider_profile_id=OuterRef("provider_id"),
+			)
+		)
+		qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
 
 		# Annotate is_liked / is_saved for authenticated users
 		user = self.request.user
@@ -542,7 +561,7 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 				),
 			)
 
-		qs = qs.order_by("-created_at", "-id")
+		qs = qs.order_by("-_promo_snapshot", "-created_at", "-id")
 
 		limit_raw = (self.request.query_params.get("limit") or "").strip()
 		if limit_raw.isdigit():

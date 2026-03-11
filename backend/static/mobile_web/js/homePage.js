@@ -21,6 +21,7 @@ const HomePage = (() => {
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
+  let $portfolioShowcaseSection, $portfolioShowcaseList, $sponsorshipsSection, $sponsorshipsList;
   let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
   let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
 
@@ -36,6 +37,7 @@ const HomePage = (() => {
   let _carouselPaused = false;   // pause on interaction
   let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
+  let _portfolioShowcaseData = [];
   let _homeContent = {
     heroTitle: '',
     heroSubtitle: '',
@@ -65,6 +67,10 @@ const HomePage = (() => {
     $carouselDots   = document.getElementById('carousel-dots');
     $carouselPrev   = document.getElementById('carousel-prev');
     $carouselNext   = document.getElementById('carousel-next');
+    $portfolioShowcaseSection = document.getElementById('portfolio-showcase');
+    $portfolioShowcaseList = document.getElementById('portfolio-showcase-list');
+    $sponsorshipsSection = document.getElementById('sponsorships');
+    $sponsorshipsList = document.getElementById('sponsorships-list');
     _bindReelsInteraction();
     _applyHomeContent();
 
@@ -163,15 +169,17 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, popupRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
       ApiClient.get('/api/promo/banners/home/?limit=10'),
       ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
-      ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
+      ApiClient.get('/api/promo/active/?service_type=sponsorship&limit=10'),
     ]);
 
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
@@ -198,6 +206,19 @@ const HomePage = (() => {
       _renderCategoriesEmpty();
     }
 
+    // Featured providers (paid promotion)
+    if (featuredRes.status === 'fulfilled' && featuredRes.value.ok && featuredRes.value.data) {
+      const list = Array.isArray(featuredRes.value.data)
+        ? featuredRes.value.data
+        : (featuredRes.value.data.results || []);
+      _featuredProviderIds = new Set();
+      list.forEach(promo => {
+        if (promo.target_provider_id) _featuredProviderIds.add(promo.target_provider_id);
+      });
+    } else {
+      _featuredProviderIds = new Set();
+    }
+
     // Providers
     if (provsRes.status === 'fulfilled' && provsRes.value.ok && provsRes.value.data) {
       const list = Array.isArray(provsRes.value.data)
@@ -208,6 +229,16 @@ const HomePage = (() => {
       _updateSubtitle(list.length);
     } else if (!NwCache.get(CACHE_PROVIDERS)) {
       _renderProvidersEmpty();
+    }
+
+    // Sponsored portfolio showcase
+    if (portfolioRes.status === 'fulfilled' && portfolioRes.value.ok && portfolioRes.value.data) {
+      const placements = Array.isArray(portfolioRes.value.data)
+        ? portfolioRes.value.data
+        : (portfolioRes.value.data.results || []);
+      _renderPortfolioShowcase(placements);
+    } else {
+      _renderPortfolioShowcase([]);
     }
 
     // Banners
@@ -241,15 +272,6 @@ const HomePage = (() => {
       _renderReelsEmpty();
     }
 
-    // Featured providers (paid promotion — boost to top)
-    if (featuredRes.status === 'fulfilled' && featuredRes.value.ok && featuredRes.value.data) {
-      const list = Array.isArray(featuredRes.value.data) ? featuredRes.value.data : [];
-      _featuredProviderIds = new Set();
-      list.forEach(promo => {
-        if (promo.target_provider_id) _featuredProviderIds.add(promo.target_provider_id);
-      });
-    }
-
     // Popup promo (home)
     if (!_popupShown && popupRes.status === 'fulfilled' && popupRes.value.ok && popupRes.value.data) {
       const list = Array.isArray(popupRes.value.data) ? popupRes.value.data : [];
@@ -257,6 +279,16 @@ const HomePage = (() => {
         _popupShown = true;
         _showPromoPopup(list[0]);
       }
+    }
+
+    // Sponsorship placements
+    if (sponsorshipsRes.status === 'fulfilled' && sponsorshipsRes.value.ok && sponsorshipsRes.value.data) {
+      const placements = Array.isArray(sponsorshipsRes.value.data)
+        ? sponsorshipsRes.value.data
+        : (sponsorshipsRes.value.data.results || []);
+      _renderSponsorships(placements);
+    } else {
+      _renderSponsorships([]);
     }
 
     // Offline detection
@@ -406,6 +438,163 @@ const HomePage = (() => {
         UI.el('span', { textContent: 'لا يوجد مزودو خدمة حالياً' }),
       ])
     );
+  }
+
+  function _normalizePortfolioShowcaseItem(rawPromo) {
+    if (!rawPromo || typeof rawPromo !== 'object') return null;
+    const nested = rawPromo.portfolio_item && typeof rawPromo.portfolio_item === 'object'
+      ? rawPromo.portfolio_item
+      : null;
+    const fileUrl = _readBannerString(
+      nested ? nested.file_url : rawPromo.target_portfolio_item_file
+    );
+    if (!fileUrl) return null;
+    return {
+      id: _readBannerInt(nested ? nested.id : rawPromo.target_portfolio_item_id),
+      provider_id: _readBannerInt(nested ? nested.provider_id : rawPromo.target_provider_id),
+      provider_display_name: _readBannerString(
+        nested ? nested.provider_display_name : rawPromo.target_provider_display_name
+      ) || 'مقدم خدمة',
+      provider_profile_image: _readBannerString(
+        nested ? nested.provider_profile_image : rawPromo.target_provider_profile_image
+      ),
+      file_type: _readBannerString(
+        nested ? nested.file_type : rawPromo.target_portfolio_item_file_type
+      ) || 'image',
+      file_url: fileUrl,
+      thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : ''),
+      caption: _readBannerString(nested ? nested.caption : rawPromo.title) || 'مشروع ممول',
+      likes_count: _readBannerInt(nested ? nested.likes_count : 0),
+      saves_count: _readBannerInt(nested ? nested.saves_count : 0),
+      is_liked: !!(nested && nested.is_liked),
+      is_saved: !!(nested && nested.is_saved),
+      source: 'portfolio',
+    };
+  }
+
+  function _renderPortfolioShowcase(placements) {
+    if (!$portfolioShowcaseSection || !$portfolioShowcaseList) return;
+    const items = (Array.isArray(placements) ? placements : [])
+      .map(_normalizePortfolioShowcaseItem)
+      .filter(Boolean);
+    _portfolioShowcaseData = items;
+    if (!items.length) {
+      $portfolioShowcaseSection.style.display = 'none';
+      $portfolioShowcaseList.textContent = '';
+      return;
+    }
+    $portfolioShowcaseSection.style.display = '';
+
+    const frag = document.createDocumentFragment();
+    items.forEach((item, index) => {
+      const card = UI.el('div', { className: 'showcase-card', role: 'button', tabindex: '0' });
+      const media = UI.el('div', { className: 'showcase-media' });
+      const thumbUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url);
+      if (thumbUrl) {
+        const img = UI.el('img', { alt: item.caption || 'مشروع ممول', loading: 'lazy' });
+        img.src = thumbUrl;
+        media.appendChild(img);
+      }
+      media.appendChild(UI.el('span', { className: 'showcase-chip', textContent: 'ممّول' }));
+      if ((item.file_type || '').toLowerCase() === 'video') {
+        media.appendChild(UI.el('span', { className: 'showcase-video-badge', textContent: '▶' }));
+      }
+      card.appendChild(media);
+
+      const body = UI.el('div', { className: 'showcase-body' });
+      const avatar = UI.el('div', { className: 'showcase-provider-avatar' });
+      const profileImg = ApiClient.mediaUrl(item.provider_profile_image);
+      if (profileImg) {
+        const avatarImg = UI.el('img', { alt: item.provider_display_name || 'مقدم خدمة' });
+        avatarImg.src = profileImg;
+        avatar.appendChild(avatarImg);
+      } else {
+        avatar.textContent = (item.provider_display_name || '؟').charAt(0);
+      }
+      body.appendChild(avatar);
+
+      const copy = UI.el('div', { className: 'showcase-copy' });
+      copy.appendChild(UI.el('div', { className: 'showcase-title', textContent: item.caption || 'مشروع ممول' }));
+      copy.appendChild(UI.el('div', { className: 'showcase-provider', textContent: item.provider_display_name || 'مقدم خدمة' }));
+      body.appendChild(copy);
+      card.appendChild(body);
+
+      const openViewer = () => {
+        if (typeof SpotlightViewer !== 'undefined') {
+          SpotlightViewer.open(_portfolioShowcaseData, index, { label: 'مشروع ممول', source: 'portfolio' });
+        }
+      };
+      card.addEventListener('click', openViewer);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openViewer();
+        }
+      });
+      frag.appendChild(card);
+    });
+
+    $portfolioShowcaseList.textContent = '';
+    $portfolioShowcaseList.appendChild(frag);
+  }
+
+  function _renderSponsorships(placements) {
+    if (!$sponsorshipsSection || !$sponsorshipsList) return;
+    const rows = Array.isArray(placements) ? placements : [];
+    if (!rows.length) {
+      $sponsorshipsSection.style.display = 'none';
+      $sponsorshipsList.textContent = '';
+      return;
+    }
+    $sponsorshipsSection.style.display = '';
+
+    const frag = document.createDocumentFragment();
+    rows.forEach((promo) => {
+      const sponsorName = _readBannerString(promo.sponsor_name || promo.target_provider_display_name) || 'راعٍ رسمي';
+      const months = _readBannerInt(promo.sponsorship_months);
+      const messageBody = _readBannerString(promo.message_body);
+      const asset = Array.isArray(promo.assets) && promo.assets.length ? promo.assets[0] : null;
+      const assetUrl = asset ? ApiClient.mediaUrl(asset.file || asset.file_url) : '';
+      const redirectUrl = _readBannerString(promo.redirect_url || promo.sponsor_url);
+      const providerId = _readBannerInt(promo.target_provider_id);
+
+      const card = UI.el('div', { className: 'sponsor-card', role: 'button', tabindex: '0' });
+      card.appendChild(UI.el('span', {
+        className: 'sponsor-chip',
+        textContent: months > 0 ? 'رعاية ' + months + 'ش' : 'رعاية',
+      }));
+
+      const media = UI.el('div', { className: 'sponsor-media' });
+      if (assetUrl) {
+        const img = UI.el('img', { alt: sponsorName, loading: 'lazy' });
+        img.src = assetUrl;
+        media.appendChild(img);
+      }
+      card.appendChild(media);
+      card.appendChild(UI.el('div', { className: 'sponsor-title', textContent: sponsorName }));
+      if (messageBody) {
+        card.appendChild(UI.el('div', { className: 'sponsor-body', textContent: messageBody }));
+      }
+
+      const openSponsor = () => {
+        if (redirectUrl) {
+          window.open(redirectUrl, '_blank', 'noopener');
+        } else if (providerId > 0) {
+          window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+        }
+      };
+      card.addEventListener('click', openSponsor);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openSponsor();
+        }
+      });
+      frag.appendChild(card);
+    });
+
+    $sponsorshipsList.textContent = '';
+    $sponsorshipsList.appendChild(frag);
   }
 
   /* ----------------------------------------------------------

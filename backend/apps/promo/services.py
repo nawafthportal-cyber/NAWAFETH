@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceLineItem, InvoiceStatus, money_round
@@ -473,6 +475,15 @@ def _item_assets_count(item: PromoRequestItem) -> int:
     return 0
 
 
+def _item_assets(item: PromoRequestItem):
+    assets = list(item.assets.all())
+    if assets:
+        return assets
+    if item.request.items.count() == 1:
+        return list(item.request.assets.filter(item__isnull=True))
+    return []
+
+
 def _duration_days(start_at, end_at) -> int:
     if not start_at or not end_at:
         return 0
@@ -670,6 +681,223 @@ def _sync_invoice_from_items(*, pr: PromoRequest) -> Invoice:
     pr.total_days = int(q.get("days") or 0)
     pr.invoice = inv
     return inv
+
+
+def _promo_message_sender_label(*, pr: PromoRequest) -> str:
+    provider = getattr(pr.requester, "provider_profile", None)
+    if provider and getattr(provider, "display_name", None):
+        return str(provider.display_name)
+    requester = getattr(pr, "requester", None)
+    if requester is None:
+        return "مزود خدمة"
+    return str(
+        getattr(requester, "username", "")
+        or getattr(requester, "first_name", "")
+        or getattr(requester, "phone", "")
+        or "مزود خدمة"
+    )
+
+
+def _promo_message_default_url(*, item: PromoRequestItem) -> str:
+    raw = str(item.redirect_url or item.request.redirect_url or "").strip()
+    if raw:
+        return raw
+    provider = getattr(item.request.requester, "provider_profile", None)
+    if provider and getattr(provider, "id", None):
+        return f"/provider/{provider.id}/"
+    return ""
+
+
+def _promo_message_attachment_type(asset_type: str) -> str:
+    return "image" if str(asset_type or "").strip().lower() == "image" else "file"
+
+
+def _promo_message_recipient_users(*, item: PromoRequestItem):
+    from apps.accounts.models import User, UserRole
+
+    city = str(item.target_city or item.request.target_city or "").strip()
+    category = str(item.target_category or item.request.target_category or "").strip()
+
+    qs = (
+        User.objects.filter(
+            is_active=True,
+            role_state=UserRole.PROVIDER,
+            provider_profile__isnull=False,
+        )
+        .select_related("provider_profile")
+        .exclude(id=item.request.requester_id)
+    )
+    if city:
+        qs = qs.filter(
+            Q(provider_profile__city__iexact=city)
+            | Q(city__iexact=city)
+        )
+    if category:
+        qs = qs.filter(
+            Q(provider_profile__providercategory__subcategory__name__iexact=category)
+            | Q(provider_profile__providercategory__subcategory__category__name__iexact=category)
+        )
+    return qs.distinct().order_by("id")
+
+
+def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
+    from apps.messaging.models import Thread
+
+    if not getattr(user_a, "id", None) or not getattr(user_b, "id", None):
+        raise ValueError("missing direct-thread participants")
+    if user_a.id == user_b.id:
+        raise ValueError("cannot chat self")
+    thread = (
+        Thread.objects.filter(is_direct=True, context_mode=context_mode)
+        .filter(
+            Q(participant_1=user_a, participant_2=user_b)
+            | Q(participant_1=user_b, participant_2=user_a)
+        )
+        .first()
+    )
+    if thread:
+        return thread
+    return Thread.objects.create(
+        is_direct=True,
+        context_mode=context_mode,
+        participant_1=user_a,
+        participant_2=user_b,
+    )
+
+
+@transaction.atomic
+def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
+    from apps.messaging.models import Message, Thread
+    from apps.messaging.views import _is_blocked_by_other, _unarchive_for_participants
+    from apps.notifications.services import create_notification
+
+    now = now or timezone.now()
+    item = (
+        PromoRequestItem.objects.select_for_update()
+        .select_related(
+            "request",
+            "request__requester",
+            "request__requester__provider_profile",
+        )
+        .prefetch_related("assets", "request__assets")
+        .get(pk=item.pk)
+    )
+
+    if item.service_type != PromoServiceType.PROMO_MESSAGES:
+        raise ValueError("promo item is not a promotional message")
+    if item.request.status != PromoRequestStatus.ACTIVE:
+        raise ValueError("promo request is not active")
+    if item.message_sent_at:
+        return int(item.message_recipients_count or 0)
+    if not item.send_at or item.send_at > now:
+        return 0
+    if item.request.end_at and item.request.end_at < now:
+        return 0
+
+    sender_user = item.request.requester
+    body = str(item.message_body or item.request.message_body or "").strip()
+    if not body and not _item_assets(item):
+        raise ValueError("promo message has no body or attachments to deliver")
+
+    title = str(item.message_title or item.request.message_title or "").strip()
+    if not title:
+        title = f"رسالة دعائية من {_promo_message_sender_label(pr=item.request)}"
+    landing_url = _promo_message_default_url(item=item)
+    assets = _item_assets(item)
+    delivered_count = 0
+
+    for recipient in _promo_message_recipient_users(item=item):
+        delivered = False
+
+        if item.use_notification_channel:
+            notification = create_notification(
+                user=recipient,
+                title=title,
+                body=body or "لديك رسالة دعائية جديدة.",
+                kind="promo_offer",
+                url=landing_url,
+                actor=sender_user,
+                pref_key="ads_and_offers",
+                audience_mode="provider",
+                meta={
+                    "promo_request_id": item.request_id,
+                    "promo_request_item_id": item.id,
+                    "channel": "notification",
+                },
+            )
+            delivered = delivered or notification is not None
+
+        if item.use_chat_channel:
+            thread = _get_or_create_direct_thread(
+                user_a=sender_user,
+                user_b=recipient,
+                context_mode=Thread.ContextMode.PROVIDER,
+            )
+            if not _is_blocked_by_other(thread, sender_user.id):
+                if body:
+                    Message.objects.create(
+                        thread=thread,
+                        sender=sender_user,
+                        body=body,
+                        created_at=now,
+                    )
+                    delivered = True
+                for asset in assets:
+                    Message.objects.create(
+                        thread=thread,
+                        sender=sender_user,
+                        body="",
+                        attachment=asset.file,
+                        attachment_type=_promo_message_attachment_type(asset.asset_type),
+                        attachment_name=os.path.basename(getattr(asset.file, "name", "") or "").strip(),
+                        created_at=now,
+                    )
+                    delivered = True
+                _unarchive_for_participants(thread)
+
+        if delivered:
+            delivered_count += 1
+
+    item.message_sent_at = now
+    item.message_recipients_count = delivered_count
+    item.message_dispatch_error = ""
+    item.save(
+        update_fields=[
+            "message_sent_at",
+            "message_recipients_count",
+            "message_dispatch_error",
+            "updated_at",
+        ]
+    )
+    return delivered_count
+
+
+def send_due_promo_messages(*, now=None, limit: int = 100) -> int:
+    now = now or timezone.now()
+    item_ids = list(
+        PromoRequestItem.objects.filter(
+            request__status=PromoRequestStatus.ACTIVE,
+            request__ad_type=PromoAdType.BUNDLE,
+            request__end_at__gte=now,
+            service_type=PromoServiceType.PROMO_MESSAGES,
+            send_at__isnull=False,
+            send_at__lte=now,
+            message_sent_at__isnull=True,
+        )
+        .order_by("send_at", "id")
+        .values_list("id", flat=True)[: max(1, int(limit or 100))]
+    )
+
+    processed = 0
+    for item_id in item_ids:
+        try:
+            dispatch_promo_message_item(item=PromoRequestItem(pk=item_id), now=now)
+            processed += 1
+        except Exception as exc:
+            PromoRequestItem.objects.filter(pk=item_id).update(
+                message_dispatch_error=str(exc)[:255]
+            )
+    return processed
 
 
 @transaction.atomic

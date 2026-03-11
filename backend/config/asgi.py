@@ -17,6 +17,12 @@ http_app = get_asgi_application()
 # Import websocket components only after Django is initialized.
 from apps.messaging.jwt_auth import JwtAuthMiddleware  # noqa: E402
 import apps.messaging.routing  # noqa: E402
+import apps.notifications.routing  # noqa: E402
+
+websocket_urlpatterns = (
+    list(apps.messaging.routing.websocket_urlpatterns)
+    + list(apps.notifications.routing.websocket_urlpatterns)
+)
 
 application = ProtocolTypeRouter(
 	{
@@ -25,7 +31,7 @@ application = ProtocolTypeRouter(
 		# override scope["user"] when a token query param is provided.
 		"websocket": AuthMiddlewareStack(
 			JwtAuthMiddleware(
-				URLRouter(apps.messaging.routing.websocket_urlpatterns)
+				URLRouter(websocket_urlpatterns)
 			)
 		),
 	}

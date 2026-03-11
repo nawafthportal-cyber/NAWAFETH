@@ -398,6 +398,202 @@ body.home-mobile-layout .reel-item:hover {
   padding: 12px;
 }
 
+/* ── Sponsored portfolio showcase ── */
+.showcase-scroll {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 12px;
+  padding: 0 4px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.showcase-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.showcase-card {
+  flex: 0 0 188px;
+  width: 188px;
+  min-height: 204px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
+  border: 1px solid #ece8f7;
+  box-shadow: 0 10px 24px rgba(41, 31, 66, 0.12);
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.showcase-media {
+  position: relative;
+  height: 138px;
+  background: linear-gradient(135deg, #8f6fd7, #c0b3f6);
+}
+
+.showcase-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.showcase-chip,
+.showcase-video-badge {
+  position: absolute;
+  z-index: 2;
+}
+
+.showcase-chip {
+  top: 10px;
+  right: 10px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(17, 16, 25, 0.58);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.showcase-video-badge {
+  left: 10px;
+  bottom: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(17, 16, 25, 0.52);
+}
+
+.showcase-body {
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.showcase-provider-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(103, 58, 183, 0.12);
+  color: #673ab7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.showcase-provider-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.showcase-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.showcase-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #231942;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.showcase-provider {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #667085;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Sponsorship cards ── */
+.sponsors-scroll {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 12px;
+  padding: 0 4px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+}
+
+.sponsors-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.sponsor-card {
+  flex: 0 0 236px;
+  width: 236px;
+  min-height: 164px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid #e8ddba;
+  background: linear-gradient(135deg, #fff7e8, #f6f0ff);
+  scroll-snap-align: start;
+  cursor: pointer;
+}
+
+.sponsor-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(103, 58, 183, 0.12);
+  color: #673ab7;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.sponsor-media {
+  width: 100%;
+  height: 88px;
+  margin-top: 10px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.sponsor-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sponsor-title {
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #231942;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sponsor-body {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.5;
+  color: #5c6470;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* ── Banners Scroll (Flutter: 220×130 cards) ── */
 .banners-scroll {
   display: flex;

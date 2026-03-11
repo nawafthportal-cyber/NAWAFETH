@@ -1,7 +1,7 @@
 from datetime import timedelta
-import re
 
 from django.conf import settings
+from django.db import DatabaseError, OperationalError
 from django.db.models import Case, IntegerField, Value, When
 from django.utils import timezone
 from rest_framework import generics, status
@@ -23,24 +23,13 @@ from .services import (
     notification_tier_to_canonical,
     normalize_preference_mode,
 )
+from .selectors import filter_notification_ids_by_mode
 
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly
-from apps.marketplace.models import ServiceRequest
-from apps.messaging.models import Thread
-
-
-_REQUEST_URL_RE = re.compile(r"/requests/(?P<id>\d+)(?:/|$)")
-_THREAD_URL_RE = re.compile(r"/threads?/(?P<id>\d+)(?:/|$)")
-
-
-_CLIENT_ONLY_KINDS = {
-    "offer_created",
-    "review_reply",
-}
-_PROVIDER_ONLY_KINDS = {
-    "urgent_request",
-    "offer_selected",
-}
+from apps.core.unread_badges import (
+    get_notifications_unread_payload,
+    invalidate_unread_badge_cache,
+)
 
 
 def _preferred_preferences_for_mode(*, prefs, mode: str):
@@ -89,83 +78,6 @@ def _serialize_preferences_for_response(*, user, prefs, mode: str):
         )
     return data
 
-
-def _notification_matches_mode(*, notif: Notification, user, mode: str) -> bool:
-    mode = (mode or "").strip().lower()
-    if mode not in {"client", "provider"}:
-        return True
-
-    audience_mode = (getattr(notif, "audience_mode", "") or "").strip().lower()
-    if audience_mode in {"client", "provider"}:
-        return audience_mode == mode
-    if audience_mode == "shared":
-        # Continue to heuristic fallback for legacy/shared notifications that may
-        # still carry request/thread URLs and can be isolated more accurately.
-        pass
-
-    kind = (notif.kind or "").strip().lower()
-    if kind in _CLIENT_ONLY_KINDS:
-        return mode == "client"
-    if kind in _PROVIDER_ONLY_KINDS:
-        return mode == "provider"
-
-    # Shared/system notifications remain visible in both modes.
-    if kind in {"report_status_change", "info", "urgent"}:
-        return True
-
-    url = (notif.url or "").strip()
-    if not url:
-        return True
-
-    m_req = _REQUEST_URL_RE.search(url)
-    if m_req:
-        request_id = int(m_req.group("id"))
-        sr = (
-            ServiceRequest.objects.select_related("provider__user")
-            .filter(id=request_id)
-            .first()
-        )
-        if sr is None:
-            return True
-        if mode == "client":
-            return sr.client_id == user.id
-        return bool(sr.provider_id and sr.provider.user_id == user.id)
-
-    m_thread = _THREAD_URL_RE.search(url)
-    if m_thread:
-        thread_id = int(m_thread.group("id"))
-        thread = (
-            Thread.objects.select_related("request", "request__provider__user")
-            .filter(id=thread_id)
-            .first()
-        )
-        if thread is None:
-            return True
-        if thread.is_direct:
-            # Direct threads are shared between both account contexts.
-            return user.id in {thread.participant_1_id, thread.participant_2_id}
-        sr = thread.request
-        if sr is None:
-            return True
-        if mode == "client":
-            return sr.client_id == user.id
-        return bool(sr.provider_id and sr.provider.user_id == user.id)
-
-    return True
-
-
-def _filter_notification_ids_by_mode(*, qs, user, mode: str):
-    mode = (mode or "").strip().lower()
-    if mode not in {"client", "provider"}:
-        return None
-    ids = []
-    for notif in qs.only("id", "kind", "url", "audience_mode").iterator():
-        # Include audience_mode when available (new schema).
-        if _notification_matches_mode(notif=notif, user=user, mode=mode):
-            ids.append(notif.id)
-    return ids
-
-
 class MyNotificationsView(generics.ListAPIView):
     permission_classes = [IsAtLeastPhoneOnly]
     serializer_class = NotificationSerializer
@@ -185,7 +97,7 @@ class MyNotificationsView(generics.ListAPIView):
             .order_by("-_sort_priority", "-id")
         )
         mode = (self.request.query_params.get("mode") or "").strip().lower()
-        ids = _filter_notification_ids_by_mode(qs=qs, user=self.request.user, mode=mode)
+        ids = filter_notification_ids_by_mode(qs=qs, user=self.request.user, mode=mode)
         if ids is None:
             return qs
         return qs.filter(id__in=ids)
@@ -195,11 +107,21 @@ class UnreadCountView(APIView):
     permission_classes = [IsAtLeastPhoneOnly]
 
     def get(self, request):
-        qs = Notification.objects.filter(user=request.user, is_read=False).order_by("-id")
         mode = (request.query_params.get("mode") or "").strip().lower()
-        ids = _filter_notification_ids_by_mode(qs=qs, user=request.user, mode=mode)
-        count = qs.count() if ids is None else len(ids)
-        return Response({"unread": count}, status=status.HTTP_200_OK)
+        try:
+            payload = get_notifications_unread_payload(user=request.user, mode=mode)
+        except (OperationalError, DatabaseError):
+            return Response(
+                {
+                    "unread": 0,
+                    "degraded": True,
+                    "stale": False,
+                    "mode": mode or "shared",
+                    "detail": "عداد الإشعارات غير متاح مؤقتًا.",
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class MarkReadView(APIView):
@@ -211,6 +133,7 @@ class MarkReadView(APIView):
         )
         if not updated:
             return Response({"detail": "غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+        invalidate_unread_badge_cache(user_id=request.user.id)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -219,6 +142,7 @@ class MarkAllReadView(APIView):
 
     def post(self, request):
         Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        invalidate_unread_badge_cache(user_id=request.user.id)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -247,6 +171,7 @@ class NotificationActionView(APIView):
         deleted, _ = Notification.objects.filter(id=notif_id, user=request.user).delete()
         if not deleted:
             return Response({"detail": "غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+        invalidate_unread_badge_cache(user_id=request.user.id)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -298,43 +223,45 @@ class NotificationPreferencesView(APIView):
 
 
 class RegisterDeviceTokenView(APIView):
-	"""
-	يسجّل توكن FCM للجوال. (للاستخدام لاحقًا)
-	"""
+    """
+    يسجّل توكن FCM للجوال. (للاستخدام لاحقًا)
+    """
 
-	permission_classes = [IsAtLeastClient]
+    permission_classes = [IsAtLeastClient]
 
-	def post(self, request):
-		s = DeviceTokenSerializer(data=request.data)
-		s.is_valid(raise_exception=True)
-		token = s.validated_data["token"]
-		platform = s.validated_data["platform"]
+    def post(self, request):
+        serializer = DeviceTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data["token"]
+        platform = serializer.validated_data["platform"]
 
-		DeviceToken.objects.update_or_create(
-			token=token,
-			defaults={
-				"user": request.user,
-				"platform": platform,
-				"is_active": True,
-				"last_seen_at": timezone.now(),
-			},
-		)
-		return Response({"ok": True}, status=status.HTTP_200_OK)
+        DeviceToken.objects.update_or_create(
+            token=token,
+            defaults={
+                "user": request.user,
+                "platform": platform,
+                "is_active": True,
+                "last_seen_at": timezone.now(),
+            },
+        )
+        return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
 class DeleteOldNotificationsView(APIView):
-	permission_classes = [IsAtLeastClient]
+    permission_classes = [IsAtLeastClient]
 
-	def post(self, request):
-		days = getattr(settings, "NOTIFICATIONS_RETENTION_DAYS", 90)
-		cutoff = timezone.now() - timedelta(days=days)
+    def post(self, request):
+        days = getattr(settings, "NOTIFICATIONS_RETENTION_DAYS", 90)
+        cutoff = timezone.now() - timedelta(days=days)
 
-		deleted, _ = Notification.objects.filter(
-			user=request.user,
-			created_at__lt=cutoff,
-		).delete()
+        deleted, _ = Notification.objects.filter(
+            user=request.user,
+            created_at__lt=cutoff,
+        ).delete()
+        if deleted:
+            invalidate_unread_badge_cache(user_id=request.user.id)
 
-		return Response(
-			{"ok": True, "deleted": deleted, "retention_days": days},
-			status=status.HTTP_200_OK,
-		)
+        return Response(
+            {"ok": True, "deleted": deleted, "retention_days": days},
+            status=status.HTTP_200_OK,
+        )

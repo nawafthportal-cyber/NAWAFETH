@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
 import '../services/marketplace_service.dart';
+import '../services/unread_badge_service.dart';
 import 'provider_dashboard/provider_order_details_screen.dart';
 import 'service_request_form_screen.dart';
 
@@ -206,7 +207,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
 
       // تمييز كمقروءة
-      MessagingService.markRead(_resolvedThreadId!);
+      unawaited(_markThreadReadAndRefresh());
 
       // التمرير لأسفل
       _scrollToBottom();
@@ -363,7 +364,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
 
       if (hasNewMessages) {
-        MessagingService.markRead(_resolvedThreadId!);
+        unawaited(_markThreadReadAndRefresh());
       }
 
       if (forceScroll || (hasNewMessages && (wasNearBottom || !liveSync))) {
@@ -385,6 +386,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final remaining = _scrollController.position.maxScrollExtent -
         _scrollController.position.pixels;
     return remaining <= 140;
+  }
+
+  Future<void> _markThreadReadAndRefresh() async {
+    final threadId = _resolvedThreadId;
+    if (threadId == null) {
+      return;
+    }
+    final marked = await MessagingService.markRead(threadId);
+    if (marked) {
+      await UnreadBadgeService.refresh(force: true);
+    }
   }
 
   void _snack(String message, {Color? backgroundColor}) {
@@ -692,7 +704,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                 style: TextStyle(fontFamily: "Cairo")),
             onTap: () async {
               Navigator.pop(context);
-              await MessagingService.markRead(_resolvedThreadId!);
+              await _markThreadReadAndRefresh();
               if (!mounted) return;
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(

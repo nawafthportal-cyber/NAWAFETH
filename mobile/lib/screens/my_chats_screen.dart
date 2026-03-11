@@ -1,4 +1,6 @@
 // ignore_for_file: unused_field
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
@@ -7,6 +9,7 @@ import '../models/chat_thread_model.dart';
 import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/unread_badge_service.dart';
 import 'chat_detail_screen.dart';
 
 class MyChatsScreen extends StatefulWidget {
@@ -151,7 +154,8 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
               } else {
                 await MessagingService.markUnread(thread.threadId);
               }
-              _fetchThreads();
+              await _fetchThreads();
+              unawaited(UnreadBadgeService.refresh(force: true));
             },
           ),
           ListTile(
@@ -571,7 +575,8 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
           ),
         );
         // تحديث عند العودة
-        _fetchThreads();
+        await _fetchThreads();
+        unawaited(UnreadBadgeService.refresh(force: true));
       },
       onLongPress: () => _showChatOptions(thread),
       borderRadius: BorderRadius.circular(16),

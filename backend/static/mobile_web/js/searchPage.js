@@ -21,6 +21,7 @@ const SearchPage = (() => {
   let _mapInstance = null;
   let _mapMarkersLayer = null;
   let _featuredProviderIds = new Set();
+  let _searchPromoPlacements = [];
   let _promoBannerEl = null;
 
   let _input;
@@ -335,14 +336,7 @@ const SearchPage = (() => {
 
   function _renderProviders() {
     if (!_providersList) return;
-    let sorted = _sortProviders(_providers);
-
-    // Boost featured providers to top
-    if (_featuredProviderIds.size) {
-      const featured = sorted.filter(p => _featuredProviderIds.has(String(p.id)));
-      const rest = sorted.filter(p => !_featuredProviderIds.has(String(p.id)));
-      sorted = [...featured, ...rest];
-    }
+    let sorted = _applyPromoOrdering(_sortProviders(_providers));
 
     if (_resultsCount) _resultsCount.textContent = sorted.length + ' نتيجة';
     if (_mapBtn) _mapBtn.classList.toggle('hidden', sorted.length === 0);
@@ -401,7 +395,7 @@ const SearchPage = (() => {
     const title = document.getElementById('search-map-title');
     if (!canvas || typeof L === 'undefined') return;
 
-    const sorted = _sortProviders(_providers).filter(provider => {
+    const sorted = _applyPromoOrdering(_sortProviders(_providers)).filter(provider => {
       const lat = _safeNum(provider.lat ?? provider.latitude);
       const lng = _safeNum(provider.lng ?? provider.longitude);
       return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0);
@@ -483,6 +477,61 @@ const SearchPage = (() => {
       return sorted;
     }
     return sorted;
+  }
+
+  function _applyPromoOrdering(sortedProviders) {
+    let ordered = [...sortedProviders];
+    const placements = [..._searchPromoPlacements].sort((a, b) => _promoPositionRank(a) - _promoPositionRank(b));
+    let exactSlotsPlaced = 0;
+    let top5Offset = 0;
+    let top10Offset = 0;
+    const handledProviderIds = new Set();
+
+    placements.forEach(placement => {
+      const providerId = String(placement?.target_provider_id || '').trim();
+      if (!providerId || handledProviderIds.has(providerId)) return;
+      const currentIndex = ordered.findIndex(provider => String(provider?.id || '') === providerId);
+      if (currentIndex < 0) return;
+
+      const [provider] = ordered.splice(currentIndex, 1);
+      const position = String(placement?.search_position || '').trim().toLowerCase();
+      let targetIndex = 0;
+      if (position === 'first') {
+        targetIndex = 0;
+        exactSlotsPlaced = Math.max(exactSlotsPlaced, 1);
+      }
+      else if (position === 'second') {
+        targetIndex = 1;
+        exactSlotsPlaced = Math.max(exactSlotsPlaced, 2);
+      }
+      else if (position === 'top10') {
+        targetIndex = exactSlotsPlaced + top5Offset + top10Offset;
+        top10Offset += 1;
+      } else {
+        targetIndex = exactSlotsPlaced + top5Offset;
+        top5Offset += 1;
+      }
+      if (targetIndex > ordered.length) targetIndex = ordered.length;
+      ordered.splice(targetIndex, 0, provider);
+      handledProviderIds.add(providerId);
+    });
+
+    if (!handledProviderIds.size && _featuredProviderIds.size) {
+      const featured = ordered.filter(provider => _featuredProviderIds.has(String(provider.id)));
+      const rest = ordered.filter(provider => !_featuredProviderIds.has(String(provider.id)));
+      ordered = [...featured, ...rest];
+    }
+
+    return ordered;
+  }
+
+  function _promoPositionRank(placement) {
+    const position = String(placement?.search_position || '').trim().toLowerCase();
+    if (position === 'first') return 0;
+    if (position === 'second') return 1;
+    if (position === 'top5') return 2;
+    if (position === 'top10') return 3;
+    return 9;
   }
 
   function _buildProviderCard(provider) {
@@ -714,8 +763,9 @@ const SearchPage = (() => {
 
   async function _loadSearchPromos() {
     try {
-      const [bannerRes, featuredRes] = await Promise.allSettled([
+      const [bannerRes, searchRes, featuredRes] = await Promise.allSettled([
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=5'),
+        ApiClient.get('/api/promo/active/?service_type=search_results&limit=10'),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
       // Banner
@@ -724,9 +774,10 @@ const SearchPage = (() => {
         if (banners.length && _promoBannerEl) {
           const promo = banners[0];
           const asset = (promo.assets || [])[0];
-          if (asset && asset.file) {
+          const assetFile = asset && (asset.file || asset.file_url);
+          if (assetFile) {
             const img = document.createElement('img');
-            img.src = ApiClient.mediaUrl(asset.file);
+            img.src = ApiClient.mediaUrl(assetFile);
             img.alt = promo.title || '';
             if (promo.redirect_url) {
               const link = document.createElement('a');
@@ -744,15 +795,31 @@ const SearchPage = (() => {
           }
         }
       }
-      // Featured providers
-      if (featuredRes.status === 'fulfilled' && featuredRes.value.ok) {
-        const items = featuredRes.value.data?.results || featuredRes.value.data || [];
-        _featuredProviderIds = new Set();
-        items.forEach(p => {
-          if (p.target_provider_id) _featuredProviderIds.add(String(p.target_provider_id));
-        });
-        if (_featuredProviderIds.size && _providers.length) _renderProviders();
-      }
+      // Search placements + featured providers
+      const searchItems = searchRes.status === 'fulfilled' && searchRes.value.ok
+        ? (searchRes.value.data?.results || searchRes.value.data || [])
+        : [];
+      const featuredItems = featuredRes.status === 'fulfilled' && featuredRes.value.ok
+        ? (featuredRes.value.data?.results || featuredRes.value.data || [])
+        : [];
+      _searchPromoPlacements = [];
+      _featuredProviderIds = new Set();
+      searchItems.forEach(item => {
+        if (item && item.target_provider_id) {
+          _featuredProviderIds.add(String(item.target_provider_id));
+          _searchPromoPlacements.push(item);
+        }
+      });
+      featuredItems.forEach(item => {
+        if (item && item.target_provider_id) {
+          _featuredProviderIds.add(String(item.target_provider_id));
+          _searchPromoPlacements.push({
+            ...item,
+            search_position: item.search_position || 'top5',
+          });
+        }
+      });
+      if (_providers.length) _renderProviders();
     } catch (_) { /* non-critical */ }
   }
 

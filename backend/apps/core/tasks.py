@@ -139,21 +139,32 @@ def send_verification_expiry_reminders() -> int:
 
 
 # ────────────────────────────────────────────
-# 3. إتمام تلقائي للحملات الترويجية المنتهية
+# 3. إرسال الرسائل الدعائية المجدولة
+# ────────────────────────────────────────────
+
+@shared_task(name="core.send_due_promo_messages")
+def send_due_promo_messages() -> int:
+    """
+    Deliver due promotional message items once their scheduled send_at is reached.
+    """
+    from apps.promo.services import send_due_promo_messages as _send_due_promo_messages
+
+    count = _send_due_promo_messages(now=timezone.now(), limit=100)
+    logger.info("send_due_promo_messages delivered %d campaigns", count)
+    return count
+
+
+# ────────────────────────────────────────────
+# 4. إتمام تلقائي للحملات الترويجية المنتهية
 # ────────────────────────────────────────────
 
 @shared_task(name="core.auto_complete_expired_promos")
 def auto_complete_expired_promos() -> int:
     """
-    Move ACTIVE promo requests past their end_at to COMPLETED status.
+    Move ACTIVE promo requests past their end_at to EXPIRED status.
     """
-    from apps.promo.models import PromoRequest, PromoRequestStatus
+    from apps.promo.services import expire_due_promos
 
-    now = timezone.now()
-    qs = PromoRequest.objects.filter(
-        status=PromoRequestStatus.ACTIVE,
-        end_at__lte=now,
-    )
-    count = qs.update(status=PromoRequestStatus.COMPLETED)
-    logger.info("auto_complete_expired_promos completed %d campaigns", count)
+    count = expire_due_promos(now=timezone.now())
+    logger.info("auto_complete_expired_promos expired %d campaigns", count)
     return count

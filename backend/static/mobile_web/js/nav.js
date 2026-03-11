@@ -8,6 +8,18 @@ const Nav = (() => {
   let _sidebarOpen = false;
   let _badgeRefreshInFlight = false;
   let _badgeUnauthorizedUntil = 0;
+  let _badgePollTimer = null;
+  let _badgeSocket = null;
+  let _badgeSocketReconnectTimer = null;
+  let _badgeSocketBackoffMs = 1000;
+  let _badgeOwnsLeadership = false;
+  let _badgeEventsBound = false;
+  const _badgePollIntervalMs = 45000;
+  const _badgeLeaderTtlMs = 70000;
+  const _badgeSocketBackoffMaxMs = 30000;
+  const _badgeLeaderKey = 'nw_badge_poll_leader_v2';
+  const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
+  const _badgeTabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
 
   function init() {
     _ensureSingleBottomNav();
@@ -271,64 +283,349 @@ const Nav = (() => {
     badge.classList.remove('hidden');
   }
 
-  async function _loadUnreadBadges() {
-    if (_badgeRefreshInFlight) return;
-    _badgeRefreshInFlight = true;
+  function _clearUnreadBadges() {
+    _ensureBadges('a[href="/notifications/"], #btn-notifications').forEach((badge) => _setBadge(badge, 0));
+    _ensureBadges('a[href="/chats/"], #btn-chat').forEach((badge) => _setBadge(badge, 0));
+  }
 
-    if (_badgeUnauthorizedUntil && Date.now() < _badgeUnauthorizedUntil) {
-      _badgeRefreshInFlight = false;
+  function _readStorageJson(key) {
+    try {
+      const raw = window.localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _writeStorageJson(key, value) {
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value));
+    } catch (_) {}
+  }
+
+  function _removeStorageKey(key) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (_) {}
+  }
+
+  function _isPageActive() {
+    return document.visibilityState === 'visible' && document.hasFocus();
+  }
+
+  function _hasFreshLeader(record) {
+    return !!record && record.id && Number(record.expiresAt || 0) > Date.now();
+  }
+
+  function _claimBadgeLeadership(force) {
+    if (!Auth.isLoggedIn() || !_isPageActive()) {
+      _badgeOwnsLeadership = false;
+      return false;
+    }
+    const currentLeader = _readStorageJson(_badgeLeaderKey);
+    if (!force && _hasFreshLeader(currentLeader) && currentLeader.id !== _badgeTabId) {
+      _badgeOwnsLeadership = false;
+      return false;
+    }
+    _writeStorageJson(_badgeLeaderKey, {
+      id: _badgeTabId,
+      expiresAt: Date.now() + _badgeLeaderTtlMs,
+    });
+    const confirmedLeader = _readStorageJson(_badgeLeaderKey);
+    _badgeOwnsLeadership = !!confirmedLeader && confirmedLeader.id === _badgeTabId;
+    return _badgeOwnsLeadership;
+  }
+
+  function _renewBadgeLeadership() {
+    if (!_badgeOwnsLeadership) return;
+    _writeStorageJson(_badgeLeaderKey, {
+      id: _badgeTabId,
+      expiresAt: Date.now() + _badgeLeaderTtlMs,
+    });
+  }
+
+  function _releaseBadgeLeadership() {
+    const currentLeader = _readStorageJson(_badgeLeaderKey);
+    if (currentLeader && currentLeader.id === _badgeTabId) {
+      _removeStorageKey(_badgeLeaderKey);
+    }
+    _badgeOwnsLeadership = false;
+  }
+
+  function _clearBadgeSocketReconnect() {
+    if (_badgeSocketReconnectTimer) {
+      clearTimeout(_badgeSocketReconnectTimer);
+      _badgeSocketReconnectTimer = null;
+    }
+  }
+
+  function _closeBadgeSocket() {
+    _clearBadgeSocketReconnect();
+    if (!_badgeSocket) return;
+    const socket = _badgeSocket;
+    _badgeSocket = null;
+    try {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      socket.close(1000, 'badge polling stopped');
+    } catch (_) {}
+  }
+
+  function _canUseBadgeRealtime() {
+    return Auth.isLoggedIn() && _badgeOwnsLeadership && _isPageActive();
+  }
+
+  function _badgeSocketUrl() {
+    const token = Auth.getAccessToken();
+    if (!token) return null;
+    try {
+      const url = new URL('/ws/notifications/', ApiClient.BASE || window.location.origin);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      url.searchParams.set('token', token);
+      return url.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _scheduleBadgeSocketReconnect() {
+    if (_badgeSocketReconnectTimer || !_canUseBadgeRealtime()) {
+      return;
+    }
+    const delay = _badgeSocketBackoffMs;
+    _badgeSocketReconnectTimer = window.setTimeout(() => {
+      _badgeSocketReconnectTimer = null;
+      _connectBadgeSocket();
+    }, delay);
+    _badgeSocketBackoffMs = Math.min(_badgeSocketBackoffMaxMs, Math.max(1000, delay * 2));
+  }
+
+  function _handleBadgeSocketMessage(rawEvent) {
+    let payload = null;
+    try {
+      payload = JSON.parse(rawEvent.data || '{}');
+    } catch (_) {
+      return;
+    }
+    if (!payload || payload.type !== 'notification.created') return;
+    try {
+      window.dispatchEvent(new CustomEvent('nw:notification-created', {
+        detail: payload.notification || {},
+      }));
+    } catch (_) {}
+    _syncBadgePolling(true);
+  }
+
+  function _connectBadgeSocket() {
+    if (!_canUseBadgeRealtime()) {
+      _closeBadgeSocket();
+      return;
+    }
+    if (_badgeSocket || _badgeSocketReconnectTimer) {
+      return;
+    }
+    const url = _badgeSocketUrl();
+    if (!url) return;
+
+    let socket;
+    try {
+      socket = new WebSocket(url);
+    } catch (_) {
+      _scheduleBadgeSocketReconnect();
       return;
     }
 
+    _badgeSocket = socket;
+    socket.onopen = () => {
+      if (_badgeSocket !== socket) return;
+      _badgeSocketBackoffMs = 1000;
+      _syncBadgePolling(true);
+    };
+    socket.onmessage = (event) => {
+      if (_badgeSocket !== socket) return;
+      _handleBadgeSocketMessage(event);
+    };
+    socket.onerror = () => {};
+    socket.onclose = async (event) => {
+      if (_badgeSocket === socket) {
+        _badgeSocket = null;
+      }
+      if (!_canUseBadgeRealtime()) return;
+      if (event && event.code === 4401 && typeof Auth.refreshAccessToken === 'function') {
+        try {
+          const refreshed = await Auth.refreshAccessToken();
+          if (refreshed && _canUseBadgeRealtime()) {
+            _connectBadgeSocket();
+            return;
+          }
+        } catch (_) {}
+      }
+      _scheduleBadgeSocketReconnect();
+    };
+  }
+
+  function _applyBadgePayload(payload) {
+    if (!payload) return;
+    const notificationsBadges = _ensureBadges('a[href="/notifications/"], #btn-notifications');
+    const chatsBadges = _ensureBadges('a[href="/chats/"], #btn-chat');
+    notificationsBadges.forEach((badge) => _setBadge(badge, payload.notifications || 0));
+    chatsBadges.forEach((badge) => _setBadge(badge, payload.chats || 0));
+  }
+
+  function _publishBadgePayload(payload) {
+    _writeStorageJson(_badgeSnapshotKey, {
+      notifications: Math.max(0, Number(payload.notifications) || 0),
+      chats: Math.max(0, Number(payload.chats) || 0),
+      publishedAt: Date.now(),
+    });
+  }
+
+  async function _loadUnreadBadges(forceLeadership) {
+    if (_badgeRefreshInFlight) return;
+    if (_badgeUnauthorizedUntil && Date.now() < _badgeUnauthorizedUntil) {
+      return;
+    }
     if (!Auth.isLoggedIn()) {
       _badgeUnauthorizedUntil = 0;
-      _badgeRefreshInFlight = false;
+      _clearUnreadBadges();
+      _stopBadgePolling();
       return;
     }
 
     const notificationsBadges = _ensureBadges('a[href="/notifications/"], #btn-notifications');
     const chatsBadges = _ensureBadges('a[href="/chats/"], #btn-chat');
     if (!notificationsBadges.length && !chatsBadges.length) {
-      _badgeRefreshInFlight = false;
+      _stopBadgePolling();
       return;
     }
 
-    try {
-      const mode = _activeMode();
-      const [notifRes, chatsRes] = await Promise.all([
-        ApiClient.get('/api/notifications/unread-count/?mode=' + mode),
-        ApiClient.get('/api/messaging/direct/unread-count/?mode=' + mode),
-      ]);
+    if (!_claimBadgeLeadership(!!forceLeadership)) {
+      const snapshot = _readStorageJson(_badgeSnapshotKey);
+      if (snapshot) _applyBadgePayload(snapshot);
+      return;
+    }
 
-      const unauthorized = (notifRes?.status === 401) || (chatsRes?.status === 401);
-      if (unauthorized) {
-        // Back off for 2 minutes to avoid noisy repeated 401 polling.
+    _badgeRefreshInFlight = true;
+    try {
+      _renewBadgeLeadership();
+      const mode = _activeMode();
+      const res = await ApiClient.get('/api/core/unread-badges/?mode=' + mode);
+      if (res?.status === 401) {
         _badgeUnauthorizedUntil = Date.now() + (2 * 60 * 1000);
-        notificationsBadges.forEach((badge) => _setBadge(badge, 0));
-        chatsBadges.forEach((badge) => _setBadge(badge, 0));
+        _clearUnreadBadges();
+        _stopBadgePolling();
+        return;
+      }
+
+      if (!res?.ok || !res.data) {
         return;
       }
 
       _badgeUnauthorizedUntil = 0;
-
-      const notifUnread = notifRes?.ok ? (notifRes.data?.unread || 0) : 0;
-      const chatUnread = chatsRes?.ok ? (chatsRes.data?.unread || 0) : 0;
-      notificationsBadges.forEach((badge) => _setBadge(badge, notifUnread));
-      chatsBadges.forEach((badge) => _setBadge(badge, chatUnread));
+      const payload = {
+        notifications: res.data.notifications || 0,
+        chats: res.data.chats || 0,
+      };
+      _applyBadgePayload(payload);
+      _publishBadgePayload(payload);
     } finally {
       _badgeRefreshInFlight = false;
     }
   }
 
+  function _stopBadgePolling() {
+    if (_badgePollTimer) {
+      clearInterval(_badgePollTimer);
+      _badgePollTimer = null;
+    }
+    _closeBadgeSocket();
+    _releaseBadgeLeadership();
+  }
+
+  function _startBadgePolling(forceLeadership) {
+    if (!Auth.isLoggedIn() || !_isPageActive()) {
+      _stopBadgePolling();
+      return;
+    }
+    if (!_claimBadgeLeadership(forceLeadership)) {
+      _stopBadgePolling();
+      const snapshot = _readStorageJson(_badgeSnapshotKey);
+      if (snapshot) _applyBadgePayload(snapshot);
+      return;
+    }
+    _connectBadgeSocket();
+    if (_badgePollTimer) return;
+    _badgePollTimer = window.setInterval(() => {
+      if (!_isPageActive()) {
+        _stopBadgePolling();
+        return;
+      }
+      if (!_claimBadgeLeadership(false)) {
+        _stopBadgePolling();
+        return;
+      }
+      _connectBadgeSocket();
+      _loadUnreadBadges(false);
+    }, _badgePollIntervalMs);
+  }
+
+  function _syncBadgePolling(forceRefresh) {
+    if (!Auth.isLoggedIn() || !_isPageActive()) {
+      _stopBadgePolling();
+      return;
+    }
+    _startBadgePolling(true);
+    if (forceRefresh) _loadUnreadBadges(true);
+  }
+
+  function _handleBadgeStorage(event) {
+    if (event.key === _badgeSnapshotKey && event.newValue) {
+      try {
+        _applyBadgePayload(JSON.parse(event.newValue));
+      } catch (_) {}
+      return;
+    }
+    if (event.key === _badgeLeaderKey && _badgeOwnsLeadership) {
+      try {
+        const leader = event.newValue ? JSON.parse(event.newValue) : null;
+        if (leader && leader.id !== _badgeTabId && _hasFreshLeader(leader)) {
+          _badgeOwnsLeadership = false;
+          if (_badgePollTimer) {
+            clearInterval(_badgePollTimer);
+            _badgePollTimer = null;
+          }
+          _closeBadgeSocket();
+        }
+      } catch (_) {}
+    }
+  }
+
   function _initUnreadBadges() {
-    _loadUnreadBadges();
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') _loadUnreadBadges();
-    });
-    window.addEventListener('focus', _loadUnreadBadges);
-    window.addEventListener('pageshow', _loadUnreadBadges);
-    window.addEventListener('nw:badge-refresh', _loadUnreadBadges);
-    setInterval(_loadUnreadBadges, 20000);
+    const snapshot = _readStorageJson(_badgeSnapshotKey);
+    if (snapshot) _applyBadgePayload(snapshot);
+
+    if (!_badgeEventsBound) {
+      _badgeEventsBound = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') _syncBadgePolling(true);
+        else _stopBadgePolling();
+      });
+      window.addEventListener('focus', () => _syncBadgePolling(true));
+      window.addEventListener('blur', _stopBadgePolling);
+      window.addEventListener('pageshow', () => _syncBadgePolling(true));
+      window.addEventListener('beforeunload', _stopBadgePolling);
+      window.addEventListener('storage', _handleBadgeStorage);
+      window.addEventListener('nw:badge-refresh', () => _syncBadgePolling(true));
+      window.addEventListener('nw:auth-logout', () => {
+        _badgeUnauthorizedUntil = 0;
+        _clearUnreadBadges();
+        _stopBadgePolling();
+      });
+    }
+
+    _syncBadgePolling(true);
   }
 
   // Boot

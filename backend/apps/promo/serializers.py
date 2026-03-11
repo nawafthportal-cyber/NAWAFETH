@@ -3,6 +3,8 @@ from __future__ import annotations
 from rest_framework import serializers
 from django.utils import timezone
 
+from apps.providers.models import ProviderPortfolioItem
+from apps.providers.serializers import ProviderPortfolioItemSerializer
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
     promotional_notification_controls_enabled_for_user,
@@ -29,6 +31,7 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
     provider_display_name = serializers.SerializerMethodField()
     provider_username = serializers.SerializerMethodField()
     file_type = serializers.SerializerMethodField()
+    file = serializers.FileField(read_only=True)
     file_url = serializers.FileField(source="file", read_only=True)
     caption = serializers.SerializerMethodField()
     redirect_url = serializers.SerializerMethodField()
@@ -42,6 +45,7 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
             "provider_display_name",
             "provider_username",
             "file_type",
+            "file",
             "file_url",
             "caption",
             "redirect_url",
@@ -53,6 +57,9 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
             target_provider = getattr(getattr(obj, "item", None), "target_provider", None)
             if target_provider:
                 return target_provider
+            request_target = getattr(obj.request, "target_provider", None)
+            if request_target:
+                return request_target
             return obj.request.requester.provider_profile
         except Exception:
             return None
@@ -69,6 +76,10 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
         return str(getattr(requester, "username", "") or getattr(requester, "phone", "") or getattr(obj.request, "title", "إعلان"))
 
     def get_provider_username(self, obj: PromoAsset) -> str:
+        pp = self._provider_profile(obj)
+        user = getattr(pp, "user", None)
+        if user and getattr(user, "username", None):
+            return str(user.username)
         requester = getattr(obj.request, "requester", None)
         return str(getattr(requester, "username", "") or "")
 
@@ -216,6 +227,9 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "message_body",
             "use_notification_channel",
             "use_chat_channel",
+            "message_sent_at",
+            "message_recipients_count",
+            "message_dispatch_error",
             "sponsor_name",
             "sponsor_url",
             "sponsorship_months",
@@ -314,8 +328,26 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         from .services import _promo_request_summary, _sync_promo_to_unified
 
         if items_data:
-            schedule_points = []
+            provider_profile = getattr(user, "provider_profile", None)
+            normalized_items = []
+            auto_targeted_service_types = {
+                PromoServiceType.FEATURED_SPECIALISTS,
+                PromoServiceType.PORTFOLIO_SHOWCASE,
+                PromoServiceType.SNAPSHOTS,
+                PromoServiceType.SEARCH_RESULTS,
+            }
             for row in items_data:
+                normalized = dict(row)
+                if (
+                    provider_profile is not None
+                    and normalized.get("service_type") in auto_targeted_service_types
+                    and not normalized.get("target_provider")
+                ):
+                    normalized["target_provider"] = provider_profile
+                normalized_items.append(normalized)
+
+            schedule_points = []
+            for row in normalized_items:
                 if row.get("start_at"):
                     schedule_points.append(("start", row["start_at"]))
                 if row.get("end_at"):
@@ -338,7 +370,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 status=PromoRequestStatus.NEW,
                 ops_status=PromoOpsStatus.NEW,
             )
-            for row in items_data:
+            for row in normalized_items:
                 PromoRequestItem.objects.create(request=pr, **row)
             pr.title = (_promo_request_summary(pr) or pr.title)[:160]
             pr.save(update_fields=["title", "updated_at"])
@@ -405,7 +437,30 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
         return getattr(getattr(obj, "invoice", None), "vat_amount", None)
 
 
-class PromoActivePlacementSerializer(serializers.ModelSerializer):
+class PromoActivePlacementSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    request_id = serializers.IntegerField(read_only=True)
+    item_id = serializers.IntegerField(read_only=True, allow_null=True)
+    code = serializers.CharField(read_only=True, allow_blank=True)
+    title = serializers.CharField(read_only=True, allow_blank=True)
+    ad_type = serializers.CharField(read_only=True, allow_blank=True)
+    service_type = serializers.CharField(read_only=True, allow_blank=True)
+    start_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    end_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    send_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    frequency = serializers.CharField(read_only=True, allow_blank=True)
+    position = serializers.CharField(read_only=True, allow_blank=True)
+    search_scope = serializers.CharField(read_only=True, allow_blank=True)
+    search_position = serializers.CharField(read_only=True, allow_blank=True)
+    target_category = serializers.CharField(read_only=True, allow_blank=True)
+    target_city = serializers.CharField(read_only=True, allow_blank=True)
+    redirect_url = serializers.CharField(read_only=True, allow_blank=True)
+    message_title = serializers.CharField(read_only=True, allow_blank=True)
+    message_body = serializers.CharField(read_only=True, allow_blank=True)
+    sponsor_name = serializers.CharField(read_only=True, allow_blank=True)
+    sponsor_url = serializers.CharField(read_only=True, allow_blank=True)
+    sponsorship_months = serializers.IntegerField(read_only=True)
+    attachment_specs = serializers.CharField(read_only=True, allow_blank=True)
     assets = PromoHomeBannerAssetSerializer(many=True, read_only=True)
     target_provider_id = serializers.IntegerField(source="target_provider.id", read_only=True)
     target_provider_display_name = serializers.CharField(source="target_provider.display_name", read_only=True)
@@ -415,33 +470,30 @@ class PromoActivePlacementSerializer(serializers.ModelSerializer):
     target_portfolio_item_id = serializers.IntegerField(source="target_portfolio_item.id", read_only=True)
     target_portfolio_item_file = serializers.FileField(source="target_portfolio_item.file", read_only=True)
     target_portfolio_item_file_type = serializers.CharField(source="target_portfolio_item.file_type", read_only=True)
+    portfolio_item = serializers.SerializerMethodField()
 
-    class Meta:
-        model = PromoRequest
-        fields = [
-            "id",
-            "code",
-            "title",
-            "ad_type",
-            "start_at",
-            "end_at",
-            "frequency",
-            "position",
-            "target_category",
-            "target_city",
-            "redirect_url",
-            "message_title",
-            "message_body",
-            "target_provider_id",
-            "target_provider_display_name",
-            "target_provider_profile_image",
-            "target_provider_city",
-            "target_provider_type",
-            "target_portfolio_item_id",
-            "target_portfolio_item_file",
-            "target_portfolio_item_file_type",
-            "assets",
-        ]
+    def get_portfolio_item(self, obj):
+        if not isinstance(obj, dict):
+            return None
+        target_item = obj.get("target_portfolio_item")
+        if target_item is None and obj.get("service_type") == PromoServiceType.PORTFOLIO_SHOWCASE:
+            target_provider = obj.get("target_provider")
+            if target_provider is not None:
+                target_item = (
+                    ProviderPortfolioItem.objects.select_related("provider", "provider__user")
+                    .filter(provider=target_provider)
+                    .order_by("-created_at", "-id")
+                    .first()
+                )
+        if target_item is None:
+            return None
+        return ProviderPortfolioItemSerializer(target_item, context=self.context).data
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("item_id") in ("", None):
+            data["item_id"] = None
+        return data
 
 
 class PromoQuoteSerializer(serializers.Serializer):

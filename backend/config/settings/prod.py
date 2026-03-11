@@ -4,6 +4,28 @@ import os
 
 DEBUG = False
 
+
+def _unique_list(values):
+	items = []
+	for value in values:
+		normalized = (value or "").strip().rstrip("/")
+		if normalized and normalized not in items:
+			items.append(normalized)
+	return items
+
+
+def _expand_https_default_port(origins):
+	expanded = []
+	for origin in origins:
+		normalized = (origin or "").strip().rstrip("/")
+		if not normalized:
+			continue
+		expanded.append(normalized)
+		host = normalized.split("://", 1)[-1]
+		if normalized.startswith("https://") and ":" not in host:
+			expanded.append(f"{normalized}:443")
+	return _unique_list(expanded)
+
 # Never allow OTP test helpers in production.
 OTP_TEST_MODE = False
 OTP_TEST_KEY = ""
@@ -13,9 +35,14 @@ OTP_DEV_ACCEPT_ANY_4_DIGITS = False
 OTP_DEV_TEST_CODE = ""
 OTP_DEV_ACCEPT_ANY_CODE = False
 
-# Never allow OTP bypass helpers in production.
-OTP_APP_BYPASS = False
-OTP_APP_BYPASS_ALLOWLIST = []
+# Emergency OTP bypass can be enabled in production only through environment
+# variables. The runtime verification path still requires an explicit allowlist.
+OTP_APP_BYPASS = os.getenv("OTP_APP_BYPASS", "0") == "1"
+OTP_APP_BYPASS_ALLOWLIST = [
+	p.strip()
+	for p in os.getenv("OTP_APP_BYPASS_ALLOWLIST", "").split(",")
+	if p.strip()
+]
 
 # Render (and similar PaaS) hostnames + custom domain
 for _host in (".onrender.com", ".nawafthportal.com", "nawafthportal.com", "www.nawafthportal.com"):
@@ -23,6 +50,7 @@ for _host in (".onrender.com", ".nawafthportal.com", "nawafthportal.com", "www.n
 		ALLOWED_HOSTS.append(_host)
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 SECURE_SSL_REDIRECT = True
 # Render's port scan / health checks may hit the service over plain HTTP.
@@ -58,7 +86,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 
 _cors_env = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").strip()
 if _cors_env:
-	CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(",") if o.strip()]
+	CORS_ALLOWED_ORIGINS = _unique_list([o.strip() for o in _cors_env.split(",") if o.strip()])
 
 _cors_regex_env = os.getenv("DJANGO_CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
 if _cors_regex_env:
@@ -76,6 +104,7 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if _csrf_env:
 	CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = _expand_https_default_port(CSRF_TRUSTED_ORIGINS)
 
 # CSP (Production) - django-csp v4+ format
 INSTALLED_APPS += ["csp"]
@@ -125,12 +154,15 @@ LOGGING = {
 	"disable_existing_loggers": False,
 	"formatters": {
 		"standard": {
-			"format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+			"format": "%(asctime)s %(levelname)s %(name)s request_id=%(request_id)s category=%(log_category)s path=%(request_path)s %(message)s",
 		}
 	},
 	"filters": {
 		"exclude_health_access": {
 			"()": "apps.core.logging_filters.ExcludeHealthCheckAccessFilter",
+		},
+		"request_context": {
+			"()": "apps.core.logging_filters.RequestContextLogFilter",
 		},
 		"exclude_bot_scan_404": {
 			"()": "apps.core.logging_filters.ExcludeCommonBotScan404Filter",
@@ -143,7 +175,7 @@ LOGGING = {
 		"console": {
 			"class": "logging.StreamHandler",
 			"formatter": "standard",
-			"filters": ["exclude_bot_scan_404", "exclude_unread_unauthorized"],
+			"filters": ["request_context", "exclude_bot_scan_404", "exclude_unread_unauthorized"],
 		}
 	},
 	"root": {"handlers": ["console"], "level": _log_level},
@@ -156,5 +188,9 @@ LOGGING = {
 			"propagate": False,
 			"filters": ["exclude_health_access"],
 		},
+		"nawafeth.bot_scan": {"handlers": ["console"], "level": "INFO", "propagate": False},
+		"nawafeth.polling": {"handlers": ["console"], "level": _log_level, "propagate": False},
+		"nawafeth.db": {"handlers": ["console"], "level": _log_level, "propagate": False},
+		"nawafeth.auth": {"handlers": ["console"], "level": _log_level, "propagate": False},
 	},
 }

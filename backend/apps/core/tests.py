@@ -237,11 +237,28 @@ class PromoAutoCompleteTaskTests(TestCase):
             status=PromoRequestStatus.ACTIVE,
         )
 
-    def test_auto_completes_expired_promos(self):
+    def test_auto_marks_expired_promos(self):
         from apps.core.tasks import auto_complete_expired_promos
         from apps.promo.models import PromoRequestStatus
 
         count = auto_complete_expired_promos()
         self.assertEqual(count, 1)
         self.promo.refresh_from_db()
-        self.assertEqual(self.promo.status, PromoRequestStatus.COMPLETED)
+        self.assertEqual(self.promo.status, PromoRequestStatus.EXPIRED)
+
+
+class PromoScheduledMessageTaskTests(TestCase):
+
+    @patch("apps.promo.services.send_due_promo_messages")
+    def test_delegates_to_promo_service(self, mock_send_due):
+        from apps.core.tasks import send_due_promo_messages
+
+        mock_send_due.return_value = 3
+
+        count = send_due_promo_messages()
+
+        self.assertEqual(count, 3)
+        mock_send_due.assert_called_once()
+        _, kwargs = mock_send_due.call_args
+        self.assertEqual(kwargs["limit"], 100)
+        self.assertIsNotNone(kwargs["now"])

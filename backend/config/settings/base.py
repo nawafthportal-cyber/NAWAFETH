@@ -85,6 +85,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "apps.core.middleware.RequestContextMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -135,12 +136,31 @@ else:
     # محلي بدون Redis (غير مفضل للإنتاج)
     CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
+CACHES = (
+    {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+    if REDIS_URL
+    else {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "nawafeth-default",
+        }
+    }
+)
+
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "")
+DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "300"))
+DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
+DB_APPLICATION_NAME = (os.getenv("DB_APPLICATION_NAME", "nawafeth") or "nawafeth").strip()
 if DATABASE_URL:
     # Render style DATABASE_URL
     import dj_database_url  # type: ignore
-    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)}
+    DATABASES = {"default": dj_database_url.parse(DATABASE_URL, conn_max_age=DB_CONN_MAX_AGE)}
 else:
     DATABASES = {
         "default": {
@@ -148,6 +168,13 @@ else:
             "NAME": BASE_DIR / "db.sqlite3",
         }
     }
+
+if DATABASES["default"]["ENGINE"] != "django.db.backends.sqlite3":
+    DATABASES["default"]["CONN_MAX_AGE"] = DB_CONN_MAX_AGE
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+    database_options = DATABASES["default"].setdefault("OPTIONS", {})
+    database_options.setdefault("connect_timeout", DB_CONNECT_TIMEOUT)
+    database_options.setdefault("application_name", DB_APPLICATION_NAME)
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -205,6 +232,10 @@ CELERY_BEAT_SCHEDULE = {
     "core-verification-expiry-reminders": {
         "task": "core.send_verification_expiry_reminders",
         "schedule": timedelta(hours=12),
+    },
+    "core-send-due-promo-messages": {
+        "task": "core.send_due_promo_messages",
+        "schedule": timedelta(minutes=5),
     },
     "core-auto-complete-expired-promos": {
         "task": "core.auto_complete_expired_promos",
@@ -471,6 +502,10 @@ PROMO_FREQUENCY_MULTIPLIER = {
 
 # ✅ Notifications
 NOTIFICATIONS_RETENTION_DAYS = int(os.getenv("NOTIFICATIONS_RETENTION_DAYS", "90"))
+UNREAD_BADGE_CACHE_TTL = int(os.getenv("UNREAD_BADGE_CACHE_TTL", "15"))
+UNREAD_BADGE_STALE_CACHE_TTL = int(
+    os.getenv("UNREAD_BADGE_STALE_CACHE_TTL", str(max(UNREAD_BADGE_CACHE_TTL * 8, 120)))
+)
 
 # ✅ OTP (Development)
 # Explicit development-only OTP bypass contract.

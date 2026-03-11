@@ -1,8 +1,12 @@
 // ignore_for_file: unused_field
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/unread_badge_service.dart';
 import 'notification_settings_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -21,11 +25,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _totalCount = 0;
   String? _errorMessage;
   final ScrollController _scrollController = ScrollController();
+  ValueListenable<UnreadBadges>? _badgeHandle;
+  StreamSubscription<NotificationModel>? _realtimeSubscription;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _badgeHandle = UnreadBadgeService.acquire();
+    _realtimeSubscription =
+        NotificationService.realtimeEvents.listen(_handleRealtimeNotification);
     _initModeAndLoad();
   }
 
@@ -38,8 +47,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  bool _matchesActiveMode(NotificationModel notification) {
+    return notification.audienceMode == 'shared' ||
+        notification.audienceMode == _activeMode;
+  }
+
+  void _handleRealtimeNotification(NotificationModel notification) {
+    if (!_matchesActiveMode(notification) || !mounted) {
+      return;
+    }
+    setState(() {
+      final existingIndex =
+          _notifications.indexWhere((item) => item.id == notification.id);
+      if (existingIndex >= 0) {
+        _notifications.removeAt(existingIndex);
+      } else {
+        _totalCount += 1;
+      }
+      _notifications.insert(0, notification);
+      _errorMessage = null;
+      _isLoading = false;
+    });
   }
 
   Future<void> _loadNotifications() async {
@@ -49,7 +86,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      final page = await NotificationService.fetchNotifications(mode: _activeMode);
+      final page =
+          await NotificationService.fetchNotifications(mode: _activeMode);
       if (!mounted) return;
       setState(() {
         _notifications = page.notifications;
@@ -100,11 +138,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
     if (success) {
       setState(() {
-        _notifications = _notifications.map((n) => n.copyWith(isRead: true)).toList();
+        _notifications =
+            _notifications.map((n) => n.copyWith(isRead: true)).toList();
       });
+      await UnreadBadgeService.refresh(force: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('تم تمييز الكل كمقروء', style: TextStyle(fontFamily: 'Cairo')),
+          content: Text('تم تمييز الكل كمقروء',
+              style: TextStyle(fontFamily: 'Cairo')),
         ),
       );
     }
@@ -115,6 +157,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final result = await NotificationService.deleteOld(mode: _activeMode);
     if (!mounted) return;
     if (result.success) {
+      await UnreadBadgeService.refresh(force: true);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -218,6 +262,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             setState(() {
               _notifications[index] = notif.copyWith(isRead: true);
             });
+            unawaited(UnreadBadgeService.refresh(force: true));
           }
           // TODO: التنقل حسب notif.url
         },
@@ -245,7 +290,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           notif.title,
                           style: TextStyle(
                             fontFamily: "Cairo",
-                            fontWeight: isRead ? FontWeight.w500 : FontWeight.bold,
+                            fontWeight:
+                                isRead ? FontWeight.w500 : FontWeight.bold,
                             fontSize: 15,
                             color: isUrgent
                                 ? Colors.white
@@ -258,7 +304,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       if (isPinned)
                         const Padding(
                           padding: EdgeInsets.only(right: 4),
-                          child: Icon(Icons.push_pin, color: Colors.deepPurple, size: 18),
+                          child: Icon(Icons.push_pin,
+                              color: Colors.deepPurple, size: 18),
                         ),
                       if (!isRead)
                         Container(
@@ -305,42 +352,59 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 Icons.more_vert,
                 color: isUrgent ? Colors.white70 : Colors.black54,
               ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               onSelected: (value) async {
                 if (value == 'follow') {
-                  final newVal = await NotificationService.toggleFollowUp(notif.id, mode: _activeMode);
+                  final newVal = await NotificationService.toggleFollowUp(
+                      notif.id,
+                      mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isFollowUp: newVal);
                   });
                 } else if (value == 'pin' || value == 'unpin') {
-                  final newVal = await NotificationService.togglePin(notif.id, mode: _activeMode);
+                  final newVal = await NotificationService.togglePin(notif.id,
+                      mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isPinned: newVal);
                   });
                 } else if (value == 'read') {
-                  await NotificationService.markRead(notif.id, mode: _activeMode);
+                  await NotificationService.markRead(notif.id,
+                      mode: _activeMode);
                   setState(() {
                     _notifications[index] = notif.copyWith(isRead: true);
                   });
+                  unawaited(UnreadBadgeService.refresh(force: true));
                 } else if (value == 'delete') {
-                  final success = await NotificationService.deleteNotification(notif.id, mode: _activeMode);
+                  final success = await NotificationService.deleteNotification(
+                      notif.id,
+                      mode: _activeMode);
                   if (success) {
                     setState(() {
                       _notifications.removeAt(index);
+                      if (_totalCount > 0) {
+                        _totalCount -= 1;
+                      }
                     });
+                    unawaited(UnreadBadgeService.refresh(force: true));
                   }
                 }
               },
               itemBuilder: (context) => [
                 if (!notif.isRead)
-                  const PopupMenuItem(value: 'read', child: Text("✓ تمييز كمقروء")),
+                  const PopupMenuItem(
+                      value: 'read', child: Text("✓ تمييز كمقروء")),
                 PopupMenuItem(
                   value: 'follow',
-                  child: Text(notif.isFollowUp ? "⭐ إزالة التمييز" : "⭐ تمييز مهم للمتابعة"),
+                  child: Text(notif.isFollowUp
+                      ? "⭐ إزالة التمييز"
+                      : "⭐ تمييز مهم للمتابعة"),
                 ),
                 notif.isPinned
-                    ? const PopupMenuItem(value: 'unpin', child: Text("❌ إلغاء التثبيت"))
-                    : const PopupMenuItem(value: 'pin', child: Text("📌 تثبيت بالأعلى")),
+                    ? const PopupMenuItem(
+                        value: 'unpin', child: Text("❌ إلغاء التثبيت"))
+                    : const PopupMenuItem(
+                        value: 'pin', child: Text("📌 تثبيت بالأعلى")),
                 const PopupMenuItem(value: 'delete', child: Text("🗑 حذف")),
               ],
             ),
@@ -359,7 +423,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
+          backgroundColor:
+              theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
           title: const Text(
             "الإشعارات",
             style: TextStyle(
@@ -376,8 +441,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (value == 'delete_old') _deleteOld();
               },
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'mark_all', child: Text("✓ تمييز الكل كمقروء")),
-                PopupMenuItem(value: 'delete_old', child: Text("🗑 حذف القديمة")),
+                PopupMenuItem(
+                    value: 'mark_all', child: Text("✓ تمييز الكل كمقروء")),
+                PopupMenuItem(
+                    value: 'delete_old', child: Text("🗑 حذف القديمة")),
               ],
             ),
             IconButton(
@@ -385,28 +452,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const NotificationSettingsScreen()),
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationSettingsScreen()),
                 );
               },
             ),
           ],
         ),
         body: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))
+            ? const Center(
+                child: CircularProgressIndicator(color: Colors.deepPurple))
             : _errorMessage != null
                 ? Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                        const Icon(Icons.error_outline,
+                            size: 48, color: Colors.grey),
                         const SizedBox(height: 12),
-                        Text(_errorMessage!, style: const TextStyle(fontFamily: 'Cairo', color: Colors.grey)),
+                        Text(_errorMessage!,
+                            style: const TextStyle(
+                                fontFamily: 'Cairo', color: Colors.grey)),
                         const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: _loadNotifications,
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.deepPurple),
                           child: const Text("إعادة المحاولة",
-                              style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
+                              style: TextStyle(
+                                  fontFamily: 'Cairo', color: Colors.white)),
                         ),
                       ],
                     ),
@@ -416,10 +490,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.notifications_off_outlined, size: 64, color: Colors.grey.shade300),
+                            Icon(Icons.notifications_off_outlined,
+                                size: 64, color: Colors.grey.shade300),
                             const SizedBox(height: 16),
                             const Text("لا توجد إشعارات",
-                                style: TextStyle(fontFamily: 'Cairo', fontSize: 16, color: Colors.grey)),
+                                style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 16,
+                                    color: Colors.grey)),
                           ],
                         ),
                       )
@@ -429,7 +507,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         child: ListView.builder(
                           controller: _scrollController,
                           padding: const EdgeInsets.all(16),
-                          itemCount: _notifications.length + (_isLoadingMore ? 1 : 0),
+                          itemCount:
+                              _notifications.length + (_isLoadingMore ? 1 : 0),
                           itemBuilder: (context, index) {
                             if (index == _notifications.length) {
                               return const Center(
@@ -440,7 +519,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                               );
                             }
-                            return _notificationCard(_notifications[index], index);
+                            return _notificationCard(
+                                _notifications[index], index);
                           },
                         ),
                       ),

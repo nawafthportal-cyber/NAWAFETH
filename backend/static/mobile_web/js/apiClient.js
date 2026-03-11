@@ -7,7 +7,7 @@
 const ApiClient = (() => {
   // Base URL — auto-detect from current origin (same Django server)
   const BASE = window.location.origin;
-  let _refreshing = null; // singleton refresh promise to avoid concurrent refreshes
+  let _refreshing = null;
 
   /**
    * Get stored JWT access token (if user is authenticated).
@@ -17,11 +17,29 @@ const ApiClient = (() => {
     try { return sessionStorage.getItem('nw_access_token'); } catch { return null; }
   }
 
-  /** Try to refresh the access token. Returns true on success. */
+  function _clearStoredTokens() {
+    if (typeof Auth !== 'undefined' && Auth && typeof Auth.logout === 'function') {
+      try {
+        Auth.logout();
+        return;
+      } catch (_) {}
+    }
+    try {
+      sessionStorage.removeItem('nw_access_token');
+      sessionStorage.removeItem('nw_refresh_token');
+      sessionStorage.removeItem('nw_user_id');
+      sessionStorage.removeItem('nw_role_state');
+    } catch {}
+  }
+
+  function _isRefreshPath(path) {
+    return String(path || '').indexOf('/api/accounts/token/refresh/') !== -1;
+  }
+
   async function _tryRefresh() {
     let refresh;
-    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch { return false; }
-    if (!refresh) return false;
+    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch { return { ok: false, terminal: false }; }
+    if (!refresh) return { ok: false, terminal: false };
     try {
       const res = await fetch(BASE + '/api/accounts/token/refresh/', {
         method: 'POST',
@@ -32,16 +50,29 @@ const ApiClient = (() => {
         const d = await res.json();
         if (d && d.access) {
           try { sessionStorage.setItem('nw_access_token', d.access); } catch {}
-          return true;
+          return { ok: true, terminal: false };
         }
       }
-    } catch { /* network error */ }
-    // Refresh failed — clear expired tokens so AllowAny endpoints work
-    try {
-      sessionStorage.removeItem('nw_access_token');
-      sessionStorage.removeItem('nw_refresh_token');
-    } catch {}
-    return false;
+      if (res.status === 400 || res.status === 401) {
+        _clearStoredTokens();
+        return { ok: false, terminal: true };
+      }
+    } catch { /* transient network/server failure */ }
+    return { ok: false, terminal: false };
+  }
+
+  async function refreshAccessToken() {
+    if (!_refreshing) {
+      _refreshing = _tryRefresh().finally(() => { _refreshing = null; });
+    }
+    return _refreshing;
+  }
+
+  async function _parseResponse(res) {
+    const data = res.headers.get('content-type')?.includes('json')
+      ? await res.json()
+      : null;
+    return { ok: res.ok, status: res.status, data };
   }
 
   /**
@@ -56,7 +87,8 @@ const ApiClient = (() => {
     const url = BASE + path;
     const headers = { 'Accept': 'application/json' };
     const token = _getToken();
-    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const shouldAttachAuth = Boolean(token) && !opts.omitAuth && !_isRefreshPath(path);
+    if (shouldAttachAuth) headers['Authorization'] = 'Bearer ' + token;
 
     const isFormData = opts.formData === true || (opts.body instanceof FormData);
     // Only set Content-Type for non-FormData bodies (browser sets multipart boundary automatically)
@@ -81,19 +113,18 @@ const ApiClient = (() => {
       });
       if (timeoutId) clearTimeout(timeoutId);
 
-      // ── 401 auto-retry: refresh token then retry, or retry without auth ──
-      if (res.status === 401 && !opts._retried && token) {
-        // Deduplicate concurrent refresh attempts
-        if (!_refreshing) _refreshing = _tryRefresh().finally(() => { _refreshing = null; });
-        const refreshed = await _refreshing;
-        // Retry with new token (or without token if refresh failed)
-        return request(path, Object.assign({}, opts, { _retried: true }));
+      // Single-flight refresh with one controlled retry.
+      if (res.status === 401 && !opts._retried && shouldAttachAuth) {
+        const refreshResult = await refreshAccessToken();
+        if (refreshResult.ok) {
+          return request(path, Object.assign({}, opts, { _retried: true }));
+        }
+        if (refreshResult.terminal) {
+          return request(path, Object.assign({}, opts, { _retried: true, omitAuth: true }));
+        }
       }
 
-      const data = res.headers.get('content-type')?.includes('json')
-        ? await res.json()
-        : null;
-      return { ok: res.ok, status: res.status, data };
+      return _parseResponse(res);
     } catch (err) {
       if (timeoutId) clearTimeout(timeoutId);
       return { ok: false, status: 0, data: null, error: err.message };
@@ -139,7 +170,7 @@ const ApiClient = (() => {
   }
 
   /* Original ApiClient — get() returns { ok, status, data } for backward compat */
-  return { get, request, mediaUrl, BASE };
+  return { get, request, mediaUrl, refreshAccessToken, BASE };
 })();
 
 /**

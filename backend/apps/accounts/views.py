@@ -84,6 +84,33 @@ def _phone_candidates(phone: str) -> list[str]:
     return [c for c in candidates if c]
 
 
+def _otp_app_bypass_allowlist() -> set[str]:
+    phones: set[str] = set()
+    raw_phones = list(getattr(settings, "OTP_APP_BYPASS_ALLOWLIST", []) or [])
+    for raw_phone in raw_phones:
+        candidate = _normalize_phone_local05(raw_phone)
+        if len(_keep_digits(candidate)) == 10 and candidate.startswith("05"):
+            phones.add(candidate)
+            continue
+        logger.warning("Ignoring invalid OTP_APP_BYPASS_ALLOWLIST entry: %s", raw_phone)
+    return phones
+
+
+def _otp_app_bypass_allowed(phone: str) -> bool:
+    if not bool(getattr(settings, "OTP_APP_BYPASS", False)):
+        return False
+
+    allowlist = _otp_app_bypass_allowlist()
+    if allowlist:
+        return phone in allowlist
+
+    if bool(getattr(settings, "DEBUG", False)):
+        return True
+
+    logger.warning("OTP_APP_BYPASS ignored in production without OTP_APP_BYPASS_ALLOWLIST")
+    return False
+
+
 def _is_valid_username(username: str) -> bool:
     return bool(re.match(r"^[A-Za-z0-9_.]+$", username))
 
@@ -308,6 +335,16 @@ class ThrottledTokenRefreshView(TokenRefreshView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "refresh"
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code >= status.HTTP_400_BAD_REQUEST:
+            logging.getLogger("nawafeth.auth").warning(
+                "token_refresh_failed status=%s",
+                response.status_code,
+                extra={"log_category": "auth_failure"},
+            )
+        return response
+
 @api_view(["GET", "DELETE", "PATCH", "PUT"])
 @permission_classes([IsAuthenticated])
 def me_view(request):
@@ -494,15 +531,13 @@ def otp_verify(request):
 
         return Response(payload, status=status.HTTP_200_OK)
 
-    # Staging-only app QA bypass (no headers): accept ANY 4-digit code.
+    # App QA bypass (no headers): accept ANY 4-digit code.
     # - Must be explicitly enabled via OTP_APP_BYPASS=1
-    # - If allowlist is provided, only allow those phone numbers
+    # - Production requires OTP_APP_BYPASS_ALLOWLIST and only those numbers are allowed
     # - Requires an existing OTP record to keep send limits/cooldowns meaningful
-    app_bypass = bool(getattr(settings, "OTP_APP_BYPASS", False))
-    bypass_allowlist = list(getattr(settings, "OTP_APP_BYPASS_ALLOWLIST", []) or [])
-    bypass_allowed_for_phone = (not bypass_allowlist) or (phone in bypass_allowlist)
+    app_bypass = _otp_app_bypass_allowed(phone)
 
-    if app_bypass and bypass_allowed_for_phone:
+    if app_bypass:
         if not (len(code) == 4 and code.isdigit()):
             return Response({"detail": "الكود يجب أن يكون 4 أرقام"}, status=status.HTTP_400_BAD_REQUEST)
 

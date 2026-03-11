@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -61,7 +62,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   int _clientsCount = 0;
   int _notificationUnread = 0;
   int _chatUnread = 0;
-  Timer? _badgeTimer;
+  ValueListenable<UnreadBadges>? _badgeListenable;
   Map<String, dynamic>? _providerStats;
   List<Map<String, dynamic>> _mySpotlights = <Map<String, dynamic>>[];
   final Set<int> _deletingSpotlightIds = <int>{};
@@ -108,10 +109,10 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   void initState() {
     super.initState();
     _loadProviderData();
-    _loadUnreadBadges();
-    _badgeTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      _loadUnreadBadges();
-    });
+    _badgeListenable = UnreadBadgeService.acquire();
+    _badgeListenable!.addListener(_handleBadgeChange);
+    _handleBadgeChange();
+    UnreadBadgeService.refresh(force: true);
   }
 
   /// ✅ تحميل بيانات المزود من الـ API
@@ -219,21 +220,22 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   @override
   void dispose() {
-    _badgeTimer?.cancel();
+    _badgeListenable?.removeListener(_handleBadgeChange);
+    UnreadBadgeService.release();
     super.dispose();
   }
 
   Future<void> _loadUnreadBadges() async {
-    try {
-      final badges = await UnreadBadgeService.fetch();
-      if (!mounted) return;
-      setState(() {
-        _notificationUnread = badges.notifications;
-        _chatUnread = badges.chats;
-      });
-    } catch (_) {
-      // Keep old values on transient failures.
-    }
+    await UnreadBadgeService.refresh(force: true);
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeListenable?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   // اختيار صورة الغلاف / الصورة الشخصية

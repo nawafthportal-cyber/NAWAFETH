@@ -1,6 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
-import 'dart:async';
 
 // ✅ استدعاء شاشة الإشعارات
 import 'package:nawafeth/screens/notifications_screen.dart';
@@ -33,30 +33,35 @@ class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
 class _CustomAppBarState extends State<CustomAppBar> {
   int _notificationUnread = 0;
   int _chatUnread = 0;
-  Timer? _badgeTimer;
+  ValueListenable<UnreadBadges>? _badgeListenable;
 
   @override
   void initState() {
     super.initState();
-    _loadBadges();
-    _badgeTimer = Timer.periodic(const Duration(seconds: 20), (_) {
-      _loadBadges();
-    });
+    _badgeListenable = UnreadBadgeService.acquire();
+    _badgeListenable!.addListener(_handleBadgeChange);
+    _handleBadgeChange();
+    UnreadBadgeService.refresh(force: true);
   }
 
   @override
   void dispose() {
-    _badgeTimer?.cancel();
+    _badgeListenable?.removeListener(_handleBadgeChange);
+    UnreadBadgeService.release();
     super.dispose();
   }
 
-  Future<void> _loadBadges() async {
-    final badges = await UnreadBadgeService.fetch();
+  void _handleBadgeChange() {
+    final badges = _badgeListenable?.value ?? UnreadBadges.empty;
     if (!mounted) return;
     setState(() {
       _notificationUnread = badges.notifications;
       _chatUnread = badges.chats;
     });
+  }
+
+  Future<void> _loadBadges() async {
+    await UnreadBadgeService.refresh(force: true);
   }
 
   Widget _badgeIcon({

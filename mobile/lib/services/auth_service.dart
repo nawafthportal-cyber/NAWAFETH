@@ -4,7 +4,11 @@
 /// وتوفر واجهة موحدة للتحقق من حالة المصادقة
 library;
 
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
+
+typedef AuthLogoutListener = void Function();
 
 class AuthService {
   static const String _accessTokenKey = 'access_token';
@@ -15,6 +19,15 @@ class AuthService {
   static const String _faceIdPhoneKey = 'nw_faceid_phone';
   static const String _faceIdDeviceTokenKey = 'nw_faceid_device_token';
   static const String _lastLoginPhoneKey = 'last_login_phone';
+  static final Set<AuthLogoutListener> _logoutListeners = <AuthLogoutListener>{};
+
+  static void addLogoutListener(AuthLogoutListener listener) {
+    _logoutListeners.add(listener);
+  }
+
+  static void removeLogoutListener(AuthLogoutListener listener) {
+    _logoutListeners.remove(listener);
+  }
 
   /// حفظ التوكنات بعد تسجيل الدخول
   static Future<void> saveTokens({
@@ -154,6 +167,13 @@ class AuthService {
     // نبقي isProvider و isProviderRegistered لأنها تُحدّث من API
     await prefs.remove('isProvider');
     await prefs.remove('isProviderRegistered');
+    for (final listener in List<AuthLogoutListener>.from(_logoutListeners)) {
+      scheduleMicrotask(() {
+        try {
+          listener();
+        } catch (_) {}
+      });
+    }
   }
 }
 

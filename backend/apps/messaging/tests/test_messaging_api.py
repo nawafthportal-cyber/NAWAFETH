@@ -1,11 +1,16 @@
+from unittest.mock import patch
+
 import pytest
+from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 from rest_framework.test import APIClient
 from decimal import Decimal
 
 from apps.accounts.models import User, UserRole
+from apps.core import unread_badges as unread_badges_module
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
-from apps.messaging.models import ThreadUserState
+from apps.messaging.models import Message, Thread, ThreadUserState
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 
@@ -258,6 +263,92 @@ def test_block_prevents_peer_sending_request_and_direct():
         format="json",
     )
     assert blocked_direct_send.status_code == 403
+
+
+@pytest.mark.django_db
+def test_direct_unread_count_respects_mode_for_same_user():
+    cache.clear()
+    dual_user = User.objects.create_user(phone="0501000091", role_state=UserRole.CLIENT)
+    peer_provider_user = User.objects.create_user(phone="0501000092", role_state=UserRole.PROVIDER)
+    ProviderProfile.objects.create(
+        user=peer_provider_user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    peer_client_user = User.objects.create_user(phone="0501000093", role_state=UserRole.CLIENT)
+    shared_peer_user = User.objects.create_user(phone="0501000094", role_state=UserRole.PROVIDER)
+    ProviderProfile.objects.create(
+        user=shared_peer_user,
+        provider_type="individual",
+        display_name="مزود مشترك",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+
+    client_thread = Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.CLIENT,
+        participant_1=dual_user,
+        participant_2=peer_provider_user,
+    )
+    provider_thread = Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.PROVIDER,
+        participant_1=dual_user,
+        participant_2=peer_client_user,
+    )
+    shared_thread = Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.SHARED,
+        participant_1=dual_user,
+        participant_2=shared_peer_user,
+    )
+
+    Message.objects.create(thread=client_thread, sender=peer_provider_user, body="client unread")
+    Message.objects.create(thread=provider_thread, sender=peer_client_user, body="provider unread")
+    Message.objects.create(thread=shared_thread, sender=shared_peer_user, body="shared unread")
+
+    api = APIClient()
+    api.force_authenticate(user=dual_user)
+
+    client_response = api.get("/api/messaging/direct/unread-count/", {"mode": "client"})
+    provider_response = api.get("/api/messaging/direct/unread-count/", {"mode": "provider"})
+
+    assert client_response.status_code == 200
+    assert client_response.data["mode"] == "client"
+    assert client_response.data["unread"] == 2
+
+    assert provider_response.status_code == 200
+    assert provider_response.data["mode"] == "provider"
+    assert provider_response.data["unread"] == 2
+
+
+@pytest.mark.django_db
+def test_direct_unread_count_returns_controlled_503_when_database_is_unavailable():
+    cache.clear()
+    user = User.objects.create_user(phone="0501000095", role_state=UserRole.CLIENT)
+    cache.delete(unread_badges_module._combined_cache_key(user.id, "client"))
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    with patch(
+        "apps.core.unread_badges._compute_unread_badges",
+        side_effect=OperationalError("database unavailable"),
+    ):
+        response = api.get("/api/messaging/direct/unread-count/", {"mode": "client"})
+
+    assert response.status_code == 503
+    assert response.data["unread"] == 0
+    assert response.data["degraded"] is True
+    assert response.data["stale"] is False
+    assert "detail" in response.data
 
 
 @pytest.mark.django_db

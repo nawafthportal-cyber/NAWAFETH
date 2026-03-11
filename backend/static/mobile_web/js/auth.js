@@ -52,6 +52,7 @@ const Auth = (() => {
       sessionStorage.removeItem(KEY_ROLE);
       _profileCache = null;
     } catch { /* ok */ }
+    try { window.dispatchEvent(new Event('nw:auth-logout')); } catch {}
   }
 
   function clearProfileCache() {
@@ -60,19 +61,8 @@ const Auth = (() => {
 
   /** Try to refresh the access token using the refresh token */
   async function refreshAccessToken() {
-    const refresh = getRefreshToken();
-    if (!refresh) return false;
-    const res = await ApiClient.request('/api/accounts/token/refresh/', {
-      method: 'POST',
-      body: { refresh },
-    });
-    if (res.ok && res.data && res.data.access) {
-      try { sessionStorage.setItem(KEY_ACCESS, res.data.access); } catch {}
-      return true;
-    }
-    // Refresh token invalid — force logout
-    logout();
-    return false;
+    const result = await ApiClient.refreshAccessToken();
+    return !!(result && result.ok);
   }
 
   /** Require login — redirects to /login/ if not authenticated */
@@ -92,15 +82,6 @@ const Auth = (() => {
     if (res.ok && res.data) {
       _profileCache = res.data;
       return res.data;
-    }
-    // Token might be expired — try refresh
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      const res2 = await ApiClient.get('/api/accounts/me/');
-      if (res2.ok && res2.data) {
-        _profileCache = res2.data;
-        return res2.data;
-      }
     }
     return null;
   }

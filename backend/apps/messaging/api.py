@@ -8,6 +8,7 @@ import logging
 import mimetypes
 import os
 
+from django.db import DatabaseError, OperationalError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
@@ -19,6 +20,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAtLeastPhoneOnly
+from apps.core.unread_badges import (
+	get_direct_messages_unread_payload,
+	invalidate_unread_badge_cache,
+)
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.capabilities import direct_chat_quota_for_user
@@ -58,6 +63,18 @@ def _display_name_for_user(user) -> str:
 	if username:
 		return username
 	return getattr(user, "phone", "") or str(user)
+
+
+def _invalidate_direct_thread_badges(thread: Thread) -> None:
+	if not thread.is_direct:
+		return
+	invalidate_unread_badge_cache(
+		user_ids=[
+			uid
+			for uid in (thread.participant_1_id, thread.participant_2_id)
+			if uid
+		]
+	)
 
 
 def _direct_threads_count_for_user(user) -> int:
@@ -139,6 +156,7 @@ class SendMessageView(APIView):
 			created_at=timezone.now(),
 		)
 		_unarchive_for_participants(thread)
+		_invalidate_direct_thread_badges(thread)
 
 		return Response(
 			{"ok": True, "message_id": message.id},
@@ -165,6 +183,7 @@ class MarkThreadReadView(APIView):
 			],
 			ignore_conflicts=True,
 		)
+		_invalidate_direct_thread_badges(thread)
 
 		return Response(
 			{
@@ -388,17 +407,21 @@ class DirectUnreadCountView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get(self, request):
-		from django.db.models import Q
-
-		me = request.user
-		count = (
-			Message.objects.filter(thread__is_direct=True)
-			.filter(Q(thread__participant_1=me) | Q(thread__participant_2=me))
-			.exclude(sender=me)
-			.exclude(reads__user=me)
-			.count()
-		)
-		return Response({"unread": count}, status=status.HTTP_200_OK)
+		mode = request.query_params.get("mode")
+		try:
+			payload = get_direct_messages_unread_payload(user=request.user, mode=mode)
+		except (OperationalError, DatabaseError):
+			return Response(
+				{
+					"unread": 0,
+					"degraded": True,
+					"stale": False,
+					"mode": (mode or "shared").strip().lower() or "shared",
+					"detail": "عداد الرسائل غير متاح مؤقتًا.",
+				},
+				status=status.HTTP_503_SERVICE_UNAVAILABLE,
+			)
+		return Response(payload, status=status.HTTP_200_OK)
 
 
 # ────────────────────────────────────────────────
@@ -623,6 +646,8 @@ class ThreadMarkUnreadView(APIView):
 			)
 
 		deleted, _ = MessageRead.objects.filter(message=last_peer_message, user=request.user).delete()
+		if thread.is_direct:
+			_invalidate_direct_thread_badges(thread)
 		return Response(
 			{
 				"ok": True,
@@ -649,6 +674,8 @@ class ThreadDeleteMessageView(APIView):
 			)
 
 		message.delete()
+		if thread.is_direct:
+			_invalidate_direct_thread_badges(thread)
 
 		# Best-effort realtime sync for active chat screens.
 		try:

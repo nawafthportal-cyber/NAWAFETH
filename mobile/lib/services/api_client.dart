@@ -15,10 +15,22 @@ import 'auth_service.dart';
 
 class ApiClient {
   static String get baseUrl => AppEnv.apiBaseUrl;
+  static http.Client _httpClient = http.Client();
+  static Future<_RefreshAttemptResult>? _refreshing;
 
   static Uri _buildUri(String path) {
     final normalizedPath = path.startsWith('/') ? path : '/$path';
     return Uri.parse(baseUrl).resolve(normalizedPath);
+  }
+
+  static void debugSetHttpClient(http.Client client) {
+    _httpClient = client;
+    _refreshing = null;
+  }
+
+  static void debugResetHttpClient() {
+    _httpClient = http.Client();
+    _refreshing = null;
   }
 
   /// GET request مع مصادقة
@@ -52,9 +64,10 @@ class ApiClient {
     String path, {
     Map<String, dynamic>? body,
     bool isRetry = false,
+    bool skipAuth = false,
   }) async {
     final url = _buildUri(path);
-    final token = await AuthService.getAccessToken();
+    final token = skipAuth ? null : await AuthService.getAccessToken();
 
     final headers = <String, String>{
       'Content-Type': 'application/json',
@@ -70,40 +83,48 @@ class ApiClient {
 
       switch (method) {
         case 'GET':
-          response = await http.get(url, headers: headers).timeout(
-            const Duration(seconds: 15),
-          );
+          response = await _httpClient
+              .get(url, headers: headers)
+              .timeout(const Duration(seconds: 15));
           break;
         case 'POST':
-          response = await http
+          response = await _httpClient
               .post(url, headers: headers, body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'PATCH':
-          response = await http
+          response = await _httpClient
               .patch(url, headers: headers, body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'PUT':
-          response = await http
+          response = await _httpClient
               .put(url, headers: headers, body: body != null ? jsonEncode(body) : null)
               .timeout(const Duration(seconds: 15));
           break;
         case 'DELETE':
-          response = await http.delete(url, headers: headers).timeout(
-            const Duration(seconds: 15),
-          );
+          response = await _httpClient
+              .delete(url, headers: headers)
+              .timeout(const Duration(seconds: 15));
           break;
         default:
           return ApiResponse(statusCode: 0, error: 'طريقة HTTP غير مدعومة');
       }
 
-      // ✅ محاولة تجديد التوكن إذا انتهت صلاحيته
-      if (response.statusCode == 401 && !isRetry) {
-        await _tryRefreshToken();
-        // إعادة المحاولة: بتوكن جديد إذا نجح التجديد، أو بدون توكن
-        // (logout يمسح التوكنات) لتمرير AllowAny endpoints
-        return _request(method, path, body: body, isRetry: true);
+      if (response.statusCode == 401 && !isRetry && !_isRefreshPath(path)) {
+        final refreshResult = await _refreshAccessToken();
+        if (refreshResult.ok) {
+          return _request(method, path, body: body, isRetry: true);
+        }
+        if (refreshResult.terminal) {
+          return _request(
+            method,
+            path,
+            body: body,
+            isRetry: true,
+            skipAuth: true,
+          );
+        }
       }
 
       return parseResponse(response);
@@ -122,14 +143,31 @@ class ApiClient {
     }
   }
 
-  /// محاولة تجديد التوكن
-  static Future<bool> _tryRefreshToken() async {
+  static bool _isRefreshPath(String path) {
+    final normalizedPath = path.startsWith('/') ? path : '/$path';
+    return normalizedPath.contains('/api/accounts/token/refresh/');
+  }
+
+  static Future<_RefreshAttemptResult> _refreshAccessToken() async {
+    if (_refreshing != null) {
+      return _refreshing!;
+    }
+    _refreshing = _performRefresh().whenComplete(() {
+      _refreshing = null;
+    });
+    return _refreshing!;
+  }
+
+  static Future<_RefreshAttemptResult> _performRefresh() async {
     final refreshToken = await AuthService.getRefreshToken();
-    if (refreshToken == null || refreshToken.isEmpty) return false;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await AuthService.logout();
+      return const _RefreshAttemptResult(ok: false, terminal: true);
+    }
 
     try {
       final url = _buildUri('/api/accounts/token/refresh/');
-      final response = await http.post(
+      final response = await _httpClient.post(
         url,
         headers: {
           'Content-Type': 'application/json',
@@ -146,14 +184,23 @@ class ApiClient {
             access: newAccess,
             refresh: refreshToken,
           );
-          return true;
+          return const _RefreshAttemptResult(ok: true, terminal: false);
         }
       }
-    } catch (_) {}
 
-    // فشل التجديد - يجب إعادة تسجيل الدخول
-    await AuthService.logout();
-    return false;
+      if (response.statusCode == 400 || response.statusCode == 401) {
+        await AuthService.logout();
+        return const _RefreshAttemptResult(ok: false, terminal: true);
+      }
+    } on TimeoutException {
+      return const _RefreshAttemptResult(ok: false, terminal: false);
+    } on SocketException {
+      return const _RefreshAttemptResult(ok: false, terminal: false);
+    } catch (_) {
+      return const _RefreshAttemptResult(ok: false, terminal: false);
+    }
+
+    return const _RefreshAttemptResult(ok: false, terminal: false);
   }
 
   /// تحليل الاستجابة (public for multipart usage)
@@ -247,9 +294,10 @@ class ApiClient {
     Future<void> Function(http.MultipartRequest request) prepareRequest, {
     Duration timeout = const Duration(seconds: 30),
     bool isRetry = false,
+    bool skipAuth = false,
   }) async {
     final uri = _buildUri(path);
-    final token = await AuthService.getAccessToken();
+    final token = skipAuth ? null : await AuthService.getAccessToken();
 
     final request = http.MultipartRequest(method, uri);
     request.headers['Accept'] = 'application/json';
@@ -260,15 +308,29 @@ class ApiClient {
     await prepareRequest(request);
 
     try {
-      final streamed = await request.send().timeout(timeout);
+      final streamed = await _httpClient.send(request).timeout(timeout);
       final response = await http.Response.fromStream(streamed);
 
-      // تجديد التوكن عند 401
-      if (response.statusCode == 401 && !isRetry) {
-        final refreshed = await _tryRefreshToken();
-        if (refreshed) {
-          return sendMultipart(method, path, prepareRequest,
-              timeout: timeout, isRetry: true);
+      if (response.statusCode == 401 && !isRetry && !_isRefreshPath(path)) {
+        final refreshResult = await _refreshAccessToken();
+        if (refreshResult.ok) {
+          return sendMultipart(
+            method,
+            path,
+            prepareRequest,
+            timeout: timeout,
+            isRetry: true,
+          );
+        }
+        if (refreshResult.terminal) {
+          return sendMultipart(
+            method,
+            path,
+            prepareRequest,
+            timeout: timeout,
+            isRetry: true,
+            skipAuth: true,
+          );
         }
       }
 
@@ -287,6 +349,16 @@ class ApiClient {
       return ApiResponse(statusCode: 0, error: 'خطأ في الاتصال: $e');
     }
   }
+}
+
+class _RefreshAttemptResult {
+  final bool ok;
+  final bool terminal;
+
+  const _RefreshAttemptResult({
+    required this.ok,
+    required this.terminal,
+  });
 }
 
 /// نموذج الاستجابة الموحد

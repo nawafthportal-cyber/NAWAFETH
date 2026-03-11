@@ -47,6 +47,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Position? _clientPosition;
   final Map<int, double> _distanceKmByProviderId = {};
   Set<int> _featuredProviderIds = {};
+  List<Map<String, dynamic>> _searchPromoPlacements = [];
   String? _searchBannerImageUrl;
   String? _searchBannerRedirectUrl;
 
@@ -68,10 +69,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     try {
       final results = await Future.wait([
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=1'),
+        ApiClient.get('/api/promo/active/?service_type=search_results&limit=10'),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
       final bannerRes = results[0];
-      final featuredRes = results[1];
+      final searchRes = results[1];
+      final featuredRes = results[2];
 
       if (bannerRes.isSuccess && bannerRes.data != null) {
         final items = bannerRes.data is List
@@ -81,7 +84,10 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           final promo = items[0] as Map<String, dynamic>;
           final assets = (promo['assets'] as List?) ?? [];
           if (assets.isNotEmpty) {
-            final url = ApiClient.buildMediaUrl(assets[0]['file'] as String?);
+            final asset = assets[0] as Map<String, dynamic>;
+            final url = ApiClient.buildMediaUrl(
+              (asset['file'] ?? asset['file_url']) as String?,
+            );
             if (url != null && mounted) {
               setState(() {
                 _searchBannerImageUrl = url;
@@ -92,25 +98,27 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         }
       }
 
-      if (featuredRes.isSuccess && featuredRes.data != null) {
-        final items = featuredRes.data is List
-            ? featuredRes.data as List
-            : (featuredRes.data['results'] as List?) ?? [];
+      final searchItems = _promoMapsFromResponse(searchRes);
+      final featuredItems = _promoMapsFromResponse(
+        featuredRes,
+        defaultSearchPosition: 'top5',
+      );
+      final allItems = <Map<String, dynamic>>[
+        ...searchItems,
+        ...featuredItems,
+      ];
+      if (mounted) {
         final ids = <int>{};
-        for (final item in items) {
+        for (final item in allItems) {
           final pid = item['target_provider_id'];
           if (pid != null) ids.add(pid is int ? pid : int.tryParse('$pid') ?? 0);
         }
         ids.remove(0);
-        if (ids.isNotEmpty && mounted) {
-          setState(() {
-            _featuredProviderIds = ids;
-            // Re-sort: featured first
-            final featured = _providers.where((p) => ids.contains(p.id)).toList();
-            final rest = _providers.where((p) => !ids.contains(p.id)).toList();
-            _providers = [...featured, ...rest];
-          });
-        }
+        setState(() {
+          _featuredProviderIds = ids;
+          _searchPromoPlacements = allItems;
+          _providers = _applySearchPromoOrdering(_providers);
+        });
       }
     } catch (_) {}
   }
@@ -166,7 +174,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         _sortProviders(providers);
         if (mounted) {
           setState(() {
-            _providers = providers;
+            _providers = _applySearchPromoOrdering(providers);
             _loadError = null;
           });
         }
@@ -200,6 +208,97 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         final db = _distanceKmByProviderId[b.id] ?? double.infinity;
         return da.compareTo(db);
       });
+    }
+  }
+
+  List<Map<String, dynamic>> _promoMapsFromResponse(
+    dynamic response, {
+    String defaultSearchPosition = '',
+  }) {
+    final data = response?.data;
+    final rawItems = data is List
+        ? data
+        : (data is Map<String, dynamic> ? (data['results'] as List? ?? const []) : const []);
+    return rawItems.whereType<Map>().map((row) {
+      final mapped = Map<String, dynamic>.from(row);
+      if ((mapped['search_position'] as String?)?.trim().isEmpty ?? true) {
+        if (defaultSearchPosition.isNotEmpty) {
+          mapped['search_position'] = defaultSearchPosition;
+        }
+      }
+      return mapped;
+    }).toList();
+  }
+
+  List<ProviderPublicModel> _applySearchPromoOrdering(List<ProviderPublicModel> providers) {
+    final ordered = List<ProviderPublicModel>.from(providers);
+    if (ordered.isEmpty) return ordered;
+
+    final placements = List<Map<String, dynamic>>.from(_searchPromoPlacements);
+    placements.sort((a, b) => _promoPositionRank(a).compareTo(_promoPositionRank(b)));
+
+    var exactSlotsPlaced = 0;
+    var top5Offset = 0;
+    var top10Offset = 0;
+    final handledProviderIds = <int>{};
+
+    for (final placement in placements) {
+      final pid = placement['target_provider_id'] is int
+          ? placement['target_provider_id'] as int
+          : int.tryParse('${placement['target_provider_id'] ?? ''}');
+      if (pid == null || pid <= 0 || handledProviderIds.contains(pid)) continue;
+      final currentIndex = ordered.indexWhere((provider) => provider.id == pid);
+      if (currentIndex < 0) continue;
+
+      final provider = ordered.removeAt(currentIndex);
+      final position = (placement['search_position'] as String? ?? '').trim();
+      int targetIndex;
+      switch (position) {
+        case 'first':
+          targetIndex = 0;
+          exactSlotsPlaced = exactSlotsPlaced < 1 ? 1 : exactSlotsPlaced;
+          break;
+        case 'second':
+          targetIndex = 1;
+          exactSlotsPlaced = exactSlotsPlaced < 2 ? 2 : exactSlotsPlaced;
+          break;
+        case 'top10':
+          targetIndex = exactSlotsPlaced + top5Offset + top10Offset;
+          top10Offset += 1;
+          break;
+        case 'top5':
+        default:
+          targetIndex = exactSlotsPlaced + top5Offset;
+          top5Offset += 1;
+          break;
+      }
+      if (targetIndex > ordered.length) targetIndex = ordered.length;
+      ordered.insert(targetIndex, provider);
+      handledProviderIds.add(pid);
+    }
+
+    if (handledProviderIds.isEmpty && _featuredProviderIds.isNotEmpty) {
+      final featured = ordered.where((provider) => _featuredProviderIds.contains(provider.id)).toList();
+      final rest = ordered.where((provider) => !_featuredProviderIds.contains(provider.id)).toList();
+      return [...featured, ...rest];
+    }
+
+    return ordered;
+  }
+
+  int _promoPositionRank(Map<String, dynamic> placement) {
+    final position = (placement['search_position'] as String? ?? '').trim();
+    switch (position) {
+      case 'first':
+        return 0;
+      case 'second':
+        return 1;
+      case 'top5':
+        return 2;
+      case 'top10':
+        return 3;
+      default:
+        return 9;
     }
   }
 

@@ -326,6 +326,7 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
     provider_username = serializers.CharField(source="provider.user.username", read_only=True)
+    provider_profile_image = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
@@ -340,6 +341,7 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
             "provider_id",
             "provider_display_name",
             "provider_username",
+            "provider_profile_image",
             "file_type",
             "file_url",
             "thumbnail_url",
@@ -353,6 +355,10 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
 
     def get_file_url(self, obj):
         return _safe_file_url(getattr(obj, "file", None))
+
+    def get_provider_profile_image(self, obj):
+        provider = getattr(obj, "provider", None)
+        return _safe_file_url(getattr(provider, "profile_image", None))
 
     def get_thumbnail_url(self, obj):
         return _safe_file_url(getattr(obj, "thumbnail", None))

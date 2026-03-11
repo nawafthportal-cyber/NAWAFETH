@@ -2,6 +2,7 @@ import pytest
 from datetime import timedelta
 from io import StringIO
 from django.core.management import call_command
+from django.db.models import Q
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -10,16 +11,34 @@ from django.utils import timezone
 from apps.accounts.models import User
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
+from apps.billing.models import InvoiceStatus
 from apps.core.models import PlatformConfig
-from apps.promo.models import PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
+from apps.promo.models import PromoAdType, PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.promo.models import PromoAdPrice
 from apps.promo.serializers import PromoRequestCreateSerializer
 from apps.notifications.models import EventLog, Notification
-from apps.providers.models import ProviderProfile
-from apps.subscriptions.models import SubscriptionPlan, Subscription, SubscriptionStatus
+from apps.messaging.models import Message, Thread
+from apps.providers.models import (
+    Category,
+    ProviderCategory,
+    ProviderPortfolioItem,
+    ProviderProfile,
+    SubCategory,
+)
+from apps.subscriptions.models import (
+    PlanPeriod,
+    Subscription,
+    SubscriptionPlan,
+    SubscriptionStatus,
+)
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
-from apps.promo.services import reject_request, activate_after_payment, set_promo_ops_status
+from apps.promo.services import (
+    activate_after_payment,
+    reject_request,
+    send_due_promo_messages,
+    set_promo_ops_status,
+)
 from apps.support.models import SupportTicket, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest
 
@@ -66,6 +85,27 @@ def other_staff_user():
     u.is_staff = True
     u.save(update_fields=["is_staff"])
     return u
+
+
+def _active_pro_subscription(user, code: str):
+    plan = SubscriptionPlan.objects.create(
+        code=code,
+        title=code,
+        tier="pro",
+        period=PlanPeriod.MONTH,
+        price="0.00",
+        notifications_enabled=True,
+        promotional_chat_messages_enabled=True,
+        promotional_notification_messages_enabled=True,
+        is_active=True,
+    )
+    return Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=30),
+    )
 
 
 def test_create_promo_request(api, user):
@@ -247,6 +287,7 @@ def test_public_home_banners_only_from_active_promo(api, user):
     assert isinstance(r.data, list)
     assert any(item["id"] == asset.id for item in r.data)
     active_item = next(item for item in r.data if item["id"] == asset.id)
+    assert active_item.get("file")
     assert active_item.get("redirect_url") == "https://example.com/promo"
     # Ensure inactive request assets are not included.
     assert all(item.get("caption") != "should not show" for item in r.data)
@@ -296,6 +337,119 @@ def test_public_home_banners_respect_position_order(api, user):
 
     ids = [item["id"] for item in r.data]
     assert ids.index(first_asset.id) < ids.index(second_asset.id) < ids.index(normal_asset.id)
+
+
+def test_public_home_banners_include_active_bundle_home_banner(api, user):
+    pp = ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بنر متعدد",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="bundle banner",
+        ad_type="bundle",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر رئيسي",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+    )
+    asset = PromoAsset.objects.create(
+        request=pr,
+        item=item,
+        asset_type="image",
+        title="bundle banner",
+        file=SimpleUploadedFile(
+            "bundle-home.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    r = api.get("/api/promo/banners/home/?limit=10")
+    assert r.status_code == 200
+    payload = next(row for row in r.data if row["id"] == asset.id)
+    assert payload.get("provider_id") == pp.id
+    assert payload.get("redirect_url") == ""
+
+
+def test_public_home_banner_queryset_excludes_message_delivery_columns():
+    from apps.promo.views import _public_home_banner_asset_queryset
+
+    sql = str(_public_home_banner_asset_queryset(now=timezone.now()).query).lower()
+
+    assert "message_sent_at" not in sql
+    assert "message_recipients_count" not in sql
+    assert "message_dispatch_error" not in sql
+
+
+def test_invoice_paid_signal_activates_home_banner_and_exposes_it_publicly(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بعد الدفع",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    PromoAdPrice.objects.update_or_create(
+        ad_type=PromoAdType.BANNER_HOME,
+        defaults={"price_per_day": "100.00", "is_active": True},
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="home banner after payment",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    asset = PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="paid-banner",
+        file=SimpleUploadedFile(
+            "paid-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="approve and pay")
+    assert pr.status == PromoRequestStatus.QUOTED
+    assert pr.invoice is not None
+    assert pr.invoice.total > 0
+
+    pr.invoice.status = InvoiceStatus.PAID
+    pr.invoice.save(update_fields=["status"])
+    pr.refresh_from_db()
+
+    assert pr.status == PromoRequestStatus.ACTIVE
+    assert pr.activated_at is not None
+
+    response = api.get("/api/promo/banners/home/?limit=10")
+    assert response.status_code == 200
+    payload = next(row for row in response.data if row["id"] == asset.id)
+    assert payload["provider_display_name"] == "مزود بعد الدفع"
+    assert payload["caption"] == "paid-banner"
 
 
 def test_management_command_expires_due_active_promos(user):
@@ -603,6 +757,277 @@ def test_public_active_promos_returns_targeting_and_assets(api, user):
     item = next(x for x in r.data if x.get("id") == pr_active.id)
     assert item.get("target_provider_id") == pp.id
     assert isinstance(item.get("assets"), list)
+
+
+def test_public_active_promos_returns_item_based_featured_placements(api, user):
+    pp = ProviderProfile.objects.create(
+        user=user,
+        provider_type="company",
+        display_name="مختص مميز",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="featured bundle",
+        ad_type="bundle",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.FEATURED_SPECIALISTS,
+        title="شريط أبرز المختصين",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        frequency="60s",
+    )
+
+    service_r = api.get("/api/promo/active/?service_type=featured_specialists&limit=10")
+    assert service_r.status_code == 200
+    service_item = next(row for row in service_r.data if row.get("item_id") == item.id)
+    assert service_item.get("target_provider_id") == pp.id
+    assert service_item.get("service_type") == PromoServiceType.FEATURED_SPECIALISTS
+
+    legacy_r = api.get("/api/promo/active/?ad_type=featured_top5&limit=10")
+    assert legacy_r.status_code == 200
+    assert any(row.get("item_id") == item.id for row in legacy_r.data)
+
+
+def test_public_active_bundle_item_queryset_excludes_message_delivery_columns():
+    from apps.promo.views import _public_active_bundle_item_queryset
+
+    sql = str(_public_active_bundle_item_queryset().query).lower()
+
+    assert "message_sent_at" not in sql
+    assert "message_recipients_count" not in sql
+    assert "message_dispatch_error" not in sql
+
+
+def test_public_active_promos_orders_search_result_items_by_position(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="company",
+        display_name="مزود بحث",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="search bundle",
+        ad_type="bundle",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    top10_item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="top10",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        search_scope="main_results",
+        search_position="top10",
+        sort_order=20,
+    )
+    first_item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="first",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        search_scope="main_results",
+        search_position="first",
+        sort_order=10,
+    )
+
+    r = api.get("/api/promo/active/?service_type=search_results&limit=10")
+    assert r.status_code == 200
+    item_ids = [row.get("item_id") for row in r.data]
+    assert item_ids[:2] == [first_item.id, top10_item.id]
+
+
+def test_public_active_promos_return_portfolio_showcase_payload(api, user):
+    provider = ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="استوديو ممول",
+        bio="bio",
+        city="الرياض",
+        years_experience=3,
+    )
+    portfolio = ProviderPortfolioItem.objects.create(
+        provider=provider,
+        file_type="image",
+        file=SimpleUploadedFile(
+            "portfolio_showcase.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        caption="مشروع ممول",
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="شريط معرض الأعمال",
+        ad_type="bundle",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+    )
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.PORTFOLIO_SHOWCASE,
+        title="معرض ممول",
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        target_provider=provider,
+        sort_order=10,
+    )
+
+    response = api.get("/api/promo/active/?service_type=portfolio_showcase&limit=10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["service_type"] == PromoServiceType.PORTFOLIO_SHOWCASE
+    assert payload[0]["portfolio_item"]["id"] == portfolio.id
+    assert payload[0]["portfolio_item"]["caption"] == "مشروع ممول"
+    assert payload[0]["portfolio_item"]["file_url"]
+
+
+def test_send_due_promo_messages_dispatches_campaign_once():
+    sender = User.objects.create_user(
+        phone="0501111111",
+        password="Pass12345!",
+        role_state="provider",
+    )
+    recipient = User.objects.create_user(
+        phone="0502222222",
+        password="Pass12345!",
+        role_state="provider",
+    )
+    other_recipient = User.objects.create_user(
+        phone="0503333333",
+        password="Pass12345!",
+        role_state="provider",
+    )
+    _active_pro_subscription(sender, "PROMO_SENDER")
+    _active_pro_subscription(recipient, "PROMO_RECIPIENT")
+    _active_pro_subscription(other_recipient, "PROMO_OTHER")
+
+    ProviderProfile.objects.create(
+        user=sender,
+        provider_type="individual",
+        display_name="مرسل الحملة",
+        bio="bio",
+        city="الرياض",
+        years_experience=5,
+    )
+    recipient_provider = ProviderProfile.objects.create(
+        user=recipient,
+        provider_type="individual",
+        display_name="مستلم مطابق",
+        bio="bio",
+        city="الرياض",
+        years_experience=2,
+    )
+    other_provider = ProviderProfile.objects.create(
+        user=other_recipient,
+        provider_type="individual",
+        display_name="مستلم غير مطابق",
+        bio="bio",
+        city="جدة",
+        years_experience=2,
+    )
+    category = Category.objects.create(name="تصميم", is_active=True)
+    subcategory = SubCategory.objects.create(
+        category=category,
+        name="تصميم داخلي",
+        is_active=True,
+    )
+    ProviderCategory.objects.create(provider=recipient_provider, subcategory=subcategory)
+    ProviderCategory.objects.create(provider=other_provider, subcategory=subcategory)
+
+    now = timezone.now()
+    request = PromoRequest.objects.create(
+        requester=sender,
+        title="حملة رسائل دعائية",
+        ad_type="bundle",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+    )
+    item = PromoRequestItem.objects.create(
+        request=request,
+        service_type=PromoServiceType.PROMO_MESSAGES,
+        title="رسائل دعائية",
+        send_at=now - timedelta(minutes=5),
+        message_title="عرض احترافي",
+        message_body="تفاصيل العرض الممول",
+        use_notification_channel=True,
+        use_chat_channel=True,
+        target_city="الرياض",
+        target_category="تصميم داخلي",
+        sort_order=10,
+    )
+    PromoAsset.objects.create(
+        request=request,
+        item=item,
+        asset_type="image",
+        title="creative",
+        file=SimpleUploadedFile(
+            "promo_message_asset.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=sender,
+    )
+
+    count = send_due_promo_messages(now=now, limit=10)
+
+    assert count == 1
+    item.refresh_from_db()
+    assert item.message_sent_at is not None
+    assert item.message_recipients_count == 1
+    assert item.message_dispatch_error == ""
+    assert Notification.objects.filter(user=recipient, title="عرض احترافي").exists()
+    assert not Notification.objects.filter(user=other_recipient, title="عرض احترافي").exists()
+
+    thread = (
+        Thread.objects.filter(is_direct=True, context_mode=Thread.ContextMode.PROVIDER)
+        .filter(
+            Q(participant_1=sender, participant_2=recipient)
+            | Q(participant_1=recipient, participant_2=sender)
+        )
+        .first()
+    )
+    assert thread is not None
+    assert Message.objects.filter(
+        thread=thread,
+        sender=sender,
+        body="تفاصيل العرض الممول",
+    ).exists()
+    assert Message.objects.filter(thread=thread, sender=sender).exclude(attachment="").exists()
+
+    second_count = send_due_promo_messages(now=now + timedelta(minutes=1), limit=10)
+    assert second_count == 0
 
 
 def test_basic_plan_can_create_banner_promo_without_professional_controls(api, user):

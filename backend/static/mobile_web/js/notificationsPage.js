@@ -12,6 +12,7 @@ const NotificationsPage = (() => {
   let _notifications = [];
   let _hasMore = true;
   let _loading = false;
+  let _eventsBound = false;
 
   function init() {
     if (!Auth.isLoggedIn()) { _showGate(); return; }
@@ -19,8 +20,48 @@ const NotificationsPage = (() => {
 
     document.getElementById('btn-mark-all').addEventListener('click', _markAllRead);
     document.getElementById('btn-delete-old').addEventListener('click', _deleteOld);
+    _bindEvents();
 
     _fetchNotifications();
+  }
+
+  function _activeMode() {
+    try {
+      const mode = (sessionStorage.getItem('nw_account_mode') || '').trim().toLowerCase();
+      if (mode === 'provider' || mode === 'client') return mode;
+    } catch (_) {}
+    const role = (Auth.getRoleState() || '').trim().toLowerCase();
+    return role === 'provider' ? 'provider' : 'client';
+  }
+
+  function _withMode(path) {
+    const mode = _activeMode();
+    if (!mode) return path;
+    return path + (path.includes('?') ? '&' : '?') + 'mode=' + encodeURIComponent(mode);
+  }
+
+  function _matchesActiveMode(notif) {
+    const audienceMode = String(notif?.audience_mode || 'shared').trim().toLowerCase();
+    return audienceMode === 'shared' || audienceMode === _activeMode();
+  }
+
+  function _bindEvents() {
+    if (_eventsBound) return;
+    _eventsBound = true;
+    window.addEventListener('nw:notification-created', _handleRealtimeNotification);
+  }
+
+  function _handleRealtimeNotification(event) {
+    const notif = event?.detail || null;
+    if (!notif || !_matchesActiveMode(notif)) return;
+    const existingIndex = _notifications.findIndex((item) => item.id === notif.id);
+    if (existingIndex >= 0) {
+      _notifications.splice(existingIndex, 1);
+    } else {
+      _setText('notif-total', String((_notifications.length || 0) + 1));
+    }
+    _notifications.unshift(notif);
+    _render();
   }
 
   function _showGate() {
@@ -39,7 +80,7 @@ const NotificationsPage = (() => {
   async function _fetchNotifications() {
     _setLoading(true);
     _setError('');
-    const res = await ApiClient.get('/api/notifications/');
+    const res = await ApiClient.get(_withMode('/api/notifications/'));
     _setLoading(false);
     if (res.ok && res.data) {
       const data = res.data;
@@ -158,7 +199,7 @@ const NotificationsPage = (() => {
   async function _markRead(id, index) {
     if (!id) return;
     if (_notifications[index] && _notifications[index].is_read) return;
-    const res = await ApiClient.request('/api/notifications/mark-read/' + id + '/', { method: 'POST' });
+    const res = await ApiClient.request(_withMode('/api/notifications/mark-read/' + id + '/'), { method: 'POST' });
     if (res.ok) {
       _notifications[index].is_read = true;
       _render();
@@ -168,7 +209,7 @@ const NotificationsPage = (() => {
 
   async function _markAllRead() {
     if (_loading) return;
-    const res = await ApiClient.request('/api/notifications/mark-all-read/', { method: 'POST' });
+    const res = await ApiClient.request(_withMode('/api/notifications/mark-all-read/'), { method: 'POST' });
     if (res.ok) {
       _notifications.forEach(n => n.is_read = true);
       _render();
@@ -180,7 +221,7 @@ const NotificationsPage = (() => {
     if (!confirm('هل أنت متأكد من حذف الإشعارات القديمة؟')) return;
     if (_loading) return;
     _setLoading(true);
-    const res = await ApiClient.request('/api/notifications/delete-old/', { method: 'POST' });
+    const res = await ApiClient.request(_withMode('/api/notifications/delete-old/'), { method: 'POST' });
     _setLoading(false);
     if (res.ok) {
       _fetchNotifications();

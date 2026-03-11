@@ -1,10 +1,14 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 import pytest
+from django.core.cache import cache
+from django.db import OperationalError
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User, UserRole
+from apps.core import unread_badges as unread_badges_module
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus, ExtraType
 from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
 from apps.providers.models import Category, SubCategory, ProviderProfile, ProviderCategory
@@ -502,3 +506,135 @@ def test_direct_message_creates_notification_for_other_participant():
     notif = Notification.objects.filter(user=provider_user, title="رسالة جديدة").first()
     assert notif is not None
     assert "/threads/" in (notif.url or "")
+
+
+@pytest.mark.django_db
+def test_combined_unread_badges_endpoint_returns_mode_specific_counts():
+    cache.clear()
+    dual_user = User.objects.create_user(phone="0509000061", role_state=UserRole.CLIENT)
+    ProviderProfile.objects.create(
+        user=dual_user,
+        provider_type="individual",
+        display_name="مستخدم مزدوج",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    peer_provider_user = User.objects.create_user(phone="0509000062", role_state=UserRole.PROVIDER)
+    ProviderProfile.objects.create(
+        user=peer_provider_user,
+        provider_type="individual",
+        display_name="مزود خارجي",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    peer_client_user = User.objects.create_user(phone="0509000063", role_state=UserRole.CLIENT)
+
+    Notification.objects.create(
+        user=dual_user,
+        title="إشعار عميل",
+        body="body",
+        kind="info",
+        audience_mode="client",
+    )
+    Notification.objects.create(
+        user=dual_user,
+        title="إشعار مزود",
+        body="body",
+        kind="info",
+        audience_mode="provider",
+    )
+
+    client_thread = Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.CLIENT,
+        participant_1=dual_user,
+        participant_2=peer_provider_user,
+    )
+    provider_thread = Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.PROVIDER,
+        participant_1=dual_user,
+        participant_2=peer_client_user,
+    )
+    Message.objects.create(thread=client_thread, sender=peer_provider_user, body="client unread")
+    Message.objects.create(thread=provider_thread, sender=peer_client_user, body="provider unread")
+    Notification.objects.filter(user=dual_user, kind="message_new").delete()
+
+    api = APIClient()
+    api.force_authenticate(user=dual_user)
+
+    client_response = api.get("/api/core/unread-badges/", {"mode": "client"})
+    provider_response = api.get("/api/core/unread-badges/", {"mode": "provider"})
+
+    assert client_response.status_code == 200
+    assert client_response.data["mode"] == "client"
+    assert client_response.data["notifications"] == 1
+    assert client_response.data["chats"] == 1
+    assert client_response.data["degraded"] is False
+    assert client_response.data["stale"] is False
+
+    assert provider_response.status_code == 200
+    assert provider_response.data["mode"] == "provider"
+    assert provider_response.data["notifications"] == 1
+    assert provider_response.data["chats"] == 1
+    assert provider_response.data["degraded"] is False
+    assert provider_response.data["stale"] is False
+
+
+@pytest.mark.django_db
+def test_combined_unread_badges_returns_stale_payload_when_database_temporarily_fails():
+    cache.clear()
+    user = User.objects.create_user(phone="0509000064", role_state=UserRole.CLIENT)
+    Notification.objects.create(
+        user=user,
+        title="إشعار",
+        body="body",
+        kind="info",
+        audience_mode="client",
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    warm = api.get("/api/core/unread-badges/", {"mode": "client"})
+    assert warm.status_code == 200
+    assert warm.data["notifications"] == 1
+
+    cache.delete(unread_badges_module._combined_cache_key(user.id, "client"))
+
+    with patch(
+        "apps.core.unread_badges._compute_unread_badges",
+        side_effect=OperationalError("database unavailable"),
+    ):
+        degraded = api.get("/api/core/unread-badges/", {"mode": "client"})
+
+    assert degraded.status_code == 200
+    assert degraded.data["notifications"] == 1
+    assert degraded.data["chats"] == 0
+    assert degraded.data["degraded"] is True
+    assert degraded.data["stale"] is True
+
+
+@pytest.mark.django_db
+def test_notifications_unread_count_returns_controlled_503_when_database_is_unavailable():
+    cache.clear()
+    user = User.objects.create_user(phone="0509000065", role_state=UserRole.CLIENT)
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    with patch(
+        "apps.core.unread_badges._compute_unread_badges",
+        side_effect=OperationalError("database unavailable"),
+    ):
+        response = api.get("/api/notifications/unread-count/", {"mode": "client"})
+
+    assert response.status_code == 503
+    assert response.data["unread"] == 0
+    assert response.data["degraded"] is True
+    assert response.data["stale"] is False
+    assert "detail" in response.data

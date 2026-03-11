@@ -1,5 +1,15 @@
 import logging
 
+from .request_context import get_request_id, get_request_path
+
+
+class RequestContextLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = getattr(record, "request_id", None) or get_request_id()
+        record.request_path = getattr(record, "request_path", None) or get_request_path()
+        record.log_category = getattr(record, "log_category", None) or "-"
+        return True
+
 
 class ExcludeHealthCheckAccessFilter(logging.Filter):
     """Drop noisy access logs for health endpoints to reduce log/IO overhead."""
