@@ -150,7 +150,18 @@ var PromotionPage = (function () {
           body: { title: title, items: items }
         });
         if (!createRes.ok) {
-          alert("فشل إرسال الطلب");
+          var errMsg = "فشل إرسال الطلب";
+          if (createRes.data) {
+            var details = [];
+            if (typeof createRes.data === "object") {
+              Object.keys(createRes.data).forEach(function (key) {
+                var val = createRes.data[key];
+                details.push(Array.isArray(val) ? val.join(", ") : String(val));
+              });
+            }
+            if (details.length) errMsg += "\n" + details.join("\n");
+          }
+          alert(errMsg);
           return;
         }
 

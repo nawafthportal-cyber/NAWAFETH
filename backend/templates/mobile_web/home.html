@@ -19,11 +19,20 @@
 {% endblock %}
 
 {% block content %}
-<!-- ====== HERO SECTION (matches Flutter: video + gradient + top-bar + tagline + search) ====== -->
+<!-- ====== HERO SECTION (homepage banner replaces legacy video slot) ====== -->
 <section id="hero">
-  <video class="hero-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true">
-    <source src="{% static 'mobile_web/videos/V16.mp4' %}" type="video/mp4">
-  </video>
+  <div id="banners" class="hero-banner-shell" style="display:none">
+    <div class="carousel-wrapper" id="carousel-wrapper">
+      <div class="carousel-track" id="carousel-track"></div>
+      <div class="carousel-dots" id="carousel-dots"></div>
+      <button class="carousel-arrow carousel-arrow-right" id="carousel-prev" aria-label="السابق">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+      </button>
+      <button class="carousel-arrow carousel-arrow-left" id="carousel-next" aria-label="التالي">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+    </div>
+  </div>
   <div class="hero-bg"></div>
   <div class="hero-overlay"></div>
 
@@ -105,23 +114,6 @@
     <div class="container">
       <h2 class="section-title">مشاريع ممولة</h2>
       <div class="showcase-scroll" id="portfolio-showcase-list"></div>
-    </div>
-  </section>
-
-  <!-- ====== BANNERS CAROUSEL (full-width auto-rotate every 2s) ====== -->
-  <section id="banners" class="section-block" style="display:none">
-    <div class="container">
-      <h2 class="section-title" id="banners-title">...</h2>
-      <div class="carousel-wrapper" id="carousel-wrapper">
-        <div class="carousel-track" id="carousel-track"></div>
-        <div class="carousel-dots" id="carousel-dots"></div>
-        <button class="carousel-arrow carousel-arrow-right" id="carousel-prev" aria-label="السابق">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
-        </button>
-        <button class="carousel-arrow carousel-arrow-left" id="carousel-next" aria-label="التالي">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
-        </button>
-      </div>
     </div>
   </section>
 

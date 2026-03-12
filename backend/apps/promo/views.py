@@ -422,6 +422,19 @@ class PromoRequestCreateView(generics.CreateAPIView):
         ctx["request"] = self.request
         return ctx
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            import logging
+            logging.getLogger("apps.promo").warning(
+                "PromoRequest create validation failed user=%s errors=%s data=%s",
+                request.user.id,
+                serializer.errors,
+                {k: v for k, v in request.data.items() if k != "password"} if hasattr(request.data, "items") else str(request.data)[:500],
+            )
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return super().create(request, *args, **kwargs)
+
 
 class MyPromoRequestsListView(generics.ListAPIView):
     permission_classes = [IsOwnerOrBackofficePromo]

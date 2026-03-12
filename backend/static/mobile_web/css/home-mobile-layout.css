@@ -5,7 +5,7 @@
    Desktop: graceful grid expansion.
    =================================================================== */
 
-/* ── Hero Video Background ── */
+/* ── Hero Media Background ── */
 body.home-mobile-layout .hero-video {
   position: absolute;
   inset: 0;
@@ -15,8 +15,35 @@ body.home-mobile-layout .hero-video {
   z-index: 0;
 }
 
-body.home-mobile-layout .hero-bg {
+body.home-mobile-layout .hero-banner-shell {
+  position: absolute;
+  inset: 0;
   z-index: 1;
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-wrapper {
+  height: 100%;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: 0;
+  background: transparent;
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-track {
+  height: 100%;
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-overlay,
+body.home-mobile-layout .hero-banner-shell .carousel-dots {
+  display: none;
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-arrow {
+  opacity: 0.72;
+}
+
+body.home-mobile-layout .hero-bg {
+  z-index: 0;
   opacity: 0.6;
 }
 
@@ -766,6 +793,10 @@ body.home-mobile-layout .section-reels {
    MOBILE: ≤ 768px  — compact hero, horizontal-only carousels
    ================================================================ */
 @media (max-width: 768px) {
+  body.home-mobile-layout .hero-banner-shell .carousel-arrow {
+    opacity: 0.55;
+  }
+
   /* Hero compact */
   body.home-mobile-layout .hero-content {
     min-height: 280px;

@@ -604,7 +604,17 @@ const HomePage = (() => {
   ---------------------------------------------------------- */
   function _renderBanners(banners) {
     if (!$carouselTrack || !$bannersSection) return;
-    if (!banners.length) { $bannersSection.style.display = 'none'; return; }
+    if (!banners.length) {
+      $bannersSection.style.display = 'none';
+      _carouselItems = [];
+      _carouselIdx = 0;
+      _stopCarouselAutoRotate();
+      $carouselTrack.textContent = '';
+      if ($carouselDots) $carouselDots.textContent = '';
+      if ($carouselPrev) $carouselPrev.style.display = 'none';
+      if ($carouselNext) $carouselNext.style.display = 'none';
+      return;
+    }
     $bannersSection.style.display = '';
 
     _carouselItems = banners;
