@@ -666,6 +666,9 @@ body.home-mobile-layout .reel-item:hover {
   opacity: 0;
   transition: opacity 0.5s ease;
   z-index: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 30%),
+    linear-gradient(135deg, #0f172a 0%, #1e293b 52%, #020617 100%);
 }
 
 .carousel-slide.active {
@@ -673,11 +676,63 @@ body.home-mobile-layout .reel-item:hover {
   z-index: 1;
 }
 
-.carousel-media {
+.carousel-media-frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.carousel-media-backdrop {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  transform: scale(1.08);
+  opacity: 0.88;
+  filter: blur(28px) saturate(1.15);
+}
+
+.carousel-media-backdrop.is-video {
+  inset: 0;
+  transform: none;
+  opacity: 1;
+  filter: none;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 32%),
+    linear-gradient(140deg, rgba(15,23,42,.96) 0%, rgba(30,41,59,.88) 48%, rgba(2,6,23,.98) 100%);
+}
+
+.carousel-media-backdrop-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.carousel-media-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, rgba(2,6,23,.26) 0%, transparent 42%),
+    linear-gradient(to bottom, rgba(255,255,255,.06) 0%, transparent 24%);
+}
+
+.carousel-media {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+  padding: 12px;
 }
 
 .carousel-overlay {
@@ -687,7 +742,7 @@ body.home-mobile-layout .reel-item:hover {
   right: 0;
   padding: 20px 16px 14px;
   background: linear-gradient(to top, rgba(0,0,0,.65) 0%, transparent 100%);
-  z-index: 2;
+  z-index: 3;
 }
 
 .carousel-caption {
@@ -765,6 +820,10 @@ body.home-mobile-layout .reel-item:hover {
 
 /* Mobile: always show arrows, smaller */
 @media (max-width: 768px) {
+  .carousel-media {
+    padding: 8px;
+  }
+
   .carousel-arrow {
     width: 30px;
     height: 30px;

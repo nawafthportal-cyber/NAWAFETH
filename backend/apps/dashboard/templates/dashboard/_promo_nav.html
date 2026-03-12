@@ -3,6 +3,14 @@
      class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'dashboard' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
     لوحة التحكم
   </a>
+  <a href="{% url 'dashboard:promo_campaign_create' %}"
+     class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'create_campaign' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+    ✚ إنشاء حملة
+  </a>
+  <a href="{% url 'dashboard:promo_home_banners' %}"
+     class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'home_banner' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
+    بانرات الصفحة الرئيسية
+  </a>
   <a href="{% url 'dashboard:promo_inquiries_list' %}"
      class="px-4 py-3 rounded-xl border text-center font-semibold {% if promo_active == 'inquiries' %}bg-fuchsia-600 text-white border-fuchsia-600{% else %}bg-white border-gray-200 text-gray-700{% endif %}">
     الاستفسارات

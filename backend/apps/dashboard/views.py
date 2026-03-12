@@ -62,8 +62,13 @@ from apps.subscriptions.services import (
 from apps.promo.models import (
     HomeBanner,
     HomeBannerMediaType,
+    PromoAdType,
+    PromoAsset,
+    PromoAssetType,
+    PromoFrequency,
     PromoInquiryProfile,
     PromoOpsStatus,
+    PromoPosition,
     PromoPricingRule,
     PromoRequest,
     PromoRequestItem,
@@ -3327,6 +3332,121 @@ def promo_home_banner_delete(request: HttpRequest, banner_id: int) -> HttpRespon
     banner.delete()
     messages.success(request, "تم حذف البانر")
     return redirect("dashboard:promo_home_banners")
+
+
+# ---------- Admin-Created Promo Campaign ----------
+
+
+@staff_member_required
+@dashboard_access_required("promo", write=True)
+def promo_campaign_create(request: HttpRequest) -> HttpResponse:
+    """Allow staff to create a promo campaign directly (without a client request)."""
+
+    if request.method == "POST":
+        title = (request.POST.get("title") or "").strip()
+        ad_type = (request.POST.get("ad_type") or "").strip()
+        start_at_str = (request.POST.get("start_at") or "").strip()
+        end_at_str = (request.POST.get("end_at") or "").strip()
+        frequency = (request.POST.get("frequency") or PromoFrequency.S60).strip()
+        position = (request.POST.get("position") or PromoPosition.NORMAL).strip()
+        target_category = (request.POST.get("target_category") or "").strip()
+        target_city = (request.POST.get("target_city") or "").strip()
+        redirect_url = (request.POST.get("redirect_url") or "").strip()
+        provider_id = (request.POST.get("provider") or "").strip()
+        status_val = (request.POST.get("status") or PromoRequestStatus.ACTIVE).strip()
+        service_types = request.POST.getlist("service_types")
+
+        if not title or not ad_type or not start_at_str or not end_at_str:
+            messages.error(request, "العنوان ونوع الإعلان وتواريخ البداية والنهاية مطلوبة")
+            return redirect("dashboard:promo_campaign_create")
+
+        try:
+            start_at = make_aware(datetime.strptime(start_at_str, "%Y-%m-%dT%H:%M"))
+            end_at = make_aware(datetime.strptime(end_at_str, "%Y-%m-%dT%H:%M"))
+        except (ValueError, TypeError):
+            messages.error(request, "صيغة التاريخ غير صحيحة")
+            return redirect("dashboard:promo_campaign_create")
+
+        if end_at <= start_at:
+            messages.error(request, "تاريخ النهاية يجب أن يكون بعد تاريخ البداية")
+            return redirect("dashboard:promo_campaign_create")
+
+        provider = None
+        if provider_id:
+            provider = ProviderProfile.objects.filter(id=provider_id).first()
+
+        with transaction.atomic():
+            pr = PromoRequest.objects.create(
+                requester=request.user,
+                assigned_to=request.user,
+                assigned_at=timezone.now(),
+                title=title,
+                ad_type=ad_type,
+                start_at=start_at,
+                end_at=end_at,
+                frequency=frequency,
+                position=position,
+                target_category=target_category,
+                target_city=target_city,
+                target_provider=provider,
+                redirect_url=redirect_url,
+                status=status_val,
+                ops_status=PromoOpsStatus.IN_PROGRESS if status_val == PromoRequestStatus.ACTIVE else PromoOpsStatus.NEW,
+                activated_at=timezone.now() if status_val == PromoRequestStatus.ACTIVE else None,
+            )
+
+            # Create items per selected service type
+            for idx, svc in enumerate(service_types):
+                PromoRequestItem.objects.create(
+                    request=pr,
+                    service_type=svc,
+                    title=title,
+                    start_at=start_at,
+                    end_at=end_at,
+                    frequency=frequency,
+                    target_category=target_category,
+                    target_city=target_city,
+                    target_provider=provider,
+                    redirect_url=redirect_url,
+                    sort_order=idx,
+                )
+
+            # Upload assets
+            for f in request.FILES.getlist("assets"):
+                ext = (f.name.rsplit(".", 1)[-1] if "." in f.name else "").lower()
+                if ext in ("mp4", "mov", "avi", "webm"):
+                    asset_type = PromoAssetType.VIDEO
+                elif ext in ("pdf",):
+                    asset_type = PromoAssetType.PDF
+                elif ext in ("jpg", "jpeg", "png", "gif", "webp", "svg"):
+                    asset_type = PromoAssetType.IMAGE
+                else:
+                    asset_type = PromoAssetType.OTHER
+                PromoAsset.objects.create(
+                    request=pr,
+                    asset_type=asset_type,
+                    title=f.name,
+                    file=f,
+                    uploaded_by=request.user,
+                )
+
+        messages.success(request, f"تم إنشاء الحملة الترويجية: {pr.code}")
+        return redirect("dashboard:promo_request_detail", promo_id=pr.id)
+
+    # GET — render the creation form
+    ctx = {
+        "ad_type_choices": PromoAdType.choices,
+        "frequency_choices": PromoFrequency.choices,
+        "position_choices": PromoPosition.choices,
+        "service_type_choices": PromoServiceType.choices,
+        "status_choices": [
+            (PromoRequestStatus.ACTIVE, "مفعل — تبدأ فوراً"),
+            (PromoRequestStatus.NEW, "جديد — تحتاج مراجعة"),
+        ],
+        "can_write": True,
+    }
+    ctx.update(_promo_dashboard_menu_context(active="create_campaign"))
+    return render(request, "dashboard/promo_campaign_create.html", ctx)
 
 
 @staff_member_required

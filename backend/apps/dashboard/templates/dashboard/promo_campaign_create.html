@@ -1,0 +1,136 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}إنشاء حملة ترويجية{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">إنشاء حملة ترويجية</h1>
+    <p class="text-gray-500 mt-1">أنشئ حملة ترويجية مباشرة بدون طلب من العميل — يمكن تفعيلها فوراً أو تركها للمراجعة.</p>
+  </div>
+</div>
+
+{% include "dashboard/_promo_nav.html" %}
+
+<form method="post" enctype="multipart/form-data" class="space-y-6">
+  {% csrf_token %}
+
+  <!-- Basic Info -->
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+    <h2 class="font-bold text-lg mb-4 text-fuchsia-700">معلومات الحملة الأساسية</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">عنوان الحملة *</label>
+        <input type="text" name="title" required maxlength="160" placeholder="مثال: حملة عروض رمضان"
+               class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">نوع الإعلان *</label>
+        <select name="ad_type" required class="w-full rounded-lg border-gray-200 px-3 py-2">
+          <option value="">— اختر —</option>
+          {% for v, l in ad_type_choices %}
+          <option value="{{ v }}">{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">حالة الحملة *</label>
+        <select name="status" class="w-full rounded-lg border-gray-200 px-3 py-2">
+          {% for v, l in status_choices %}
+          <option value="{{ v }}">{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedule -->
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+    <h2 class="font-bold text-lg mb-4 text-fuchsia-700">الجدول الزمني</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">تاريخ البداية *</label>
+        <input type="datetime-local" name="start_at" required class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">تاريخ النهاية *</label>
+        <input type="datetime-local" name="end_at" required class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">معدل الظهور</label>
+        <select name="frequency" class="w-full rounded-lg border-gray-200 px-3 py-2">
+          {% for v, l in frequency_choices %}
+          <option value="{{ v }}" {% if v == "60s" %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">موقع الظهور</label>
+        <select name="position" class="w-full rounded-lg border-gray-200 px-3 py-2">
+          {% for v, l in position_choices %}
+          <option value="{{ v }}" {% if v == "normal" %}selected{% endif %}>{{ l }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Service Types (items) -->
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+    <h2 class="font-bold text-lg mb-4 text-fuchsia-700">الخدمات الترويجية (بنود الحملة)</h2>
+    <p class="text-sm text-gray-500 mb-3">اختر خدمة واحدة أو أكثر لتضمينها في الحملة. سيتم إنشاء بند لكل خدمة.</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {% for v, l in service_type_choices %}
+      <label class="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-fuchsia-300 cursor-pointer transition-colors">
+        <input type="checkbox" name="service_types" value="{{ v }}" class="rounded text-fuchsia-600">
+        <span class="text-sm font-medium text-gray-700">{{ l }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Targeting -->
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+    <h2 class="font-bold text-lg mb-4 text-fuchsia-700">الاستهداف (اختياري)</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">التصنيف المستهدف</label>
+        <input type="text" name="target_category" placeholder="مثال: صالات، كهرباء..."
+               class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">المدينة المستهدفة</label>
+        <input type="text" name="target_city" placeholder="مثال: الرياض"
+               class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">معرّف مقدم الخدمة</label>
+        <input type="number" name="provider" placeholder="ID"
+               class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-600 mb-1">رابط التوجيه</label>
+        <input type="url" name="redirect_url" placeholder="https://..."
+               class="w-full rounded-lg border-gray-200 px-3 py-2">
+      </div>
+    </div>
+  </div>
+
+  <!-- Assets -->
+  <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+    <h2 class="font-bold text-lg mb-4 text-fuchsia-700">المرفقات (صور / فيديوهات)</h2>
+    <p class="text-sm text-gray-500 mb-3">ارفع صور البانر أو مقاطع الفيديو المطلوبة. يمكنك رفع ملفات متعددة.</p>
+    <input type="file" name="assets" multiple accept="image/*,video/mp4,video/webm,.pdf"
+           class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
+  </div>
+
+  <!-- Submit -->
+  <div class="flex items-center gap-4">
+    <button type="submit" class="rounded-xl bg-fuchsia-600 text-white px-8 py-3 font-bold text-lg hover:bg-fuchsia-700 transition-colors shadow-lg">
+      إنشاء الحملة
+    </button>
+    <a href="{% url 'dashboard:promo_requests_list' %}" class="rounded-xl bg-gray-200 text-gray-700 px-6 py-3 font-semibold hover:bg-gray-300 transition-colors">
+      إلغاء
+    </a>
+  </div>
+</form>
+{% endblock %}

@@ -162,6 +162,59 @@ const HomePage = (() => {
     return cappedPrimary.concat(fallbackBanners.slice(0, remaining));
   }
 
+  function _buildCarouselMedia(banner, url, isVideo, isActive) {
+    const frame = UI.el('div', {
+      className: 'carousel-media-frame' + (isVideo ? ' is-video' : ' is-image'),
+    });
+
+    const backdrop = UI.el('div', {
+      className: 'carousel-media-backdrop' + (isVideo ? ' is-video' : ''),
+      'aria-hidden': 'true',
+    });
+
+    if (!isVideo && url) {
+      const backdropImg = UI.el('img', {
+        className: 'carousel-media-backdrop-image',
+        alt: '',
+        loading: isActive ? 'eager' : 'lazy',
+        decoding: 'async',
+      });
+      backdropImg.src = url;
+      frame.appendChild(backdrop);
+      backdrop.appendChild(backdropImg);
+    } else {
+      frame.appendChild(backdrop);
+    }
+
+    const mediaAlt = banner.title || banner.provider_display_name || 'بنر الصفحة الرئيسية';
+
+    if (isVideo && url) {
+      const vid = UI.el('video', {
+        className: 'carousel-media',
+        src: url,
+        preload: isActive ? 'auto' : 'metadata',
+        'aria-label': mediaAlt,
+      });
+      vid.autoplay = false;
+      vid.muted = true;
+      vid.loop = true;
+      vid.playsInline = true;
+      vid.setAttribute('playsinline', '');
+      frame.appendChild(vid);
+    } else if (url) {
+      const img = UI.el('img', {
+        className: 'carousel-media',
+        loading: isActive ? 'eager' : 'lazy',
+        decoding: 'async',
+        alt: mediaAlt,
+      });
+      img.src = url;
+      frame.appendChild(img);
+    }
+
+    return frame;
+  }
+
   /* ----------------------------------------------------------
      LOAD DATA (parallel API calls — same as Flutter)
   ---------------------------------------------------------- */
@@ -629,26 +682,8 @@ const HomePage = (() => {
       const url = ApiClient.mediaUrl(b.media_url);
       const isVideo = (b.media_type || '').toLowerCase() === 'video';
 
-      if (isVideo && url) {
-        const vid = UI.el('video', {
-          className: 'carousel-media',
-          src: url,
-          autoplay: false,
-          muted: true,
-          loop: true,
-          playsInline: true,
-          preload: 'metadata',
-        });
-        vid.setAttribute('playsinline', '');
-        slide.appendChild(vid);
-      } else if (url) {
-        const img = UI.el('img', {
-          className: 'carousel-media',
-          loading: 'lazy',
-          alt: b.title || '',
-        });
-        img.src = url;
-        slide.appendChild(img);
+      if (url) {
+        slide.appendChild(_buildCarouselMedia(b, url, isVideo, i === 0));
       }
 
       // Overlay with title & provider

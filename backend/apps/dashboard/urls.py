@@ -137,6 +137,7 @@ urlpatterns = [
     path("promo/banners/<int:banner_id>/update/", views.promo_home_banner_update, name="promo_home_banner_update"),
     path("promo/banners/<int:banner_id>/toggle/", views.promo_home_banner_toggle, name="promo_home_banner_toggle"),
     path("promo/banners/<int:banner_id>/delete/", views.promo_home_banner_delete, name="promo_home_banner_delete"),
+    path("promo/campaign/create/", views.promo_campaign_create, name="promo_campaign_create"),
 
     path("subscriptions/ops/", views.subscriptions_ops, name="subscriptions_ops"),
     path("subscriptions/inquiries/<int:ticket_id>/", views.subscription_inquiry_detail, name="subscription_inquiry_detail"),
