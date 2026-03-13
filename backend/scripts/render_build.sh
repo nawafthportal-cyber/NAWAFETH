@@ -16,16 +16,8 @@ pip install -r requirements/prod.txt
 echo "[build] Running collectstatic (--clear to remove stale files)..."
 python manage.py collectstatic --clear --noinput
 
-STATIC_ROOT_PATH="$(python - <<'PY'
-import os
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-import django
-django.setup()
-from django.conf import settings
-print(settings.STATIC_ROOT)
-PY
-)"
-MANIFEST_PATH="${STATIC_ROOT_PATH%/}/staticfiles.json"
+MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
+STATIC_ROOT_PATH="$(dirname "${MANIFEST_PATH}")"
 
 if [ ! -f "${MANIFEST_PATH}" ]; then
 	echo "[build] ERROR: static manifest not found at ${MANIFEST_PATH}"

@@ -88,11 +88,18 @@ else
 fi
 
 # ── Static files (required when manifest is missing) ────────────────
-if [ ! -f "staticfiles/staticfiles.json" ]; then
+MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
+echo "[start] Expecting static manifest at ${MANIFEST_PATH}"
+
+if [ ! -f "${MANIFEST_PATH}" ]; then
 	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
 		echo "[start] Static manifest missing — running collectstatic (timeout 20s)..."
 		if ! timeout 20 python manage.py collectstatic --noinput 2>&1; then
 			echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
+			exit 1
+		fi
+		if [ ! -f "${MANIFEST_PATH}" ]; then
+			echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
 			exit 1
 		fi
 		echo "[start] collectstatic completed."
