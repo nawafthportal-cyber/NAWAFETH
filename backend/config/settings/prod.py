@@ -74,8 +74,6 @@ SECURE_REFERRER_POLICY = "same-origin"
 # CORS (Production)
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-	"https://nawafeth.app",
-	"https://admin.nawafeth.app",
 	"https://nawafthportal.com",
 	"https://www.nawafthportal.com",
 ]
@@ -96,8 +94,6 @@ if _cors_regex_env:
 _csrf_env = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").strip()
 CSRF_TRUSTED_ORIGINS = [
 	"https://*.onrender.com",
-	"https://nawafeth.app",
-	"https://admin.nawafeth.app",
 	"https://nawafthportal.com",
 	"https://www.nawafthportal.com",
 	"https://*.nawafthportal.com",
