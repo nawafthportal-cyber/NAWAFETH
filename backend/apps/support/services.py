@@ -100,6 +100,7 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
             "to_status": new_status,
         },
         pref_key="report_status_change",
+        audience_mode="client",
     )
     return ticket
 

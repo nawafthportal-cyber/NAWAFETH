@@ -365,6 +365,7 @@ def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) ->
                 "promo_code": code_or_id,
             },
             pref_key="promo_status_change",
+            audience_mode="provider",
         )
     except Exception:
         pass

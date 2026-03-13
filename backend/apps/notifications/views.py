@@ -141,7 +141,13 @@ class MarkAllReadView(APIView):
     permission_classes = [IsAtLeastPhoneOnly]
 
     def post(self, request):
-        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        mode = (request.data.get("mode") or request.query_params.get("mode") or "").strip().lower()
+        qs = Notification.objects.filter(user=request.user, is_read=False)
+        if mode in ("client", "provider"):
+            ids = filter_notification_ids_by_mode(qs=qs, user=request.user, mode=mode)
+            if ids is not None:
+                qs = qs.filter(id__in=ids)
+        qs.update(is_read=True)
         invalidate_unread_badge_cache(user_id=request.user.id)
         return Response({"ok": True}, status=status.HTTP_200_OK)
 

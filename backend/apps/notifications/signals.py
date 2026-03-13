@@ -13,7 +13,17 @@ from .models import EventType
 from .services import create_notification
 
 
-def _audience_mode_for_user(user: User) -> str:
+def _audience_mode_for_user(user: User, *, context_mode: str = "") -> str:
+    """Determine audience_mode for a notification.
+
+    If an explicit context_mode (from Thread.context_mode) is provided and
+    is either 'client' or 'provider', it takes precedence over the user's
+    global role_state — this correctly isolates notifications for users who
+    hold both roles.
+    """
+    ctx = (context_mode or "").strip().lower()
+    if ctx in ("client", "provider"):
+        return ctx
     role_state = (getattr(user, "role_state", "") or "").strip().lower()
     if role_state == "provider":
         return "provider"
@@ -109,7 +119,7 @@ def notify_new_message(sender, instance: Message, created, **kwargs):
             pref_key="new_chat_message",
             message_id=instance.id,
             meta={"thread_id": thread.id, "is_direct": True},
-            audience_mode=_audience_mode_for_user(target),
+            audience_mode=_audience_mode_for_user(target, context_mode=thread.context_mode),
         )
         return
 
