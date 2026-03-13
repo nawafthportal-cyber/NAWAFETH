@@ -1247,7 +1247,7 @@ const ChatDetailPage = (() => {
       return;
     }
 
-    const body = 'طلب خدمة مباشر:\nhttps://nawafeth.app/service-request/?provider_id=' + providerId;
+    const body = 'طلب خدمة مباشر:\nhttps://www.nawafthportal.com/service-request/?provider_id=' + providerId;
     const res = await ApiClient.request('/api/messaging/direct/thread/' + state.threadId + '/messages/send/', {
       method: 'POST',
       body: { body },

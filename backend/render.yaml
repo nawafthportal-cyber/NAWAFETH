@@ -15,9 +15,13 @@ services:
       - key: DJANGO_SECRET_KEY
         value: "134d49caedbc1a33f3e3ca0e8c12ee4f"
       # Add your Render service hostname + custom domains when you have them.
-      # Example: nawafeth-2290.onrender.com,nawafeth.app,admin.nawafeth.app
+      # Example: nawafeth-2290.onrender.com,nawafthportal.com,www.nawafthportal.com
       - key: DJANGO_ALLOWED_HOSTS
         value: "127.0.0.1,localhost,.onrender.com,.nawafthportal.com,nawafthportal.com,www.nawafthportal.com"
+      - key: DJANGO_CSRF_TRUSTED_ORIGINS
+        value: "https://*.onrender.com,https://nawafthportal.com,https://www.nawafthportal.com,https://*.nawafthportal.com"
+      - key: DJANGO_CORS_ALLOWED_ORIGINS
+        value: "https://nawafthportal.com,https://www.nawafthportal.com"
       - key: DATABASE_URL
         fromDatabase:
           name: nawafeth-db
@@ -32,10 +36,6 @@ services:
       - key: RUN_COLLECTSTATIC_ON_START
         value: "1"
       # Optional overrides:
-      # - key: DJANGO_CSRF_TRUSTED_ORIGINS
-      #   value: https://*.onrender.com,https://nawafeth.app,https://admin.nawafeth.app
-      # - key: DJANGO_CORS_ALLOWED_ORIGINS
-      #   value: https://nawafeth.app,https://admin.nawafeth.app
       # - key: USE_R2_MEDIA
       #   value: "1"
       # - key: R2_BUCKET_NAME

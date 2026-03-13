@@ -73,33 +73,42 @@ SECURE_REFERRER_POLICY = "same-origin"
 
 # CORS (Production)
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
+DEFAULT_CORS_ALLOWED_ORIGINS = [
 	"https://nawafthportal.com",
 	"https://www.nawafthportal.com",
 ]
-CORS_ALLOWED_ORIGIN_REGEXES = [
+CORS_ALLOWED_ORIGINS = list(DEFAULT_CORS_ALLOWED_ORIGINS)
+DEFAULT_CORS_ALLOWED_ORIGIN_REGEXES = [
 	r"^https://[a-z0-9-]+\.onrender\.com$",
 	r"^https://([a-z0-9-]+\.)?nawafthportal\.com$",
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = list(DEFAULT_CORS_ALLOWED_ORIGIN_REGEXES)
 
 _cors_env = os.getenv("DJANGO_CORS_ALLOWED_ORIGINS", "").strip()
 if _cors_env:
-	CORS_ALLOWED_ORIGINS = _unique_list([o.strip() for o in _cors_env.split(",") if o.strip()])
+	CORS_ALLOWED_ORIGINS = _unique_list(
+		DEFAULT_CORS_ALLOWED_ORIGINS + [o.strip() for o in _cors_env.split(",") if o.strip()]
+	)
 
 _cors_regex_env = os.getenv("DJANGO_CORS_ALLOWED_ORIGIN_REGEXES", "").strip()
 if _cors_regex_env:
-	CORS_ALLOWED_ORIGIN_REGEXES = [o.strip() for o in _cors_regex_env.split(",") if o.strip()]
+	CORS_ALLOWED_ORIGIN_REGEXES = _unique_list(
+		DEFAULT_CORS_ALLOWED_ORIGIN_REGEXES + [o.strip() for o in _cors_regex_env.split(",") if o.strip()]
+	)
 
 # CSRF trusted origins (Render/custom domains)
 _csrf_env = os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").strip()
-CSRF_TRUSTED_ORIGINS = [
+DEFAULT_CSRF_TRUSTED_ORIGINS = [
 	"https://*.onrender.com",
 	"https://nawafthportal.com",
 	"https://www.nawafthportal.com",
 	"https://*.nawafthportal.com",
 ]
+CSRF_TRUSTED_ORIGINS = list(DEFAULT_CSRF_TRUSTED_ORIGINS)
 if _csrf_env:
-	CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_env.split(",") if o.strip()]
+	CSRF_TRUSTED_ORIGINS = _unique_list(
+		DEFAULT_CSRF_TRUSTED_ORIGINS + [o.strip() for o in _csrf_env.split(",") if o.strip()]
+	)
 CSRF_TRUSTED_ORIGINS = _expand_https_default_port(CSRF_TRUSTED_ORIGINS)
 
 # CSP (Production) - django-csp v4+ format

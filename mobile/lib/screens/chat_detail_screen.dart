@@ -976,7 +976,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
 
     final link =
-        'https://nawafeth.app/service-request/?provider_id=$providerId';
+        'https://www.nawafthportal.com/service-request/?provider_id=$providerId';
     final body = 'طلب خدمة مباشر:\n$link';
 
     setState(() => _isSending = true);
@@ -1029,7 +1029,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (uri == null || !uri.hasScheme) {
       final normalized = rawUrl.startsWith('/') ? rawUrl : '/$rawUrl';
-      uri = Uri.tryParse('https://nawafeth.app$normalized');
+      uri = Uri.tryParse('https://www.nawafthportal.com$normalized');
     }
     if (uri == null) return null;
 
