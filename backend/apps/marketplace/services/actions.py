@@ -42,7 +42,8 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
     if is_client:
         if sr.status == RequestStatus.NEW:
             acts.append("send")
-            acts.append("cancel")
+            if sr.provider_id is None:
+                acts.append("cancel")
             has_provider_inputs = any(
                 [
                     sr.expected_delivery_at is not None,
@@ -103,11 +104,13 @@ def execute_action(
             raise ValidationError("لا يمكن إرسال الطلب في هذه الحالة")
         return ActionResult(True, "تم إرسال الطلب", sr.status)
 
-    # cancel — client: NEW only; provider: NEW+IN_PROGRESS; staff: NEW+IN_PROGRESS
+    # cancel — client: NEW + no provider; provider: NEW+IN_PROGRESS; staff: NEW+IN_PROGRESS
     if action == "cancel":
         if not (is_staff or is_provider or is_client):
             raise PermissionDenied("غير مصرح")
         if is_client and not is_staff:
+            if sr.provider_id is not None:
+                raise PermissionDenied("لا يمكن إلغاء الطلب بعد قبول مزود الخدمة")
             sr.cancel(allowed_statuses=[RequestStatus.NEW])
         else:
             sr.cancel(allowed_statuses=[RequestStatus.NEW, RequestStatus.IN_PROGRESS])

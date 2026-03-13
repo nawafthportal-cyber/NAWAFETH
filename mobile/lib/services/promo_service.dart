@@ -63,6 +63,61 @@ class PromoService {
     return createRequest(title: title, items: items);
   }
 
+  static Future<ApiResponse> previewRequest({
+    required String title,
+    List<Map<String, dynamic>>? items,
+    String? adType,
+    String? startAt,
+    String? endAt,
+    String frequency = '60s',
+    String position = 'normal',
+    String? targetCategory,
+    String? targetCity,
+    int? targetProvider,
+    String? messageTitle,
+    String? messageBody,
+    String? redirectUrl,
+  }) async {
+    final body = <String, dynamic>{'title': title};
+    if (items != null && items.isNotEmpty) {
+      body['items'] = items;
+      return ApiClient.post('/api/promo/requests/preview/', body: body);
+    }
+    body.addAll({
+      'ad_type': adType,
+      'start_at': startAt,
+      'end_at': endAt,
+      'frequency': frequency,
+      'position': position,
+    });
+    if (targetCategory != null && targetCategory.isNotEmpty) {
+      body['target_category'] = targetCategory;
+    }
+    if (targetCity != null && targetCity.isNotEmpty) {
+      body['target_city'] = targetCity;
+    }
+    if (targetProvider != null) {
+      body['target_provider'] = targetProvider;
+    }
+    if (messageTitle != null && messageTitle.isNotEmpty) {
+      body['message_title'] = messageTitle;
+    }
+    if (messageBody != null && messageBody.isNotEmpty) {
+      body['message_body'] = messageBody;
+    }
+    if (redirectUrl != null && redirectUrl.isNotEmpty) {
+      body['redirect_url'] = redirectUrl;
+    }
+    return ApiClient.post('/api/promo/requests/preview/', body: body);
+  }
+
+  static Future<ApiResponse> previewBundleRequest({
+    required String title,
+    required List<Map<String, dynamic>> items,
+  }) {
+    return previewRequest(title: title, items: items);
+  }
+
   /// جلب طلبات الترويج الخاصة بي
   static Future<ApiResponse> fetchMyRequests() {
     return ApiClient.get('/api/promo/requests/my/');

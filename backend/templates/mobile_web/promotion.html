@@ -104,10 +104,25 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block" id="promo-submit">إرسال طلب الترويج</button>
+      <button type="submit" class="btn btn-primary btn-block" id="promo-submit">معاينة التسعير ثم الإرسال</button>
     </form>
   </section>
 </main>
+
+<div id="promo-modal" class="promo-modal" hidden>
+  <div class="promo-modal-backdrop" data-close-modal="1"></div>
+  <div class="promo-modal-card" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
+    <div class="promo-modal-head">
+      <h3 id="promo-modal-title">تفاصيل الترويج</h3>
+      <button type="button" class="promo-modal-close" data-close-modal="1">×</button>
+    </div>
+    <div id="promo-modal-body" class="promo-modal-body"></div>
+    <div class="promo-modal-actions">
+      <button type="button" class="btn btn-secondary" id="promo-modal-cancel">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="promo-modal-confirm">متابعة</button>
+    </div>
+  </div>
+</div>
 
 <style>
   .chips-wrap{display:flex;flex-wrap:wrap;gap:8px}
@@ -116,6 +131,31 @@
   .promo-service-block{border:1px solid #eee;border-radius:16px;padding:14px;margin:0 0 12px;background:#fff}
   .promo-service-block h4{margin:0 0 12px;color:#663d90}
   .check-row{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px}
+  .promo-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .promo-card-actions .btn{min-height:38px}
+  .promo-modal{position:fixed;inset:0;z-index:1500}
+  .promo-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px)}
+  .promo-modal-card{position:relative;z-index:1;max-width:560px;margin:8vh auto 0;background:#fff;border-radius:22px;padding:18px;box-shadow:0 20px 40px rgba(15,23,42,.18)}
+  .promo-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .promo-modal-head h3{margin:0;color:#3f2470}
+  .promo-modal-close{border:0;background:#f4effd;color:#663d90;width:36px;height:36px;border-radius:999px;font-size:24px;line-height:1;cursor:pointer}
+  .promo-modal-body{max-height:60vh;overflow:auto}
+  .promo-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .promo-modal-section{margin-bottom:14px}
+  .promo-modal-section h4{margin:0 0 8px;color:#3f2470;font-size:15px}
+  .promo-modal-item{padding:10px 12px;border-radius:14px;background:#f7f3ff;margin-bottom:8px}
+  .promo-modal-item strong{display:block;margin-bottom:4px}
+  .promo-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .promo-summary-grid .promo-modal-item{margin-bottom:0;background:#faf8ff}
+  .promo-note{margin:0;color:#6b7280;line-height:1.8;font-size:13px}
+  .promo-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f0f6}
+  .promo-line:last-child{border-bottom:0}
+  .promo-line span:first-child{color:#6b7280}
+  @media (max-width:640px){
+    .promo-modal-card{margin:0;height:100%;max-width:none;border-radius:0;padding:16px}
+    .promo-modal-body{max-height:calc(100vh - 170px)}
+    .promo-summary-grid{grid-template-columns:1fr}
+  }
 </style>
 {% endblock %}
 

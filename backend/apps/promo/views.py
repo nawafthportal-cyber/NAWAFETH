@@ -33,7 +33,7 @@ from .serializers import (
     HomeBannerSerializer,
 )
 from .permissions import IsOwnerOrBackofficePromo
-from .services import quote_and_create_invoice, reject_request, _sync_promo_to_unified
+from .services import preview_promo_request, quote_and_create_invoice, reject_request, _sync_promo_to_unified
 
 
 def _position_rank_case(field_name: str = "position"):
@@ -73,7 +73,6 @@ _SERVICE_TYPE_TO_LEGACY_AD_TYPES = {
         PromoAdType.FEATURED_TOP10,
         PromoAdType.BOOST_PROFILE,
     },
-    PromoServiceType.PROMO_MESSAGES: {PromoAdType.PUSH_NOTIFICATION},
 }
 
 _LEGACY_AD_TYPE_TO_SERVICE_TYPES = {
@@ -81,7 +80,6 @@ _LEGACY_AD_TYPE_TO_SERVICE_TYPES = {
     PromoAdType.FEATURED_TOP5: {PromoServiceType.FEATURED_SPECIALISTS},
     PromoAdType.FEATURED_TOP10: {PromoServiceType.FEATURED_SPECIALISTS},
     PromoAdType.BOOST_PROFILE: {PromoServiceType.FEATURED_SPECIALISTS},
-    PromoAdType.PUSH_NOTIFICATION: {PromoServiceType.PROMO_MESSAGES},
 }
 
 _LEGACY_AD_TYPE_DEFAULT_SERVICE_TYPE = {
@@ -89,7 +87,6 @@ _LEGACY_AD_TYPE_DEFAULT_SERVICE_TYPE = {
     PromoAdType.FEATURED_TOP5: PromoServiceType.FEATURED_SPECIALISTS,
     PromoAdType.FEATURED_TOP10: PromoServiceType.FEATURED_SPECIALISTS,
     PromoAdType.BOOST_PROFILE: PromoServiceType.FEATURED_SPECIALISTS,
-    PromoAdType.PUSH_NOTIFICATION: PromoServiceType.PROMO_MESSAGES,
 }
 
 _PUBLIC_ITEM_DEFERRED_FIELDS = (
@@ -434,6 +431,23 @@ class PromoRequestCreateView(generics.CreateAPIView):
             )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return super().create(request, *args, **kwargs)
+
+
+class PromoRequestPreviewView(APIView):
+    permission_classes = [IsOwnerOrBackofficePromo]
+
+    def post(self, request):
+        serializer = PromoRequestCreateSerializer(data=request.data, context={"request": request})
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            payload = preview_promo_request(
+                requester=request.user,
+                validated_data=serializer.validated_data,
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class MyPromoRequestsListView(generics.ListAPIView):

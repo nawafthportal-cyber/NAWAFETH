@@ -35,6 +35,7 @@ const HomePage = (() => {
   let _carouselIdx = 0;          // current slide index
   let _carouselTimer = null;     // auto-rotate timer
   let _carouselPaused = false;   // pause on interaction
+  let _carouselBound = false;    // bind carousel interaction handlers once
   let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
   let _portfolioShowcaseData = [];
@@ -162,15 +163,94 @@ const HomePage = (() => {
     return cappedPrimary.concat(fallbackBanners.slice(0, remaining));
   }
 
+  function _classifyCarouselMediaRatio(width, height) {
+    const safeWidth = Number(width) || 0;
+    const safeHeight = Number(height) || 0;
+    if (safeWidth <= 0 || safeHeight <= 0) return 'landscape';
+    const ratio = safeWidth / safeHeight;
+    if (ratio >= 2.05) return 'ultrawide';
+    if (ratio >= 1.05) return 'landscape';
+    if (ratio <= 0.8) return 'portrait';
+    return 'square';
+  }
+
+  function _applyCarouselMediaLayout(frame, width, height) {
+    if (!frame) return;
+    frame.setAttribute('data-media-ratio', _classifyCarouselMediaRatio(width, height));
+  }
+
+  function _bindCarouselMediaLayout(frame, mediaEl, isVideo) {
+    if (!frame || !mediaEl) return;
+    let resolved = false;
+    const apply = (width, height) => {
+      if (resolved) return;
+      if (!(Number(width) > 0 && Number(height) > 0)) return;
+      resolved = true;
+      _applyCarouselMediaLayout(frame, width, height);
+    };
+    const fallback = () => {
+      if (resolved) return;
+      resolved = true;
+      frame.setAttribute('data-media-ratio', 'landscape');
+    };
+
+    if (isVideo) {
+      const onMetadata = () => apply(mediaEl.videoWidth, mediaEl.videoHeight);
+      if (mediaEl.readyState >= 1) onMetadata();
+      mediaEl.addEventListener('loadedmetadata', onMetadata, { once: true });
+      mediaEl.addEventListener('error', fallback, { once: true });
+    } else {
+      const onLoad = () => apply(mediaEl.naturalWidth, mediaEl.naturalHeight);
+      if (mediaEl.complete) onLoad();
+      mediaEl.addEventListener('load', onLoad, { once: true });
+      mediaEl.addEventListener('error', fallback, { once: true });
+    }
+
+    window.setTimeout(fallback, 1400);
+  }
+
+  function _syncCarouselSlideMedia(slide, shouldPlay) {
+    if (!slide) return;
+    slide.querySelectorAll('video').forEach(video => {
+      if (shouldPlay) {
+        try { video.currentTime = 0; } catch (_) {}
+        const playPromise = video.play();
+        if (playPromise && typeof playPromise.catch === 'function') {
+          playPromise.catch(() => {});
+        }
+        return;
+      }
+      video.pause();
+      try { video.currentTime = 0; } catch (_) {}
+    });
+  }
+
   function _buildCarouselMedia(banner, url, isVideo, isActive) {
     const frame = UI.el('div', {
       className: 'carousel-media-frame' + (isVideo ? ' is-video' : ' is-image'),
     });
+    frame.setAttribute('data-media-ratio', 'landscape');
 
     const backdrop = UI.el('div', {
       className: 'carousel-media-backdrop' + (isVideo ? ' is-video' : ''),
       'aria-hidden': 'true',
     });
+
+    if (isVideo && url) {
+      const backdropVid = UI.el('video', {
+        className: 'carousel-media-backdrop-video',
+        src: url,
+        preload: isActive ? 'metadata' : 'none',
+        tabindex: '-1',
+        'aria-hidden': 'true',
+      });
+      backdropVid.muted = true;
+      backdropVid.loop = true;
+      backdropVid.playsInline = true;
+      backdropVid.setAttribute('playsinline', '');
+      backdropVid.setAttribute('disablepictureinpicture', '');
+      backdrop.appendChild(backdropVid);
+    }
 
     if (!isVideo && url) {
       const backdropImg = UI.el('img', {
@@ -186,11 +266,14 @@ const HomePage = (() => {
       frame.appendChild(backdrop);
     }
 
+    const stage = UI.el('div', { className: 'carousel-media-stage' });
+    frame.appendChild(stage);
+
     const mediaAlt = banner.title || banner.provider_display_name || 'بنر الصفحة الرئيسية';
 
     if (isVideo && url) {
       const vid = UI.el('video', {
-        className: 'carousel-media',
+        className: 'carousel-media carousel-media-video',
         src: url,
         preload: isActive ? 'auto' : 'metadata',
         'aria-label': mediaAlt,
@@ -200,16 +283,20 @@ const HomePage = (() => {
       vid.loop = true;
       vid.playsInline = true;
       vid.setAttribute('playsinline', '');
-      frame.appendChild(vid);
+      vid.setAttribute('disablepictureinpicture', '');
+      stage.appendChild(vid);
+      _bindCarouselMediaLayout(frame, vid, true);
     } else if (url) {
       const img = UI.el('img', {
         className: 'carousel-media',
         loading: isActive ? 'eager' : 'lazy',
         decoding: 'async',
+        fetchpriority: isActive ? 'high' : 'auto',
         alt: mediaAlt,
       });
       img.src = url;
-      frame.appendChild(img);
+      stage.appendChild(img);
+      _bindCarouselMediaLayout(frame, img, false);
     }
 
     return frame;
@@ -705,6 +792,7 @@ const HomePage = (() => {
     });
     $carouselTrack.textContent = '';
     $carouselTrack.appendChild(frag);
+    _syncCarouselSlideMedia($carouselTrack.querySelector('.carousel-slide.active'), true);
 
     // Build dots
     if ($carouselDots) {
@@ -747,8 +835,7 @@ const HomePage = (() => {
     // Pause current video
     const currentSlide = slides[_carouselIdx];
     if (currentSlide) {
-      const vid = currentSlide.querySelector('video');
-      if (vid) vid.pause();
+      _syncCarouselSlideMedia(currentSlide, false);
       currentSlide.classList.remove('active');
     }
     if (dots[_carouselIdx]) dots[_carouselIdx].classList.remove('active');
@@ -759,8 +846,7 @@ const HomePage = (() => {
     const newSlide = slides[_carouselIdx];
     if (newSlide) {
       newSlide.classList.add('active');
-      const vid = newSlide.querySelector('video');
-      if (vid) { vid.currentTime = 0; vid.play().catch(() => {}); }
+      _syncCarouselSlideMedia(newSlide, true);
     }
     if (dots[_carouselIdx]) dots[_carouselIdx].classList.add('active');
   }
@@ -779,7 +865,8 @@ const HomePage = (() => {
   }
 
   function _bindCarouselSwipe() {
-    if (!$carouselTrack) return;
+    if (!$carouselTrack || _carouselBound) return;
+    _carouselBound = true;
     let startX = 0;
     let dragging = false;
 
@@ -969,9 +1056,12 @@ const HomePage = (() => {
   ---------------------------------------------------------- */
   function _showPromoPopup(promo) {
     const asset = (promo.assets && promo.assets.length) ? promo.assets[0] : null;
-    const imageUrl = asset ? ApiClient.mediaUrl(asset.file_url) : null;
+    const mediaUrl = asset ? ApiClient.mediaUrl(asset.file || asset.file_url) : null;
+    const mediaType = String((asset && asset.file_type) || 'image').toLowerCase();
     const redirectUrl = promo.redirect_url || '';
     const title = promo.title || '';
+    const providerId = promo.target_provider_id ? String(promo.target_provider_id) : '';
+    const providerHref = providerId ? ('/provider/' + encodeURIComponent(providerId) + '/') : '';
 
     const overlay = UI.el('div', { className: 'promo-popup-overlay' });
     const modal = UI.el('div', { className: 'promo-popup-modal' });
@@ -981,16 +1071,32 @@ const HomePage = (() => {
     closeBtn.addEventListener('click', () => overlay.remove());
     modal.appendChild(closeBtn);
 
-    if (imageUrl) {
-      const img = UI.el('img', { className: 'promo-popup-img' });
-      img.src = imageUrl;
-      img.alt = title;
-      if (redirectUrl) {
-        const link = UI.el('a', { href: redirectUrl, target: '_blank', rel: 'noopener' });
-        link.appendChild(img);
+    if (mediaUrl) {
+      const media = mediaType === 'video'
+        ? UI.el('video', {
+            className: 'promo-popup-media promo-popup-video',
+            autoplay: true,
+            loop: true,
+            muted: true,
+            playsinline: true,
+          })
+        : UI.el('img', { className: 'promo-popup-media promo-popup-img', alt: title });
+      media.src = mediaUrl;
+      if (mediaType === 'video') {
+        media.setAttribute('playsinline', 'playsinline');
+        media.setAttribute('aria-label', title || 'فيديو ترويجي');
+      }
+      const href = redirectUrl || providerHref;
+      if (href) {
+        const link = UI.el('a', { href, className: 'promo-popup-media-link' });
+        if (redirectUrl) {
+          link.target = '_blank';
+          link.rel = 'noopener';
+        }
+        link.appendChild(media);
         modal.appendChild(link);
       } else {
-        modal.appendChild(img);
+        modal.appendChild(media);
       }
     }
 

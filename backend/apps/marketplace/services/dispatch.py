@@ -168,12 +168,7 @@ def dispatch_window(window_id: int, *, now=None) -> dict[str, int | str]:
             window.save(update_fields=["dispatch_status", "dispatch_attempts", "last_error", "updated_at"])
             return {"status": "request_not_dispatchable", "window_id": window.id, "sent": 0}
 
-        if request.expires_at and request.expires_at <= now:
-            window.dispatch_status = DispatchStatus.FAILED
-            window.dispatch_attempts += 1
-            window.last_error = "request_expired"
-            window.save(update_fields=["dispatch_status", "dispatch_attempts", "last_error", "updated_at"])
-            return {"status": "request_expired", "window_id": window.id, "sent": 0}
+        # Urgent requests no longer auto-expire; skip expiry check.
 
         providers = list(_eligible_matching_providers(request))
         tier_by_user_id = _provider_dispatch_tiers([provider.user_id for provider in providers if provider.user_id])

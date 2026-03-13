@@ -162,7 +162,7 @@ def test_create_urgent_service_request_auto_sends_and_sets_expiry():
     sr = ServiceRequest.objects.get(id=res.json()["id"])
     assert sr.status == RequestStatus.NEW
     assert sr.is_urgent is True
-    assert sr.expires_at is not None
+    assert sr.expires_at is None
 
 
 @pytest.mark.django_db

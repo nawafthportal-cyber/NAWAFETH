@@ -370,6 +370,28 @@ def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) ->
         pass
 
 
+def _promo_unified_status(pr: PromoRequest) -> str:
+    if pr.status in {
+        PromoRequestStatus.PENDING_PAYMENT,
+        PromoRequestStatus.ACTIVE,
+        PromoRequestStatus.EXPIRED,
+        PromoRequestStatus.CANCELLED,
+        PromoRequestStatus.REJECTED,
+    }:
+        return pr.status
+    if pr.status == PromoRequestStatus.COMPLETED:
+        return PromoOpsStatus.COMPLETED
+    if pr.status == PromoRequestStatus.QUOTED and pr.invoice_id:
+        return PromoRequestStatus.PENDING_PAYMENT
+    if pr.ops_status == PromoOpsStatus.IN_PROGRESS:
+        return PromoOpsStatus.IN_PROGRESS
+    if pr.ops_status == PromoOpsStatus.COMPLETED:
+        return PromoOpsStatus.COMPLETED
+    if pr.status == PromoRequestStatus.IN_REVIEW:
+        return PromoOpsStatus.IN_PROGRESS
+    return PromoOpsStatus.NEW
+
+
 def _sync_promo_to_unified(*, pr: PromoRequest, changed_by=None):
     try:
         from apps.unified_requests.services import upsert_unified_request
@@ -389,7 +411,7 @@ def _sync_promo_to_unified(*, pr: PromoRequest, changed_by=None):
         source_app="promo",
         source_model="PromoRequest",
         source_object_id=pr.id,
-        status=pr.ops_status or PromoOpsStatus.NEW,
+        status=_promo_unified_status(pr),
         priority="normal",
         summary=(_promo_request_summary(pr) or pr.title or "")[:300],
         metadata={
@@ -467,6 +489,9 @@ def calc_promo_quote(*, pr: PromoRequest) -> dict:
 
 
 def _item_assets_count(item: PromoRequestItem) -> int:
+    preview_count = getattr(item, "_preview_asset_count", None)
+    if preview_count is not None:
+        return max(0, int(preview_count or 0))
     count = item.assets.count()
     if count:
         return count
@@ -620,6 +645,157 @@ def calc_promo_request_quote(*, pr: PromoRequest) -> dict:
         window_days = max(window_days, item.duration_days)
         results.append({"item": item, "rule": rule, "rule_code": rule_code})
     return {"subtotal": money_round(total), "days": window_days, "items": results}
+
+
+def preview_promo_request(*, requester, validated_data: dict) -> dict:
+    items_data = list(validated_data.get("items") or [])
+    vat_percent = Decimal(str(_platform_config().promo_vat_percent))
+
+    if not items_data:
+        pr = PromoRequest(
+            requester=requester,
+            title=(validated_data.get("title") or "طلب ترويج")[:160],
+            ad_type=validated_data.get("ad_type") or PromoAdType.BANNER_HOME,
+            start_at=validated_data.get("start_at"),
+            end_at=validated_data.get("end_at"),
+            frequency=validated_data.get("frequency") or PromoFrequency.S60,
+            position=validated_data.get("position") or PromoPosition.NORMAL,
+            target_category=validated_data.get("target_category") or "",
+            target_city=validated_data.get("target_city") or "",
+            redirect_url=validated_data.get("redirect_url") or "",
+        )
+        if pr.ad_type == PromoAdType.PUSH_NOTIFICATION:
+            preview_item = PromoRequestItem(
+                request=pr,
+                service_type=PromoServiceType.PROMO_MESSAGES,
+                title=pr.title,
+                send_at=pr.start_at,
+                target_category=pr.target_category or "",
+                target_city=pr.target_city or "",
+                target_provider=validated_data.get("target_provider"),
+                target_portfolio_item=validated_data.get("target_portfolio_item"),
+                redirect_url=pr.redirect_url or "",
+                message_title=validated_data.get("message_title") or "",
+                message_body=validated_data.get("message_body") or "",
+                use_notification_channel=True,
+                use_chat_channel=False,
+            )
+            quote = calc_promo_item_quote(item=preview_item)
+            rule_code = quote.get("rule_code") or getattr(quote.get("rule"), "code", PromoServiceType.PROMO_MESSAGES)
+            subtotal = money_round(quote["subtotal"])
+            vat_amount = money_round((subtotal * vat_percent) / Decimal("100"))
+            total = money_round(subtotal + vat_amount)
+            return {
+                "title": pr.title,
+                "ad_type": pr.ad_type,
+                "subtotal": subtotal,
+                "vat_percent": vat_percent,
+                "vat_amount": vat_amount,
+                "total": total,
+                "currency": "SAR",
+                "total_days": int(quote.get("days") or 0),
+                "items": [
+                    {
+                        "service_type": preview_item.service_type,
+                        "service_type_label": preview_item.get_service_type_display(),
+                        "title": preview_item.title or preview_item.get_service_type_display(),
+                        "subtotal": subtotal,
+                        "duration_days": int(quote.get("days") or 0),
+                        "pricing_rule_code": rule_code,
+                    }
+                ],
+            }
+
+        quote = calc_promo_quote(pr=pr)
+        subtotal = money_round(quote["subtotal"])
+        vat_amount = money_round((subtotal * vat_percent) / Decimal("100"))
+        total = money_round(subtotal + vat_amount)
+        return {
+            "title": pr.title,
+            "ad_type": pr.ad_type,
+            "subtotal": subtotal,
+            "vat_percent": vat_percent,
+            "vat_amount": vat_amount,
+            "total": total,
+            "currency": "SAR",
+            "total_days": int(quote.get("days") or 0),
+            "items": [
+                {
+                    "service_type": pr.ad_type,
+                    "service_type_label": pr.get_ad_type_display(),
+                    "title": pr.title,
+                    "subtotal": subtotal,
+                    "duration_days": int(quote.get("days") or 0),
+                    "pricing_rule_code": pr.ad_type,
+                }
+            ],
+        }
+
+    provider_profile = getattr(requester, "provider_profile", None)
+    auto_targeted_service_types = {
+        PromoServiceType.FEATURED_SPECIALISTS,
+        PromoServiceType.PORTFOLIO_SHOWCASE,
+        PromoServiceType.SNAPSHOTS,
+        PromoServiceType.SEARCH_RESULTS,
+    }
+    pr = PromoRequest(
+        requester=requester,
+        title=(validated_data.get("title") or "طلب ترويج متعدد الخدمات")[:160],
+        ad_type=PromoAdType.BUNDLE,
+        start_at=timezone.now(),
+        end_at=timezone.now(),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+    )
+
+    subtotal = Decimal("0.00")
+    total_days = 0
+    preview_items = []
+
+    for index, row in enumerate(items_data):
+        normalized = {key: value for key, value in row.items() if key != "asset_count"}
+        if (
+            provider_profile is not None
+            and normalized.get("service_type") in auto_targeted_service_types
+            and not normalized.get("target_provider")
+        ):
+            normalized["target_provider"] = provider_profile
+
+        item = PromoRequestItem(request=pr, **normalized)
+        item.sort_order = int(normalized.get("sort_order") or index)
+        item._preview_asset_count = int(row.get("asset_count") or 0)
+        quote = calc_promo_item_quote(item=item)
+        rule = quote.get("rule")
+        rule_code = quote.get("rule_code") or getattr(rule, "code", item.service_type)
+        item_subtotal = money_round(quote["subtotal"])
+        item_days = int(quote.get("days") or 0)
+        subtotal += item_subtotal
+        total_days = max(total_days, item_days)
+        preview_items.append(
+            {
+                "service_type": item.service_type,
+                "service_type_label": item.get_service_type_display(),
+                "title": item.title or item.get_service_type_display(),
+                "subtotal": item_subtotal,
+                "duration_days": item_days,
+                "pricing_rule_code": rule_code,
+            }
+        )
+
+    subtotal = money_round(subtotal)
+    vat_amount = money_round((subtotal * vat_percent) / Decimal("100"))
+    total = money_round(subtotal + vat_amount)
+    return {
+        "title": pr.title,
+        "ad_type": pr.ad_type,
+        "subtotal": subtotal,
+        "vat_percent": vat_percent,
+        "vat_amount": vat_amount,
+        "total": total,
+        "currency": "SAR",
+        "total_days": total_days,
+        "items": preview_items,
+    }
 
 
 def _invoice_title_for_request(pr: PromoRequest) -> str:
@@ -877,7 +1053,6 @@ def send_due_promo_messages(*, now=None, limit: int = 100) -> int:
     item_ids = list(
         PromoRequestItem.objects.filter(
             request__status=PromoRequestStatus.ACTIVE,
-            request__ad_type=PromoAdType.BUNDLE,
             request__end_at__gte=now,
             service_type=PromoServiceType.PROMO_MESSAGES,
             send_at__isnull=False,
@@ -935,7 +1110,7 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
     _sync_invoice_from_items(pr=pr)
     pr.quote_note = (quote_note or "")[:300]
     pr.reviewed_at = timezone.now()
-    pr.status = PromoRequestStatus.QUOTED
+    pr.status = PromoRequestStatus.PENDING_PAYMENT
     pr.save(
         update_fields=[
             "subtotal",
@@ -948,7 +1123,7 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
         ]
     )
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
-    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.QUOTED, actor=by_user)
+    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.PENDING_PAYMENT, actor=by_user)
 
     if pr.invoice and money_round(Decimal(pr.invoice.total or 0)) <= Decimal("0.00"):
         pr.invoice.mark_paid()
@@ -989,7 +1164,7 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
     pr = PromoRequest.objects.select_for_update().get(pk=pr.pk)
     if not pr.invoice:
         raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
-    if pr.invoice.status != InvoiceStatus.PAID:
+    if not pr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
 
     now = timezone.now()
@@ -1020,6 +1195,20 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
         )
     except Exception:
         pass
+    return pr
+
+
+@transaction.atomic
+def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
+    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    if not pr.invoice or pr.invoice.is_payment_effective():
+        return pr
+
+    pr.status = PromoRequestStatus.PENDING_PAYMENT
+    pr.activated_at = None
+    pr.save(update_fields=["status", "activated_at", "updated_at"])
+    _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
+    _notify_promo_status_change(pr=pr, status=PromoRequestStatus.PENDING_PAYMENT, actor=pr.requester)
     return pr
 
 

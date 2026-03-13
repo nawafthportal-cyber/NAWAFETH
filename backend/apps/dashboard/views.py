@@ -73,8 +73,10 @@ from apps.promo.models import (
     PromoRequest,
     PromoRequestItem,
     PromoRequestStatus,
+    PromoSearchScope,
     PromoServiceType,
 )
+from apps.promo.serializers import PromoRequestCreateSerializer
 from apps.promo.services import (
     activate_after_payment as activate_promo_after_payment,
     ensure_default_pricing_rules,
@@ -309,6 +311,61 @@ def _promo_dashboard_menu_context(*, active: str):
         "promo_active": active,
         "promo_service_counts": _promo_service_counts(),
     }
+
+
+_PROMO_DASHBOARD_UNSUPPORTED_AD_TYPES = {
+    PromoAdType.BANNER_CATEGORY,
+    PromoAdType.POPUP_CATEGORY,
+    PromoAdType.PUSH_NOTIFICATION,
+}
+_PROMO_DASHBOARD_MEDIA_AD_TYPES = {
+    PromoAdType.BANNER_HOME,
+    PromoAdType.BANNER_SEARCH,
+    PromoAdType.POPUP_HOME,
+}
+_PROMO_DASHBOARD_MEDIA_SERVICE_TYPES = {
+    PromoServiceType.HOME_BANNER,
+    PromoServiceType.SPONSORSHIP,
+}
+_PROMO_DASHBOARD_SEARCH_POSITION_CHOICES = (
+    (PromoPosition.FIRST, "الأول"),
+    (PromoPosition.SECOND, "الثاني"),
+    (PromoPosition.TOP5, "ضمن أول 5"),
+    (PromoPosition.TOP10, "ضمن أول 10"),
+)
+
+
+def _promo_dashboard_ad_type_choices():
+    return [(value, label) for value, label in PromoAdType.choices if value not in _PROMO_DASHBOARD_UNSUPPORTED_AD_TYPES]
+
+
+def _promo_dashboard_error_messages(detail) -> list[str]:
+    if detail in (None, "", []):
+        return []
+    if isinstance(detail, list):
+        messages_list: list[str] = []
+        for item in detail:
+            messages_list.extend(_promo_dashboard_error_messages(item))
+        return messages_list
+    if isinstance(detail, dict):
+        messages_list = []
+        for key, value in detail.items():
+            key_label = "" if key in {"non_field_errors", "detail"} else f"{key}: "
+            for item in _promo_dashboard_error_messages(value):
+                messages_list.append(f"{key_label}{item}" if key_label else item)
+        return messages_list
+    return [str(detail)]
+
+
+def _promo_asset_type_from_upload(file_obj) -> str:
+    ext = (file_obj.name.rsplit(".", 1)[-1] if "." in file_obj.name else "").lower()
+    if ext in {"mp4", "mov", "avi", "webm", "mkv", "m4v"}:
+        return PromoAssetType.VIDEO
+    if ext in {"pdf"}:
+        return PromoAssetType.PDF
+    if ext in {"jpg", "jpeg", "png", "gif", "webp", "svg"}:
+        return PromoAssetType.IMAGE
+    return PromoAssetType.OTHER
 
 
 def _is_active_admin_profile(ap: UserAccessProfile) -> bool:
@@ -3347,98 +3404,231 @@ def promo_campaign_create(request: HttpRequest) -> HttpResponse:
         ad_type = (request.POST.get("ad_type") or "").strip()
         start_at_str = (request.POST.get("start_at") or "").strip()
         end_at_str = (request.POST.get("end_at") or "").strip()
+        send_at_str = (request.POST.get("send_at") or "").strip()
         frequency = (request.POST.get("frequency") or PromoFrequency.S60).strip()
         position = (request.POST.get("position") or PromoPosition.NORMAL).strip()
+        search_scope = (request.POST.get("search_scope") or "").strip()
+        search_position = (request.POST.get("search_position") or "").strip()
         target_category = (request.POST.get("target_category") or "").strip()
         target_city = (request.POST.get("target_city") or "").strip()
         redirect_url = (request.POST.get("redirect_url") or "").strip()
         provider_id = (request.POST.get("provider") or "").strip()
+        portfolio_item_id = (request.POST.get("portfolio_item") or "").strip()
         status_val = (request.POST.get("status") or PromoRequestStatus.ACTIVE).strip()
-        service_types = request.POST.getlist("service_types")
+        service_types = [svc for svc in request.POST.getlist("service_types") if svc in PromoServiceType.values]
+        promo_message_title = (request.POST.get("promo_message_title") or "").strip()
+        promo_message_body = (request.POST.get("promo_message_body") or "").strip()
+        promo_attachment_specs = (request.POST.get("promo_attachment_specs") or "").strip()
+        sponsor_name = (request.POST.get("sponsor_name") or "").strip()
+        sponsor_url = (request.POST.get("sponsor_url") or "").strip()
+        sponsorship_months_raw = (request.POST.get("sponsorship_months") or "").strip()
+        sponsorship_message_body = (request.POST.get("sponsorship_message_body") or "").strip()
+        sponsorship_attachment_specs = (request.POST.get("sponsorship_attachment_specs") or "").strip()
+        use_notification_channel = bool(request.POST.get("use_notification_channel"))
+        use_chat_channel = bool(request.POST.get("use_chat_channel"))
+        uploaded_assets = [file_obj for file_obj in request.FILES.getlist("assets") if file_obj]
 
-        if not title or not ad_type or not start_at_str or not end_at_str:
-            messages.error(request, "العنوان ونوع الإعلان وتواريخ البداية والنهاية مطلوبة")
+        if not title:
+            messages.error(request, "عنوان الحملة مطلوب")
             return redirect("dashboard:promo_campaign_create")
 
-        try:
-            start_at = make_aware(datetime.strptime(start_at_str, "%Y-%m-%dT%H:%M"))
-            end_at = make_aware(datetime.strptime(end_at_str, "%Y-%m-%dT%H:%M"))
-        except (ValueError, TypeError):
-            messages.error(request, "صيغة التاريخ غير صحيحة")
+        if not service_types and not ad_type:
+            messages.error(request, "نوع الإعلان مطلوب عند إنشاء حملة مباشرة بدون بنود خدمات.")
             return redirect("dashboard:promo_campaign_create")
 
-        if end_at <= start_at:
+        start_at = _parse_datetime_local(start_at_str)
+        end_at = _parse_datetime_local(end_at_str)
+        send_at = _parse_datetime_local(send_at_str)
+
+        if start_at_str and start_at is None:
+            messages.error(request, "صيغة تاريخ البداية غير صحيحة")
+            return redirect("dashboard:promo_campaign_create")
+        if end_at_str and end_at is None:
+            messages.error(request, "صيغة تاريخ النهاية غير صحيحة")
+            return redirect("dashboard:promo_campaign_create")
+        if send_at_str and send_at is None:
+            messages.error(request, "صيغة وقت الإرسال غير صحيحة")
+            return redirect("dashboard:promo_campaign_create")
+        if start_at and end_at and end_at <= start_at:
             messages.error(request, "تاريخ النهاية يجب أن يكون بعد تاريخ البداية")
+            return redirect("dashboard:promo_campaign_create")
+        if status_val not in {PromoRequestStatus.ACTIVE, PromoRequestStatus.NEW}:
+            messages.error(request, "حالة الحملة غير صحيحة")
             return redirect("dashboard:promo_campaign_create")
 
         provider = None
         if provider_id:
             provider = ProviderProfile.objects.filter(id=provider_id).first()
+            if provider is None:
+                messages.error(request, "مقدم الخدمة المحدد غير موجود")
+                return redirect("dashboard:promo_campaign_create")
+
+        portfolio_item = None
+        if portfolio_item_id:
+            portfolio_item = ProviderPortfolioItem.objects.select_related("provider").filter(id=portfolio_item_id).first()
+            if portfolio_item is None:
+                messages.error(request, "عنصر المعرض المحدد غير موجود")
+                return redirect("dashboard:promo_campaign_create")
+            if provider is not None and portfolio_item.provider_id != provider.id:
+                messages.error(request, "عنصر المعرض لا يتبع مقدم الخدمة المحدد")
+                return redirect("dashboard:promo_campaign_create")
+            provider = provider or portfolio_item.provider
+
+        requires_media_assets = bool(service_types and any(svc in _PROMO_DASHBOARD_MEDIA_SERVICE_TYPES for svc in service_types))
+        requires_media_assets = requires_media_assets or (not service_types and ad_type in _PROMO_DASHBOARD_MEDIA_AD_TYPES)
+        if requires_media_assets and not uploaded_assets:
+            messages.error(request, "هذه الحملة تحتاج رفع صورة أو فيديو واحد على الأقل.")
+            return redirect("dashboard:promo_campaign_create")
+        if not service_types and ad_type in _PROMO_DASHBOARD_UNSUPPORTED_AD_TYPES:
+            messages.error(request, "هذا النوع من الحملات غير متاح للإنشاء المباشر لأنه غير مدعوم على الواجهات العامة.")
+            return redirect("dashboard:promo_campaign_create")
+
+        range_service_types = {
+            PromoServiceType.HOME_BANNER,
+            PromoServiceType.FEATURED_SPECIALISTS,
+            PromoServiceType.PORTFOLIO_SHOWCASE,
+            PromoServiceType.SNAPSHOTS,
+            PromoServiceType.SEARCH_RESULTS,
+            PromoServiceType.SPONSORSHIP,
+        }
+        payload: dict[str, object]
+        if service_types:
+            if any(svc in range_service_types for svc in service_types) and (start_at is None or end_at is None):
+                messages.error(request, "تاريخ البداية والنهاية مطلوبان للخدمات المختارة.")
+                return redirect("dashboard:promo_campaign_create")
+
+            items: list[dict[str, object]] = []
+            for idx, svc in enumerate(service_types):
+                item_payload: dict[str, object] = {
+                    "service_type": svc,
+                    "title": title,
+                    "sort_order": idx,
+                }
+                if uploaded_assets:
+                    item_payload["asset_count"] = len(uploaded_assets)
+                if svc in range_service_types:
+                    item_payload["start_at"] = start_at
+                    item_payload["end_at"] = end_at
+                if svc in {
+                    PromoServiceType.FEATURED_SPECIALISTS,
+                    PromoServiceType.PORTFOLIO_SHOWCASE,
+                    PromoServiceType.SNAPSHOTS,
+                }:
+                    item_payload["frequency"] = frequency
+                if target_category:
+                    item_payload["target_category"] = target_category
+                if target_city:
+                    item_payload["target_city"] = target_city
+                if redirect_url:
+                    item_payload["redirect_url"] = redirect_url
+                if provider is not None and svc in {
+                    PromoServiceType.FEATURED_SPECIALISTS,
+                    PromoServiceType.PORTFOLIO_SHOWCASE,
+                    PromoServiceType.SNAPSHOTS,
+                    PromoServiceType.SEARCH_RESULTS,
+                }:
+                    item_payload["target_provider"] = provider.id
+                if portfolio_item is not None and svc == PromoServiceType.PORTFOLIO_SHOWCASE:
+                    item_payload["target_portfolio_item"] = portfolio_item.id
+                if svc == PromoServiceType.SEARCH_RESULTS:
+                    item_payload["search_scope"] = search_scope or PromoSearchScope.DEFAULT
+                    item_payload["search_position"] = search_position or PromoPosition.FIRST
+                if svc == PromoServiceType.PROMO_MESSAGES:
+                    item_payload["send_at"] = send_at
+                    item_payload["message_title"] = promo_message_title
+                    item_payload["message_body"] = promo_message_body
+                    item_payload["use_notification_channel"] = use_notification_channel
+                    item_payload["use_chat_channel"] = use_chat_channel
+                    item_payload["attachment_specs"] = promo_attachment_specs
+                if svc == PromoServiceType.SPONSORSHIP:
+                    if sponsor_name:
+                        item_payload["sponsor_name"] = sponsor_name
+                    if sponsor_url:
+                        item_payload["sponsor_url"] = sponsor_url
+                    if sponsorship_months_raw:
+                        item_payload["sponsorship_months"] = sponsorship_months_raw
+                    if sponsorship_message_body:
+                        item_payload["message_body"] = sponsorship_message_body
+                    if sponsorship_attachment_specs:
+                        item_payload["attachment_specs"] = sponsorship_attachment_specs
+                items.append(item_payload)
+
+            payload = {
+                "title": title,
+                "items": items,
+            }
+        else:
+            if start_at is None or end_at is None:
+                messages.error(request, "تاريخ البداية والنهاية مطلوبان للحملة المباشرة.")
+                return redirect("dashboard:promo_campaign_create")
+
+            payload = {
+                "title": title,
+                "ad_type": ad_type,
+                "start_at": start_at,
+                "end_at": end_at,
+                "frequency": frequency,
+                "position": position,
+            }
+            if target_category:
+                payload["target_category"] = target_category
+            if target_city:
+                payload["target_city"] = target_city
+            if redirect_url:
+                payload["redirect_url"] = redirect_url
+            if provider is not None:
+                payload["target_provider"] = provider.id
+            if portfolio_item is not None:
+                payload["target_portfolio_item"] = portfolio_item.id
+
+        serializer = PromoRequestCreateSerializer(data=payload, context={"request": request})
+        if not serializer.is_valid():
+            error_messages = _promo_dashboard_error_messages(serializer.errors)
+            messages.error(request, error_messages[0] if error_messages else "تعذر التحقق من بيانات الحملة")
+            return redirect("dashboard:promo_campaign_create")
 
         with transaction.atomic():
-            pr = PromoRequest.objects.create(
-                requester=request.user,
-                assigned_to=request.user,
-                assigned_at=timezone.now(),
-                title=title,
-                ad_type=ad_type,
-                start_at=start_at,
-                end_at=end_at,
-                frequency=frequency,
-                position=position,
-                target_category=target_category,
-                target_city=target_city,
-                target_provider=provider,
-                redirect_url=redirect_url,
-                status=status_val,
-                ops_status=PromoOpsStatus.IN_PROGRESS if status_val == PromoRequestStatus.ACTIVE else PromoOpsStatus.NEW,
-                activated_at=timezone.now() if status_val == PromoRequestStatus.ACTIVE else None,
+            pr = serializer.save()
+            now = timezone.now()
+            pr.assigned_to = request.user
+            pr.assigned_at = now
+            pr.status = status_val
+            pr.ops_status = PromoOpsStatus.IN_PROGRESS if status_val == PromoRequestStatus.ACTIVE else PromoOpsStatus.NEW
+            pr.activated_at = now if status_val == PromoRequestStatus.ACTIVE else None
+            pr.save(
+                update_fields=[
+                    "assigned_to",
+                    "assigned_at",
+                    "status",
+                    "ops_status",
+                    "activated_at",
+                    "updated_at",
+                ]
             )
 
-            # Create items per selected service type
-            for idx, svc in enumerate(service_types):
-                PromoRequestItem.objects.create(
-                    request=pr,
-                    service_type=svc,
-                    title=title,
-                    start_at=start_at,
-                    end_at=end_at,
-                    frequency=frequency,
-                    target_category=target_category,
-                    target_city=target_city,
-                    target_provider=provider,
-                    redirect_url=redirect_url,
-                    sort_order=idx,
-                )
-
-            # Upload assets
-            for f in request.FILES.getlist("assets"):
-                ext = (f.name.rsplit(".", 1)[-1] if "." in f.name else "").lower()
-                if ext in ("mp4", "mov", "avi", "webm"):
-                    asset_type = PromoAssetType.VIDEO
-                elif ext in ("pdf",):
-                    asset_type = PromoAssetType.PDF
-                elif ext in ("jpg", "jpeg", "png", "gif", "webp", "svg"):
-                    asset_type = PromoAssetType.IMAGE
-                else:
-                    asset_type = PromoAssetType.OTHER
+            for f in uploaded_assets:
                 PromoAsset.objects.create(
                     request=pr,
-                    asset_type=asset_type,
+                    asset_type=_promo_asset_type_from_upload(f),
                     title=f.name,
                     file=f,
                     uploaded_by=request.user,
                 )
+
+            _sync_promo_to_unified(pr=pr, changed_by=request.user)
 
         messages.success(request, f"تم إنشاء الحملة الترويجية: {pr.code}")
         return redirect("dashboard:promo_request_detail", promo_id=pr.id)
 
     # GET — render the creation form
     ctx = {
-        "ad_type_choices": PromoAdType.choices,
+        "ad_type_choices": _promo_dashboard_ad_type_choices(),
         "frequency_choices": PromoFrequency.choices,
         "position_choices": PromoPosition.choices,
+        "search_scope_choices": PromoSearchScope.choices,
+        "search_position_choices": _PROMO_DASHBOARD_SEARCH_POSITION_CHOICES,
         "service_type_choices": PromoServiceType.choices,
+        "bundle_value": PromoAdType.BUNDLE,
         "status_choices": [
             (PromoRequestStatus.ACTIVE, "مفعل — تبدأ فوراً"),
             (PromoRequestStatus.NEW, "جديد — تحتاج مراجعة"),

@@ -5,6 +5,13 @@
    Desktop: graceful grid expansion.
    =================================================================== */
 
+body.home-mobile-layout {
+  --home-hero-min-height: clamp(320px, 72vw, 420px);
+  --hero-banner-safe-top: clamp(56px, 14vw, 104px);
+  --hero-banner-safe-bottom: clamp(92px, 24vw, 164px);
+  --hero-banner-safe-inline: clamp(12px, 4vw, 36px);
+}
+
 /* ── Hero Media Background ── */
 body.home-mobile-layout .hero-video {
   position: absolute;
@@ -42,6 +49,17 @@ body.home-mobile-layout .hero-banner-shell .carousel-arrow {
   opacity: 0.72;
 }
 
+body.home-mobile-layout .hero-banner-shell .carousel-media-stage {
+  padding-top: var(--hero-banner-safe-top);
+  padding-bottom: var(--hero-banner-safe-bottom);
+  padding-inline: var(--hero-banner-safe-inline);
+}
+
+body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="portrait"] .carousel-media-stage,
+body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="square"] .carousel-media-stage {
+  padding-inline: clamp(16px, 7vw, 54px);
+}
+
 body.home-mobile-layout .hero-bg {
   z-index: 0;
   opacity: 0.6;
@@ -61,7 +79,7 @@ body.home-mobile-layout #top-navbar {
 }
 
 body.home-mobile-layout #hero {
-  min-height: 280px;
+  min-height: var(--home-hero-min-height);
 }
 
 /* ── Hero Top Bar (mirrors Flutter: menu | "نوافــذ" | notifications + chat) ── */
@@ -120,7 +138,7 @@ body.home-mobile-layout #main-content {
 }
 
 body.home-mobile-layout .hero-content {
-  min-height: 280px;
+  min-height: var(--home-hero-min-height);
   padding-top: 54px;
   padding-bottom: 16px;
   gap: 12px;
@@ -651,7 +669,7 @@ body.home-mobile-layout .reel-item:hover {
   overflow: hidden;
   aspect-ratio: 16 / 7;
   max-height: 320px;
-  background: linear-gradient(135deg, #7E57C2, #B39DDB);
+  background: linear-gradient(140deg, #0f172a 0%, #1e293b 52%, #020617 100%);
 }
 
 .carousel-track {
@@ -679,37 +697,59 @@ body.home-mobile-layout .reel-item:hover {
 .carousel-media-frame {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
   isolation: isolate;
+  --carousel-media-pad-inline: clamp(12px, 2.6vw, 24px);
+  --carousel-media-pad-block: clamp(12px, 2.2vw, 22px);
 }
 
 .carousel-media-backdrop {
   position: absolute;
   inset: -8%;
   z-index: 0;
-  transform: scale(1.08);
-  opacity: 0.88;
-  filter: blur(28px) saturate(1.15);
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 30%),
+    linear-gradient(140deg, rgba(15,23,42,.96) 0%, rgba(30,41,59,.88) 48%, rgba(2,6,23,.98) 100%);
 }
 
 .carousel-media-backdrop.is-video {
   inset: 0;
-  transform: none;
-  opacity: 1;
-  filter: none;
   background:
     radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 32%),
     linear-gradient(140deg, rgba(15,23,42,.96) 0%, rgba(30,41,59,.88) 48%, rgba(2,6,23,.98) 100%);
 }
 
-.carousel-media-backdrop-image {
+.carousel-media-backdrop-image,
+.carousel-media-backdrop-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.carousel-media-backdrop-image {
+  transform: scale(1.08);
+  opacity: 0.92;
+  filter: blur(30px) saturate(1.16);
+}
+
+.carousel-media-backdrop-video {
+  transform: scale(1.12);
+  opacity: 0.62;
+  filter: blur(34px) saturate(1.08) brightness(0.82);
+}
+
+.carousel-media-stage {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--carousel-media-pad-block) var(--carousel-media-pad-inline);
+  box-sizing: border-box;
 }
 
 .carousel-media-frame::after {
@@ -719,20 +759,40 @@ body.home-mobile-layout .reel-item:hover {
   z-index: 1;
   pointer-events: none;
   background:
-    linear-gradient(to top, rgba(2,6,23,.26) 0%, transparent 42%),
-    linear-gradient(to bottom, rgba(255,255,255,.06) 0%, transparent 24%);
+    linear-gradient(to top, rgba(2,6,23,.42) 0%, rgba(2,6,23,.16) 28%, transparent 56%),
+    linear-gradient(to bottom, rgba(255,255,255,.05) 0%, transparent 24%);
 }
 
 .carousel-media {
   position: relative;
   z-index: 2;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   object-position: center;
   display: block;
-  padding: 12px;
+  border-radius: clamp(12px, 1.8vw, 22px);
+  background: rgba(2,6,23,.18);
+  box-shadow: 0 18px 44px rgba(2,6,23,.26);
+}
+
+.carousel-media-frame[data-media-ratio="portrait"] {
+  --carousel-media-pad-inline: clamp(10px, 3vw, 22px);
+  --carousel-media-pad-block: clamp(10px, 2vw, 18px);
+}
+
+.carousel-media-frame[data-media-ratio="square"] {
+  --carousel-media-pad-inline: clamp(12px, 3vw, 26px);
+}
+
+.carousel-media-frame[data-media-ratio="ultrawide"] {
+  --carousel-media-pad-block: clamp(8px, 1.6vw, 16px);
+}
+
+.carousel-media-frame.is-video .carousel-media {
+  background: rgba(2,6,23,.42);
 }
 
 .carousel-overlay {
@@ -1692,11 +1752,21 @@ body.home-mobile-layout .section-reels {
   z-index: 1;
 }
 
-.promo-popup-img {
+.promo-popup-media-link {
+  display: block;
+  background: #0f172a;
+}
+
+.promo-popup-media {
   width: 100%;
   display: block;
   max-height: 400px;
-  object-fit: cover;
+  object-fit: contain;
+  background: #0f172a;
+}
+
+.promo-popup-video {
+  aspect-ratio: 16 / 9;
 }
 
 .promo-popup-title {
@@ -1735,9 +1805,12 @@ body.home-mobile-layout .section-reels {
   border-radius: 12px;
   overflow: hidden;
   position: relative;
+  display: block;
 }
 
-.search-promo-banner .promo-slide img {
+.search-promo-banner .promo-slide img,
+.search-promo-banner .promo-slide video,
+.search-promo-banner .promo-slide .promo-banner-media {
   width: 100%;
   display: block;
   max-height: 160px;

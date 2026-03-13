@@ -64,6 +64,10 @@ class InitPaymentSerializer(serializers.Serializer):
         return attrs
 
 
+class CompleteMockPaymentSerializer(serializers.Serializer):
+    idempotency_key = serializers.CharField(required=False, allow_blank=True, max_length=80)
+
+
 class PaymentAttemptSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentAttempt

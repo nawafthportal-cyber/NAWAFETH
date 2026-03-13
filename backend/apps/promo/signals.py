@@ -5,13 +5,11 @@ from django.dispatch import receiver
 
 from apps.billing.models import Invoice
 from .models import PromoRequest
-from .services import activate_after_payment
+from .services import activate_after_payment, revoke_after_payment_reversal
 
 
 @receiver(post_save, sender=Invoice)
 def activate_promo_on_invoice_paid(sender, instance: Invoice, created, **kwargs):
-    if instance.status != "paid":
-        return
     if instance.reference_type != "promo_request":
         return
 
@@ -23,6 +21,9 @@ def activate_promo_on_invoice_paid(sender, instance: Invoice, created, **kwargs)
         return
 
     try:
-        activate_after_payment(pr=pr)
+        if instance.is_payment_effective():
+            activate_after_payment(pr=pr)
+        else:
+            revoke_after_payment_reversal(pr=pr)
     except Exception:
         pass

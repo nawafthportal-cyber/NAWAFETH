@@ -1,5 +1,6 @@
 import pytest
 from datetime import timedelta
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.http import HttpResponse
 from django.test import Client, override_settings
 from django.urls import reverse
@@ -16,6 +17,7 @@ from apps.dashboard.templatetags.dashboard_access import can_access
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.providers.models import Category, ProviderProfile, SubCategory
+from apps.promo.models import PromoAdType, PromoRequest, PromoRequestStatus, PromoServiceType
 from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.support.models import SupportTicket, SupportTicketType, SupportTicketStatus, SupportPriority, SupportTeam
@@ -1843,3 +1845,123 @@ def test_user_update_role_demotes_operational_access_and_revokes_profile():
     assert target_user.role_state == UserRole.CLIENT
     assert target_user.is_staff is False
     assert target_ap.revoked_at is not None
+
+
+@pytest.mark.django_db
+def test_promo_campaign_create_dashboard_creates_bundle_request_with_valid_items():
+    staff_user = User.objects.create_user(
+        phone="0500000811",
+        password="Pass12345!",
+        is_staff=True,
+    )
+    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
+
+    target_user = User.objects.create_user(
+        phone="0500000812",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    target_provider = ProviderProfile.objects.create(
+        user=target_user,
+        provider_type="individual",
+        display_name="مزود مستهدف",
+        bio="bio",
+        city="الرياض",
+        years_experience=3,
+    )
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    send_at = start_at + timedelta(hours=6)
+    upload = SimpleUploadedFile(
+        "dashboard-promo.png",
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+        content_type="image/png",
+    )
+
+    response = c.post(
+        reverse("dashboard:promo_campaign_create"),
+        data={
+            "title": "حملة تشغيلية متكاملة",
+            "ad_type": PromoAdType.BANNER_HOME,
+            "status": PromoRequestStatus.ACTIVE,
+            "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+            "send_at": send_at.strftime("%Y-%m-%dT%H:%M"),
+            "search_scope": "main_results",
+            "search_position": "top5",
+            "target_category": "تصميم داخلي",
+            "target_city": "الرياض",
+            "provider": str(target_provider.id),
+            "redirect_url": "https://example.com/promo",
+            "promo_message_title": "عرض خاص",
+            "promo_message_body": "تفاصيل العرض التشغيلي",
+            "promo_attachment_specs": "صورة مربعة",
+            "use_notification_channel": "on",
+            "service_types": [
+                PromoServiceType.HOME_BANNER,
+                PromoServiceType.SEARCH_RESULTS,
+                PromoServiceType.PROMO_MESSAGES,
+            ],
+            "assets": upload,
+        },
+    )
+
+    assert response.status_code == 302
+    pr = PromoRequest.objects.get()
+    assert pr.ad_type == PromoAdType.BUNDLE
+    assert pr.status == PromoRequestStatus.ACTIVE
+    assert pr.assigned_to_id == staff_user.id
+    assert pr.assets.count() == 1
+    assert pr.items.count() == 3
+
+    search_item = pr.items.get(service_type=PromoServiceType.SEARCH_RESULTS)
+    assert search_item.search_scope == "main_results"
+    assert search_item.search_position == "top5"
+    assert search_item.target_provider_id == target_provider.id
+
+    message_item = pr.items.get(service_type=PromoServiceType.PROMO_MESSAGES)
+    assert message_item.send_at is not None
+    assert message_item.use_notification_channel is True
+    assert message_item.use_chat_channel is False
+    assert message_item.message_body == "تفاصيل العرض التشغيلي"
+
+
+@pytest.mark.django_db
+def test_promo_campaign_create_dashboard_rejects_unsupported_direct_ad_type():
+    staff_user = User.objects.create_user(
+        phone="0500000813",
+        password="Pass12345!",
+        is_staff=True,
+    )
+    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+    response = c.post(
+        reverse("dashboard:promo_campaign_create"),
+        data={
+            "title": "نوع غير مدعوم",
+            "ad_type": PromoAdType.BANNER_CATEGORY,
+            "status": PromoRequestStatus.NEW,
+            "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+        },
+    )
+
+    assert response.status_code == 302
+    assert PromoRequest.objects.count() == 0

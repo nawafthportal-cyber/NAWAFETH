@@ -11,10 +11,11 @@ from .serializers import (
     InvoiceCreateSerializer,
     InvoiceDetailSerializer,
     InitPaymentSerializer,
+    CompleteMockPaymentSerializer,
     PaymentAttemptSerializer,
 )
 from .permissions import IsInvoiceOwner
-from .services import init_payment, handle_webhook
+from .services import complete_mock_payment, init_payment, handle_webhook
 
 
 class InvoiceCreateView(generics.CreateAPIView):
@@ -65,6 +66,37 @@ class InitPaymentView(APIView):
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(PaymentAttemptSerializer(attempt).data, status=status.HTTP_200_OK)
+
+
+class CompleteMockPaymentView(APIView):
+    """
+    يكمل الدفع التجريبي (mock) لفاتورة يملكها المستخدم.
+    """
+
+    def post(self, request, pk: int):
+        invoice = get_object_or_404(Invoice, pk=pk)
+        if invoice.user_id != request.user.id:
+            return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+        serializer = CompleteMockPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            invoice, attempt = complete_mock_payment(
+                invoice=invoice,
+                by_user=request.user,
+                idempotency_key=serializer.validated_data.get("idempotency_key") or "",
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                "invoice": InvoiceDetailSerializer(invoice).data,
+                "attempt": PaymentAttemptSerializer(attempt).data if attempt else None,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class WebhookReceiverView(APIView):

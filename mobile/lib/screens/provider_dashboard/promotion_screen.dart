@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:nawafeth/services/billing_service.dart';
 import 'package:nawafeth/services/promo_service.dart';
 
 const _brandColor = Colors.deepPurple;
@@ -22,6 +23,15 @@ const _opsLabels = {
   'new': 'جديد',
   'in_progress': 'تحت المعالجة',
   'completed': 'مكتمل',
+};
+
+const _invoiceStatusLabels = {
+  'draft': 'مسودة',
+  'pending': 'بانتظار الدفع',
+  'paid': 'مدفوعة',
+  'failed': 'فشلت',
+  'cancelled': 'ملغاة',
+  'refunded': 'مسترجعة',
 };
 
 const _frequencyLabels = {
@@ -124,6 +134,24 @@ class _PromotionScreenState extends State<PromotionScreen>
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _requests = [];
+
+  bool _canPayRequest(Map<String, dynamic> request) {
+    final status = (request['status'] as String? ?? '').trim();
+    final invoiceId = int.tryParse('${request['invoice'] ?? ''}');
+    final paymentEffective = request['payment_effective'] == true;
+    return invoiceId != null &&
+        !paymentEffective &&
+        (status == 'pending_payment' || status == 'quoted');
+  }
+
+  void _snack(String message, bool error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: error ? Colors.red : Colors.green,
+        content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -253,6 +281,7 @@ class _PromotionScreenState extends State<PromotionScreen>
     final status = (request['status'] as String? ?? 'new').trim();
     final opsStatus = (request['ops_status'] as String? ?? '').trim();
     final items = _asMapList(request['items']);
+    final canPay = _canPayRequest(request);
     final labels = items
         .take(3)
         .map((item) => _serviceLabel(item['service_type'] as String?))
@@ -319,6 +348,24 @@ class _PromotionScreenState extends State<PromotionScreen>
                   ),
                 ),
               ],
+              if (canPay) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: FilledButton.icon(
+                    onPressed: () => _startPayment(request),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _brandColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    icon: const Icon(Icons.credit_card_rounded),
+                    label: const Text(
+                      'الدفع الآن',
+                      style: TextStyle(fontFamily: 'Cairo'),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -326,9 +373,10 @@ class _PromotionScreenState extends State<PromotionScreen>
     );
   }
 
-  void _showRequestDialog(Map<String, dynamic> request) {
+  Future<void> _showRequestDialog(Map<String, dynamic> request) async {
     final items = _asMapList(request['items']);
-    showDialog<void>(
+    final canPay = _canPayRequest(request);
+    final action = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(
@@ -348,10 +396,22 @@ class _PromotionScreenState extends State<PromotionScreen>
                   'التنفيذ',
                   _opsLabels[request['ops_status']] ?? '${request['ops_status'] ?? ''}',
                 ),
+                if ((request['invoice_code'] as String? ?? '').trim().isNotEmpty)
+                  _line('رقم الفاتورة', (request['invoice_code'] as String).trim()),
+                if ((request['invoice_status'] as String? ?? '').trim().isNotEmpty)
+                  _line(
+                    'حالة الفاتورة',
+                    (request['payment_effective'] == true)
+                        ? 'مدفوعة'
+                        : (_invoiceStatusLabels[request['invoice_status']] ??
+                            '${request['invoice_status']}'),
+                  ),
                 if (request['invoice_total'] != null)
                   _line('الإجمالي', '${_money(request['invoice_total'])} ريال'),
                 if (request['invoice_vat'] != null)
                   _line('VAT', '${_money(request['invoice_vat'])} ريال'),
+                if ((request['quote_note'] as String? ?? '').trim().isNotEmpty)
+                  _line('ملاحظة الاعتماد', (request['quote_note'] as String).trim()),
                 const SizedBox(height: 10),
                 const Text(
                   'الخدمات',
@@ -371,6 +431,18 @@ class _PromotionScreenState extends State<PromotionScreen>
           ),
         ),
         actions: [
+          if (canPay)
+            FilledButton(
+              onPressed: () => Navigator.pop(context, 'pay'),
+              style: FilledButton.styleFrom(
+                backgroundColor: _brandColor,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text(
+                'الدفع الآن',
+                style: TextStyle(fontFamily: 'Cairo'),
+              ),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('إغلاق', style: TextStyle(fontFamily: 'Cairo')),
@@ -378,6 +450,112 @@ class _PromotionScreenState extends State<PromotionScreen>
         ],
       ),
     );
+    if (!mounted || action != 'pay') return;
+    await _startPayment(request);
+  }
+
+  Future<void> _startPayment(Map<String, dynamic> request) async {
+    final invoiceId = int.tryParse('${request['invoice'] ?? ''}');
+    if (invoiceId == null) {
+      _snack('لا توجد فاتورة مرتبطة بهذا الطلب', true);
+      return;
+    }
+
+    final idempotencyKey = 'promo-$invoiceId';
+    final initRes = await BillingService.initPayment(
+      invoiceId: invoiceId,
+      idempotencyKey: idempotencyKey,
+    );
+    if (!mounted) return;
+    if (!initRes.isSuccess) {
+      _snack(initRes.error ?? 'تعذر فتح صفحة الدفع', true);
+      return;
+    }
+
+    final attempt = Map<String, dynamic>.from(initRes.dataAsMap ?? const {});
+    bool isPaying = false;
+    final completed = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => StatefulBuilder(
+            builder: (dialogContext, setDialogState) => AlertDialog(
+              title: const Text(
+                'صفحة دفع الترويج',
+                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _line('رقم الطلب', (request['code'] as String? ?? '').trim()),
+                    if ((request['invoice_code'] as String? ?? '').trim().isNotEmpty)
+                      _line('رقم الفاتورة', (request['invoice_code'] as String).trim()),
+                    _line('الإجمالي', '${_money(request['invoice_total'])} ريال'),
+                    if (request['invoice_vat'] != null)
+                      _line('VAT', '${_money(request['invoice_vat'])} ريال'),
+                    if ((attempt['provider_reference'] as String? ?? '').trim().isNotEmpty)
+                      _line('مرجع الدفع', (attempt['provider_reference'] as String).trim()),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'سيتم تنفيذ الدفع التجريبي ثم تفعيل الحملة مباشرة بعد تأكيد السداد.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.black54,
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isPaying ? null : () => Navigator.pop(dialogContext, false),
+                  child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+                FilledButton(
+                  onPressed: isPaying
+                      ? null
+                      : () async {
+                          setDialogState(() => isPaying = true);
+                          final payRes = await BillingService.completeMockPayment(
+                            invoiceId: invoiceId,
+                            idempotencyKey: idempotencyKey,
+                          );
+                          if (!mounted) return;
+                          if (!payRes.isSuccess) {
+                            setDialogState(() => isPaying = false);
+                            _snack(payRes.error ?? 'تعذر إتمام الدفع', true);
+                            return;
+                          }
+                          Navigator.pop(dialogContext, true);
+                        },
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _brandColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isPaying
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text(
+                          'تأكيد الدفع',
+                          style: TextStyle(fontFamily: 'Cairo'),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ) ??
+        false;
+
+    if (!completed) return;
+    await _loadRequests(silent: true);
+    if (!mounted) return;
+    _snack('تم سداد الفاتورة وتفعيل العرض الترويجي', false);
   }
 }
 
@@ -472,7 +650,7 @@ class _PromoComposerState extends State<_PromoComposer> {
               child: _sending
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
-                      'إرسال طلب الترويج',
+                      'معاينة التسعير ثم الإرسال',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         color: Colors.white,
@@ -802,6 +980,100 @@ class _PromoComposerState extends State<_PromoComposer> {
     });
   }
 
+  Future<bool> _confirmQuotePreview(Map<String, dynamic> preview) async {
+    final previewItems = _asMapList(preview['items']);
+    return (await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text(
+              'مراجعة التسعيرة قبل الإرسال',
+              style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (previewItems.isNotEmpty) ...[
+                      const Text(
+                        'تفاصيل التسعير',
+                        style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      for (final item in previewItems)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF7F3FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (item['title'] as String? ?? '').trim().isNotEmpty
+                                    ? (item['title'] as String).trim()
+                                    : _serviceLabel(item['service_type'] as String?),
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_money(item['subtotal'])} ريال'
+                                '${item['duration_days'] != null ? ' • ${item['duration_days']} يوم' : ''}',
+                                style: const TextStyle(
+                                  fontFamily: 'Cairo',
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    const SizedBox(height: 4),
+                    _line('الإجمالي قبل الضريبة', '${_money(preview['subtotal'])} ريال'),
+                    _line('VAT', '${_money(preview['vat_amount'])} ريال'),
+                    _line('الإجمالي النهائي', '${_money(preview['total'])} ريال'),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'بمتابعة الإرسال سيتم إنشاء الطلب بهذه التسعيرة الحالية، ثم ينتقل الطلب إلى الاعتماد قبل فتح صفحة الدفع.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.black54,
+                        height: 1.6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: _brandColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'إرسال الطلب',
+                  style: TextStyle(fontFamily: 'Cairo'),
+                ),
+              ),
+            ],
+          ),
+        )) ??
+        false;
+  }
+
   Future<void> _submit() async {
     if (_title.text.trim().isEmpty) {
       _snack('أدخل عنوان الطلب', true);
@@ -824,6 +1096,26 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
 
     setState(() => _sending = true);
+    final previewRes = await PromoService.previewBundleRequest(
+      title: _title.text.trim(),
+      items: items,
+    );
+    if (!mounted) return;
+    if (!previewRes.isSuccess) {
+      setState(() => _sending = false);
+      _snack(previewRes.error ?? 'تعذر معاينة التسعير', true);
+      return;
+    }
+
+    final confirmed = await _confirmQuotePreview(
+      Map<String, dynamic>.from(previewRes.dataAsMap ?? const {}),
+    );
+    if (!mounted) return;
+    if (!confirmed) {
+      setState(() => _sending = false);
+      return;
+    }
+
     final createRes = await PromoService.createBundleRequest(
       title: _title.text.trim(),
       items: items,
@@ -977,6 +1269,7 @@ class _PromoDraft {
       'service_type': service.type,
       'title': service.label,
       'sort_order': sortOrder,
+      'asset_count': files.length,
     };
     if (service.needsRange) {
       body['start_at'] = startAt!.toUtc().toIso8601String();

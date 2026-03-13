@@ -19,7 +19,11 @@ class IsOwnerOrBackofficePromo(BackofficeDashboardMixin, BasePermission):
             return False
         if self._is_backoffice_request(request):
             return self._has_backoffice_access(request)
-        return True
+        try:
+            provider_profile = user.provider_profile
+        except Exception:
+            provider_profile = None
+        return provider_profile is not None
 
     def has_object_permission(self, request, view, obj):
         if self._is_backoffice_request(request):

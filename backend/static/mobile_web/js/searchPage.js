@@ -776,19 +776,41 @@ const SearchPage = (() => {
           const asset = (promo.assets || [])[0];
           const assetFile = asset && (asset.file || asset.file_url);
           if (assetFile) {
-            const img = document.createElement('img');
-            img.src = ApiClient.mediaUrl(assetFile);
-            img.alt = promo.title || '';
-            if (promo.redirect_url) {
+            const fileType = String((asset && asset.file_type) || 'image').toLowerCase();
+            const mediaUrl = ApiClient.mediaUrl(assetFile);
+            const media = fileType === 'video'
+              ? document.createElement('video')
+              : document.createElement('img');
+            media.className = 'promo-banner-media';
+            if (fileType === 'video') {
+              media.src = mediaUrl;
+              media.autoplay = true;
+              media.loop = true;
+              media.muted = true;
+              media.playsInline = true;
+            } else {
+              media.src = mediaUrl;
+              media.alt = promo.title || '';
+            }
+
+            const providerId = promo.target_provider_id ? String(promo.target_provider_id) : '';
+            const providerHref = providerId
+              ? ('/provider/' + encodeURIComponent(providerId) + '/')
+              : '';
+            if (promo.redirect_url || providerHref) {
               const link = document.createElement('a');
-              link.href = promo.redirect_url;
+              link.href = promo.redirect_url || providerHref;
               link.className = 'promo-slide';
-              link.appendChild(img);
+              if (promo.redirect_url) {
+                link.target = '_blank';
+                link.rel = 'noopener';
+              }
+              link.appendChild(media);
               _promoBannerEl.appendChild(link);
             } else {
               const wrap = document.createElement('div');
               wrap.className = 'promo-slide';
-              wrap.appendChild(img);
+              wrap.appendChild(media);
               _promoBannerEl.appendChild(wrap);
             }
             _promoBannerEl.classList.remove('hidden');

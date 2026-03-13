@@ -218,6 +218,44 @@ def init_payment(*, invoice: Invoice, provider: str, by_user, idempotency_key: s
 
 
 @transaction.atomic
+def complete_mock_payment(*, invoice: Invoice, by_user, idempotency_key: str | None = None):
+    invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
+    if invoice.is_payment_effective():
+        attempt = PaymentAttempt.objects.filter(
+            invoice=invoice,
+            provider=PaymentProvider.MOCK,
+        ).order_by("-created_at").first()
+        return invoice, attempt
+
+    attempt = init_payment(
+        invoice=invoice,
+        provider=PaymentProvider.MOCK,
+        by_user=by_user,
+        idempotency_key=idempotency_key or f"mock-invoice-{invoice.id}",
+    )
+    event_id = f"mock-complete-{attempt.id}"
+    payload = {
+        "provider_reference": attempt.provider_reference,
+        "invoice_code": invoice.code,
+        "status": "success",
+        "amount": str(invoice.total),
+        "currency": invoice.currency,
+    }
+    signature = sign_webhook_payload(provider=PaymentProvider.MOCK, payload=payload, event_id=event_id)
+    result = handle_webhook(
+        provider=PaymentProvider.MOCK,
+        payload=payload,
+        signature=signature,
+        event_id=event_id,
+    )
+    if not result.get("ok"):
+        raise ValueError(result.get("detail") or "تعذر إتمام الدفع التجريبي.")
+    invoice.refresh_from_db()
+    attempt.refresh_from_db()
+    return invoice, attempt
+
+
+@transaction.atomic
 def handle_webhook(*, provider: str, payload: dict, signature: str = "", event_id: str = ""):
     """
     معالجة webhook بشكل آمن:

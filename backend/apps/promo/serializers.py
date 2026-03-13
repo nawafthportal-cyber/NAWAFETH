@@ -110,6 +110,8 @@ class PromoAssetSerializer(serializers.ModelSerializer):
 
 
 class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
+    asset_count = serializers.IntegerField(required=False, min_value=0, write_only=True)
+
     class Meta:
         model = PromoRequestItem
         fields = [
@@ -137,6 +139,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             "attachment_specs",
             "operator_note",
             "sort_order",
+            "asset_count",
         ]
         read_only_fields = ["id"]
 
@@ -145,7 +148,15 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")
         send_at = attrs.get("send_at")
+        message_title = str(attrs.get("message_title") or "").strip()
+        message_body = str(attrs.get("message_body") or "").strip()
+        attrs["message_title"] = message_title
+        attrs["message_body"] = message_body
         from .services import promo_min_campaign_hours, promo_min_campaign_message
+
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        requester_provider = getattr(user, "provider_profile", None) if user is not None else None
 
         if service_type in {
             PromoServiceType.HOME_BANNER,
@@ -181,6 +192,14 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             }:
                 raise serializers.ValidationError("ترتيب الظهور غير صحيح.")
 
+        if service_type in {
+            PromoServiceType.FEATURED_SPECIALISTS,
+            PromoServiceType.PORTFOLIO_SHOWCASE,
+            PromoServiceType.SNAPSHOTS,
+            PromoServiceType.SEARCH_RESULTS,
+        } and not attrs.get("target_provider") and not attrs.get("target_portfolio_item") and requester_provider is None:
+            raise serializers.ValidationError("مقدم الخدمة المستهدف مطلوب لهذا النوع من الترويج.")
+
         if service_type == PromoServiceType.PROMO_MESSAGES:
             if not send_at:
                 raise serializers.ValidationError("وقت الإرسال مطلوب للرسائل الدعائية.")
@@ -188,6 +207,8 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("لا يمكن جدولة رسالة دعائية في الماضي.")
             if not attrs.get("use_notification_channel") and not attrs.get("use_chat_channel"):
                 raise serializers.ValidationError("اختر قناة إرسال واحدة على الأقل.")
+            if not message_body and int(attrs.get("asset_count") or 0) <= 0:
+                raise serializers.ValidationError("أدخل نص الرسالة أو أرفق مادة دعائية واحدة على الأقل.")
 
         if service_type == PromoServiceType.SPONSORSHIP and int(attrs.get("sponsorship_months") or 0) <= 0:
             raise serializers.ValidationError("مدة الرعاية بالأشهر مطلوبة.")
@@ -283,7 +304,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         if items:
             has_notification = any(item.get("use_notification_channel") for item in items)
             has_chat = any(item.get("use_chat_channel") for item in items)
-            if user is not None and user.is_authenticated:
+            if user is not None and user.is_authenticated and not getattr(user, "is_staff", False):
                 if has_notification and not promotional_notification_controls_enabled_for_user(user):
                     raise serializers.ValidationError("رسائل التنبيه الدعائية متاحة فقط ضمن الباقة الاحترافية.")
                 if has_chat and not promotional_chat_controls_enabled_for_user(user):
@@ -294,12 +315,30 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         message_body = (attrs.get("message_body") or "").strip()
         attrs["message_title"] = message_title
         attrs["message_body"] = message_body
+        requester_provider = getattr(user, "provider_profile", None) if user is not None else None
 
-        if user is not None and user.is_authenticated:
+        if attrs.get("ad_type") == PromoAdType.BUNDLE:
+            raise serializers.ValidationError("استخدم البنود متعددة الخدمات بدل إنشاء حملة bundle فارغة.")
+
+        if attrs.get("ad_type") in {PromoAdType.BANNER_CATEGORY, PromoAdType.POPUP_CATEGORY}:
+            raise serializers.ValidationError("هذا النوع من الحملات غير مدعوم حاليًا على الواجهات العامة.")
+
+        if user is not None and user.is_authenticated and not getattr(user, "is_staff", False):
             if attrs.get("ad_type") == PromoAdType.PUSH_NOTIFICATION and not promotional_notification_controls_enabled_for_user(user):
                 raise serializers.ValidationError("الإشعارات الدعائية متاحة فقط ضمن الباقة الاحترافية.")
-            if (message_title or message_body) and not promotional_chat_controls_enabled_for_user(user):
-                raise serializers.ValidationError("الرسائل الدعائية متاحة فقط ضمن الباقة الاحترافية.")
+            if attrs.get("ad_type") == PromoAdType.PUSH_NOTIFICATION and not (message_title or message_body):
+                raise serializers.ValidationError("أدخل عنوانًا أو نصًا للإشعار الدعائي.")
+            if attrs.get("ad_type") != PromoAdType.PUSH_NOTIFICATION and (message_title or message_body):
+                raise serializers.ValidationError("استخدم خدمة الرسائل الدعائية ضمن الطلب متعدد الخدمات بدل الرسالة المضمّنة في الإعلان.")
+        elif attrs.get("ad_type") == PromoAdType.PUSH_NOTIFICATION and not (message_title or message_body):
+            raise serializers.ValidationError("أدخل عنوانًا أو نصًا للإشعار الدعائي.")
+
+        if attrs.get("ad_type") in {
+            PromoAdType.FEATURED_TOP5,
+            PromoAdType.FEATURED_TOP10,
+            PromoAdType.BOOST_PROFILE,
+        } and not attrs.get("target_provider") and requester_provider is None:
+            raise serializers.ValidationError("مقدم الخدمة المستهدف مطلوب لهذا النوع من الترويج.")
 
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")
@@ -337,7 +376,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 PromoServiceType.SEARCH_RESULTS,
             }
             for row in items_data:
-                normalized = dict(row)
+                normalized = {key: value for key, value in row.items() if key != "asset_count"}
                 if (
                     provider_profile is not None
                     and normalized.get("service_type") in auto_targeted_service_types
@@ -383,6 +422,23 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             ops_status=PromoOpsStatus.NEW,
             **validated_data,
         )
+        if pr.ad_type == PromoAdType.PUSH_NOTIFICATION:
+            PromoRequestItem.objects.create(
+                request=pr,
+                service_type=PromoServiceType.PROMO_MESSAGES,
+                title=pr.title or "رسالة دعائية",
+                send_at=pr.start_at,
+                target_category=pr.target_category or "",
+                target_city=pr.target_city or "",
+                target_provider=pr.target_provider,
+                target_portfolio_item=pr.target_portfolio_item,
+                redirect_url=pr.redirect_url or "",
+                message_title=pr.message_title or "",
+                message_body=pr.message_body or "",
+                use_notification_channel=True,
+                use_chat_channel=False,
+                sort_order=0,
+            )
         _sync_promo_to_unified(pr=pr, changed_by=user)
         return pr
 
@@ -392,6 +448,10 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
     items = PromoRequestItemDetailSerializer(many=True, read_only=True)
     invoice_total = serializers.SerializerMethodField()
     invoice_vat = serializers.SerializerMethodField()
+    invoice_status = serializers.SerializerMethodField()
+    invoice_code = serializers.SerializerMethodField()
+    payment_required = serializers.SerializerMethodField()
+    payment_effective = serializers.SerializerMethodField()
 
     class Meta:
         model = PromoRequest
@@ -418,8 +478,12 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "quote_note",
             "reject_reason",
             "invoice",
+            "invoice_code",
+            "invoice_status",
             "invoice_total",
             "invoice_vat",
+            "payment_required",
+            "payment_effective",
             "reviewed_at",
             "activated_at",
             "ops_started_at",
@@ -435,6 +499,20 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
 
     def get_invoice_vat(self, obj: PromoRequest):
         return getattr(getattr(obj, "invoice", None), "vat_amount", None)
+
+    def get_invoice_status(self, obj: PromoRequest):
+        return getattr(getattr(obj, "invoice", None), "status", None)
+
+    def get_invoice_code(self, obj: PromoRequest):
+        return getattr(getattr(obj, "invoice", None), "code", None)
+
+    def get_payment_required(self, obj: PromoRequest):
+        invoice = getattr(obj, "invoice", None)
+        return bool(invoice and invoice.requires_payment_confirmation())
+
+    def get_payment_effective(self, obj: PromoRequest):
+        invoice = getattr(obj, "invoice", None)
+        return bool(invoice and invoice.is_payment_effective())
 
 
 class PromoActivePlacementSerializer(serializers.Serializer):

@@ -127,16 +127,10 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 		status_value = RequestStatus.NEW
 		now = timezone.now()
 
-		expires_at = None
-		if is_urgent:
-			minutes = getattr(settings, "URGENT_REQUEST_EXPIRY_MINUTES", 15)
-			expires_at = now + timedelta(minutes=minutes)
-
 		service_request = serializer.save(
 			client=self.request.user,
 			is_urgent=is_urgent,
 			status=status_value,
-			expires_at=expires_at,
 			dispatch_mode=dispatch_mode,
 		)
 
@@ -308,15 +302,6 @@ class UrgentRequestAcceptView(APIView):
 					status=status.HTTP_400_BAD_REQUEST,
 				)
 
-			now = timezone.now()
-			if service_request.expires_at and service_request.expires_at < now:
-				service_request.status = RequestStatus.CANCELLED
-				service_request.save(update_fields=["status"])
-				return Response(
-					{"detail": "انتهت صلاحية الطلب"},
-					status=status.HTTP_400_BAD_REQUEST,
-				)
-
 			if service_request.status != RequestStatus.NEW:
 				return Response(
 					{"detail": "لا يمكن قبول الطلب في هذه الحالة"},
@@ -347,6 +332,7 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "هذا الطلب لا يطابق تخصصاتك"},
 					status=status.HTTP_403_FORBIDDEN,
 				)
+			now = timezone.now()
 			if not provider_can_access_urgent_request(provider, service_request, now=now):
 				return Response(
 					{"detail": "هذا الطلب لم يصبح متاحًا لباقتك بعد"},
@@ -408,7 +394,6 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 				| Q(subcategories__id__in=provider_subcats)
 			)
 			.filter(Q(city=provider.city) | Q(city=""))
-			.exclude(expires_at__isnull=False, expires_at__lt=now)
 			.order_by("-created_at")
 			.distinct()
 		)

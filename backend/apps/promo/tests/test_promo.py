@@ -3,6 +3,7 @@ from datetime import timedelta
 from io import StringIO
 from django.core.management import call_command
 from django.db.models import Q
+from django.test import override_settings
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -34,7 +35,6 @@ from apps.subscriptions.models import (
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
 from apps.promo.services import (
-    activate_after_payment,
     reject_request,
     send_due_promo_messages,
     set_promo_ops_status,
@@ -109,6 +109,14 @@ def _active_pro_subscription(user, code: str):
 
 
 def test_create_promo_request(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود أساسي",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
     plan = SubscriptionPlan.objects.create(code="PRO", title="Pro", features=["promo_ads"])
     Subscription.objects.create(
         user=user,
@@ -141,6 +149,14 @@ def test_create_promo_request(api, user):
 
 
 def test_create_promo_request_rejects_duration_less_than_24h(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود مدة قصيرة",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
     plan = SubscriptionPlan.objects.create(code="PRO24", title="Pro", features=["promo_ads"])
     Subscription.objects.create(
         user=user,
@@ -434,12 +450,32 @@ def test_invoice_paid_signal_activates_home_banner_and_exposes_it_publicly(api, 
     )
 
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="approve and pay")
-    assert pr.status == PromoRequestStatus.QUOTED
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
     assert pr.invoice is not None
     assert pr.invoice.total > 0
 
-    pr.invoice.status = InvoiceStatus.PAID
-    pr.invoice.save(update_fields=["status"])
+    pr.invoice.mark_payment_confirmed(
+        provider="mock",
+        provider_reference="promo_ref_paid_banner",
+        event_id="evt-promo-paid-banner",
+        amount=pr.invoice.total,
+        currency=pr.invoice.currency,
+    )
+    pr.invoice.save(
+        update_fields=[
+            "status",
+            "paid_at",
+            "cancelled_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ]
+    )
     pr.refresh_from_db()
 
     assert pr.status == PromoRequestStatus.ACTIVE
@@ -486,14 +522,14 @@ def test_management_command_expires_due_active_promos(user):
     assert still_active.status == PromoRequestStatus.ACTIVE
     assert "Expired promo requests: 1" in out.getvalue()
     due_ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(due.id))
-    assert due_ur.status == "completed"
+    assert due_ur.status == "expired"
     assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
     event = EventLog.objects.filter(target_user=user, request_id=due.id).order_by("-id").first()
     assert event is not None
     assert event.meta.get("payload", {}).get("status") == PromoRequestStatus.EXPIRED
 
 
-def test_quote_updates_unified_request_quoted(user):
+def test_quote_updates_unified_request_pending_payment(user):
     pr = PromoRequest.objects.create(
         requester=user,
         title="quote me",
@@ -522,13 +558,13 @@ def test_quote_updates_unified_request_quoted(user):
 
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="ok")
     ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
-    assert pr.status == PromoRequestStatus.QUOTED
-    assert ur.status == "new"
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+    assert ur.status == "pending_payment"
     assert ur.metadata_record.payload.get("invoice_id") == pr.invoice_id
     assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
     event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
     assert event is not None
-    assert event.meta.get("payload", {}).get("status") == PromoRequestStatus.QUOTED
+    assert event.meta.get("payload", {}).get("status") == PromoRequestStatus.PENDING_PAYMENT
 
 
 def test_reject_and_activate_send_promo_status_notifications(user):
@@ -582,9 +618,29 @@ def test_reject_and_activate_send_promo_status_notifications(user):
         uploaded_by=user,
     )
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="activate")
-    pr.invoice.status = "paid"
-    pr.invoice.save(update_fields=["status"])
-    activate_after_payment(pr=pr)
+    pr.invoice.mark_payment_confirmed(
+        provider="mock",
+        provider_reference="promo_ref_activate",
+        event_id="evt-promo-activate",
+        amount=pr.invoice.total,
+        currency=pr.invoice.currency,
+    )
+    pr.invoice.save(
+        update_fields=[
+            "status",
+            "paid_at",
+            "cancelled_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ]
+    )
+    pr.refresh_from_db()
     assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
     activate_event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
     assert activate_event is not None
@@ -1030,6 +1086,72 @@ def test_send_due_promo_messages_dispatches_campaign_once():
     assert second_count == 0
 
 
+def test_send_due_promo_messages_dispatches_legacy_push_request_once():
+    sender = User.objects.create_user(
+        phone="0504444441",
+        password="Pass12345!",
+        role_state="provider",
+    )
+    recipient = User.objects.create_user(
+        phone="0504444442",
+        password="Pass12345!",
+        role_state="provider",
+    )
+    _active_pro_subscription(sender, "LEGACY_PUSH_SENDER")
+    _active_pro_subscription(recipient, "LEGACY_PUSH_RECIPIENT")
+
+    ProviderProfile.objects.create(
+        user=sender,
+        provider_type="individual",
+        display_name="مرسل إشعار مباشر",
+        bio="bio",
+        city="الرياض",
+        years_experience=5,
+    )
+    ProviderProfile.objects.create(
+        user=recipient,
+        provider_type="individual",
+        display_name="مستلم الإشعار",
+        bio="bio",
+        city="الرياض",
+        years_experience=2,
+    )
+
+    now = timezone.now()
+    request = PromoRequest.objects.create(
+        requester=sender,
+        title="إشعار مباشر",
+        ad_type=PromoAdType.PUSH_NOTIFICATION,
+        start_at=now - timedelta(minutes=10),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        message_title="عرض فوري",
+        message_body="تفاصيل العرض السريع",
+    )
+    item = PromoRequestItem.objects.create(
+        request=request,
+        service_type=PromoServiceType.PROMO_MESSAGES,
+        title="إشعار مباشر",
+        send_at=now - timedelta(minutes=5),
+        message_title="عرض فوري",
+        message_body="تفاصيل العرض السريع",
+        use_notification_channel=True,
+        use_chat_channel=False,
+        target_city="الرياض",
+        sort_order=0,
+    )
+
+    count = send_due_promo_messages(now=now, limit=10)
+
+    assert count == 1
+    item.refresh_from_db()
+    assert item.message_sent_at is not None
+    assert item.message_recipients_count == 1
+    assert Notification.objects.filter(user=recipient, title="عرض فوري").exists()
+
+
 def test_basic_plan_can_create_banner_promo_without_professional_controls(api, user):
     ProviderProfile.objects.create(
         user=user,
@@ -1101,37 +1223,45 @@ def test_non_professional_plan_blocks_promotional_message_controls(api, user):
     end_at = timezone.now() + timedelta(days=3)
     api.force_authenticate(user=user)
 
-    push_response = api.post(
+    notification_response = api.post(
         "/api/promo/requests/create/",
         data={
-            "title": "push-not-allowed",
-            "ad_type": "push_notification",
-            "start_at": start_at.isoformat(),
-            "end_at": end_at.isoformat(),
-            "frequency": "60s",
-            "position": "normal",
+            "title": "promo-message-notification",
+            "items": [
+                {
+                    "service_type": "promo_messages",
+                    "title": "رسالة دعائية",
+                    "send_at": start_at.isoformat(),
+                    "message_body": "تفاصيل العرض",
+                    "use_notification_channel": True,
+                    "use_chat_channel": False,
+                }
+            ],
         },
         format="json",
     )
-    assert push_response.status_code == 400
-    assert "الاحترافية" in str(push_response.data)
+    assert notification_response.status_code == 400
+    assert "الاحترافية" in str(notification_response.data)
 
-    message_response = api.post(
+    chat_response = api.post(
         "/api/promo/requests/create/",
         data={
-            "title": "message-not-allowed",
-            "ad_type": "banner_home",
-            "start_at": start_at.isoformat(),
-            "end_at": end_at.isoformat(),
-            "frequency": "60s",
-            "position": "normal",
-            "message_title": "عرض خاص",
-            "message_body": "تفاصيل العرض",
+            "title": "promo-message-chat",
+            "items": [
+                {
+                    "service_type": "promo_messages",
+                    "title": "رسالة دعائية",
+                    "send_at": end_at.isoformat(),
+                    "message_body": "تفاصيل العرض",
+                    "use_notification_channel": False,
+                    "use_chat_channel": True,
+                }
+            ],
         },
         format="json",
     )
-    assert message_response.status_code == 400
-    assert "الاحترافية" in str(message_response.data)
+    assert chat_response.status_code == 400
+    assert "الاحترافية" in str(chat_response.data)
 
 
 def test_professional_plan_allows_promotional_notification_controls(api, user):
@@ -1159,13 +1289,67 @@ def test_professional_plan_allows_promotional_notification_controls(api, user):
     )
 
     start_at = timezone.now() + timedelta(days=1)
-    end_at = timezone.now() + timedelta(days=3)
     api.force_authenticate(user=user)
 
     response = api.post(
         "/api/promo/requests/create/",
         data={
             "title": "push-allowed",
+            "items": [
+                {
+                    "service_type": "promo_messages",
+                    "title": "رسالة دعائية",
+                    "send_at": start_at.isoformat(),
+                    "message_title": "عرض خاص",
+                    "message_body": "تفاصيل العرض",
+                    "use_notification_channel": True,
+                    "use_chat_channel": True,
+                }
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    pr = PromoRequest.objects.get(pk=response.data["id"])
+    assert pr.ad_type == PromoAdType.BUNDLE
+    item = pr.items.get()
+    assert item.service_type == PromoServiceType.PROMO_MESSAGES
+    assert item.use_notification_channel is True
+    assert item.use_chat_channel is True
+
+
+def test_push_notification_request_creates_dispatchable_item(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود إشعار مباشر",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
+    plan = SubscriptionPlan.objects.create(
+        code="pro_legacy_push",
+        title="الاحترافية",
+        tier="pro",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = start_at + timedelta(days=2)
+    api.force_authenticate(user=user)
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "إشعار مباشر",
             "ad_type": "push_notification",
             "start_at": start_at.isoformat(),
             "end_at": end_at.isoformat(),
@@ -1178,6 +1362,33 @@ def test_professional_plan_allows_promotional_notification_controls(api, user):
     )
 
     assert response.status_code == 201
+    pr = PromoRequest.objects.get(pk=response.data["id"])
+    item = pr.items.get()
+    assert item.service_type == PromoServiceType.PROMO_MESSAGES
+    assert item.send_at == pr.start_at
+    assert item.use_notification_channel is True
+    assert item.use_chat_channel is False
+
+
+def test_provider_profile_required_for_promo_request_creation(api, user):
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = start_at + timedelta(days=2)
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "طلب غير مصرح",
+            "ad_type": "banner_home",
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": "60s",
+            "position": "normal",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 403
 
 
 def test_banner_asset_limit_uses_subscription_capability(api, user):
@@ -1246,6 +1457,14 @@ def test_banner_asset_limit_uses_subscription_capability(api, user):
 
 
 def test_create_multi_item_promo_request(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود متعدد الخدمات",
+        bio="bio",
+        city="الرياض",
+        years_experience=3,
+    )
     plan = SubscriptionPlan.objects.create(code="PRO_MULTI", title="Pro", tier="pro", features=[], is_active=True)
     Subscription.objects.create(
         user=user,
@@ -1336,12 +1555,141 @@ def test_quote_multi_item_request_creates_invoice_lines(user):
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="bundle")
     pr.refresh_from_db()
 
-    assert pr.status == PromoRequestStatus.QUOTED
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
     assert pr.invoice is not None
     assert pr.invoice.lines.count() == 2
     assert str(pr.subtotal) == "2200.00"
     assert str(pr.invoice.vat_amount) == "330.00"
     assert str(pr.invoice.total) == "2530.00"
+
+
+def test_preview_multi_item_request_returns_expected_pricing(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود معاينة",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    plan = SubscriptionPlan.objects.create(code="PRO_PREVIEW", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    api.force_authenticate(user=user)
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+
+    response = api.post(
+        "/api/promo/requests/preview/",
+        data={
+            "title": "معاينة طلب متعدد",
+            "items": [
+                {
+                    "service_type": "home_banner",
+                    "title": "بنر الرئيسية",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "asset_count": 1,
+                },
+                {
+                    "service_type": "search_results",
+                    "title": "بحث",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scope": "main_results",
+                    "search_position": "top10",
+                },
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.data["currency"] == "SAR"
+    assert str(response.data["subtotal"]) == "2200.00"
+    assert str(response.data["vat_amount"]) == "330.00"
+    assert str(response.data["total"]) == "2530.00"
+    assert len(response.data["items"]) == 2
+
+
+def test_promo_signal_ignores_unconfirmed_paid_invoice(user):
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="requires confirmation",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="asset",
+        file=SimpleUploadedFile(
+            "confirm.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="requires payment")
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+
+    pr.invoice.status = InvoiceStatus.PAID
+    pr.invoice.save(update_fields=["status"])
+    pr.refresh_from_db()
+
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+    assert pr.activated_at is None
+
+
+@override_settings(BILLING_WEBHOOK_SECRETS={"mock": "promo-secret"})
+def test_complete_mock_payment_endpoint_activates_promo(api, user):
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="mock payment promo",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="asset",
+        file=SimpleUploadedFile(
+            "mockpay.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+    pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="mock pay")
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        f"/api/billing/invoices/{pr.invoice_id}/complete-mock-payment/",
+        data={"idempotency_key": f"promo-{pr.invoice_id}"},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    pr.refresh_from_db()
+    pr.invoice.refresh_from_db()
+    assert pr.invoice.payment_confirmed is True
+    assert pr.status == PromoRequestStatus.ACTIVE
 
 
 def test_promo_dashboard_pages_render(client, promo_operator_user, user):

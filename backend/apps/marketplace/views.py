@@ -65,13 +65,8 @@ def _status_group_to_statuses(group: str) -> list[str]:
 
 
 def _expire_urgent_requests() -> None:
-	now = timezone.now()
-	ServiceRequest.objects.filter(
-		request_type=RequestType.URGENT,
-		status=RequestStatus.NEW,
-		expires_at__isnull=False,
-		expires_at__lt=now,
-	).update(status=RequestStatus.CANCELLED)
+	"""No-op: urgent requests no longer auto-expire."""
+	pass
 
 
 

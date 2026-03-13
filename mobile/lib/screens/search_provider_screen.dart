@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
@@ -8,6 +9,7 @@ import '../models/provider_public_model.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/promo_media_tile.dart';
 import '../widgets/verified_badge_view.dart';
 import 'provider_profile_screen.dart';
 
@@ -48,8 +50,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   final Map<int, double> _distanceKmByProviderId = {};
   Set<int> _featuredProviderIds = {};
   List<Map<String, dynamic>> _searchPromoPlacements = [];
-  String? _searchBannerImageUrl;
+  String? _searchBannerMediaUrl;
+  String _searchBannerMediaType = 'image';
   String? _searchBannerRedirectUrl;
+  int? _searchBannerProviderId;
+  String? _searchBannerProviderName;
 
   @override
   void initState() {
@@ -89,9 +94,20 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
               (asset['file'] ?? asset['file_url']) as String?,
             );
             if (url != null && mounted) {
+              final providerIdRaw = promo['target_provider_id'];
               setState(() {
-                _searchBannerImageUrl = url;
-                _searchBannerRedirectUrl = promo['redirect_url'] as String?;
+                _searchBannerMediaUrl = url;
+                _searchBannerMediaType =
+                    ((asset['file_type'] as String?) ?? 'image')
+                        .trim()
+                        .toLowerCase();
+                _searchBannerRedirectUrl =
+                    (promo['redirect_url'] as String?)?.trim();
+                _searchBannerProviderId = providerIdRaw is int
+                    ? providerIdRaw
+                    : int.tryParse('$providerIdRaw');
+                _searchBannerProviderName =
+                    promo['target_provider_display_name'] as String?;
               });
             }
           }
@@ -228,6 +244,33 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       }
       return mapped;
     }).toList();
+  }
+
+  Future<bool> _openExternalPromoUrl(String rawUrl) async {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return false;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.isAbsolute) return false;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+    return true;
+  }
+
+  Future<void> _openSearchBanner() async {
+    final redirect = (_searchBannerRedirectUrl ?? '').trim();
+    if (redirect.isNotEmpty && await _openExternalPromoUrl(redirect)) {
+      return;
+    }
+    final providerId = _searchBannerProviderId;
+    if (!mounted || providerId == null || providerId <= 0) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProviderProfileScreen(
+          providerId: providerId.toString(),
+          providerName: _searchBannerProviderName ?? 'مقدم خدمة',
+        ),
+      ),
+    );
   }
 
   List<ProviderPublicModel> _applySearchPromoOrdering(List<ProviderPublicModel> providers) {
@@ -718,23 +761,28 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-      itemCount: _providers.length + (_searchBannerImageUrl != null ? 1 : 0),
+      itemCount: _providers.length + (_searchBannerMediaUrl != null ? 1 : 0),
       itemBuilder: (_, i) {
         // Promo banner as first item
-        if (_searchBannerImageUrl != null && i == 0) {
+        if (_searchBannerMediaUrl != null && i == 0) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(_searchBannerImageUrl!,
-                fit: BoxFit.cover,
+            child: GestureDetector(
+              onTap: _openSearchBanner,
+              child: PromoMediaTile(
+                mediaUrl: _searchBannerMediaUrl,
+                mediaType: _searchBannerMediaType == 'video' ? 'video' : 'image',
                 height: 120,
-                width: double.infinity,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                borderRadius: 12,
+                autoplay: true,
+                isActive: true,
+                showVideoBadge: _searchBannerMediaType == 'video',
+                fallback: const SizedBox.shrink(),
+              ),
             ),
           );
         }
-        final idx = _searchBannerImageUrl != null ? i - 1 : i;
+        final idx = _searchBannerMediaUrl != null ? i - 1 : i;
         return _providerCard(_providers[idx], isDark, purple);
       },
     );

@@ -67,21 +67,20 @@ def test_available_urgent_excludes_expired_requests():
     provider = ProviderProfile.objects.get(user_id=verify.json()["user_id"])
     ProviderCategory.objects.get_or_create(provider=provider, subcategory=sub)
 
-    # Arrange: create an expired urgent request in matching city/subcategory
-    expired = ServiceRequest.objects.create(
+    # Arrange: urgent requests no longer auto-expire; both should appear
+    req1 = ServiceRequest.objects.create(
         client=provider.user,
         subcategory=sub,
-        title="عاجل منتهي",
+        title="عاجل قديم",
         description="desc",
         request_type=RequestType.URGENT,
         status=RequestStatus.NEW,
         city="Riyadh",
         is_urgent=True,
-        expires_at=timezone.now() - timedelta(minutes=1),
     )
 
-    # Arrange: create a valid urgent request in matching city/subcategory
-    active = ServiceRequest.objects.create(
+    # Arrange: create a second valid urgent request in matching city/subcategory
+    req2 = ServiceRequest.objects.create(
         client=provider.user,
         subcategory=sub,
         title="عاجل فعال",
@@ -90,7 +89,6 @@ def test_available_urgent_excludes_expired_requests():
         status=RequestStatus.NEW,
         city="Riyadh",
         is_urgent=True,
-        expires_at=timezone.now() + timedelta(minutes=10),
     )
 
     # Act
@@ -99,8 +97,8 @@ def test_available_urgent_excludes_expired_requests():
     # Assert
     assert res.status_code == 200
     ids = {item["id"] for item in res.json()}
-    assert expired.id not in ids
-    assert active.id in ids
+    assert req1.id in ids
+    assert req2.id in ids
 
 
 @pytest.mark.django_db

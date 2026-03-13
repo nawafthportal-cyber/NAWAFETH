@@ -13,6 +13,7 @@ import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/promo_media_tile.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 import '../services/content_service.dart';
@@ -210,73 +211,29 @@ class _HomeScreenState extends State<HomeScreen> {
       final assets = (promo['assets'] as List?) ?? [];
       final asset =
           assets.isNotEmpty ? assets[0] as Map<String, dynamic> : null;
-      final imageUrl = asset == null
+      final mediaUrl = asset == null
           ? null
           : ApiClient.buildMediaUrl(
               (asset['file'] ?? asset['file_url']) as String?);
+      final mediaType =
+          ((asset?['file_type'] as String?) ?? 'image').trim().toLowerCase();
       final title = (promo['title'] as String?) ?? '';
+      final redirectUrl = (promo['redirect_url'] as String?)?.trim();
+      final providerIdRaw = promo['target_provider_id'];
+      final providerId =
+          providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
+      final providerName =
+          promo['target_provider_display_name'] as String? ?? 'مقدم خدمة';
 
-      if (imageUrl == null) return;
+      if (mediaUrl == null) return;
       _promoPopupShown = true;
-
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (ctx) => Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(24),
-          child: Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  color: Colors.white,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(16)),
-                        child: Image.network(imageUrl,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) =>
-                                const SizedBox.shrink()),
-                      ),
-                      if (title.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Text(title,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'Cairo')),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                left: 8,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(ctx).pop(),
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                    ),
-                    child:
-                        const Icon(Icons.close, color: Colors.white, size: 18),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      await _showPromoPopupDialog(
+        mediaUrl: mediaUrl,
+        mediaType: mediaType == 'video' ? 'video' : 'image',
+        title: title,
+        redirectUrl: redirectUrl,
+        providerId: providerId,
+        providerName: providerName,
       );
     } catch (_) {}
   }
@@ -410,42 +367,136 @@ class _HomeScreenState extends State<HomeScreen> {
     return true;
   }
 
-  Future<void> _openSponsorPlacement(Map<String, dynamic> placement) async {
-    final redirect = (placement['redirect_url'] as String?)?.trim() ?? '';
-    if (redirect.isNotEmpty && await _openExternalPromoUrl(redirect)) {
-      return;
-    }
-    final providerId = placement['target_provider_id'];
-    final parsedProviderId =
-        providerId is int ? providerId : int.tryParse('$providerId');
-    if (!mounted || parsedProviderId == null || parsedProviderId <= 0) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ProviderProfileScreen(
-          providerId: parsedProviderId.toString(),
-          providerName: placement['target_provider_display_name'] as String? ??
-              'مقدم خدمة',
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openBanner(BannerModel banner) async {
-    final link = banner.linkUrl?.trim() ?? '';
+  Future<void> _openPromoPlacement({
+    String? redirectUrl,
+    int? providerId,
+    String? providerName,
+  }) async {
+    final link = (redirectUrl ?? '').trim();
     if (link.isNotEmpty && await _openExternalPromoUrl(link)) {
       return;
     }
-    final providerId = banner.providerId;
     if (!mounted || providerId == null || providerId <= 0) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProviderProfileScreen(
           providerId: providerId.toString(),
-          providerName: banner.providerDisplayName,
+          providerName: providerName ?? 'مقدم خدمة',
         ),
       ),
+    );
+  }
+
+  Future<void> _openSponsorPlacement(Map<String, dynamic> placement) async {
+    final providerId = placement['target_provider_id'];
+    final parsedProviderId =
+        providerId is int ? providerId : int.tryParse('$providerId');
+    await _openPromoPlacement(
+      redirectUrl: placement['redirect_url'] as String?,
+      providerId: parsedProviderId,
+      providerName:
+          placement['target_provider_display_name'] as String? ?? 'مقدم خدمة',
+    );
+  }
+
+  Future<void> _openBanner(BannerModel banner) async {
+    await _openPromoPlacement(
+      redirectUrl: banner.linkUrl,
+      providerId: banner.providerId,
+      providerName: banner.providerDisplayName,
+    );
+  }
+
+  Future<void> _showPromoPopupDialog({
+    required String mediaUrl,
+    required String mediaType,
+    required String title,
+    String? redirectUrl,
+    int? providerId,
+    String? providerName,
+  }) async {
+    final isActionable =
+        (redirectUrl?.trim().isNotEmpty ?? false) ||
+        (providerId != null && providerId > 0);
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        final content = Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PromoMediaTile(
+              mediaUrl: mediaUrl,
+              mediaType: mediaType,
+              height: 240,
+              borderRadius: 0,
+              autoplay: true,
+              isActive: true,
+              showVideoBadge: mediaType == 'video',
+              fallback: const SizedBox.shrink(),
+            ),
+            if (title.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Cairo',
+                  ),
+                ),
+              ),
+          ],
+        );
+
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Material(
+                  color: Colors.white,
+                  child: isActionable
+                      ? InkWell(
+                          onTap: () async {
+                            Navigator.of(ctx).pop();
+                            await _openPromoPlacement(
+                              redirectUrl: redirectUrl,
+                              providerId: providerId,
+                              providerName: providerName,
+                            );
+                          },
+                          child: content,
+                        )
+                      : content,
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child:
+                        const Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1597,27 +1648,21 @@ class _HomeScreenState extends State<HomeScreen> {
                       final b = _banners[index];
                       final url = ApiClient.buildMediaUrl(b.mediaUrl);
                       return GestureDetector(
-                        onTap: () {
-                          if (b.providerId != null && b.providerId! > 0) {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ProviderProfileScreen(
-                                    providerId: b.providerId.toString(),
-                                    providerName: b.providerDisplayName,
-                                  ),
-                                ));
-                          }
-                        },
+                        onTap: () => _openBanner(b),
                         child: Stack(
                           fit: StackFit.expand,
                           children: [
-                            url != null
-                                ? Image.network(url,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) =>
-                                        _gradientPlaceholder())
-                                : _gradientPlaceholder(),
+                            PromoMediaTile(
+                              key: ValueKey('promo-banner-${b.id}-${b.mediaUrl}'),
+                              mediaUrl: url,
+                              mediaType: b.isVideo ? 'video' : 'image',
+                              borderRadius: 0,
+                              height: 170,
+                              autoplay: true,
+                              isActive: index == _bannerCurrentPage,
+                              showVideoBadge: b.isVideo,
+                              fallback: _gradientPlaceholder(),
+                            ),
                             // Bottom overlay
                             Positioned(
                               bottom: 0,

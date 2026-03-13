@@ -68,13 +68,14 @@ def _make_fixtures(
     return client_user, provider_user, provider, sr
 
 
-# ── 1. Client cancel NEW → OK ───────────────────
+# ── 1. Client cancel NEW (no provider) → OK ─────
 @pytest.mark.django_db
 def test_client_cancel_new_request():
-    """العميل يلغي طلبًا بحالة NEW → يتحول إلى CANCELLED."""
+    """العميل يلغي طلبًا بحالة NEW بدون مزود مُسند → يتحول إلى CANCELLED."""
     client_user, provider_user, provider, sr = _make_fixtures(
         "0510000001", "0510000002",
         request_status=RequestStatus.NEW,
+        assign_provider=False,
     )
 
     api = APIClient()
@@ -84,6 +85,25 @@ def test_client_cancel_new_request():
     assert res.status_code == 200, res.data
     sr.refresh_from_db()
     assert sr.status == RequestStatus.CANCELLED
+
+
+# ── 1b. Client cancel NEW (provider assigned) → rejected ─
+@pytest.mark.django_db
+def test_client_cannot_cancel_new_request_with_provider():
+    """العميل لا يستطيع إلغاء طلب بحالة NEW إذا قبل مزود الخدمة."""
+    client_user, provider_user, provider, sr = _make_fixtures(
+        "0510000051", "0510000052",
+        request_status=RequestStatus.NEW,
+        assign_provider=True,
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=client_user)
+    res = api.post(f"/api/marketplace/requests/{sr.id}/cancel/", format="json")
+
+    assert res.status_code == 403
+    sr.refresh_from_db()
+    assert sr.status == RequestStatus.NEW
 
 
 # ── 2. Client cancel IN_PROGRESS → rejected ─────
@@ -99,7 +119,7 @@ def test_client_cannot_cancel_in_progress_request():
     api.force_authenticate(user=client_user)
     res = api.post(f"/api/marketplace/requests/{sr.id}/cancel/", format="json")
 
-    assert res.status_code == 400
+    assert res.status_code == 403
     sr.refresh_from_db()
     assert sr.status == RequestStatus.IN_PROGRESS
 

@@ -31,4 +31,19 @@ class BillingService {
       body: body,
     );
   }
+
+  /// إتمام الدفع التجريبي وربط الـ webhook الداخلي
+  static Future<ApiResponse> completeMockPayment({
+    required int invoiceId,
+    String? idempotencyKey,
+  }) {
+    final body = <String, dynamic>{};
+    if (idempotencyKey != null && idempotencyKey.isNotEmpty) {
+      body['idempotency_key'] = idempotencyKey;
+    }
+    return ApiClient.post(
+      '/api/billing/invoices/$invoiceId/complete-mock-payment/',
+      body: body,
+    );
+  }
 }
