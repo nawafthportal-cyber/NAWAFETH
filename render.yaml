@@ -30,8 +30,6 @@ services:
         value: "1"
       - key: RUN_COLLECTSTATIC_ON_START
         value: "1"
-      - key: STATIC_MANIFEST_RECOVERY_MODE
-        value: "finders"
 
   - type: keyvalue
     name: nawafeth-redis

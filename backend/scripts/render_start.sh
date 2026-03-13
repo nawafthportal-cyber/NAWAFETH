@@ -10,72 +10,16 @@ PORT_VALUE="${PORT:-8000}"
 WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY:-2}"
 LOG_LEVEL_VALUE="${GUNICORN_LOG_LEVEL:-info}"
 TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
-BOOTSTRAP_LISTENER_ENABLED="${BOOTSTRAP_LISTENER_ENABLED:-1}"
-BOOTSTRAP_SERVER_PID=""
 
-# Keep boot fast on Render so the platform can detect the HTTP port.
-# Migrations stay optional, but when enabled they must complete before the
-# app starts serving traffic; otherwise schema drift can surface as runtime 500s.
-# Static recovery defaults to a WhiteNoise finders fallback when the build
-# manifest is missing. This avoids slow runtime collectstatic runs while still
-# allowing an explicit collectstatic recovery mode if needed.
+# Bind the public port only once the real ASGI stack is ready. A temporary
+# bootstrap listener can make Render declare the service healthy before Django
+# is actually serving traffic, which creates a hand-off race on the same port.
+# Migrations stay optional, but when enabled they must complete before the app
+# starts serving traffic; otherwise schema drift can surface as runtime 500s.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
-STATIC_MANIFEST_RECOVERY_MODE="${STATIC_MANIFEST_RECOVERY_MODE:-finders}"
-
-cleanup_bootstrap_listener() {
-	if [ -n "${BOOTSTRAP_SERVER_PID}" ] && kill -0 "${BOOTSTRAP_SERVER_PID}" 2>/dev/null; then
-		kill "${BOOTSTRAP_SERVER_PID}" 2>/dev/null || true
-		wait "${BOOTSTRAP_SERVER_PID}" 2>/dev/null || true
-	fi
-	BOOTSTRAP_SERVER_PID=""
-}
-
-start_bootstrap_listener() {
-	if [ "${BOOTSTRAP_LISTENER_ENABLED}" != "1" ]; then
-		return
-	fi
-	echo "[start] Opening temporary bootstrap listener on 0.0.0.0:${PORT_VALUE}"
-	python - <<'PY' &
-import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-
-port = int(os.environ.get("PORT", "8000"))
-
-
-class Handler(BaseHTTPRequestHandler):
-    def _write_response(self, head_only: bool = False):
-        body = b"starting"
-        self.send_response(503)
-        self.send_header("Content-Type", "text/plain; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        if not head_only:
-            self.wfile.write(body)
-
-    def do_GET(self):
-        self._write_response()
-
-    def do_HEAD(self):
-        self._write_response(head_only=True)
-
-    def do_POST(self):
-        self._write_response()
-
-    def log_message(self, format, *args):
-        return
-
-
-server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
-server.serve_forever()
-PY
-	BOOTSTRAP_SERVER_PID=$!
-}
-
-trap cleanup_bootstrap_listener EXIT
-start_bootstrap_listener
+COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-120}"
 
 # ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
@@ -92,47 +36,29 @@ fi
 # ── Static files recovery ───────────────────────────────────────────
 MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
 echo "[start] Expecting static manifest at ${MANIFEST_PATH}"
-unset DJANGO_FORCE_STATIC_FALLBACK || true
 
 if [ ! -f "${MANIFEST_PATH}" ]; then
-	case "${STATIC_MANIFEST_RECOVERY_MODE}" in
-		finders)
-			export DJANGO_FORCE_STATIC_FALLBACK=1
-			echo "[start] Static manifest missing — enabling WhiteNoise finder fallback."
-			echo "[start] Runtime will serve static files from source directories without collectstatic."
-			;;
-		collectstatic)
-			if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
-				echo "[start] Static manifest missing — running collectstatic (timeout 20s)..."
-				if ! timeout 20 python manage.py collectstatic --noinput 2>&1; then
-					echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
-					exit 1
-				fi
-				if [ ! -f "${MANIFEST_PATH}" ]; then
-					echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
-					exit 1
-				fi
-				echo "[start] collectstatic completed."
-			else
-				echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
-				echo "[start] Refusing to start with manifest storage because templates will return 500."
-				exit 1
-			fi
-			;;
-		*)
-			echo "[start] ERROR: Unsupported STATIC_MANIFEST_RECOVERY_MODE=${STATIC_MANIFEST_RECOVERY_MODE}."
-			echo "[start] Use 'finders' or 'collectstatic'."
+	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
+		echo "[start] Static manifest missing — running collectstatic (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
+		if ! timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1; then
+			echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
 			exit 1
-			;;
-	esac
+		fi
+		if [ ! -f "${MANIFEST_PATH}" ]; then
+			echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
+			exit 1
+		fi
+		echo "[start] collectstatic completed."
+	else
+		echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
+		echo "[start] Refusing to start without a WhiteNoise manifest-backed static build."
+		exit 1
+	fi
 else
 	echo "[start] Static manifest OK."
 fi
 
 # ── Gunicorn ────────────────────────────────────────────────
-cleanup_bootstrap_listener
-trap - EXIT
-
 echo "[start] Launching gunicorn on 0.0.0.0:${PORT_VALUE}"
 
 exec gunicorn config.asgi:application \

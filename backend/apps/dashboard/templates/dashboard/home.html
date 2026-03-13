@@ -338,33 +338,43 @@
     <canvas id="opsChart" height="90"></canvas>
   </div>
 
+  {{ chart_labels_json|json_script:"chart-labels" }}
+  {{ request_series_json|json_script:"chart-requests" }}
+  {{ invoice_series_json|json_script:"chart-invoices" }}
+  {{ support_series_json|json_script:"chart-support" }}
+  {{ unified_request_series_json|json_script:"chart-unified" }}
+
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
     (() => {
-      const labels = {{ chart_labels_json|safe }};
-      const req = {{ request_series_json|safe }};
-      const inv = {{ invoice_series_json|safe }};
-      const sup = {{ support_series_json|safe }};
-      const uni = {{ unified_request_series_json|safe }};
-      const el = document.getElementById('opsChart');
-      if (!el) return;
-      new Chart(el, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            { label: 'الطلبات', data: req, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.12)', fill: true, tension: .3 },
-            { label: 'الفواتير', data: inv, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.10)', fill: true, tension: .3 },
-            { label: 'تذاكر الدعم', data: sup, borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.10)', fill: true, tension: .3 },
-            { label: 'الطلبات الموحدة', data: uni, borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,.08)', fill: false, tension: .25 }
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: 'top' } },
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-        }
-      });
+      try {
+        const labels = JSON.parse(document.getElementById('chart-labels').textContent);
+        const req = JSON.parse(document.getElementById('chart-requests').textContent);
+        const inv = JSON.parse(document.getElementById('chart-invoices').textContent);
+        const sup = JSON.parse(document.getElementById('chart-support').textContent);
+        const uni = JSON.parse(document.getElementById('chart-unified').textContent);
+        const el = document.getElementById('opsChart');
+        if (!el) return;
+        new Chart(el, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: 'الطلبات', data: req, borderColor: '#7c3aed', backgroundColor: 'rgba(124,58,237,.12)', fill: true, tension: .3 },
+              { label: 'الفواتير', data: inv, borderColor: '#0ea5e9', backgroundColor: 'rgba(14,165,233,.10)', fill: true, tension: .3 },
+              { label: 'تذاكر الدعم', data: sup, borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,.10)', fill: true, tension: .3 },
+              { label: 'الطلبات الموحدة', data: uni, borderColor: '#1d4ed8', backgroundColor: 'rgba(29,78,216,.08)', fill: false, tension: .25 }
+            ]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          }
+        });
+      } catch (e) {
+        console.error('Chart initialization failed:', e);
+      }
     })();
   </script>
 {% endblock %}

@@ -16,6 +16,14 @@ from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 
 from .auth import dashboard_staff_required as staff_member_required
 from .views import _dashboard_allowed, dashboard_access_required
+from .security import (
+    validate_uploaded_file,
+    FileValidationError,
+    ALLOWED_MEDIA_EXTENSIONS,
+    ALLOWED_MEDIA_MIME_TYPES,
+    ALLOWED_ALL_EXTENSIONS,
+    ALLOWED_ALL_MIME_TYPES,
+)
 
 
 CONTENT_BLOCK_GROUPS = (
@@ -135,6 +143,18 @@ def content_block_update_action(request, key: str):
     remove_media = (request.POST.get("remove_media") or "") in {"1", "on", "true"}
     is_active = (request.POST.get("is_active") or "") in {"1", "on", "true"}
 
+    # Validate uploaded file type and size
+    if uploaded_media:
+        try:
+            validate_uploaded_file(
+                uploaded_media,
+                allowed_extensions=ALLOWED_MEDIA_EXTENSIONS,
+                allowed_mime_types=ALLOWED_MEDIA_MIME_TYPES,
+            )
+        except FileValidationError as exc:
+            messages.error(request, str(exc))
+            return redirect("dashboard:content_management")
+
     if not title_ar:
         messages.error(request, "عنوان البلوك مطلوب")
         return redirect("dashboard:content_management")
@@ -211,6 +231,18 @@ def content_doc_upload_action(request, doc_type: str):
     if not uploaded and not body_ar:
         messages.error(request, "أدخل نص المستند أو أرفق ملفاً واحداً على الأقل")
         return redirect("dashboard:content_management")
+
+    # Validate uploaded document file type and size
+    if uploaded:
+        try:
+            validate_uploaded_file(
+                uploaded,
+                allowed_extensions=ALLOWED_ALL_EXTENSIONS,
+                allowed_mime_types=ALLOWED_ALL_MIME_TYPES,
+            )
+        except FileValidationError as exc:
+            messages.error(request, str(exc))
+            return redirect("dashboard:content_management")
 
     version = sanitize_text(request.POST.get("version", "1.0")) or "1.0"
     is_active = (request.POST.get("is_active") or "") in {"1", "on", "true"}

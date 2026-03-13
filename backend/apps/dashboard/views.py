@@ -115,6 +115,15 @@ from .access import (
     first_allowed_dashboard_route,
     sync_dashboard_user_access,
 )
+from .security import (
+    apply_user_level_filter,
+    is_safe_redirect_url,
+    safe_redirect_url,
+    validate_uploaded_file,
+    FileValidationError,
+    ALLOWED_MEDIA_EXTENSIONS,
+    ALLOWED_MEDIA_MIME_TYPES,
+)
 
 # إن كانت عندك Enums استوردها (عدّل حسب مشروعك)
 try:
@@ -854,35 +863,46 @@ def dashboard_home(request):
         .order_by("-id")[:12]
     )
 
-    # KPIs المزوّدين
-    providers_qs = ProviderProfile.objects.all()
-    total_providers = providers_qs.count()
-    verified_providers = providers_qs.filter(
-        Q(is_verified_blue=True) | Q(is_verified_green=True)
-    ).count()
-    urgent_providers = providers_qs.filter(accepts_urgent=True).count()
+    # KPIs المزوّدين (single aggregate instead of 3 separate COUNT queries)
+    provider_kpis = ProviderProfile.objects.aggregate(
+        total=Count("id"),
+        verified=Count("id", filter=Q(is_verified_blue=True) | Q(is_verified_green=True)),
+        urgent=Count("id", filter=Q(accepts_urgent=True)),
+    )
+    total_providers = provider_kpis["total"]
+    verified_providers = provider_kpis["verified"]
+    urgent_providers = provider_kpis["urgent"]
 
-    # KPIs الفوترة (اختياري حسب التطبيقات المثبتة)
+    # KPIs الفوترة (single aggregate)
     pending_invoices = 0
     paid_invoices = 0
     failed_invoices = 0
     try:
         from apps.billing.models import Invoice, InvoiceStatus
 
-        pending_invoices = Invoice.objects.filter(status=InvoiceStatus.PENDING).count()
-        paid_invoices = Invoice.objects.filter(status=InvoiceStatus.PAID).count()
-        failed_invoices = Invoice.objects.filter(status=InvoiceStatus.FAILED).count()
+        invoice_kpis = Invoice.objects.aggregate(
+            pending=Count("id", filter=Q(status=InvoiceStatus.PENDING)),
+            paid=Count("id", filter=Q(status=InvoiceStatus.PAID)),
+            failed=Count("id", filter=Q(status=InvoiceStatus.FAILED)),
+        )
+        pending_invoices = invoice_kpis["pending"]
+        paid_invoices = invoice_kpis["paid"]
+        failed_invoices = invoice_kpis["failed"]
     except Exception:
         pass
 
-    # KPIs التذاكر
+    # KPIs التذاكر (single aggregate)
     support_new = 0
     support_open = 0
     try:
         from apps.support.models import SupportTicket, SupportTicketStatus
 
-        support_new = SupportTicket.objects.filter(status=SupportTicketStatus.NEW).count()
-        support_open = SupportTicket.objects.exclude(status=SupportTicketStatus.CLOSED).count()
+        support_kpis = SupportTicket.objects.aggregate(
+            new=Count("id", filter=Q(status=SupportTicketStatus.NEW)),
+            open=Count("id", filter=~Q(status=SupportTicketStatus.CLOSED)),
+        )
+        support_new = support_kpis["new"]
+        support_open = support_kpis["open"]
     except Exception:
         pass
 
@@ -924,22 +944,28 @@ def dashboard_home(request):
     except Exception:
         pass
 
-    # KPIs الطلبات الموحدة (الطبقة التشغيلية الموحدة)
-    unified_qs = UnifiedRequest.objects.select_related("requester", "assigned_user").all()
-    unified_scoped_qs = unified_qs.filter(created_at__gte=date_from_dt, created_at__lt=date_to_exclusive)
-    unified_total = unified_scoped_qs.count()
-    unified_open = unified_scoped_qs.exclude(
-        status__in=[
-            UnifiedRequestStatus.CLOSED,
-            UnifiedRequestStatus.COMPLETED,
-            UnifiedRequestStatus.REJECTED,
-            UnifiedRequestStatus.EXPIRED,
-            UnifiedRequestStatus.CANCELLED,
-        ]
-    ).count()
-    unified_pending_payment = unified_scoped_qs.filter(status=UnifiedRequestStatus.PENDING_PAYMENT).count()
-    unified_active = unified_scoped_qs.filter(status=UnifiedRequestStatus.ACTIVE).count()
-    unified_recent = list(unified_scoped_qs.order_by("-id")[:8])
+    # KPIs الطلبات الموحدة (single aggregate instead of 4 separate COUNT queries)
+    unified_scoped_qs = UnifiedRequest.objects.filter(created_at__gte=date_from_dt, created_at__lt=date_to_exclusive)
+    unified_closed_statuses = [
+        UnifiedRequestStatus.CLOSED,
+        UnifiedRequestStatus.COMPLETED,
+        UnifiedRequestStatus.REJECTED,
+        UnifiedRequestStatus.EXPIRED,
+        UnifiedRequestStatus.CANCELLED,
+    ]
+    unified_kpis = unified_scoped_qs.aggregate(
+        total=Count("id"),
+        open=Count("id", filter=~Q(status__in=unified_closed_statuses)),
+        pending_payment=Count("id", filter=Q(status=UnifiedRequestStatus.PENDING_PAYMENT)),
+        active=Count("id", filter=Q(status=UnifiedRequestStatus.ACTIVE)),
+    )
+    unified_total = unified_kpis["total"]
+    unified_open = unified_kpis["open"]
+    unified_pending_payment = unified_kpis["pending_payment"]
+    unified_active = unified_kpis["active"]
+    unified_recent = list(
+        unified_scoped_qs.select_related("requester", "assigned_user").order_by("-id")[:8]
+    )
     for ur in unified_recent:
         ur.dashboard_detail_url = _unified_request_dashboard_link(ur)
 
@@ -1960,10 +1986,7 @@ def billing_invoice_set_status_action(request: HttpRequest, invoice_id: int) -> 
     else:
         messages.warning(request, "إجراء غير صالح")
 
-    next_url = (request.POST.get("next") or "").strip()
-    if next_url:
-        return redirect(next_url)
-    return redirect("dashboard:billing_invoices_list")
+    return redirect(safe_redirect_url(request, reverse("dashboard:billing_invoices_list")))
 
 
 @staff_member_required
@@ -1987,9 +2010,7 @@ def support_tickets_list(request: HttpRequest) -> HttpResponse:
     if priority_val:
         qs = qs.filter(priority=priority_val)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+    qs = apply_user_level_filter(qs, request.user, assigned_field="assigned_to")
 
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "العميل", "النوع", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
@@ -2122,9 +2143,7 @@ def promo_inquiries_list(request: HttpRequest) -> HttpResponse:
     if priority_val:
         qs = qs.filter(priority=priority_val)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+    qs = apply_user_level_filter(qs, request.user, assigned_field="assigned_to")
 
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "العميل", "الأولوية", "الحالة", "الفريق", "المكلّف", "إجراءات"]
@@ -2250,10 +2269,7 @@ def promo_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
         logger.exception("promo_assign_action error")
         messages.error(request, "تعذر تحديث التعيين")
 
-    next_url = (request.POST.get("next") or "").strip()
-    if next_url.startswith("/"):
-        return redirect(next_url)
-    return redirect("dashboard:promo_inquiry_detail", ticket_id=ticket.id)
+    return redirect(safe_redirect_url(request, reverse("dashboard:promo_inquiry_detail", args=[ticket.id])))
 
 
 @staff_member_required
@@ -2589,9 +2605,7 @@ def verification_requests_list(request: HttpRequest) -> HttpResponse:
     if status_val:
         qs = qs.filter(status=status_val)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+    qs = apply_user_level_filter(qs, request.user, assigned_field="assigned_to")
 
     if _want_xlsx(request) or _want_pdf(request) or _want_csv(request):
         headers_ar = ["الكود", "المستخدم", "نوع/بنود التوثيق", "الأولوية", "الحالة", "فاتورة", "إجراءات"]
@@ -2840,10 +2854,8 @@ def verification_ops(request: HttpRequest) -> HttpResponse:
     if req_status:
         req_qs = req_qs.filter(status=req_status)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        inq_qs = inq_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
-        req_qs = req_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+    inq_qs = apply_user_level_filter(inq_qs, request.user, assigned_field="assigned_to")
+    req_qs = apply_user_level_filter(req_qs, request.user, assigned_field="assigned_to")
 
     inq_paginator = Paginator(inq_qs, 15)
     inq_page_obj = inq_paginator.get_page(request.GET.get("inq_page") or "1")
@@ -2989,19 +3001,23 @@ def promo_requests_list(request: HttpRequest) -> HttpResponse:
     if ops_status_val:
         qs = qs.filter(ops_status=ops_status_val)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        qs = qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
-        inquiries_qs = inquiries_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
+    qs = apply_user_level_filter(qs, request.user, assigned_field="assigned_to")
+    inquiries_qs = apply_user_level_filter(inquiries_qs, request.user, assigned_field="assigned_to")
 
     paginator = Paginator(qs, 25)
     requests_page = paginator.get_page(request.GET.get("page") or "1")
     inquiries_rows = list(inquiries_qs[:8])
     recent_requests = list(qs[:8])
+    # Single aggregate for all promo stats
+    _promo_agg = qs.aggregate(
+        total=Count("id"),
+        active=Count("id", filter=Q(status=PromoRequestStatus.ACTIVE)),
+        completed=Count("id", filter=Q(ops_status=PromoOpsStatus.COMPLETED)),
+    )
     stats = {
-        "total_requests": qs.count(),
-        "active_requests": qs.filter(status=PromoRequestStatus.ACTIVE).count(),
-        "completed_requests": qs.filter(ops_status=PromoOpsStatus.COMPLETED).count(),
+        "total_requests": _promo_agg["total"],
+        "active_requests": _promo_agg["active"],
+        "completed_requests": _promo_agg["completed"],
         "new_inquiries": inquiries_qs.filter(status=SupportTicketStatus.NEW).count(),
     }
     ctx = {
@@ -3668,10 +3684,11 @@ def subscriptions_ops(request: HttpRequest) -> HttpResponse:
     if req_status:
         req_qs = req_qs.filter(status=req_status)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        inq_qs = inq_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
-        # subscriptions themselves have no assignee; restrict by user ownership for backoffice user role
+    inq_qs = apply_user_level_filter(inq_qs, request.user, assigned_field="assigned_to")
+    # subscriptions themselves have no assignee; for user-level restrict by user ownership
+    from apps.backoffice.models import AccessLevel as _AccessLevel
+    _ap = getattr(request.user, "access_profile", None)
+    if _ap and _ap.level == _AccessLevel.USER:
         req_qs = req_qs.filter(user=request.user)
 
     inq_page_obj = Paginator(inq_qs, 15).get_page(request.GET.get("inq_page") or "1")
@@ -4092,10 +4109,8 @@ def extras_ops(request: HttpRequest) -> HttpResponse:
     if req_status:
         req_qs = req_qs.filter(status=req_status)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user":
-        inq_qs = inq_qs.filter(Q(assigned_to=request.user) | Q(assigned_to__isnull=True))
-        req_qs = req_qs.filter(Q(assigned_user=request.user) | Q(assigned_user__isnull=True))
+    inq_qs = apply_user_level_filter(inq_qs, request.user, assigned_field="assigned_to")
+    req_qs = apply_user_level_filter(req_qs, request.user, assigned_field="assigned_user")
 
     inq_page_obj = Paginator(inq_qs, 15).get_page(request.GET.get("inq_page") or "1")
     req_page_obj = Paginator(req_qs, 15).get_page(request.GET.get("req_page") or "1")
@@ -4937,10 +4952,7 @@ def subscription_refresh_action(request: HttpRequest, subscription_id: int) -> H
         messages.success(request, "تم تحديث حالة الاشتراك")
     except Exception as e:
         messages.error(request, str(e) or "تعذر تحديث الاشتراك")
-    next_url = (request.POST.get("next") or "").strip()
-    if next_url and next_url.startswith("/"):
-        return redirect(next_url)
-    return redirect("dashboard:subscriptions_list")
+    return redirect(safe_redirect_url(request, reverse("dashboard:subscriptions_list")))
 
 
 @staff_member_required
@@ -4953,10 +4965,7 @@ def subscription_activate_action(request: HttpRequest, subscription_id: int) -> 
         messages.success(request, "تم تفعيل الاشتراك")
     except Exception as e:
         messages.error(request, str(e) or "تعذر تفعيل الاشتراك")
-    next_url = (request.POST.get("next") or "").strip()
-    if next_url and next_url.startswith("/"):
-        return redirect(next_url)
-    return redirect("dashboard:subscriptions_list")
+    return redirect(safe_redirect_url(request, reverse("dashboard:subscriptions_list")))
 
 
 @staff_member_required

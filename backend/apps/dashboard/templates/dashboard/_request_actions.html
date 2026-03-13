@@ -105,26 +105,6 @@
     </div>
   </div>
 
-  <script>
-    (function () {
-      const openBtn = document.getElementById("openAcceptModal");
-      const modal = document.getElementById("acceptModal");
-      const closeBtn = document.getElementById("closeAcceptModal");
-      const cancelBtn = document.getElementById("cancelAcceptModal");
-
-      function open() { if (modal) modal.classList.remove("hidden"); }
-      function close() { if (modal) modal.classList.add("hidden"); }
-
-      if (openBtn) openBtn.addEventListener("click", open);
-      if (closeBtn) closeBtn.addEventListener("click", close);
-      if (cancelBtn) cancelBtn.addEventListener("click", close);
-
-      // اغلاق بالنقر على الخلفية
-      if (modal) {
-        modal.addEventListener("click", (e) => {
-          if (e.target === modal.firstElementChild) close();
-        });
-      }
-    })();
-  </script>
+  {% load static %}
+  <script src="{% static 'js/dashboard.js' %}"></script>
 {% endif %}

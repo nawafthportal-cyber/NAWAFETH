@@ -200,10 +200,6 @@
   </table>
 </div>
 
-<script>
-function toggleEdit(id) {
-  const row = document.getElementById('edit-row-' + id);
-  if (row) row.classList.toggle('hidden');
-}
-</script>
+{% load static %}
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

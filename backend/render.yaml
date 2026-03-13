@@ -31,8 +31,6 @@ services:
         value: "1"
       - key: RUN_COLLECTSTATIC_ON_START
         value: "1"
-      - key: STATIC_MANIFEST_RECOVERY_MODE
-        value: "finders"
       # Optional overrides:
       # - key: DJANGO_CSRF_TRUSTED_ORIGINS
       #   value: https://*.onrender.com,https://nawafeth.app,https://admin.nawafeth.app

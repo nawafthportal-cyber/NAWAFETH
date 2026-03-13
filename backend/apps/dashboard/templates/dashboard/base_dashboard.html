@@ -26,10 +26,10 @@
   <div class="min-h-screen flex">
 
     <!-- Sidebar -->
-    <aside class="w-72 hidden lg:flex flex-col bg-white shadow-2xl border-l border-gray-100">
+    <aside class="w-72 hidden lg:flex flex-col bg-white shadow-2xl border-l border-gray-100" aria-label="القائمة الجانبية">
       <div class="gradient-bg px-6 py-8">
         <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl">
+          <div class="w-12 h-12 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl" role="img" aria-label="نوافذ">
             🪟
           </div>
           <div>
@@ -39,7 +39,7 @@
         </div>
       </div>
 
-      <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav class="flex-1 p-4 space-y-1 overflow-y-auto" aria-label="القائمة الرئيسية">
         {% can_access request.user "analytics" as can_analytics %}
         {% can_access request.user "content" as can_content %}
         {% can_access request.user "billing" as can_billing %}
@@ -54,7 +54,7 @@
         {% if can_analytics %}
         <a href="{% url 'dashboard:home' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'home' %}bg-gradient-to-r from-purple-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-purple-50 hover:to-indigo-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الرئيسية">
             🏠
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'home' %}text-purple-700{% else %}text-gray-700 group-hover:text-purple-700{% endif %}">الرئيسية</span>
@@ -64,7 +64,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:requests_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'requests_list' or request.resolver_match.url_name == 'request_detail' %}bg-gradient-to-r from-blue-50 to-cyan-50{% else %}hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الطلبات">
             📋
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'requests_list' or request.resolver_match.url_name == 'request_detail' %}text-blue-700{% else %}text-gray-700 group-hover:text-blue-700{% endif %}">الطلبات</span>
@@ -74,7 +74,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:content_management' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'content_management' %}bg-gradient-to-r from-cyan-50 to-blue-50{% else %}hover:bg-gradient-to-r hover:from-cyan-50 hover:to-blue-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="محتوى المنصة">
             🧾
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'content_management' %}text-cyan-700{% else %}text-gray-700 group-hover:text-cyan-700{% endif %}">محتوى المنصة</span>
@@ -84,7 +84,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:portfolio_moderation_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'portfolio_moderation_list' %}bg-gradient-to-r from-pink-50 to-rose-50{% else %}hover:bg-gradient-to-r hover:from-pink-50 hover:to-rose-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="معرض الأعمال">
             🖼️
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'portfolio_moderation_list' %}text-pink-700{% else %}text-gray-700 group-hover:text-pink-700{% endif %}">معرض الأعمال</span>
@@ -94,7 +94,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:spotlight_moderation_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'spotlight_moderation_list' %}bg-gradient-to-r from-amber-50 to-yellow-50{% else %}hover:bg-gradient-to-r hover:from-amber-50 hover:to-yellow-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الأضواء">
             ✨
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'spotlight_moderation_list' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">الأضواء</span>
@@ -104,7 +104,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:reviews_dashboard_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'reviews_dashboard_list' or request.resolver_match.url_name == 'reviews_dashboard_detail' %}bg-gradient-to-r from-fuchsia-50 to-purple-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-purple-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="المراجعات">
             ⭐
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'reviews_dashboard_list' or request.resolver_match.url_name == 'reviews_dashboard_detail' %}text-fuchsia-700{% else %}text-gray-700 group-hover:text-fuchsia-700{% endif %}">المراجعات</span>
@@ -114,7 +114,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:providers_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'providers_list' or request.resolver_match.url_name == 'provider_detail' %}bg-gradient-to-r from-emerald-50 to-teal-50{% else %}hover:bg-gradient-to-r hover:from-emerald-50 hover:to-teal-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="المزوّدون">
             👥
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'providers_list' or request.resolver_match.url_name == 'provider_detail' %}text-emerald-700{% else %}text-gray-700 group-hover:text-emerald-700{% endif %}">المزوّدون</span>
@@ -124,7 +124,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:services_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'services_list' %}bg-gradient-to-r from-amber-50 to-orange-50{% else %}hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="خدمات المزوّدين">
             🛠️
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'services_list' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">خدمات المزوّدين</span>
@@ -134,7 +134,7 @@
         {% if can_content %}
         <a href="{% url 'dashboard:categories_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'categories_list' or request.resolver_match.url_name == 'category_create' or request.resolver_match.url_name == 'category_detail' or request.resolver_match.url_name == 'category_edit' or request.resolver_match.url_name == 'subcategory_create' or request.resolver_match.url_name == 'subcategory_edit' %}bg-gradient-to-r from-violet-50 to-purple-50{% else %}hover:bg-gradient-to-r hover:from-violet-50 hover:to-purple-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="التصنيفات">
             📂
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'categories_list' or request.resolver_match.url_name == 'category_create' or request.resolver_match.url_name == 'category_detail' or request.resolver_match.url_name == 'category_edit' or request.resolver_match.url_name == 'subcategory_create' or request.resolver_match.url_name == 'subcategory_edit' %}text-violet-700{% else %}text-gray-700 group-hover:text-violet-700{% endif %}">التصنيفات</span>
@@ -147,7 +147,7 @@
         {% if can_billing %}
         <a href="{% url 'dashboard:billing_invoices_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'billing_invoices_list' %}bg-gradient-to-r from-sky-50 to-blue-50{% else %}hover:bg-gradient-to-r hover:from-sky-50 hover:to-blue-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-sky-500 to-blue-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الفوترة">
             💳
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'billing_invoices_list' %}text-sky-700{% else %}text-gray-700 group-hover:text-sky-700{% endif %}">الفوترة</span>
@@ -157,7 +157,7 @@
         {% if can_analytics %}
         <a href="{% url 'dashboard:unified_requests_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'unified_requests_list' %}bg-gradient-to-r from-blue-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الطلبات الموحدة">
             🗂️
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'unified_requests_list' %}text-blue-700{% else %}text-gray-700 group-hover:text-blue-700{% endif %}">الطلبات الموحدة</span>
@@ -167,7 +167,7 @@
         {% if can_support %}
         <a href="{% url 'dashboard:support_tickets_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'support_tickets_list' or request.resolver_match.url_name == 'support_ticket_detail' %}bg-gradient-to-r from-cyan-50 to-teal-50{% else %}hover:bg-gradient-to-r hover:from-cyan-50 hover:to-teal-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الدعم">
             🎫
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'support_tickets_list' or request.resolver_match.url_name == 'support_ticket_detail' %}text-cyan-700{% else %}text-gray-700 group-hover:text-cyan-700{% endif %}">الدعم</span>
@@ -177,7 +177,7 @@
         {% if can_verify %}
         <a href="{% url 'dashboard:verification_ops' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'verification_ops' or request.resolver_match.url_name == 'verification_inquiry_detail' or request.resolver_match.url_name == 'verification_requests_list' or request.resolver_match.url_name == 'verification_request_detail' or request.resolver_match.url_name == 'verified_badges_list' %}bg-gradient-to-r from-indigo-50 to-violet-50{% else %}hover:bg-gradient-to-r hover:from-indigo-50 hover:to-violet-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="التوثيق">
             ✅
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'verification_ops' or request.resolver_match.url_name == 'verification_inquiry_detail' or request.resolver_match.url_name == 'verification_requests_list' or request.resolver_match.url_name == 'verification_request_detail' or request.resolver_match.url_name == 'verified_badges_list' %}text-indigo-700{% else %}text-gray-700 group-hover:text-indigo-700{% endif %}">التوثيق</span>
@@ -187,7 +187,7 @@
         {% if can_excellence %}
         <a href="{% url 'dashboard:excellence_dashboard' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'excellence_dashboard' or request.resolver_match.url_name == 'excellence_candidate_detail' %}bg-gradient-to-r from-amber-50 to-orange-50{% else %}hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="إدارة التميز">
             🏅
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'excellence_dashboard' or request.resolver_match.url_name == 'excellence_candidate_detail' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">إدارة التميز</span>
@@ -197,7 +197,7 @@
         {% if can_promo %}
         <a href="{% url 'dashboard:promo_requests_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' or request.resolver_match.url_name == 'promo_request_assign_action' or request.resolver_match.url_name == 'promo_request_ops_status_action' or request.resolver_match.url_name == 'promo_inquiries_list' or request.resolver_match.url_name == 'promo_inquiry_detail' or request.resolver_match.url_name == 'promo_inquiry_profile_action' or request.resolver_match.url_name == 'promo_pricing' or request.resolver_match.url_name == 'promo_service_board' or request.resolver_match.url_name == 'promo_home_banners' %}bg-gradient-to-r from-fuchsia-50 to-pink-50{% else %}hover:bg-gradient-to-r hover:from-fuchsia-50 hover:to-pink-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-fuchsia-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الترويج">
             📢
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'promo_requests_list' or request.resolver_match.url_name == 'promo_request_detail' or request.resolver_match.url_name == 'promo_request_assign_action' or request.resolver_match.url_name == 'promo_request_ops_status_action' or request.resolver_match.url_name == 'promo_inquiries_list' or request.resolver_match.url_name == 'promo_inquiry_detail' or request.resolver_match.url_name == 'promo_inquiry_profile_action' or request.resolver_match.url_name == 'promo_pricing' or request.resolver_match.url_name == 'promo_service_board' or request.resolver_match.url_name == 'promo_home_banners' %}text-fuchsia-700{% else %}text-gray-700 group-hover:text-fuchsia-700{% endif %}">الترويج</span>
@@ -207,7 +207,7 @@
         {% if can_subs %}
         <a href="{% url 'dashboard:subscriptions_ops' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'subscriptions_ops' or request.resolver_match.url_name == 'subscription_inquiry_detail' or request.resolver_match.url_name == 'subscription_request_detail' or request.resolver_match.url_name == 'subscriptions_list' %}bg-gradient-to-r from-violet-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-violet-50 hover:to-indigo-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الاشتراكات">
             📦
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'subscriptions_ops' or request.resolver_match.url_name == 'subscription_inquiry_detail' or request.resolver_match.url_name == 'subscription_request_detail' or request.resolver_match.url_name == 'subscriptions_list' %}text-violet-700{% else %}text-gray-700 group-hover:text-violet-700{% endif %}">الاشتراكات</span>
@@ -217,7 +217,7 @@
         {% if can_extras %}
         <a href="{% url 'dashboard:extras_ops' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'extras_ops' or request.resolver_match.url_name == 'extras_inquiry_detail' or request.resolver_match.url_name == 'extras_request_detail' or request.resolver_match.url_name == 'extras_list' %}bg-gradient-to-r from-orange-50 to-amber-50{% else %}hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الخدمات الإضافية">
             ➕
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'extras_ops' or request.resolver_match.url_name == 'extras_inquiry_detail' or request.resolver_match.url_name == 'extras_request_detail' or request.resolver_match.url_name == 'extras_list' %}text-orange-700{% else %}text-gray-700 group-hover:text-orange-700{% endif %}">الخدمات الإضافية</span>
@@ -227,7 +227,7 @@
         {% if can_analytics %}
         <a href="{% url 'dashboard:features_overview' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'features_overview' %}bg-gradient-to-r from-teal-50 to-emerald-50{% else %}hover:bg-gradient-to-r hover:from-teal-50 hover:to-emerald-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الميزات">
             🧩
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'features_overview' %}text-teal-700{% else %}text-gray-700 group-hover:text-teal-700{% endif %}">الميزات</span>
@@ -237,7 +237,7 @@
         {% if can_access_mgmt %}
         <a href="{% url 'dashboard:access_profiles_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'access_profiles_list' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600 to-gray-800 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600 to-gray-800 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="صلاحيات التشغيل">
             🔐
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'access_profiles_list' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">صلاحيات التشغيل</span>
@@ -245,7 +245,7 @@
 
         <a href="{% url 'dashboard:users_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'users_list' or request.resolver_match.url_name == 'user_detail' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-500 to-slate-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-gray-500 to-slate-700 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="إدارة المستخدمين">
             👥
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'users_list' or request.resolver_match.url_name == 'user_detail' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">إدارة المستخدمين</span>
@@ -253,7 +253,7 @@
 
         <a href="{% url 'dashboard:audit_log_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'audit_log_list' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="سجل التدقيق">
             🔍
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'audit_log_list' %}text-amber-700{% else %}text-gray-700 group-hover:text-amber-700{% endif %}">سجل التدقيق</span>
@@ -263,7 +263,7 @@
         {% if can_subs %}
         <a href="{% url 'dashboard:plans_list' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'plans_list' or request.resolver_match.url_name == 'plan_create' or request.resolver_match.url_name == 'plan_edit' %}bg-gradient-to-r from-violet-50 to-indigo-50{% else %}hover:bg-gradient-to-r hover:from-violet-50 hover:to-indigo-50{% endif %}">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="إدارة الخطط">
             💎
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'plans_list' or request.resolver_match.url_name == 'plan_create' or request.resolver_match.url_name == 'plan_edit' %}text-violet-700{% else %}text-gray-700 group-hover:text-violet-700{% endif %}">إدارة الخطط</span>
@@ -275,7 +275,7 @@
         {% if request.user.is_superuser %}
         <a href="{% url 'admin:index' %}"
            class="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-gradient-to-r hover:from-rose-50 hover:to-pink-50 transition-all group">
-          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="لوحة الإدارة">
             ⚙️
           </div>
           <span class="font-semibold text-gray-700 group-hover:text-rose-700">Admin</span>
@@ -303,7 +303,7 @@
     </aside>
 
     <!-- Main -->
-    <main class="flex-1 flex flex-col min-h-screen">
+    <main class="flex-1 flex flex-col min-h-screen" aria-label="المحتوى الرئيسي">
       <!-- Topbar -->
       <div class="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div class="px-4 lg:px-8 py-4 flex items-center justify-between">
@@ -363,5 +363,6 @@
     </main>
 
   </div>
+  <script src="{% static 'js/dashboard.js' %}"></script>
 </body>
 </html>

@@ -42,6 +42,7 @@ from .views import (
     _tabular_export_limit,
     _want_csv,
 )
+from .security import apply_user_level_filter
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,15 @@ logger = logging.getLogger(__name__)
 @dashboard_access_required("support", write=True)
 def support_ticket_add_comment(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, pk=ticket_id)
+
+    # Object-level check: user-level staff can only comment on their assigned tickets
+    from apps.backoffice.models import AccessLevel
+    ap = getattr(request.user, "access_profile", None)
+    if ap and ap.level == AccessLevel.USER:
+        if ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+            messages.error(request, "غير مصرح لك بالتعليق على هذه التذكرة")
+            return redirect("dashboard:support_ticket_detail", ticket_id=ticket.pk)
+
     text = (request.POST.get("text") or "").strip()
     if not text:
         messages.error(request, "يرجى كتابة تعليق")
@@ -322,6 +332,14 @@ def user_update_role(request: HttpRequest, user_id: int) -> HttpResponse:
 
     if new_role not in dict(UserRole.choices):
         messages.error(request, "الدور غير صالح")
+        return redirect("dashboard:user_detail", user_id=target_user.pk)
+
+    # Prevent escalating own role or modifying superusers
+    if target_user.is_superuser and not request.user.is_superuser:
+        messages.error(request, "لا يمكن تغيير دور مدير عام")
+        return redirect("dashboard:user_detail", user_id=target_user.pk)
+    if target_user.pk == request.user.pk:
+        messages.error(request, "لا يمكنك تغيير دورك الخاص")
         return redirect("dashboard:user_detail", user_id=target_user.pk)
 
     old_role = target_user.role_state
