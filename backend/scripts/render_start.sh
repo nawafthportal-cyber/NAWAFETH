@@ -16,11 +16,13 @@ BOOTSTRAP_SERVER_PID=""
 # Keep boot fast on Render so the platform can detect the HTTP port.
 # Migrations stay optional, but when enabled they must complete before the
 # app starts serving traffic; otherwise schema drift can surface as runtime 500s.
-# Collectstatic defaults to enabled when the manifest is missing because
-# manifest storage otherwise returns 500.
+# Static recovery defaults to a WhiteNoise finders fallback when the build
+# manifest is missing. This avoids slow runtime collectstatic runs while still
+# allowing an explicit collectstatic recovery mode if needed.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
+STATIC_MANIFEST_RECOVERY_MODE="${STATIC_MANIFEST_RECOVERY_MODE:-finders}"
 
 cleanup_bootstrap_listener() {
 	if [ -n "${BOOTSTRAP_SERVER_PID}" ] && kill -0 "${BOOTSTRAP_SERVER_PID}" 2>/dev/null; then
@@ -87,27 +89,42 @@ else
 	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START})."
 fi
 
-# ── Static files (required when manifest is missing) ────────────────
+# ── Static files recovery ───────────────────────────────────────────
 MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
 echo "[start] Expecting static manifest at ${MANIFEST_PATH}"
+unset DJANGO_FORCE_STATIC_FALLBACK || true
 
 if [ ! -f "${MANIFEST_PATH}" ]; then
-	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
-		echo "[start] Static manifest missing — running collectstatic (timeout 20s)..."
-		if ! timeout 20 python manage.py collectstatic --noinput 2>&1; then
-			echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
+	case "${STATIC_MANIFEST_RECOVERY_MODE}" in
+		finders)
+			export DJANGO_FORCE_STATIC_FALLBACK=1
+			echo "[start] Static manifest missing — enabling WhiteNoise finder fallback."
+			echo "[start] Runtime will serve static files from source directories without collectstatic."
+			;;
+		collectstatic)
+			if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
+				echo "[start] Static manifest missing — running collectstatic (timeout 20s)..."
+				if ! timeout 20 python manage.py collectstatic --noinput 2>&1; then
+					echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
+					exit 1
+				fi
+				if [ ! -f "${MANIFEST_PATH}" ]; then
+					echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
+					exit 1
+				fi
+				echo "[start] collectstatic completed."
+			else
+				echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
+				echo "[start] Refusing to start with manifest storage because templates will return 500."
+				exit 1
+			fi
+			;;
+		*)
+			echo "[start] ERROR: Unsupported STATIC_MANIFEST_RECOVERY_MODE=${STATIC_MANIFEST_RECOVERY_MODE}."
+			echo "[start] Use 'finders' or 'collectstatic'."
 			exit 1
-		fi
-		if [ ! -f "${MANIFEST_PATH}" ]; then
-			echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
-			exit 1
-		fi
-		echo "[start] collectstatic completed."
-	else
-		echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
-		echo "[start] Refusing to start with manifest storage because templates will return 500."
-		exit 1
-	fi
+			;;
+	esac
 else
 	echo "[start] Static manifest OK."
 fi
