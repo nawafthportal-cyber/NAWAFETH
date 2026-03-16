@@ -1,75 +1,211 @@
 {% extends "dashboard/base_dashboard.html" %}
+{% load static %}
 {% block title %}بانرات الصفحة الرئيسية{% endblock %}
 
 {% block content %}
+<style>
+  .banner-preview {
+    --mobile-scale: 1;
+    --tablet-scale: 1;
+    --desktop-scale: 1;
+    background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 22px;
+    padding: 16px;
+    box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+  }
+  .banner-preview-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .banner-preview-switch {
+    display: inline-flex;
+    gap: 6px;
+    padding: 4px;
+    background: #e2e8f0;
+    border-radius: 999px;
+  }
+  .banner-preview-switch button {
+    border: 0;
+    background: transparent;
+    color: #475569;
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .banner-preview-switch button.is-active {
+    background: linear-gradient(135deg, #c026d3, #ec4899);
+    color: #fff;
+  }
+  .banner-preview-stage {
+    display: flex;
+    justify-content: center;
+  }
+  .banner-preview-frame {
+    position: relative;
+    width: min(100%, 360px);
+    aspect-ratio: 390 / 280;
+    overflow: hidden;
+    border-radius: 24px;
+    background: linear-gradient(135deg, #0f172a 0%, #475569 55%, #020617 100%);
+    box-shadow: 0 20px 44px rgba(15, 23, 42, 0.16);
+    transition: width 0.2s ease, aspect-ratio 0.2s ease;
+  }
+  .banner-preview[data-device="desktop"] .banner-preview-frame {
+    width: min(100%, 720px);
+    aspect-ratio: 16 / 7;
+  }
+  .banner-preview[data-device="tablet"] .banner-preview-frame {
+    width: min(100%, 560px);
+    aspect-ratio: 14 / 8;
+  }
+  .banner-preview-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    background: linear-gradient(to top, rgba(2, 6, 23, 0.56), rgba(2, 6, 23, 0.12) 45%, transparent 68%);
+  }
+  .banner-preview-media-stage {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 16px 92px;
+    box-sizing: border-box;
+  }
+  .banner-preview-media,
+  .banner-preview-placeholder {
+    max-width: 100%;
+    max-height: 100%;
+    border-radius: 20px;
+    transition: transform 0.2s ease;
+  }
+  .banner-preview-media {
+    display: block;
+    object-fit: contain;
+    background: rgba(2, 6, 23, 0.18);
+    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.3);
+    transform: scale(var(--mobile-scale));
+  }
+  .banner-preview[data-device="desktop"] .banner-preview-media {
+    transform: scale(var(--desktop-scale));
+  }
+  .banner-preview[data-device="tablet"] .banner-preview-media {
+    transform: scale(var(--tablet-scale));
+  }
+  .banner-preview-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(82%, 280px);
+    height: min(72%, 180px);
+    padding: 18px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.6;
+    border: 1px dashed rgba(255, 255, 255, 0.35);
+    background: rgba(15, 23, 42, 0.28);
+  }
+  .banner-preview-top,
+  .banner-preview-copy {
+    position: absolute;
+    inset-inline: 0;
+    z-index: 3;
+    padding-inline: 16px;
+  }
+  .banner-preview-top {
+    top: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .banner-preview-copy {
+    bottom: 16px;
+  }
+  .banner-preview-chip {
+    min-width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.16);
+  }
+  .banner-preview-brand,
+  .banner-preview-title {
+    color: #fff;
+    font-weight: 800;
+  }
+  .banner-preview-brand { font-size: 20px; }
+  .banner-preview-title {
+    font-size: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .banner-preview-subtitle {
+    color: rgba(255, 255, 255, 0.82);
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .banner-preview-search {
+    margin-top: 10px;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.94);
+    color: #94a3b8;
+    font-size: 12px;
+  }
+  .banner-preview-stats {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .banner-preview-stat {
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    background: #f8fafc;
+    font-size: 12px;
+    color: #475569;
+  }
+  .banner-preview-stat strong {
+    display: block;
+    margin-top: 3px;
+    color: #0f172a;
+    font-size: 15px;
+  }
+  @media (max-width: 767px) {
+    .banner-preview-toolbar { flex-direction: column; align-items: stretch; }
+    .banner-preview-stats { grid-template-columns: 1fr; }
+  }
+</style>
+
 <div class="flex items-center justify-between mb-6">
   <div>
     <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">بانرات الصفحة الرئيسية</h1>
-    <p class="text-gray-500 mt-1">إدارة المساحات الإعلانية في كروسيل الصفحة الرئيسية — صور ثابتة ومقاطع فيديو قصيرة تتغير كل ثانيتين.</p>
+    <p class="text-gray-500 mt-1">إدارة المساحات الإعلانية مع معاينة حيّة وتحكم فعلي بحجم المحتوى على الجوال والديسكتوب.</p>
   </div>
 </div>
 
 {% include "dashboard/_promo_nav.html" %}
 
-<!-- ====== CREATE BANNER FORM ====== -->
-<div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">
-  <h2 class="font-bold text-lg mb-4 text-fuchsia-700">إضافة بانر جديد</h2>
-  <form method="post" action="{% url 'dashboard:promo_home_banner_create' %}" enctype="multipart/form-data">
-    {% csrf_token %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">عنوان البانر *</label>
-        <input type="text" name="title" required maxlength="200" placeholder="مثال: عرض خاص على خدمات التنظيف"
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">نوع الوسائط *</label>
-        <select name="media_type" class="w-full rounded-lg border-gray-200 px-3 py-2">
-          {% for v, l in media_type_choices %}
-          <option value="{{ v }}">{{ l }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">ملف الوسائط * (صورة أو فيديو)</label>
-        <input type="file" name="media_file" required accept="image/*,video/mp4"
-               class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">رابط التوجيه (اختياري)</label>
-        <input type="url" name="link_url" placeholder="https://..."
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">معرّف مقدم الخدمة (اختياري)</label>
-        <input type="number" name="provider" placeholder="ID"
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">ترتيب العرض</label>
-        <input type="number" name="display_order" value="0" min="0"
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">تاريخ البداية (اختياري)</label>
-        <input type="datetime-local" name="start_at"
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div>
-        <label class="block text-sm font-semibold text-gray-600 mb-1">تاريخ النهاية (اختياري)</label>
-        <input type="datetime-local" name="end_at"
-               class="w-full rounded-lg border-gray-200 px-3 py-2">
-      </div>
-      <div class="flex items-end">
-        <button type="submit" class="w-full rounded-lg bg-fuchsia-600 text-white px-6 py-2 font-semibold hover:bg-fuchsia-700 transition-colors">
-          إضافة البانر
-        </button>
-      </div>
-    </div>
-  </form>
-</div>
+{% include "dashboard/promo_home_banners_editor.html" with form_action_url_name='dashboard:promo_home_banner_create' title='إضافة بانر جديد' description='استخدم شريطي الحجم لضبط بروز المحتوى داخل مساحة الـ hero. قيمة 100% تعني الحجم الافتراضي الحالي.' submit_label='إضافة البانر' is_edit=0 %}
 
-<!-- ====== BANNERS LIST ====== -->
 <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
   <table class="min-w-full text-sm">
     <thead class="bg-gray-50">
@@ -91,12 +227,19 @@
         <td class="px-4 py-3 font-bold text-fuchsia-700">{{ banner.id }}</td>
         <td class="px-4 py-3">
           {% if banner.media_type == 'video' %}
-            <video src="{{ banner.media_file.url }}" class="w-28 h-16 object-cover rounded-lg" muted preload="metadata"></video>
+            <video src="{{ banner.media_file.url }}" class="w-28 h-16 object-contain rounded-lg bg-slate-900" muted preload="metadata"></video>
           {% else %}
-            <img src="{{ banner.media_file.url }}" alt="{{ banner.title }}" class="w-28 h-16 object-cover rounded-lg" loading="lazy">
+            <img src="{{ banner.media_file.url }}" alt="{{ banner.title }}" class="w-28 h-16 object-contain rounded-lg bg-slate-100" loading="lazy">
           {% endif %}
         </td>
-        <td class="px-4 py-3 font-semibold">{{ banner.title }}</td>
+        <td class="px-4 py-3">
+          <div class="font-semibold">{{ banner.title }}</div>
+          <div class="mt-1 flex flex-wrap gap-2 text-[11px]">
+            <span class="inline-flex items-center rounded-full bg-fuchsia-50 px-2 py-1 font-semibold text-fuchsia-700">جوال {{ banner.mobile_scale }}%</span>
+            <span class="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-700">متوسط {{ banner.tablet_scale }}%</span>
+            <span class="inline-flex items-center rounded-full bg-sky-50 px-2 py-1 font-semibold text-sky-700">ديسكتوب {{ banner.desktop_scale }}%</span>
+          </div>
+        </td>
         <td class="px-4 py-3">{{ banner.get_media_type_display }}</td>
         <td class="px-4 py-3">{{ banner.display_order }}</td>
         <td class="px-4 py-3">
@@ -122,16 +265,13 @@
         </td>
         <td class="px-4 py-3">
           <div class="flex items-center gap-2">
-            <!-- Toggle active -->
             <form method="post" action="{% url 'dashboard:promo_home_banner_toggle' banner.id %}" class="inline">
               {% csrf_token %}
               <button type="submit" class="px-3 py-1 rounded-lg text-xs font-semibold {% if banner.is_active %}bg-yellow-100 text-yellow-700 hover:bg-yellow-200{% else %}bg-green-100 text-green-700 hover:bg-green-200{% endif %} transition-colors">
                 {% if banner.is_active %}تعطيل{% else %}تفعيل{% endif %}
               </button>
             </form>
-            <!-- Edit (expand inline) -->
             <button type="button" onclick="toggleEdit({{ banner.id }})" class="px-3 py-1 rounded-lg text-xs font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors">تعديل</button>
-            <!-- Delete -->
             <form method="post" action="{% url 'dashboard:promo_home_banner_delete' banner.id %}" class="inline" onsubmit="return confirm('هل أنت متأكد من حذف هذا البانر؟')">
               {% csrf_token %}
               <button type="submit" class="px-3 py-1 rounded-lg text-xs font-semibold bg-red-100 text-red-700 hover:bg-red-200 transition-colors">حذف</button>
@@ -139,58 +279,9 @@
           </div>
         </td>
       </tr>
-      <!-- Inline edit row (hidden) -->
       <tr id="edit-row-{{ banner.id }}" class="bg-fuchsia-50 hidden">
         <td colspan="9" class="px-4 py-4">
-          <form method="post" action="{% url 'dashboard:promo_home_banner_update' banner.id %}" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">العنوان</label>
-                <input type="text" name="title" value="{{ banner.title }}" maxlength="200" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">نوع الوسائط</label>
-                <select name="media_type" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-                  {% for v, l in media_type_choices %}
-                  <option value="{{ v }}" {% if banner.media_type == v %}selected{% endif %}>{{ l }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">ملف جديد (اختياري)</label>
-                <input type="file" name="media_file" accept="image/*,video/mp4" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">رابط التوجيه</label>
-                <input type="url" name="link_url" value="{{ banner.link_url }}" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">معرّف مقدم الخدمة</label>
-                <input type="number" name="provider" value="{{ banner.provider_id|default:'' }}" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">ترتيب العرض</label>
-                <input type="number" name="display_order" value="{{ banner.display_order }}" min="0" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">تاريخ البداية</label>
-                <input type="datetime-local" name="start_at" value="{{ banner.start_at|date:'Y-m-d\TH:i'|default:'' }}" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-gray-600 mb-1">تاريخ النهاية</label>
-                <input type="datetime-local" name="end_at" value="{{ banner.end_at|date:'Y-m-d\TH:i'|default:'' }}" class="w-full rounded-lg border-gray-200 px-3 py-2 text-sm">
-              </div>
-            </div>
-            <div class="flex items-center gap-3 mt-3">
-              <label class="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="is_active" {% if banner.is_active %}checked{% endif %} class="rounded">
-                <span>مفعل</span>
-              </label>
-              <button type="submit" class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white text-sm font-semibold hover:bg-fuchsia-700 transition-colors">حفظ التعديلات</button>
-              <button type="button" onclick="toggleEdit({{ banner.id }})" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 text-sm font-semibold">إلغاء</button>
-            </div>
-          </form>
+          {% include "dashboard/promo_home_banners_editor.html" with form_action_url_name='dashboard:promo_home_banner_update' banner=banner is_edit=1 submit_label='حفظ التعديلات' description='جرّب تعديل القيم مباشرة ثم احفظ عندما تصل للحجم المناسب.' %}
         </td>
       </tr>
       {% empty %}
@@ -200,6 +291,6 @@
   </table>
 </div>
 
-{% load static %}
 <script src="{% static 'js/dashboard.js' %}"></script>
+<script src="{% static 'js/promo_home_banners_preview.js' %}"></script>
 {% endblock %}

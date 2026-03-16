@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -360,6 +361,21 @@ class HomeBanner(models.Model):
     )
 
     display_order = models.PositiveIntegerField("ترتيب العرض", default=0)
+    mobile_scale = models.PositiveSmallIntegerField(
+        "حجم المحتوى للجوال (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(140)],
+    )
+    tablet_scale = models.PositiveSmallIntegerField(
+        "حجم المحتوى للأجهزة المتوسطة (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(150)],
+    )
+    desktop_scale = models.PositiveSmallIntegerField(
+        "حجم المحتوى للديسكتوب (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(160)],
+    )
     is_active = models.BooleanField("مفعل", default=True)
     start_at = models.DateTimeField("تاريخ البداية", null=True, blank=True)
     end_at = models.DateTimeField("تاريخ النهاية", null=True, blank=True)

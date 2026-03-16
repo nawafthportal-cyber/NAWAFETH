@@ -28,7 +28,7 @@ def reviews_dashboard_list(request):
     date_from = (request.GET.get("date_from") or "").strip()
     date_to = (request.GET.get("date_to") or "").strip()
 
-    qs = Review.objects.select_related("provider__user", "client", "request")
+    qs = Review.objects.select_related("provider__user", "client", "request__subcategory")
 
     if rating.isdigit():
         qs = qs.filter(rating=int(rating))
@@ -78,14 +78,50 @@ def reviews_dashboard_list(request):
 @dashboard_access_required("content", write=False)
 def reviews_dashboard_detail(request, review_id: int):
     review = get_object_or_404(
-        Review.objects.select_related("provider__user", "client", "request", "moderated_by", "management_reply_by"),
+        Review.objects.select_related(
+            "provider__user",
+            "client",
+            "request__subcategory",
+            "moderated_by",
+            "management_reply_by",
+        ),
         id=review_id,
     )
+    # Compute detailed ratings list for template
+    rating_criteria = []
+    criteria_map = [
+        ("response_speed", "سرعة الاستجابة"),
+        ("cost_value", "القيمة مقابل التكلفة"),
+        ("quality", "جودة العمل"),
+        ("credibility", "المصداقية"),
+        ("on_time", "الالتزام بالموعد"),
+    ]
+    for field_name, label in criteria_map:
+        val = getattr(review, field_name, None)
+        if val is not None:
+            rating_criteria.append({"label": label, "value": val, "pct": val * 20})
+
+    # Compute priority indicator based on rating
+    if review.rating <= 2:
+        priority_label = "عالية"
+        priority_color = "rose"
+    elif review.rating == 3:
+        priority_label = "متوسطة"
+        priority_color = "amber"
+    else:
+        priority_label = "منخفضة"
+        priority_color = "emerald"
+
+    service_request = review.request
     return render(
         request,
         "dashboard/reviews_detail.html",
         {
             "review": review,
+            "service_request": service_request,
+            "rating_criteria": rating_criteria,
+            "priority_label": priority_label,
+            "priority_color": priority_color,
             "status_choices": ReviewModerationStatus.choices,
             "can_write": _dashboard_allowed(request.user, "content", write=True),
         },

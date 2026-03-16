@@ -14,7 +14,7 @@ from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.billing.models import InvoiceStatus
 from apps.core.models import PlatformConfig
-from apps.promo.models import PromoAdType, PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
+from apps.promo.models import HomeBanner, PromoAdType, PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.promo.models import PromoAdPrice
 from apps.promo.serializers import PromoRequestCreateSerializer
 from apps.notifications.models import EventLog, Notification
@@ -401,6 +401,42 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
     payload = next(row for row in r.data if row["id"] == asset.id)
     assert payload.get("provider_id") == pp.id
     assert payload.get("redirect_url") == ""
+
+
+def test_public_home_carousel_includes_device_scales(api, user):
+    provider = ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بانر داشبورد",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    banner = HomeBanner.objects.create(
+        title="dashboard hero banner",
+        media_type="image",
+        media_file=SimpleUploadedFile(
+            "dashboard-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        provider=provider,
+        display_order=3,
+        mobile_scale=92,
+        tablet_scale=108,
+        desktop_scale=128,
+        is_active=True,
+        created_by=user,
+    )
+
+    response = api.get("/api/promo/home-carousel/?limit=10")
+
+    assert response.status_code == 200
+    payload = next(row for row in response.data if row["id"] == banner.id)
+    assert payload["mobile_scale"] == 92
+    assert payload["tablet_scale"] == 108
+    assert payload["desktop_scale"] == 128
+    assert payload["provider_id"] == provider.id
 
 
 def test_public_home_banner_queryset_excludes_message_delivery_columns():

@@ -36,6 +36,7 @@ const HomePage = (() => {
   let _carouselTimer = null;     // auto-rotate timer
   let _carouselPaused = false;   // pause on interaction
   let _carouselBound = false;    // bind carousel interaction handlers once
+  let _carouselResizeBound = false;
   let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
   let _portfolioShowcaseData = [];
@@ -133,10 +134,61 @@ const HomePage = (() => {
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
+  function _readBannerScale(value, fallback, minimum, maximum) {
+    const parsed = Number.parseInt(String(value ?? ''), 10);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(minimum, Math.min(parsed, maximum));
+  }
+
+  function _lerp(start, end, t) {
+    return start + ((end - start) * t);
+  }
+
+  function _resolveResponsiveBannerScale(banner) {
+    const viewportWidth = Math.max(
+      window.innerWidth || 0,
+      document.documentElement ? document.documentElement.clientWidth : 0,
+      390,
+    );
+    const mobile = _readBannerScale(banner.mobile_scale, 100, 40, 140);
+    const tablet = _readBannerScale(banner.tablet_scale, mobile, 40, 150);
+    const desktop = _readBannerScale(banner.desktop_scale, tablet, 40, 160);
+    if (viewportWidth <= 480) return mobile / 100;
+    if (viewportWidth <= 820) {
+      return _lerp(mobile, tablet, (viewportWidth - 480) / 340) / 100;
+    }
+    if (viewportWidth <= 1600) {
+      return _lerp(tablet, desktop, (viewportWidth - 820) / 780) / 100;
+    }
+    return desktop / 100;
+  }
+
+  function _applyResponsiveBannerScales() {
+    if (!$carouselTrack || !_carouselItems.length) return;
+    $carouselTrack.querySelectorAll('.carousel-media-frame').forEach((frame) => {
+      const idx = Number.parseInt(frame.getAttribute('data-banner-index') || '', 10);
+      const banner = Number.isFinite(idx) ? _carouselItems[idx] : null;
+      const scale = banner ? _resolveResponsiveBannerScale(banner) : 1;
+      frame.style.setProperty('--banner-effective-scale', String(scale));
+    });
+  }
+
+  function _bindCarouselResize() {
+    if (_carouselResizeBound) return;
+    _carouselResizeBound = true;
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(_applyResponsiveBannerScales, 60);
+    });
+  }
+
   function _normalizeBanner(raw) {
     if (!raw || typeof raw !== 'object') return null;
     const mediaUrl = _readBannerString(raw.media_url || raw.file_url);
     if (!mediaUrl) return null;
+    const mobileScale = _readBannerScale(raw.mobile_scale, 100, 40, 140);
+    const tabletScale = _readBannerScale(raw.tablet_scale, mobileScale, 40, 150);
     return {
       id: _readBannerInt(raw.id),
       title: _readBannerString(raw.title || raw.caption),
@@ -146,6 +198,9 @@ const HomePage = (() => {
       provider_id: _readBannerInt(raw.provider_id),
       provider_display_name: _readBannerString(raw.provider_display_name),
       display_order: _readBannerInt(raw.display_order),
+      mobile_scale: mobileScale,
+      tablet_scale: tabletScale,
+      desktop_scale: _readBannerScale(raw.desktop_scale, tabletScale, 40, 160),
     };
   }
 
@@ -230,6 +285,7 @@ const HomePage = (() => {
       className: 'carousel-media-frame' + (isVideo ? ' is-video' : ' is-image'),
     });
     frame.setAttribute('data-media-ratio', 'landscape');
+    frame.style.setProperty('--banner-effective-scale', String(_resolveResponsiveBannerScale(banner)));
 
     const backdrop = UI.el('div', {
       className: 'carousel-media-backdrop' + (isVideo ? ' is-video' : ''),
@@ -792,6 +848,10 @@ const HomePage = (() => {
     });
     $carouselTrack.textContent = '';
     $carouselTrack.appendChild(frag);
+    $carouselTrack.querySelectorAll('.carousel-media-frame').forEach((frame, i) => {
+      frame.setAttribute('data-banner-index', String(i));
+    });
+    _applyResponsiveBannerScales();
     _syncCarouselSlideMedia($carouselTrack.querySelector('.carousel-slide.active'), true);
 
     // Build dots
@@ -822,6 +882,7 @@ const HomePage = (() => {
 
     // Swipe support
     _bindCarouselSwipe();
+    _bindCarouselResize();
 
     // Start auto-rotate
     _startCarouselAutoRotate();

@@ -1,5 +1,6 @@
 // ignore_for_file: unused_field, unused_element
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -784,36 +785,111 @@ class _HomeScreenState extends State<HomeScreen> {
         final mediaUrl = ApiClient.buildMediaUrl(banner.mediaUrl);
         return GestureDetector(
           onTap: () => _openBanner(banner),
-          child: mediaUrl != null && !banner.isVideo
-              ? Image.network(
-                  mediaUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _gradientPlaceholder(),
-                )
-              : Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    _gradientPlaceholder(),
-                    if (banner.isVideo)
-                      Center(
-                        child: Container(
-                          width: 54,
-                          height: 54,
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.play_arrow_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+          child: _buildAdaptiveHeroBanner(
+            banner: banner,
+            mediaUrl: mediaUrl,
+            isActive: index == _bannerCurrentPage,
+          ),
         );
       },
+    );
+  }
+
+  Widget _buildAdaptiveHeroBanner({
+    required BannerModel banner,
+    required String? mediaUrl,
+    required bool isActive,
+  }) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildHeroBannerBackdrop(banner, mediaUrl),
+        Positioned.fill(
+          child: _buildHeroBannerForeground(
+            banner: banner,
+            mediaUrl: mediaUrl,
+            isActive: isActive,
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.black.withValues(alpha: 0.18),
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroBannerBackdrop(BannerModel banner, String? mediaUrl) {
+    if (mediaUrl == null || banner.isVideo) {
+      return _gradientPlaceholder();
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Transform.scale(
+            scale: 1.08,
+            child: Image.network(
+              mediaUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.black.withValues(alpha: 0.24),
+                Colors.blueGrey.shade900.withValues(alpha: 0.18),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroBannerForeground({
+    required BannerModel banner,
+    required String? mediaUrl,
+    required bool isActive,
+  }) {
+    if (mediaUrl == null) {
+      return _gradientPlaceholder();
+    }
+
+    if (banner.isVideo) {
+      return PromoMediaTile(
+        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
+        mediaUrl: mediaUrl,
+        mediaType: 'video',
+        borderRadius: 0,
+        autoplay: true,
+        isActive: isActive,
+        fit: BoxFit.cover,
+        showVideoBadge: true,
+        fallback: _gradientPlaceholder(),
+      );
+    }
+
+    return Image.network(
+      mediaUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
     );
   }
 

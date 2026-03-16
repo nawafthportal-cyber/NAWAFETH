@@ -10,39 +10,181 @@
   <a href="{% url 'dashboard:reviews_dashboard_list' %}" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">رجوع للقائمة</a>
 </div>
 
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
-    <h2 class="text-lg font-bold text-gray-800">بيانات المراجعة</h2>
-    <div><span class="font-semibold">الطلب:</span> #{{ review.request_id }}</div>
-    <div><span class="font-semibold">المزوّد:</span> {{ review.provider.display_name }}</div>
-    <div><span class="font-semibold">العميل:</span> {{ review.client.phone }}</div>
-    <div><span class="font-semibold">التقييم:</span> {{ review.rating }}/5</div>
-    <div><span class="font-semibold">الحالة:</span> {{ review.get_moderation_status_display }}</div>
-    <div><span class="font-semibold">التعليق:</span> {{ review.comment|default:"—" }}</div>
-    <div><span class="font-semibold">رد المزود:</span> {{ review.provider_reply|default:"—" }}</div>
-    <div><span class="font-semibold">رد الإدارة:</span> {{ review.management_reply|default:"—" }}</div>
-  </section>
+{# ── KPI Cards ── #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+    <div class="text-xs text-gray-500">التقييم العام</div>
+    <div class="mt-1 text-3xl font-extrabold text-purple-700">{{ review.rating }}<span class="text-base text-gray-400 font-normal">/5</span></div>
+  </div>
+  <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+    <div class="text-xs text-gray-500">الأولوية</div>
+    <div class="mt-1">
+      <span class="inline-flex rounded-full bg-{{ priority_color }}-50 text-{{ priority_color }}-700 px-3 py-1 text-sm font-semibold">{{ priority_label }}</span>
+    </div>
+  </div>
+  <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+    <div class="text-xs text-gray-500">حالة الإدارة</div>
+    <div class="mt-1">
+      {% if review.moderation_status == "approved" %}
+      <span class="inline-flex rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-sm font-semibold">{{ review.get_moderation_status_display }}</span>
+      {% elif review.moderation_status == "rejected" %}
+      <span class="inline-flex rounded-full bg-amber-50 text-amber-700 px-3 py-1 text-sm font-semibold">{{ review.get_moderation_status_display }}</span>
+      {% elif review.moderation_status == "hidden" %}
+      <span class="inline-flex rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-sm font-semibold">{{ review.get_moderation_status_display }}</span>
+      {% else %}
+      <span class="text-gray-500 text-sm">{{ review.get_moderation_status_display }}</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-4">
+    <div class="text-xs text-gray-500">رقم الطلب</div>
+    <div class="mt-1 text-xl font-extrabold text-indigo-700">#{{ review.request_id }}</div>
+  </div>
+</div>
 
-  <section class="space-y-6">
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+  {# ── Left Column: Review Data + Rating Criteria ── #}
+  <div class="space-y-6">
+    {# ── Review Details ── #}
+    <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">بيانات المراجعة</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div>
+          <div class="text-gray-500">المزوّد</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ review.provider.display_name }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">العميل</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ review.client.first_name|default:"" }} {{ review.client.last_name|default:"" }}</div>
+          <div class="text-xs text-gray-400">{{ review.client.phone }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">نوع الطلب</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ service_request.get_request_type_display|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">حالة الطلب</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ service_request.get_status_display|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">التصنيف</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ service_request.subcategory.name|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-gray-500">تاريخ التقييم</div>
+          <div class="font-semibold text-gray-900 mt-1">{{ review.created_at|date:"Y-m-d H:i" }}</div>
+        </div>
+      </div>
+
+      {# ── Comment ── #}
+      <div class="mt-4 pt-4 border-t border-gray-100">
+        <div class="text-sm text-gray-500 mb-1">تعليق العميل</div>
+        {% if review.comment %}
+        <div class="rounded-xl bg-gray-50 p-3 text-sm text-gray-800">{{ review.comment }}</div>
+        {% else %}
+        <div class="text-sm text-gray-400">لا يوجد تعليق</div>
+        {% endif %}
+      </div>
+    </section>
+
+    {# ── Detailed Rating Criteria ── #}
+    {% if rating_criteria %}
+    <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">تفصيل التقييم</h2>
+      <div class="space-y-3">
+        {% for criterion in rating_criteria %}
+        <div class="flex items-center gap-3">
+          <div class="text-sm text-gray-700 w-40">{{ criterion.label }}</div>
+          <div class="flex-1">
+            <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+              <div class="h-full rounded-full {% if criterion.value >= 4 %}bg-emerald-500{% elif criterion.value >= 3 %}bg-amber-500{% else %}bg-rose-500{% endif %}" style="width:{{ criterion.pct }}%"></div>
+            </div>
+          </div>
+          <div class="text-sm font-bold text-gray-800 w-10 text-left">{{ criterion.value }}/5</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {# ── Provider Reply ── #}
+    <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">رد المزوّد</h2>
+      {% if review.provider_reply %}
+      <div class="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">{{ review.provider_reply }}</div>
+      <div class="text-xs text-gray-400 mt-2">
+        {{ review.provider_reply_at|date:"Y-m-d H:i"|default:"" }}
+        {% if review.provider_reply_edited_at %}
+        <span class="text-amber-600">(معدّل {{ review.provider_reply_edited_at|date:"Y-m-d H:i" }})</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="text-sm text-gray-400">لم يرد المزوّد بعد.</div>
+      {% endif %}
+    </section>
+
+    {# ── Moderation Timeline ── #}
+    {% if review.moderated_at %}
+    <section class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">سجل الإدارة</h2>
+      <div class="space-y-2 text-sm">
+        <div class="flex items-center gap-2">
+          <span class="text-gray-500">تاريخ المراجعة:</span>
+          <span class="font-semibold">{{ review.moderated_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-500">بواسطة:</span>
+          <span class="font-semibold">{{ review.moderated_by.phone|default:"—" }}</span>
+        </div>
+        {% if review.moderation_note %}
+        <div class="rounded-xl bg-amber-50 text-amber-900 p-3 mt-2">{{ review.moderation_note }}</div>
+        {% endif %}
+        {% if review.management_reply %}
+        <div class="mt-3 pt-3 border-t border-gray-100">
+          <div class="text-gray-500 mb-1">الرد الإداري:</div>
+          <div class="rounded-xl bg-indigo-50 text-indigo-900 p-3">{{ review.management_reply }}</div>
+          <div class="text-xs text-gray-400 mt-1">
+            {{ review.management_reply_at|date:"Y-m-d H:i"|default:"" }}
+            {% if review.management_reply_by %}— {{ review.management_reply_by.phone }}{% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+  </div>
+
+  {# ── Right Column: Actions ── #}
+  <div class="space-y-6">
+    {# ── Moderation Actions ── #}
     <form method="post" action="{% url 'dashboard:reviews_dashboard_moderate_action' review.id %}" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
       {% csrf_token %}
       <h2 class="text-lg font-bold text-gray-800">تغيير الحالة</h2>
-      <textarea name="moderation_note" rows="3" placeholder="ملاحظة الإجراء" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.moderation_note }}</textarea>
+      <p class="text-sm text-gray-500">اختر الإجراء المناسب للمراجعة. يمكنك إضافة ملاحظة توضيحية.</p>
+      <textarea name="moderation_note" rows="3" placeholder="ملاحظة الإجراء (اختياري)" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.moderation_note }}</textarea>
+      {% if can_write %}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
-        <button name="action" value="approve" class="rounded-lg bg-emerald-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>اعتماد</button>
-        <button name="action" value="reject" class="rounded-lg bg-amber-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>رفض</button>
-        <button name="action" value="hide" class="rounded-lg bg-rose-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>إخفاء</button>
+        <button name="action" value="approve" class="rounded-lg bg-emerald-600 text-white px-4 py-2.5 font-semibold hover:bg-emerald-700 transition-colors">اعتماد</button>
+        <button name="action" value="reject" class="rounded-lg bg-amber-600 text-white px-4 py-2.5 font-semibold hover:bg-amber-700 transition-colors">رفض</button>
+        <button name="action" value="hide" class="rounded-lg bg-rose-600 text-white px-4 py-2.5 font-semibold hover:bg-rose-700 transition-colors">إخفاء</button>
       </div>
-      {% if not can_write %}<div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>{% endif %}
+      {% else %}
+      <div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>
+      {% endif %}
     </form>
 
+    {# ── Management Reply ── #}
     <form method="post" action="{% url 'dashboard:reviews_dashboard_respond_action' review.id %}" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 space-y-3">
       {% csrf_token %}
-      <h2 class="text-lg font-bold text-gray-800">رد إداري (اختياري)</h2>
-      <textarea name="management_reply" rows="4" placeholder="اكتب رد الإدارة" class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.management_reply }}</textarea>
-      <button class="rounded-lg bg-indigo-600 text-white px-4 py-2 font-semibold" {% if not can_write %}disabled{% endif %}>حفظ الرد</button>
-      {% if not can_write %}<div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>{% endif %}
+      <h2 class="text-lg font-bold text-gray-800">رد إداري</h2>
+      <p class="text-sm text-gray-500">أضف رداً إدارياً يظهر للعميل والمزوّد.</p>
+      <textarea name="management_reply" rows="4" placeholder="اكتب رد الإدارة..." class="w-full rounded-lg border-gray-200 px-3 py-2" {% if not can_write %}disabled{% endif %}>{{ review.management_reply }}</textarea>
+      {% if can_write %}
+      <button class="rounded-lg bg-indigo-600 text-white px-4 py-2.5 font-semibold hover:bg-indigo-700 transition-colors">حفظ الرد</button>
+      {% else %}
+      <div class="text-xs text-gray-500">صلاحية القراءة فقط.</div>
+      {% endif %}
     </form>
-  </section>
+  </div>
 </div>
 {% endblock %}

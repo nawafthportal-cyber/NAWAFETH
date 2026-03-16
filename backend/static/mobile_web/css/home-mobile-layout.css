@@ -701,6 +701,7 @@ body.home-mobile-layout .reel-item:hover {
   isolation: isolate;
   --carousel-media-pad-inline: clamp(12px, 2.6vw, 24px);
   --carousel-media-pad-block: clamp(12px, 2.2vw, 22px);
+  --banner-effective-scale: 1;
 }
 
 .carousel-media-backdrop {
@@ -776,6 +777,9 @@ body.home-mobile-layout .reel-item:hover {
   border-radius: clamp(12px, 1.8vw, 22px);
   background: rgba(2,6,23,.18);
   box-shadow: 0 18px 44px rgba(2,6,23,.26);
+  transform: scale(var(--banner-effective-scale));
+  transform-origin: center center;
+  will-change: transform;
 }
 
 .carousel-media-frame[data-media-ratio="portrait"] {

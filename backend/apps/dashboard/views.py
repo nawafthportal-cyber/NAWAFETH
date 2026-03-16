@@ -3258,6 +3258,14 @@ def promo_activate_action(request: HttpRequest, promo_id: int) -> HttpResponse:
 # ---------- Home Banner (Carousel) Management ----------
 
 
+def _parse_home_banner_scale(raw_value: str | None, *, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(str(raw_value or "").strip())
+    except (TypeError, ValueError):
+        return default
+    return max(minimum, min(value, maximum))
+
+
 @staff_member_required
 @dashboard_access_required("promo")
 def promo_home_banners_list(request: HttpRequest) -> HttpResponse:
@@ -3265,6 +3273,13 @@ def promo_home_banners_list(request: HttpRequest) -> HttpResponse:
     ctx = {
         "banners": qs,
         "media_type_choices": HomeBannerMediaType.choices,
+        "mobile_scale_min": 40,
+        "mobile_scale_max": 140,
+        "tablet_scale_min": 40,
+        "tablet_scale_max": 150,
+        "desktop_scale_min": 40,
+        "desktop_scale_max": 160,
+        "default_banner_scale": 100,
     }
     ctx.update(_promo_dashboard_menu_context(active=PromoServiceType.HOME_BANNER))
     return render(request, "dashboard/promo_home_banners.html", ctx)
@@ -3278,6 +3293,9 @@ def promo_home_banner_create(request: HttpRequest) -> HttpResponse:
     media_type = (request.POST.get("media_type") or "image").strip()
     link_url = (request.POST.get("link_url") or "").strip()
     display_order = request.POST.get("display_order") or "0"
+    mobile_scale = request.POST.get("mobile_scale")
+    tablet_scale = request.POST.get("tablet_scale")
+    desktop_scale = request.POST.get("desktop_scale")
     provider_id = request.POST.get("provider") or ""
     start_at = (request.POST.get("start_at") or "").strip()
     end_at = (request.POST.get("end_at") or "").strip()
@@ -3302,6 +3320,9 @@ def promo_home_banner_create(request: HttpRequest) -> HttpResponse:
         media_file=media_file,
         link_url=link_url,
         display_order=order,
+        mobile_scale=_parse_home_banner_scale(mobile_scale, default=100, minimum=40, maximum=140),
+        tablet_scale=_parse_home_banner_scale(tablet_scale, default=100, minimum=40, maximum=150),
+        desktop_scale=_parse_home_banner_scale(desktop_scale, default=100, minimum=40, maximum=160),
         provider=provider,
         created_by=request.user,
         is_active=True,
@@ -3348,6 +3369,30 @@ def promo_home_banner_update(request: HttpRequest, banner_id: int) -> HttpRespon
             banner.display_order = int(display_order)
         except (ValueError, TypeError):
             pass
+
+    if "mobile_scale" in request.POST:
+        banner.mobile_scale = _parse_home_banner_scale(
+            request.POST.get("mobile_scale"),
+            default=banner.mobile_scale or 100,
+            minimum=40,
+            maximum=140,
+        )
+
+    if "desktop_scale" in request.POST:
+        banner.desktop_scale = _parse_home_banner_scale(
+            request.POST.get("desktop_scale"),
+            default=banner.desktop_scale or 100,
+            minimum=40,
+            maximum=160,
+        )
+
+    if "tablet_scale" in request.POST:
+        banner.tablet_scale = _parse_home_banner_scale(
+            request.POST.get("tablet_scale"),
+            default=banner.tablet_scale or 100,
+            minimum=40,
+            maximum=150,
+        )
 
     provider_id = request.POST.get("provider") or ""
     if provider_id:

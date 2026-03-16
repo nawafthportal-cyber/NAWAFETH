@@ -77,6 +77,7 @@
         <div class="font-semibold text-emerald-800">الشارة مفعلة حاليًا</div>
         <div class="text-emerald-700 mt-2">صالحة حتى {{ active_award.valid_until|date:'Y-m-d H:i' }}</div>
       </div>
+      {% if can_write %}
       <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' active_award.id %}" class="space-y-3">
         {% csrf_token %}
         <input type="hidden" name="next" value="{% url 'dashboard:excellence_candidate_detail' candidate.id %}">
@@ -84,6 +85,10 @@
         <button class="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold">سحب الشارة</button>
       </form>
       {% else %}
+      <div class="text-xs text-gray-500 mt-2">صلاحية القراءة فقط</div>
+      {% endif %}
+      {% else %}
+      {% if can_write %}
       <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}" class="space-y-3">
         {% csrf_token %}
         <input type="hidden" name="next" value="{% url 'dashboard:excellence_candidate_detail' candidate.id %}">
@@ -97,6 +102,9 @@
         </div>
         <button class="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold">اعتماد الشارة</button>
       </form>
+      {% else %}
+      <div class="text-xs text-gray-500 mt-2">صلاحية القراءة فقط</div>
+      {% endif %}
       {% endif %}
     </div>
   </div>

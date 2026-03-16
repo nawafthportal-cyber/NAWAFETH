@@ -94,6 +94,7 @@
           <td class="px-4 py-3">
             <div class="flex flex-wrap items-center gap-2">
               <a href="{% url 'dashboard:excellence_candidate_detail' candidate.id %}" class="px-3 py-2 rounded-lg bg-white border border-gray-200 font-semibold text-xs">التفاصيل</a>
+              {% if can_write %}
               {% if candidate.active_award %}
               <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' candidate.active_award.id %}">
                 {% csrf_token %}
@@ -106,6 +107,7 @@
                 <input type="hidden" name="next" value="{{ request.get_full_path }}">
                 <button class="px-3 py-2 rounded-lg bg-amber-600 text-white font-semibold text-xs">اعتماد</button>
               </form>
+              {% endif %}
               {% endif %}
             </div>
           </td>

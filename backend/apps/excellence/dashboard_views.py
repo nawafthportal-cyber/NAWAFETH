@@ -15,6 +15,7 @@ from apps.dashboard.auth import dashboard_staff_required as staff_member_require
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.dashboard.views import (
     _csv_response,
+    _dashboard_allowed,
     _parse_datetime_local,
     _want_csv,
     _want_pdf,
@@ -174,6 +175,7 @@ def excellence_dashboard(request: HttpRequest) -> HttpResponse:
             "active_awards_count": active_awards_count,
             "expiring_soon_count": expiring_soon_count,
             "current_cycle_end": current_end,
+            "can_write": _dashboard_allowed(request.user, "excellence", write=True),
         },
     )
 
@@ -205,7 +207,7 @@ def excellence_candidate_detail(request: HttpRequest, candidate_id: int) -> Http
             "candidate": candidate,
             "awards": awards,
             "active_award": active_award,
-            "can_write": True,
+            "can_write": _dashboard_allowed(request.user, "excellence", write=True),
         },
     )
 

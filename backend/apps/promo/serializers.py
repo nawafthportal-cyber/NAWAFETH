@@ -598,6 +598,9 @@ class HomeBannerSerializer(serializers.ModelSerializer):
             "provider_id",
             "provider_display_name",
             "display_order",
+            "mobile_scale",
+            "tablet_scale",
+            "desktop_scale",
         ]
 
     def get_provider_id(self, obj) -> int:

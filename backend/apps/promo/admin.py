@@ -24,7 +24,18 @@ class PromoRequestAdmin(admin.ModelAdmin):
 
 @admin.register(HomeBanner)
 class HomeBannerAdmin(admin.ModelAdmin):
-    list_display = ("title", "media_type", "is_active", "display_order", "start_at", "end_at", "created_at")
+    list_display = (
+        "title",
+        "media_type",
+        "mobile_scale",
+        "tablet_scale",
+        "desktop_scale",
+        "is_active",
+        "display_order",
+        "start_at",
+        "end_at",
+        "created_at",
+    )
     list_filter = ("media_type", "is_active")
     search_fields = ("title",)
     ordering = ("display_order", "-created_at")
