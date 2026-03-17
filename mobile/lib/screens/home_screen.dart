@@ -800,32 +800,71 @@ class _HomeScreenState extends State<HomeScreen> {
     required String? mediaUrl,
     required bool isActive,
   }) {
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _buildHeroBannerBackdrop(banner, mediaUrl),
-        Positioned.fill(
-          child: _buildHeroBannerForeground(
-            banner: banner,
-            mediaUrl: mediaUrl,
-            isActive: isActive,
-          ),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.black.withValues(alpha: 0.18),
-                Colors.transparent,
-                Colors.black.withValues(alpha: 0.08),
-              ],
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width;
+        final viewportHeight =
+            constraints.maxHeight.isFinite && constraints.maxHeight > 0
+                ? constraints.maxHeight
+                : 280.0;
+        final stagePadding = _heroBannerStagePadding(
+          width: viewportWidth,
+          height: viewportHeight,
+        );
+        final borderRadius =
+            _clampResponsiveValue(viewportWidth * 0.05, 18, 26);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildHeroBannerBackdrop(banner, mediaUrl),
+            Positioned.fill(
+              child: Padding(
+                padding: stagePadding,
+                child: _buildHeroBannerForeground(
+                  banner: banner,
+                  mediaUrl: mediaUrl,
+                  isActive: isActive,
+                  scale: banner.scaleForWidth(viewportWidth),
+                  borderRadius: borderRadius,
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.black.withValues(alpha: 0.18),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.08),
+                  ],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
+  }
+
+  double _clampResponsiveValue(double value, double minimum, double maximum) {
+    if (value < minimum) return minimum;
+    if (value > maximum) return maximum;
+    return value;
+  }
+
+  EdgeInsets _heroBannerStagePadding({
+    required double width,
+    required double height,
+  }) {
+    final horizontal = _clampResponsiveValue(width * 0.045, 12, 36);
+    final top = _clampResponsiveValue(height * 0.2, 48, 72);
+    final bottom = _clampResponsiveValue(height * 0.34, 84, 118);
+    return EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom);
   }
 
   Widget _buildHeroBannerBackdrop(BannerModel banner, String? mediaUrl) {
@@ -867,30 +906,50 @@ class _HomeScreenState extends State<HomeScreen> {
     required BannerModel banner,
     required String? mediaUrl,
     required bool isActive,
+    required double scale,
+    required double borderRadius,
   }) {
     if (mediaUrl == null) {
       return _gradientPlaceholder();
     }
 
-    if (banner.isVideo) {
-      return PromoMediaTile(
-        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-        mediaUrl: mediaUrl,
-        mediaType: 'video',
-        borderRadius: 0,
-        autoplay: true,
-        isActive: isActive,
-        fit: BoxFit.cover,
-        showVideoBadge: true,
-        fallback: _gradientPlaceholder(),
-      );
-    }
-
-    return Image.network(
-      mediaUrl,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+    final radius = BorderRadius.circular(borderRadius);
+    final foreground = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: banner.isVideo ? 0.32 : 0.18),
+          child: banner.isVideo
+              ? PromoMediaTile(
+                  key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
+                  mediaUrl: mediaUrl,
+                  mediaType: 'video',
+                  borderRadius: 0,
+                  autoplay: true,
+                  isActive: isActive,
+                  fit: BoxFit.contain,
+                  showVideoBadge: false,
+                  fallback: _gradientPlaceholder(),
+                )
+              : Image.network(
+                  mediaUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+                ),
+        ),
+      ),
     );
+    return Transform.scale(scale: scale, child: foreground);
   }
 
   Widget _heroIconBtn({

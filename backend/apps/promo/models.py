@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
@@ -10,6 +11,27 @@ from apps.providers.models import ProviderProfile, ProviderPortfolioItem
 from apps.support.models import SupportTicket
 
 from .validators import validate_file_size, validate_extension
+
+
+_HOME_BANNER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+_HOME_BANNER_VIDEO_EXTENSIONS = {".mp4"}
+
+
+def _file_extension(file_obj) -> str:
+    name = str(getattr(file_obj, "name", "") or "").lower().strip()
+    if "." not in name:
+        return ""
+    return "." + name.rsplit(".", 1)[-1]
+
+
+def _detect_home_banner_media_type(file_obj) -> str | None:
+    ext = _file_extension(file_obj)
+    content_type = str(getattr(file_obj, "content_type", "") or "").lower().strip()
+    if content_type.startswith("image/") or ext in _HOME_BANNER_IMAGE_EXTENSIONS:
+        return HomeBannerMediaType.IMAGE
+    if content_type.startswith("video/") or ext in _HOME_BANNER_VIDEO_EXTENSIONS:
+        return HomeBannerMediaType.VIDEO
+    return None
 
 
 class PromoRequestStatus(models.TextChoices):
@@ -155,6 +177,21 @@ class PromoRequest(models.Model):
 
     # رابط توجيه (اختياري)
     redirect_url = models.URLField(blank=True)
+    mobile_scale = models.PositiveSmallIntegerField(
+        "حجم محتوى بانر الرئيسية للجوال (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(140)],
+    )
+    tablet_scale = models.PositiveSmallIntegerField(
+        "حجم محتوى بانر الرئيسية للأجهزة المتوسطة (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(150)],
+    )
+    desktop_scale = models.PositiveSmallIntegerField(
+        "حجم محتوى بانر الرئيسية للديسكتوب (%)",
+        default=100,
+        validators=[MinValueValidator(40), MaxValueValidator(160)],
+    )
 
     status = models.CharField(max_length=25, choices=PromoRequestStatus.choices, default=PromoRequestStatus.NEW)
 
@@ -397,6 +434,22 @@ class HomeBanner(models.Model):
 
     def __str__(self):
         return self.title
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.start_at and self.end_at and self.end_at <= self.start_at:
+            errors["end_at"] = "تاريخ النهاية يجب أن يكون بعد تاريخ البداية."
+
+        if self.media_file:
+            detected_type = _detect_home_banner_media_type(self.media_file)
+            if detected_type is None:
+                errors["media_file"] = "بانر الصفحة الرئيسية يقبل الصور أو فيديو MP4 فقط."
+            elif self.media_type != detected_type:
+                errors["media_type"] = "نوع الوسائط المحدد لا يطابق الملف المرفوع."
+
+        if errors:
+            raise ValidationError(errors)
 
 
 class PromoInquiryProfile(models.Model):

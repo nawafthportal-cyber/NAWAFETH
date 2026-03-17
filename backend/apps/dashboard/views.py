@@ -366,6 +366,11 @@ def _promo_dashboard_error_messages(detail) -> list[str]:
     return [str(detail)]
 
 
+def _promo_dashboard_first_error(detail, fallback: str) -> str:
+    messages_list = _promo_dashboard_error_messages(detail)
+    return messages_list[0] if messages_list else fallback
+
+
 def _promo_asset_type_from_upload(file_obj) -> str:
     ext = (file_obj.name.rsplit(".", 1)[-1] if "." in file_obj.name else "").lower()
     if ext in {"mp4", "mov", "avi", "webm", "mkv", "m4v"}:
@@ -3266,6 +3271,29 @@ def _parse_home_banner_scale(raw_value: str | None, *, default: int, minimum: in
     return max(minimum, min(value, maximum))
 
 
+def _home_banner_scale_payload(post_data, *, prefix: str = "") -> dict[str, int]:
+    return {
+        "mobile_scale": _parse_home_banner_scale(
+            post_data.get(f"{prefix}mobile_scale"),
+            default=100,
+            minimum=40,
+            maximum=140,
+        ),
+        "tablet_scale": _parse_home_banner_scale(
+            post_data.get(f"{prefix}tablet_scale"),
+            default=100,
+            minimum=40,
+            maximum=150,
+        ),
+        "desktop_scale": _parse_home_banner_scale(
+            post_data.get(f"{prefix}desktop_scale"),
+            default=100,
+            minimum=40,
+            maximum=160,
+        ),
+    }
+
+
 @staff_member_required
 @dashboard_access_required("promo")
 def promo_home_banners_list(request: HttpRequest) -> HttpResponse:
@@ -3320,9 +3348,13 @@ def promo_home_banner_create(request: HttpRequest) -> HttpResponse:
         media_file=media_file,
         link_url=link_url,
         display_order=order,
-        mobile_scale=_parse_home_banner_scale(mobile_scale, default=100, minimum=40, maximum=140),
-        tablet_scale=_parse_home_banner_scale(tablet_scale, default=100, minimum=40, maximum=150),
-        desktop_scale=_parse_home_banner_scale(desktop_scale, default=100, minimum=40, maximum=160),
+        **_home_banner_scale_payload(
+            {
+                "mobile_scale": mobile_scale,
+                "tablet_scale": tablet_scale,
+                "desktop_scale": desktop_scale,
+            }
+        ),
         provider=provider,
         created_by=request.user,
         is_active=True,
@@ -3340,7 +3372,18 @@ def promo_home_banner_create(request: HttpRequest) -> HttpResponse:
         except (ValueError, TypeError):
             pass
 
-    banner.save()
+    try:
+        banner.full_clean()
+        banner.save()
+    except ValidationError as exc:
+        messages.error(
+            request,
+            _promo_dashboard_first_error(
+                getattr(exc, "message_dict", None) or getattr(exc, "messages", None),
+                "تعذر حفظ البانر",
+            ),
+        )
+        return redirect("dashboard:promo_home_banners")
     messages.success(request, f"تم إنشاء البانر: {title}")
     return redirect("dashboard:promo_home_banners")
 
@@ -3425,7 +3468,18 @@ def promo_home_banner_update(request: HttpRequest, banner_id: int) -> HttpRespon
     is_active = request.POST.get("is_active")
     banner.is_active = is_active == "on" or is_active == "1"
 
-    banner.save()
+    try:
+        banner.full_clean()
+        banner.save()
+    except ValidationError as exc:
+        messages.error(
+            request,
+            _promo_dashboard_first_error(
+                getattr(exc, "message_dict", None) or getattr(exc, "messages", None),
+                "تعذر تحديث البانر",
+            ),
+        )
+        return redirect("dashboard:promo_home_banners")
     messages.success(request, f"تم تحديث البانر: {banner.title}")
     return redirect("dashboard:promo_home_banners")
 
@@ -3488,6 +3542,10 @@ def promo_campaign_create(request: HttpRequest) -> HttpResponse:
         use_notification_channel = bool(request.POST.get("use_notification_channel"))
         use_chat_channel = bool(request.POST.get("use_chat_channel"))
         uploaded_assets = [file_obj for file_obj in request.FILES.getlist("assets") if file_obj]
+        request_scale_payload = _home_banner_scale_payload(request.POST, prefix="home_banner_")
+        applies_home_banner_scales = PromoServiceType.HOME_BANNER in service_types or (
+            not service_types and ad_type == PromoAdType.BANNER_HOME
+        )
 
         if not title:
             messages.error(request, "عنوان الحملة مطلوب")
@@ -3618,6 +3676,8 @@ def promo_campaign_create(request: HttpRequest) -> HttpResponse:
                 "title": title,
                 "items": items,
             }
+            if applies_home_banner_scales:
+                payload.update(request_scale_payload)
         else:
             if start_at is None or end_at is None:
                 messages.error(request, "تاريخ البداية والنهاية مطلوبان للحملة المباشرة.")
@@ -3631,6 +3691,8 @@ def promo_campaign_create(request: HttpRequest) -> HttpResponse:
                 "frequency": frequency,
                 "position": position,
             }
+            if ad_type == PromoAdType.BANNER_HOME:
+                payload.update(request_scale_payload)
             if target_category:
                 payload["target_category"] = target_category
             if target_city:
@@ -3694,6 +3756,13 @@ def promo_campaign_create(request: HttpRequest) -> HttpResponse:
             (PromoRequestStatus.ACTIVE, "مفعل — تبدأ فوراً"),
             (PromoRequestStatus.NEW, "جديد — تحتاج مراجعة"),
         ],
+        "mobile_scale_min": 40,
+        "mobile_scale_max": 140,
+        "tablet_scale_min": 40,
+        "tablet_scale_max": 150,
+        "desktop_scale_min": 40,
+        "desktop_scale_max": 160,
+        "default_banner_scale": 100,
         "can_write": True,
     }
     ctx.update(_promo_dashboard_menu_context(active="create_campaign"))

@@ -17,7 +17,7 @@ from apps.dashboard.templatetags.dashboard_access import can_access
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.providers.models import Category, ProviderProfile, SubCategory
-from apps.promo.models import PromoAdType, PromoRequest, PromoRequestStatus, PromoServiceType
+from apps.promo.models import HomeBanner, PromoAdType, PromoRequest, PromoRequestStatus, PromoServiceType
 from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.support.models import SupportTicket, SupportTicketType, SupportTicketStatus, SupportPriority, SupportTeam
@@ -1905,6 +1905,9 @@ def test_promo_campaign_create_dashboard_creates_bundle_request_with_valid_items
             "promo_message_body": "تفاصيل العرض التشغيلي",
             "promo_attachment_specs": "صورة مربعة",
             "use_notification_channel": "on",
+            "home_banner_mobile_scale": "92",
+            "home_banner_tablet_scale": "104",
+            "home_banner_desktop_scale": "118",
             "service_types": [
                 PromoServiceType.HOME_BANNER,
                 PromoServiceType.SEARCH_RESULTS,
@@ -1921,6 +1924,9 @@ def test_promo_campaign_create_dashboard_creates_bundle_request_with_valid_items
     assert pr.assigned_to_id == staff_user.id
     assert pr.assets.count() == 1
     assert pr.items.count() == 3
+    assert pr.mobile_scale == 92
+    assert pr.tablet_scale == 104
+    assert pr.desktop_scale == 118
 
     search_item = pr.items.get(service_type=PromoServiceType.SEARCH_RESULTS)
     assert search_item.search_scope == "main_results"
@@ -1932,6 +1938,40 @@ def test_promo_campaign_create_dashboard_creates_bundle_request_with_valid_items
     assert message_item.use_notification_channel is True
     assert message_item.use_chat_channel is False
     assert message_item.message_body == "تفاصيل العرض التشغيلي"
+
+
+@pytest.mark.django_db
+def test_promo_home_banner_create_dashboard_rejects_media_type_mismatch():
+    staff_user = User.objects.create_user(
+        phone="0500000810",
+        password="Pass12345!",
+        is_staff=True,
+    )
+    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    response = c.post(
+        reverse("dashboard:promo_home_banner_create"),
+        data={
+            "title": "بانر غير متوافق",
+            "media_type": "video",
+            "display_order": "1",
+            "media_file": SimpleUploadedFile(
+                "banner.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+        },
+    )
+
+    assert response.status_code == 302
+    assert HomeBanner.objects.count() == 0
 
 
 @pytest.mark.django_db

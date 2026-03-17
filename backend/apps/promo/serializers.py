@@ -26,6 +26,14 @@ from .models import (
 )
 
 
+def _read_banner_scale(value, *, fallback: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(minimum, min(parsed, maximum))
+
+
 class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
     provider_id = serializers.SerializerMethodField()
     provider_display_name = serializers.SerializerMethodField()
@@ -35,6 +43,9 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
     file_url = serializers.FileField(source="file", read_only=True)
     caption = serializers.SerializerMethodField()
     redirect_url = serializers.SerializerMethodField()
+    mobile_scale = serializers.SerializerMethodField()
+    tablet_scale = serializers.SerializerMethodField()
+    desktop_scale = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField(source="uploaded_at", read_only=True)
 
     class Meta:
@@ -49,6 +60,9 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
             "file_url",
             "caption",
             "redirect_url",
+            "mobile_scale",
+            "tablet_scale",
+            "desktop_scale",
             "created_at",
         ]
 
@@ -100,6 +114,22 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
         if item and item.redirect_url:
             return str(item.redirect_url)
         return str(getattr(obj.request, "redirect_url", "") or "")
+
+    def _banner_scale_values(self, obj: PromoAsset) -> tuple[int, int, int]:
+        request = getattr(obj, "request", None)
+        mobile = _read_banner_scale(getattr(request, "mobile_scale", None), fallback=100, minimum=40, maximum=140)
+        tablet = _read_banner_scale(getattr(request, "tablet_scale", None), fallback=mobile, minimum=40, maximum=150)
+        desktop = _read_banner_scale(getattr(request, "desktop_scale", None), fallback=tablet, minimum=40, maximum=160)
+        return mobile, tablet, desktop
+
+    def get_mobile_scale(self, obj: PromoAsset) -> int:
+        return self._banner_scale_values(obj)[0]
+
+    def get_tablet_scale(self, obj: PromoAsset) -> int:
+        return self._banner_scale_values(obj)[1]
+
+    def get_desktop_scale(self, obj: PromoAsset) -> int:
+        return self._banner_scale_values(obj)[2]
 
 
 class PromoAssetSerializer(serializers.ModelSerializer):
@@ -285,6 +315,9 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             "message_title",
             "message_body",
             "redirect_url",
+            "mobile_scale",
+            "tablet_scale",
+            "desktop_scale",
             "items",
         ]
         read_only_fields = ["id", "code"]
@@ -369,6 +402,16 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         if items_data:
             provider_profile = getattr(user, "provider_profile", None)
             normalized_items = []
+            bundle_request_fields = {
+                "target_category",
+                "target_city",
+                "target_provider",
+                "target_portfolio_item",
+                "redirect_url",
+                "mobile_scale",
+                "tablet_scale",
+                "desktop_scale",
+            }
             auto_targeted_service_types = {
                 PromoServiceType.FEATURED_SPECIALISTS,
                 PromoServiceType.PORTFOLIO_SHOWCASE,
@@ -398,6 +441,11 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             sends = [point for kind, point in schedule_points if kind == "send"]
             request_start = min(starts) if starts else (min(sends) if sends else timezone.now())
             request_end = max(ends) if ends else (max(sends) if sends else request_start)
+            bundle_request_data = {
+                key: value
+                for key, value in validated_data.items()
+                if key in bundle_request_fields
+            }
             pr = PromoRequest.objects.create(
                 requester=user,
                 title=(validated_data.get("title") or "طلب ترويج متعدد الخدمات")[:160],
@@ -408,6 +456,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 position=PromoPosition.NORMAL,
                 status=PromoRequestStatus.NEW,
                 ops_status=PromoOpsStatus.NEW,
+                **bundle_request_data,
             )
             for row in normalized_items:
                 PromoRequestItem.objects.create(request=pr, **row)
@@ -471,6 +520,9 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "message_title",
             "message_body",
             "redirect_url",
+            "mobile_scale",
+            "tablet_scale",
+            "desktop_scale",
             "status",
             "ops_status",
             "subtotal",

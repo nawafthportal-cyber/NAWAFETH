@@ -272,7 +272,7 @@
 
     function syncMedia() {
       let source = initialSrc;
-      let sourceKind = source ? initialKind : normalizeMediaType(mediaTypeInput?.value);
+      let sourceKind = normalizeMediaType(mediaTypeInput?.value || initialKind);
       const selectedFile = fileInput?.files && fileInput.files[0] ? fileInput.files[0] : null;
 
       if (selectedFile) {

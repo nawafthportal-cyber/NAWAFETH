@@ -283,6 +283,9 @@ def test_public_home_banners_only_from_active_promo(api, user):
         frequency="60s",
         position="normal",
         redirect_url="https://example.com/promo",
+        mobile_scale=94,
+        tablet_scale=106,
+        desktop_scale=118,
         status=PromoRequestStatus.ACTIVE,
         activated_at=now,
     )
@@ -305,6 +308,9 @@ def test_public_home_banners_only_from_active_promo(api, user):
     active_item = next(item for item in r.data if item["id"] == asset.id)
     assert active_item.get("file")
     assert active_item.get("redirect_url") == "https://example.com/promo"
+    assert active_item.get("mobile_scale") == 94
+    assert active_item.get("tablet_scale") == 106
+    assert active_item.get("desktop_scale") == 118
     # Ensure inactive request assets are not included.
     assert all(item.get("caption") != "should not show" for item in r.data)
 
@@ -373,6 +379,9 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
         end_at=now + timedelta(days=1),
         frequency="60s",
         position="normal",
+        mobile_scale=88,
+        tablet_scale=96,
+        desktop_scale=112,
         status=PromoRequestStatus.ACTIVE,
         activated_at=now,
     )
@@ -401,6 +410,9 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
     payload = next(row for row in r.data if row["id"] == asset.id)
     assert payload.get("provider_id") == pp.id
     assert payload.get("redirect_url") == ""
+    assert payload.get("mobile_scale") == 88
+    assert payload.get("tablet_scale") == 96
+    assert payload.get("desktop_scale") == 112
 
 
 def test_public_home_carousel_includes_device_scales(api, user):
