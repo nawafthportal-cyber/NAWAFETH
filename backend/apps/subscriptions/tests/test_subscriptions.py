@@ -1,10 +1,12 @@
 import pytest
 from datetime import timedelta
+from django.test import override_settings
 from rest_framework.test import APIClient
 from decimal import Decimal
 from django.utils import timezone
 
 from apps.accounts.models import User, UserRole
+from apps.analytics.models import AnalyticsEvent
 from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import SubscriptionPlan, PlanPeriod, Subscription, SubscriptionStatus
@@ -425,3 +427,41 @@ def test_provider_subscription_pages_render_arabic_titles(client):
 
     assert summary_page.status_code == 200
     assert "ملخص الاشتراك والترقية" in summary_page.content.decode("utf-8")
+
+
+@override_settings(FEATURE_ANALYTICS_EVENTS=True)
+def test_subscription_checkout_and_activation_emit_analytics_events(api, user):
+    plan = SubscriptionPlan.objects.create(
+        code="PRO_ANALYTICS",
+        tier="pro",
+        title="Pro Analytics",
+        period=PlanPeriod.MONTH,
+        price=Decimal("25.00"),
+    )
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    response = api.post(f"/api/subscriptions/subscribe/{plan.pk}/")
+
+    assert response.status_code == 201
+    sub = Subscription.objects.select_related("invoice").get(pk=response.data["id"])
+    sub.invoice.mark_payment_confirmed(
+        provider="mock",
+        provider_reference="analytics-subscription",
+        event_id="analytics-subscription-event",
+        amount=sub.invoice.total,
+        currency=sub.invoice.currency,
+    )
+    sub.invoice.save()
+    activate_subscription_after_payment(sub=sub)
+
+    assert AnalyticsEvent.objects.filter(
+        event_name="subscriptions.checkout_created",
+        object_type="Subscription",
+        object_id=str(sub.id),
+    ).exists()
+    assert AnalyticsEvent.objects.filter(
+        event_name="subscriptions.activated",
+        object_type="Subscription",
+        object_id=str(sub.id),
+    ).exists()

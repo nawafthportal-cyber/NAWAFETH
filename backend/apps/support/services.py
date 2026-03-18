@@ -70,6 +70,12 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
         note=(note or "")[:200],
     )
     _sync_ticket_to_unified(ticket=ticket, changed_by=by_user)
+    try:
+        from apps.moderation.integrations import sync_support_ticket_case
+
+        sync_support_ticket_case(ticket=ticket, by_user=by_user, note=note)
+    except Exception:
+        pass
 
     # Notify ticket requester immediately when support status changes.
     status_labels = {
@@ -129,5 +135,11 @@ def assign_ticket(*, ticket: SupportTicket, team_id, user_id, by_user, note: str
         change_ticket_status(ticket=ticket, new_status=SupportTicketStatus.IN_PROGRESS, by_user=by_user, note=note)
     else:
         _sync_ticket_to_unified(ticket=ticket, changed_by=by_user)
+        try:
+            from apps.moderation.integrations import sync_support_ticket_case
+
+            sync_support_ticket_case(ticket=ticket, by_user=by_user, note=note or "support_assign")
+        except Exception:
+            pass
 
     return ticket

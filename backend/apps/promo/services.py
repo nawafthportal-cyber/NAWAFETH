@@ -1125,6 +1125,27 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
     )
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
     _notify_promo_status_change(pr=pr, status=PromoRequestStatus.PENDING_PAYMENT, actor=by_user)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="promo.request_quoted",
+            channel="server",
+            surface="promo.quote_and_create_invoice",
+            source_app="promo",
+            object_type="PromoRequest",
+            object_id=str(pr.id),
+            actor=by_user,
+            dedupe_key=f"promo.request_quoted:{pr.id}:{pr.invoice_id}",
+            payload={
+                "invoice_id": pr.invoice_id,
+                "subtotal": str(pr.subtotal or "0.00"),
+                "total_days": pr.total_days,
+                "status": pr.status,
+            },
+        )
+    except Exception:
+        pass
 
     if pr.invoice and money_round(Decimal(pr.invoice.total or 0)) <= Decimal("0.00"):
         pr.invoice.mark_paid()
@@ -1183,6 +1204,26 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
     pr.save(update_fields=["status", "activated_at", "updated_at"])
     _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
     _notify_promo_status_change(pr=pr, status=PromoRequestStatus.ACTIVE, actor=pr.requester)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="promo.request_activated",
+            channel="server",
+            surface="promo.activate_after_payment",
+            source_app="promo",
+            object_type="PromoRequest",
+            object_id=str(pr.id),
+            actor=pr.requester,
+            dedupe_key=f"promo.request_activated:{pr.id}:{pr.activated_at.isoformat() if pr.activated_at else ''}",
+            payload={
+                "invoice_id": pr.invoice_id,
+                "activated_at": pr.activated_at.isoformat() if pr.activated_at else None,
+                "status": pr.status,
+            },
+        )
+    except Exception:
+        pass
 
     try:
         from apps.audit.models import AuditAction

@@ -10,6 +10,7 @@ from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from apps.backoffice.policies import VerificationFinalizePolicy
 from apps.billing.models import InvoiceLineItem
 from apps.dashboard.access import dashboard_assignee_user
 
@@ -300,6 +301,15 @@ class BackofficeFinalizeRequestView(APIView):
     def post(self, request, pk: int):
         vr = get_object_or_404(VerificationRequest, pk=pk)
         self.check_object_permissions(request, vr)
+        policy = VerificationFinalizePolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="verification.request",
+            reference_id=str(vr.id),
+            extra={"surface": "api.verification.finalize"},
+        )
+        if not policy.allowed:
+            return Response({"detail": "غير مصرح", "reason": policy.reason}, status=status.HTTP_403_FORBIDDEN)
 
         try:
             vr = finalize_request_and_create_invoice(vr=vr, by_user=request.user)

@@ -10,6 +10,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.analytics.models import AnalyticsEvent
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.billing.models import InvoiceStatus
@@ -105,6 +106,20 @@ def _active_pro_subscription(user, code: str):
         status=SubscriptionStatus.ACTIVE,
         start_at=timezone.now(),
         end_at=timezone.now() + timedelta(days=30),
+    )
+
+
+def _ensure_provider_requester(user):
+    profile = getattr(user, "provider_profile", None)
+    if profile is not None:
+        return profile
+    return ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name=f"مزود {user.phone}",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
     )
 
 
@@ -536,7 +551,82 @@ def test_invoice_paid_signal_activates_home_banner_and_exposes_it_publicly(api, 
     assert payload["caption"] == "paid-banner"
 
 
+@override_settings(FEATURE_ANALYTICS_EVENTS=True)
+def test_quote_and_activation_emit_analytics_events(user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود تحليلات ترويج",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    PromoAdPrice.objects.update_or_create(
+        ad_type=PromoAdType.BANNER_HOME,
+        defaults={"price_per_day": "100.00", "is_active": True},
+    )
+    now = timezone.now()
+    request = PromoRequest.objects.create(
+        requester=user,
+        title="promo analytics",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoAsset.objects.create(
+        request=request,
+        asset_type="image",
+        title="promo-analytics",
+        file=SimpleUploadedFile(
+            "promo-analytics.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    request = quote_and_create_invoice(pr=request, by_user=user, quote_note="analytics")
+    request.invoice.mark_payment_confirmed(
+        provider="mock",
+        provider_reference="promo-analytics-ref",
+        event_id="promo-analytics-event",
+        amount=request.invoice.total,
+        currency=request.invoice.currency,
+    )
+    request.invoice.save(
+        update_fields=[
+            "status",
+            "paid_at",
+            "cancelled_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ]
+    )
+    request.refresh_from_db()
+
+    assert AnalyticsEvent.objects.filter(
+        event_name="promo.request_quoted",
+        object_type="PromoRequest",
+        object_id=str(request.id),
+    ).exists()
+    assert AnalyticsEvent.objects.filter(
+        event_name="promo.request_activated",
+        object_type="PromoRequest",
+        object_id=str(request.id),
+    ).exists()
+
+
 def test_management_command_expires_due_active_promos(user):
+    _ensure_provider_requester(user)
     now = timezone.now()
     due = PromoRequest.objects.create(
         requester=user,
@@ -578,6 +668,7 @@ def test_management_command_expires_due_active_promos(user):
 
 
 def test_quote_updates_unified_request_pending_payment(user):
+    _ensure_provider_requester(user)
     pr = PromoRequest.objects.create(
         requester=user,
         title="quote me",
@@ -616,6 +707,7 @@ def test_quote_updates_unified_request_pending_payment(user):
 
 
 def test_reject_and_activate_send_promo_status_notifications(user):
+    _ensure_provider_requester(user)
     pr = PromoRequest.objects.create(
         requester=user,
         title="state flow",

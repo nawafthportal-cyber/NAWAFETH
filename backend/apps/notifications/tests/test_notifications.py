@@ -1,4 +1,6 @@
+import json
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -638,3 +640,107 @@ def test_notifications_unread_count_returns_controlled_503_when_database_is_unav
     assert response.data["degraded"] is True
     assert response.data["stale"] is False
     assert "detail" in response.data
+
+
+@pytest.mark.django_db
+def test_mark_all_read_is_scoped_to_mode_and_refreshes_combined_badges():
+    cache.clear()
+    user = User.objects.create_user(phone="0509000066", role_state=UserRole.CLIENT)
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مستخدم مزدوج",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    client_notification = Notification.objects.create(
+        user=user,
+        title="عميل",
+        body="body",
+        kind="info",
+        audience_mode="client",
+    )
+    provider_notification = Notification.objects.create(
+        user=user,
+        title="مزود",
+        body="body",
+        kind="info",
+        audience_mode="provider",
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    warm_client = api.get("/api/core/unread-badges/", {"mode": "client"})
+    warm_provider = api.get("/api/core/unread-badges/", {"mode": "provider"})
+    assert warm_client.status_code == 200
+    assert warm_provider.status_code == 200
+    assert warm_client.data["notifications"] == 1
+    assert warm_provider.data["notifications"] == 1
+
+    response = api.post("/api/notifications/mark-all-read/", {"mode": "provider"}, format="json")
+    assert response.status_code == 200
+
+    client_notification.refresh_from_db()
+    provider_notification.refresh_from_db()
+    assert client_notification.is_read is False
+    assert provider_notification.is_read is True
+
+    client_unread = api.get("/api/notifications/unread-count/", {"mode": "client"})
+    provider_unread = api.get("/api/notifications/unread-count/", {"mode": "provider"})
+    assert client_unread.status_code == 200
+    assert provider_unread.status_code == 200
+    assert client_unread.data["unread"] == 1
+    assert provider_unread.data["unread"] == 0
+
+    refreshed_client = api.get("/api/core/unread-badges/", {"mode": "client"})
+    refreshed_provider = api.get("/api/core/unread-badges/", {"mode": "provider"})
+    assert refreshed_client.status_code == 200
+    assert refreshed_provider.status_code == 200
+    assert refreshed_client.data["notifications"] == 1
+    assert refreshed_provider.data["notifications"] == 0
+
+
+@pytest.mark.django_db
+def test_mark_single_read_updates_unread_count_and_combined_badges():
+    cache.clear()
+    user = User.objects.create_user(phone="0509000067", role_state=UserRole.CLIENT)
+    notification = Notification.objects.create(
+        user=user,
+        title="مفرد",
+        body="body",
+        kind="info",
+        audience_mode="client",
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=user)
+
+    warm = api.get("/api/core/unread-badges/", {"mode": "client"})
+    assert warm.status_code == 200
+    assert warm.data["notifications"] == 1
+
+    mark_read = api.post(f"/api/notifications/mark-read/{notification.id}/")
+    assert mark_read.status_code == 200
+
+    unread = api.get("/api/notifications/unread-count/", {"mode": "client"})
+    badges = api.get("/api/core/unread-badges/", {"mode": "client"})
+    assert unread.status_code == 200
+    assert badges.status_code == 200
+    assert unread.data["unread"] == 0
+    assert badges.data["notifications"] == 0
+
+
+def test_sprint4_unread_badge_contract_fixtures_are_valid():
+    fixtures_dir = Path(__file__).resolve().parents[4] / "docs" / "contracts" / "sprint4"
+
+    for fixture_name in ("unread_badges_client.json", "unread_badges_provider.json"):
+        payload = json.loads((fixtures_dir / fixture_name).read_text(encoding="utf-8"))
+        assert set(payload.keys()) == {"notifications", "chats", "degraded", "stale", "mode"}
+        assert isinstance(payload["notifications"], int)
+        assert isinstance(payload["chats"], int)
+        assert isinstance(payload["degraded"], bool)
+        assert isinstance(payload["stale"], bool)
+        assert payload["mode"] in {"client", "provider"}

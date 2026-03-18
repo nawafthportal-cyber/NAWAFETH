@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../services/analytics_service.dart';
 import '../services/api_client.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
@@ -55,6 +56,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   String? _searchBannerRedirectUrl;
   int? _searchBannerProviderId;
   String? _searchBannerProviderName;
+  bool _searchBannerImpressionTracked = false;
 
   @override
   void initState() {
@@ -109,6 +111,22 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                 _searchBannerProviderName =
                     promo['target_provider_display_name'] as String?;
               });
+              if (!_searchBannerImpressionTracked) {
+                _searchBannerImpressionTracked = true;
+                AnalyticsService.trackFireAndForget(
+                  eventName: 'promo.banner_impression',
+                  surface: 'flutter.search.banner',
+                  sourceApp: 'promo',
+                  objectType: 'ProviderProfile',
+                  objectId: (_searchBannerProviderId ?? 0).toString(),
+                  dedupeKey:
+                      'promo.banner_impression:flutter.search:${_searchBannerProviderId ?? 0}',
+                  payload: {
+                    'media_type': _searchBannerMediaType,
+                    'redirect_url': _searchBannerRedirectUrl ?? '',
+                  },
+                );
+              }
             }
           }
         }
@@ -256,6 +274,17 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   }
 
   Future<void> _openSearchBanner() async {
+    AnalyticsService.trackFireAndForget(
+      eventName: 'promo.banner_click',
+      surface: 'flutter.search.banner',
+      sourceApp: 'promo',
+      objectType: 'ProviderProfile',
+      objectId: (_searchBannerProviderId ?? 0).toString(),
+      payload: {
+        'redirect_url': _searchBannerRedirectUrl ?? '',
+        'provider_name': _searchBannerProviderName ?? '',
+      },
+    );
     final redirect = (_searchBannerRedirectUrl ?? '').trim();
     if (redirect.isNotEmpty && await _openExternalPromoUrl(redirect)) {
       return;
@@ -794,7 +823,20 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     final distanceKm = _distanceKmByProviderId[p.id];
 
     return GestureDetector(
-      onTap: () => Navigator.push(
+      onTap: () {
+        AnalyticsService.trackFireAndForget(
+          eventName: 'search.result_click',
+          surface: 'flutter.search.results',
+          sourceApp: 'providers',
+          objectType: 'ProviderProfile',
+          objectId: p.id.toString(),
+          payload: {
+            'query': _searchCtrl.text.trim(),
+            'selected_category_id': _selectedCatId,
+            'featured': _featuredProviderIds.contains(p.id),
+          },
+        );
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProviderProfileScreen(
@@ -809,7 +851,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
               providerLng: p.lng,
               providerOperations: p.completedRequests,
             ),
-          )),
+          ),
+        );
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(

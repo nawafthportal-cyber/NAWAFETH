@@ -7,6 +7,8 @@ from rest_framework.views import APIView
 
 from django.db.models import Q
 
+from apps.backoffice.policies import SupportAssignPolicy, SupportResolvePolicy
+
 from .models import SupportTicket, SupportAttachment, SupportComment, SupportTeam
 from .serializers import (
     SupportTicketCreateSerializer,
@@ -98,6 +100,15 @@ class SupportTicketAssignView(APIView):
     def patch(self, request, pk: int):
         ticket = SupportTicket.objects.get(pk=pk)
         self.check_object_permissions(request, ticket)
+        policy = SupportAssignPolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="support.ticket",
+            reference_id=str(ticket.id),
+            extra={"surface": "api.support.assign"},
+        )
+        if not policy.allowed:
+            return Response({"detail": "غير مصرح", "reason": policy.reason}, status=status.HTTP_403_FORBIDDEN)
 
         ap = getattr(request.user, "access_profile", None)
 
@@ -131,6 +142,15 @@ class SupportTicketStatusView(APIView):
     def patch(self, request, pk: int):
         ticket = SupportTicket.objects.get(pk=pk)
         self.check_object_permissions(request, ticket)
+        policy = SupportResolvePolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="support.ticket",
+            reference_id=str(ticket.id),
+            extra={"surface": "api.support.status"},
+        )
+        if not policy.allowed:
+            return Response({"detail": "غير مصرح", "reason": policy.reason}, status=status.HTTP_403_FORBIDDEN)
 
         new_status = request.data.get("status")
         note = request.data.get("note", "")

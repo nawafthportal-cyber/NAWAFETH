@@ -1,10 +1,13 @@
 import pytest
 from decimal import Decimal
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.audit.models import AuditAction, AuditLog
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
+from apps.moderation.models import ModerationCase
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportTeam, SupportTicket
@@ -100,6 +103,34 @@ def test_create_complaint_ticket_accepts_reported_target(api, client_user):
     assert t.reported_user_id == reported_user.id
 
 
+@override_settings(FEATURE_MODERATION_DUAL_WRITE=True)
+def test_complaint_ticket_dual_writes_to_moderation_case(api, client_user):
+    reported_user = User.objects.create_user(phone="0598888888", password="Pass12345!")
+
+    api.force_authenticate(user=client_user)
+    response = api.post(
+        "/api/support/tickets/create/",
+        data={
+            "ticket_type": "complaint",
+            "description": "بلاغ يحتاج إشرافًا",
+            "reported_kind": "review",
+            "reported_object_id": "321",
+            "reported_user": reported_user.id,
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    ticket = SupportTicket.objects.get(pk=response.data["id"])
+    case = ModerationCase.objects.get(linked_support_ticket_id=str(ticket.id))
+    assert case.reporter_id == client_user.id
+    assert case.reported_user_id == reported_user.id
+    assert case.source_app == "reviews"
+    assert case.source_model == "Review"
+    assert case.source_object_id == "321"
+    assert case.status == "new"
+
+
 def test_backoffice_list(api, staff_user, client_user):
     SupportTicket.objects.create(requester=client_user, ticket_type="tech", description="test")
     api.force_authenticate(user=staff_user)
@@ -154,6 +185,45 @@ def test_support_ticket_syncs_to_unified_on_assign_and_status(api, support_opera
     assert ur.status == "closed"
     assert ur.status_logs.count() >= 2
     assert ur.assignment_logs.count() >= 1
+
+
+@override_settings(FEATURE_RBAC_ENFORCE=False, RBAC_AUDIT_ONLY=True)
+def test_support_assign_audit_only_mode_allows_fallback_and_logs(api, support_operator_user, client_user, teams):
+    ticket = SupportTicket.objects.create(requester=client_user, ticket_type="tech", description="audit only assign")
+    api.force_authenticate(user=support_operator_user)
+
+    team = SupportTeam.objects.get(code="tech")
+    response = api.patch(
+        f"/api/support/backoffice/tickets/{ticket.id}/assign/",
+        data={"assigned_team": team.id, "assigned_to": support_operator_user.id, "note": "audit_only"},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert AuditLog.objects.filter(
+        action=AuditAction.RBAC_POLICY_AUDIT_ONLY,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+    ).exists()
+
+
+@override_settings(FEATURE_RBAC_ENFORCE=True, RBAC_AUDIT_ONLY=False)
+def test_support_assign_enforced_mode_denies_without_permission_and_logs(api, support_operator_user, client_user):
+    ticket = SupportTicket.objects.create(requester=client_user, ticket_type="tech", description="enforced assign")
+    api.force_authenticate(user=support_operator_user)
+
+    response = api.patch(
+        f"/api/support/backoffice/tickets/{ticket.id}/assign/",
+        data={"assigned_to": support_operator_user.id, "note": "should_fail"},
+        format="json",
+    )
+
+    assert response.status_code == 403
+    assert AuditLog.objects.filter(
+        action=AuditAction.RBAC_POLICY_DENIED,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+    ).exists()
 
 
 def test_provider_pioneer_ticket_gets_high_priority(api):

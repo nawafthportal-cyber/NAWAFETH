@@ -311,6 +311,22 @@ const ProviderDetailPage = (() => {
     if (provRes.ok && provRes.data) {
       _providerData = provRes.data;
       _renderProvider(provRes.data, statsRes.ok ? statsRes.data : null);
+      if (typeof NwAnalytics !== 'undefined') {
+        NwAnalytics.trackOnce(
+          'provider.profile_view',
+          {
+            surface: 'mobile_web.provider_detail',
+            source_app: 'providers',
+            object_type: 'ProviderProfile',
+            object_id: String(_providerId || ''),
+            payload: {
+              mode: _mode || 'client',
+              has_stats: !!(statsRes.ok && statsRes.data),
+            },
+          },
+          'provider.profile_view:mobile_web:' + String(_providerId || '')
+        );
+      }
     }
     _syncFollowState();
 

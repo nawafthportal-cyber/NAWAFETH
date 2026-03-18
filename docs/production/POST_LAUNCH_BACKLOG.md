@@ -13,6 +13,8 @@
   - entitlement backfill/normalization drift
   - verification activation latency and pending_payment aging
 - Add periodic integrity job for provider accounts missing effective entitlement/current tier (defensive repair).
+- Add heavier CI parity gates once current smoke/fixture baseline remains stable for multiple releases.
+- Expand analytics historical rebuild tooling beyond the current daily aggregate window when business reporting needs it.
 
 ## P3 - Hardening and Cleanup
 - Gradually retire legacy verification document-only review path after full client migration to requirement attachments.
@@ -21,9 +23,14 @@
   - long-lived renewal/expiry edges
   - client backward compatibility payloads
 - Add contract tests for old clients that still read legacy fields (`tier`, raw `price`, legacy labels).
+- Extract additional dashboard areas only when operational churn proves current files are a maintenance bottleneck.
 
 ## Out of Scope for Current Release
 - Any destructive schema cleanup.
 - Breaking API contract removals.
 - Broad architectural rewrites.
-
+- Social comments العامة أو أي community layer جديدة.
+- Dashboard visual redesign.
+- Heavy BI / warehouse / historical analytics backfill.
+- ABAC heavyweight authorization model.
+- Full Flutter / `mobile_web` parity overhaul or shared frontend layer.

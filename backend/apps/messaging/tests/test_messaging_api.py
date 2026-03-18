@@ -4,6 +4,7 @@ import pytest
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import OperationalError
+from django.test import override_settings
 from rest_framework.test import APIClient
 from decimal import Decimal
 
@@ -11,6 +12,7 @@ from apps.accounts.models import User, UserRole
 from apps.core import unread_badges as unread_badges_module
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 from apps.messaging.models import Message, Thread, ThreadUserState
+from apps.moderation.models import ModerationCase
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 
@@ -604,6 +606,56 @@ def test_thread_report_accepts_reason_and_details():
     )
     assert report_res.status_code == 201
     assert report_res.data.get("ticket_id") is not None
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_MODERATION_DUAL_WRITE=True)
+def test_thread_report_dual_writes_to_moderation_case():
+    client_user = User.objects.create_user(phone="0506000011", role_state=UserRole.PHONE_ONLY)
+    provider_user = User.objects.create_user(phone="0506000012", role_state=UserRole.PROVIDER)
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود بلاغ مزدوج",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    cat = Category.objects.create(name="نظافة 2")
+    sub = SubCategory.objects.create(category=cat, name="تنظيف 2")
+    ProviderCategory.objects.create(provider=provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.COMPETITIVE,
+        status=RequestStatus.ACCEPTED,
+        city="الرياض",
+    )
+
+    api = APIClient()
+    api.force_authenticate(user=client_user)
+    thread_res = api.post(f"/api/messaging/requests/{sr.id}/thread/", {}, format="json")
+    thread_id = thread_res.data["id"]
+
+    report_res = api.post(
+        f"/api/messaging/thread/{thread_id}/report/",
+        {"reason": "إساءة", "details": "تفاصيل", "reported_label": "مزود"},
+        format="json",
+    )
+
+    assert report_res.status_code == 201
+    ticket_id = report_res.data["ticket_id"]
+    case = ModerationCase.objects.get(linked_support_ticket_id=str(ticket_id))
+    assert case.source_app == "messaging"
+    assert case.source_model == "Thread"
+    assert case.source_object_id == str(thread_id)
+    assert case.reported_user_id == provider_user.id
 
 
 @pytest.mark.django_db

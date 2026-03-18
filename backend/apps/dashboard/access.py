@@ -13,6 +13,7 @@ DASHBOARD_ROUTE_CANDIDATES: list[tuple[str, str]] = [
     ("content", "dashboard:requests_list"),
     ("billing", "dashboard:billing_invoices_list"),
     ("support", "dashboard:support_tickets_list"),
+    ("moderation", "dashboard:moderation_cases_list"),
     ("verify", "dashboard:verification_ops"),
     ("excellence", "dashboard:excellence_dashboard"),
     ("promo", "dashboard:promo_requests_list"),

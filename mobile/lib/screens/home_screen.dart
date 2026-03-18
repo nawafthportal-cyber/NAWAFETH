@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../services/api_client.dart';
+import '../services/analytics_service.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
@@ -50,6 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _promoPopupShown = false;
   List<MediaItemModel> _portfolioShowcase = [];
   List<Map<String, dynamic>> _sponsorships = [];
+  final Set<int> _seenBannerImpressions = <int>{};
 
   // -- Banner carousel --
   final PageController _bannerPageController = PageController();
@@ -150,6 +152,12 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _banners = banners);
       _startBannerAutoRotate();
+      if (banners.isNotEmpty) {
+        _trackBannerImpression(
+          banners.first,
+          surface: 'flutter.home.hero_initial',
+        );
+      }
     });
 
     spotlightsFuture.then((spotlights) {
@@ -227,6 +235,19 @@ class _HomeScreenState extends State<HomeScreen> {
           promo['target_provider_display_name'] as String? ?? 'مقدم خدمة';
 
       if (mediaUrl == null) return;
+      AnalyticsService.trackFireAndForget(
+        eventName: 'promo.popup_open',
+        surface: 'flutter.home.popup',
+        sourceApp: 'promo',
+        objectType: 'ProviderProfile',
+        objectId: (providerId ?? 0).toString(),
+        dedupeKey: 'promo.popup_open:flutter.home:${providerId ?? 0}:${title.trim()}',
+        payload: {
+          'redirect_url': redirectUrl ?? '',
+          'media_type': mediaType,
+          'title': title,
+        },
+      );
       _promoPopupShown = true;
       await _showPromoPopupDialog(
         mediaUrl: mediaUrl,
@@ -402,10 +423,44 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openBanner(BannerModel banner) async {
+    AnalyticsService.trackFireAndForget(
+      eventName: 'promo.banner_click',
+      surface: 'flutter.home.hero',
+      sourceApp: 'promo',
+      objectType: 'ProviderProfile',
+      objectId: (banner.providerId ?? 0).toString(),
+      payload: {
+        'banner_id': banner.id,
+        'redirect_url': banner.linkUrl ?? '',
+        'media_type': banner.mediaType,
+      },
+    );
     await _openPromoPlacement(
       redirectUrl: banner.linkUrl,
       providerId: banner.providerId,
       providerName: banner.providerDisplayName,
+    );
+  }
+
+  void _trackBannerImpression(
+    BannerModel banner, {
+    required String surface,
+  }) {
+    if (banner.id <= 0 || !_seenBannerImpressions.add(banner.id)) {
+      return;
+    }
+    AnalyticsService.trackFireAndForget(
+      eventName: 'promo.banner_impression',
+      surface: surface,
+      sourceApp: 'promo',
+      objectType: 'ProviderProfile',
+      objectId: (banner.providerId ?? 0).toString(),
+      dedupeKey: 'promo.banner_impression:flutter:${banner.id}',
+      payload: {
+        'banner_id': banner.id,
+        'redirect_url': banner.linkUrl ?? '',
+        'media_type': banner.mediaType,
+      },
     );
   }
 
@@ -466,6 +521,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? InkWell(
                           onTap: () async {
                             Navigator.of(ctx).pop();
+                            AnalyticsService.trackFireAndForget(
+                              eventName: 'promo.popup_click',
+                              surface: 'flutter.home.popup',
+                              sourceApp: 'promo',
+                              objectType: 'ProviderProfile',
+                              objectId: (providerId ?? 0).toString(),
+                              payload: {
+                                'redirect_url': redirectUrl ?? '',
+                                'title': title,
+                              },
+                            );
                             await _openPromoPlacement(
                               redirectUrl: redirectUrl,
                               providerId: providerId,
@@ -1778,6 +1844,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: _banners.length,
                     onPageChanged: (idx) {
                       setState(() => _bannerCurrentPage = idx);
+                      if (idx >= 0 && idx < _banners.length) {
+                        _trackBannerImpression(
+                          _banners[idx],
+                          surface: 'flutter.home.hero_swipe',
+                        );
+                      }
                     },
                     itemBuilder: (context, index) {
                       final b = _banners[index];

@@ -174,6 +174,28 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         if attachments:
             ServiceRequestAttachment.objects.bulk_create(attachments)
 
+        try:
+            from apps.analytics.tracking import safe_track_event
+
+            safe_track_event(
+                event_name="marketplace.request_created",
+                channel="server",
+                surface="marketplace.service_request_create",
+                source_app="marketplace",
+                object_type="ServiceRequest",
+                object_id=str(request.id),
+                actor=getattr(request, "client", None),
+                dedupe_key=f"marketplace.request_created:{request.id}",
+                payload={
+                    "request_type": request.request_type,
+                    "provider_id": getattr(request, "provider_id", None),
+                    "subcategory_id": getattr(request, "subcategory_id", None),
+                    "city": request.city or "",
+                },
+            )
+        except Exception:
+            pass
+
         return request
 
 

@@ -11,6 +11,7 @@ import '../widgets/auto_scrolling_reels_row.dart';
 import '../widgets/platform_report_dialog.dart';
 import '../widgets/video_reels.dart';
 import '../services/auth_service.dart';
+import '../services/analytics_service.dart';
 import '../services/interactive_service.dart';
 import '../services/api_client.dart';
 import '../utils/value_parsing.dart';
@@ -73,6 +74,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   bool _isFollowLoading = false;
   final bool _isOnline = true;
   bool _isLoading = true;
+  bool _profileViewTracked = false;
 
   // ── بيانات من API ──
   ProviderPublicModel? _providerDetail;
@@ -588,6 +590,21 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
         parsedDetail = ProviderPublicModel.fromJson(detailResp.dataAsMap!);
         isFollowingFromPayload =
             _readIsFollowingFromPayload(detailResp.dataAsMap);
+        if (!_profileViewTracked) {
+          _profileViewTracked = true;
+          AnalyticsService.trackFireAndForget(
+            eventName: 'provider.profile_view',
+            surface: 'flutter.provider_profile',
+            sourceApp: 'providers',
+            objectType: 'ProviderProfile',
+            objectId: providerId.toString(),
+            dedupeKey: 'provider.profile_view:flutter:$providerId',
+            payload: {
+              'role_state': await AuthService.getRoleState(),
+              'has_detail_payload': true,
+            },
+          );
+        }
       }
 
       if (mounted) {

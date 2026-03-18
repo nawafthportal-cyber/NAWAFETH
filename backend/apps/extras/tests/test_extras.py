@@ -1,7 +1,9 @@
 import pytest
+from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
+from apps.analytics.models import AnalyticsEvent
 from apps.billing.models import Invoice
 from apps.core.models import PlatformConfig
 from apps.extras.models import ExtraPurchase
@@ -98,3 +100,33 @@ def test_time_based_extras_use_platform_config_duration_and_currency(user, setti
     assert purchase.end_at is not None
     assert purchase.start_at is not None
     assert (purchase.end_at - purchase.start_at).days == 9
+
+
+@override_settings(FEATURE_ANALYTICS_EVENTS=True)
+def test_extra_checkout_and_activation_emit_analytics_events(user, settings):
+    settings.EXTRA_SKUS = {"tickets_2": {"title": "تذاكر", "price": 10}}
+    from apps.extras.services import create_extra_purchase_checkout
+
+    purchase = create_extra_purchase_checkout(user=user, sku="tickets_2")
+    invoice: Invoice = purchase.invoice
+    invoice.mark_paid()
+    invoice.save()
+    purchase = activate_extra_after_payment(purchase=purchase)
+
+    assert consume_credit(user=user, sku="tickets_2", amount=1) is True
+
+    assert AnalyticsEvent.objects.filter(
+        event_name="extras.checkout_created",
+        object_type="ExtraPurchase",
+        object_id=str(purchase.id),
+    ).exists()
+    assert AnalyticsEvent.objects.filter(
+        event_name="extras.activated",
+        object_type="ExtraPurchase",
+        object_id=str(purchase.id),
+    ).exists()
+    assert AnalyticsEvent.objects.filter(
+        event_name="extras.credit_consumed",
+        object_type="ExtraPurchase",
+        object_id=str(purchase.id),
+    ).exists()

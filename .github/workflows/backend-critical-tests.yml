@@ -1,0 +1,75 @@
+name: Backend Critical Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-critical-tests.yml
+      - .github/pull_request_template.md
+  pull_request:
+    branches:
+      - main
+    paths:
+      - backend/**
+      - .github/workflows/backend-critical-tests.yml
+      - .github/pull_request_template.md
+  workflow_dispatch:
+
+concurrency:
+  group: backend-critical-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-critical:
+    name: Backend critical regression pack
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: |
+            backend/requirements.txt
+            backend/requirements/dev.txt
+            backend/requirements/prod.txt
+            backend/requirements/base.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r requirements/dev.txt
+
+      - name: Django checks
+        run: python manage.py check
+
+      - name: Migration drift check
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Run critical backend regression suites
+        run: >
+          pytest
+          apps/analytics/tests/test_analytics.py
+          apps/analytics/tests/test_event_tracking.py
+          apps/analytics/tests/test_kpi_surfaces.py
+          apps/moderation/tests/test_models.py
+          apps/moderation/tests/test_api.py
+          apps/backoffice/tests/test_policies.py
+          apps/dashboard/test_moderation_dashboard.py
+          apps/dashboard/test_sprint3_policy_enforcement.py
+          apps/notifications/tests/test_notifications.py
+          apps/notifications/tests/test_notification_ws.py
+          apps/messaging/tests/test_messaging_api.py
+          apps/support/tests/test_support.py
+          apps/promo/tests/test_promo.py
+          apps/subscriptions/tests/test_subscriptions.py
+          apps/extras/tests/test_extras.py
+          -q

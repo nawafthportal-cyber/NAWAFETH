@@ -44,6 +44,7 @@
         {% can_access request.user "content" as can_content %}
         {% can_access request.user "billing" as can_billing %}
         {% can_access request.user "support" as can_support %}
+        {% can_access request.user "moderation" as can_moderation %}
         {% can_access request.user "verify" as can_verify %}
         {% can_access request.user "excellence" as can_excellence %}
         {% can_access request.user "promo" as can_promo %}
@@ -58,6 +59,14 @@
             🏠
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'home' %}text-purple-700{% else %}text-gray-700 group-hover:text-purple-700{% endif %}">الرئيسية</span>
+        </a>
+
+        <a href="{% url 'dashboard:analytics_insights' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'analytics_insights' %}bg-gradient-to-r from-indigo-50 to-sky-50{% else %}hover:bg-gradient-to-r hover:from-indigo-50 hover:to-sky-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-sky-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="المؤشرات">
+            📈
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'analytics_insights' %}text-indigo-700{% else %}text-gray-700 group-hover:text-indigo-700{% endif %}">مؤشرات التشغيل</span>
         </a>
         {% endif %}
 
@@ -171,6 +180,16 @@
             🎫
           </div>
           <span class="font-semibold {% if request.resolver_match.url_name == 'support_tickets_list' or request.resolver_match.url_name == 'support_ticket_detail' %}text-cyan-700{% else %}text-gray-700 group-hover:text-cyan-700{% endif %}">الدعم</span>
+        </a>
+        {% endif %}
+
+        {% if can_moderation %}
+        <a href="{% url 'dashboard:moderation_cases_list' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'moderation_cases_list' or request.resolver_match.url_name == 'moderation_case_detail' %}bg-gradient-to-r from-rose-50 to-pink-50{% else %}hover:bg-gradient-to-r hover:from-rose-50 hover:to-pink-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="الإشراف">
+            🛡️
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'moderation_cases_list' or request.resolver_match.url_name == 'moderation_case_detail' %}text-rose-700{% else %}text-gray-700 group-hover:text-rose-700{% endif %}">مركز الإشراف</span>
         </a>
         {% endif %}
 

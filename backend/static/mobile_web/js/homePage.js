@@ -554,6 +554,16 @@ const HomePage = (() => {
       const isFeatured = _featuredProviderIds.has(p.id);
 
       const card = UI.el('a', { className: 'provider-card no-cover' + (isFeatured ? ' promo-featured' : ''), href: providerHref });
+      card.addEventListener('click', () => {
+        if (typeof NwAnalytics === 'undefined') return;
+        NwAnalytics.track('search.result_click', {
+          surface: 'mobile_web.home.providers',
+          source_app: 'providers',
+          object_type: 'ProviderProfile',
+          object_id: String(p.id || ''),
+          payload: { featured: isFeatured },
+        });
+      });
 
       // Info section: avatar + name + verification + rating
       const info = UI.el('div', { className: 'provider-info' });
@@ -838,10 +848,39 @@ const HomePage = (() => {
       // Link wrapper
       if (b.link_url) {
         slide.style.cursor = 'pointer';
-        slide.addEventListener('click', () => { window.open(b.link_url, '_blank', 'noopener'); });
+        slide.addEventListener('click', () => {
+          if (typeof NwAnalytics !== 'undefined') {
+            NwAnalytics.track('promo.banner_click', {
+              surface: 'mobile_web.home.carousel',
+              source_app: 'promo',
+              object_type: 'ProviderProfile',
+              object_id: String(b.provider_id || ''),
+              payload: {
+                banner_id: b.id || 0,
+                redirect_url: b.link_url,
+                media_type: b.media_type || 'image',
+              },
+            });
+          }
+          window.open(b.link_url, '_blank', 'noopener');
+        });
       } else if (b.provider_id && b.provider_id > 0) {
         slide.style.cursor = 'pointer';
-        slide.addEventListener('click', () => { window.location.href = '/provider/' + b.provider_id + '/'; });
+        slide.addEventListener('click', () => {
+          if (typeof NwAnalytics !== 'undefined') {
+            NwAnalytics.track('promo.banner_click', {
+              surface: 'mobile_web.home.carousel',
+              source_app: 'promo',
+              object_type: 'ProviderProfile',
+              object_id: String(b.provider_id || ''),
+              payload: {
+                banner_id: b.id || 0,
+                media_type: b.media_type || 'image',
+              },
+            });
+          }
+          window.location.href = '/provider/' + b.provider_id + '/';
+        });
       }
 
       frag.appendChild(slide);
@@ -853,6 +892,22 @@ const HomePage = (() => {
     });
     _applyResponsiveBannerScales();
     _syncCarouselSlideMedia($carouselTrack.querySelector('.carousel-slide.active'), true);
+    if (typeof NwAnalytics !== 'undefined' && banners[0]) {
+      NwAnalytics.trackOnce(
+        'promo.banner_impression',
+        {
+          surface: 'mobile_web.home.carousel',
+          source_app: 'promo',
+          object_type: 'ProviderProfile',
+          object_id: String(banners[0].provider_id || ''),
+          payload: {
+            banner_id: banners[0].id || 0,
+            media_type: banners[0].media_type || 'image',
+          },
+        },
+        'promo.banner_impression:mobile_web.home:' + String(banners[0].id || 0)
+      );
+    }
 
     // Build dots
     if ($carouselDots) {
@@ -910,6 +965,23 @@ const HomePage = (() => {
       _syncCarouselSlideMedia(newSlide, true);
     }
     if (dots[_carouselIdx]) dots[_carouselIdx].classList.add('active');
+    if (typeof NwAnalytics !== 'undefined' && _carouselItems[_carouselIdx]) {
+      const banner = _carouselItems[_carouselIdx];
+      NwAnalytics.trackOnce(
+        'promo.banner_impression',
+        {
+          surface: 'mobile_web.home.carousel',
+          source_app: 'promo',
+          object_type: 'ProviderProfile',
+          object_id: String(banner.provider_id || ''),
+          payload: {
+            banner_id: banner.id || 0,
+            media_type: banner.media_type || 'image',
+          },
+        },
+        'promo.banner_impression:mobile_web.home:' + String(banner.id || 0)
+      );
+    }
   }
 
   function _startCarouselAutoRotate() {
@@ -1123,6 +1195,23 @@ const HomePage = (() => {
     const title = promo.title || '';
     const providerId = promo.target_provider_id ? String(promo.target_provider_id) : '';
     const providerHref = providerId ? ('/provider/' + encodeURIComponent(providerId) + '/') : '';
+    if (typeof NwAnalytics !== 'undefined') {
+      NwAnalytics.trackOnce(
+        'promo.popup_open',
+        {
+          surface: 'mobile_web.home.popup',
+          source_app: 'promo',
+          object_type: 'ProviderProfile',
+          object_id: providerId,
+          payload: {
+            title: title,
+            redirect_url: redirectUrl,
+            media_type: mediaType,
+          },
+        },
+        'promo.popup_open:mobile_web.home:' + providerId + ':' + title
+      );
+    }
 
     const overlay = UI.el('div', { className: 'promo-popup-overlay' });
     const modal = UI.el('div', { className: 'promo-popup-modal' });
@@ -1154,6 +1243,19 @@ const HomePage = (() => {
           link.target = '_blank';
           link.rel = 'noopener';
         }
+        link.addEventListener('click', () => {
+          if (typeof NwAnalytics === 'undefined') return;
+          NwAnalytics.track('promo.popup_click', {
+            surface: 'mobile_web.home.popup',
+            source_app: 'promo',
+            object_type: 'ProviderProfile',
+            object_id: providerId,
+            payload: {
+              title: title,
+              redirect_url: redirectUrl,
+            },
+          });
+        });
         link.appendChild(media);
         modal.appendChild(link);
       } else {

@@ -1,0 +1,203 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}مؤشرات التشغيل{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <section class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-black text-gray-900">مؤشرات التشغيل والتجارة</h1>
+        <p class="text-sm text-gray-500 mt-1">
+          النطاق الحالي: {{ date_range.start }} → {{ date_range.end }} ({{ date_range.days }} يوم)
+        </p>
+      </div>
+      <form method="get" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <label class="block">
+          <span class="text-xs text-gray-500 font-semibold">من</span>
+          <input type="date" name="start" value="{{ date_from_val }}" class="mt-1 w-full rounded-xl border-gray-200">
+        </label>
+        <label class="block">
+          <span class="text-xs text-gray-500 font-semibold">إلى</span>
+          <input type="date" name="end" value="{{ date_to_val }}" class="mt-1 w-full rounded-xl border-gray-200">
+        </label>
+        <div class="flex items-end gap-2">
+          <button class="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-semibold">تحديث</button>
+          <a href="{% url 'dashboard:analytics_insights' %}" class="px-5 py-2.5 rounded-xl bg-gray-100 text-gray-700 font-semibold">إعادة الضبط</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="text-sm text-gray-500">مشاهدات الملفات</div>
+      <div class="mt-2 text-3xl font-black text-indigo-700">{{ provider_data.summary.profile_views }}</div>
+      <div class="mt-2 text-xs text-gray-500">بدايات المحادثة: {{ provider_data.summary.chat_starts }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="text-sm text-gray-500">CTR الترويج</div>
+      <div class="mt-2 text-3xl font-black text-fuchsia-700">{{ promo_data.summary.ctr }}%</div>
+      <div class="mt-2 text-xs text-gray-500">انطباعات: {{ promo_data.summary.impressions }} | نقرات: {{ promo_data.summary.clicks }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="text-sm text-gray-500">تفعيلات الاشتراك</div>
+      <div class="mt-2 text-3xl font-black text-violet-700">{{ subscription_data.summary.activations }}</div>
+      <div class="mt-2 text-xs text-gray-500">تجديدات: {{ subscription_data.summary.renewals }} | ترقيات: {{ subscription_data.summary.upgrades }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+      <div class="text-sm text-gray-500">مشتريات الإضافات</div>
+      <div class="mt-2 text-3xl font-black text-amber-700">{{ extras_data.summary.purchases }}</div>
+      <div class="mt-2 text-xs text-gray-500">تفعيلات: {{ extras_data.summary.activations }} | استهلاك: {{ extras_data.summary.consumptions }}</div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-black text-gray-900">أفضل المزوّدين</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500">
+            <tr>
+              <th class="px-4 py-3 text-right">المزوّد</th>
+              <th class="px-4 py-3 text-right">مشاهدات</th>
+              <th class="px-4 py-3 text-right">محادثات</th>
+              <th class="px-4 py-3 text-right">طلبات</th>
+              <th class="px-4 py-3 text-right">القبول</th>
+              <th class="px-4 py-3 text-right">الإنجاز</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in provider_data.items %}
+            <tr class="border-b border-gray-100">
+              <td class="px-4 py-3">
+                <div class="font-semibold text-gray-900">{{ row.display_name|default:"—" }}</div>
+                <div class="text-xs text-gray-500">{{ row.phone|default:"" }}</div>
+              </td>
+              <td class="px-4 py-3">{{ row.profile_views }}</td>
+              <td class="px-4 py-3">{{ row.chat_starts }}</td>
+              <td class="px-4 py-3">{{ row.requests_received }}</td>
+              <td class="px-4 py-3">{{ row.accept_rate }}%</td>
+              <td class="px-4 py-3">{{ row.completion_rate }}%</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">لا توجد بيانات كافية بعد.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-black text-gray-900">أداء الترويج</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500">
+            <tr>
+              <th class="px-4 py-3 text-right">الحملة</th>
+              <th class="px-4 py-3 text-right">انطباعات</th>
+              <th class="px-4 py-3 text-right">نقرات</th>
+              <th class="px-4 py-3 text-right">CTR</th>
+              <th class="px-4 py-3 text-right">Leads</th>
+              <th class="px-4 py-3 text-right">Conversions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in promo_data.items %}
+            <tr class="border-b border-gray-100">
+              <td class="px-4 py-3">
+                <div class="font-semibold text-gray-900">{{ row.label }}</div>
+                <div class="text-xs text-gray-500">{{ row.campaign_kind }}</div>
+              </td>
+              <td class="px-4 py-3">{{ row.impressions }}</td>
+              <td class="px-4 py-3">{{ row.clicks }}</td>
+              <td class="px-4 py-3">{{ row.ctr }}%</td>
+              <td class="px-4 py-3">{{ row.leads }}</td>
+              <td class="px-4 py-3">{{ row.conversions }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">لا توجد بيانات حملات كافية بعد.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-black text-gray-900">الاشتراكات</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500">
+            <tr>
+              <th class="px-4 py-3 text-right">الباقة</th>
+              <th class="px-4 py-3 text-right">بدء</th>
+              <th class="px-4 py-3 text-right">تفعيل</th>
+              <th class="px-4 py-3 text-right">ترقية</th>
+              <th class="px-4 py-3 text-right">تجديد</th>
+              <th class="px-4 py-3 text-right">Churn</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in subscription_data.items %}
+            <tr class="border-b border-gray-100">
+              <td class="px-4 py-3">
+                <div class="font-semibold text-gray-900">{{ row.plan_title|default:row.plan_code }}</div>
+                <div class="text-xs text-gray-500">{{ row.tier }}</div>
+              </td>
+              <td class="px-4 py-3">{{ row.checkouts_started }}</td>
+              <td class="px-4 py-3">{{ row.activations }}</td>
+              <td class="px-4 py-3">{{ row.upgrades }}</td>
+              <td class="px-4 py-3">{{ row.renewals }}</td>
+              <td class="px-4 py-3">{{ row.churns }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="px-4 py-6 text-center text-gray-400">لا توجد بيانات اشتراكات مجمعة بعد.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-6 py-4 border-b border-gray-100">
+        <h2 class="text-lg font-black text-gray-900">الخدمات الإضافية</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-500">
+            <tr>
+              <th class="px-4 py-3 text-right">SKU</th>
+              <th class="px-4 py-3 text-right">المشتريات</th>
+              <th class="px-4 py-3 text-right">التفعيلات</th>
+              <th class="px-4 py-3 text-right">الاستهلاك</th>
+              <th class="px-4 py-3 text-right">Credits</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in extras_data.items %}
+            <tr class="border-b border-gray-100">
+              <td class="px-4 py-3">
+                <div class="font-semibold text-gray-900">{{ row.title|default:row.sku }}</div>
+                <div class="text-xs text-gray-500">{{ row.sku }}</div>
+              </td>
+              <td class="px-4 py-3">{{ row.purchases }}</td>
+              <td class="px-4 py-3">{{ row.activations }}</td>
+              <td class="px-4 py-3">{{ row.consumptions }}</td>
+              <td class="px-4 py-3">{{ row.credits_consumed }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="5" class="px-4 py-6 text-center text-gray-400">لا توجد بيانات إضافات مجمعة بعد.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}

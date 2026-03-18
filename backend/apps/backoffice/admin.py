@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
 from django.utils import timezone
-from .models import Dashboard, UserAccessProfile
+from .models import AccessPermission, Dashboard, UserAccessProfile
 
 
 @admin.register(Dashboard)
@@ -18,7 +18,7 @@ class UserAccessProfileAdmin(admin.ModelAdmin):
     list_display = ("user", "level", "expires_at", "revoked_at", "created_at")
     list_filter = ("level",)
     search_fields = ("user__phone", "user__email")
-    filter_horizontal = ("allowed_dashboards",)
+    filter_horizontal = ("allowed_dashboards", "granted_permissions")
 
     @staticmethod
     def _is_active_admin(ap: UserAccessProfile) -> bool:
@@ -72,3 +72,11 @@ class UserAccessProfileAdmin(admin.ModelAdmin):
             if remaining < 1:
                 raise PermissionDenied("لا يمكن حذف آخر Admin فعّال في المنصة.")
         super().delete_queryset(request, queryset)
+
+
+@admin.register(AccessPermission)
+class AccessPermissionAdmin(admin.ModelAdmin):
+    list_display = ("code", "name_ar", "dashboard_code", "is_active", "sort_order")
+    list_filter = ("dashboard_code", "is_active")
+    search_fields = ("code", "name_ar", "description")
+    ordering = ("sort_order", "code")

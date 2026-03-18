@@ -68,6 +68,7 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
         user = self.context["request"].user
         from apps.features.support import support_priority
         from .services import _sync_ticket_to_unified
+        from apps.moderation.integrations import sync_support_ticket_case
 
         # أولوية التذكرة حسب ميزة Priority Support
         validated_data.pop("priority", None)
@@ -81,6 +82,10 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
             **validated_data,
         )
         _sync_ticket_to_unified(ticket=ticket, changed_by=user)
+        try:
+            sync_support_ticket_case(ticket=ticket, by_user=user, request=self.context.get("request"))
+        except Exception:
+            pass
         return ticket
 
 

@@ -161,6 +161,27 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
     purchase.invoice = inv
     purchase.save(update_fields=["invoice", "updated_at"])
     _sync_extra_to_unified(purchase=purchase, changed_by=user)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="extras.checkout_created",
+            channel="server",
+            surface="extras.create_checkout",
+            source_app="extras",
+            object_type="ExtraPurchase",
+            object_id=str(purchase.id),
+            actor=user,
+            dedupe_key=f"extras.checkout_created:{purchase.id}:{inv.id}",
+            payload={
+                "sku": purchase.sku,
+                "invoice_id": inv.id,
+                "status": purchase.status,
+                "extra_type": purchase.extra_type,
+            },
+        )
+    except Exception:
+        pass
     return purchase
 
 
@@ -183,6 +204,27 @@ def activate_extra_after_payment(*, purchase: ExtraPurchase) -> ExtraPurchase:
         purchase.status = ExtraPurchaseStatus.ACTIVE
         purchase.save(update_fields=["start_at", "end_at", "status", "updated_at"])
         _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
+        try:
+            from apps.analytics.tracking import safe_track_event
+
+            safe_track_event(
+                event_name="extras.activated",
+                channel="server",
+                surface="extras.activate_after_payment",
+                source_app="extras",
+                object_type="ExtraPurchase",
+                object_id=str(purchase.id),
+                actor=purchase.user,
+                dedupe_key=f"extras.activated:{purchase.id}:{purchase.status}:{purchase.start_at.isoformat() if purchase.start_at else ''}",
+                payload={
+                    "sku": purchase.sku,
+                    "status": purchase.status,
+                    "start_at": purchase.start_at.isoformat() if purchase.start_at else None,
+                    "end_at": purchase.end_at.isoformat() if purchase.end_at else None,
+                },
+            )
+        except Exception:
+            pass
         return purchase
 
     # credit based
@@ -190,6 +232,26 @@ def activate_extra_after_payment(*, purchase: ExtraPurchase) -> ExtraPurchase:
         purchase.status = ExtraPurchaseStatus.ACTIVE
         purchase.save(update_fields=["status", "updated_at"])
         _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
+        try:
+            from apps.analytics.tracking import safe_track_event
+
+            safe_track_event(
+                event_name="extras.activated",
+                channel="server",
+                surface="extras.activate_after_payment",
+                source_app="extras",
+                object_type="ExtraPurchase",
+                object_id=str(purchase.id),
+                actor=purchase.user,
+                dedupe_key=f"extras.activated:{purchase.id}:{purchase.status}",
+                payload={
+                    "sku": purchase.sku,
+                    "status": purchase.status,
+                    "credits_total": purchase.credits_total,
+                },
+            )
+        except Exception:
+            pass
         return purchase
 
     _sync_extra_to_unified(purchase=purchase, changed_by=purchase.user)
@@ -223,6 +285,27 @@ def consume_credit(*, user, sku: str, amount: int = 1) -> bool:
 
     p.save(update_fields=["credits_used", "status", "updated_at"])
     _sync_extra_to_unified(purchase=p, changed_by=user)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="extras.credit_consumed",
+            channel="server",
+            surface="extras.consume_credit",
+            source_app="extras",
+            object_type="ExtraPurchase",
+            object_id=str(p.id),
+            actor=user,
+            payload={
+                "sku": p.sku,
+                "amount": amount,
+                "credits_used": p.credits_used,
+                "credits_left": p.credits_left(),
+                "status": p.status,
+            },
+        )
+    except Exception:
+        pass
     return True
 
 

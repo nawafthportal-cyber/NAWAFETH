@@ -549,6 +549,19 @@ const SearchPage = (() => {
       className: 'provider-list-card',
       href: '/provider/' + encodeURIComponent(String(provider.id || '')) + '/',
     });
+    card.addEventListener('click', () => {
+      if (typeof NwAnalytics === 'undefined') return;
+      NwAnalytics.track('search.result_click', {
+        surface: 'mobile_web.search.results',
+        source_app: 'providers',
+        object_type: 'ProviderProfile',
+        object_id: String(provider.id || ''),
+        payload: {
+          query: (_searchInput && _searchInput.value ? _searchInput.value.trim() : ''),
+          featured: _featuredProviderIds.has(String(provider.id)),
+        },
+      });
+    });
 
     const media = UI.el('div', { className: 'provider-list-media' });
     if (coverUrl) media.appendChild(UI.lazyImg(coverUrl, displayName));
@@ -805,6 +818,20 @@ const SearchPage = (() => {
                 link.target = '_blank';
                 link.rel = 'noopener';
               }
+              link.addEventListener('click', () => {
+                if (typeof NwAnalytics === 'undefined') return;
+                NwAnalytics.track('promo.banner_click', {
+                  surface: 'mobile_web.search.banner',
+                  source_app: 'promo',
+                  object_type: 'ProviderProfile',
+                  object_id: providerId,
+                  payload: {
+                    redirect_url: promo.redirect_url || '',
+                    title: promo.title || '',
+                    media_type: fileType,
+                  },
+                });
+              });
               link.appendChild(media);
               _promoBannerEl.appendChild(link);
             } else {
@@ -814,6 +841,22 @@ const SearchPage = (() => {
               _promoBannerEl.appendChild(wrap);
             }
             _promoBannerEl.classList.remove('hidden');
+            if (typeof NwAnalytics !== 'undefined') {
+              NwAnalytics.trackOnce(
+                'promo.banner_impression',
+                {
+                  surface: 'mobile_web.search.banner',
+                  source_app: 'promo',
+                  object_type: 'ProviderProfile',
+                  object_id: providerId,
+                  payload: {
+                    title: promo.title || '',
+                    media_type: fileType,
+                  },
+                },
+                'promo.banner_impression:mobile_web.search:' + providerId
+              );
+            }
           }
         }
       }

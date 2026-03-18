@@ -90,8 +90,19 @@ from apps.extras.services import activate_extra_after_payment
 from apps.features.checks import has_feature
 from apps.features.upload_limits import user_max_upload_mb
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
+from apps.backoffice.policies import (
+    AnalyticsExportPolicy,
+    ContentHideDeletePolicy,
+    ExtrasManagePolicy,
+    PromoQuoteActivatePolicy,
+    SubscriptionManagePolicy,
+    SupportAssignPolicy,
+    SupportResolvePolicy,
+    VerificationFinalizePolicy,
+)
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.moderation.integrations import record_support_target_delete_case
 from apps.unified_requests.models import (
     UnifiedRequest,
     UnifiedRequestAssignmentLog,
@@ -2365,6 +2376,16 @@ def promo_pricing_update_action(request: HttpRequest) -> HttpResponse:
 @require_POST
 def support_ticket_delete_reported_object_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket.objects.select_related("reported_user"), id=ticket_id)
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+        extra={"surface": "dashboard.support_ticket_delete_reported_object_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بحذف المحتوى محل الشكوى")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
     reported_kind = (getattr(ticket, "reported_kind", "") or "").strip().lower()
     reported_object_id = (getattr(ticket, "reported_object_id", "") or "").strip()
@@ -2415,6 +2436,16 @@ def support_ticket_delete_reported_object_action(request: HttpRequest, ticket_id
         messages.warning(request, "العنصر غير موجود أو تم حذفه مسبقًا")
         return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
+    try:
+        record_support_target_delete_case(
+            ticket=ticket,
+            by_user=request.user,
+            request=request,
+            note=f"delete_reported:{reported_kind}",
+        )
+    except Exception:
+        logger.exception("support_ticket_delete_reported_object_action moderation sync error")
+
     # Keep an internal trail on the ticket.
     try:
         from apps.support.models import SupportComment
@@ -2442,6 +2473,16 @@ def support_ticket_delete_reported_object_action(request: HttpRequest, ticket_id
 @require_POST
 def support_ticket_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id)
+    policy = SupportAssignPolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+        extra={"surface": "dashboard.support_ticket_assign_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعيين هذه التذكرة")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
@@ -2485,6 +2526,16 @@ def support_ticket_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
 @require_POST
 def support_ticket_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id)
+    policy = SupportResolvePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+        extra={"surface": "dashboard.support_ticket_status_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتحديث حالة هذه التذكرة")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
@@ -2529,6 +2580,30 @@ def support_ticket_quick_update_action(request: HttpRequest, ticket_id: int) -> 
         assigned_to = int(assigned_to) if assigned_to else None
     except Exception:
         assigned_to = None
+
+    if team_id is not None or assigned_to is not None:
+        assign_policy = SupportAssignPolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="support.ticket",
+            reference_id=str(ticket.id),
+            extra={"surface": "dashboard.support_ticket_quick_update_action", "action_name": "assign"},
+        )
+        if not assign_policy.allowed:
+            messages.error(request, "غير مصرح بتحديث إسناد التذكرة")
+            return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
+
+    if any([status_new, description, comment_text, attachment]):
+        resolve_policy = SupportResolvePolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="support.ticket",
+            reference_id=str(ticket.id),
+            extra={"surface": "dashboard.support_ticket_quick_update_action", "action_name": "quick_update"},
+        )
+        if not resolve_policy.allowed:
+            messages.error(request, "غير مصرح بتحديث هذه التذكرة")
+            return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
     if ap and ap.level == "user" and assigned_to is not None and assigned_to != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -2795,6 +2870,16 @@ def verification_requirement_decision_action(request: HttpRequest, req_id: int) 
 @require_POST
 def verification_finalize_action(request: HttpRequest, verification_id: int) -> HttpResponse:
     vr = get_object_or_404(VerificationRequest, id=verification_id)
+    policy = VerificationFinalizePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="verification.request",
+        reference_id=str(vr.id),
+        extra={"surface": "dashboard.verification_finalize_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بإنهاء هذا الطلب")
+        return redirect("dashboard:verification_request_detail", verification_id=verification_id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
@@ -2812,6 +2897,16 @@ def verification_finalize_action(request: HttpRequest, verification_id: int) -> 
 @require_POST
 def verification_activate_action(request: HttpRequest, verification_id: int) -> HttpResponse:
     vr = get_object_or_404(VerificationRequest, id=verification_id)
+    policy = VerificationFinalizePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="verification.request",
+        reference_id=str(vr.id),
+        extra={"surface": "dashboard.verification_activate_action", "action_name": "activate"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتفعيل طلب التوثيق")
+        return redirect("dashboard:verification_request_detail", verification_id=verification_id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
@@ -3126,6 +3221,16 @@ def promo_request_assign_action(request: HttpRequest, promo_id: int) -> HttpResp
 @require_POST
 def promo_request_ops_status_action(request: HttpRequest, promo_id: int) -> HttpResponse:
     pr = get_object_or_404(PromoRequest, id=promo_id)
+    policy = PromoQuoteActivatePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="promo.request",
+        reference_id=str(pr.id),
+        extra={"surface": "dashboard.promo_request_ops_status_action", "action_name": "ops_status"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتحديث تشغيل هذه الحملة")
+        return redirect("dashboard:promo_request_detail", promo_id=promo_id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -3209,6 +3314,16 @@ def promo_service_board(request: HttpRequest, service_key: str) -> HttpResponse:
 @require_POST
 def promo_quote_action(request: HttpRequest, promo_id: int) -> HttpResponse:
     pr = get_object_or_404(PromoRequest, id=promo_id)
+    policy = PromoQuoteActivatePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="promo.request",
+        reference_id=str(pr.id),
+        extra={"surface": "dashboard.promo_quote_action", "action_name": "quote"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتسعير هذه الحملة")
+        return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
@@ -3227,6 +3342,16 @@ def promo_quote_action(request: HttpRequest, promo_id: int) -> HttpResponse:
 @require_POST
 def promo_reject_action(request: HttpRequest, promo_id: int) -> HttpResponse:
     pr = get_object_or_404(PromoRequest, id=promo_id)
+    policy = PromoQuoteActivatePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="promo.request",
+        reference_id=str(pr.id),
+        extra={"surface": "dashboard.promo_reject_action", "action_name": "reject"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح برفض هذه الحملة")
+        return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
@@ -3248,6 +3373,16 @@ def promo_reject_action(request: HttpRequest, promo_id: int) -> HttpResponse:
 @require_POST
 def promo_activate_action(request: HttpRequest, promo_id: int) -> HttpResponse:
     pr = get_object_or_404(PromoRequest, id=promo_id)
+    policy = PromoQuoteActivatePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="promo.request",
+        reference_id=str(pr.id),
+        extra={"surface": "dashboard.promo_activate_action", "action_name": "activate"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتفعيل هذه الحملة")
+        return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
@@ -4043,6 +4178,16 @@ def subscription_request_add_note_action(request: HttpRequest, subscription_id: 
 @require_POST
 def subscription_request_set_status_action(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription, id=subscription_id)
+    policy = SubscriptionManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="subscription",
+        reference_id=str(sub.id),
+        extra={"surface": "dashboard.subscription_request_set_status_action", "action_name": "set_status"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتحديث حالة طلب الاشتراك")
+        return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
     new_status = (request.POST.get("status") or "").strip()
     note = (request.POST.get("note") or "").strip()
     allowed_statuses = set(allowed_statuses_for_request_type(UnifiedRequestType.SUBSCRIPTION))
@@ -4111,6 +4256,16 @@ def subscription_request_set_status_action(request: HttpRequest, subscription_id
 @require_POST
 def subscription_request_assign_action(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription, id=subscription_id)
+    policy = SubscriptionManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="subscription",
+        reference_id=str(sub.id),
+        extra={"surface": "dashboard.subscription_request_assign_action", "action_name": "assign"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بإسناد طلب الاشتراك")
+        return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
     assigned_to = request.POST.get("assigned_to") or None
     note = (request.POST.get("note") or "").strip()
     try:
@@ -4289,6 +4444,16 @@ def extras_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
 @require_POST
 def extras_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.EXTRAS)
+    policy = ExtrasManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+        extra={"surface": "dashboard.extras_inquiry_assign_action", "action_name": "assign"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بإسناد استفسار الخدمات الإضافية")
+        return redirect("dashboard:extras_inquiry_detail", ticket_id=ticket.id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -4325,6 +4490,16 @@ def extras_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
 @require_POST
 def extras_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.EXTRAS)
+    policy = ExtrasManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="support.ticket",
+        reference_id=str(ticket.id),
+        extra={"surface": "dashboard.extras_inquiry_status_action", "action_name": "status"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتحديث استفسار الخدمات الإضافية")
+        return redirect("dashboard:extras_inquiry_detail", ticket_id=ticket.id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -4401,6 +4576,16 @@ def extras_request_detail(request: HttpRequest, unified_request_id: int) -> Http
 @require_POST
 def extras_request_assign_action(request: HttpRequest, unified_request_id: int) -> HttpResponse:
     ur = get_object_or_404(UnifiedRequest, id=unified_request_id, request_type=UnifiedRequestType.EXTRAS)
+    policy = ExtrasManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="unified_request",
+        reference_id=str(ur.id),
+        extra={"surface": "dashboard.extras_request_assign_action", "action_name": "assign"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بإسناد طلب الخدمات الإضافية")
+        return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -4453,6 +4638,16 @@ def extras_request_assign_action(request: HttpRequest, unified_request_id: int) 
 @require_POST
 def extras_request_status_action(request: HttpRequest, unified_request_id: int) -> HttpResponse:
     ur = get_object_or_404(UnifiedRequest, id=unified_request_id, request_type=UnifiedRequestType.EXTRAS)
+    policy = ExtrasManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="unified_request",
+        reference_id=str(ur.id),
+        extra={"surface": "dashboard.extras_request_status_action", "action_name": "status"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتحديث طلب الخدمات الإضافية")
+        return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
         return HttpResponse("غير مصرح", status=403)
@@ -5074,6 +5269,16 @@ def subscription_refresh_action(request: HttpRequest, subscription_id: int) -> H
 @require_POST
 def subscription_activate_action(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription, id=subscription_id)
+    policy = SubscriptionManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="subscription",
+        reference_id=str(sub.id),
+        extra={"surface": "dashboard.subscription_activate_action", "action_name": "activate"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتفعيل هذا الاشتراك")
+        return redirect(safe_redirect_url(request, reverse("dashboard:subscriptions_list")))
     try:
         activate_subscription_after_payment(sub=sub)
         messages.success(request, "تم تفعيل الاشتراك")
@@ -5132,6 +5337,16 @@ def extras_list(request: HttpRequest) -> HttpResponse:
 @require_POST
 def extra_activate_action(request: HttpRequest, extra_id: int) -> HttpResponse:
     purchase = get_object_or_404(ExtraPurchase, id=extra_id)
+    policy = ExtrasManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="extra_purchase",
+        reference_id=str(purchase.id),
+        extra={"surface": "dashboard.extra_activate_action", "action_name": "activate"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتفعيل هذه الإضافة")
+        return redirect("dashboard:extras_list")
     try:
         activate_extra_after_payment(purchase=purchase)
         messages.success(request, "تم تفعيل الإضافة")

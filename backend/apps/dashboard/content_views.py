@@ -10,8 +10,10 @@ from django.views.decorators.http import require_POST
 
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.backoffice.policies import ContentHideDeletePolicy
 from apps.content.models import ContentBlockKey, LegalDocumentType, SiteContentBlock, SiteLegalDocument, SiteLinks
 from apps.content.services import sanitize_multiline_text, sanitize_text
+from apps.moderation.integrations import record_content_action_case
 from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 
 from .auth import dashboard_staff_required as staff_member_required
@@ -391,7 +393,28 @@ def portfolio_moderation_list(request):
 def portfolio_item_delete_action(request, item_id: int):
     """Delete a portfolio item (content moderation)."""
     item = get_object_or_404(ProviderPortfolioItem, id=item_id)
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="providers.provider_portfolio_item",
+        reference_id=str(item.id),
+        extra={"surface": "dashboard.portfolio_item_delete_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بحذف هذا المحتوى")
+        return redirect("dashboard:portfolio_moderation_list")
     provider_id = item.provider_id
+    try:
+        record_content_action_case(
+            item=item,
+            content_kind="portfolio_item",
+            action_name="delete",
+            by_user=request.user,
+            request=request,
+            note="dashboard_portfolio_delete",
+        )
+    except Exception:
+        pass
     log_action(
         actor=request.user,
         request=request,
@@ -447,7 +470,28 @@ def spotlight_moderation_list(request):
 def spotlight_item_delete_action(request, item_id: int):
     """Delete a spotlight item (content moderation)."""
     item = get_object_or_404(ProviderSpotlightItem, id=item_id)
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="providers.provider_spotlight_item",
+        reference_id=str(item.id),
+        extra={"surface": "dashboard.spotlight_item_delete_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بحذف هذا المحتوى")
+        return redirect("dashboard:spotlight_moderation_list")
     provider_id = item.provider_id
+    try:
+        record_content_action_case(
+            item=item,
+            content_kind="spotlight_item",
+            action_name="delete",
+            by_user=request.user,
+            request=request,
+            note="dashboard_spotlight_delete",
+        )
+    except Exception:
+        pass
     log_action(
         actor=request.user,
         request=request,

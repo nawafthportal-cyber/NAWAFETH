@@ -10,6 +10,7 @@ from django.db.models import Q, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from apps.backoffice.policies import PromoQuoteActivatePolicy
 from apps.dashboard.access import dashboard_assignee_user
 
 from .models import (
@@ -609,6 +610,15 @@ class BackofficeQuoteView(APIView):
     def post(self, request, pk: int):
         pr = get_object_or_404(PromoRequest, pk=pk)
         self.check_object_permissions(request, pr)
+        policy = PromoQuoteActivatePolicy.evaluate_and_log(
+            request.user,
+            request=request,
+            reference_type="promo.request",
+            reference_id=str(pr.id),
+            extra={"surface": "api.promo.quote"},
+        )
+        if not policy.allowed:
+            return Response({"detail": "غير مصرح", "reason": policy.reason}, status=status.HTTP_403_FORBIDDEN)
 
         ser = PromoQuoteSerializer(data=request.data)
         ser.is_valid(raise_exception=True)

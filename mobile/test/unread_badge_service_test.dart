@@ -178,4 +178,54 @@ void main() {
 
     UnreadBadgeService.release();
   });
+
+  testWidgets('refreshes unread badges when account mode changes', (tester) async {
+    final requestedModes = <String>[];
+
+    ApiClient.debugSetHttpClient(
+      MockClient((request) async {
+        if (request.url.path == '/api/core/unread-badges/') {
+          final mode = request.url.queryParameters['mode'] ?? 'client';
+          requestedModes.add(mode);
+          final payload = mode == 'provider'
+              ? <String, dynamic>{
+                  'notifications': 9,
+                  'chats': 8,
+                  'degraded': false,
+                  'stale': false,
+                }
+              : <String, dynamic>{
+                  'notifications': 1,
+                  'chats': 2,
+                  'degraded': false,
+                  'stale': false,
+                };
+          return http.Response(
+            jsonEncode(payload),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+        return http.Response('not found', 404);
+      }),
+    );
+
+    await AuthService.saveTokens(access: 'token', refresh: 'refresh-token');
+
+    final listenable = UnreadBadgeService.acquire();
+    await UnreadBadgeService.refresh(force: true);
+    expect(listenable.value.notifications, 1);
+    expect(listenable.value.chats, 2);
+
+    await AccountModeService.setProviderMode(true);
+    await tester.pump();
+    await tester.pump();
+
+    expect(listenable.value.notifications, 9);
+    expect(listenable.value.chats, 8);
+    expect(requestedModes, contains('client'));
+    expect(requestedModes, contains('provider'));
+
+    UnreadBadgeService.release();
+  });
 }

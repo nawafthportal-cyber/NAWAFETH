@@ -1,7 +1,9 @@
 from django.urls import path
 from . import views
 from . import auth_views
+from . import analytics_views
 from . import content_views
+from . import moderation_views
 from . import reviews_views
 from . import admin_views
 from apps.excellence import dashboard_views as excellence_views
@@ -13,6 +15,7 @@ urlpatterns = [
     path("otp/", auth_views.dashboard_otp, name="otp"),
     path("logout/", auth_views.dashboard_logout, name="logout"),
     path("", views.dashboard_home, name="home"),
+    path("analytics/insights/", analytics_views.analytics_insights, name="analytics_insights"),
     path("requests/", views.requests_list, name="requests_list"),
     path("requests/<int:request_id>/", views.request_detail, name="request_detail"),
     path("content/", content_views.content_management, name="content_management"),
@@ -63,6 +66,23 @@ urlpatterns = [
         name="support_ticket_add_comment",
     ),
     path("support/create/", admin_views.support_ticket_create, name="support_ticket_create"),
+    path("moderation/", moderation_views.moderation_cases_list, name="moderation_cases_list"),
+    path("moderation/<int:case_id>/", moderation_views.moderation_case_detail, name="moderation_case_detail"),
+    path(
+        "moderation/<int:case_id>/actions/assign/",
+        moderation_views.moderation_case_assign_action,
+        name="moderation_case_assign_action",
+    ),
+    path(
+        "moderation/<int:case_id>/actions/status/",
+        moderation_views.moderation_case_status_action,
+        name="moderation_case_status_action",
+    ),
+    path(
+        "moderation/<int:case_id>/actions/decision/",
+        moderation_views.moderation_case_decision_action,
+        name="moderation_case_decision_action",
+    ),
 
     path("verification/ops/", views.verification_ops, name="verification_ops"),
     path("verification/inquiries/<int:ticket_id>/", views.verification_inquiry_detail, name="verification_inquiry_detail"),

@@ -1,6 +1,7 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient
 
@@ -9,7 +10,8 @@ from apps.audit.models import AuditAction, AuditLog
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.marketplace.models import ServiceRequest
-from apps.providers.models import Category, ProviderProfile, SubCategory
+from apps.moderation.models import ModerationCase
+from apps.providers.models import Category, ProviderPortfolioItem, ProviderProfile, SubCategory
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.content.models import SiteContentBlock, SiteLegalDocument
 from apps.unified_requests.models import UnifiedRequest
@@ -265,6 +267,7 @@ def test_content_block_update_supports_contact_page_title():
 
 def test_content_block_update_rejects_invalid_media_file():
     _admin_user, admin_client = _login_dashboard_user("0500011203", AccessLevel.ADMIN, ["content"])
+    SiteContentBlock.objects.get_or_create(key="settings_help", defaults={"title_ar": "مساعدة", "body_ar": ""})
 
     bad_file = SimpleUploadedFile("hero.exe", b"MZ", content_type="application/octet-stream")
     res = admin_client.post(
@@ -377,6 +380,58 @@ def test_hidden_review_not_returned_in_public_provider_reviews_api():
     res = client.get(f"/api/reviews/providers/{review.provider_id}/reviews/")
     assert res.status_code == 200
     assert len(res.data) == 0
+
+
+@override_settings(FEATURE_MODERATION_DUAL_WRITE=True)
+def test_reviews_dashboard_dual_writes_to_moderation_case():
+    review = _make_review()
+    _admin_user, admin_client = _login_dashboard_user("0500011450", AccessLevel.ADMIN, ["content"])
+
+    response = admin_client.post(
+        reverse("dashboard:reviews_dashboard_moderate_action", args=[review.id]),
+        data={"action": "hide", "moderation_note": "بلاغ مخالف"},
+    )
+
+    assert response.status_code == 302
+    case = ModerationCase.objects.get(
+        source_app="reviews",
+        source_model="Review",
+        source_object_id=str(review.id),
+    )
+    assert case.status == "action_taken"
+    assert case.decisions.filter(decision_code="hide").exists()
+
+
+@override_settings(FEATURE_MODERATION_DUAL_WRITE=True)
+def test_portfolio_delete_dual_writes_to_moderation_case():
+    _admin_user, admin_client = _login_dashboard_user("0500011451", AccessLevel.ADMIN, ["content"])
+    provider_user = User.objects.create_user(phone="0500011452", password="Pass12345!")
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود معرض",
+        bio="bio",
+        city="الرياض",
+        years_experience=2,
+    )
+    item = ProviderPortfolioItem.objects.create(
+        provider=provider,
+        file_type="image",
+        file=SimpleUploadedFile("portfolio.png", PNG_BYTES, content_type="image/png"),
+        caption="عنصر معرض مخالف",
+    )
+
+    response = admin_client.post(reverse("dashboard:portfolio_item_delete_action", args=[item.id]))
+
+    assert response.status_code == 302
+    assert not ProviderPortfolioItem.objects.filter(id=item.id).exists()
+    case = ModerationCase.objects.get(
+        source_app="providers",
+        source_model="ProviderPortfolioItem",
+        source_object_id=str(item.id),
+    )
+    assert case.status == "action_taken"
+    assert case.decisions.filter(decision_code="delete").exists()
 
 
 def test_access_profiles_page_clarifies_access_expiration_term():

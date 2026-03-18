@@ -90,6 +90,7 @@ urlpatterns = [
     ),
     path("api/reviews/", include(("apps.reviews.urls", "reviews"), namespace="reviews")),
     path("api/content/", include(("apps.content.urls", "content"), namespace="content")),
+    path("api/moderation/", include(("apps.moderation.urls", "moderation"), namespace="moderation")),
     path("api/core/unread-badges/", UnreadBadgesView.as_view(), name="unread_badges"),
     path("api/excellence/", include(("apps.excellence.urls", "excellence"), namespace="excellence")),
     path("api/public/", include(("apps.verification.public_urls", "public"), namespace="public")),

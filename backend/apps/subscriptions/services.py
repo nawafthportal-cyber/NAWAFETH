@@ -402,6 +402,27 @@ def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer
     sub.invoice = inv
     sub.save(update_fields=["invoice", "updated_at"])
     _sync_subscription_to_unified(sub=sub, changed_by=user)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="subscriptions.checkout_created",
+            channel="server",
+            surface="subscriptions.pending_checkout",
+            source_app="subscriptions",
+            object_type="Subscription",
+            object_id=str(sub.id),
+            actor=user,
+            dedupe_key=f"subscriptions.checkout_created:{sub.id}:{inv.id}",
+            payload={
+                "plan_id": plan.id,
+                "plan_code": plan.code,
+                "invoice_id": inv.id,
+                "status": sub.status,
+            },
+        )
+    except Exception:
+        pass
     return sub
 
 
@@ -468,6 +489,27 @@ def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
         pass
 
     _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
+    try:
+        from apps.analytics.tracking import safe_track_event
+
+        safe_track_event(
+            event_name="subscriptions.activated",
+            channel="server",
+            surface="subscriptions.activate_after_payment",
+            source_app="subscriptions",
+            object_type="Subscription",
+            object_id=str(sub.id),
+            actor=sub.user,
+            dedupe_key=f"subscriptions.activated:{sub.id}:{sub.start_at.isoformat() if sub.start_at else ''}",
+            payload={
+                "plan_id": sub.plan_id,
+                "plan_code": getattr(sub.plan, "code", ""),
+                "status": sub.status,
+                "end_at": sub.end_at.isoformat() if sub.end_at else None,
+            },
+        )
+    except Exception:
+        pass
     return sub
 
 

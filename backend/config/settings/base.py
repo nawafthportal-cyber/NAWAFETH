@@ -31,6 +31,12 @@ def env_json(name: str, default):
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+FEATURE_MODERATION_CENTER = env_bool("FEATURE_MODERATION_CENTER", False)
+FEATURE_MODERATION_DUAL_WRITE = env_bool("FEATURE_MODERATION_DUAL_WRITE", False)
+FEATURE_RBAC_ENFORCE = env_bool("FEATURE_RBAC_ENFORCE", False)
+RBAC_AUDIT_ONLY = env_bool("RBAC_AUDIT_ONLY", True)
+FEATURE_ANALYTICS_EVENTS = env_bool("FEATURE_ANALYTICS_EVENTS", False)
+FEATURE_ANALYTICS_KPI_SURFACES = env_bool("FEATURE_ANALYTICS_KPI_SURFACES", False)
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 if DEBUG:
@@ -78,6 +84,7 @@ INSTALLED_APPS = [
     "apps.notifications.apps.NotificationsConfig",
     "apps.reviews.apps.ReviewsConfig",
     "apps.content.apps.ContentConfig",
+    "apps.moderation.apps.ModerationConfig",
     "apps.mobile_web.apps.MobileWebConfig",
 ]
 
@@ -240,6 +247,10 @@ CELERY_BEAT_SCHEDULE = {
     "core-auto-complete-expired-promos": {
         "task": "core.auto_complete_expired_promos",
         "schedule": timedelta(hours=1),
+    },
+    "analytics-rebuild-daily-stats": {
+        "task": "analytics.rebuild_daily_stats",
+        "schedule": crontab(hour=2, minute=20),
     },
 }
 

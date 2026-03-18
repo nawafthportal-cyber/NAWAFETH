@@ -11,7 +11,9 @@ from django.views.decorators.http import require_POST
 
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.backoffice.policies import ReviewModerationPolicy
 from apps.content.services import sanitize_text
+from apps.moderation.integrations import sync_review_case
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.reviews.services import sync_review_to_unified
 
@@ -133,6 +135,16 @@ def reviews_dashboard_detail(request, review_id: int):
 @dashboard_access_required("content", write=True)
 def reviews_dashboard_moderate_action(request, review_id: int):
     review = get_object_or_404(Review, id=review_id)
+    policy = ReviewModerationPolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="reviews.review",
+        reference_id=str(review.id),
+        extra={"surface": "dashboard.reviews_dashboard_moderate_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتنفيذ هذا الإجراء")
+        return redirect("dashboard:reviews_dashboard_detail", review_id=review.id)
 
     action_name = (request.POST.get("action") or "").strip()
     mapping = {
@@ -165,6 +177,16 @@ def reviews_dashboard_moderate_action(request, review_id: int):
             "moderation_note": review.moderation_note,
         },
     )
+    try:
+        sync_review_case(
+            review=review,
+            action_name=action_name,
+            note=review.moderation_note,
+            by_user=request.user,
+            request=request,
+        )
+    except Exception:
+        pass
     messages.success(request, "تم تحديث حالة المراجعة")
     return redirect("dashboard:reviews_dashboard_detail", review_id=review.id)
 

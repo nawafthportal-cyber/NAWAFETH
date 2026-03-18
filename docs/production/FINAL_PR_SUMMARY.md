@@ -1,5 +1,7 @@
 # Final PR Summary - Production Readiness Package
 
+> Historical note: this document summarizes the earlier subscriptions / verification hardening track. The current release closure baseline is documented in `SPRINT4_ACCEPTANCE_PACK.md` and `SPRINT4_RELEASE_FLAGS.md`.
+
 ## Scope
 This PR finalizes the production-hardening program for:
 - subscriptions
@@ -52,4 +54,3 @@ Covered phases: **1 through 9**.
 
 ## Deployment Risk
 - **Low to Medium**, with primary risk in operational rollout consistency (env secrets, command ordering, and post-deploy smoke coverage), not schema destruction.
-

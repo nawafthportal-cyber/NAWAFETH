@@ -254,6 +254,26 @@ class DirectThreadGetOrCreateView(APIView):
 				participant_1=me,
 				participant_2=provider_user,
 			)
+			try:
+				from apps.analytics.tracking import safe_track_event
+
+				safe_track_event(
+					event_name="messaging.direct_thread_created",
+					channel="server",
+					surface="messaging.direct_thread_create",
+					source_app="messaging",
+					object_type="Thread",
+					object_id=str(thread.id),
+					actor=me,
+					dedupe_key=f"messaging.direct_thread_created:{thread.id}",
+					payload={
+						"context_mode": desired_mode,
+						"provider_profile_id": provider_profile.id,
+						"provider_user_id": provider_user.id,
+					},
+				)
+			except Exception:
+				pass
 
 		return Response(DirectThreadSerializer(thread).data, status=status.HTTP_200_OK)
 
@@ -620,7 +640,36 @@ class ThreadReportView(APIView):
 			ticket_type=SupportTicketType.COMPLAINT,
 			priority=SupportPriority.NORMAL,
 			description=full,
+			reported_kind="thread",
+			reported_object_id=str(thread.id),
+			reported_user_id=reported_user_id,
 		)
+		try:
+			from apps.moderation.integrations import sync_support_ticket_case
+
+			sync_support_ticket_case(ticket=ticket, by_user=request.user, request=request, note="thread_report")
+		except Exception:
+			pass
+		try:
+			from apps.analytics.tracking import safe_track_event
+
+			safe_track_event(
+				event_name="messaging.thread_report_created",
+				channel="server",
+				surface="messaging.thread_report",
+				source_app="messaging",
+				object_type="Thread",
+				object_id=str(thread.id),
+				actor=request.user,
+				dedupe_key=f"messaging.thread_report_created:{thread.id}:{ticket.id}",
+				payload={
+					"ticket_id": ticket.id,
+					"reason": reason,
+					"reported_user_id": reported_user_id,
+				},
+			)
+		except Exception:
+			pass
 
 		return Response({"ok": True, "ticket_id": ticket.id, "ticket_code": ticket.code}, status=status.HTTP_201_CREATED)
 
