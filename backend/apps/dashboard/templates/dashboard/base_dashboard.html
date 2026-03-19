@@ -50,6 +50,7 @@
         {% can_access request.user "promo" as can_promo %}
         {% can_access request.user "subs" as can_subs %}
         {% can_access request.user "extras" as can_extras %}
+        {% can_access request.user "client_extras" as can_client_extras %}
         {% can_access request.user "access" as can_access_mgmt %}
 
         {% if can_analytics %}
@@ -253,13 +254,37 @@
         </a>
         {% endif %}
 
+        {% if can_client_extras %}
+        <div class="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4"></div>
+        <div class="px-4 py-1 text-xs text-gray-500 font-bold">بوابة العميل</div>
+
+        <a href="{% url 'dashboard:client_extras_catalog' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'client_extras_catalog' %}bg-gradient-to-r from-teal-50 to-emerald-50{% else %}hover:bg-gradient-to-r hover:from-teal-50 hover:to-emerald-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="كتالوج الخدمات">
+            🛒
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'client_extras_catalog' %}text-teal-700{% else %}text-gray-700 group-hover:text-teal-700{% endif %}">كتالوج الخدمات</span>
+        </a>
+
+        <a href="{% url 'dashboard:client_extras_purchases' %}"
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'client_extras_purchases' or request.resolver_match.url_name == 'client_extras_invoice' %}bg-gradient-to-r from-indigo-50 to-purple-50{% else %}hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50{% endif %}">
+          <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="مشترياتي">
+            📋
+          </div>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'client_extras_purchases' or request.resolver_match.url_name == 'client_extras_invoice' %}text-indigo-700{% else %}text-gray-700 group-hover:text-indigo-700{% endif %}">مشترياتي</span>
+        </a>
+        {% endif %}
+
         {% if can_access_mgmt %}
+        <div class="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-4"></div>
+        <div class="px-4 py-1 text-xs text-gray-500 font-bold">إدارة النظام</div>
+
         <a href="{% url 'dashboard:access_profiles_list' %}"
-           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'access_profiles_list' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
+           class="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group {% if request.resolver_match.url_name == 'access_profiles_list' or request.resolver_match.url_name == 'admin_home' %}bg-gradient-to-r from-slate-50 to-gray-100{% else %}hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-100{% endif %}">
           <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-slate-600 to-gray-800 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform" role="img" aria-label="صلاحيات التشغيل">
             🔐
           </div>
-          <span class="font-semibold {% if request.resolver_match.url_name == 'access_profiles_list' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">صلاحيات التشغيل</span>
+          <span class="font-semibold {% if request.resolver_match.url_name == 'access_profiles_list' or request.resolver_match.url_name == 'admin_home' %}text-slate-800{% else %}text-gray-700 group-hover:text-slate-800{% endif %}">صلاحيات التشغيل</span>
         </a>
 
         <a href="{% url 'dashboard:users_list' %}"

@@ -35,6 +35,7 @@ class PlatformConfigAdmin(admin.ModelAdmin):
         }),
         ("الخدمات الإضافية", {
             "fields": (
+                "extras_vat_percent",
                 "extras_default_duration_days",
                 "extras_short_duration_days",
                 "extras_currency",

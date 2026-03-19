@@ -114,6 +114,10 @@ class PlatformConfig(models.Model):
     )
 
     # ── الخدمات الإضافية ──
+    extras_vat_percent = models.DecimalField(
+        "نسبة ضريبة الخدمات الإضافية (%)",
+        max_digits=5, decimal_places=2, default=Decimal("15.00"),
+    )
     extras_default_duration_days = models.PositiveIntegerField(
         "مدة الخدمة الإضافية الافتراضية (أيام)", default=30,
     )

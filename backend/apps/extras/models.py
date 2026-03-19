@@ -8,6 +8,30 @@ from django.db import models, transaction
 from django.utils import timezone
 
 
+class ServiceCatalog(models.Model):
+    """
+    كتالوج الخدمات الإضافية — يُدار من Django Admin.
+    DB-first: إن وُجد سجل نشط يُستخدم بدلًا من settings.EXTRA_SKUS.
+    """
+    sku = models.CharField("رمز الخدمة (SKU)", max_length=80, unique=True)
+    title = models.CharField("عنوان الخدمة", max_length=160)
+    price = models.DecimalField("السعر (بدون ضريبة)", max_digits=10, decimal_places=2)
+    currency = models.CharField("العملة", max_length=10, default="SAR")
+    is_active = models.BooleanField("نشط", default=True)
+    sort_order = models.PositiveIntegerField("الترتيب", default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "خدمة إضافية (كتالوج)"
+        verbose_name_plural = "كتالوج الخدمات الإضافية"
+        ordering = ["sort_order", "sku"]
+
+    def __str__(self):
+        status = "✓" if self.is_active else "✗"
+        return f"[{status}] {self.sku} — {self.price} {self.currency}"
+
+
 class ExtraPurchaseStatus(models.TextChoices):
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
     ACTIVE = "active", "نشط"

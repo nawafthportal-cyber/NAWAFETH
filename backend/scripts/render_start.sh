@@ -11,13 +11,12 @@ WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY:-2}"
 LOG_LEVEL_VALUE="${GUNICORN_LOG_LEVEL:-info}"
 TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
 
-# Bind the public port only once the real ASGI stack is ready. A temporary
-# bootstrap listener can make Render declare the service healthy before Django
-# is actually serving traffic, which creates a hand-off race on the same port.
-# Migrations stay optional, but when enabled they must complete before the app
-# starts serving traffic; otherwise schema drift can surface as runtime 500s.
-RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
-RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-1}"
+# Render should open the public port as quickly as possible. Heavy startup work
+# such as migrations and collectstatic is expected to happen in pre-deploy/build
+# stages. The start script keeps optional fallbacks, but they are disabled by
+# default so startup stays deterministic and avoids port-scan timeouts.
+RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
+RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
 COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-120}"
 
@@ -30,7 +29,7 @@ if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
 	fi
 	echo "[start] Migrations completed."
 else
-	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START})."
+	echo "[start] Skipping migrations on startup (RUN_MIGRATIONS_ON_START=${RUN_MIGRATIONS_ON_START}); expect pre-deploy migration to have completed."
 fi
 
 # ── Static files recovery ───────────────────────────────────────────
@@ -51,7 +50,8 @@ if [ ! -f "${MANIFEST_PATH}" ]; then
 		echo "[start] collectstatic completed."
 	else
 		echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
-		echo "[start] Refusing to start without a WhiteNoise manifest-backed static build."
+		echo "[start] Refusing to start without a build-generated WhiteNoise manifest."
+		echo "[start] Re-run the build step or temporarily enable RUN_COLLECTSTATIC_ON_START=1 only for recovery."
 		exit 1
 	fi
 else

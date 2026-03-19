@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import VerificationRequest, VerificationDocument, VerifiedBadge
+from .models import VerificationRequest, VerificationDocument, VerifiedBadge, VerificationPricingRule
+
+
+@admin.register(VerificationPricingRule)
+class VerificationPricingRuleAdmin(admin.ModelAdmin):
+    list_display = ("badge_type", "fee", "currency", "is_active", "note", "updated_at")
+    list_filter = ("is_active", "badge_type")
+    search_fields = ("note",)
+    list_editable = ("fee", "is_active")
+    ordering = ("badge_type",)
 
 
 class VerificationDocumentInline(admin.TabularInline):

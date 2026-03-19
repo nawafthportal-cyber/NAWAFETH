@@ -13,6 +13,30 @@
   </div>
 </div>
 
+<!-- Stats Cards -->
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div class="text-xs text-gray-500 font-semibold mb-1">إجمالي الطلبات</div>
+    <div class="text-2xl font-bold text-gray-800">{{ stats.total_requests }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div class="text-xs text-gray-500 font-semibold mb-1">جديدة</div>
+    <div class="text-2xl font-bold text-blue-600">{{ stats.new_requests }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div class="text-xs text-gray-500 font-semibold mb-1">قيد المراجعة</div>
+    <div class="text-2xl font-bold text-amber-600">{{ stats.in_review }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div class="text-xs text-gray-500 font-semibold mb-1">نشطة</div>
+    <div class="text-2xl font-bold text-emerald-600">{{ stats.active }}</div>
+  </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+    <div class="text-xs text-gray-500 font-semibold mb-1">استفسارات جديدة</div>
+    <div class="text-2xl font-bold text-violet-600">{{ stats.new_inquiries }}</div>
+  </div>
+</div>
+
 <form method="get" class="bg-white rounded-2xl shadow-lg border border-gray-100 p-5 mb-6">
   <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
     <input name="q" value="{{ q }}" placeholder="كود/وصف/جوال" class="rounded-lg border-gray-200 px-3 py-2">

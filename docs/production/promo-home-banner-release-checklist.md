@@ -20,14 +20,17 @@ python -m pytest apps/promo/tests/test_promo.py -k "invoice_paid_signal_activate
 ## 2. إعدادات النشر
 
 - تأكد أن النشر يستخدم `startCommand` الحالي ولا يتجاوزه.
-- تأكد أن `RUN_MIGRATIONS_ON_START=1` مفعلة في إعدادات الخدمة.
-- تأكد أن `RUN_COLLECTSTATIC_ON_START=1` مفعلة.
+- تأكد أن `preDeployCommand` يشغّل:
+  - `python manage.py migrate --noinput`
+- تأكد أن:
+  - `RUN_MIGRATIONS_ON_START=0`
+  - `RUN_COLLECTSTATIC_ON_START=0`
 - راجع ملفات النشر المرجعية:
   - [render.yaml](render.yaml)
   - [backend/render.yaml](backend/render.yaml)
   - [backend/scripts/render_start.sh](backend/scripts/render_start.sh)
 
-النتيجة المطلوبة: أي deploy يجب أن يرفض الإقلاع إذا فشلت المايجريشن أو انتهت مهلة تنفيذها.
+النتيجة المطلوبة: المايجريشن تتم قبل الإقلاع، وstartup لا تضيع وقت فتح البورت في أعمال ثقيلة.
 
 ## 3. أثناء النشر
 

@@ -224,3 +224,31 @@ class VerifiedBadge(models.Model):
 
     def __str__(self):
         return f"{self.user_id} {self.badge_type} active={self.is_active}"
+
+
+class VerificationPricingRule(models.Model):
+    """
+    قاعدة تسعير توثيق — يُدار من Django Admin.
+    DB-first: إن وُجد سجل نشط يُستخدم بدلًا من SubscriptionPlan.verification_*_fee.
+    """
+    badge_type = models.CharField(
+        "نوع الشارة",
+        max_length=20,
+        choices=VerificationBadgeType.choices,
+        unique=True,
+    )
+    fee = models.DecimalField("رسم التوثيق (شامل الضريبة)", max_digits=10, decimal_places=2)
+    currency = models.CharField("العملة", max_length=10, default="SAR")
+    is_active = models.BooleanField("نشط", default=True)
+    note = models.CharField("ملاحظة", max_length=300, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "قاعدة تسعير توثيق"
+        verbose_name_plural = "قواعد تسعير التوثيق"
+        ordering = ["badge_type"]
+
+    def __str__(self):
+        status = "✓" if self.is_active else "✗"
+        return f"[{status}] {self.get_badge_type_display()} — {self.fee} {self.currency}"

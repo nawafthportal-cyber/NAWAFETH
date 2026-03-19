@@ -10,7 +10,7 @@ from django.views.decorators.http import require_POST
 
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
-from apps.backoffice.policies import ContentHideDeletePolicy
+from apps.backoffice.policies import ContentHideDeletePolicy, ContentManagePolicy
 from apps.content.models import ContentBlockKey, LegalDocumentType, SiteContentBlock, SiteLegalDocument, SiteLinks
 from apps.content.services import sanitize_multiline_text, sanitize_text
 from apps.moderation.integrations import record_content_action_case
@@ -139,6 +139,17 @@ def content_block_update_action(request, key: str):
     if key not in valid_keys:
         return redirect("dashboard:content_management")
 
+    policy = ContentManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="content.site_content_block",
+        reference_id=key,
+        extra={"surface": "dashboard.content_block_update_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعديل محتوى المنصة")
+        return redirect("dashboard:content_management")
+
     title_ar = sanitize_multiline_text(request.POST.get("title_ar", ""))
     body_ar = sanitize_multiline_text(request.POST.get("body_ar", ""))
     uploaded_media = request.FILES.get("media_file")
@@ -228,6 +239,17 @@ def content_doc_upload_action(request, doc_type: str):
     if doc_type not in valid_types:
         return redirect("dashboard:content_management")
 
+    policy = ContentManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="content.site_legal_document",
+        reference_id=doc_type,
+        extra={"surface": "dashboard.content_doc_upload_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح برفع المستندات القانونية")
+        return redirect("dashboard:content_management")
+
     uploaded = request.FILES.get("file")
     body_ar = sanitize_multiline_text(request.POST.get("body_ar", ""))
     if not uploaded and not body_ar:
@@ -303,6 +325,17 @@ def content_doc_upload_action(request, doc_type: str):
 @staff_member_required
 @dashboard_access_required("content", write=True)
 def content_links_update_action(request):
+    policy = ContentManagePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="content.site_links",
+        reference_id="",
+        extra={"surface": "dashboard.content_links_update_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعديل روابط المنصة")
+        return redirect("dashboard:content_management")
+
     links = SiteLinks.objects.order_by("-updated_at", "-id").first()
     if links is None:
         links = SiteLinks.objects.create()

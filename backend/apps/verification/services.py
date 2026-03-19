@@ -273,8 +273,19 @@ def expire_verified_badges_and_sync(*, now=None, limit: int = 1000) -> int:
 
 def _fee_for_badge(badge_type: str) -> Decimal:
     """
-    الرسم المرجعي يأتي من canonical basic plan داخل قاعدة البيانات.
+    الرسم المرجعي:
+    1) VerificationPricingRule (DB first)
+    2) canonical basic plan fallback
     """
+    from .models import VerificationPricingRule
+
+    try:
+        rule = VerificationPricingRule.objects.get(badge_type=badge_type, is_active=True)
+        return Decimal(str(rule.fee))
+    except VerificationPricingRule.DoesNotExist:
+        pass
+
+    # fallback: canonical basic plan
     basic_plan = canonical_subscription_plan_for_tier(CanonicalPlanTier.BASIC)
     field_name = (
         "verification_green_fee"

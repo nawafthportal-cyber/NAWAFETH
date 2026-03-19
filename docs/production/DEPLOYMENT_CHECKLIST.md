@@ -19,9 +19,8 @@
 
 ## B) Deploy Order
 1. Deploy application code.
-2. Run DB migrations:
-   - `cd backend`
-   - `.\\.venv\\Scripts\\python.exe manage.py migrate`
+2. Ensure the Render service runs DB migrations via `preDeployCommand`:
+   - `python manage.py migrate --noinput`
 3. Seed canonical plans:
    - `.\\.venv\\Scripts\\python.exe manage.py seed_plans`
 4. Dry-run data maintenance:
@@ -34,6 +33,9 @@
 7. Ensure Celery beat includes:
    - `verification.expire_badges_and_sync`
    - `analytics.rebuild_daily_stats`
+8. Confirm startup is lightweight:
+   - `RUN_MIGRATIONS_ON_START=0`
+   - `RUN_COLLECTSTATIC_ON_START=0`
 
 ## B.1) Sprint 4 staged enablement
 1. Keep all new flags disabled on first deploy.

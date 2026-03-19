@@ -87,11 +87,14 @@ class UserAccessProfile(models.Model):
         return self.level == AccessLevel.QA
 
     # Dashboards that Client-level users can access
-    CLIENT_ALLOWED_DASHBOARDS = frozenset({"extras"})
+    CLIENT_ALLOWED_DASHBOARDS = frozenset({"client_extras"})
+
+    # Dashboards that admin/power should NOT access (client-only portals)
+    CLIENT_ONLY_DASHBOARDS = frozenset({"client_extras"})
 
     def is_allowed(self, dashboard_code: str) -> bool:
         if self.level in (AccessLevel.ADMIN, AccessLevel.POWER):
-            return True
+            return dashboard_code not in self.CLIENT_ONLY_DASHBOARDS
         if self.level == AccessLevel.CLIENT:
             return dashboard_code in self.CLIENT_ALLOWED_DASHBOARDS
         return self.allowed_dashboards.filter(code=dashboard_code, is_active=True).exists()

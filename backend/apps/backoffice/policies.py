@@ -22,6 +22,7 @@ class PermissionCode:
     SUBSCRIPTIONS_MANAGE = "subscriptions.manage"
     EXTRAS_MANAGE = "extras.manage"
     ANALYTICS_EXPORT = "analytics.export"
+    CONTENT_MANAGE = "content.manage"
 
 
 @dataclass(frozen=True)
@@ -140,6 +141,11 @@ class ReviewModerationPolicy(BaseActionPolicy):
 class ContentHideDeletePolicy(BaseActionPolicy):
     dashboard_code = "content"
     permission_code = PermissionCode.CONTENT_HIDE_DELETE
+
+
+class ContentManagePolicy(BaseActionPolicy):
+    dashboard_code = "content"
+    permission_code = PermissionCode.CONTENT_MANAGE
 
 
 class SupportAssignPolicy(BaseActionPolicy):

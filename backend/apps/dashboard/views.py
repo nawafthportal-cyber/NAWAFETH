@@ -120,10 +120,12 @@ from .forms import AcceptAssignProviderForm, CategoryForm, SubCategoryForm
 from .access import (
     active_dashboard_choices,
     backoffice_assignment_users,
+    can_access_dashboard,
     dashboard_allowed,
     dashboard_assignee_user,
     dashboard_assignment_users,
     first_allowed_dashboard_route,
+    has_action_permission,
     sync_dashboard_user_access,
 )
 from .security import (
@@ -246,7 +248,11 @@ def _dashboard_tile_meta(code: str) -> dict[str, str]:
         "subs": {"icon": "📦", "from": "from-violet-500", "to": "to-indigo-600"},
         "extras": {"icon": "➕", "from": "from-orange-500", "to": "to-amber-600"},
         "features": {"icon": "🧩", "from": "from-teal-500", "to": "to-emerald-600"},
+        "admin_control": {"icon": "🔐", "from": "from-slate-600", "to": "to-gray-800"},
         "access": {"icon": "🔐", "from": "from-slate-600", "to": "to-gray-800"},
+        "client_extras": {"icon": "🛒", "from": "from-emerald-500", "to": "to-green-600"},
+        "moderation": {"icon": "🛡️", "from": "from-red-500", "to": "to-rose-600"},
+        "excellence": {"icon": "🏆", "from": "from-yellow-500", "to": "to-amber-600"},
     }
     return mapping.get(code, {"icon": "🗂️", "from": "from-gray-500", "to": "to-slate-600"})
 
@@ -254,7 +260,7 @@ def _dashboard_tile_meta(code: str) -> dict[str, str]:
 
 
 def _dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
-    return dashboard_allowed(user, dashboard_code, write=write)
+    return can_access_dashboard(user, dashboard_code, write=write)
 
 
 def _is_promo_operator_user(user) -> bool:
@@ -1311,6 +1317,16 @@ def provider_service_toggle_active(request: HttpRequest, provider_id: int, servi
         id=service_id,
         provider_id=provider_id,
     )
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="providers.provider_service",
+        reference_id=str(service.id),
+        extra={"surface": "dashboard.provider_service_toggle_active"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعديل حالة هذه الخدمة")
+        return redirect("dashboard:provider_detail", provider_id=provider_id)
     service.is_active = not bool(service.is_active)
     service.save(update_fields=["is_active", "updated_at"])
     messages.success(request, "تم تحديث حالة الخدمة بنجاح")
@@ -1719,6 +1735,16 @@ def category_detail(request: HttpRequest, category_id: int) -> HttpResponse:
 def category_toggle_active(request: HttpRequest, category_id: int) -> HttpResponse:
     """تفعيل/إيقاف تصنيف رئيسي"""
     category = get_object_or_404(Category, id=category_id)
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="marketplace.category",
+        reference_id=str(category.id),
+        extra={"surface": "dashboard.category_toggle_active"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعديل حالة هذا التصنيف")
+        return redirect("dashboard:category_detail", category_id=category.id)
     category.is_active = not category.is_active
     category.save()
     
@@ -1737,6 +1763,16 @@ def subcategory_toggle_active(
     """تفعيل/إيقاف تصنيف فرعي"""
     category = get_object_or_404(Category, id=category_id)
     subcategory = get_object_or_404(SubCategory, id=subcategory_id, category=category)
+    policy = ContentHideDeletePolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="marketplace.subcategory",
+        reference_id=str(subcategory.id),
+        extra={"surface": "dashboard.subcategory_toggle_active"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بتعديل حالة هذا التصنيف الفرعي")
+        return redirect("dashboard:category_detail", category_id=category.id)
     
     subcategory.is_active = not subcategory.is_active
     subcategory.save()
@@ -2347,6 +2383,10 @@ def promo_pricing(request: HttpRequest) -> HttpResponse:
 @dashboard_access_required("promo", write=True)
 @require_POST
 def promo_pricing_update_action(request: HttpRequest) -> HttpResponse:
+    if not has_action_permission(request.user, "promo.quote_activate"):
+        messages.error(request, "ليس لديك صلاحية تعديل تسعير الحملات.")
+        return redirect("dashboard:promo_pricing")
+
     code = (request.POST.get("code") or "").strip()
     raw_price = (request.POST.get("amount") or "").strip()
     is_active = (request.POST.get("is_active") or "").strip().lower() in {"1", "true", "on", "yes"}
@@ -2963,6 +3003,23 @@ def verification_ops(request: HttpRequest) -> HttpResponse:
     req_paginator = Paginator(req_qs, 15)
     req_page_obj = req_paginator.get_page(request.GET.get("req_page") or "1")
 
+    _v_agg = VerificationRequest.objects.aggregate(
+        total=Count("id"),
+        new=Count("id", filter=Q(status=VerificationStatus.NEW)),
+        in_review=Count("id", filter=Q(status=VerificationStatus.IN_REVIEW)),
+        approved=Count("id", filter=Q(status=VerificationStatus.APPROVED)),
+        active=Count("id", filter=Q(status=VerificationStatus.ACTIVE)),
+    )
+    _inq_new = SupportTicket.objects.filter(ticket_type=SupportTicketType.VERIFY, status=SupportTicketStatus.NEW).count()
+    stats = {
+        "total_requests": _v_agg["total"],
+        "new_requests": _v_agg["new"],
+        "in_review": _v_agg["in_review"],
+        "approved": _v_agg["approved"],
+        "active": _v_agg["active"],
+        "new_inquiries": _inq_new,
+    }
+
     return render(
         request,
         "dashboard/verification_ops.html",
@@ -2974,6 +3031,7 @@ def verification_ops(request: HttpRequest) -> HttpResponse:
             "req_page_obj": req_page_obj,
             "inq_status_choices": SupportTicketStatus.choices,
             "req_status_choices": VerificationStatus.choices,
+            "stats": stats,
         },
     )
 
@@ -3181,6 +3239,10 @@ def promo_request_detail(request: HttpRequest, promo_id: int) -> HttpResponse:
 @dashboard_access_required("promo", write=True)
 @require_POST
 def promo_request_assign_action(request: HttpRequest, promo_id: int) -> HttpResponse:
+    if not has_action_permission(request.user, "promo.quote_activate"):
+        messages.error(request, "ليس لديك صلاحية تعديل هذا الطلب.")
+        return redirect("dashboard:promo_request_detail", promo_id=promo_id)
+
     pr = get_object_or_404(PromoRequest, id=promo_id)
     ap = getattr(request.user, "access_profile", None)
     if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
@@ -3956,6 +4018,21 @@ def subscriptions_ops(request: HttpRequest) -> HttpResponse:
     for row in req_page_obj.object_list:
         row.unified_request = unified_map.get(str(row.id))
 
+    _s_agg = Subscription.objects.aggregate(
+        total=Count("id"),
+        active=Count("id", filter=Q(status=SubscriptionStatus.ACTIVE)),
+        pending=Count("id", filter=Q(status=SubscriptionStatus.PENDING_PAYMENT)),
+        expired=Count("id", filter=Q(status=SubscriptionStatus.EXPIRED)),
+    )
+    _inq_new = SupportTicket.objects.filter(ticket_type=SupportTicketType.SUBS, status=SupportTicketStatus.NEW).count()
+    stats = {
+        "total_subscriptions": _s_agg["total"],
+        "active": _s_agg["active"],
+        "pending_payment": _s_agg["pending"],
+        "expired": _s_agg["expired"],
+        "new_inquiries": _inq_new,
+    }
+
     return render(
         request,
         "dashboard/subscriptions_ops.html",
@@ -3967,6 +4044,7 @@ def subscriptions_ops(request: HttpRequest) -> HttpResponse:
             "req_page_obj": req_page_obj,
             "inq_status_choices": SupportTicketStatus.choices,
             "req_status_choices": SubscriptionStatus.choices,
+            "stats": stats,
         },
     )
 
@@ -4384,6 +4462,21 @@ def extras_ops(request: HttpRequest) -> HttpResponse:
     inq_page_obj = Paginator(inq_qs, 15).get_page(request.GET.get("inq_page") or "1")
     req_page_obj = Paginator(req_qs, 15).get_page(request.GET.get("req_page") or "1")
 
+    _e_agg = UnifiedRequest.objects.filter(request_type=UnifiedRequestType.EXTRAS).aggregate(
+        total=Count("id"),
+        open=Count("id", filter=Q(status=UnifiedRequestStatus.OPEN)),
+        pending=Count("id", filter=Q(status=UnifiedRequestStatus.PENDING_PAYMENT)),
+    )
+    _inq_new = SupportTicket.objects.filter(ticket_type=SupportTicketType.EXTRAS, status=SupportTicketStatus.NEW).count()
+    _purchases_active = ExtraPurchase.objects.filter(status=ExtraPurchaseStatus.ACTIVE).count()
+    stats = {
+        "total_requests": _e_agg["total"],
+        "open_requests": _e_agg["open"],
+        "pending_payment": _e_agg["pending"],
+        "purchases_active": _purchases_active,
+        "new_inquiries": _inq_new,
+    }
+
     return render(
         request,
         "dashboard/extras_ops.html",
@@ -4395,6 +4488,7 @@ def extras_ops(request: HttpRequest) -> HttpResponse:
             "req_page_obj": req_page_obj,
             "inq_status_choices": SupportTicketStatus.choices,
             "req_status_choices": [(v, l) for v, l in UnifiedRequestStatus.choices if v in set(THREE_STAGE_ALLOWED_STATUSES)],
+            "stats": stats,
         },
     )
 
@@ -5516,264 +5610,30 @@ def features_overview(request: HttpRequest) -> HttpResponse:
 @staff_member_required
 @dashboard_access_required("access")
 def access_profiles_list(request: HttpRequest) -> HttpResponse:
-    qs = (
-        UserAccessProfile.objects.select_related("user")
-        .prefetch_related("allowed_dashboards")
-        .all()
-        .order_by("-updated_at")
-    )
-    q = (request.GET.get("q") or "").strip()
-    level = (request.GET.get("level") or "").strip()
-    if q:
-        qs = qs.filter(Q(user__phone__icontains=q) | Q(user__username__icontains=q) | Q(user__email__icontains=q))
-    if level:
-        qs = qs.filter(level=level)
-
-    if _want_csv(request):
-        rows = []
-        for ap in _limited_export_queryset(request, qs):
-            dashboards = ",".join(ap.allowed_dashboards.values_list("code", flat=True))
-            rows.append(
-                [
-                    ap.user_id,
-                    ap.user.phone or "",
-                    ap.level,
-                    bool(ap.revoked_at),
-                    ap.expires_at.isoformat() if ap.expires_at else "",
-                    dashboards,
-                    ap.updated_at.isoformat() if ap.updated_at else "",
-                ]
-            )
-        return _csv_response(
-            "access_profiles.csv",
-            ["user_id", "phone", "level", "is_revoked", "expires_at", "dashboards", "updated_at"],
-            rows,
-        )
-
-    all_dashboards = active_dashboard_choices()
-    for d in all_dashboards:
-        meta = _dashboard_tile_meta(d.code)
-        d.ui_icon = meta["icon"]
-        d.ui_grad_from = meta["from"]
-        d.ui_grad_to = meta["to"]
-
-    paginator = Paginator(qs, 25)
-    page_obj = paginator.get_page(request.GET.get("page") or "1")
-    return render(
-        request,
-        "dashboard/access_profiles_list.html",
-        {
-            "page_obj": page_obj,
-            "q": q,
-            "level": level,
-            "level_choices": UserAccessProfile._meta.get_field("level").choices,
-            "all_dashboards": all_dashboards,
-            "can_write": _dashboard_allowed(request.user, "access", write=True),
-        },
-    )
+    # Moved to admin_views.py — this stub kept for any direct import references.
+    from . import admin_views
+    return admin_views.access_profiles_list(request)
 
 
 @staff_member_required
 @dashboard_access_required("access", write=True)
 @require_POST
 def access_profile_create_action(request: HttpRequest) -> HttpResponse:
-    phone = (request.POST.get("target_phone") or "").strip()
-    if not phone:
-        messages.error(request, "رقم الجوال مطلوب")
-        return redirect("dashboard:access_profiles_list")
-
-    target_user = User.objects.filter(phone=phone).first()
-    if not target_user:
-        messages.error(request, "لا يوجد مستخدم بهذا الجوال")
-        return redirect("dashboard:access_profiles_list")
-
-    level = (request.POST.get("level") or "").strip().lower()
-    if level not in {choice[0] for choice in AccessLevel.choices}:
-        messages.error(request, "مستوى الصلاحية غير صالح")
-        return redirect("dashboard:access_profiles_list")
-
-    expires_at_raw = (request.POST.get("expires_at") or "").strip()
-    expires_at = _parse_datetime_local(expires_at_raw) if expires_at_raw else None
-    if expires_at_raw and expires_at is None:
-        messages.error(request, "صيغة تاريخ الانتهاء غير صحيحة")
-        return redirect("dashboard:access_profiles_list")
-
-    dashboard_ids = request.POST.getlist("dashboard_ids")
-    selected_dashboards = Dashboard.objects.filter(id__in=dashboard_ids, is_active=True)
-    if level == AccessLevel.CLIENT:
-        selected_dashboards = Dashboard.objects.filter(
-            code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS,
-            is_active=True,
-        )
-
-    ap, created = UserAccessProfile.objects.get_or_create(
-        user=target_user,
-        defaults={"level": level, "expires_at": expires_at},
-    )
-    if not created:
-        if _is_active_admin_profile(ap):
-            will_still_be_active_admin = (
-                level == AccessLevel.ADMIN
-                and (expires_at is None or expires_at > timezone.now())
-            )
-            if not will_still_be_active_admin and _active_admin_profiles_count() <= 1:
-                messages.error(request, "لا يمكن خفض/تعطيل آخر Admin فعّال في المنصة")
-                return redirect("dashboard:access_profiles_list")
-
-        ap.level = level
-        ap.expires_at = expires_at
-        ap.save(update_fields=["level", "expires_at", "updated_at"])
-
-    ap.allowed_dashboards.set(selected_dashboards)
-    changed_fields = sync_dashboard_user_access(target_user, access_profile=ap, force_staff_role_state=True)
-    if changed_fields:
-        target_user.save(update_fields=changed_fields)
-
-    log_action(
-        actor=request.user,
-        action=AuditAction.ACCESS_PROFILE_CREATED if created else AuditAction.ACCESS_PROFILE_UPDATED,
-        reference_type="backoffice.user_access_profile",
-        reference_id=str(ap.id),
-        request=request,
-        extra={
-            "target_user_id": target_user.id,
-            "created": bool(created),
-            "after": {
-                "level": ap.level,
-                "expires_at": ap.expires_at.isoformat() if ap.expires_at else None,
-                "dashboards": list(ap.allowed_dashboards.values_list("code", flat=True)),
-            },
-        },
-    )
-
-    if created:
-        messages.success(request, "تم إنشاء ملف صلاحيات التشغيل بنجاح")
-    else:
-        messages.success(request, "المستخدم لديه ملف سابق وتم تحديثه")
-    return redirect("dashboard:access_profiles_list")
+    from . import admin_views
+    return admin_views.access_profile_create_action(request)
 
 
 @staff_member_required
 @dashboard_access_required("access", write=True)
 @require_POST
 def access_profile_update_action(request: HttpRequest, profile_id: int) -> HttpResponse:
-    ap = get_object_or_404(UserAccessProfile.objects.prefetch_related("allowed_dashboards"), id=profile_id)
-    old_level = ap.level
-    old_expires_at = ap.expires_at.isoformat() if ap.expires_at else None
-    old_dashboards = list(ap.allowed_dashboards.values_list("code", flat=True))
-
-    level = (request.POST.get("level") or "").strip().lower()
-    if level not in {choice[0] for choice in AccessLevel.choices}:
-        messages.error(request, "مستوى الصلاحية غير صالح")
-        return redirect("dashboard:access_profiles_list")
-
-    expires_at_raw = (request.POST.get("expires_at") or "").strip()
-    expires_at = _parse_datetime_local(expires_at_raw) if expires_at_raw else None
-    if expires_at_raw and expires_at is None:
-        messages.error(request, "صيغة تاريخ الانتهاء غير صحيحة")
-        return redirect("dashboard:access_profiles_list")
-
-    if _is_active_admin_profile(ap):
-        will_still_be_active_admin = (
-            level == AccessLevel.ADMIN
-            and (expires_at is None or expires_at > timezone.now())
-        )
-        if not will_still_be_active_admin and _active_admin_profiles_count() <= 1:
-            messages.error(request, "لا يمكن خفض/تعطيل آخر Admin فعّال في المنصة")
-            return redirect("dashboard:access_profiles_list")
-
-    dashboard_ids = request.POST.getlist("dashboard_ids")
-    selected_dashboards = Dashboard.objects.filter(id__in=dashboard_ids, is_active=True)
-    if level == AccessLevel.CLIENT:
-        selected_dashboards = Dashboard.objects.filter(
-            code__in=UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS,
-            is_active=True,
-        )
-
-    ap.level = level
-    ap.expires_at = expires_at
-    ap.save(update_fields=["level", "expires_at", "updated_at"])
-    ap.allowed_dashboards.set(selected_dashboards)
-    changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap, force_staff_role_state=True)
-    if changed_fields:
-        ap.user.save(update_fields=changed_fields)
-
-    new_dashboards = list(ap.allowed_dashboards.values_list("code", flat=True))
-    log_action(
-        actor=request.user,
-        action=AuditAction.ACCESS_PROFILE_UPDATED,
-        reference_type="backoffice.user_access_profile",
-        reference_id=str(ap.id),
-        request=request,
-        extra={
-            "target_user_id": ap.user_id,
-            "before": {
-                "level": old_level,
-                "expires_at": old_expires_at,
-                "dashboards": old_dashboards,
-            },
-            "after": {
-                "level": ap.level,
-                "expires_at": ap.expires_at.isoformat() if ap.expires_at else None,
-                "dashboards": new_dashboards,
-            },
-        },
-    )
-
-    messages.success(request, "تم تحديث ملف الصلاحيات بنجاح")
-    return redirect("dashboard:access_profiles_list")
+    from . import admin_views
+    return admin_views.access_profile_update_action(request, profile_id)
 
 
 @staff_member_required
 @dashboard_access_required("access", write=True)
 @require_POST
 def access_profile_toggle_revoke_action(request: HttpRequest, profile_id: int) -> HttpResponse:
-    ap = get_object_or_404(UserAccessProfile, id=profile_id)
-
-    if ap.user_id == getattr(request.user, "id", None):
-        messages.warning(request, "لا يمكن سحب صلاحيات حسابك الحالي")
-        return redirect("dashboard:access_profiles_list")
-
-    if ap.revoked_at:
-        ap.revoked_at = None
-        ap.save(update_fields=["revoked_at", "updated_at"])
-        changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap, force_staff_role_state=True)
-        if changed_fields:
-            ap.user.save(update_fields=changed_fields)
-        log_action(
-            actor=request.user,
-            action=AuditAction.ACCESS_PROFILE_UNREVOKED,
-            reference_type="backoffice.user_access_profile",
-            reference_id=str(ap.id),
-            request=request,
-            extra={
-                "target_user_id": ap.user_id,
-                "revoked": False,
-            },
-        )
-        messages.success(request, "تم إلغاء سحب الصلاحية")
-    else:
-        if _is_active_admin_profile(ap) and _active_admin_profiles_count() <= 1:
-            messages.error(request, "لا يمكن سحب آخر Admin فعّال في المنصة")
-            return redirect("dashboard:access_profiles_list")
-
-        ap.revoked_at = timezone.now()
-        ap.save(update_fields=["revoked_at", "updated_at"])
-        changed_fields = sync_dashboard_user_access(ap.user, access_profile=ap)
-        if changed_fields:
-            ap.user.save(update_fields=changed_fields)
-        log_action(
-            actor=request.user,
-            action=AuditAction.ACCESS_PROFILE_REVOKED,
-            reference_type="backoffice.user_access_profile",
-            reference_id=str(ap.id),
-            request=request,
-            extra={
-                "target_user_id": ap.user_id,
-                "revoked": True,
-                "revoked_at": ap.revoked_at.isoformat() if ap.revoked_at else None,
-            },
-        )
-        messages.success(request, "تم سحب الصلاحية")
-
-    return redirect("dashboard:access_profiles_list")
+    from . import admin_views
+    return admin_views.access_profile_toggle_revoke_action(request, profile_id)

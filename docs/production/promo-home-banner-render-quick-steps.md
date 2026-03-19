@@ -24,13 +24,17 @@
 
 ## 3. راجع Environment Variables قبل النشر
 
-يجب أن تكون هذه القيم مفعلة:
+يجب أن تكون هذه القيم مضبوطة:
 
-- `RUN_MIGRATIONS_ON_START=1`
-- `RUN_COLLECTSTATIC_ON_START=1`
+- `RUN_MIGRATIONS_ON_START=0`
+- `RUN_COLLECTSTATIC_ON_START=0`
 - `DJANGO_ENV=prod`
 
-إذا كانت `RUN_MIGRATIONS_ON_START` معطلة، لا تكمل النشر قبل تصحيحها.
+ويجب أن يكون لدى الخدمة:
+
+- `preDeployCommand: python manage.py migrate --noinput`
+
+إذا لم تكن الـ `preDeployCommand` مفعلة، لا تكمل النشر قبل تصحيحها.
 
 ## 4. نفّذ النشر
 

@@ -6,7 +6,7 @@ from apps.accounts.models import User
 from apps.analytics.models import AnalyticsEvent
 from apps.billing.models import Invoice
 from apps.core.models import PlatformConfig
-from apps.extras.models import ExtraPurchase
+from apps.extras.models import ExtraPurchase, ServiceCatalog
 from apps.extras.services import activate_extra_after_payment, consume_credit
 from apps.unified_requests.models import UnifiedRequest
 
@@ -25,6 +25,7 @@ def user():
 
 
 def test_catalog(api, user, settings):
+    ServiceCatalog.objects.all().delete()  # force settings fallback
     settings.EXTRA_SKUS = {"uploads_10gb_month": {"title": "10GB", "price": 59}}
     api.force_authenticate(user=user)
     r = api.get("/api/extras/catalog/")
@@ -33,6 +34,7 @@ def test_catalog(api, user, settings):
 
 
 def test_buy_extra(api, user, settings):
+    ServiceCatalog.objects.all().delete()
     settings.EXTRA_SKUS = {"uploads_10gb_month": {"title": "10GB", "price": 59}}
     api.force_authenticate(user=user)
     r = api.post("/api/extras/buy/uploads_10gb_month/")
@@ -53,6 +55,7 @@ def test_extras_endpoints_require_auth(api):
 
 
 def test_extra_activation_and_credit_consumption_syncs_unified(user, settings):
+    ServiceCatalog.objects.all().delete()
     settings.EXTRA_SKUS = {"tickets_2": {"title": "تذاكر", "price": 10}}
     from apps.extras.services import create_extra_purchase_checkout
 
@@ -81,6 +84,7 @@ def test_extra_activation_and_credit_consumption_syncs_unified(user, settings):
 
 
 def test_time_based_extras_use_platform_config_duration_and_currency(user, settings):
+    ServiceCatalog.objects.all().delete()
     settings.EXTRA_SKUS = {"promo_boost_7d": {"title": "Boost", "price": 99}}
     config = PlatformConfig.load()
     config.extras_short_duration_days = 9
@@ -104,6 +108,7 @@ def test_time_based_extras_use_platform_config_duration_and_currency(user, setti
 
 @override_settings(FEATURE_ANALYTICS_EVENTS=True)
 def test_extra_checkout_and_activation_emit_analytics_events(user, settings):
+    ServiceCatalog.objects.all().delete()
     settings.EXTRA_SKUS = {"tickets_2": {"title": "تذاكر", "price": 10}}
     from apps.extras.services import create_extra_purchase_checkout
 

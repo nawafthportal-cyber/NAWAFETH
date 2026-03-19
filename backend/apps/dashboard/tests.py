@@ -91,10 +91,9 @@ def test_dashboard_allowed_write_uses_content_dashboard_code():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	content_dashboard = Dashboard.objects.create(
+	content_dashboard, _ = Dashboard.objects.get_or_create(
 		code="content",
-		name_ar="إدارة المحتوى",
-		sort_order=20,
+		defaults={"name_ar": "إدارة المحتوى", "sort_order": 20},
 	)
 	ap = UserAccessProfile.objects.create(
 		user=staff_user,
@@ -112,10 +111,9 @@ def test_dashboard_allowed_qa_denies_write_even_with_content_access():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	content_dashboard = Dashboard.objects.create(
+	content_dashboard, _ = Dashboard.objects.get_or_create(
 		code="content",
-		name_ar="إدارة المحتوى",
-		sort_order=20,
+		defaults={"name_ar": "إدارة المحتوى", "sort_order": 20},
 	)
 	ap = UserAccessProfile.objects.create(
 		user=staff_user,
@@ -145,9 +143,9 @@ def test_access_profile_update_action_updates_level_dashboards_and_expiry():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
-	support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=30)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 10})
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
+	support_dashboard, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 30})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
 
 	target_user = User.objects.create_user(phone="0500000209", password="Pass12345!", is_staff=True)
@@ -194,7 +192,7 @@ def test_access_profile_toggle_revoke_action_blocks_self_and_allows_others():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "إدارة الصلاحيات والتقارير", "sort_order": 1})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([access_dashboard])
 
 	target_user = User.objects.create_user(phone="0500000211", password="Pass12345!", is_staff=True)
@@ -249,7 +247,7 @@ def test_unified_requests_list_dashboard_page_and_csv_export():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000992", password="Pass12345!")
@@ -300,7 +298,7 @@ def test_unified_request_detail_dashboard_page():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000996", password="Pass12345!")
@@ -361,7 +359,7 @@ def test_unified_request_detail_hides_quick_links_without_target_dashboard_acces
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000988", password="Pass12345!")
@@ -415,7 +413,7 @@ def test_unified_requests_list_filters_by_date_range():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000998", password="Pass12345!")
@@ -464,7 +462,7 @@ def test_unified_requests_list_filters_by_has_invoice():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000978", password="Pass12345!")
@@ -523,7 +521,7 @@ def test_unified_requests_list_filters_by_open_only_and_has_assignee():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000973", password="Pass12345!")
@@ -582,7 +580,7 @@ def test_unified_requests_list_preset_open_unassigned():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000962", password="Pass12345!")
@@ -629,7 +627,7 @@ def test_dashboard_home_shows_unified_request_kpis():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000994", password="Pass12345!")
@@ -697,7 +695,7 @@ def test_dashboard_home_hides_latest_requests_link_without_content_access():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=10)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER).allowed_dashboards.set([analytics_dashboard])
 
 	c = Client()
@@ -717,7 +715,7 @@ def test_dashboard_home_hides_latest_requests_link_without_content_access():
 @pytest.mark.django_db
 def test_subscriptions_ops_page_shows_inquiries_and_requests():
 	admin_user = User.objects.create_user(phone="0500000951", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=10)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 10})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000952", password="Pass12345!")
@@ -766,9 +764,9 @@ def test_subscriptions_ops_page_shows_inquiries_and_requests():
 @pytest.mark.django_db
 def test_subscription_request_detail_page_shows_invoice_and_unified_links():
 	admin_user = User.objects.create_user(phone="0500000953", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=10)
-	billing_dashboard = Dashboard.objects.create(code="billing", name_ar="الفوترة", sort_order=11)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=12)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 10})
+	billing_dashboard, _ = Dashboard.objects.get_or_create(code="billing", defaults={"name_ar": "الفوترة", "sort_order": 11})
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 12})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard, billing_dashboard, analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000954", password="Pass12345!")
@@ -804,7 +802,7 @@ def test_subscription_request_detail_page_shows_invoice_and_unified_links():
 @pytest.mark.django_db
 def test_subscription_request_detail_adds_operational_note():
 	admin_user = User.objects.create_user(phone="0500000941", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=15)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 15})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000942", password="Pass12345!")
@@ -855,7 +853,7 @@ def test_subscription_request_detail_adds_operational_note():
 @pytest.mark.django_db
 def test_subscription_request_detail_quick_status_updates_unified_request():
 	admin_user = User.objects.create_user(phone="0500000921", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=18)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 18})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000922", password="Pass12345!")
@@ -910,7 +908,7 @@ def test_subscription_request_detail_quick_status_updates_unified_request():
 def test_subscription_request_detail_assigns_unified_request():
 	admin_user = User.objects.create_user(phone="0500000911", password="Pass12345!", is_staff=True)
 	assignee_user = User.objects.create_user(phone="0500000912", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=19)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 19})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000913", password="Pass12345!")
@@ -956,7 +954,7 @@ def test_subscription_request_detail_assigns_unified_request():
 @pytest.mark.django_db
 def test_subscription_account_detail_page_and_actions():
 	admin_user = User.objects.create_user(phone="0500000955", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=20)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 20})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000956", password="Pass12345!")
@@ -1043,7 +1041,7 @@ def test_subscription_account_detail_page_and_actions():
 @pytest.mark.django_db
 def test_subscription_account_detail_adds_operational_note():
 	admin_user = User.objects.create_user(phone="0500000931", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=25)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 25})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000932", password="Pass12345!")
@@ -1090,7 +1088,7 @@ def test_subscription_account_detail_adds_operational_note():
 @pytest.mark.django_db
 def test_subscription_plans_compare_and_upgrade_summary_pages():
 	admin_user = User.objects.create_user(phone="0500000957", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=30)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 30})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000958", password="Pass12345!")
@@ -1126,7 +1124,7 @@ def test_subscription_plans_compare_and_upgrade_summary_pages():
 @pytest.mark.django_db
 def test_subscription_payment_checkout_and_success_flow():
 	admin_user = User.objects.create_user(phone="0500000959", password="Pass12345!", is_staff=True)
-	subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=40)
+	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 40})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000960", password="Pass12345!")
@@ -1181,7 +1179,7 @@ def test_subscription_payment_checkout_and_success_flow():
 @pytest.mark.django_db
 def test_features_overview_shows_verification_fees_by_subscription_tier():
 	admin_user = User.objects.create_user(phone="0500000961", password="Pass12345!", is_staff=True)
-	analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="التحليلات", sort_order=50)
+	analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "التحليلات", "sort_order": 50})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([analytics_dashboard])
 
 	requester = User.objects.create_user(phone="0500000962", password="Pass12345!")
@@ -1218,8 +1216,8 @@ def test_access_profile_create_action_creates_profile_and_audit():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 10})
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([access_dashboard])
 
 	target_user = User.objects.create_user(phone="0500000213", password="Pass12345!")
@@ -1261,7 +1259,7 @@ def test_access_profile_create_action_creates_profile_and_audit():
 @pytest.mark.django_db
 def test_requests_list_export_xlsx_returns_xlsx_file():
 	staff_user = User.objects.create_user(phone="0500000991", password="Pass12345!", is_staff=True)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
 	UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([content_dashboard])
 
 	cat = Category.objects.create(name="تصميم", is_active=True)
@@ -1294,7 +1292,7 @@ def test_requests_list_export_xlsx_returns_xlsx_file():
 def test_requests_list_export_pdf_returns_pdf_file():
     pytest.importorskip("reportlab")
     staff_user = User.objects.create_user(phone="0500000993", password="Pass12345!", is_staff=True)
-    content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+    content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([content_dashboard])
 
     cat = Category.objects.create(name="تصميم", is_active=True)
@@ -1330,9 +1328,9 @@ def test_access_profile_create_action_updates_existing_profile():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
-	support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=30)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 10})
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
+	support_dashboard, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 30})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([access_dashboard])
 
 	target_user = User.objects.create_user(phone="0500000215", password="Pass12345!")
@@ -1378,8 +1376,8 @@ def test_staff_cannot_access_unallowed_dashboard_page_and_is_redirected():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
-	support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=30)
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
+	support_dashboard, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 30})
 	UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER).allowed_dashboards.set([content_dashboard])
 
 	c = Client()
@@ -1400,8 +1398,8 @@ def test_guard_prevents_demoting_last_active_admin():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
-	content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 10})
+	content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
 	admin_ap = UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
 	admin_ap.allowed_dashboards.set([access_dashboard, content_dashboard])
 
@@ -1430,7 +1428,7 @@ def test_guard_prevents_revoking_last_active_admin():
 		password="Pass12345!",
 		is_staff=True,
 	)
-	access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=10)
+	access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 10})
 	operator_ap = UserAccessProfile.objects.create(user=operator_user, level=AccessLevel.USER)
 	operator_ap.allowed_dashboards.set([access_dashboard])
 
@@ -1463,7 +1461,7 @@ def test_guard_prevents_revoking_last_active_admin():
 @pytest.mark.django_db
 def test_qa_readonly_cannot_execute_content_post_action():
     qa_user = User.objects.create_user(phone="0500000220", password="Pass12345!", is_staff=True)
-    content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+    content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
     ap = UserAccessProfile.objects.create(user=qa_user, level=AccessLevel.QA)
     ap.allowed_dashboards.set([content_dashboard])
 
@@ -1504,7 +1502,7 @@ def test_power_user_has_global_write_access_and_can_post_content_links():
 @pytest.mark.django_db
 def test_subscription_request_status_rejects_invalid_transition_new_to_completed():
     admin_user = User.objects.create_user(phone="0500000971", password="Pass12345!", is_staff=True)
-    subs_dashboard = Dashboard.objects.create(code="subs", name_ar="الاشتراكات", sort_order=31)
+    subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 31})
     UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
 
     requester = User.objects.create_user(phone="0500000972", password="Pass12345!")
@@ -1539,7 +1537,7 @@ def test_subscription_request_status_rejects_invalid_transition_new_to_completed
 @pytest.mark.django_db
 def test_extras_request_status_allows_only_three_stage_and_guarded_transitions():
     admin_user = User.objects.create_user(phone="0500000973", password="Pass12345!", is_staff=True)
-    extras_dashboard = Dashboard.objects.create(code="extras", name_ar="الخدمات الإضافية", sort_order=32)
+    extras_dashboard, _ = Dashboard.objects.get_or_create(code="extras", defaults={"name_ar": "الخدمات الإضافية", "sort_order": 32})
     UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([extras_dashboard])
 
     requester = User.objects.create_user(phone="0500000974", password="Pass12345!")
@@ -1595,7 +1593,7 @@ def test_extras_request_status_allows_only_three_stage_and_guarded_transitions()
 
 @pytest.mark.django_db
 def test_requests_list_export_csv_sanitizes_csv_injection_cells():
-    content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+    content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
     staff_user = User.objects.create_user(phone="0500000222", password="Pass12345!", is_staff=True)
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN)
     cat = Category.objects.create(name="تصميم", is_active=True)
@@ -1628,7 +1626,7 @@ def test_requests_list_export_csv_sanitizes_csv_injection_cells():
 
 @pytest.mark.django_db
 def test_dashboard_home_date_range_filters_request_kpis():
-    analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
+    analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "الرئيسية", "sort_order": 1})
     admin_user = User.objects.create_user(phone="0500000224", password="Pass12345!", is_staff=True)
     ap = UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
     ap.allowed_dashboards.set([analytics_dashboard])
@@ -1678,7 +1676,7 @@ def test_dashboard_home_date_range_filters_request_kpis():
 
 @pytest.mark.django_db
 def test_dashboard_home_requires_otp_verified_session_for_authenticated_staff():
-    analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
+    analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "الرئيسية", "sort_order": 1})
     staff_user = User.objects.create_user(phone="0500000226", password="Pass12345!", is_staff=True)
     ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
     ap.allowed_dashboards.set([analytics_dashboard])
@@ -1693,7 +1691,7 @@ def test_dashboard_home_requires_otp_verified_session_for_authenticated_staff():
 @pytest.mark.django_db
 @override_settings(DEBUG=True, OTP_DEV_BYPASS_ENABLED=True, OTP_DEV_ACCEPT_ANY_4_DIGITS=True)
 def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
-    analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
+    analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "الرئيسية", "sort_order": 1})
     staff_user = User.objects.create_user(phone="0500000227", password="Pass12345!")
     ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
     ap.allowed_dashboards.set([analytics_dashboard])
@@ -1716,7 +1714,7 @@ def test_dashboard_otp_dev_accepts_any_4_digits_and_sets_session_flag():
 @pytest.mark.django_db
 @override_settings(DEBUG=True, OTP_DEV_BYPASS_ENABLED=True, OTP_DEV_ACCEPT_ANY_4_DIGITS=True)
 def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
-    support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=1)
+    support_dashboard, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 1})
     staff_user = User.objects.create_user(
         phone="0500000228",
         password="Pass12345!",
@@ -1737,7 +1735,7 @@ def test_dashboard_otp_redirects_to_first_allowed_dashboard_for_limited_user():
 @pytest.mark.django_db
 @override_settings(DEBUG=False, OTP_DEV_BYPASS_ENABLED=False, OTP_DEV_ACCEPT_ANY_4_DIGITS=False)
 def test_dashboard_otp_requires_real_code_when_dev_bypass_disabled():
-    analytics_dashboard = Dashboard.objects.create(code="analytics", name_ar="الرئيسية", sort_order=1)
+    analytics_dashboard, _ = Dashboard.objects.get_or_create(code="analytics", defaults={"name_ar": "الرئيسية", "sort_order": 1})
     staff_user = User.objects.create_user(phone="0500000231", password="Pass12345!")
     ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
     ap.allowed_dashboards.set([analytics_dashboard])
@@ -1754,7 +1752,7 @@ def test_dashboard_otp_requires_real_code_when_dev_bypass_disabled():
 
 @pytest.mark.django_db
 def test_requests_list_export_uses_platform_config_limits(mocker):
-    content_dashboard = Dashboard.objects.create(code="content", name_ar="إدارة المحتوى", sort_order=20)
+    content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
     staff_user = User.objects.create_user(phone="0500000232", password="Pass12345!", is_staff=True)
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([content_dashboard])
 
@@ -1807,8 +1805,8 @@ def test_requests_list_export_uses_platform_config_limits(mocker):
 
 @pytest.mark.django_db
 def test_user_update_role_demotes_operational_access_and_revokes_profile():
-    access_dashboard = Dashboard.objects.create(code="access", name_ar="صلاحيات التشغيل", sort_order=1)
-    support_dashboard = Dashboard.objects.create(code="support", name_ar="الدعم", sort_order=2)
+    access_dashboard, _ = Dashboard.objects.get_or_create(code="admin_control", defaults={"name_ar": "صلاحيات التشغيل", "sort_order": 1})
+    support_dashboard, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 2})
 
     admin_user = User.objects.create_user(
         phone="0500000229",
@@ -1854,7 +1852,7 @@ def test_promo_campaign_create_dashboard_creates_bundle_request_with_valid_items
         password="Pass12345!",
         is_staff=True,
     )
-    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    promo_dashboard, _ = Dashboard.objects.get_or_create(code="promo", defaults={"name_ar": "الترويج", "sort_order": 10})
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
 
     target_user = User.objects.create_user(
@@ -1947,7 +1945,7 @@ def test_promo_home_banner_create_dashboard_rejects_media_type_mismatch():
         password="Pass12345!",
         is_staff=True,
     )
-    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    promo_dashboard, _ = Dashboard.objects.get_or_create(code="promo", defaults={"name_ar": "الترويج", "sort_order": 10})
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
 
     c = Client()
@@ -1981,7 +1979,7 @@ def test_promo_campaign_create_dashboard_rejects_unsupported_direct_ad_type():
         password="Pass12345!",
         is_staff=True,
     )
-    promo_dashboard = Dashboard.objects.create(code="promo", name_ar="الترويج", sort_order=10)
+    promo_dashboard, _ = Dashboard.objects.get_or_create(code="promo", defaults={"name_ar": "الترويج", "sort_order": 10})
     UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN).allowed_dashboards.set([promo_dashboard])
 
     c = Client()
@@ -2005,3 +2003,525 @@ def test_promo_campaign_create_dashboard_rejects_unsupported_direct_ad_type():
 
     assert response.status_code == 302
     assert PromoRequest.objects.count() == 0
+
+
+# ──────── Phase 2 RBAC Enforcement Tests ────────
+
+
+@pytest.mark.django_db
+def test_rbac_admin_auto_allowed_all_backoffice_dashboards():
+    """Admin level gets auto-access to all dashboards except client_extras."""
+    admin_user = User.objects.create_user(phone="0500009001", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+
+    for code in ("admin_control", "support", "content", "promo", "verify", "subs", "extras", "analytics", "billing"):
+        assert _dashboard_allowed(admin_user, code, write=False) is True
+        assert _dashboard_allowed(admin_user, code, write=True) is True
+
+    # client_extras is blocked
+    assert _dashboard_allowed(admin_user, "client_extras", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_power_user_auto_allowed_except_client_extras():
+    """Power user mirrors admin access except client_extras."""
+    power_user = User.objects.create_user(phone="0500009002", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=power_user, level=AccessLevel.POWER)
+
+    assert _dashboard_allowed(power_user, "support", write=True) is True
+    assert _dashboard_allowed(power_user, "admin_control", write=True) is True
+    assert _dashboard_allowed(power_user, "client_extras", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_alias_access_resolves_to_admin_control():
+    """Backward-compatible alias: 'access' resolves to 'admin_control'."""
+    admin_user = User.objects.create_user(phone="0500009003", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+
+    # Using old code "access" still works
+    assert _dashboard_allowed(admin_user, "access", write=True) is True
+    assert _dashboard_allowed(admin_user, "access", write=False) is True
+
+
+@pytest.mark.django_db
+def test_rbac_qa_read_only_all_dashboards():
+    """QA level can read allowed dashboards but never write."""
+    qa_user = User.objects.create_user(phone="0500009004", password="Pass12345!", is_staff=True)
+    support_db, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 10})
+    promo_db, _ = Dashboard.objects.get_or_create(code="promo", defaults={"name_ar": "الترويج", "sort_order": 30})
+    ap = UserAccessProfile.objects.create(user=qa_user, level=AccessLevel.QA)
+    ap.allowed_dashboards.set([support_db, promo_db])
+
+    assert _dashboard_allowed(qa_user, "support", write=False) is True
+    assert _dashboard_allowed(qa_user, "support", write=True) is False
+    assert _dashboard_allowed(qa_user, "promo", write=False) is True
+    assert _dashboard_allowed(qa_user, "promo", write=True) is False
+    # Not assigned to content
+    assert _dashboard_allowed(qa_user, "content", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_user_level_restricted_to_assigned_dashboards():
+    """User level only accesses dashboards explicitly in allowed_dashboards."""
+    user = User.objects.create_user(phone="0500009005", password="Pass12345!", is_staff=True)
+    support_db, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 10})
+    ap = UserAccessProfile.objects.create(user=user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([support_db])
+
+    assert _dashboard_allowed(user, "support", write=True) is True
+    assert _dashboard_allowed(user, "support", write=False) is True
+    assert _dashboard_allowed(user, "promo", write=False) is False
+    assert _dashboard_allowed(user, "admin_control", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_client_only_accesses_client_extras():
+    """Client level only accesses client_extras, nothing else."""
+    from apps.dashboard.access import can_access_dashboard
+    client_user = User.objects.create_user(phone="0500009006", password="Pass12345!")
+    UserAccessProfile.objects.create(user=client_user, level=AccessLevel.CLIENT)
+
+    assert can_access_dashboard(client_user, "client_extras", write=False) is True
+    assert can_access_dashboard(client_user, "client_extras", write=True) is True
+    assert can_access_dashboard(client_user, "support", write=False) is False
+    assert can_access_dashboard(client_user, "extras", write=False) is False
+    assert can_access_dashboard(client_user, "admin_control", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_has_action_permission_user_level():
+    """User level needs explicit granted_permissions for action permissions."""
+    from apps.dashboard.access import has_action_permission
+    from apps.backoffice.models import AccessPermission
+
+    user = User.objects.create_user(phone="0500009007", password="Pass12345!", is_staff=True)
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="admin_control.manage_access",
+        defaults={"name_ar": "إدارة صلاحيات", "dashboard_code": "admin_control", "sort_order": 1},
+    )
+    ap = UserAccessProfile.objects.create(user=user, level=AccessLevel.USER)
+
+    # Without permission
+    assert has_action_permission(user, "admin_control.manage_access") is False
+
+    # Grant the permission
+    ap.granted_permissions.add(perm)
+    assert has_action_permission(user, "admin_control.manage_access") is True
+
+
+@pytest.mark.django_db
+def test_rbac_has_action_permission_admin_auto():
+    """Admin/Power get all action permissions automatically."""
+    from apps.dashboard.access import has_action_permission
+
+    admin_user = User.objects.create_user(phone="0500009008", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+
+    assert has_action_permission(admin_user, "admin_control.manage_access") is True
+    assert has_action_permission(admin_user, "promo.quote_activate") is True
+    assert has_action_permission(admin_user, "support.assign") is True
+
+
+@pytest.mark.django_db
+def test_rbac_has_action_permission_qa_denied():
+    """QA level has no action permissions (read-only)."""
+    from apps.dashboard.access import has_action_permission
+
+    qa_user = User.objects.create_user(phone="0500009009", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=qa_user, level=AccessLevel.QA)
+
+    assert has_action_permission(qa_user, "admin_control.manage_access") is False
+    assert has_action_permission(qa_user, "support.assign") is False
+
+
+@pytest.mark.django_db
+def test_rbac_has_action_permission_client_denied():
+    """Client level has no action permissions."""
+    from apps.dashboard.access import has_action_permission
+
+    client_user = User.objects.create_user(phone="0500009010", password="Pass12345!")
+    UserAccessProfile.objects.create(user=client_user, level=AccessLevel.CLIENT)
+
+    assert has_action_permission(client_user, "admin_control.manage_access") is False
+
+
+@pytest.mark.django_db
+def test_rbac_admin_control_user_toggle_requires_permission():
+    """user_toggle_active requires admin_control.manage_access permission."""
+    from apps.backoffice.models import AccessPermission
+
+    # Create a User-level staff with admin_control dashboard access but no manage_access permission
+    staff_user = User.objects.create_user(phone="0500009011", password="Pass12345!", is_staff=True)
+    admin_control_db, _ = Dashboard.objects.get_or_create(
+        code="admin_control", defaults={"name_ar": "إدارة الصلاحيات", "sort_order": 1},
+    )
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([admin_control_db])
+
+    target_user = User.objects.create_user(phone="0500009012", password="Pass12345!", is_staff=True)
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Should be denied — no manage_access permission
+    res = c.post(reverse("dashboard:user_toggle_active", args=[target_user.id]))
+    assert res.status_code == 302
+    target_user.refresh_from_db()
+    assert target_user.is_active is True  # unchanged
+
+    # Grant permission and retry
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="admin_control.manage_access",
+        defaults={"name_ar": "إدارة صلاحيات", "dashboard_code": "admin_control", "sort_order": 1},
+    )
+    ap.granted_permissions.add(perm)
+
+    res2 = c.post(reverse("dashboard:user_toggle_active", args=[target_user.id]))
+    assert res2.status_code == 302
+    target_user.refresh_from_db()
+    assert target_user.is_active is False  # now toggled
+
+
+@pytest.mark.django_db
+def test_rbac_audit_log_requires_view_audit_permission():
+    """audit_log_list requires admin_control.view_audit permission."""
+    from apps.backoffice.models import AccessPermission
+
+    staff_user = User.objects.create_user(phone="0500009013", password="Pass12345!", is_staff=True)
+    admin_control_db, _ = Dashboard.objects.get_or_create(
+        code="admin_control", defaults={"name_ar": "إدارة الصلاحيات", "sort_order": 1},
+    )
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([admin_control_db])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without view_audit permission → redirect
+    res = c.get(reverse("dashboard:audit_log_list"))
+    assert res.status_code == 302
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="admin_control.view_audit",
+        defaults={"name_ar": "عرض سجل التدقيق", "dashboard_code": "admin_control", "sort_order": 2},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.get(reverse("dashboard:audit_log_list"))
+    assert res2.status_code == 200
+
+
+@pytest.mark.django_db
+def test_rbac_promo_pricing_requires_quote_activate_permission():
+    """promo_pricing_update_action requires promo.quote_activate permission."""
+    from apps.backoffice.models import AccessPermission
+
+    staff_user = User.objects.create_user(phone="0500009014", password="Pass12345!", is_staff=True)
+    promo_db, _ = Dashboard.objects.get_or_create(code="promo", defaults={"name_ar": "الترويج", "sort_order": 30})
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([promo_db])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without quote_activate → redirect
+    res = c.post(reverse("dashboard:promo_pricing_update_action"), data={"code": "test", "amount": "100"})
+    assert res.status_code == 302
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="promo.quote_activate",
+        defaults={"name_ar": "تسعير الترويج", "dashboard_code": "promo", "sort_order": 60},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.post(reverse("dashboard:promo_pricing_update_action"), data={"code": "nonexistent", "amount": "100"})
+    # Now it should pass the permission check but fail on invalid rule code
+    assert res2.status_code == 302
+
+
+@pytest.mark.django_db
+def test_rbac_expired_profile_denied():
+    """Expired access profile blocks all access."""
+    user = User.objects.create_user(phone="0500009015", password="Pass12345!", is_staff=True)
+    support_db, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 10})
+    ap = UserAccessProfile.objects.create(
+        user=user,
+        level=AccessLevel.USER,
+        expires_at=timezone.now() - timedelta(hours=1),
+    )
+    ap.allowed_dashboards.set([support_db])
+
+    assert _dashboard_allowed(user, "support", write=False) is False
+
+
+@pytest.mark.django_db
+def test_rbac_revoked_profile_denied():
+    """Revoked access profile blocks all access."""
+    user = User.objects.create_user(phone="0500009016", password="Pass12345!", is_staff=True)
+    support_db, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 10})
+    ap = UserAccessProfile.objects.create(
+        user=user,
+        level=AccessLevel.ADMIN,
+        revoked_at=timezone.now(),
+    )
+    ap.allowed_dashboards.set([support_db])
+
+    assert _dashboard_allowed(user, "support", write=False) is False
+    assert _dashboard_allowed(user, "support", write=True) is False
+
+
+@pytest.mark.django_db
+def test_rbac_superuser_bypasses_all():
+    """Superuser bypasses all RBAC checks."""
+    su = User.objects.create_superuser(phone="0500009017", password="Pass12345!")
+
+    assert _dashboard_allowed(su, "support", write=True) is True
+    assert _dashboard_allowed(su, "admin_control", write=True) is True
+    assert _dashboard_allowed(su, "client_extras", write=True) is True
+
+    from apps.dashboard.access import has_action_permission
+    assert has_action_permission(su, "admin_control.manage_access") is True
+
+
+@pytest.mark.django_db
+def test_rbac_dashboard_panel_required_decorator():
+    """dashboard_panel_required decorator blocks unauthorized and passes authorized."""
+    from apps.dashboard.access import dashboard_panel_required
+    from django.test import RequestFactory
+
+    factory = RequestFactory()
+
+    # Create an admin user
+    admin_user = User.objects.create_user(phone="0500009018", password="Pass12345!", is_staff=True)
+    UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+
+    @dashboard_panel_required("support", write=True)
+    def dummy_view(request):
+        return HttpResponse("OK", status=200)
+
+    # Admin should pass
+    req = factory.get("/dummy/")
+    req.user = admin_user
+    # Mock _messages storage for the middleware
+    from django.contrib.messages.storage.fallback import FallbackStorage
+    setattr(req, 'session', {SESSION_OTP_VERIFIED_KEY: True})
+    setattr(req, '_messages', FallbackStorage(req))
+    resp = dummy_view(req)
+    assert resp.status_code == 200
+
+    # QA should be blocked (write=True)
+    qa_user = User.objects.create_user(phone="0500009019", password="Pass12345!", is_staff=True)
+    support_db, _ = Dashboard.objects.get_or_create(code="support", defaults={"name_ar": "الدعم", "sort_order": 10})
+    qa_ap = UserAccessProfile.objects.create(user=qa_user, level=AccessLevel.QA)
+    qa_ap.allowed_dashboards.set([support_db])
+
+    req2 = factory.get("/dummy/")
+    req2.user = qa_user
+    setattr(req2, 'session', {SESSION_OTP_VERIFIED_KEY: True})
+    setattr(req2, '_messages', FallbackStorage(req2))
+    resp2 = dummy_view(req2)
+    assert resp2.status_code == 302  # Redirect on denied
+
+
+# ── Phase 4B: Content Panel Policy Enforcement Tests ─────────────
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_RBAC_ENFORCE=True)
+def test_content_block_update_requires_content_manage_policy():
+    """content_block_update_action enforces ContentManagePolicy."""
+    from apps.backoffice.models import AccessPermission
+
+    staff_user = User.objects.create_user(phone="0500040001", password="Pass12345!", is_staff=True)
+    content_db, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "المحتوى", "sort_order": 20})
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([content_db])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without content.manage permission → redirect (policy denied)
+    res = c.post(
+        reverse("dashboard:content_block_update_action", args=["hero_section"]),
+        data={"title_ar": "عنوان", "body_ar": "محتوى"},
+    )
+    assert res.status_code == 302
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="content.manage",
+        defaults={"name_ar": "إدارة محتوى المنصة", "dashboard_code": "content", "sort_order": 20},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.post(
+        reverse("dashboard:content_block_update_action", args=["hero_section"]),
+        data={"title_ar": "عنوان جديد", "body_ar": "محتوى جديد"},
+    )
+    # Passes policy, then redirects after save
+    assert res2.status_code == 302
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_RBAC_ENFORCE=True)
+def test_content_links_update_requires_content_manage_policy():
+    """content_links_update_action enforces ContentManagePolicy."""
+    from apps.backoffice.models import AccessPermission
+
+    staff_user = User.objects.create_user(phone="0500040002", password="Pass12345!", is_staff=True)
+    content_db, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "المحتوى", "sort_order": 20})
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([content_db])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without permission → redirect
+    res = c.post(reverse("dashboard:content_links_update_action"), data={"x_url": "https://x.com/test"})
+    assert res.status_code == 302
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="content.manage",
+        defaults={"name_ar": "إدارة محتوى المنصة", "dashboard_code": "content", "sort_order": 20},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.post(reverse("dashboard:content_links_update_action"), data={"x_url": "https://x.com/test"})
+    assert res2.status_code == 302  # Passes policy, saves & redirects
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_RBAC_ENFORCE=True)
+def test_category_toggle_requires_content_hide_delete_policy():
+    """category_toggle_active enforces ContentHideDeletePolicy."""
+    from apps.backoffice.models import AccessPermission
+    from apps.providers.models import Category
+
+    staff_user = User.objects.create_user(phone="0500040003", password="Pass12345!", is_staff=True)
+    content_db, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "المحتوى", "sort_order": 20})
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([content_db])
+
+    cat = Category.objects.create(name="تصنيف اختبار", is_active=True)
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without content.hide_delete → redirect
+    res = c.post(reverse("dashboard:category_toggle_active", args=[cat.id]))
+    assert res.status_code == 302
+    cat.refresh_from_db()
+    assert cat.is_active is True  # Not toggled
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="content.hide_delete",
+        defaults={"name_ar": "إخفاء وحذف المحتوى", "dashboard_code": "content", "sort_order": 10},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.post(reverse("dashboard:category_toggle_active", args=[cat.id]))
+    assert res2.status_code == 302
+    cat.refresh_from_db()
+    assert cat.is_active is False  # Now toggled
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_RBAC_ENFORCE=True)
+def test_review_respond_requires_reviews_moderate_policy():
+    """reviews_dashboard_respond_action enforces ReviewModerationPolicy."""
+    from apps.backoffice.models import AccessPermission
+    from apps.providers.models import Category, ProviderProfile, SubCategory
+    from apps.marketplace.models import ServiceRequest
+    from apps.reviews.models import Review
+
+    staff_user = User.objects.create_user(phone="0500040004", password="Pass12345!", is_staff=True)
+    content_db, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "المحتوى", "sort_order": 20})
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+    ap.allowed_dashboards.set([content_db])
+
+    # Set up review dependencies
+    client_user = User.objects.create_user(phone="0500040005", password="Pass12345!")
+    provider_user = User.objects.create_user(phone="0500040007", password="Pass12345!")
+    provider = ProviderProfile.objects.create(
+        user=provider_user, provider_type="individual",
+        display_name="مزود", bio="وصف",
+    )
+    cat = Category.objects.create(name="تصنيف")
+    subcat = SubCategory.objects.create(category=cat, name="فرعي")
+    sr = ServiceRequest.objects.create(
+        client=client_user, provider=provider, subcategory=subcat,
+        title="طلب", description="وصف", request_type="quote", city="الرياض",
+    )
+    review = Review.objects.create(
+        request=sr, provider=provider, client=client_user,
+        rating=5, comment="ممتاز",
+    )
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Without reviews.moderate → redirect
+    res = c.post(
+        reverse("dashboard:reviews_dashboard_respond_action", args=[review.id]),
+        data={"management_reply": "شكراً لتقييمك"},
+    )
+    assert res.status_code == 302
+    review.refresh_from_db()
+    assert not review.management_reply  # Not saved
+
+    # Grant permission
+    perm, _ = AccessPermission.objects.get_or_create(
+        code="reviews.moderate",
+        defaults={"name_ar": "إدارة المراجعات", "dashboard_code": "content", "sort_order": 15},
+    )
+    ap.granted_permissions.add(perm)
+    res2 = c.post(
+        reverse("dashboard:reviews_dashboard_respond_action", args=[review.id]),
+        data={"management_reply": "شكراً لتقييمك"},
+    )
+    assert res2.status_code == 302
+    review.refresh_from_db()
+    assert review.management_reply == "شكراً لتقييمك"  # Now saved
+
+
+@pytest.mark.django_db
+@override_settings(FEATURE_RBAC_ENFORCE=True)
+def test_admin_and_power_bypass_content_policy():
+    """Admin/Power users bypass the Policy checks (superuser-like fallback)."""
+    staff_user = User.objects.create_user(phone="0500040006", password="Pass12345!", is_staff=True)
+    content_db, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "المحتوى", "sort_order": 20})
+
+    # Admin level — no explicit permission needed
+    ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.ADMIN)
+    ap.allowed_dashboards.set([content_db])
+
+    c = Client()
+    assert c.login(phone=staff_user.phone, password="Pass12345!")
+    s = c.session
+    s[SESSION_OTP_VERIFIED_KEY] = True
+    s.save()
+
+    # Admin should pass ContentManagePolicy without content.manage permission
+    res = c.post(reverse("dashboard:content_links_update_action"), data={"x_url": ""})
+    assert res.status_code == 302  # Passes policy

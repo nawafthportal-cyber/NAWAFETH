@@ -60,9 +60,11 @@ def _sync_extra_to_unified(*, purchase: ExtraPurchase, changed_by=None):
 
 def get_extra_catalog() -> dict:
     """
-    كتالوج الإضافات من settings (مبدئي)
+    كتالوج الإضافات: DB first → fallback settings.EXTRA_SKUS.
+    يفوّض إلى billing.pricing للمنطق المركزي.
     """
-    return getattr(settings, "EXTRA_SKUS", {}) or {}
+    from apps.billing.pricing import get_extras_catalog
+    return get_extras_catalog()
 
 
 def _platform_config():
@@ -121,13 +123,12 @@ def infer_credits(sku: str) -> int:
 
 @transaction.atomic
 def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
+    from apps.billing.pricing import calculate_extras_price
+
+    pricing = calculate_extras_price(sku)
+
     info = sku_info(sku)
     title = info.get("title", sku)
-    price = Decimal(str(info.get("price", 0)))
-
-    if price <= 0:
-        raise ValueError("سعر الإضافة غير صحيح.")
-
     etype = infer_extra_type(sku)
 
     purchase = ExtraPurchase.objects.create(
@@ -135,8 +136,8 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
         sku=sku,
         title=title,
         extra_type=etype,
-        subtotal=price,
-        currency=extras_currency(),
+        subtotal=pricing["subtotal"],
+        currency=pricing["currency"],
         status=ExtraPurchaseStatus.PENDING_PAYMENT,
     )
 
@@ -149,8 +150,9 @@ def create_extra_purchase_checkout(*, user, sku: str) -> ExtraPurchase:
         user=user,
         title="فاتورة إضافة مدفوعة",
         description=f"{title}",
-        currency=extras_currency(),
-        subtotal=purchase.subtotal,
+        currency=pricing["currency"],
+        subtotal=pricing["subtotal"],
+        vat_percent=pricing["vat_percent"],
         reference_type="extra_purchase",
         reference_id=str(purchase.pk),
         status=InvoiceStatus.DRAFT,

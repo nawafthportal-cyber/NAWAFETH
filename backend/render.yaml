@@ -3,7 +3,9 @@ services:
     name: nawafeth-backend
     runtime: python
     plan: free
+    rootDir: backend
     buildCommand: bash scripts/render_build.sh
+    preDeployCommand: python manage.py migrate --noinput
     startCommand: bash scripts/render_start.sh
     autoDeployTrigger: commit
     healthCheckPath: /health/live/
@@ -32,9 +34,9 @@ services:
           type: keyvalue
           property: connectionString
       - key: RUN_MIGRATIONS_ON_START
-        value: "1"
+        value: "0"
       - key: RUN_COLLECTSTATIC_ON_START
-        value: "1"
+        value: "0"
       # Optional overrides:
       # - key: USE_R2_MEDIA
       #   value: "1"

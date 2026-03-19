@@ -17,10 +17,16 @@ DASHBOARD_ROUTE_CANDIDATES: list[tuple[str, str]] = [
     ("verify", "dashboard:verification_ops"),
     ("excellence", "dashboard:excellence_dashboard"),
     ("promo", "dashboard:promo_requests_list"),
-    ("subs", "dashboard:subscriptions_list"),
-    ("extras", "dashboard:extras_list"),
-    ("access", "dashboard:access_profiles_list"),
+    ("subs", "dashboard:subscriptions_ops"),
+    ("extras", "dashboard:extras_ops"),
+    ("client_extras", "dashboard:client_extras_catalog"),
+    ("admin_control", "dashboard:admin_home"),
 ]
+
+# Backward-compatible alias: old code "access" maps to "admin_control"
+_DASHBOARD_CODE_ALIASES: dict[str, str] = {
+    "access": "admin_control",
+}
 
 BACKOFFICE_ACCESS_LEVELS = frozenset(
     {
@@ -72,7 +78,13 @@ def backoffice_portal_eligible(user) -> bool:
     return access_profile.level in BACKOFFICE_ACCESS_LEVELS and access_profile_grants_any_dashboard(access_profile)
 
 
+def _resolve_dashboard_code(dashboard_code: str) -> str:
+    """Resolve backward-compatible aliases (e.g. 'access' → 'admin_control')."""
+    return _DASHBOARD_CODE_ALIASES.get(dashboard_code, dashboard_code)
+
+
 def dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
+    dashboard_code = _resolve_dashboard_code(dashboard_code)
     if not getattr(user, "is_authenticated", False):
         return False
     if getattr(user, "is_superuser", False):
@@ -83,7 +95,7 @@ def dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
     if write and access_profile.is_readonly():
         return False
     if access_profile.level in (AccessLevel.ADMIN, AccessLevel.POWER):
-        return True
+        return dashboard_code not in UserAccessProfile.CLIENT_ONLY_DASHBOARDS
     if access_profile.level == AccessLevel.CLIENT:
         return dashboard_code in UserAccessProfile.CLIENT_ALLOWED_DASHBOARDS
     return access_profile.allowed_dashboards.filter(code=dashboard_code, is_active=True).exists()
@@ -193,3 +205,64 @@ def sync_dashboard_user_access(
 
 def active_dashboard_choices() -> list[Dashboard]:
     return list(Dashboard.objects.filter(is_active=True).order_by("sort_order", "id"))
+
+
+# ─── Unified Permission Layer (Phase 2) ──────────────────────────
+
+def can_access_dashboard(user, panel_code: str, write: bool = False) -> bool:
+    """
+    Unified entry point for dashboard access checks.
+    Resolves aliases and delegates to dashboard_allowed().
+    """
+    return dashboard_allowed(user, panel_code, write=write)
+
+
+def has_action_permission(user, permission_code: str) -> bool:
+    """
+    Check if user has a specific fine-grained action permission.
+    Admin/Power → all permissions.
+    QA/Client → none.
+    User → checks granted_permissions M2M.
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    access_profile = active_access_profile_for_user(user)
+    if not access_profile:
+        return False
+    return access_profile.has_permission_code(permission_code)
+
+
+def dashboard_panel_required(panel_code: str, write: bool = False):
+    """
+    Decorator for dashboard views. Checks login + OTP + can_access_dashboard().
+    Redirects to first allowed route on failure (safe for CLIENT level).
+    """
+    from functools import wraps
+    from django.shortcuts import redirect
+    from django.contrib import messages as django_messages
+
+    from .auth import dashboard_login_required
+
+    def decorator(view_func):
+        @wraps(view_func)
+        def _wrapped_view(request, *args, **kwargs):
+            if not can_access_dashboard(request.user, panel_code, write=write):
+                django_messages.error(
+                    request,
+                    "ليس لديك صلاحية الوصول إلى هذه اللوحة.",
+                )
+                fallback = first_allowed_dashboard_route(request.user)
+                if fallback and fallback != getattr(request, "path", ""):
+                    return redirect(fallback)
+                from django.http import HttpResponse
+                return HttpResponse("غير مصرح", status=403)
+            return view_func(request, *args, **kwargs)
+        # Wrap with login (authentication + OTP) check
+        return dashboard_login_required(_wrapped_view)
+    return decorator
+
+
+# Alias for use across dashboard views
+dashboard_access_required = dashboard_panel_required

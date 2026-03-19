@@ -196,6 +196,16 @@ def reviews_dashboard_moderate_action(request, review_id: int):
 @dashboard_access_required("content", write=True)
 def reviews_dashboard_respond_action(request, review_id: int):
     review = get_object_or_404(Review, id=review_id)
+    policy = ReviewModerationPolicy.evaluate_and_log(
+        request.user,
+        request=request,
+        reference_type="reviews.review",
+        reference_id=str(review.id),
+        extra={"surface": "dashboard.reviews_dashboard_respond_action"},
+    )
+    if not policy.allowed:
+        messages.error(request, "غير مصرح بالرد على المراجعات")
+        return redirect("dashboard:reviews_dashboard_detail", review_id=review.id)
     text = sanitize_text(request.POST.get("management_reply", ""))
     if not text:
         messages.error(request, "الرد لا يمكن أن يكون فارغاً")

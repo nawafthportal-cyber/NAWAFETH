@@ -1,0 +1,61 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% block title %}كتالوج الخدمات الإضافية{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-white text-2xl">📦</div>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">كتالوج الخدمات الإضافية</h1>
+        <p class="text-gray-500 text-sm">إدارة الخدمات المتاحة للعملاء (تفعيل / إيقاف)</p>
+      </div>
+    </div>
+    <a href="{% url 'dashboard:extras_ops' %}" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold text-gray-700 hover:bg-gray-50">← عمليات الإضافات</a>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-600">
+        <tr>
+          <th class="px-5 py-3 text-right font-semibold">SKU</th>
+          <th class="px-5 py-3 text-right font-semibold">العنوان</th>
+          <th class="px-5 py-3 text-right font-semibold">السعر</th>
+          <th class="px-5 py-3 text-right font-semibold">العملة</th>
+          <th class="px-5 py-3 text-right font-semibold">الترتيب</th>
+          <th class="px-5 py-3 text-right font-semibold">الحالة</th>
+          <th class="px-5 py-3 text-center font-semibold">إجراء</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for item in items %}
+        <tr class="hover:bg-gray-50 transition-colors">
+          <td class="px-5 py-3 font-mono font-semibold text-gray-800">{{ item.sku }}</td>
+          <td class="px-5 py-3 text-gray-700">{{ item.title }}</td>
+          <td class="px-5 py-3 text-gray-700">{{ item.price }}</td>
+          <td class="px-5 py-3 text-gray-500">{{ item.currency }}</td>
+          <td class="px-5 py-3 text-gray-500">{{ item.sort_order }}</td>
+          <td class="px-5 py-3">
+            {% if item.is_active %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">نشط</span>
+            {% else %}
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">متوقف</span>
+            {% endif %}
+          </td>
+          <td class="px-5 py-3 text-center">
+            <form method="post" action="{% url 'dashboard:service_catalog_toggle_active' item.id %}" class="inline">
+              {% csrf_token %}
+              <button type="submit" class="px-3 py-1 rounded-lg text-xs font-semibold {% if item.is_active %}bg-red-50 text-red-700 hover:bg-red-100{% else %}bg-emerald-50 text-emerald-700 hover:bg-emerald-100{% endif %}">
+                {% if item.is_active %}إيقاف{% else %}تفعيل{% endif %}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="px-5 py-8 text-center text-gray-400">لا توجد خدمات في الكتالوج.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import ExtraPurchase
+from .models import ExtraPurchase, ServiceCatalog
+
+
+@admin.register(ServiceCatalog)
+class ServiceCatalogAdmin(admin.ModelAdmin):
+    list_display = ("sku", "title", "price", "currency", "is_active", "sort_order", "updated_at")
+    list_filter = ("is_active", "currency")
+    search_fields = ("sku", "title")
+    list_editable = ("price", "is_active", "sort_order")
+    ordering = ("sort_order", "sku")
 
 
 @admin.register(ExtraPurchase)

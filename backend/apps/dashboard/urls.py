@@ -1,4 +1,5 @@
 from django.urls import path
+from django.views.generic import RedirectView
 from . import views
 from . import auth_views
 from . import analytics_views
@@ -7,6 +8,7 @@ from . import moderation_views
 from . import reviews_views
 from . import admin_views
 from apps.excellence import dashboard_views as excellence_views
+from . import client_extras_views
 
 app_name = "dashboard"
 
@@ -188,6 +190,12 @@ urlpatterns = [
     path("subscriptions/accounts/<int:subscription_id>/actions/cancel/", views.subscription_account_cancel_action, name="subscription_account_cancel_action"),
     path("subscriptions/<int:subscription_id>/actions/refresh/", views.subscription_refresh_action, name="subscription_refresh_action"),
     path("subscriptions/<int:subscription_id>/actions/activate/", views.subscription_activate_action, name="subscription_activate_action"),
+    path("subscriptions/plans/", admin_views.plans_list, name="plans_list"),
+    path("subscriptions/plans/create/", admin_views.plan_form, name="plan_create"),
+    path("subscriptions/plans/<int:plan_id>/edit/", admin_views.plan_form, name="plan_edit"),
+    path("subscriptions/plans/<int:plan_id>/actions/toggle-active/", admin_views.plan_toggle_active, name="plan_toggle_active"),
+    # Legacy redirect for old /plans/ path
+    path("plans/", RedirectView.as_view(pattern_name="dashboard:plans_list", permanent=True)),
 
     path("extras/ops/", views.extras_ops, name="extras_ops"),
     path("extras/inquiries/<int:ticket_id>/", views.extras_inquiry_detail, name="extras_inquiry_detail"),
@@ -218,35 +226,39 @@ urlpatterns = [
     path("extras/clients/", views.extras_clients_list, name="extras_clients_list"),
     path("extras/<int:extra_id>/actions/activate/", views.extra_activate_action, name="extra_activate_action"),
 
+    path("extras/catalog/", admin_views.service_catalog_list, name="service_catalog_list"),
+    path("extras/catalog/<int:item_id>/toggle/", admin_views.service_catalog_toggle_active, name="service_catalog_toggle_active"),
+
     path("features/", views.features_overview, name="features_overview"),
 
-    # ── Admin views (gap features) ──
-    path("audit-logs/", admin_views.audit_log_list, name="audit_log_list"),
-    path("users/", admin_views.users_list, name="users_list"),
-    path("users/<int:user_id>/", admin_views.user_detail, name="user_detail"),
-    path("users/<int:user_id>/actions/toggle-active/", admin_views.user_toggle_active, name="user_toggle_active"),
-    path("users/<int:user_id>/actions/update-role/", admin_views.user_update_role, name="user_update_role"),
-    path("plans/", admin_views.plans_list, name="plans_list"),
-    path("plans/create/", admin_views.plan_form, name="plan_create"),
-    path("plans/<int:plan_id>/edit/", admin_views.plan_form, name="plan_edit"),
-    path("plans/<int:plan_id>/actions/toggle-active/", admin_views.plan_toggle_active, name="plan_toggle_active"),
-
-    path("access-profiles/", views.access_profiles_list, name="access_profiles_list"),
+    # ── Admin Control panel (consolidated under admin/) ──
+    path("admin/", admin_views.admin_control_home, name="admin_home"),
+    path("admin/access-profiles/", admin_views.access_profiles_list, name="access_profiles_list"),
     path(
-        "access-profiles/actions/create/",
-        views.access_profile_create_action,
+        "admin/access-profiles/actions/create/",
+        admin_views.access_profile_create_action,
         name="access_profile_create_action",
     ),
     path(
-        "access-profiles/<int:profile_id>/actions/update/",
-        views.access_profile_update_action,
+        "admin/access-profiles/<int:profile_id>/actions/update/",
+        admin_views.access_profile_update_action,
         name="access_profile_update_action",
     ),
     path(
-        "access-profiles/<int:profile_id>/actions/toggle-revoke/",
-        views.access_profile_toggle_revoke_action,
+        "admin/access-profiles/<int:profile_id>/actions/toggle-revoke/",
+        admin_views.access_profile_toggle_revoke_action,
         name="access_profile_toggle_revoke_action",
     ),
+    path("admin/users/", admin_views.users_list, name="users_list"),
+    path("admin/users/<int:user_id>/", admin_views.user_detail, name="user_detail"),
+    path("admin/users/<int:user_id>/actions/toggle-active/", admin_views.user_toggle_active, name="user_toggle_active"),
+    path("admin/users/<int:user_id>/actions/update-role/", admin_views.user_update_role, name="user_update_role"),
+    path("admin/audit-log/", admin_views.audit_log_list, name="audit_log_list"),
+
+    # ── Legacy redirects (backward compat for old URLs) ──
+    path("access-profiles/", RedirectView.as_view(pattern_name="dashboard:access_profiles_list", permanent=True)),
+    path("audit-logs/", RedirectView.as_view(pattern_name="dashboard:audit_log_list", permanent=True)),
+    path("users/", RedirectView.as_view(pattern_name="dashboard:users_list", permanent=True)),
 
     # Categories & Subcategories
     path("categories/", views.categories_list, name="categories_list"),
@@ -300,4 +312,10 @@ urlpatterns = [
         views.request_cancel,
         name="request_cancel",
     ),
+
+    # ── Client Extras Portal (Phase 6) ──
+    path("client/extras/", client_extras_views.client_extras_catalog, name="client_extras_catalog"),
+    path("client/extras/purchases/", client_extras_views.client_extras_purchases, name="client_extras_purchases"),
+    path("client/extras/buy/<str:sku>/", client_extras_views.client_extras_buy, name="client_extras_buy"),
+    path("client/extras/invoice/<int:invoice_id>/", client_extras_views.client_extras_invoice, name="client_extras_invoice"),
 ]

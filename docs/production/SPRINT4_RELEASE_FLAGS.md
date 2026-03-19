@@ -13,7 +13,7 @@
 
 ## Recommended rollout order
 
-1. Apply migrations and restart API / worker / beat.
+1. Apply migrations via `preDeployCommand` and restart API / worker / beat.
 2. Enable `FEATURE_ANALYTICS_EVENTS=1`.
 3. Enable `FEATURE_MODERATION_CENTER=1` في staging ثم production المحدود.
 4. Keep `FEATURE_MODERATION_DUAL_WRITE=0` حتى تمر complaint/report smoke checks.
@@ -28,3 +28,4 @@
 - إذا ظهرت inconsistency في البلاغات: عطّل `FEATURE_MODERATION_DUAL_WRITE` فقط، ولا تُغلق source flows الأصلية.
 - إذا ظهرت false denies في العمليات الداخلية: عطّل `FEATURE_RBAC_ENFORCE` وأبقِ `RBAC_AUDIT_ONLY=1`.
 - إذا ظهرت مؤشرات غير مكتملة: عطّل `FEATURE_ANALYTICS_KPI_SURFACES` مع إبقاء `FEATURE_ANALYTICS_EVENTS=1`.
+- لا تُعد `RUN_MIGRATIONS_ON_START=1` أو `RUN_COLLECTSTATIC_ON_START=1` كحل دائم؛ استخدمهما فقط كـ recovery path استثنائي.
