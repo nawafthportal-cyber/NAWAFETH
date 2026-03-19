@@ -37,23 +37,23 @@ MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
 echo "[start] Expecting static manifest at ${MANIFEST_PATH}"
 
 if [ ! -f "${MANIFEST_PATH}" ]; then
-	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
-		echo "[start] Static manifest missing — running collectstatic (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
-		if ! timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1; then
-			echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
-			exit 1
-		fi
-		if [ ! -f "${MANIFEST_PATH}" ]; then
-			echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
-			exit 1
-		fi
-		echo "[start] collectstatic completed."
-	else
-		echo "[start] ERROR: Static manifest missing and collectstatic is disabled (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START})."
-		echo "[start] Refusing to start without a build-generated WhiteNoise manifest."
-		echo "[start] Re-run the build step or temporarily enable RUN_COLLECTSTATIC_ON_START=1 only for recovery."
+	# Manifest is missing — always regenerate it so the service can boot.
+	# This covers Render free-tier slug-transfer issues where build artifacts
+	# are not preserved between the build and deploy containers.
+	echo "[start] Static manifest missing — running collectstatic (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
+	if ! timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1; then
+		echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
 		exit 1
 	fi
+	if [ ! -f "${MANIFEST_PATH}" ]; then
+		echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
+		exit 1
+	fi
+	echo "[start] collectstatic completed."
+elif [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
+	echo "[start] Manifest exists but RUN_COLLECTSTATIC_ON_START=1 — refreshing static files..."
+	timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
+	echo "[start] collectstatic refresh done."
 else
 	echo "[start] Static manifest OK."
 fi
