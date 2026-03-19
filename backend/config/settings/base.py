@@ -258,7 +258,6 @@ STATIC_URL = "/static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_BACKEND = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-STATICFILES_STORAGE = STATICFILES_BACKEND
 WHITENOISE_MANIFEST_STRICT = env_bool("WHITENOISE_MANIFEST_STRICT", False)
 
 # Cloudflare R2 / S3-compatible media storage (optional)

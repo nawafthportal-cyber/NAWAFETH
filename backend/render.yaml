@@ -36,7 +36,7 @@ services:
       - key: RUN_MIGRATIONS_ON_START
         value: "0"
       - key: RUN_COLLECTSTATIC_ON_START
-        value: "0"
+        value: "1"
       # Optional overrides:
       # - key: USE_R2_MEDIA
       #   value: "1"
