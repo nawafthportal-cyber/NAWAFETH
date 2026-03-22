@@ -9,11 +9,18 @@
 <main class="page-content">
   <div class="container notifications-layout">
     <!-- Auth gate -->
-    <div id="auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">🔔</div>
-      <h2>سجّل دخولك لعرض الإشعارات</h2>
-      <p>يمكنك تصفح إشعاراتك بعد تسجيل الدخول</p>
-      <a href="/login/?next=/notifications/" class="btn btn-primary">تسجيل الدخول</a>
+    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 7.5C5 6.12 6.12 5 7.5 5h9A2.5 2.5 0 0 1 19 7.5v5A2.5 2.5 0 0 1 16.5 15H9l-3.2 2.6c-.33.27-.8.03-.8-.4V7.5z" fill="#7C4FD4"></path>
+          <circle cx="9.5" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="12" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض الإشعارات</h2>
+      <p class="auth-gate-unified-desc">يمكنك تصفح إشعاراتك بعد تسجيل الدخول</p>
+      <a href="/login/?next=/notifications/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
     <div id="notif-content" class="hidden notif-shell">
@@ -36,7 +43,12 @@
         </div>
       </section>
 
-      <div id="notif-error" class="form-error hidden"></div>
+      <div class="notif-error-stack">
+        <div id="notif-error" class="form-error hidden"></div>
+        <div id="notif-retry-wrap" class="notif-retry-wrap hidden">
+          <button id="notif-retry" type="button" class="btn notif-retry-btn">إعادة المحاولة</button>
+        </div>
+      </div>
 
       <section class="notif-list-panel">
         <div id="notif-list" class="notif-list"></div>
@@ -46,6 +58,9 @@
         </div>
         <div id="notif-loader" class="text-center hidden">
           <div class="spinner-inline"></div>
+        </div>
+        <div id="notif-load-more-wrap" class="notif-load-more-wrap hidden">
+          <button id="notif-load-more" type="button" class="btn-sm notif-load-more-btn">تحميل المزيد</button>
         </div>
       </section>
     </div>

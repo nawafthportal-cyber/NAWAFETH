@@ -5,9 +5,14 @@
 'use strict';
 
 const LoginPage = (() => {
+  const FACE_ID_ENABLED_KEY = 'nw_faceid_enabled';
+  const FACE_ID_PHONE_KEY = 'nw_faceid_phone';
+  const FACE_ID_DEVICE_TOKEN_KEY = 'nw_faceid_device_token';
+  const FACE_ID_CRED_ID_KEY = 'nw_faceid_cred_id';
+
   function init() {
     if (Auth.isLoggedIn()) {
-      const next = new URLSearchParams(window.location.search).get('next') || '/';
+      const next = _resolveNext();
       window.location.href = Auth.needsCompletion && Auth.needsCompletion()
         ? '/signup/?next=' + encodeURIComponent(next)
         : next;
@@ -109,51 +114,62 @@ const LoginPage = (() => {
   /* ── Face ID Login ── */
 
   function _initFaceIdLogin() {
-    var enabled = localStorage.getItem('nw_faceid_enabled') === '1';
-    var phone = localStorage.getItem('nw_faceid_phone');
-    var credJson = localStorage.getItem('nw_faceid_cred_id');
+    var data = _getStoredBiometricData();
     var section = document.getElementById('faceid-login-section');
 
-    if (!enabled || !phone || !credJson || !section) return;
+    if (!data || !section) return;
     if (!window.PublicKeyCredential) return;
 
     section.classList.remove('hidden');
 
     var btn = document.getElementById('btn-faceid-login');
     if (btn) {
-      btn.addEventListener('click', function () { _loginWithFaceId(phone, credJson); });
+      btn.addEventListener('click', function () {
+        _loginWithFaceId(data.phone, data.deviceToken, data.credJson);
+      });
     }
   }
 
-  async function _loginWithFaceId(phone, credJson) {
+  async function _loginWithFaceId(phone, deviceToken, credJson) {
     var btn = document.getElementById('btn-faceid-login');
     var errEl = document.getElementById('phone-error');
 
     if (btn) { btn.disabled = true; btn.style.opacity = '0.65'; }
 
     try {
-      var credIdArray = JSON.parse(credJson);
-      var credId = new Uint8Array(credIdArray);
-      var challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
+      await _assertBiometric(credJson);
 
-      await navigator.credentials.get({
-        publicKey: {
-          challenge: challenge,
-          allowCredentials: [{
-            id: credId.buffer,
-            type: 'public-key',
-            transports: ['internal'],
-          }],
-          userVerification: 'required',
-          timeout: 60000,
+      var res = await ApiClient.request('/api/accounts/biometric/login/', {
+        method: 'POST',
+        body: {
+          phone: phone,
+          device_token: deviceToken,
         },
       });
 
-      // Biometric verified — auto-fill phone & send OTP
-      var phoneInput = document.getElementById('phone-input');
-      if (phoneInput) phoneInput.value = phone;
-      _sendOTP(phoneInput);
+      if (!res.ok || !res.data) {
+        _showError(errEl, _extractError(res, 'فشل تسجيل الدخول بمعرف الوجه.'));
+        return;
+      }
+
+      Auth.saveTokens({
+        access: res.data.access,
+        refresh: res.data.refresh,
+        user_id: res.data.user_id,
+        role_state: res.data.role_state,
+      });
+
+      try {
+        sessionStorage.setItem('nw_auth_phone', phone);
+        sessionStorage.removeItem('nw_auth_dev_code');
+      } catch {}
+
+      var next = _resolveNext();
+      if (res.data.needs_completion) {
+        window.location.href = '/signup/?next=' + encodeURIComponent(next);
+        return;
+      }
+      window.location.href = next;
     } catch (err) {
       if (err.name !== 'NotAllowedError') {
         _showError(errEl, 'فشل التحقق البيومتري.');
@@ -194,6 +210,85 @@ const LoginPage = (() => {
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = value;
+  }
+
+  async function _assertBiometric(credJson) {
+    var challenge = new Uint8Array(32);
+    crypto.getRandomValues(challenge);
+    var publicKey = {
+      challenge: challenge,
+      userVerification: 'required',
+      timeout: 60000,
+    };
+
+    var credId = _parseCredentialId(credJson);
+    if (credId) {
+      publicKey.allowCredentials = [{
+        id: credId.buffer,
+        type: 'public-key',
+        transports: ['internal'],
+      }];
+    }
+
+    await navigator.credentials.get({ publicKey: publicKey });
+  }
+
+  function _parseCredentialId(credJson) {
+    if (!credJson) return null;
+    try {
+      var parsed = JSON.parse(credJson);
+      if (!Array.isArray(parsed) || !parsed.length) return null;
+      return new Uint8Array(parsed);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _resolveNext() {
+    return new URLSearchParams(window.location.search).get('next') || '/';
+  }
+
+  function _storageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function _normalizePhone05(value) {
+    var digits = String(value || '').replace(/[^\d]/g, '');
+    if (/^05\d{8}$/.test(digits)) return digits;
+    if (/^5\d{8}$/.test(digits)) return '0' + digits;
+    if (/^9665\d{8}$/.test(digits)) return '0' + digits.slice(3);
+    if (/^009665\d{8}$/.test(digits)) return '0' + digits.slice(5);
+    return '';
+  }
+
+  function _getStoredBiometricData() {
+    var enabled = _storageGet(FACE_ID_ENABLED_KEY) === '1';
+    var phone = _normalizePhone05(_storageGet(FACE_ID_PHONE_KEY) || '');
+    var deviceToken = String(_storageGet(FACE_ID_DEVICE_TOKEN_KEY) || '').trim();
+    var credJson = String(_storageGet(FACE_ID_CRED_ID_KEY) || '').trim();
+    if (!enabled || !phone || !deviceToken) return null;
+    return {
+      phone: phone,
+      deviceToken: deviceToken,
+      credJson: credJson,
+    };
+  }
+
+  function _extractError(res, fallback) {
+    if (!res || !res.data || typeof res.data !== 'object') return fallback;
+    if (typeof res.data.detail === 'string' && res.data.detail.trim()) return res.data.detail.trim();
+    if (typeof res.data.error === 'string' && res.data.error.trim()) return res.data.error.trim();
+    var keys = Object.keys(res.data);
+    for (var i = 0; i < keys.length; i += 1) {
+      var value = res.data[keys[i]];
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (Array.isArray(value) && value.length) return String(value[0]);
+    }
+    return fallback;
   }
 
   if (document.readyState === 'loading') {

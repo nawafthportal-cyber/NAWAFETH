@@ -9,11 +9,18 @@
 <main class="page-content">
   <div class="container chats-layout">
     <!-- Auth gate -->
-    <div id="auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">💬</div>
-      <h2>سجّل دخولك لعرض المحادثات</h2>
-      <p>يمكنك التواصل مع مقدمي الخدمات بعد تسجيل الدخول</p>
-      <a href="/login/?next=/chats/" class="btn btn-primary">تسجيل الدخول</a>
+    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 7.5C5 6.12 6.12 5 7.5 5h9A2.5 2.5 0 0 1 19 7.5v5A2.5 2.5 0 0 1 16.5 15H9l-3.2 2.6c-.33.27-.8.03-.8-.4V7.5z" fill="#7C4FD4"></path>
+          <circle cx="9.5" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="12" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض المحادثات</h2>
+      <p class="auth-gate-unified-desc">يمكنك التواصل مع مقدمي الخدمات بعد تسجيل الدخول</p>
+      <a href="/login/?next=/chats/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
     <div id="chats-content" class="hidden chats-shell">
@@ -47,6 +54,10 @@
             <span>مفضلة</span>
             <span class="chat-filter-count" data-count-for="favorite">0</span>
           </button>
+          <button class="filter-chip hidden" data-filter="clients" type="button" id="chat-filter-clients">
+            <span>عملاء</span>
+            <span class="chat-filter-count" data-count-for="clients">0</span>
+          </button>
           <button class="filter-chip" data-filter="recent" type="button">
             <span>الأحدث</span>
             <span class="chat-filter-count" data-count-for="recent">0</span>
@@ -64,6 +75,9 @@
       </section>
 
       <div id="chats-error" class="form-error hidden"></div>
+      <div class="chats-retry-wrap">
+        <button id="chats-retry" type="button" class="btn btn-primary chats-retry-btn hidden">إعادة المحاولة</button>
+      </div>
 
       <section class="chats-list-panel">
         <div id="threads-list" class="threads-list">

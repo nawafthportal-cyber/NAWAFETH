@@ -355,7 +355,7 @@ const OrderDetailPage = (() => {
     }
 
     grid.innerHTML = '';
-    grid.appendChild(_readonlyInfoCard('تاريخ الإلغاء', _order.canceled_at ? _formatDate(_order.canceled_at) : '-'));
+    grid.appendChild(_readonlyInfoCard('تاريخ الإلغاء', _order.canceled_at ? _formatDateOnly(_order.canceled_at) : '-'));
     grid.appendChild(_readonlyInfoCard('سبب الإلغاء', _order.cancel_reason || '-'));
     section.classList.remove('hidden');
   }
@@ -1010,6 +1010,10 @@ const OrderDetailPage = (() => {
     }
 
     const comment = String(document.getElementById('review-comment')?.value || '').trim();
+    if (comment.length > 300) {
+      _setActionFeedback('تعليق التقييم يجب ألا يتجاوز 300 حرف', true);
+      return;
+    }
     const body = {
       response_speed: Number(fields.response_speed),
       cost_value: Number(fields.cost_value),

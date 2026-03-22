@@ -162,14 +162,7 @@ const ProviderDetailPage = (() => {
 
     // Share
     const shareBtn = document.getElementById('btn-share');
-    if (shareBtn) shareBtn.addEventListener('click', async () => {
-      const url = window.location.href;
-      if (navigator.share) {
-        try { await navigator.share({ title: document.title, url }); } catch {}
-      } else {
-        try { await navigator.clipboard.writeText(url); _showToast('تم نسخ الرابط'); } catch {}
-      }
-    });
+    if (shareBtn) shareBtn.addEventListener('click', _openShareAndReportSheet);
   }
 
   async function _openDirectChat() {
@@ -582,6 +575,290 @@ const ProviderDetailPage = (() => {
     });
 
     function closeSheet() {
+      backdrop.classList.remove('open');
+      setTimeout(() => backdrop.remove(), 180);
+    }
+  }
+
+  function _buildProviderLink() {
+    const resolvedId = _safeInt(_providerData && (_providerData.id || _providerData.provider_id))
+      || _safeInt(_providerId)
+      || _providerId
+      || 'provider';
+    const base = String(ApiClient.baseUrl || window.location.origin || '').replace(/\/+$/, '');
+    return base + '/provider/' + encodeURIComponent(String(resolvedId)) + '/';
+  }
+
+  function _buildQrImageUrl(targetUrl) {
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&data=' + encodeURIComponent(String(targetUrl || ''));
+  }
+
+  async function _openShareAndReportSheet() {
+    const providerLink = _buildProviderLink();
+    const qrImageUrl = _buildQrImageUrl(providerLink);
+    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || 'مقدم خدمة';
+
+    const existing = document.querySelector('.pd-share-sheet-backdrop');
+    if (existing) existing.remove();
+
+    const backdrop = UI.el('div', { className: 'pd-sheet-backdrop pd-share-sheet-backdrop' });
+    const sheet = UI.el('div', { className: 'pd-sheet pd-share-sheet' });
+    const handle = UI.el('div', { className: 'pd-sheet-handle' });
+    const header = UI.el('div', { className: 'pd-sheet-header' });
+    const heading = UI.el('div', {
+      className: 'pd-sheet-title',
+      textContent: 'مشاركة نافذة مقدم الخدمة',
+    });
+    const closeBtn = UI.el('button', {
+      className: 'pd-sheet-close',
+      type: 'button',
+      textContent: '×',
+    });
+    closeBtn.setAttribute('aria-label', 'إغلاق');
+    closeBtn.addEventListener('click', closeSheet);
+
+    header.appendChild(heading);
+    header.appendChild(closeBtn);
+    sheet.appendChild(handle);
+    sheet.appendChild(header);
+
+    const body = UI.el('div', { className: 'pd-sheet-body pd-share-sheet-body' });
+    const card = UI.el('div', { className: 'pd-share-card' });
+    const qrWrap = UI.el('div', { className: 'pd-share-qr-wrap' });
+    const qrImg = UI.el('img', {
+      className: 'pd-share-qr',
+      src: qrImageUrl,
+      alt: 'رمز QR',
+    });
+    qrImg.addEventListener('error', () => {
+      qrWrap.innerHTML = '';
+      qrWrap.appendChild(UI.el('div', { className: 'pd-share-qr-fallback', textContent: 'QR' }));
+    });
+    qrWrap.appendChild(qrImg);
+    card.appendChild(qrWrap);
+
+    card.appendChild(UI.el('p', {
+      className: 'pd-share-link',
+      textContent: providerLink,
+    }));
+
+    const actions = UI.el('div', { className: 'pd-share-actions' });
+    const copyBtn = UI.el('button', {
+      type: 'button',
+      className: 'pd-share-btn',
+      textContent: 'نسخ الرابط',
+    });
+    copyBtn.addEventListener('click', async () => {
+      const copied = await _copyToClipboard(providerLink);
+      closeSheet();
+      _showToast(copied ? 'تم نسخ الرابط' : 'تعذر نسخ الرابط');
+    });
+
+    const shareBtn = UI.el('button', {
+      type: 'button',
+      className: 'pd-share-btn',
+      textContent: 'مشاركة',
+    });
+    shareBtn.addEventListener('click', async () => {
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'مشاركة نافذة مقدم الخدمة',
+            text: providerName,
+            url: providerLink,
+          });
+          closeSheet();
+          _showToast('تمت مشاركة الرابط');
+          return;
+        } catch (err) {
+          if (err && err.name === 'AbortError') return;
+        }
+      }
+      const copied = await _copyToClipboard(providerLink);
+      closeSheet();
+      _showToast(copied ? 'تم نسخ الرابط' : 'تعذر مشاركة الرابط');
+    });
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(shareBtn);
+    card.appendChild(actions);
+    body.appendChild(card);
+
+    const reportBtn = UI.el('button', {
+      type: 'button',
+      className: 'pd-share-report-btn',
+    });
+    reportBtn.innerHTML = [
+      '<span class="pd-share-report-icon" aria-hidden="true">',
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
+      '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>',
+      '<line x1="4" y1="22" x2="4" y2="15"></line>',
+      '</svg>',
+      '</span>',
+      '<span>الإبلاغ عن مقدم الخدمة</span>',
+    ].join('');
+    reportBtn.addEventListener('click', () => {
+      closeSheet();
+      _openProviderReportDialog();
+    });
+    body.appendChild(reportBtn);
+
+    sheet.appendChild(body);
+    backdrop.appendChild(sheet);
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('open'));
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeSheet();
+    });
+
+    function closeSheet() {
+      backdrop.classList.remove('open');
+      setTimeout(() => backdrop.remove(), 180);
+    }
+  }
+
+  async function _copyToClipboard(text) {
+    const value = String(text || '');
+    if (!value) return false;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      try {
+        await navigator.clipboard.writeText(value);
+        return true;
+      } catch (_) {}
+    }
+
+    try {
+      const input = document.createElement('textarea');
+      input.value = value;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.top = '-9999px';
+      input.style.left = '-9999px';
+      document.body.appendChild(input);
+      input.focus();
+      input.select();
+      const ok = document.execCommand('copy');
+      input.remove();
+      return !!ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function _openProviderReportDialog() {
+    const reasons = [
+      'محتوى غير لائق',
+      'تحرش أو إزعاج',
+      'احتيال أو نصب',
+      'محتوى مسيء',
+      'انتهاك الخصوصية',
+      'أخرى',
+    ];
+
+    const providerName = _trimText(document.getElementById('pd-name')?.textContent) || 'مقدم خدمة';
+    const providerHandle = _trimText(document.getElementById('pd-handle')?.textContent);
+    const entityText = providerHandle ? (providerName + ' (' + providerHandle + ')') : providerName;
+
+    const oldDialog = document.querySelector('.pd-report-backdrop');
+    if (oldDialog) oldDialog.remove();
+
+    const backdrop = UI.el('div', { className: 'pd-report-backdrop' });
+    const dialog = UI.el('div', { className: 'pd-report-dialog' });
+
+    const titleRow = UI.el('div', { className: 'pd-report-title-row' });
+    const titleIcon = UI.el('span', { className: 'pd-report-title-icon' });
+    titleIcon.innerHTML = [
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
+      '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>',
+      '<line x1="4" y1="22" x2="4" y2="15"></line>',
+      '</svg>',
+    ].join('');
+    titleRow.appendChild(titleIcon);
+    titleRow.appendChild(UI.el('h3', {
+      className: 'pd-report-title',
+      textContent: 'إبلاغ عن مزود خدمة',
+    }));
+    dialog.appendChild(titleRow);
+
+    const infoBox = UI.el('div', { className: 'pd-report-info' });
+    infoBox.appendChild(UI.el('p', {
+      className: 'pd-report-info-label',
+      textContent: 'بيانات المبلغ عنه:',
+    }));
+    infoBox.appendChild(UI.el('p', {
+      className: 'pd-report-info-value',
+      textContent: entityText,
+    }));
+    infoBox.appendChild(UI.el('p', {
+      className: 'pd-report-context',
+      textContent: 'نوع البلاغ: مزود خدمة',
+    }));
+    dialog.appendChild(infoBox);
+
+    const reasonLabel = UI.el('label', {
+      className: 'pd-report-label',
+      textContent: 'سبب الإبلاغ:',
+    });
+    reasonLabel.setAttribute('for', 'pd-report-reason');
+    dialog.appendChild(reasonLabel);
+
+    const reasonSelect = UI.el('select', {
+      className: 'pd-report-select',
+      id: 'pd-report-reason',
+    });
+    reasons.forEach((reason) => {
+      reasonSelect.appendChild(UI.el('option', { value: reason, textContent: reason }));
+    });
+    dialog.appendChild(reasonSelect);
+
+    const detailsLabel = UI.el('label', {
+      className: 'pd-report-label',
+      textContent: 'تفاصيل إضافية (اختياري):',
+    });
+    detailsLabel.setAttribute('for', 'pd-report-details');
+    dialog.appendChild(detailsLabel);
+
+    const detailsInput = UI.el('textarea', {
+      className: 'pd-report-textarea',
+      id: 'pd-report-details',
+      rows: 4,
+      placeholder: 'اكتب التفاصيل هنا...',
+    });
+    detailsInput.maxLength = 500;
+    dialog.appendChild(detailsInput);
+
+    const actions = UI.el('div', { className: 'pd-report-actions' });
+    const cancelBtn = UI.el('button', {
+      type: 'button',
+      className: 'pd-report-btn pd-report-btn-cancel',
+      textContent: 'إلغاء',
+    });
+    cancelBtn.addEventListener('click', closeDialog);
+
+    const submitBtn = UI.el('button', {
+      type: 'button',
+      className: 'pd-report-btn pd-report-btn-submit',
+      textContent: 'إرسال البلاغ',
+    });
+    submitBtn.addEventListener('click', () => {
+      closeDialog();
+      _showToast('تم إرسال البلاغ للإدارة. شكراً لك');
+    });
+
+    actions.appendChild(cancelBtn);
+    actions.appendChild(submitBtn);
+    dialog.appendChild(actions);
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    requestAnimationFrame(() => backdrop.classList.add('open'));
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeDialog();
+    });
+
+    function closeDialog() {
       backdrop.classList.remove('open');
       setTimeout(() => backdrop.remove(), 180);
     }

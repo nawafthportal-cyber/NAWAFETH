@@ -8,9 +8,15 @@ const RequestQuotePage = (() => {
   let _selectedFiles = [];
   let _errorTimer = null;
   const _cities = [
-    'الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','الظهران','الطائف','تبوك','بريدة',
-    'عنيزة','حائل','أبها','خميس مشيط','نجران','جازان','ينبع','الباحة','الجبيل','حفر الباطن',
-    'القطيف','الأحساء','سكاكا','عرعر','بيشة','الخرج','الدوادمي','المجمعة','القويعية','وادي الدواسر'
+    'أبها', 'الأحساء', 'الأفلاج', 'الباحة', 'البكيرية', 'البدائع', 'الجبيل', 'الجموم',
+    'الحريق', 'الحوطة', 'الخبر', 'الخرج', 'الخفجي', 'الدرعية', 'الدلم', 'الدمام',
+    'الدوادمي', 'الرس', 'الرياض', 'الزلفي', 'السليل', 'الطائف', 'الظهران', 'العرضيات',
+    'العلا', 'القريات', 'القصيم', 'القطيف', 'القنفذة', 'القويعية', 'الليث', 'المجمعة',
+    'المدينة المنورة', 'المذنب', 'المزاحمية', 'النماص', 'الوجه', 'أملج', 'بدر', 'بريدة',
+    'بلجرشي', 'بيشة', 'تبوك', 'تربة', 'تنومة', 'ثادق', 'جازان', 'جدة', 'حائل',
+    'حفر الباطن', 'حقل', 'حوطة بني تميم', 'خميس مشيط', 'خيبر', 'رابغ', 'رفحاء', 'رنية',
+    'سراة عبيدة', 'سكاكا', 'شرورة', 'شقراء', 'صامطة', 'صبيا', 'ضباء', 'ضرما', 'طبرجل',
+    'طريف', 'ظلم', 'عرعر', 'عفيف', 'عنيزة', 'محايل عسير', 'مكة المكرمة', 'نجران', 'ينبع',
   ];
 
   function init() {
@@ -104,9 +110,12 @@ const RequestQuotePage = (() => {
     const deadlineInput = document.getElementById('rq-deadline');
     if (!deadlineInput) return;
     const now = new Date();
-    const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    deadlineInput.min = iso;
-    if (deadlineInput.value && deadlineInput.value < iso) {
+    const minIso = _dateIso(now);
+    const maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
+    const maxIso = _dateIso(maxDate);
+    deadlineInput.min = minIso;
+    deadlineInput.max = maxIso;
+    if (deadlineInput.value && (deadlineInput.value < minIso || deadlineInput.value > maxIso)) {
       deadlineInput.value = '';
     }
   }
@@ -328,6 +337,10 @@ const RequestQuotePage = (() => {
       missing.push('يرجى كتابة تفاصيل الطلب');
       _markFieldInvalid('rq-details');
     }
+    if (details.length > 500) {
+      missing.push('تفاصيل الطلب يجب ألا تتجاوز 500 حرف');
+      _markFieldInvalid('rq-details');
+    }
 
     if (missing.length) {
       _showError(missing[0]);
@@ -419,6 +432,10 @@ const RequestQuotePage = (() => {
     if (!btn) return;
     btn.disabled = false;
     btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg><span>تقديم الطلب</span>';
+  }
+
+  function _dateIso(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   }
 
   // Boot

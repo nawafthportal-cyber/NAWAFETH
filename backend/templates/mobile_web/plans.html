@@ -4,7 +4,7 @@
 
 {% block content %}
 <main class="page-shell">
-  <div id="auth-gate" class="auth-gate" style="display:none">
+  <div id="auth-gate" class="auth-gate hidden">
     <div class="auth-gate-inner">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
       <h2>تسجيل الدخول مطلوب</h2>
@@ -12,7 +12,7 @@
     </div>
   </div>
 
-  <div id="plans-content" style="display:none">
+  <div id="plans-content" class="hidden">
     <div class="page-header">
       <button class="btn-back" onclick="history.back()">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
@@ -21,9 +21,10 @@
     </div>
 
     <div id="plans-loading" class="loading-center"><div class="spinner"></div></div>
-    <div id="plans-list" class="plans-grid"></div>
-    <div id="plans-empty" class="empty-state" style="display:none">
-      <p>لا توجد باقات متاحة حالياً</p>
+    <div id="plans-list" class="plans-grid hidden"></div>
+    <div id="plans-state" class="empty-state hidden">
+      <p id="plans-state-message">لا توجد باقات متاحة حالياً</p>
+      <button id="plans-retry" type="button" class="btn btn-primary plans-retry-btn">إعادة المحاولة</button>
     </div>
   </div>
 </main>

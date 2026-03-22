@@ -177,12 +177,22 @@ const SignupPage = (() => {
     if (!username) valid = _setError('username', 'اسم المستخدم مطلوب') && false;
     if (!email) valid = _setError('email', 'البريد الإلكتروني مطلوب') && false;
     if (!city) valid = _setError('city', 'المدينة مطلوبة') && false;
-    if (!password || password.length < 8) valid = _setError('password', 'كلمة المرور يجب أن تكون 8 أحرف على الأقل') && false;
+    const passwordIssue = _passwordIssue(password);
+    if (passwordIssue) valid = _setError('password', passwordIssue) && false;
     if (password !== passwordConfirm) valid = _setError('password-confirm', 'كلمة المرور وتأكيدها غير متطابقين') && false;
     if (!acceptTerms) valid = _setError('accept-terms', 'يجب الموافقة على الشروط والأحكام') && false;
     if (_usernameAvailable === false) valid = _setError('username', 'اسم المستخدم محجوز') && false;
 
     return valid;
+  }
+
+  function _passwordIssue(password) {
+    if (!password || password.length < 8) return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+    if (!/[a-z]/.test(password)) return 'كلمة المرور يجب أن تحتوي على حرف صغير';
+    if (!/[A-Z]/.test(password)) return 'كلمة المرور يجب أن تحتوي على حرف كبير';
+    if (!/[0-9]/.test(password)) return 'كلمة المرور يجب أن تحتوي على رقم';
+    if (!/[!@#\$&*~%^()\-_=+{};:,<.>]/.test(password)) return 'كلمة المرور يجب أن تحتوي على رمز خاص';
+    return '';
   }
 
   async function _submit() {

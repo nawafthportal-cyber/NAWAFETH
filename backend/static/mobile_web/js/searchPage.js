@@ -23,6 +23,7 @@ const SearchPage = (() => {
   let _featuredProviderIds = new Set();
   let _searchPromoPlacements = [];
   let _promoBannerEl = null;
+  let _isProvidersMapPage = false;
 
   let _input;
   let _clearBtn;
@@ -34,8 +35,11 @@ const SearchPage = (() => {
   let _mapBtn;
   let _mapBackdrop;
   let _mapModal;
+  let _resultsLink;
+  let _myLocationBtn;
 
   function init() {
+    _isProvidersMapPage = !!(document.body && document.body.classList.contains('page-providers-map'));
     _input = document.getElementById('search-input');
     _clearBtn = document.getElementById('search-clear');
     _providersList = document.getElementById('providers-list');
@@ -46,6 +50,8 @@ const SearchPage = (() => {
     _mapBtn = document.getElementById('search-map-btn');
     _mapBackdrop = document.getElementById('search-map-backdrop');
     _mapModal = document.getElementById('search-map-modal');
+    _resultsLink = document.getElementById('search-results-link');
+    _myLocationBtn = document.getElementById('providers-map-my-location');
 
     if (!_input || !_providersList) return;
 
@@ -73,6 +79,7 @@ const SearchPage = (() => {
     if (urlCat) _activeCat = urlCat;
     if (urlCity) _activeCity = urlCity;
     if (urlSort) _selectedSort = urlSort;
+    _syncResultsLink();
 
     _renderLoading();
     _fetchCategories();
@@ -141,6 +148,14 @@ const SearchPage = (() => {
   }
 
   function _bindMapModal() {
+    if (_myLocationBtn) {
+      _myLocationBtn.addEventListener('click', _focusClientLocation);
+    }
+
+    if (_isProvidersMapPage) {
+      return;
+    }
+
     if (_mapBtn) _mapBtn.addEventListener('click', _openMapModal);
 
     const closeBtn = document.getElementById('search-map-close');
@@ -194,6 +209,7 @@ const SearchPage = (() => {
       }
     }
     _renderProviders();
+    _syncResultsLink();
   }
 
   async function _fetchCategories() {
@@ -257,8 +273,9 @@ const SearchPage = (() => {
         return !!urgent;
       });
     }
-    await _ensureDistanceMap(false);
+    await _ensureDistanceMap(_isProvidersMapPage || _selectedSort === 'nearest');
     _renderProviders();
+    _syncResultsLink();
   }
 
   async function _ensureDistanceMap(requestPermission) {
@@ -266,7 +283,7 @@ const SearchPage = (() => {
       _distanceKmByProviderId = {};
       return;
     }
-    if (_selectedSort !== 'nearest' && _clientPosition === null) {
+    if (_selectedSort !== 'nearest' && _clientPosition === null && !requestPermission) {
       return;
     }
 
@@ -344,6 +361,7 @@ const SearchPage = (() => {
     _providersList.textContent = '';
     if (!sorted.length) {
       _showEmpty('لا توجد نتائج');
+      if (_isProvidersMapPage) _renderMap();
       return;
     }
 
@@ -359,6 +377,11 @@ const SearchPage = (() => {
     });
     _providersList.appendChild(frag);
 
+    if (_isProvidersMapPage) {
+      _renderMap();
+      return;
+    }
+
     if (_openMapAfterFirstRender) {
       _openMapAfterFirstRender = false;
       _openMapModal();
@@ -366,6 +389,10 @@ const SearchPage = (() => {
   }
 
   function _openMapModal() {
+    if (_isProvidersMapPage) {
+      _renderMap();
+      return;
+    }
     if (_mapModalOpen || !_mapModal || !_mapBackdrop) return;
     _mapModalOpen = true;
     _mapBackdrop.classList.remove('hidden');
@@ -394,6 +421,11 @@ const SearchPage = (() => {
     const canvas = document.getElementById('search-map-canvas');
     const title = document.getElementById('search-map-title');
     if (!canvas || typeof L === 'undefined') return;
+    const hasClientPosition = !!(
+      _clientPosition &&
+      Number.isFinite(_clientPosition.lat) &&
+      Number.isFinite(_clientPosition.lng)
+    );
 
     const sorted = _applyPromoOrdering(_sortProviders(_providers)).filter(provider => {
       const lat = _safeNum(provider.lat ?? provider.latitude);
@@ -421,7 +453,11 @@ const SearchPage = (() => {
     }
 
     if (!sorted.length) {
-      _mapInstance.setView([24.7136, 46.6753], 6);
+      if (hasClientPosition) {
+        _mapInstance.setView([_clientPosition.lat, _clientPosition.lng], 12);
+      } else {
+        _mapInstance.setView([24.7136, 46.6753], 6);
+      }
       setTimeout(() => {
         try { _mapInstance.invalidateSize(); } catch (_) {}
       }, 120);
@@ -441,6 +477,18 @@ const SearchPage = (() => {
       points.push([lat, lng]);
     });
 
+    if (_isProvidersMapPage && hasClientPosition) {
+      const currentMarker = L.circleMarker([_clientPosition.lat, _clientPosition.lng], {
+        radius: 7,
+        color: '#4F46E5',
+        fillColor: '#4F46E5',
+        fillOpacity: 0.85,
+        weight: 2,
+      });
+      currentMarker.bindPopup('موقعك الحالي');
+      _mapMarkersLayer.addLayer(currentMarker);
+    }
+
     if (points.length === 1) {
       _mapInstance.setView(points[0], 12);
     } else {
@@ -451,6 +499,41 @@ const SearchPage = (() => {
     setTimeout(() => {
       try { _mapInstance.invalidateSize(); } catch (_) {}
     }, 120);
+  }
+
+  async function _focusClientLocation() {
+    const pos = await _resolveClientPosition(true);
+    if (!pos) {
+      _showToast('تعذر تحديد موقعك الحالي.');
+      return;
+    }
+    if (_mapInstance) {
+      _mapInstance.setView([pos.lat, pos.lng], 13);
+      return;
+    }
+    _renderMap();
+    setTimeout(() => {
+      if (_mapInstance) {
+        _mapInstance.setView([pos.lat, pos.lng], 13);
+      }
+    }, 160);
+  }
+
+  function _syncResultsLink() {
+    if (!_resultsLink) return;
+    let baseHref = String(_resultsLink.getAttribute('href') || '/search/').trim();
+    if (!baseHref) baseHref = '/search/';
+    baseHref = baseHref.split('?')[0];
+
+    const params = new URLSearchParams();
+    if (_query) params.set('q', _query);
+    if (_activeCat) params.set('category_id', _activeCat);
+    if (_activeCity) params.set('city', _activeCity);
+    if (_urgentOnly) params.set('urgent', '1');
+    if (_selectedSort && _selectedSort !== 'default') params.set('sort', _selectedSort);
+
+    const query = params.toString();
+    _resultsLink.href = query ? (baseHref + '?' + query) : baseHref;
   }
 
   function _sortProviders(list) {
@@ -557,7 +640,8 @@ const SearchPage = (() => {
         object_type: 'ProviderProfile',
         object_id: String(provider.id || ''),
         payload: {
-          query: (_searchInput && _searchInput.value ? _searchInput.value.trim() : ''),
+          query: (_input && _input.value ? _input.value.trim() : ''),
+          selected_category_id: _activeCat ? _safeInt(_activeCat) : null,
           featured: _featuredProviderIds.has(String(provider.id)),
         },
       });

@@ -6,7 +6,19 @@
 
 const AddServicePage = (() => {
   function init() {
+    _bindAuthRequiredLinks();
     _fetchCategories();
+  }
+
+  function _bindAuthRequiredLinks() {
+    document.querySelectorAll('a[data-auth-required="true"]').forEach((link) => {
+      link.addEventListener('click', (event) => {
+        if (Auth.isLoggedIn()) return;
+        event.preventDefault();
+        const next = link.getAttribute('href') || '/';
+        window.location.href = '/login/?next=' + encodeURIComponent(next);
+      });
+    });
   }
 
   async function _fetchCategories() {
@@ -36,7 +48,7 @@ const AddServicePage = (() => {
 
       const frag = document.createDocumentFragment();
       cats.forEach(cat => {
-        const item = UI.el('a', { className: 'cat-item', href: '/search/?category=' + cat.id });
+        const item = UI.el('a', { className: 'cat-item', href: '/search/' });
         const iconWrap = UI.el('div', { className: 'cat-icon' });
         iconWrap.appendChild(UI.icon(UI.categoryIconKey(cat.name), 24, '#673AB7'));
         item.appendChild(iconWrap);

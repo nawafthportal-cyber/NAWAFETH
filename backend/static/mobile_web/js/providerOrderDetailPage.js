@@ -219,7 +219,7 @@ const ProviderOrderDetailPage = (() => {
       <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
-      <input type="date" class="pod-input" id="pod-expected-delivery">
+      <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
         <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
         <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
@@ -232,7 +232,7 @@ const ProviderOrderDetailPage = (() => {
       <label class="pod-input-label" for="pod-cancel-reason">سبب الإلغاء</label>
       <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الإلغاء..."></textarea>
       <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>رفض الطلب</button>`;
-    byId('pod-expected-delivery').value = toDateInput(o.expected_delivery_at);
+    byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
     byId('pod-cancel-reason').value = str(o.cancel_reason);
@@ -290,7 +290,7 @@ const ProviderOrderDetailPage = (() => {
       <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
-      <input type="date" class="pod-input" id="pod-expected-delivery">
+      <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
         <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
         <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
@@ -298,7 +298,7 @@ const ProviderOrderDetailPage = (() => {
       <label class="pod-input-label" for="pod-note">ملاحظة (اختياري)</label>
       <textarea class="pod-textarea" id="pod-note" rows="2" placeholder="ملاحظة (اختياري)"></textarea>
       <button type="button" class="pod-btn pod-btn-primary pod-btn-block" id="pod-progress-btn" data-pod-action></button>`;
-    byId('pod-expected-delivery').value = toDateInput(o.expected_delivery_at);
+    byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
 
@@ -319,7 +319,7 @@ const ProviderOrderDetailPage = (() => {
     root.innerHTML = `
       <p class="pod-action-title">تحديث التقدم</p>
       <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
-      <input type="date" class="pod-input" id="pod-expected-delivery">
+      <input type="datetime-local" class="pod-input" id="pod-expected-delivery">
       <div class="pod-grid-2">
         <div><label class="pod-input-label" for="pod-estimated-amount">قيمة الخدمة المقدرة (SR)</label><input type="number" class="pod-input" id="pod-estimated-amount" step="0.01" min="0" placeholder="0"></div>
         <div><label class="pod-input-label" for="pod-received-amount">المبلغ المستلم (SR)</label><input type="number" class="pod-input" id="pod-received-amount" step="0.01" min="0" placeholder="0"></div>
@@ -330,7 +330,7 @@ const ProviderOrderDetailPage = (() => {
       <div class="pod-divider"></div>
       <p class="pod-action-title">إكمال الطلب</p>
       <label class="pod-input-label" for="pod-delivered-at">موعد التسليم الفعلي</label>
-      <input type="date" class="pod-input" id="pod-delivered-at">
+      <input type="datetime-local" class="pod-input" id="pod-delivered-at">
       <label class="pod-input-label" for="pod-actual-amount">قيمة الخدمة الفعلية (SR)</label>
       <input type="number" class="pod-input" id="pod-actual-amount" step="0.01" min="0" placeholder="0">
       <p class="pod-input-label">مرفقات الإكمال (فواتير/صور/ملفات)</p>
@@ -342,10 +342,10 @@ const ProviderOrderDetailPage = (() => {
       <label class="pod-input-label" for="pod-cancel-reason">سبب الإلغاء</label>
       <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الإلغاء..."></textarea>
       <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>إلغاء الطلب</button>`;
-    byId('pod-expected-delivery').value = toDateInput(o.expected_delivery_at);
+    byId('pod-expected-delivery').value = toDateTimeInput(o.expected_delivery_at);
     byId('pod-estimated-amount').value = str(o.estimated_service_amount);
     byId('pod-received-amount').value = str(o.received_amount);
-    byId('pod-delivered-at').value = toDateInput(o.delivered_at);
+    byId('pod-delivered-at').value = toDateTimeInput(o.delivered_at);
     byId('pod-actual-amount').value = str(o.actual_service_amount);
     byId('pod-cancel-reason').value = str(o.cancel_reason);
     byId('pod-completion-files').addEventListener('change', onFilesPick);
@@ -658,17 +658,22 @@ const ProviderOrderDetailPage = (() => {
     return arDigits(pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear());
   }
 
-  function toDateInput(v) {
+  function toDateTimeInput(v) {
     const d = asDate(v);
     if (!d) return '';
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    return (
+      d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+      + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes())
+    );
   }
 
   function dateToIso(v) {
     const c = str(v);
     if (!c) return null;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(c)) return null;
-    return c + 'T00:00:00';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(c)) return c + 'T00:00:00';
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(c)) return c + ':00';
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(c)) return c;
+    return null;
   }
 
   function asDate(v) {

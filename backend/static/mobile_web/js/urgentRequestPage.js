@@ -11,9 +11,15 @@ const UrgentRequestPage = (() => {
   let _audio = null;
   let _lastNearestToastKey = '';
   const _cities = [
-    'الرياض','جدة','مكة المكرمة','المدينة المنورة','الدمام','الخبر','الظهران','الطائف','تبوك','بريدة',
-    'عنيزة','حائل','أبها','خميس مشيط','نجران','جازان','ينبع','الباحة','الجبيل','حفر الباطن',
-    'القطيف','الأحساء','سكاكا','عرعر','بيشة','الخرج','الدوادمي','المجمعة','القويعية','وادي الدواسر'
+    'أبها', 'الأحساء', 'الأفلاج', 'الباحة', 'البكيرية', 'البدائع', 'الجبيل', 'الجموم',
+    'الحريق', 'الحوطة', 'الخبر', 'الخرج', 'الخفجي', 'الدرعية', 'الدلم', 'الدمام',
+    'الدوادمي', 'الرس', 'الرياض', 'الزلفي', 'السليل', 'الطائف', 'الظهران', 'العرضيات',
+    'العلا', 'القريات', 'القصيم', 'القطيف', 'القنفذة', 'القويعية', 'الليث', 'المجمعة',
+    'المدينة المنورة', 'المذنب', 'المزاحمية', 'النماص', 'الوجه', 'أملج', 'بدر', 'بريدة',
+    'بلجرشي', 'بيشة', 'تبوك', 'تربة', 'تنومة', 'ثادق', 'جازان', 'جدة', 'حائل',
+    'حفر الباطن', 'حقل', 'حوطة بني تميم', 'خميس مشيط', 'خيبر', 'رابغ', 'رفحاء', 'رنية',
+    'سراة عبيدة', 'سكاكا', 'شرورة', 'شقراء', 'صامطة', 'صبيا', 'ضباء', 'ضرما', 'طبرجل',
+    'طريف', 'ظلم', 'عرعر', 'عفيف', 'عنيزة', 'محايل عسير', 'مكة المكرمة', 'نجران', 'ينبع'
   ];
 
   function init() {
@@ -100,7 +106,7 @@ const UrgentRequestPage = (() => {
   }
 
   function _maybeShowNearestMapToast() {
-    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'nearest';
+    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'all';
     const city = (document.getElementById('ur-city')?.value || '').trim();
     if (dispatch !== 'nearest' || !city) return;
 
@@ -150,7 +156,7 @@ const UrgentRequestPage = (() => {
   function _updateCityClearVisibility() {
     const clearBtn = document.getElementById('ur-city-clear');
     if (!clearBtn) return;
-    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'nearest';
+    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'all';
     const cityValue = (document.getElementById('ur-city')?.value || '').trim();
     clearBtn.classList.toggle('hidden', !(dispatch === 'all' && cityValue.length > 0));
   }
@@ -385,7 +391,13 @@ const UrgentRequestPage = (() => {
     const desc = document.getElementById('ur-description')?.value?.trim();
     const subcat = document.getElementById('ur-subcategory')?.value;
     const city = document.getElementById('ur-city')?.value;
-    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'nearest';
+    const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'all';
+
+    if (!subcat) {
+      _showError('اختر التصنيف الفرعي');
+      _resetBtn(btn);
+      return;
+    }
 
     if (!desc) {
       _showError('يرجى كتابة وصف الطلب');
@@ -401,8 +413,13 @@ const UrgentRequestPage = (() => {
 
     const fd = new FormData();
     fd.append('request_type', 'urgent');
+    const categorySel = document.getElementById('ur-category');
+    const categoryName = categorySel && categorySel.value
+      ? String(categorySel.options[categorySel.selectedIndex]?.textContent || '').trim()
+      : '';
+    fd.append('title', 'طلب عاجل - ' + categoryName);
     fd.append('description', desc);
-    if (subcat) fd.append('subcategory', subcat);
+    fd.append('subcategory', subcat);
     if (city) fd.append('city', city);
     fd.append('dispatch_mode', dispatch);
     _appendRequestFiles(fd);

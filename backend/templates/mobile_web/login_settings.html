@@ -64,6 +64,14 @@
 
     <section class="detail-card ls-faceid-section">
       <h3 class="ls-section-title">طرق الدخول الإضافية</h3>
+      <div id="ls-faceid-unavailable" class="ls-biometric-unavailable hidden">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2">
+          <circle cx="12" cy="12" r="9"></circle>
+          <path d="M12 8v5"></path>
+          <path d="M12 16h.01"></path>
+        </svg>
+        <span>جهازك لا يدعم التحقق البيومتري (معرف الوجه / البصمة)</span>
+      </div>
       <div id="ls-faceid-status" class="ls-faceid-status hidden">
         <div class="ls-faceid-active-row">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
@@ -78,11 +86,8 @@
       <p class="ls-faceid-hint" id="ls-faceid-hint"></p>
     </section>
 
-    <section class="detail-card ls-danger">
-      <h3 class="ls-section-title">إجراءات الحساب</h3>
-      <button class="btn btn-secondary btn-block" id="ls-logout">تسجيل الخروج</button>
-      <button class="btn btn-danger-outline btn-block" id="ls-delete" style="margin-top:8px">حذف الحساب</button>
-    </section>
+    <section id="ls-help-card" class="detail-card ls-support-card hidden"></section>
+    <section id="ls-info-card" class="detail-card ls-support-card hidden"></section>
 
     <button class="btn btn-primary btn-block" id="ls-save">حفظ التغييرات</button>
   </div>

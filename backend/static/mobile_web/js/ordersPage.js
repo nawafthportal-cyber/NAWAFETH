@@ -17,6 +17,11 @@ const OrdersPage = (() => {
     }
     _hideGate();
 
+    if (_activeMode() === 'provider') {
+      window.location.href = '/provider-orders/';
+      return;
+    }
+
     // Tab clicks
     document.getElementById('status-tabs').addEventListener('click', e => {
       const btn = e.target.closest('.tab-btn');
@@ -24,7 +29,7 @@ const OrdersPage = (() => {
       document.querySelectorAll('#status-tabs .tab-btn').forEach(t => t.classList.remove('active'));
       btn.classList.add('active');
       _activeTab = btn.dataset.status || 'all';
-      _renderOrders();
+      _fetchOrders();
     });
 
     // Search
@@ -32,9 +37,14 @@ const OrdersPage = (() => {
     const clearSearchBtn = document.getElementById('orders-search-clear');
     if (searchInput) {
       searchInput.addEventListener('input', e => {
-        _searchQuery = e.target.value.trim().toLowerCase();
+        _searchQuery = String(e.target.value || '').trim();
         _toggleSearchClear();
-        _renderOrders();
+      });
+      searchInput.addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        _searchQuery = String(searchInput.value || '').trim();
+        _fetchOrders();
       });
     }
     if (clearSearchBtn && searchInput) {
@@ -42,7 +52,7 @@ const OrdersPage = (() => {
         searchInput.value = '';
         _searchQuery = '';
         _toggleSearchClear();
-        _renderOrders();
+        _fetchOrders();
       });
     }
 
@@ -64,8 +74,45 @@ const OrdersPage = (() => {
     if (content) content.classList.remove('hidden');
   }
 
+  function _activeMode() {
+    try {
+      const mode = (sessionStorage.getItem('nw_account_mode') || '').trim().toLowerCase();
+      if (mode === 'provider' || mode === 'client') return mode;
+    } catch (_) {}
+    const role = (Auth.getRoleState() || '').trim().toLowerCase();
+    return role === 'provider' ? 'provider' : 'client';
+  }
+
+  function _buildEndpoint() {
+    const params = new URLSearchParams();
+    if (_activeTab && _activeTab !== 'all') {
+      params.set('status_group', _activeTab);
+    }
+    if (_searchQuery) {
+      params.set('q', _searchQuery);
+    }
+    const qs = params.toString();
+    return '/api/marketplace/client/requests/' + (qs ? ('?' + qs) : '');
+  }
+
+  function _setLoadingState(loading) {
+    const container = document.getElementById('orders-list');
+    const emptyEl = document.getElementById('orders-empty');
+    if (!container || !loading) return;
+
+    container.innerHTML = [
+      '<div class="orders-skeleton-card shimmer"></div>',
+      '<div class="orders-skeleton-card shimmer"></div>',
+      '<div class="orders-skeleton-card shimmer"></div>',
+    ].join('');
+    if (emptyEl) emptyEl.classList.add('hidden');
+  }
+
   async function _fetchOrders() {
-    const res = await ApiClient.get('/api/marketplace/client/requests/');
+    _setLoadingState(true);
+    const res = await ApiClient.get(_buildEndpoint());
+    _setLoadingState(false);
+
     if (res.ok && res.data) {
       _all = Array.isArray(res.data) ? res.data : (res.data.results || []);
       _emptyMessage = 'لا توجد طلبات';
@@ -83,27 +130,10 @@ const OrdersPage = (() => {
     const container = document.getElementById('orders-list');
     const emptyEl = document.getElementById('orders-empty');
     const emptyText = document.getElementById('orders-empty-text');
+    if (!container || !emptyEl) return;
 
-    const base = _sortByDateDesc(_all);
-    const counts = _buildStatusCounts(base);
-
-    let list = base;
-    if (_activeTab !== 'all') {
-      list = base.filter(o => _statusGroup(o) === _activeTab);
-    }
-
-    // Search filter
-    if (_searchQuery) {
-      list = list.filter(o => {
-        const text = (o.title || '') +
-          ' ' + (o.description || '') +
-          ' ' + (o.provider_name || '') +
-          ' ' + (o.service_name || '') +
-          ' ' + (o.city || '') +
-          ' ' + (_requestTypeLabel(o.request_type) || '');
-        return text.toLowerCase().includes(_searchQuery);
-      });
-    }
+    const list = _sortByDateDesc(_all);
+    const counts = _buildStatusCounts(list);
 
     _renderCounters(counts, list.length);
 
@@ -179,10 +209,9 @@ const OrdersPage = (() => {
     const header = UI.el('div', { className: 'order-header' });
     const createdAt = order.created_at || order.created;
     if (createdAt) {
-      const d = new Date(createdAt);
       header.appendChild(UI.el('span', {
         className: 'order-date',
-        textContent: d.toLocaleDateString('ar-SA', { day: 'numeric', month: 'long', year: 'numeric' })
+        textContent: _formatDateTime(createdAt)
       }));
     }
 
@@ -198,7 +227,7 @@ const OrdersPage = (() => {
     card.appendChild(header);
 
     const chips = UI.el('div', { className: 'order-card-chips' });
-    if (order.request_type) {
+    if (order.request_type && String(order.request_type).toLowerCase() !== 'normal') {
       chips.appendChild(UI.el('span', {
         className: 'order-type-chip order-type-' + String(order.request_type).toLowerCase(),
         textContent: _requestTypeLabel(order.request_type)
@@ -289,6 +318,17 @@ const OrdersPage = (() => {
     if (!source) return 0;
     const d = new Date(source);
     return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+
+  function _formatDateTime(value) {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return hh + ':' + mm + '  ' + dd + '/' + mo + '/' + yyyy;
   }
 
   function _toggleSearchClear() {

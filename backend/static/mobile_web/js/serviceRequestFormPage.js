@@ -10,7 +10,17 @@ var ServiceRequestFormPage = (function () {
   var allFiles = [];
 
   /* Saudi cities */
-  var CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الظهران","الطائف","تبوك","بريدة","عنيزة","حائل","أبها","خميس مشيط","نجران","جازان","ينبع","الباحة","الجبيل","حفر الباطن","القطيف","الأحساء","سكاكا","عرعر","بيشة","الخرج","الدوادمي","المجمعة","القويعية","وادي الدواسر","رفحاء","شقراء","الزلفي","الرس","المذنب","الليث","القنفذة","محايل عسير","صبيا","أحد رفيدة","النماص","ظهران الجنوب","بلجرشي","رجال ألمع","الحناكية","بدر","العلا","الطريف","حقل","ضباء","الوجه","أملج","تيماء"];
+  var CITIES = [
+    "أبها", "الأحساء", "الأفلاج", "الباحة", "البكيرية", "البدائع", "الجبيل", "الجموم",
+    "الحريق", "الحوطة", "الخبر", "الخرج", "الخفجي", "الدرعية", "الدلم", "الدمام",
+    "الدوادمي", "الرس", "الرياض", "الزلفي", "السليل", "الطائف", "الظهران", "العرضيات",
+    "العلا", "القريات", "القصيم", "القطيف", "القنفذة", "القويعية", "الليث", "المجمعة",
+    "المدينة المنورة", "المذنب", "المزاحمية", "النماص", "الوجه", "أملج", "بدر", "بريدة",
+    "بلجرشي", "بيشة", "تبوك", "تربة", "تنومة", "ثادق", "جازان", "جدة", "حائل",
+    "حفر الباطن", "حقل", "حوطة بني تميم", "خميس مشيط", "خيبر", "رابغ", "رفحاء", "رنية",
+    "سراة عبيدة", "سكاكا", "شرورة", "شقراء", "صامطة", "صبيا", "ضباء", "ضرما", "طبرجل",
+    "طريف", "ظلم", "عرعر", "عفيف", "عنيزة", "محايل عسير", "مكة المكرمة", "نجران", "ينبع"
+  ];
 
   function init() {
     var params = new URLSearchParams(location.search);
@@ -23,7 +33,10 @@ var ServiceRequestFormPage = (function () {
 
     loadCategories();
     populateCities();
+    syncDeadlineBounds();
+    setProviderTypeMode();
     bindEvents();
+    updateCityClearVisibility();
   }
 
   function loadCategories() {
@@ -54,8 +67,6 @@ var ServiceRequestFormPage = (function () {
       if (!chip || providerId) return;
       requestType = chip.dataset.val;
       this.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c === chip); });
-      // urgent hides city
-      document.getElementById("sr-city-group").style.display = requestType === "urgent" ? "none" : "";
     });
 
     // Category → subcategory
@@ -80,6 +91,20 @@ var ServiceRequestFormPage = (function () {
     document.getElementById("sr-desc").addEventListener("input", function () {
       document.getElementById("sr-desc-count").textContent = this.value.length;
     });
+    document.getElementById("sr-title-count").textContent = String((document.getElementById("sr-req-title").value || "").length);
+    document.getElementById("sr-desc-count").textContent = String((document.getElementById("sr-desc").value || "").length);
+
+    var citySel = document.getElementById("sr-city");
+    if (citySel) {
+      citySel.addEventListener("change", updateCityClearVisibility);
+    }
+    var clearCityBtn = document.getElementById("sr-city-clear");
+    if (clearCityBtn) {
+      clearCityBtn.addEventListener("click", function () {
+        if (citySel) citySel.value = "";
+        updateCityClearVisibility();
+      });
+    }
 
     // File inputs
     document.getElementById("sr-images").addEventListener("change", function () {
@@ -95,6 +120,43 @@ var ServiceRequestFormPage = (function () {
     // Submit
     document.getElementById("sr-form").addEventListener("submit", function (e) {
       e.preventDefault(); submit();
+    });
+  }
+
+  function updateCityClearVisibility() {
+    var clearBtn = document.getElementById("sr-city-clear");
+    if (!clearBtn) return;
+    var city = (document.getElementById("sr-city").value || "").trim();
+    clearBtn.classList.toggle("hidden", city.length === 0);
+  }
+
+  function dateIso(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  function syncDeadlineBounds() {
+    var deadlineInput = document.getElementById("sr-deadline");
+    if (!deadlineInput) return;
+    var now = new Date();
+    var minIso = dateIso(now);
+    var maxDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 365);
+    var maxIso = dateIso(maxDate);
+    deadlineInput.min = minIso;
+    deadlineInput.max = maxIso;
+    if (deadlineInput.value && (deadlineInput.value < minIso || deadlineInput.value > maxIso)) {
+      deadlineInput.value = "";
+    }
+  }
+
+  function setProviderTypeMode() {
+    if (!providerId) return;
+    var chipsRoot = document.getElementById("sr-type-chips");
+    if (!chipsRoot) return;
+    chipsRoot.querySelectorAll(".chip").forEach(function (chip) {
+      var isNormal = chip.dataset.val === "normal";
+      chip.classList.toggle("active", isNormal);
+      chip.disabled = !isNormal;
+      if (!isNormal) chip.classList.add("hidden");
     });
   }
 
@@ -126,20 +188,41 @@ var ServiceRequestFormPage = (function () {
     var subcat = document.getElementById("sr-subcategory").value;
     if (!subcat) { alert("الرجاء اختيار التصنيف الفرعي"); return; }
 
+    var title = document.getElementById("sr-req-title").value.trim();
+    var desc = document.getElementById("sr-desc").value.trim();
+    if (!title) { alert("يرجى إدخال عنوان الطلب"); return; }
+    if (!desc) { alert("يرجى إدخال تفاصيل الطلب"); return; }
+    if (title.length > 50) { alert("عنوان الطلب يجب ألا يتجاوز 50 حرفًا"); return; }
+    if (desc.length > 500) { alert("تفاصيل الطلب يجب ألا تتجاوز 500 حرف"); return; }
+
+    var effectiveRequestType = providerId ? "normal" : requestType;
+    if (effectiveRequestType === "normal" && !providerId) {
+      alert("الطلب العادي يتطلب تحديد مزود خدمة");
+      return;
+    }
+
     var city = document.getElementById("sr-city").value;
-    if (requestType !== "urgent" && !city) { alert("الرجاء اختيار المدينة"); return; }
+
+    var deadline = document.getElementById("sr-deadline").value;
+    if (deadline) {
+      var min = document.getElementById("sr-deadline").min;
+      var max = document.getElementById("sr-deadline").max;
+      if ((min && deadline < min) || (max && deadline > max)) {
+        alert("آخر موعد لاستلام العروض يجب أن يكون خلال 365 يومًا من اليوم");
+        return;
+      }
+    }
 
     var btn = document.getElementById("sr-submit");
     btn.disabled = true; btn.textContent = "جاري الإرسال...";
 
     var fd = new FormData();
-    fd.append("title", document.getElementById("sr-req-title").value.trim());
-    fd.append("description", document.getElementById("sr-desc").value.trim());
-    fd.append("request_type", requestType);
+    fd.append("title", title);
+    fd.append("description", desc);
+    fd.append("request_type", effectiveRequestType);
     fd.append("subcategory", subcat);
     if (city) fd.append("city", city);
     if (providerId) fd.append("provider", providerId);
-    var deadline = document.getElementById("sr-deadline").value;
     if (deadline) fd.append("quote_deadline", deadline);
 
     allImages.forEach(function (f) { fd.append("images", f); });

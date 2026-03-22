@@ -7,30 +7,54 @@
 
 {% block content %}
 <main class="page-content">
-  <div class="container">
-    <div class="page-header">
-      <h1>QR نافذتي</h1>
+  <div class="container my-qr-layout">
+    <div id="qr-auth-gate" class="auth-gate auth-gate-unified hidden">
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 7.5C5 6.12 6.12 5 7.5 5h9A2.5 2.5 0 0 1 19 7.5v5A2.5 2.5 0 0 1 16.5 15H9l-3.2 2.6c-.33.27-.8.03-.8-.4V7.5z" fill="#7C4FD4"></path>
+          <circle cx="9.5" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="12" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجّل دخولك</h2>
+      <p class="auth-gate-unified-desc">لعرض كود نافذتي، سجّل دخولك أولاً</p>
+      <a href="/login/?next=/my-qr/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
-    <div id="qr-auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">🔳</div>
-      <h2>سجّل دخولك</h2>
-      <p>لعرض كود نافذتي، سجّل دخولك أولاً</p>
-      <a href="/login/?next=/my-qr/" class="btn btn-primary">تسجيل الدخول</a>
-    </div>
+    <div id="qr-app" class="my-qr-app hidden">
+      <div id="qr-loading" class="my-qr-loading">
+        <span class="spinner-inline"></span>
+      </div>
 
-    <div id="qr-content" class="form-card hidden">
-      <h3 class="form-card-title" id="qr-title">رابط نافذتي</h3>
-      <p class="form-hint" id="qr-link-text" dir="ltr"></p>
-      <div style="display:flex;justify-content:center;margin:12px 0;">
-        <img id="my-qr-image" alt="QR" style="width:220px;height:220px;border-radius:12px;border:1px solid #eee;" />
+      <div id="qr-error-state" class="my-qr-error-state hidden">
+        <div class="my-qr-error-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M11 7h2v7h-2V7zm0 9h2v2h-2v-2z" fill="#5B4D87"></path>
+            <path d="M12 3l9 16H3l9-16z" stroke="#5B4D87" stroke-width="1.6" fill="none"></path>
+          </svg>
+        </div>
+        <p id="qr-error-message" class="my-qr-error-text"></p>
+        <button id="qr-retry" type="button" class="btn btn-primary my-qr-retry-btn">إعادة المحاولة</button>
       </div>
-      <div class="support-toolbar">
-        <button class="btn-sm" id="copy-qr-link" type="button">نسخ الرابط</button>
-        <a class="btn-sm" id="open-qr-link" href="#" target="_blank" rel="noopener">فتح الرابط</a>
+
+      <div id="qr-card" class="my-qr-card hidden">
+        <h2 id="qr-title" class="my-qr-title">رابط نافذتي</h2>
+        <p id="qr-subtitle" class="my-qr-subtitle"></p>
+
+        <div class="my-qr-image-shell">
+          <img id="my-qr-image" class="my-qr-image" alt="QR نافذتي" />
+          <div id="my-qr-fallback" class="my-qr-fallback hidden">تعذر تحميل صورة QR</div>
+        </div>
+
+        <p id="qr-link-text" class="my-qr-link" dir="ltr"></p>
+
+        <div class="my-qr-actions">
+          <button class="btn btn-outline my-qr-action-btn" id="copy-qr-link" type="button">نسخ الرابط</button>
+          <button class="btn btn-outline my-qr-action-btn" id="share-qr-link" type="button">مشاركة</button>
+          <a class="btn btn-outline my-qr-action-btn" id="open-qr-link" href="#" target="_blank" rel="noopener">فتح الرابط</a>
+        </div>
       </div>
-      <div class="form-success hidden" id="qr-success"></div>
-      <div class="form-error hidden" id="qr-error"></div>
     </div>
   </div>
 </main>

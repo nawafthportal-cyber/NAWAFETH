@@ -6,8 +6,8 @@
 <main class="page-shell">
   <div class="page-header">
     <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>تفاصيل الخدمة</h1>
-    <button class="btn-icon" id="btn-report" title="إبلاغ">
+    <h1 id="sd-page-title">تفاصيل الخدمة</h1>
+    <button class="btn-icon" id="btn-report" type="button" title="إبلاغ">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
     </button>
   </div>
@@ -50,7 +50,7 @@
     </section>
 
     <!-- Comments Section -->
-    <section class="detail-card" id="sd-comments-section" style="display:none">
+    <section class="detail-card sd-comments-section" id="sd-comments-section" style="display:none">
       <h3>التعليقات</h3>
       <div id="sd-comments"></div>
     </section>

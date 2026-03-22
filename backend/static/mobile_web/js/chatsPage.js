@@ -9,6 +9,11 @@ const ChatsPage = (() => {
   let _activeFilter = 'all';
   let _searchQuery = '';
   let _isLoading = false;
+  let _isProviderMode = false;
+  let _activeMenuThreadId = null;
+  let _toastTimer = null;
+  let _reportDialogState = null;
+  let _eventsBound = false;
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -16,9 +21,13 @@ const ChatsPage = (() => {
       return;
     }
     _hideGate();
+    _isProviderMode = _activeMode() === 'provider';
 
     _bindFilters();
     _bindSearch();
+    _bindRetry();
+    _bindGlobalEvents();
+    _syncModeFilters();
 
     const params = new URLSearchParams(window.location.search);
     const startProviderId = params.get('start') || params.get('provider_id');
@@ -43,6 +52,21 @@ const ChatsPage = (() => {
       _activeFilter = chip.dataset.filter || 'all';
       _render();
     });
+  }
+
+  function _syncModeFilters() {
+    const clientsChip = document.getElementById('chat-filter-clients');
+    if (!clientsChip) return;
+
+    clientsChip.classList.toggle('hidden', !_isProviderMode);
+    if (!_isProviderMode && _activeFilter === 'clients') {
+      _activeFilter = 'all';
+      const allChip = document.querySelector('#chat-filters .filter-chip[data-filter="all"]');
+      if (allChip) {
+        document.querySelectorAll('#chat-filters .filter-chip').forEach((node) => node.classList.remove('active'));
+        allChip.classList.add('active');
+      }
+    }
   }
 
   function _bindSearch() {
@@ -71,6 +95,24 @@ const ChatsPage = (() => {
     const btn = document.getElementById('chat-search-clear');
     if (!btn) return;
     btn.classList.toggle('hidden', !show);
+  }
+
+  function _bindRetry() {
+    const retryBtn = document.getElementById('chats-retry');
+    if (!retryBtn) return;
+    retryBtn.addEventListener('click', () => _fetchThreads());
+  }
+
+  function _bindGlobalEvents() {
+    if (_eventsBound) return;
+    _eventsBound = true;
+
+    document.addEventListener('click', () => _closeActionMenus());
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      _closeActionMenus();
+      _closeReportDialog();
+    });
   }
 
   function _activeMode() {
@@ -217,6 +259,7 @@ const ChatsPage = (() => {
       all: visible.length,
       unread: unreadThreads,
       favorite: visible.filter((thread) => thread.is_favorite).length,
+      clients: visible.filter((thread) => String(thread.client_label || '').trim().length > 0).length,
       recent: visible.length,
       unreadMessages,
     };
@@ -229,15 +272,9 @@ const ChatsPage = (() => {
       list = list.filter((thread) => {
         const displayName = _peerDisplayName(thread).toLowerCase();
         const phone = (thread.peer_phone || '').toLowerCase();
-        const preview = (thread.last_message_text || thread.last_message || '').toLowerCase();
-        const clientLabel = (thread.client_label || '').toLowerCase();
-        const favoriteLabel = (thread.favorite_label || '').toLowerCase();
         return (
           displayName.includes(_searchQuery)
           || phone.includes(_searchQuery)
-          || preview.includes(_searchQuery)
-          || clientLabel.includes(_searchQuery)
-          || favoriteLabel.includes(_searchQuery)
         );
       });
     }
@@ -248,6 +285,11 @@ const ChatsPage = (() => {
         break;
       case 'favorite':
         list = list.filter((thread) => thread.is_favorite);
+        break;
+      case 'clients':
+        if (_isProviderMode) {
+          list = list.filter((thread) => String(thread.client_label || '').trim().length > 0);
+        }
         break;
       case 'recent':
         list.sort((a, b) => _dateValue(b.last_message_at) - _dateValue(a.last_message_at));
@@ -277,6 +319,7 @@ const ChatsPage = (() => {
     const emptyText = document.getElementById('chats-empty-text');
 
     if (!container || !emptyEl) return;
+    _closeActionMenus();
 
     const counts = _buildCounts();
     const list = _getFiltered();
@@ -334,6 +377,8 @@ const ChatsPage = (() => {
         return 'لا توجد محادثات غير مقروءة.';
       case 'favorite':
         return 'لا توجد محادثات مفضلة.';
+      case 'clients':
+        return 'لا توجد محادثات عملاء حالياً.';
       case 'recent':
         return 'لا توجد محادثات حديثة حالياً.';
       default:
@@ -355,11 +400,18 @@ const ChatsPage = (() => {
     const unreadCount = Math.max(0, Number(thread.unread_count) || 0);
     const lastMessage = _threadPreviewText(thread.last_message_text || thread.last_message || '');
 
-    const card = UI.el('a', {
+    const card = UI.el('article', {
       className: 'chat-thread-card'
         + (unreadCount > 0 ? ' unread' : '')
         + (thread.is_favorite ? ' favorite' : ''),
-      href: '/chat/' + threadId + '/',
+    });
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    card.addEventListener('click', () => _openThread(threadId));
+    card.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      _openThread(threadId);
     });
 
     const avatarWrap = UI.el('div', { className: 'thread-avatar-wrap' });
@@ -389,12 +441,15 @@ const ChatsPage = (() => {
 
     topRow.appendChild(titleWrap);
 
+    const trailing = UI.el('div', { className: 'thread-top-trailing' });
     if (thread.last_message_at) {
-      topRow.appendChild(UI.el('span', {
+      trailing.appendChild(UI.el('span', {
         className: 'thread-time',
         textContent: _relativeTime(thread.last_message_at),
       }));
     }
+    trailing.appendChild(_buildThreadActions(thread, displayName));
+    topRow.appendChild(trailing);
 
     content.appendChild(topRow);
     content.appendChild(UI.el('p', { className: 'thread-last-msg', textContent: lastMessage }));
@@ -436,6 +491,331 @@ const ChatsPage = (() => {
     return card;
   }
 
+  function _buildThreadActions(thread, displayName) {
+    const threadId = _threadId(thread);
+    const wrap = UI.el('div', { className: 'chats-thread-actions' });
+    const menuBtn = UI.el('button', {
+      type: 'button',
+      className: 'chats-thread-menu-btn',
+      title: 'خيارات المحادثة',
+      ariaLabel: 'خيارات المحادثة',
+    });
+    menuBtn.innerHTML = [
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
+      '<circle cx="12" cy="5" r="1.5"></circle>',
+      '<circle cx="12" cy="12" r="1.5"></circle>',
+      '<circle cx="12" cy="19" r="1.5"></circle>',
+      '</svg>',
+    ].join('');
+
+    const menu = UI.el('div', { className: 'chats-thread-menu hidden' });
+    menu.addEventListener('click', (event) => event.stopPropagation());
+
+    const canMarkRead = (Number(thread.unread_count) || 0) > 0;
+    menu.appendChild(_buildThreadMenuItem(
+      canMarkRead ? 'اجعلها مقروءة' : 'اجعلها غير مقروءة',
+      async () => {
+        if (canMarkRead) await _markThreadRead(threadId);
+        else await _markThreadUnread(threadId);
+      }
+    ));
+    menu.appendChild(_buildThreadMenuItem(
+      thread.is_favorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة',
+      async () => _toggleFavoriteState(threadId)
+    ));
+    menu.appendChild(_buildThreadMenuItem(
+      thread.is_blocked ? 'إلغاء الحظر' : 'حظر',
+      async () => _toggleBlockState(threadId),
+      true
+    ));
+    menu.appendChild(_buildThreadMenuItem(
+      'إبلاغ',
+      async () => _openReportDialog(thread, displayName),
+      true
+    ));
+    menu.appendChild(_buildThreadMenuItem(
+      thread.is_archived ? 'إلغاء الأرشفة' : 'أرشفة',
+      async () => _toggleArchiveState(threadId)
+    ));
+
+    menuBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      _toggleActionMenu(threadId, menu);
+    });
+    menuBtn.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      event.stopPropagation();
+      _toggleActionMenu(threadId, menu);
+    });
+
+    wrap.appendChild(menuBtn);
+    wrap.appendChild(menu);
+    return wrap;
+  }
+
+  function _buildThreadMenuItem(label, onClick, danger) {
+    const item = UI.el('button', {
+      type: 'button',
+      className: 'chats-thread-menu-item' + (danger ? ' danger' : ''),
+      textContent: label,
+    });
+    item.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      _closeActionMenus();
+      await onClick();
+    });
+    return item;
+  }
+
+  function _toggleActionMenu(threadId, menuEl) {
+    if (!menuEl) return;
+    const currentlyOpen = _activeMenuThreadId === threadId && menuEl.classList.contains('open');
+    _closeActionMenus();
+    if (currentlyOpen) return;
+    _activeMenuThreadId = threadId;
+    menuEl.classList.remove('hidden');
+    requestAnimationFrame(() => menuEl.classList.add('open'));
+  }
+
+  function _closeActionMenus() {
+    _activeMenuThreadId = null;
+    document.querySelectorAll('.chats-thread-menu').forEach((menu) => {
+      menu.classList.remove('open');
+      menu.classList.add('hidden');
+    });
+  }
+
+  function _openThread(threadId) {
+    if (!threadId) return;
+    window.location.href = '/chat/' + threadId + '/';
+  }
+
+  function _findThreadIndex(threadId) {
+    const target = Number(threadId);
+    return _threads.findIndex((thread) => _threadId(thread) === target);
+  }
+
+  async function _markThreadRead(threadId) {
+    const index = _findThreadIndex(threadId);
+    if (index < 0) return;
+    if ((Number(_threads[index].unread_count) || 0) === 0) return;
+
+    const res = await ApiClient.request(
+      _withMode('/api/messaging/direct/thread/' + threadId + '/messages/read/'),
+      { method: 'POST' }
+    );
+    if (!res.ok) {
+      _showToast(_extractError(res, 'تعذر تحديث حالة القراءة'), 'error');
+      return;
+    }
+
+    _threads[index].unread_count = 0;
+    _render();
+    window.dispatchEvent(new Event('nw:badge-refresh'));
+    _showToast('تم تحديد المحادثة كمقروءة', 'success');
+  }
+
+  async function _markThreadUnread(threadId) {
+    const index = _findThreadIndex(threadId);
+    if (index < 0) return;
+    const res = await ApiClient.request(
+      _withMode('/api/messaging/thread/' + threadId + '/unread/'),
+      { method: 'POST' }
+    );
+    if (!res.ok) {
+      _showToast(_extractError(res, 'تعذر تحديث حالة القراءة'), 'error');
+      return;
+    }
+
+    _threads[index].unread_count = Math.max(1, Number(_threads[index].unread_count) || 0);
+    _render();
+    window.dispatchEvent(new Event('nw:badge-refresh'));
+    _showToast('تم تحديد المحادثة كغير مقروءة', 'success');
+  }
+
+  async function _toggleFavoriteState(threadId) {
+    const index = _findThreadIndex(threadId);
+    if (index < 0) return;
+    const remove = !!_threads[index].is_favorite;
+    const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/favorite/'), {
+      method: 'POST',
+      body: remove ? { action: 'remove' } : {},
+    });
+    if (!res.ok) {
+      _showToast(_extractError(res, 'تعذر تحديث المفضلة'), 'error');
+      return;
+    }
+
+    _threads[index].is_favorite = !!res.data?.is_favorite;
+    _threads[index].favorite_label = String(res.data?.favorite_label || _threads[index].favorite_label || '').trim();
+    _render();
+    _showToast(remove ? 'تمت إزالة المحادثة من المفضلة' : 'تمت إضافة المحادثة للمفضلة', 'success');
+  }
+
+  async function _toggleArchiveState(threadId) {
+    const index = _findThreadIndex(threadId);
+    if (index < 0) return;
+    const remove = !!_threads[index].is_archived;
+    if (!remove && !window.confirm('أرشفة هذه المحادثة؟ سيتم إخفاؤها من قائمة المحادثات.')) return;
+
+    const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/archive/'), {
+      method: 'POST',
+      body: remove ? { action: 'remove' } : {},
+    });
+    if (!res.ok) {
+      _showToast(_extractError(res, 'تعذر تحديث الأرشفة'), 'error');
+      return;
+    }
+
+    _threads[index].is_archived = !!res.data?.is_archived;
+    _render();
+    _showToast(remove ? 'تم إلغاء أرشفة المحادثة' : 'تمت أرشفة المحادثة', 'success');
+  }
+
+  async function _toggleBlockState(threadId) {
+    const index = _findThreadIndex(threadId);
+    if (index < 0) return;
+    const remove = !!_threads[index].is_blocked;
+    const msg = remove
+      ? 'هل تريد إلغاء الحظر عن هذا العضو؟'
+      : 'هل أنت متأكد من حظر هذا العضو؟ لن يتمكن من مراسلتك.';
+    if (!window.confirm(msg)) return;
+
+    const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/block/'), {
+      method: 'POST',
+      body: remove ? { action: 'remove' } : {},
+    });
+    if (!res.ok) {
+      _showToast(_extractError(res, 'تعذر تحديث حالة الحظر'), 'error');
+      return;
+    }
+
+    _threads[index].is_blocked = !!res.data?.is_blocked;
+    _render();
+    _showToast(_threads[index].is_blocked ? 'تم حظر العضو' : 'تم إلغاء الحظر', 'success');
+  }
+
+  function _openReportDialog(thread, displayName) {
+    _closeReportDialog();
+    const threadId = _threadId(thread);
+    if (!threadId) return;
+
+    const reasons = [
+      'محتوى غير لائق',
+      'احتيال أو نصب',
+      'إزعاج أو مضايقة',
+      'انتحال شخصية',
+      'محتوى مخالف للشروط',
+      'أخرى',
+    ];
+
+    const backdrop = UI.el('div', { className: 'chats-report-backdrop' });
+    const dialog = UI.el('div', { className: 'chats-report-dialog' });
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.setAttribute('aria-label', 'إبلاغ عن محادثة');
+
+    dialog.appendChild(UI.el('h3', { textContent: 'إبلاغ عن محادثة' }));
+    const peerInfo = UI.el('div', { className: 'chats-report-peer', textContent: displayName || 'مستخدم' });
+    dialog.appendChild(peerInfo);
+
+    dialog.appendChild(UI.el('label', { textContent: 'سبب الإبلاغ:' }));
+    const reasonSelect = UI.el('select', { className: 'chats-report-select' });
+    reasons.forEach((reason) => {
+      reasonSelect.appendChild(UI.el('option', { value: reason, textContent: reason }));
+    });
+    dialog.appendChild(reasonSelect);
+
+    dialog.appendChild(UI.el('label', { textContent: 'تفاصيل إضافية (اختياري):' }));
+    const detailsInput = UI.el('textarea', {
+      className: 'chats-report-textarea',
+      rows: '4',
+      placeholder: 'اكتب التفاصيل هنا...',
+      maxLength: '500',
+    });
+    dialog.appendChild(detailsInput);
+
+    const actions = UI.el('div', { className: 'chats-report-actions' });
+    const cancelBtn = UI.el('button', {
+      type: 'button',
+      className: 'chats-report-btn ghost',
+      textContent: 'إلغاء',
+    });
+    const sendBtn = UI.el('button', {
+      type: 'button',
+      className: 'chats-report-btn primary',
+      textContent: 'إرسال البلاغ',
+    });
+    actions.appendChild(cancelBtn);
+    actions.appendChild(sendBtn);
+    dialog.appendChild(actions);
+    backdrop.appendChild(dialog);
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeyDown);
+      backdrop.classList.remove('open');
+      window.setTimeout(() => {
+        if (backdrop.parentNode) backdrop.remove();
+      }, 160);
+      if (_reportDialogState && _reportDialogState.backdrop === backdrop) {
+        _reportDialogState = null;
+      }
+    };
+
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      close();
+    };
+
+    cancelBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) close();
+    });
+    document.addEventListener('keydown', onKeyDown);
+
+    sendBtn.addEventListener('click', async () => {
+      const reason = String(reasonSelect.value || '').trim();
+      if (!reason) {
+        _showToast('اختر سبب الإبلاغ أولاً', 'error');
+        return;
+      }
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'جارٍ الإرسال...';
+      const details = String(detailsInput.value || '').trim();
+      const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/report/'), {
+        method: 'POST',
+        body: {
+          reason,
+          details: details || undefined,
+          reported_label: displayName || undefined,
+        },
+      });
+      sendBtn.disabled = false;
+      sendBtn.textContent = 'إرسال البلاغ';
+
+      if (!res.ok) {
+        _showToast(_extractError(res, 'تعذر إرسال البلاغ'), 'error');
+        return;
+      }
+      close();
+      _showToast('تم إرسال البلاغ للإدارة. شكراً لك', 'success');
+    });
+
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('open'));
+    _reportDialogState = { backdrop, close };
+  }
+
+  function _closeReportDialog() {
+    if (_reportDialogState && typeof _reportDialogState.close === 'function') {
+      _reportDialogState.close();
+    }
+  }
+
   function _peerDisplayName(thread) {
     const first = (thread.peer_first_name || '').trim();
     const last = (thread.peer_last_name || '').trim();
@@ -457,11 +837,7 @@ const ChatsPage = (() => {
       && /service-request/i.test(text)
       && /provider_id=\d+/i.test(text)
     ) {
-      return 'طلب خدمة مباشر';
-    }
-
-    if (text.length > 110) {
-      return text.slice(0, 108) + '...';
+      return '🛠️ طلب خدمة مباشر';
     }
 
     return text;
@@ -470,17 +846,27 @@ const ChatsPage = (() => {
   function _relativeTime(dateStr) {
     const ts = Date.parse(dateStr || '');
     if (!Number.isFinite(ts)) return '';
+    const dt = new Date(ts);
+    const now = new Date();
+    const diffMs = now.getTime() - dt.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 1) return 'الآن';
+    if (diffMinutes < 60) return 'منذ ' + diffMinutes + ' د';
 
-    const diff = Math.floor((Date.now() - ts) / 1000);
-    if (diff < 60) return 'الآن';
-    if (diff < 3600) return Math.floor(diff / 60) + ' د';
-    if (diff < 86400) return Math.floor(diff / 3600) + ' س';
-    if (diff < 604800) return Math.floor(diff / 86400) + ' ي';
-
-    return new Date(ts).toLocaleDateString('ar-SA', {
-      day: 'numeric',
-      month: 'short',
-    });
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays < 1) {
+      const h24 = dt.getHours();
+      const h = h24 > 12 ? h24 - 12 : h24;
+      const amPm = h24 >= 12 ? 'م' : 'ص';
+      const m = String(dt.getMinutes()).padStart(2, '0');
+      return h + ':' + m + ' ' + amPm;
+    }
+    if (diffDays === 1) return 'الأمس';
+    if (diffDays < 7) {
+      const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+      return days[dt.getDay()];
+    }
+    return dt.getDate() + '/' + (dt.getMonth() + 1) + '/' + dt.getFullYear();
   }
 
   function _setLoading(value) {
@@ -490,16 +876,39 @@ const ChatsPage = (() => {
 
   function _setError(message) {
     const errorEl = document.getElementById('chats-error');
+    const retryBtn = document.getElementById('chats-retry');
     if (!errorEl) return;
 
     if (!message) {
       errorEl.classList.add('hidden');
       errorEl.textContent = '';
+      if (retryBtn) retryBtn.classList.add('hidden');
       return;
     }
 
     errorEl.textContent = message;
     errorEl.classList.remove('hidden');
+    if (retryBtn) retryBtn.classList.remove('hidden');
+  }
+
+  function _showToast(message, type) {
+    if (!message) return;
+    const existing = document.getElementById('chats-toast');
+    if (existing) existing.remove();
+    const toast = UI.el('div', {
+      id: 'chats-toast',
+      className: 'chats-toast' + (type ? (' ' + type) : ''),
+      textContent: message,
+    });
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    window.clearTimeout(_toastTimer);
+    _toastTimer = window.setTimeout(() => {
+      toast.classList.remove('show');
+      window.setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+      }, 180);
+    }, 2400);
   }
 
   function _extractError(res, fallback) {

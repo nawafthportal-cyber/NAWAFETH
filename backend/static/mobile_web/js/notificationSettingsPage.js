@@ -80,9 +80,19 @@ const NotificationSettingsPage = (() => {
     pro: 'professional',
     extra: 'extra',
   };
+  const SECTION_ORDER = ['basic', 'pioneer', 'professional', 'extra'];
+  const TIER_LABELS = {
+    basic: 'الباقة الأساسية',
+    pioneer: 'الباقة الريادية',
+    professional: 'الباقة الاحترافية',
+    extra: 'تنبيهات الخدمات الإضافية',
+  };
 
   let _prefs = [];
   const _savingKeys = new Set();
+  const _openSections = new Set(['basic']);
+  let _toastTimer = null;
+  let _activeUpgradeDialog = null;
 
   function _activeMode() {
     try {
@@ -100,7 +110,16 @@ const NotificationSettingsPage = (() => {
       return;
     }
     _hideGate();
+    _bindRetry();
     _load();
+  }
+
+  function _bindRetry() {
+    const retryBtn = document.getElementById('notif-settings-retry');
+    if (!retryBtn) return;
+    retryBtn.addEventListener('click', () => {
+      _load();
+    });
   }
 
   function _showGate() {
@@ -135,27 +154,41 @@ const NotificationSettingsPage = (() => {
   function _setLoading(loading) {
     const loadingEl = document.getElementById('notif-settings-loading');
     const list = document.getElementById('notif-settings-list');
+    const empty = document.getElementById('notif-settings-empty');
+    const retryBtn = document.getElementById('notif-settings-retry');
     if (loadingEl) loadingEl.classList.toggle('hidden', !loading);
     if (list && loading) list.classList.add('hidden');
+    if (empty && loading) empty.classList.add('hidden');
+    if (retryBtn && loading) retryBtn.classList.add('hidden');
   }
 
   function _setError(message) {
     const errorEl = document.getElementById('notif-settings-error');
+    const retryBtn = document.getElementById('notif-settings-retry');
+    const list = document.getElementById('notif-settings-list');
+    const empty = document.getElementById('notif-settings-empty');
     if (!errorEl) return;
     if (!message) {
       errorEl.textContent = '';
       errorEl.classList.add('hidden');
+      if (retryBtn) retryBtn.classList.add('hidden');
       return;
     }
     errorEl.textContent = message;
     errorEl.classList.remove('hidden');
+    if (retryBtn) retryBtn.classList.remove('hidden');
+    if (list) list.classList.add('hidden');
+    if (empty) empty.classList.add('hidden');
   }
 
   function _render() {
     _renderStats();
-    _renderSections();
+    const visibleSections = _renderSections();
     const list = document.getElementById('notif-settings-list');
-    if (list) list.classList.remove('hidden');
+    const empty = document.getElementById('notif-settings-empty');
+    const hasSections = visibleSections > 0;
+    if (list) list.classList.toggle('hidden', !hasSections);
+    if (empty) empty.classList.toggle('hidden', hasSections);
   }
 
   function _renderStats() {
@@ -168,50 +201,134 @@ const NotificationSettingsPage = (() => {
   }
 
   function _renderSections() {
-    Object.values(SECTION_CONFIG).forEach((section) => {
-      const mount = document.getElementById(section.mountId);
+    const mountedIds = new Set([
+      'notif-basic-section',
+      'notif-leading-section',
+      'notif-professional-section',
+      'notif-extra-section',
+      'notif-other-sections',
+    ]);
+    mountedIds.forEach((id) => {
+      const mount = document.getElementById(id);
       if (!mount) return;
-      const shouldShow = _shouldShowSection(section);
-      mount.classList.toggle('hidden', !shouldShow);
-      if (!shouldShow) {
-        mount.innerHTML = '';
-        return;
-      }
+      mount.classList.add('hidden');
       mount.innerHTML = '';
-      mount.appendChild(_buildSection(section));
     });
+
+    const entries = [];
+    SECTION_ORDER.forEach((tierKey) => {
+      const section = SECTION_CONFIG[tierKey];
+      if (!section) return;
+      const prefs = _sectionPrefs(section);
+      if (!prefs.length) return;
+      entries.push({ section, prefs, mountId: section.mountId });
+    });
+
+    _groupUnknownTierPrefs().forEach((prefs, tierKey) => {
+      entries.push({
+        section: _dynamicSectionConfig(tierKey),
+        prefs,
+        mountId: 'notif-other-sections',
+      });
+    });
+
+    _syncOpenSections(entries.map((entry) => entry.section.key));
+
+    entries.forEach((entry) => {
+      const mount = document.getElementById(entry.mountId);
+      if (!mount) return;
+      mount.classList.remove('hidden');
+      mount.appendChild(_buildSection(entry.section, entry.prefs));
+    });
+
+    return entries.length;
   }
 
-  function _shouldShowSection(section) {
-    const mode = _activeMode();
-    if (mode === 'client') {
-      return section.key === 'basic';
+  function _groupUnknownTierPrefs() {
+    const grouped = new Map();
+    _prefs.forEach((pref) => {
+      const tier = _normalizeTier(pref);
+      if (SECTION_CONFIG[tier]) return;
+      if (!grouped.has(tier)) grouped.set(tier, []);
+      grouped.get(tier).push(pref);
+    });
+    return grouped;
+  }
+
+  function _dynamicSectionConfig(tierKey) {
+    return {
+      key: tierKey,
+      label: _formatTierLabel(tierKey),
+      description: '',
+      className: 'notif-tier-dynamic',
+      noteTitle: '',
+      noteBody: '',
+    };
+  }
+
+  function _formatTierLabel(tierKey) {
+    const key = String(tierKey || '').trim().toLowerCase();
+    if (!key) return 'إعدادات إضافية';
+    if (TIER_LABELS[key]) return TIER_LABELS[key];
+    return key.replace(/[_-]+/g, ' ');
+  }
+
+  function _syncOpenSections(visibleKeys) {
+    const visibleSet = new Set(visibleKeys);
+    Array.from(_openSections).forEach((key) => {
+      if (!visibleSet.has(key)) _openSections.delete(key);
+    });
+    if (_openSections.size === 0 && visibleKeys.length) {
+      if (visibleSet.has('basic')) _openSections.add('basic');
+      else _openSections.add(visibleKeys[0]);
     }
-    return true;
   }
 
-  function _buildSection(section) {
-    const prefs = _sectionPrefs(section);
+  function _buildSection(section, sectionPrefs) {
+    const prefs = Array.isArray(sectionPrefs) ? sectionPrefs : _sectionPrefs(section);
+    const isOpen = _openSections.has(section.key);
     const wrap = UI.el('section', {
-      className: 'notif-section-card ' + section.className + (prefs.length ? '' : ' is-empty'),
+      className:
+        'notif-section-card ' +
+        section.className +
+        (prefs.length ? '' : ' is-empty') +
+        (isOpen ? ' expanded' : ' collapsed'),
     });
 
-    const header = UI.el('header', { className: 'notif-section-header' });
+    const header = UI.el('header', {
+      className: 'notif-section-header',
+      role: 'button',
+      tabindex: '0',
+      'aria-expanded': String(isOpen),
+    });
     const copy = UI.el('div', { className: 'notif-section-copy' });
     copy.appendChild(UI.el('h2', { className: 'notif-section-title', textContent: section.label }));
     if (section.description) {
       copy.appendChild(UI.el('p', { className: 'notif-section-description', textContent: section.description }));
     }
     header.appendChild(copy);
-    header.appendChild(UI.el('span', {
+
+    const tools = UI.el('div', { className: 'notif-section-header-tools' });
+    tools.appendChild(UI.el('span', {
       className: 'notif-section-count',
       textContent: String(prefs.filter((pref) => pref.enabled && !pref.locked).length) + '/' + String(prefs.length || 0),
     }));
+    tools.appendChild(UI.el('span', { className: 'notif-section-chevron', textContent: '⌄', 'aria-hidden': 'true' }));
+    header.appendChild(tools);
+
+    header.addEventListener('click', () => _toggleSection(section.key));
+    header.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      _toggleSection(section.key);
+    });
+
     wrap.appendChild(header);
+    const body = UI.el('div', { className: 'notif-section-body' + (isOpen ? ' open' : '') });
 
     const sectionNotice = _sectionNotice(section, prefs);
     if (sectionNotice) {
-      wrap.appendChild(UI.el('div', {
+      body.appendChild(UI.el('div', {
         className: 'notif-section-notice',
         textContent: sectionNotice,
       }));
@@ -226,17 +343,25 @@ const NotificationSettingsPage = (() => {
     } else {
       prefs.forEach((pref) => list.appendChild(_buildPrefRow(pref, section.key === 'extra')));
     }
-    wrap.appendChild(list);
+    body.appendChild(list);
 
     if (section.noteTitle && section.noteBody) {
       const note = UI.el('div', { className: 'notif-extra-note' });
       note.appendChild(UI.el('div', { className: 'notif-extra-note-arrow', textContent: '↓' }));
       note.appendChild(UI.el('div', { className: 'notif-extra-note-title', textContent: section.noteTitle }));
       note.appendChild(UI.el('p', { className: 'notif-extra-note-body', textContent: section.noteBody }));
-      wrap.appendChild(note);
+      body.appendChild(note);
     }
 
+    wrap.appendChild(body);
     return wrap;
+  }
+
+  function _toggleSection(sectionKey) {
+    if (!sectionKey) return;
+    if (_openSections.has(sectionKey)) _openSections.delete(sectionKey);
+    else _openSections.add(sectionKey);
+    _renderSections();
   }
 
   function _sectionNotice(section, prefs) {
@@ -337,7 +462,7 @@ const NotificationSettingsPage = (() => {
     _savingKeys.delete(pref.key);
 
     if (!res.ok) {
-      alert('فشل حفظ الإعداد');
+      _showToast('فشل حفظ الإعداد', 'error');
       _render();
       return;
     }
@@ -355,7 +480,100 @@ const NotificationSettingsPage = (() => {
   }
 
   function _showUpgradeDialog(reason) {
-    alert(reason || 'هذه الإشعارات غير متاحة في اشتراكك الحالي.');
+    _closeUpgradeDialog();
+    const message = reason || 'هذه الإشعارات غير متاحة في اشتراكك الحالي.';
+    const backdrop = UI.el('div', {
+      className: 'notif-settings-dialog-backdrop',
+      role: 'presentation',
+    });
+    const dialog = UI.el('div', {
+      className: 'notif-settings-dialog',
+      role: 'dialog',
+      'aria-modal': 'true',
+      'aria-label': 'سبب عدم الإتاحة',
+    });
+
+    const iconWrap = UI.el('div', { className: 'notif-settings-dialog-icon', 'aria-hidden': 'true' });
+    iconWrap.appendChild(UI.icon('sparkles', 24, '#6f3fa0'));
+    dialog.appendChild(iconWrap);
+    dialog.appendChild(UI.el('h3', {
+      className: 'notif-settings-dialog-title',
+      textContent: 'سبب عدم الإتاحة',
+    }));
+    dialog.appendChild(UI.el('p', {
+      className: 'notif-settings-dialog-text',
+      textContent: message,
+    }));
+
+    const actions = UI.el('div', { className: 'notif-settings-dialog-actions' });
+    const okBtn = UI.el('button', {
+      type: 'button',
+      className: 'btn btn-primary notif-settings-dialog-btn',
+      textContent: 'حسنًا',
+    });
+    const closeBtn = UI.el('button', {
+      type: 'button',
+      className: 'btn btn-outline notif-settings-dialog-btn notif-settings-dialog-close',
+      textContent: 'إغلاق',
+    });
+    actions.appendChild(okBtn);
+    actions.appendChild(closeBtn);
+    dialog.appendChild(actions);
+    backdrop.appendChild(dialog);
+
+    const close = () => {
+      document.removeEventListener('keydown', onKeydown);
+      backdrop.classList.remove('show');
+      window.setTimeout(() => {
+        if (backdrop.parentNode) backdrop.remove();
+      }, 150);
+      if (_activeUpgradeDialog && _activeUpgradeDialog.backdrop === backdrop) {
+        _activeUpgradeDialog = null;
+      }
+    };
+
+    const onKeydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+      }
+    };
+
+    okBtn.addEventListener('click', close);
+    closeBtn.addEventListener('click', close);
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) close();
+    });
+    document.addEventListener('keydown', onKeydown);
+    document.body.appendChild(backdrop);
+    requestAnimationFrame(() => backdrop.classList.add('show'));
+    _activeUpgradeDialog = { backdrop, close };
+  }
+
+  function _closeUpgradeDialog() {
+    if (_activeUpgradeDialog && typeof _activeUpgradeDialog.close === 'function') {
+      _activeUpgradeDialog.close();
+    }
+  }
+
+  function _showToast(message, type) {
+    if (!message) return;
+    const existing = document.getElementById('notif-settings-toast');
+    if (existing) existing.remove();
+    const toast = UI.el('div', {
+      id: 'notif-settings-toast',
+      className: 'notif-settings-toast' + (type ? (' ' + type) : ''),
+      textContent: message,
+    });
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    window.clearTimeout(_toastTimer);
+    _toastTimer = window.setTimeout(() => {
+      toast.classList.remove('show');
+      window.setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+      }, 180);
+    }, 2400);
   }
 
   if (document.readyState === 'loading') {

@@ -22,28 +22,34 @@
 {% block content %}
 <main class="page-content">
   <div class="container orders-page-layout">
-    <div class="mw-page-topbar orders-topbar">
-      <button class="mw-page-menu-btn" id="hero-menu-btn" type="button" aria-label="القائمة">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-      </button>
-      <div class="orders-topbar-copy">
-        <h1 class="mw-page-title">طلباتي</h1>
-        <p>متابعة سريعة لحالة كل طلب</p>
-      </div>
-      <span class="mw-page-topbar-spacer" aria-hidden="true"></span>
-    </div>
-
     <!-- Auth gate -->
-    <div id="auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="#B39DDB"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <path d="M5 7.5C5 6.12 6.12 5 7.5 5h9A2.5 2.5 0 0 1 19 7.5v5A2.5 2.5 0 0 1 16.5 15H9l-3.2 2.6c-.33.27-.8.03-.8-.4V7.5z" fill="#7C4FD4"></path>
+          <circle cx="9.5" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="12" cy="10" r="1" fill="#FFFFFF"></circle>
+          <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
+        </svg>
       </div>
-      <p class="auth-gate-text">يجب تسجيل الدخول لعرض طلباتك</p>
-      <a href="/login/?next=/orders/" class="btn-primary">تسجيل الدخول</a>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض طلباتك</h2>
+      <p class="auth-gate-unified-desc">يمكنك متابعة حالة الطلبات والتفاصيل بعد تسجيل الدخول</p>
+      <a href="/login/?next=/orders/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
     <!-- Content (visible when logged in) -->
     <div id="orders-content" class="hidden">
+      <div class="mw-page-topbar orders-topbar">
+        <button class="mw-page-menu-btn" id="hero-menu-btn" type="button" aria-label="القائمة">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
+        </button>
+        <div class="orders-topbar-copy">
+          <h1 class="mw-page-title">طلباتي</h1>
+          <p>متابعة سريعة لحالة كل طلب</p>
+        </div>
+        <span class="mw-page-topbar-spacer" aria-hidden="true"></span>
+      </div>
+
       <section class="orders-hero-panel">
         <div class="orders-hero-copy">
           <h2>لوحة الطلبات</h2>
@@ -70,7 +76,7 @@
         <!-- Search -->
         <div class="orders-search-wrap">
           <svg class="orders-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="orders-search" class="orders-search-input" placeholder="ابحث في طلباتك..." autocomplete="off">
+          <input type="text" id="orders-search" class="orders-search-input" placeholder="بحث" autocomplete="off">
           <button type="button" class="orders-search-clear hidden" id="orders-search-clear" aria-label="مسح البحث">✕</button>
         </div>
 
@@ -85,15 +91,15 @@
             <span class="orders-tab-count" data-count-for="new">0</span>
           </button>
           <button class="tab-btn" data-status="in_progress">
-            <span>قيد التنفيذ</span>
+            <span>تحت التنفيذ</span>
             <span class="orders-tab-count" data-count-for="in_progress">0</span>
           </button>
           <button class="tab-btn" data-status="completed">
-            <span>مكتملة</span>
+            <span>مكتمل</span>
             <span class="orders-tab-count" data-count-for="completed">0</span>
           </button>
           <button class="tab-btn" data-status="cancelled">
-            <span>ملغاة</span>
+            <span>ملغي</span>
             <span class="orders-tab-count" data-count-for="cancelled">0</span>
           </button>
         </div>
