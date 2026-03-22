@@ -4,6 +4,11 @@ import os
 
 DEBUG = False
 
+# Production resilience: avoid runtime 500s from manifest hash resolution
+# mismatches on ephemeral deploy environments.
+STATICFILES_BACKEND = "whitenoise.storage.CompressedStaticFilesStorage"
+STORAGES["staticfiles"] = {"BACKEND": STATICFILES_BACKEND}
+
 
 def _unique_list(values):
 	items = []
