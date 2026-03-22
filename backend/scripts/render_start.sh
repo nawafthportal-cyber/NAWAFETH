@@ -17,8 +17,8 @@ TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
 # default so startup stays deterministic and avoids port-scan timeouts.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
-MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-120}"
-COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-120}"
+MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-180}"
+COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-300}"
 
 # ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
@@ -36,20 +36,19 @@ fi
 MANIFEST_PATH="$(python scripts/print_static_manifest_path.py)"
 echo "[start] Expecting static manifest at ${MANIFEST_PATH}"
 
-# Keep startup PORT-first for Render: do not block web boot on collectstatic.
+# If manifest is missing we must regenerate before boot; otherwise templates
+# that use {% static %} with manifest storage will raise 500 errors.
 if [ ! -f "${MANIFEST_PATH}" ]; then
-	echo "[start] WARNING: static manifest missing at startup."
-	if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
-		echo "[start] Attempting best-effort collectstatic (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
-		timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
-		if [ -f "${MANIFEST_PATH}" ]; then
-			echo "[start] collectstatic recovered static manifest."
-		else
-			echo "[start] WARNING: static manifest still missing; continuing boot to satisfy Render port binding."
-		fi
-	else
-		echo "[start] RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START}; continuing boot without runtime collectstatic."
+	echo "[start] Static manifest missing — running collectstatic (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
+	if ! timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1; then
+		echo "[start] ERROR: collectstatic failed while manifest is missing; aborting startup to avoid runtime 500 errors."
+		exit 1
 	fi
+	if [ ! -f "${MANIFEST_PATH}" ]; then
+		echo "[start] ERROR: collectstatic completed but manifest is still missing at ${MANIFEST_PATH}."
+		exit 1
+	fi
+	echo "[start] collectstatic completed."
 elif [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
 	echo "[start] RUN_COLLECTSTATIC_ON_START=1 — refreshing static files in best-effort mode..."
 	timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
