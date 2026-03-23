@@ -4,8 +4,13 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.billing.models import Invoice
-from .models import PromoRequest
-from .services import activate_after_payment, revoke_after_payment_reversal
+from .models import PromoAdPrice, PromoPricingRule, PromoRequest
+from .services import (
+    activate_after_payment,
+    revoke_after_payment_reversal,
+    sync_legacy_ad_price_from_pricing_rule,
+    sync_pricing_rules_from_legacy_ad_type,
+)
 
 
 @receiver(post_save, sender=Invoice)
@@ -26,4 +31,22 @@ def activate_promo_on_invoice_paid(sender, instance: Invoice, created, **kwargs)
         else:
             revoke_after_payment_reversal(pr=pr)
     except Exception:
+        pass
+
+
+@receiver(post_save, sender=PromoAdPrice)
+def sync_rules_when_legacy_price_changes(sender, instance: PromoAdPrice, created, **kwargs):
+    try:
+        sync_pricing_rules_from_legacy_ad_type(ad_type=instance.ad_type)
+    except Exception:
+        # Pricing sync must never break admin save flow.
+        pass
+
+
+@receiver(post_save, sender=PromoPricingRule)
+def sync_legacy_price_when_rule_changes(sender, instance: PromoPricingRule, created, **kwargs):
+    try:
+        sync_legacy_ad_price_from_pricing_rule(rule=instance)
+    except Exception:
+        # Pricing sync must never break dashboard/admin save flow.
         pass

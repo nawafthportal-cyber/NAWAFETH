@@ -1,3 +1,4 @@
+import re
 import pytest
 from datetime import timedelta
 from decimal import Decimal
@@ -41,6 +42,7 @@ from apps.promo.services import (
     reject_request,
     send_due_promo_messages,
     set_promo_ops_status,
+    sync_pricing_rules_from_legacy_ad_type,
 )
 from apps.support.models import SupportTicket, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest
@@ -928,6 +930,23 @@ def test_calc_quote_ignores_zero_db_price(user):
     assert q["days"] == 2
     # Falls back to default base price (300) when settings has no override.
     assert str(q["subtotal"]) == "600.00"
+
+
+def test_sync_pricing_rule_from_legacy_ad_price_for_home_banner():
+    ensure_default_pricing_rules()
+    rule = PromoPricingRule.objects.get(code="home_banner_daily")
+    rule.amount = Decimal("500.00")
+    rule.save(update_fields=["amount", "updated_at"])
+
+    PromoAdPrice.objects.update_or_create(
+        ad_type=PromoAdType.BANNER_HOME,
+        defaults={"price_per_day": "777.70", "is_active": True},
+    )
+
+    sync_pricing_rules_from_legacy_ad_type(ad_type=PromoAdType.BANNER_HOME)
+
+    rule.refresh_from_db()
+    assert rule.amount == Decimal("777.70")
 
 
 def test_promo_item_validation_uses_platform_config_min_campaign_hours(user):
@@ -2110,7 +2129,8 @@ def test_promo_pricing_dashboard_updates_amounts(client, promo_operator_user):
     pricing_rules = list(PromoPricingRule.objects.filter(is_active=True).order_by("sort_order", "id"))
     assert pricing_rules
 
-    target_rule = pricing_rules[0]
+    target_rule = PromoPricingRule.objects.filter(code="home_banner_daily").first()
+    assert target_rule is not None
     target_new_amount = target_rule.amount + Decimal("125.75")
 
     payload = {f"amount_{rule.id}": str(rule.amount) for rule in pricing_rules}
@@ -2126,6 +2146,28 @@ def test_promo_pricing_dashboard_updates_amounts(client, promo_operator_user):
 
     target_rule.refresh_from_db()
     assert target_rule.amount == target_new_amount
+    legacy_price = PromoAdPrice.objects.get(ad_type=PromoAdType.BANNER_HOME)
+    assert legacy_price.price_per_day == target_new_amount
+    assert legacy_price.is_active is True
+
+
+def test_promo_pricing_dashboard_renders_unlocalized_number_values(client, promo_operator_user):
+    ensure_default_pricing_rules()
+    target_rule = PromoPricingRule.objects.filter(is_active=True).order_by("sort_order", "id").first()
+    assert target_rule is not None
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.get("/dashboard/promo/pricing/")
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8")
+    match = re.search(rf'name="amount_{target_rule.id}"[^>]*value="([^"]+)"', html)
+    assert match is not None
+    assert match.group(1) == f"{target_rule.amount:.2f}"
 
 
 def test_promo_module_home_banner_prefills_selected_request_and_shows_assets(client, promo_operator_user, user):

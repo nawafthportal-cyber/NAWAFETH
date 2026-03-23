@@ -53,7 +53,7 @@
                     inputmode="decimal"
                     lang="en"
                     name="amount_{{ home_banner_rule.id }}"
-                    value="{{ home_banner_rule.amount|floatformat:2 }}"
+                    value="{{ home_banner_rule.amount|floatformat:'2u' }}"
                     {% if not can_write %}disabled{% endif %}
                   >
                   <span>ريال / يوم</span>
@@ -90,7 +90,7 @@
                             inputmode="decimal"
                             lang="en"
                             name="amount_{{ rule.id }}"
-                            value="{{ rule.amount|floatformat:2 }}"
+                            value="{{ rule.amount|floatformat:'2u' }}"
                             {% if not can_write %}disabled{% endif %}
                           >
                           <span>ريال</span>
@@ -112,7 +112,7 @@
                             inputmode="decimal"
                             lang="en"
                             name="amount_{{ rule.id }}"
-                            value="{{ rule.amount|floatformat:2 }}"
+                            value="{{ rule.amount|floatformat:'2u' }}"
                             {% if not can_write %}disabled{% endif %}
                           >
                           <span>ريال</span>
@@ -134,7 +134,7 @@
                             inputmode="decimal"
                             lang="en"
                             name="amount_{{ rule.id }}"
-                            value="{{ rule.amount|floatformat:2 }}"
+                            value="{{ rule.amount|floatformat:'2u' }}"
                             {% if not can_write %}disabled{% endif %}
                           >
                           <span>ريال</span>
@@ -173,7 +173,7 @@
                             inputmode="decimal"
                             lang="en"
                             name="amount_{{ rule.id }}"
-                            value="{{ rule.amount|floatformat:2 }}"
+                            value="{{ rule.amount|floatformat:'2u' }}"
                             {% if not can_write %}disabled{% endif %}
                           >
                           <span>ريال</span>
@@ -205,7 +205,7 @@
                         inputmode="decimal"
                         lang="en"
                         name="amount_{{ rule.id }}"
-                        value="{{ rule.amount|floatformat:2 }}"
+                        value="{{ rule.amount|floatformat:'2u' }}"
                         {% if not can_write %}disabled{% endif %}
                       >
                       <span>ريال / حملة</span>
@@ -229,7 +229,7 @@
                         inputmode="decimal"
                         lang="en"
                         name="amount_{{ rule.id }}"
-                        value="{{ rule.amount|floatformat:2 }}"
+                        value="{{ rule.amount|floatformat:'2u' }}"
                         {% if not can_write %}disabled{% endif %}
                       >
                       <span>ريال / شهر</span>

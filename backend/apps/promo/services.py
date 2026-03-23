@@ -291,6 +291,20 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     },
 )
 
+PROMO_LEGACY_AD_TYPE_TO_RULE_CODES: dict[str, tuple[str, ...]] = {
+    # Direct semantic mapping between legacy ad types and dynamic pricing rules.
+    PromoAdType.BANNER_HOME: ("home_banner_daily",),
+    PromoAdType.FEATURED_TOP5: ("search_top5",),
+    PromoAdType.FEATURED_TOP10: ("search_top10",),
+    PromoAdType.PUSH_NOTIFICATION: ("messages_notification",),
+}
+
+PROMO_RULE_CODE_TO_LEGACY_AD_TYPE: dict[str, str] = {
+    rule_code: ad_type
+    for ad_type, rule_codes in PROMO_LEGACY_AD_TYPE_TO_RULE_CODES.items()
+    for rule_code in rule_codes
+}
+
 
 _ASSET_REQUIRED_SERVICE_TYPES = {
     PromoServiceType.HOME_BANNER,
@@ -466,6 +480,72 @@ def ensure_default_pricing_rules() -> None:
         to_create.append(PromoPricingRule(**row))
     if to_create:
         PromoPricingRule.objects.bulk_create(to_create)
+        # On first bootstrap, inherit mapped legacy admin prices when available.
+        for legacy_ad_type in PROMO_LEGACY_AD_TYPE_TO_RULE_CODES:
+            sync_pricing_rules_from_legacy_ad_type(ad_type=legacy_ad_type, ensure_defaults=False)
+
+
+def sync_pricing_rules_from_legacy_ad_type(*, ad_type: str, ensure_defaults: bool = True) -> int:
+    """
+    Sync mapped PromoPricingRule amount(s) from legacy PromoAdPrice row.
+
+    Returns number of rules updated.
+    """
+    if ensure_defaults:
+        ensure_default_pricing_rules()
+
+    mapped_codes = PROMO_LEGACY_AD_TYPE_TO_RULE_CODES.get(str(ad_type or "").strip(), ())
+    if not mapped_codes:
+        return 0
+
+    legacy_row = PromoAdPrice.objects.filter(ad_type=ad_type, is_active=True).only("price_per_day").first()
+    if not legacy_row or legacy_row.price_per_day is None:
+        return 0
+
+    try:
+        normalized_amount = Decimal(str(legacy_row.price_per_day)).quantize(Decimal("0.01"))
+    except Exception:
+        return 0
+
+    if normalized_amount < 0:
+        return 0
+
+    updated_count = 0
+    for rule in PromoPricingRule.objects.filter(code__in=mapped_codes):
+        if rule.amount == normalized_amount:
+            continue
+        rule.amount = normalized_amount
+        rule.save(update_fields=["amount", "updated_at"])
+        updated_count += 1
+    return updated_count
+
+
+def sync_legacy_ad_price_from_pricing_rule(*, rule: PromoPricingRule) -> bool:
+    """
+    Sync mapped legacy PromoAdPrice row from a PromoPricingRule.
+
+    Returns True when a mapping exists and sync is applied, False otherwise.
+    """
+    if rule is None:
+        return False
+
+    ad_type = PROMO_RULE_CODE_TO_LEGACY_AD_TYPE.get(str(getattr(rule, "code", "") or "").strip())
+    if not ad_type:
+        return False
+
+    try:
+        normalized_amount = Decimal(str(rule.amount)).quantize(Decimal("0.01"))
+    except Exception:
+        return False
+
+    PromoAdPrice.objects.update_or_create(
+        ad_type=ad_type,
+        defaults={
+            "price_per_day": normalized_amount,
+            "is_active": bool(rule.is_active),
+        },
+    )
+    return True
 
 
 def _promo_request_summary(pr: PromoRequest) -> str:
