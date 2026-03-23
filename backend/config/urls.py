@@ -99,10 +99,6 @@ urlpatterns = [
         "dashboard/",
         include(("apps.dashboard.urls", "dashboard"), namespace="dashboard"),
     ),
-    path(
-        "dashboard-v2/",
-        include(("apps.dashboard_v2.urls", "dashboard_v2"), namespace="dashboard_v2"),
-    ),
 
     path(
         "portal/extras/",

@@ -2,54 +2,56 @@ from __future__ import annotations
 
 from functools import wraps
 
-from django.http import HttpRequest, HttpResponse
+from django.contrib.auth import logout
+from django.http import HttpResponseForbidden
 from django.shortcuts import redirect
-
-from .access import dashboard_portal_eligible, first_allowed_dashboard_route
 
 
 SESSION_OTP_VERIFIED_KEY = "dashboard_otp_verified"
-SESSION_LOGIN_PHONE_KEY = "dashboard_login_phone"
+SESSION_LOGIN_USER_ID_KEY = "dashboard_login_user_id"
 SESSION_NEXT_URL_KEY = "dashboard_next_url"
 
 
-def is_dashboard_otp_verified(request: HttpRequest) -> bool:
-    return bool(getattr(request, "session", {}).get(SESSION_OTP_VERIFIED_KEY))
+def clear_dashboard_auth_session(request) -> None:
+    request.session.pop(SESSION_OTP_VERIFIED_KEY, None)
+    request.session.pop(SESSION_LOGIN_USER_ID_KEY, None)
+    request.session.pop(SESSION_NEXT_URL_KEY, None)
 
 
-def dashboard_login_required(view_func):
-    """Require authenticated dashboard-access user + OTP-verified session."""
+def _save_next_url(request) -> None:
+    if request.method != "GET":
+        return
+    try:
+        request.session[SESSION_NEXT_URL_KEY] = request.get_full_path()
+    except Exception:
+        return
 
+
+def dashboard_staff_required(view_func):
     @wraps(view_func)
-    def wrapped(request: HttpRequest, *args, **kwargs):
+    def _wrapped(request, *args, **kwargs):
         user = getattr(request, "user", None)
-
-        if not getattr(user, "is_authenticated", False):
-            try:
-                request.session[SESSION_NEXT_URL_KEY] = request.get_full_path()
-            except Exception:
-                pass
+        if not user or not user.is_authenticated:
+            _save_next_url(request)
             return redirect("dashboard:login")
 
-        if not dashboard_portal_eligible(user):
-            fallback = first_allowed_dashboard_route(user)
-            if fallback:
-                return redirect(fallback)
-            return HttpResponse("غير مصرح", status=403)
+        if not getattr(user, "is_active", False):
+            clear_dashboard_auth_session(request)
+            logout(request)
+            return redirect("dashboard:login")
 
-        if not is_dashboard_otp_verified(request):
-            try:
-                request.session[SESSION_NEXT_URL_KEY] = request.get_full_path()
-            except Exception:
-                pass
+        if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
+            return HttpResponseForbidden("غير مصرح.")
+
+        if not bool(request.session.get(SESSION_OTP_VERIFIED_KEY)):
+            _save_next_url(request)
             return redirect("dashboard:otp")
 
         return view_func(request, *args, **kwargs)
 
-    return wrapped
+    return _wrapped
 
 
-def dashboard_staff_required(view_func):
-    """Alias for legacy naming in dashboard views."""
+# Backward-compatible alias used in legacy modules.
+dashboard_login_required = dashboard_staff_required
 
-    return dashboard_login_required(view_func)

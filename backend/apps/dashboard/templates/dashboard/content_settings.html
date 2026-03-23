@@ -1,0 +1,168 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تحديث معلومات صفحة الإعدادات</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">{% if can_manage %}وضع التحديث: مفعّل{% else %}قراءة فقط{% endif %}</span>
+          <span class="pill accent">المستند الحالي: {{ selected_doc_type }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>تحديث محتوى أيقونة الشروط والأحكام</h2>
+          </div>
+
+          <div class="settings-grid">
+            <div class="legal-tabs">
+              {% for code,label in legal_form.doc_type.field.choices %}
+                <a
+                  class="doc-tab {% if selected_doc_type == code %}active{% endif %}"
+                  href="{% url 'dashboard:content_settings' %}?doc_type={{ code }}"
+                >
+                  {{ label }}
+                </a>
+              {% endfor %}
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="form-shell">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_legal">
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="{{ legal_form.doc_type.id_for_label }}">نوع المستند</label>
+                  {{ legal_form.doc_type }}
+                </div>
+                <div class="field full">
+                  <label for="{{ legal_form.body_ar.id_for_label }}">النص القانوني</label>
+                  {{ legal_form.body_ar }}
+                </div>
+                <div class="field">
+                  <label for="{{ legal_form.file.id_for_label }}">رفع الملف</label>
+                  {{ legal_form.file }}
+                </div>
+                <div class="field">
+                  <label for="{{ legal_form.version.id_for_label }}">الإصدار</label>
+                  {{ legal_form.version }}
+                </div>
+                <div class="field full">
+                  <label for="{{ legal_form.published_at.id_for_label }}">تاريخ النشر</label>
+                  {{ legal_form.published_at }}
+                </div>
+              </div>
+              {% if current_doc %}
+                <div class="quick-stat" style="margin-top:10px;">
+                  <span>المستند النشط</span>
+                  <strong>v{{ current_doc.version }} - {{ current_doc.published_at|date:"Y-m-d H:i" }}</strong>
+                </div>
+                {% if current_doc.file %}
+                  <div class="actions" style="margin-top: 8px;">
+                    <a class="ghost-btn" href="{{ current_doc.file.url }}" target="_blank" rel="noopener">معاينة الملف الحالي</a>
+                  </div>
+                {% endif %}
+              {% endif %}
+              <div class="actions" style="margin-top: 12px;">
+                {% if can_manage %}
+                  <button class="primary-btn" type="submit">حفظ</button>
+                {% else %}
+                  <span class="pill danger">التعديل غير متاح</span>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>تعديل معلومات أيقونة (حول منصة مختص)</h2></div>
+          <form method="post" class="form-shell" id="contentLinksForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_links">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="{{ links_form.about_text.id_for_label }}">نص تعريف المنصة</label>
+                {{ links_form.about_text }}
+              </div>
+              <div class="field">
+                <label for="{{ links_form.website_url.id_for_label }}">رابط الموقع على الويب</label>
+                {{ links_form.website_url }}
+              </div>
+              <div class="field">
+                <label for="{{ links_form.ios_store.id_for_label }}">رابط التحميل في آبل ستور</label>
+                {{ links_form.ios_store }}
+              </div>
+              <div class="field">
+                <label for="{{ links_form.android_store.id_for_label }}">رابط التحميل في الأندرويد</label>
+                {{ links_form.android_store }}
+              </div>
+              <div class="field">
+                <label for="{{ links_form.x_url.id_for_label }}">رابط منصة إكس</label>
+                {{ links_form.x_url }}
+              </div>
+              <div class="field">
+                <label for="{{ links_form.whatsapp_url.id_for_label }}">رابط الواتساب</label>
+                {{ links_form.whatsapp_url }}
+              </div>
+              <div class="field full">
+                <label for="{{ links_form.email.id_for_label }}">إيميل المنصة</label>
+                {{ links_form.email }}
+              </div>
+            </div>
+            <div class="actions" style="margin-top: 12px;">
+              {% if can_manage %}
+                <button class="primary-btn" type="submit">حفظ</button>
+              {% else %}
+                <span class="pill danger">التعديل غير متاح</span>
+              {% endif %}
+            </div>
+          </form>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+          <div class="side-card">
+            <h4>آخر مستندات فعّالة</h4>
+            {% for code,doc in legal_docs_index.items %}
+              <div class="quick-stat">
+                <span>{{ code }}</span>
+                <strong>{% if doc %}v{{ doc.version }}{% else %}غير متوفر{% endif %}</strong>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/content.js' %}"></script>
+</body>
+</html>

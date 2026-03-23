@@ -1,0 +1,414 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ module_meta.label }}</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">الوحدة: {{ module_meta.label }}</span>
+          <span class="pill accent">بنود حالية: {{ module_rows|length }}</span>
+          {% if selected_request %}
+            <span class="pill mint">طلب مختار: {{ selected_request.code }}</span>
+          {% endif %}
+          {% if is_module_review_flow %}
+            <span class="pill brand">التدفق: معاينة ثم اعتماد</span>
+          {% endif %}
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>إدارة {{ module_meta.label }}</h2>
+          </div>
+
+          {% if module_form.non_field_errors %}
+            <ul class="alert-list">
+              {% for err in module_form.non_field_errors %}
+                <li class="alert error"><span>{{ err }}</span></li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+
+          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm">
+            {% csrf_token %}
+            <h3>إضافة بند ترويجي</h3>
+
+            <div class="module-form-layout">
+              <section class="module-block">
+                <h4>بيانات الربط</h4>
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج (اختياري)</label>
+                    {{ module_form.request_id }}
+                    {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ module_form.requester_identifier.id_for_label }}">اسم المستخدم/جوال العميل</label>
+                    {{ module_form.requester_identifier }}
+                    {% for err in module_form.requester_identifier.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                    {{ module_form.title }}
+                    {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                </div>
+              </section>
+
+              {% if is_search_module %}
+                <section class="module-block module-block-search">
+                  <h4>إعدادات الظهور في قوائم البحث</h4>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص المستهدف</label>
+                      {{ module_form.target_provider_id }}
+                      {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.target_category.id_for_label }}">تصنيف المختص</label>
+                      {{ module_form.target_category }}
+                      {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label>قوائم الظهور المستهدفة</label>
+                      <div class="checks checks-inline">
+                        {{ module_form.search_scopes }}
+                      </div>
+                      {% for err in module_form.search_scopes.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.search_position.id_for_label }}">ترتيب الظهور</label>
+                      {{ module_form.search_position }}
+                      {% for err in module_form.search_position.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                      {{ module_form.start_at }}
+                      {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                      {{ module_form.end_at }}
+                      {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                  </div>
+                </section>
+              {% elif is_messages_module %}
+                <section class="module-block module-block-messages">
+                  <h4>إعدادات الرسائل الدعائية</h4>
+                  <div class="form-grid">
+                    <div class="field full">
+                      <label for="{{ module_form.message_title.id_for_label }}">عنوان الرسالة</label>
+                      {{ module_form.message_title }}
+                      {% for err in module_form.message_title.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.message_body.id_for_label }}">نص الرسالة الدعائية</label>
+                      {{ module_form.message_body }}
+                      {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.send_at.id_for_label }}">توقيت الإرسال</label>
+                      {{ module_form.send_at }}
+                      {% for err in module_form.send_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label>قنوات الرسائل</label>
+                      <div class="checks">
+                        <ul>
+                          <li><label>{{ module_form.use_notification_channel }} <span>رسائل التنبيه الدعائية</span></label></li>
+                          <li><label>{{ module_form.use_chat_channel }} <span>رسائل المحادثات الدعائية</span></label></li>
+                        </ul>
+                      </div>
+                      {% for err in module_form.use_notification_channel.errors %}<small>{{ err }}</small>{% endfor %}
+                      {% for err in module_form.use_chat_channel.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.media_file.id_for_label }}">رفع ملف الرسالة</label>
+                      {{ module_form.media_file }}
+                      {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                      {{ module_form.attachment_specs }}
+                      {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.redirect_url.id_for_label }}">رابط الوجهة (اختياري)</label>
+                      {{ module_form.redirect_url }}
+                      {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                  </div>
+                </section>
+              {% elif is_sponsorship_module %}
+                <section class="module-block module-block-sponsorship">
+                  <h4>إعدادات الرعاية</h4>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="{{ module_form.sponsor_name.id_for_label }}">اسم الراعي</label>
+                      {{ module_form.sponsor_name }}
+                      {% for err in module_form.sponsor_name.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.sponsor_url.id_for_label }}">رابط موقع الراعي</label>
+                      {{ module_form.sponsor_url }}
+                      {% for err in module_form.sponsor_url.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.sponsorship_months.id_for_label }}">مدة الرعاية (بالأشهر)</label>
+                      {{ module_form.sponsorship_months }}
+                      {% for err in module_form.sponsorship_months.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.start_at.id_for_label }}">بداية الرعاية</label>
+                      {{ module_form.start_at }}
+                      {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.end_at.id_for_label }}">نهاية الرعاية</label>
+                      {{ module_form.end_at }}
+                      {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.message_body.id_for_label }}">نص رسالة الرعاية</label>
+                      {{ module_form.message_body }}
+                      {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.media_file.id_for_label }}">رفع شعار الراعي</label>
+                      {{ module_form.media_file }}
+                      {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                      {{ module_form.attachment_specs }}
+                      {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.redirect_url.id_for_label }}">رابط التوجيه عند الضغط</label>
+                      {{ module_form.redirect_url }}
+                      {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                  </div>
+                </section>
+              {% else %}
+                <section class="module-block">
+                  <h4>إعدادات الوحدة</h4>
+                  <div class="form-grid">
+                    <div class="field">
+                      <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                      {{ module_form.start_at }}
+                      {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                      {{ module_form.end_at }}
+                      {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
+                      {{ module_form.frequency }}
+                      {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                      {{ module_form.target_provider_id }}
+                      {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.target_category.id_for_label }}">التصنيف المستهدف</label>
+                      {{ module_form.target_category }}
+                      {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.target_city.id_for_label }}">المدينة المستهدفة</label>
+                      {{ module_form.target_city }}
+                      {% for err in module_form.target_city.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.redirect_url.id_for_label }}">رابط التوجيه</label>
+                      {{ module_form.redirect_url }}
+                      {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.media_file.id_for_label }}">رفع التصميم/الملف</label>
+                      {{ module_form.media_file }}
+                      {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف</label>
+                      {{ module_form.attachment_specs }}
+                      {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                  </div>
+                </section>
+              {% endif %}
+
+              <section class="module-block">
+                <h4>ملاحظات تشغيلية</h4>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ module_form.operator_note.id_for_label }}">ملاحظة داخلية لفريق الترويج</label>
+                    {{ module_form.operator_note }}
+                    {% for err in module_form.operator_note.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div class="actions" style="margin-top: 12px;">
+              {% if can_write %}
+                <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
+                <button class="primary-btn" type="submit" name="workflow_action" value="approve_item" data-require-confirm="اعتماد هذا البند بشكل نهائي؟">
+                  {% if is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
+                </button>
+              {% else %}
+                <span class="pill danger">وضع قراءة فقط</span>
+              {% endif %}
+            </div>
+          </form>
+        </section>
+
+        {% if preview_payload %}
+          <section class="section-panel slide-up">
+            <div class="title-row">
+              <h2>معاينة قبل الاعتماد</h2>
+              <span class="pill accent">هذه المعاينة لا تحفظ البند</span>
+            </div>
+            <div class="support-meta-grid">
+              <div class="quick-stat"><span>العنوان</span><strong>{{ preview_payload.title }}</strong></div>
+              <div class="quick-stat"><span>الخدمة</span><strong>{{ preview_payload.service_label }}</strong></div>
+              <div class="quick-stat"><span>الطلب</span><strong>{{ preview_payload.request_id|default:"جديد" }}</strong></div>
+              <div class="quick-stat"><span>العميل</span><strong>{{ preview_payload.requester_identifier|default:"- عبر الربط الداخلي -" }}</strong></div>
+              <div class="quick-stat"><span>بداية</span><strong>{{ preview_payload.start_at }}</strong></div>
+              <div class="quick-stat"><span>نهاية</span><strong>{{ preview_payload.end_at }}</strong></div>
+              {% if is_search_module %}
+                <div class="quick-stat"><span>قوائم الظهور</span><strong>{{ preview_payload.search_scopes_text }}</strong></div>
+                <div class="quick-stat"><span>الترتيب</span><strong>{{ preview_payload.search_position_text }}</strong></div>
+              {% endif %}
+              {% if is_messages_module %}
+                <div class="quick-stat"><span>قنوات الرسائل</span><strong>{{ preview_payload.channels_text }}</strong></div>
+                <div class="quick-stat"><span>توقيت الإرسال</span><strong>{{ preview_payload.send_at }}</strong></div>
+              {% endif %}
+              {% if is_sponsorship_module %}
+                <div class="quick-stat"><span>الراعي</span><strong>{{ preview_payload.sponsor_name|default:"-" }}</strong></div>
+                <div class="quick-stat"><span>مدة الرعاية</span><strong>{{ preview_payload.sponsorship_months }} شهر</strong></div>
+              {% endif %}
+              {% if preview_payload.media_name %}
+                <div class="quick-stat"><span>الملف</span><strong>{{ preview_payload.media_name }}</strong></div>
+              {% endif %}
+            </div>
+          </section>
+        {% endif %}
+
+        {% if selected_request_quote %}
+          <section class="section-panel slide-up">
+            <div class="title-row"><h2>ملخص الطلب والتكلفة</h2></div>
+            <div class="support-meta-grid">
+              <div class="quick-stat"><span>المجموع</span><strong>{{ selected_request_quote.subtotal }} SAR</strong></div>
+              <div class="quick-stat"><span>VAT ({{ selected_request_quote.vat_percent }}%)</span><strong>{{ selected_request_quote.vat_amount }} SAR</strong></div>
+              <div class="quick-stat"><span>الإجمالي</span><strong>{{ selected_request_quote.total }} SAR</strong></div>
+              <div class="quick-stat"><span>مدة الحملة</span><strong>{{ selected_request_quote.days }} يوم</strong></div>
+            </div>
+          </section>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>آخر البنود في الوحدة</h2>
+          </div>
+          <form method="get" class="toolbar">
+            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الطلب أو العميل...">
+            <div class="actions">
+              <button class="primary-btn light" type="submit">تحديث</button>
+              <a class="ghost-btn" href="{% url 'dashboard:promo_module' module_meta.key %}">مسح</a>
+            </div>
+          </form>
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>رقم الطلب</th>
+                  <th>اسم العميل</th>
+                  <th>عنوان البند</th>
+                  {% if is_search_module %}
+                    <th>قائمة الظهور</th>
+                    <th>الترتيب</th>
+                  {% elif is_messages_module %}
+                    <th>وقت الإرسال</th>
+                  {% elif is_sponsorship_module %}
+                    <th>بداية/نهاية</th>
+                  {% else %}
+                    <th>الخدمة</th>
+                  {% endif %}
+                  <th>الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in module_rows %}
+                  <tr>
+                    <td>
+                      <a class="ticket-link" href="{% url 'dashboard:promo_module' module_meta.key %}?request_id={{ row.request_id }}">
+                        {{ row.request_code }}
+                      </a>
+                    </td>
+                    <td>{{ row.requester }}</td>
+                    <td>{{ row.title }}</td>
+                    {% if is_search_module %}
+                      <td>{{ row.search_scope }}</td>
+                      <td>{{ row.search_position }}</td>
+                    {% elif is_messages_module %}
+                      <td>{{ row.send_at }}</td>
+                    {% elif is_sponsorship_module %}
+                      <td>{{ row.start_at }}<br>{{ row.end_at }}</td>
+                    {% else %}
+                      <td>{{ row.service_type }}</td>
+                    {% endif %}
+                    <td>{{ row.status }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="6">لا توجد بنود لهذه الوحدة حالياً.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/promo.js' %}"></script>
+</body>
+</html>

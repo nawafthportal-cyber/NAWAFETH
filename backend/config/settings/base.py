@@ -68,7 +68,6 @@ INSTALLED_APPS = [
     "apps.marketplace.apps.MarketplaceConfig",
     "apps.messaging.apps.MessagingConfig",
     "apps.dashboard.apps.DashboardConfig",
-    "apps.dashboard_v2.apps.DashboardV2Config",
     "apps.backoffice.apps.BackofficeConfig",
     "apps.unified_requests.apps.UnifiedRequestsConfig",
     "apps.support.apps.SupportConfig",

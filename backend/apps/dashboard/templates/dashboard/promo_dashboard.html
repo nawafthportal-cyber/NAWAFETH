@@ -1,0 +1,368 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة فريق إدارة الترويج</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">الاستفسارات: {{ inquiry_summary.total }}</span>
+          <span class="pill accent">طلبات الترويج: {{ request_summary.total }}</span>
+          <span class="pill mint">حملات نشطة: {{ request_summary.active_campaigns }}</span>
+          <span class="pill danger">فواتير معلقة: {{ request_summary.invoice_pending }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>قائمة استفسارات الترويج</h2>
+            <div class="actions">
+              <a class="ghost-btn export-btn" href="?scope=inquiries&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=pdf">PDF</a>
+              <a class="ghost-btn export-btn" href="?scope=inquiries&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" href="?scope=inquiries&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=csv">CSV</a>
+            </div>
+          </div>
+
+          <form method="get" class="toolbar">
+            <input class="input-control" type="search" name="inquiry_q" value="{{ filters.inquiry_q }}" placeholder="بحث في الاستفسارات...">
+            <input type="hidden" name="request_q" value="{{ filters.request_q }}">
+            <input type="hidden" name="ops" value="{{ filters.ops }}">
+            <div class="actions">
+              <button class="primary-btn light" type="submit">تحديث</button>
+              <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}">مسح</a>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table class="dash-table" id="promoInquiriesTable">
+              <thead>
+                <tr>
+                  <th>رقم الطلب</th>
+                  <th>اسم العميل</th>
+                  <th>الأولوية</th>
+                  <th>نوع الطلب</th>
+                  <th>تاريخ وقت استلام الطلب</th>
+                  <th>حالة الطلب</th>
+                  <th>فريق الدعم</th>
+                  <th>المكلف بالطلب</th>
+                  <th>تاريخ وقت التكليف</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in inquiries %}
+                  <tr class="support-row {{ row.priority_class }} {% if selected_inquiry and selected_inquiry.id == row.id %}active-ticket{% endif %}">
+                    <td>
+                      <a class="ticket-link" href="?inquiry={{ row.id }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}">
+                        {{ row.code }}
+                      </a>
+                    </td>
+                    <td>{{ row.requester }}</td>
+                    <td>{{ row.priority_number }}</td>
+                    <td>{{ row.ticket_type }}</td>
+                    <td>{{ row.created_at }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>{{ row.team }}</td>
+                    <td>{{ row.assignee }}</td>
+                    <td>{{ row.assigned_at }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="9">لا توجد استفسارات مطابقة للفلاتر.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>قائمة طلبات الترويج</h2>
+            <div class="actions">
+              <a class="ghost-btn export-btn" href="?scope=requests&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=pdf">PDF</a>
+              <a class="ghost-btn export-btn" href="?scope=requests&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" href="?scope=requests&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}&export=csv">CSV</a>
+            </div>
+          </div>
+
+          <form method="get" class="toolbar">
+            <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم العميل أو رقم الطلب...">
+            <select class="input-control" name="ops">
+              <option value="">كل حالات التنفيذ</option>
+              <option value="new" {% if filters.ops == 'new' %}selected{% endif %}>جديد</option>
+              <option value="in_progress" {% if filters.ops == 'in_progress' %}selected{% endif %}>تحت المعالجة</option>
+              <option value="completed" {% if filters.ops == 'completed' %}selected{% endif %}>مكتمل</option>
+            </select>
+            <input type="hidden" name="inquiry_q" value="{{ filters.inquiry_q }}">
+            <div class="actions">
+              <button class="primary-btn light" type="submit">تحديث</button>
+              <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}">مسح</a>
+            </div>
+          </form>
+
+          <div class="table-wrap">
+            <table class="dash-table" id="promoRequestsTable">
+              <thead>
+                <tr>
+                  <th>رقم الطلب</th>
+                  <th>اسم العميل</th>
+                  <th>الخدمات</th>
+                  <th>حالة التنفيذ</th>
+                  <th>حالة الفاتورة</th>
+                  <th>المكلف بالطلب</th>
+                  <th>تاريخ الإنشاء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in promo_requests %}
+                  <tr class="{% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
+                    <td>
+                      <a class="ticket-link" href="{% url 'dashboard:promo_request_detail' row.id %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}">
+                        {{ row.code }}
+                      </a>
+                    </td>
+                    <td>{{ row.requester }}</td>
+                    <td>{{ row.services_text }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>{{ row.invoice_status }}</td>
+                    <td>{{ row.assignee }}</td>
+                    <td>{{ row.created_at }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="7">لا توجد طلبات ترويج حالياً.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {% if selected_inquiry %}
+          <section class="section-panel slide-up">
+            <div class="title-row">
+              <h2>تفاصيل الاستفسار: {{ selected_inquiry.code }}</h2>
+              <div class="actions">
+                <span class="pill brand">{{ selected_inquiry.get_ticket_type_display }}</span>
+                <span class="pill accent">{{ selected_inquiry.get_status_display }}</span>
+              </div>
+            </div>
+
+            <form method="post" enctype="multipart/form-data" id="promoInquiryForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_inquiry">
+              <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
+              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+              <div class="support-action-grid">
+                <div class="field">
+                  <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
+                  {{ inquiry_form.status }}
+                </div>
+                <div class="field">
+                  <label for="{{ inquiry_form.assigned_team.id_for_label }}">فريق الدعم</label>
+                  {{ inquiry_form.assigned_team }}
+                </div>
+                <div class="field">
+                  <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                  {{ inquiry_form.assigned_to }}
+                </div>
+                <div class="field full">
+                  <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الاستفسار</label>
+                  {{ inquiry_form.description }}
+                </div>
+                <div class="field full">
+                  <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف</label>
+                  {{ inquiry_form.operator_comment }}
+                </div>
+                <div class="field">
+                  <label for="{{ inquiry_form.linked_request_id.id_for_label }}">ربط بطلب ترويج</label>
+                  {{ inquiry_form.linked_request_id }}
+                </div>
+                <div class="field">
+                  <label for="{{ inquiry_form.detailed_request_url.id_for_label }}">رابط صفحة الطلب التفصيلي</label>
+                  {{ inquiry_form.detailed_request_url }}
+                </div>
+                <div class="field full">
+                  <label for="{{ inquiry_form.attachment.id_for_label }}">المرفقات</label>
+                  {{ inquiry_form.attachment }}
+                </div>
+              </div>
+              <div class="actions" style="margin-top: 12px;">
+                {% if can_write %}
+                  <button type="submit" name="action" value="save_inquiry" class="primary-btn">حفظ</button>
+                  <button type="submit" name="action" value="close_inquiry" class="ghost-btn">إغلاق</button>
+                {% else %}
+                  <span class="pill danger">قراءة فقط</span>
+                {% endif %}
+              </div>
+            </form>
+
+            <div class="content-two-col">
+              <div class="side-card">
+                <h4>آخر التعليقات الداخلية</h4>
+                <div class="timeline-list">
+                  {% for item in selected_inquiry_comments %}
+                    <div class="timeline-item">
+                      <strong>{{ item.created_by.username|default:item.created_by.phone|default:"system" }}</strong>
+                      <p>{{ item.text }}</p>
+                    </div>
+                  {% empty %}
+                    <p class="subtitle">لا توجد تعليقات حتى الآن.</p>
+                  {% endfor %}
+                </div>
+              </div>
+              <div class="side-card">
+                <h4>آخر المرفقات</h4>
+                <div class="timeline-list">
+                  {% for file in selected_inquiry_attachments %}
+                    <div class="timeline-item">
+                      <strong>{{ file.created_at|date:"d/m/Y H:i" }}</strong>
+                      <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض المرفق</a>
+                    </div>
+                  {% empty %}
+                    <p class="subtitle">لا توجد مرفقات.</p>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+          </section>
+        {% endif %}
+
+        {% if selected_request %}
+          <section class="section-panel slide-up">
+            <div class="title-row">
+              <h2>تفاصيل طلب الترويج: {{ selected_request.code }}</h2>
+              <div class="actions">
+                <span class="pill brand">حالة الطلب: {{ selected_request.get_status_display }}</span>
+                <span class="pill accent">حالة التنفيذ: {{ selected_request.get_ops_status_display }}</span>
+              </div>
+            </div>
+
+            <div class="support-meta-grid">
+              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+              <div class="quick-stat"><span>الخدمات</span><strong>{{ selected_request_items|length }}</strong></div>
+              <div class="quick-stat"><span>بداية الحملة</span><strong>{{ selected_request.start_at|date:"d/m/Y - H:i" }}</strong></div>
+              <div class="quick-stat"><span>نهاية الحملة</span><strong>{{ selected_request.end_at|date:"d/m/Y - H:i" }}</strong></div>
+            </div>
+
+            <form method="post" id="promoRequestActionForm">
+              {% csrf_token %}
+              <input type="hidden" name="promo_request_id" value="{{ selected_request.id }}">
+              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+              <div class="support-action-grid">
+                <div class="field">
+                  <label for="{{ request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                  {{ request_form.assigned_to }}
+                </div>
+                <div class="field">
+                  <label for="{{ request_form.ops_status.id_for_label }}">حالة التنفيذ</label>
+                  {{ request_form.ops_status }}
+                </div>
+                <div class="field full">
+                  <label for="{{ request_form.ops_note.id_for_label }}">ملاحظة تنفيذ</label>
+                  {{ request_form.ops_note }}
+                </div>
+                <div class="field full">
+                  <label for="{{ request_form.quote_note.id_for_label }}">ملاحظة التسعير</label>
+                  {{ request_form.quote_note }}
+                </div>
+              </div>
+
+              <div class="actions" style="margin-top: 12px;">
+                {% if can_write %}
+                  <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
+                  <button type="submit" name="action" value="quote_request" class="ghost-btn">اعتماد التسعير</button>
+                  <button type="submit" name="action" value="activate_request" class="ghost-btn">تفعيل</button>
+                  <button type="submit" name="action" value="complete_request" class="ghost-btn">إكمال</button>
+                {% else %}
+                  <span class="pill danger">قراءة فقط</span>
+                {% endif %}
+              </div>
+            </form>
+
+            {% if selected_request_quote %}
+              <div class="side-card" style="margin-top: 10px;">
+                <h4>ملخص الطلب والتكلفة</h4>
+                <div class="table-wrap">
+                  <table class="dash-table">
+                    <thead>
+                      <tr>
+                        <th>البند</th>
+                        <th>المدة (يوم)</th>
+                        <th>التكلفة</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for item in selected_request_quote.items %}
+                        <tr>
+                          <td>{{ item.title }}</td>
+                          <td>{{ item.duration_days }}</td>
+                          <td>{{ item.subtotal }}</td>
+                        </tr>
+                      {% empty %}
+                        <tr><td colspan="3">لا توجد بنود مسعّرة بعد.</td></tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                <div class="support-meta-grid" style="margin-top: 10px;">
+                  <div class="quick-stat"><span>المجموع</span><strong>{{ selected_request_quote.subtotal }} SAR</strong></div>
+                  <div class="quick-stat"><span>VAT ({{ selected_request_quote.vat_percent }}%)</span><strong>{{ selected_request_quote.vat_amount }} SAR</strong></div>
+                  <div class="quick-stat"><span>الإجمالي</span><strong>{{ selected_request_quote.total }} SAR</strong></div>
+                  <div class="quick-stat"><span>مدة الحملة</span><strong>{{ selected_request_quote.days }} يوم</strong></div>
+                </div>
+              </div>
+            {% endif %}
+          </section>
+        {% endif %}
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+          <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
+          <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+
+          <div class="side-card">
+            <h4>رموز الطلبات</h4>
+            {% for item in request_codes %}
+              <div class="quick-stat"><span>{{ item.code }}</span><strong>{{ item.label }}</strong></div>
+            {% endfor %}
+          </div>
+
+          <div class="side-card">
+            <h4>حالة التنفيذ</h4>
+            <div class="quick-stat"><span>جديد</span><strong>{{ request_summary.new }}</strong></div>
+            <div class="quick-stat"><span>تحت المعالجة</span><strong>{{ request_summary.in_progress }}</strong></div>
+            <div class="quick-stat"><span>مكتمل</span><strong>{{ request_summary.completed }}</strong></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/promo.js' %}"></script>
+</body>
+</html>
+

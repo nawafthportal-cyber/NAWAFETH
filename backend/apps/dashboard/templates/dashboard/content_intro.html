@@ -1,0 +1,106 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>محتوى صفحة بروفة التعريف بالتطبيق</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">الوضع الحالي: {% if can_manage %}تحرير{% else %}قراءة{% endif %}</span>
+          <span class="pill accent">{{ design_specs }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>رفع التصميم</h2>
+          </div>
+          <div class="content-layout-grid">
+            <div class="mobile-preview">
+              <h4>معاينة شاشة البروفة</h4>
+              {% if intro_preview_block.media_file %}
+                <div class="media-preview">
+                  {% if intro_preview_block.media_type == "video" %}
+                    <video controls preload="metadata" src="{{ intro_preview_block.media_file.url }}"></video>
+                  {% else %}
+                    <img src="{{ intro_preview_block.media_file.url }}" alt="معاينة البروفة">
+                  {% endif %}
+                </div>
+              {% else %}
+                <div class="preview-placeholder">لا يوجد ملف بروفة معتمد بعد.</div>
+              {% endif %}
+            </div>
+
+            <form method="post" enctype="multipart/form-data" class="form-shell" id="contentIntroForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="upload_design">
+              <h3>إدارة ملف بروفة التعريف</h3>
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="{{ upload_form.design_file.id_for_label }}">ملف التصميم</label>
+                  {{ upload_form.design_file }}
+                </div>
+                <div class="field full">
+                  <label for="{{ upload_form.file_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                  {{ upload_form.file_specs }}
+                </div>
+              </div>
+              <div class="actions" style="margin-top: 12px;">
+                {% if can_manage %}
+                  <button class="primary-btn light" type="submit">معاينة ثم حفظ</button>
+                  <a class="ghost-btn" href="{% url 'dashboard:content_intro' %}">إلغاء</a>
+                {% else %}
+                  <span class="pill danger">رفع الملفات غير متاح</span>
+                {% endif %}
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>أمثلة مرجعية</h2></div>
+          <div class="examples-strip">
+            <div class="example-card">مثال شاشة 1</div>
+            <div class="example-card">مثال شاشة 2</div>
+            <div class="example-card">مثال شاشة 3</div>
+            <div class="example-card">مثال شاشة 4</div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/content.js' %}"></script>
+</body>
+</html>

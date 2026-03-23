@@ -1866,3 +1866,82 @@ def test_promo_dashboard_pages_render(client, promo_operator_user, user):
     assert client.get("/dashboard/promo/").status_code == 200
     assert client.get(f"/dashboard/promo/{pr.id}/").status_code == 200
     assert client.get("/dashboard/promo/modules/home_banner/").status_code == 200
+
+
+def test_promo_module_search_results_creates_one_item_per_scope(client, promo_operator_user, user):
+    start_at = timezone.now() + timedelta(days=3)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="search module request",
+        ad_type="bundle",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    _ensure_provider_requester(user)
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post(
+        "/dashboard/promo/modules/search_results/",
+        data={
+            "workflow_action": "approve_item",
+            "request_id": pr.id,
+            "title": "ظهور في قوائم البحث",
+            "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+            "search_scopes": ["default", "main_results"],
+            "search_position": "first",
+            "target_category": "التصميم وصناعة المحتوى",
+        },
+        follow=True,
+    )
+    assert response.status_code == 200
+    rows = list(
+        PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.SEARCH_RESULTS).order_by("id")
+    )
+    assert len(rows) == 2
+    assert {rows[0].search_scope, rows[1].search_scope} == {"default", "main_results"}
+
+
+def test_promo_module_preview_does_not_create_message_item(client, promo_operator_user, user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="messages module request",
+        ad_type="bundle",
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    before_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    response = client.post(
+        "/dashboard/promo/modules/promo_messages/",
+        data={
+            "workflow_action": "preview_item",
+            "request_id": pr.id,
+            "message_title": "رسالة دعائية",
+            "message_body": "محتوى الحملة",
+            "send_at": (timezone.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"),
+            "use_notification_channel": "on",
+        },
+    )
+    assert response.status_code == 200
+    after_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    assert after_count == before_count
+    assert response.context["preview_payload"] is not None

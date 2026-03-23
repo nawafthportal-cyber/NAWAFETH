@@ -1,0 +1,79 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>التحقق الثنائي</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <main class="auth-shell">
+    <section class="auth-layout">
+      <aside class="auth-brand fade-in">
+        <span class="pill accent">التحقق الثنائي</span>
+        <h2>تأكيد هوية الحساب التشغيلي</h2>
+        <p>تم إرسال رمز التحقق إلى {{ phone }}. أدخل الرمز للانتقال إلى لوحة التحكم.</p>
+        <ul class="auth-points">
+          <li>صلاحية الرمز قصيرة لتعزيز أمان الوصول.</li>
+          <li>يمكنك إعادة الإرسال عند الحاجة.</li>
+          <li>التحقق مطلوب قبل أي عملية داخل الداشبورد.</li>
+        </ul>
+      </aside>
+
+      <section class="auth-card slide-up">
+        <h1 class="auth-title">رمز التحقق</h1>
+        <p class="auth-subtitle">أدخل الرمز المكون من 4 إلى 6 أرقام</p>
+
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <form method="post" class="stack" id="otpForm">
+          {% csrf_token %}
+          <input type="hidden" name="code" id="otpCode" value="{{ form.code.value|default:'' }}">
+
+          <div class="field">
+            <label>رمز التحقق</label>
+            <div class="otp-slots" data-otp-slots>
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric" autocomplete="one-time-code">
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
+              <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
+            </div>
+            <noscript>
+              <div style="margin-top: 10px;">{{ form.code }}</div>
+            </noscript>
+            {% if form.code.errors %}<small>{{ form.code.errors|striptags }}</small>{% endif %}
+          </div>
+
+          <div class="actions">
+            <button type="submit" class="primary-btn">استمرار</button>
+            <a href="{% url 'dashboard:login' %}" class="ghost-btn">عودة</a>
+          </div>
+        </form>
+
+        <form method="post" action="{% url 'dashboard:otp_resend' %}" style="margin-top: 10px;">
+          {% csrf_token %}
+          <button type="submit" class="small-link">إعادة إرسال رمز التحقق</button>
+        </form>
+
+        {% if dev_accept_any %}
+          <p class="auth-subtitle">وضع الاختبار مفعّل: أي رمز مكوّن من 4 أرقام أو أكثر.</p>
+        {% endif %}
+      </section>
+    </section>
+  </main>
+  <script src="{% static 'dashboard/js/auth.js' %}"></script>
+</body>
+</html>
+

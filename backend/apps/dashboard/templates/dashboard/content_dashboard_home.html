@@ -1,0 +1,87 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>لوحة فريق إدارة المحتوى</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">وحدات العمل: 5</span>
+          <span class="pill accent">فريق التشغيل: إدارة المحتوى</span>
+          <span class="pill mint">جاهزية النظام: مباشر</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>وحدات لوحة فريق إدارة المحتوى</h2>
+          </div>
+
+          <div class="module-grid">
+            {% for item in nav_items %}
+              {% if item.key != "home" %}
+                <a class="module-card" href="{{ item.url }}">
+                  <h3>{{ item.label }}</h3>
+                  <p>{{ item.description }}</p>
+                  <span class="ghost-btn">فتح الوحدة</span>
+                </a>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+          <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
+          <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
+          <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+
+          <div class="side-card">
+            <h4>الفرق المعتمدة</h4>
+            {% for team in managed_teams %}
+              <div class="quick-stat"><span>{{ forloop.counter }}</span><strong>{{ team }}</strong></div>
+            {% endfor %}
+          </div>
+
+          <div class="side-card">
+            <h4>رموز الطلبات</h4>
+            {% for item in request_codes %}
+              <div class="quick-stat"><span>{{ item.code }}</span><strong>{{ item.label }}</strong></div>
+            {% endfor %}
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script src="{% static 'dashboard/js/content.js' %}"></script>
+</body>
+</html>

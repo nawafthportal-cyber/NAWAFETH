@@ -1,0 +1,62 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>دخول لوحة التحكم</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <main class="auth-shell">
+    <section class="auth-layout">
+      <aside class="auth-brand fade-in">
+        <span class="pill brand">بوابة تشغيل موحدة</span>
+        <h2>لوحة إدارة الصلاحيات وتقارير المنصة</h2>
+        <p>واجهة مركزية لإدارة الدخول، مستويات الصلاحيات، ولوحات الفرق التشغيلية داخل المنصة.</p>
+        <ul class="auth-points">
+          <li>مصادقة آمنة مع تحقق ثنائي OTP.</li>
+          <li>تحكم دقيق في الصلاحيات حسب المستوى واللوحة.</li>
+          <li>تقارير تشغيلية ديناميكية وتصدير احترافي للبيانات.</li>
+        </ul>
+      </aside>
+
+      <section class="auth-card slide-up">
+        <h1 class="auth-title">دخول لوحة التحكم</h1>
+        <p class="auth-subtitle">أدخل بيانات الحساب التشغيلي للمتابعة</p>
+
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <form method="post" class="stack" id="loginForm">
+          {% csrf_token %}
+          <div class="field">
+            <label for="{{ form.username.id_for_label }}">اسم المستخدم</label>
+            {{ form.username }}
+            {% if form.username.errors %}<small>{{ form.username.errors|striptags }}</small>{% endif %}
+          </div>
+          <div class="field">
+            <label for="{{ form.password.id_for_label }}">كلمة المرور</label>
+            {{ form.password }}
+            {% if form.password.errors %}<small>{{ form.password.errors|striptags }}</small>{% endif %}
+          </div>
+          <div class="actions">
+            <button type="submit" class="primary-btn">دخول</button>
+            <a href="/" class="ghost-btn">إلغاء</a>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="{% static 'dashboard/js/auth.js' %}"></script>
+</body>
+</html>
+

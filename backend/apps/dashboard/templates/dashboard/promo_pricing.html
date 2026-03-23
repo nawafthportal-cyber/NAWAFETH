@@ -1,60 +1,123 @@
-{% extends "dashboard/base_dashboard.html" %}
-{% block title %}أسعار الترويج{% endblock %}
-
-{% block content %}
-<div class="flex items-center justify-between mb-6">
-  <div>
-    <h1 class="text-3xl font-bold bg-gradient-to-r from-fuchsia-600 to-pink-600 bg-clip-text text-transparent">أسعار الترويج</h1>
-    <p class="text-gray-500 mt-1">تسعير نظامي داخلي لكل خدمة، مع إمكانية تعديل القواعد دون تغيير الكود.</p>
-  </div>
-</div>
-
-{% include "dashboard/_promo_nav.html" %}
-
-<div class="space-y-6">
-  {% for group in groups %}
-    <div class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
-      <div class="px-5 py-4 border-b border-gray-100">
-        <h2 class="font-bold text-xl text-fuchsia-700">{{ group.label }}</h2>
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>أسعار الترويج</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">قواعد التسعير الديناميكي مفعلة</span>
+          <span class="pill accent">الحد الأدنى للحملات: 24 ساعة</span>
+        </div>
       </div>
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="text-right px-4 py-3">القاعدة</th>
-            <th class="text-right px-4 py-3">الوحدة</th>
-            <th class="text-right px-4 py-3">التكلفة (SAR)</th>
-            <th class="text-right px-4 py-3">مفعلة</th>
-            <th class="text-right px-4 py-3">حفظ</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for row in group.rows %}
-          <tr class="hover:bg-gray-50">
-            <td class="px-4 py-3 font-semibold">{{ row.title }}</td>
-            <td class="px-4 py-3">{{ row.get_unit_display }}</td>
-            <td class="px-4 py-3">
-              <form method="post" action="{% url 'dashboard:promo_pricing_update_action' %}" class="flex items-center gap-3">
-                {% csrf_token %}
-                <input type="hidden" name="code" value="{{ row.code }}">
-                <input name="amount" value="{{ row.amount }}" class="w-40 rounded-lg border-gray-200 px-3 py-2">
-            </td>
-            <td class="px-4 py-3">
-                <label class="inline-flex items-center gap-2">
-                  <input type="checkbox" name="is_active" value="1" {% if row.is_active %}checked{% endif %}>
-                  <span class="text-gray-700">نعم</span>
-                </label>
-            </td>
-            <td class="px-4 py-3">
-                <button class="px-4 py-2 rounded-lg bg-fuchsia-600 text-white font-semibold">حفظ</button>
-              </form>
-            </td>
-          </tr>
-          {% empty %}
-          <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">لا توجد قواعد تسعير لهذه الخدمة.</td></tr>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>بنر الصفحة الرئيسية</h2></div>
+          {% if home_banner_rule %}
+            <div class="quick-stat">
+              <span>{{ home_banner_rule.title }}</span>
+              <strong>{{ home_banner_rule.amount }} ريال / يوم</strong>
+            </div>
+          {% else %}
+            <p class="subtitle">لا توجد قاعدة تسعير مفعلة حاليًا.</p>
+          {% endif %}
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>تسعير معدل الظهور</h2></div>
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>الخدمة</th>
+                  <th>معدل الظهور</th>
+                  <th>التكلفة (ريال/يوم)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rule in featured_rules %}
+                  <tr><td>شريط أبرز المختصين</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
+                {% endfor %}
+                {% for rule in portfolio_rules %}
+                  <tr><td>شريط البنرات والمشاريع</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
+                {% endfor %}
+                {% for rule in snapshot_rules %}
+                  <tr><td>شريط اللمحات</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>الظهور في قوائم البحث</h2></div>
+          <div class="table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>ترتيب الظهور</th>
+                  <th>التكلفة (ريال/يوم)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for rule in search_rules %}
+                  <tr>
+                    <td>{{ rule.get_search_position_display }}</td>
+                    <td>{{ rule.amount }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="2">لا توجد قواعد بحث مفعلة.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row"><h2>الرسائل الدعائية والرعاية</h2></div>
+          <div class="content-two-col">
+            <div class="side-card">
+              <h4>الرسائل الدعائية</h4>
+              {% for rule in message_rules %}
+                <div class="quick-stat"><span>{{ rule.title }}</span><strong>{{ rule.amount }} ريال</strong></div>
+              {% empty %}
+                <p class="subtitle">لا توجد قواعد رسائل مفعلة.</p>
+              {% endfor %}
+            </div>
+            <div class="side-card">
+              <h4>الرعاية</h4>
+              {% for rule in sponsorship_rules %}
+                <div class="quick-stat"><span>{{ rule.title }}</span><strong>{{ rule.amount }} ريال / شهر</strong></div>
+              {% empty %}
+                <p class="subtitle">لا توجد قواعد رعاية مفعلة.</p>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
           {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% endfor %}
-</div>
-{% endblock %}
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/promo.js' %}"></script>
+</body>
+</html>

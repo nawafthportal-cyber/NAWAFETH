@@ -1,0 +1,124 @@
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>إدارة التميز</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">إجمالي المرشحين: {{ total_rows }}</span>
+          <span class="pill accent">الدورة الحالية تنتهي: {{ cycle_end|date:"Y-m-d" }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>مرشحو الشارات</h2>
+            <div class="actions">
+              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=pdf">PDF</a>
+              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=csv">CSV</a>
+            </div>
+          </div>
+
+          <form method="get" class="toolbar">
+            <input class="input-control" type="search" name="q" value="{{ q }}" placeholder="بحث باسم المختص أو التصنيف أو الجوال">
+            <select class="input-control" name="badge">
+              <option value="">كل الشارات</option>
+              {% for badge in badge_types %}
+                <option value="{{ badge.code }}" {% if badge_filter == badge.code %}selected{% endif %}>{{ badge.name_ar }}</option>
+              {% endfor %}
+            </select>
+            <div class="actions">
+              <button class="primary-btn light" type="submit">تحديث</button>
+              <a class="ghost-btn" href="{% url 'dashboard:content_excellence' %}">مسح الفلاتر</a>
+            </div>
+          </form>
+
+          <div class="badge-kpi-grid">
+            {% for badge in badge_types %}
+              <article class="badge-chip">
+                <h4>{{ badge.name_ar }}</h4>
+                <p>{{ badge.description }}</p>
+                <div class="quick-stat"><span>مرشحون</span><strong>{{ badge.candidates_count }}</strong></div>
+              </article>
+            {% endfor %}
+          </div>
+
+          <div class="table-wrap" style="margin-top: 10px;">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>اسم المختص</th>
+                  <th>رقم الجوال</th>
+                  <th>الشارة</th>
+                  <th>الترتيب</th>
+                  <th>عدد المتابعين</th>
+                  <th>عدد الطلبات المغلقة</th>
+                  <th>متوسط التقييم</th>
+                  <th>عدد التقييمات</th>
+                  <th>التصنيف الرئيسي</th>
+                  <th>التصنيف الفرعي</th>
+                  <th>الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                  <tr>
+                    <td>{{ row.provider_name }}</td>
+                    <td>{{ row.provider_phone }}</td>
+                    <td>{{ row.badge_name }}</td>
+                    <td>{{ row.rank_position }}</td>
+                    <td>{{ row.followers_count }}</td>
+                    <td>{{ row.completed_orders_count }}</td>
+                    <td>{{ row.rating_avg }}</td>
+                    <td>{{ row.rating_count }}</td>
+                    <td>{{ row.category_name }}</td>
+                    <td>{{ row.subcategory_name }}</td>
+                    <td>{{ row.status }}</td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="11">لا توجد بيانات مرشحين ضمن الفلاتر الحالية.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% for item in nav_items %}
+            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="{% static 'dashboard/js/content.js' %}"></script>
+</body>
+</html>

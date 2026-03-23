@@ -1,150 +1,42 @@
-{% extends "dashboard/base_dashboard.html" %}
-{% block title %}تفاصيل مرشح التميز{% endblock %}
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>تفاصيل مرشح التميز</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <header class="dash-header">
+    <h1>تفاصيل مرشح التميز</h1>
+    <p class="subtitle">{{ candidate.provider.display_name }} - {{ candidate.badge_type.name_ar }}</p>
+  </header>
 
-{% block content %}
-<div class="flex flex-col gap-6">
-  <div class="flex items-center justify-between gap-4">
-    <div>
-      <h1 class="text-3xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">{{ candidate.provider.display_name }}</h1>
-      <p class="text-gray-500 mt-1">{{ candidate.badge_type.name_ar }} • {{ candidate.provider.user.phone|default:'—' }}</p>
-    </div>
-    <a href="{% url 'dashboard:excellence_dashboard' %}" class="px-4 py-2 rounded-lg bg-white border border-gray-200 font-semibold">العودة إلى إدارة التميز</a>
-  </div>
-
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-    <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-      <div class="text-xs text-gray-500">الترتيب</div>
-      <div class="mt-2 text-3xl font-extrabold text-amber-700">#{{ candidate.rank_position }}</div>
-    </div>
-    <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-      <div class="text-xs text-gray-500">المتابعون</div>
-      <div class="mt-2 text-3xl font-extrabold text-slate-700">{{ candidate.followers_count }}</div>
-    </div>
-    <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-      <div class="text-xs text-gray-500">الطلبات المكتملة</div>
-      <div class="mt-2 text-3xl font-extrabold text-emerald-700">{{ candidate.completed_orders_count }}</div>
-    </div>
-  </div>
-
-  <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-    <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-      <h2 class="text-lg font-bold text-gray-900 mb-4">بيانات التقييم</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div>
-          <div class="text-gray-500">متوسط التقييم</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.rating_avg }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">عدد التقييمات</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.rating_count }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">الفئة</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.category.name|default:'—' }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">التصنيف</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.subcategory.name|default:'—' }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">بداية دورة التقييم</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.evaluation_period_start|date:'Y-m-d H:i' }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">نهاية دورة التقييم</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.evaluation_period_end|date:'Y-m-d H:i' }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">الحالة</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.get_status_display }}</div>
-        </div>
-        <div>
-          <div class="text-gray-500">آخر مراجعة</div>
-          <div class="font-semibold text-gray-900 mt-1">{{ candidate.reviewed_at|date:'Y-m-d H:i'|default:'—' }}</div>
-        </div>
+  <main class="dash-shell" style="grid-template-columns: 1fr;">
+    <section class="panel content-panel">
+      <div class="kpi-content">
+        <div class="metric"><div class="label">الترتيب</div><div class="value">{{ candidate.rank_position }}</div></div>
+        <div class="metric"><div class="label">عدد الطلبات المكتملة</div><div class="value">{{ candidate.completed_orders_count }}</div></div>
+        <div class="metric"><div class="label">التقييم</div><div class="value">{{ candidate.rating_avg }}</div></div>
       </div>
-      {% if candidate.review_note %}
-      <div class="mt-4 rounded-xl bg-amber-50 text-amber-900 p-4 text-sm">
-        {{ candidate.review_note }}
-      </div>
-      {% endif %}
-    </div>
 
-    <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-      <h2 class="text-lg font-bold text-gray-900 mb-4">إجراءات الإدارة</h2>
-      {% if active_award %}
-      <div class="rounded-xl bg-emerald-50 border border-emerald-100 p-4 text-sm mb-4">
-        <div class="font-semibold text-emerald-800">الشارة مفعلة حاليًا</div>
-        <div class="text-emerald-700 mt-2">صالحة حتى {{ active_award.valid_until|date:'Y-m-d H:i' }}</div>
-      </div>
       {% if can_write %}
-      <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' active_award.id %}" class="space-y-3">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{% url 'dashboard:excellence_candidate_detail' candidate.id %}">
-        <textarea name="note" rows="4" placeholder="ملاحظة السحب (اختياري)" class="w-full rounded-lg border-gray-200 px-3 py-2"></textarea>
-        <button class="px-4 py-2 rounded-lg bg-rose-600 text-white font-semibold">سحب الشارة</button>
-      </form>
-      {% else %}
-      <div class="text-xs text-gray-500 mt-2">صلاحية القراءة فقط</div>
-      {% endif %}
-      {% else %}
-      {% if can_write %}
-      <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}" class="space-y-3">
-        {% csrf_token %}
-        <input type="hidden" name="next" value="{% url 'dashboard:excellence_candidate_detail' candidate.id %}">
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">صالحة حتى</label>
-          <input type="datetime-local" name="valid_until" class="w-full rounded-lg border-gray-200 px-3 py-2">
+        <div class="actions" style="margin-top: 12px;">
+          <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}">
+            {% csrf_token %}
+            <button type="submit" class="primary-btn">اعتماد الشارة</button>
+          </form>
+          {% if active_award %}
+            <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' active_award.id %}">
+              {% csrf_token %}
+              <button type="submit" class="danger-btn">سحب الشارة</button>
+            </form>
+          {% endif %}
         </div>
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-1">ملاحظة الاعتماد</label>
-          <textarea name="note" rows="4" placeholder="ملاحظة داخلية اختيارية" class="w-full rounded-lg border-gray-200 px-3 py-2"></textarea>
-        </div>
-        <button class="px-4 py-2 rounded-lg bg-amber-600 text-white font-semibold">اعتماد الشارة</button>
-      </form>
-      {% else %}
-      <div class="text-xs text-gray-500 mt-2">صلاحية القراءة فقط</div>
       {% endif %}
-      {% endif %}
-    </div>
-  </div>
+    </section>
+  </main>
+</body>
+</html>
 
-  <div class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-    <h2 class="text-lg font-bold text-gray-900 mb-4">سجل المنح</h2>
-    <div class="overflow-x-auto">
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="text-right px-4 py-3">اعتمدت في</th>
-            <th class="text-right px-4 py-3">صالحة حتى</th>
-            <th class="text-right px-4 py-3">الحالة</th>
-            <th class="text-right px-4 py-3">المعتمد بواسطة</th>
-            <th class="text-right px-4 py-3">السحب</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-100">
-          {% for award in awards %}
-          <tr>
-            <td class="px-4 py-3">{{ award.awarded_at|date:'Y-m-d H:i' }}</td>
-            <td class="px-4 py-3">{{ award.valid_until|date:'Y-m-d H:i' }}</td>
-            <td class="px-4 py-3">
-              {% if award.is_active %}
-              <span class="inline-flex rounded-full bg-emerald-50 text-emerald-700 px-3 py-1 text-xs font-semibold">نشطة</span>
-              {% else %}
-              <span class="inline-flex rounded-full bg-gray-100 text-gray-600 px-3 py-1 text-xs font-semibold">غير نشطة</span>
-              {% endif %}
-            </td>
-            <td class="px-4 py-3">{{ award.approved_by.phone|default:'—' }}</td>
-            <td class="px-4 py-3">{{ award.revoked_at|date:'Y-m-d H:i'|default:'—' }}</td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400">لا يوجد سجل منح حتى الآن.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-{% endblock %}

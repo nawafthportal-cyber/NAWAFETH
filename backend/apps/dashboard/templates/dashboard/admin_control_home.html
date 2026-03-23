@@ -1,115 +1,345 @@
-{% extends "dashboard/base_dashboard.html" %}
-{% block title %}إدارة النظام{% endblock %}
+{% load static %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin User Access</title>
+  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>لوحة إدارة الصلاحيات وتقارير المنصة - Admin User Access</h1>
+          <p class="subtitle">تحكم مركزي بالحسابات التشغيلية وصلاحيات الدخول وتقارير الأداء.</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">إجمالي الحسابات: {{ access_summary.total }}</span>
+          <span class="pill mint">الحسابات النشطة: {{ access_summary.active }}</span>
+          <span class="pill danger">الحسابات المسحوبة: {{ access_summary.revoked }}</span>
+        </div>
+      </div>
+    </header>
 
-{% block content %}
-<div class="space-y-6">
-  <div class="flex items-center gap-3 mb-2">
-    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-600 to-gray-800 flex items-center justify-center text-white text-2xl">🔐</div>
-    <div>
-      <h1 class="text-2xl font-bold text-gray-800">إدارة النظام</h1>
-      <p class="text-gray-500 text-sm">لوحة التحكم الرئيسية — الصلاحيات والمستخدمين والتدقيق</p>
-    </div>
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <section class="section-view section-panel slide-up {% if section != 'access' %}hidden{% endif %}" data-section-view="access">
+          <div class="title-row">
+            <h2>إدارة الصلاحيات</h2>
+            <div class="actions">
+              <a href="?section=access" class="primary-btn">حساب جديد</a>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <input id="accessSearch" class="input-control" type="search" placeholder="ابحث بالاسم أو الجوال أو المستوى...">
+            <select id="levelFilter" class="input-control">
+              <option value="">جميع المستويات</option>
+              <option value="admin">Admin</option>
+              <option value="power">Power User</option>
+              <option value="user">User</option>
+              <option value="qa">QA</option>
+              <option value="client">Client</option>
+            </select>
+            <div class="actions">
+              <button id="clearFiltersBtn" type="button" class="ghost-btn">إعادة ضبط الفلاتر</button>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table class="dash-table" id="accessTable">
+              <thead>
+                <tr>
+                  <th>حذف</th>
+                  <th>تحديث</th>
+                  <th>رقم الجوال</th>
+                  <th>تاريخ السحب</th>
+                  <th>تاريخ انتهاء كلمة المرور</th>
+                  <th>كلمة المرور</th>
+                  <th>اللوحات</th>
+                  <th>المستوى</th>
+                  <th>اسم المستخدم</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in access_rows %}
+                  <tr
+                    data-level="{{ row.level_code }}"
+                    data-username="{{ row.username|lower }}"
+                    data-mobile="{{ row.mobile|lower }}"
+                    data-dashboard="{{ row.dashboards_text|lower }}"
+                    class="{% if row.revoked %}row-revoked{% endif %}"
+                  >
+                    <td>
+                      <form method="post" onsubmit="return confirm('تأكيد تعطيل الحساب؟');">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="delete_user">
+                        <input type="hidden" name="profile_id" value="{{ row.profile_id }}">
+                        <button type="submit" class="icon-btn danger" title="تعطيل">
+                          <span aria-hidden="true">🗑</span>
+                        </button>
+                      </form>
+                    </td>
+                    <td>
+                      <div class="actions">
+                        <a class="icon-btn" href="?section=access&edit={{ row.profile_id }}" title="تعديل">
+                          <span aria-hidden="true">↻</span>
+                        </a>
+                        <form method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="action" value="toggle_revoke">
+                          <input type="hidden" name="profile_id" value="{{ row.profile_id }}">
+                          <button type="submit" class="icon-btn" title="سحب/إلغاء السحب">
+                            {% if row.revoked %}
+                              <span aria-hidden="true">✓</span>
+                            {% else %}
+                              <span aria-hidden="true">⛔</span>
+                            {% endif %}
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                    <td>{{ row.mobile }}</td>
+                    <td>{{ row.account_revoke_date|default:"-" }}</td>
+                    <td>{{ row.password_expiration_date|default:"-" }}</td>
+                    <td>{{ row.password_mask }}</td>
+                    <td>{{ row.dashboards_text }}</td>
+                    <td>
+                      <span class="status-dot {% if not row.revoked %}active{% else %}revoked{% endif %}"></span>
+                      {{ row.level }}
+                    </td>
+                    <td>{{ row.username }}</td>
+                  </tr>
+                {% empty %}
+                  <tr>
+                    <td colspan="9">لا توجد حسابات تشغيل حالياً.</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="form-shell">
+            <h3>{% if edit_profile %}تعديل حساب تشغيل{% else %}إضافة حساب تشغيل جديد{% endif %}</h3>
+            <form method="post" id="accessForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_user">
+              {{ access_form.profile_id }}
+              <div class="form-grid">
+                <div class="field">
+                  <label for="{{ access_form.username.id_for_label }}">اسم المستخدم</label>
+                  {{ access_form.username }}
+                  {% if access_form.username.errors %}<small>{{ access_form.username.errors|striptags }}</small>{% endif %}
+                </div>
+                <div class="field">
+                  <label for="{{ access_form.level.id_for_label }}">مستوى الصلاحية</label>
+                  {{ access_form.level }}
+                  {% if access_form.level.errors %}<small>{{ access_form.level.errors|striptags }}</small>{% endif %}
+                </div>
+                <div class="field">
+                  <label for="{{ access_form.mobile_number.id_for_label }}">رقم الجوال</label>
+                  {{ access_form.mobile_number }}
+                  {% if access_form.mobile_number.errors %}<small>{{ access_form.mobile_number.errors|striptags }}</small>{% endif %}
+                </div>
+                <div class="field">
+                  <label for="{{ access_form.password.id_for_label }}">كلمة المرور</label>
+                  {{ access_form.password }}
+                  {% if access_form.password.errors %}<small>{{ access_form.password.errors|striptags }}</small>{% endif %}
+                </div>
+                <div class="field">
+                  <label for="{{ access_form.password_expiration_date.id_for_label }}">تاريخ انتهاء كلمة المرور</label>
+                  {{ access_form.password_expiration_date }}
+                </div>
+                <div class="field">
+                  <label for="{{ access_form.account_revoke_date.id_for_label }}">تاريخ سحب الحساب</label>
+                  {{ access_form.account_revoke_date }}
+                </div>
+                <div class="field full">
+                  <label for="{{ access_form.dashboards.id_for_label }}">لوحات التحكم المسموحة</label>
+                  <div class="checks">
+                    {{ access_form.dashboards }}
+                  </div>
+                  {% if access_form.dashboards.errors %}<small>{{ access_form.dashboards.errors|striptags }}</small>{% endif %}
+                </div>
+              </div>
+              <div class="actions" style="margin-top: 12px;">
+                <button type="submit" class="primary-btn">حفظ</button>
+                <a href="?section=access" class="ghost-btn">إلغاء</a>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="section-view section-panel slide-up {% if section != 'reports' %}hidden{% endif %}" data-section-view="reports">
+          <div class="title-row">
+            <h2>إحصاءات وتقارير المنصة</h2>
+            <p class="subtitle">الفترة الحالية: من {{ reports.start }} إلى {{ reports.end }}</p>
+          </div>
+
+          <div class="report-grid">
+            <article class="kpi-card">
+              <h3>إحصاءات المستخدمين</h3>
+              <div class="kpi-content">
+                <div class="metric">
+                  <div class="label">عدد المستخدمين الكلي</div>
+                  <div class="value" data-animate-number>{{ reports.users_summary.total_users }}</div>
+                  <div class="bar"><span data-bar-fill></span></div>
+                </div>
+                <div class="metric">
+                  <div class="label">عدد المستخدمين مكتملين التسجيل</div>
+                  <div class="value" data-animate-number>{{ reports.users_summary.users_complete }}</div>
+                  <div class="bar"><span data-bar-fill></span></div>
+                </div>
+                <div class="metric">
+                  <div class="label">عدد المستخدمين الموظفين</div>
+                  <div class="value" data-animate-number>{{ reports.users_summary.staff_users }}</div>
+                  <div class="bar"><span data-bar-fill></span></div>
+                </div>
+                <div class="metric">
+                  <div class="label">عدد مرات التحقق OTP</div>
+                  <div class="value" data-animate-number>{{ reports.users_summary.app_logins }}</div>
+                  <div class="bar"><span data-bar-fill></span></div>
+                </div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات الطلبات</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">عدد الطلبات الجديدة</div><div class="value" data-animate-number>{{ reports.requests_summary.new }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد الطلبات تحت التنفيذ</div><div class="value" data-animate-number>{{ reports.requests_summary.in_progress }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد الطلبات المكتملة</div><div class="value" data-animate-number>{{ reports.requests_summary.completed }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد الطلبات الملغاة</div><div class="value" data-animate-number>{{ reports.requests_summary.cancelled }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">المجموع الكلي لجميع الطلبات</div><div class="value" data-animate-number>{{ reports.requests_summary.total }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات التفاعل</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">عدد المراجعات</div><div class="value" data-animate-number>{{ reports.interaction_summary.reviews }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد عمليات الإعجاب بالمحتوى</div><div class="value" data-animate-number>{{ reports.interaction_summary.portfolio_likes }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد عمليات التوصية بالمنصة</div><div class="value" data-animate-number>{{ reports.interaction_summary.provider_follows }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عمليات البحث</div><div class="value" data-animate-number>{{ reports.search_events }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">إحصاءات البريد الإلكتروني</div><div class="value" data-animate-number>{{ reports.email_events }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات الدعم والمساعدة</h3>
+              <div class="kpi-content">
+                {% for row in reports.support_type_rows %}
+                  <div class="metric">
+                    <div class="label">{{ row.type_label }}</div>
+                    <div class="value" data-animate-number>{{ row.total }}</div>
+                    <div class="bar"><span data-bar-fill></span></div>
+                  </div>
+                {% empty %}
+                  <div class="metric">
+                    <div class="label">لا توجد بيانات</div>
+                    <div class="value" data-animate-number>0</div>
+                    <div class="bar"><span data-bar-fill></span></div>
+                  </div>
+                {% endfor %}
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>التصنيف الرئيسي لمجال الخدمات</h3>
+              <div class="kpi-content" style="grid-template-columns: 1fr;">
+                <table class="category-table">
+                  <thead>
+                    <tr>
+                      <th>التصنيف الرئيسي</th>
+                      <th>عدد المتخصصين</th>
+                      <th>عدد الطلبات</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in reports.category_stats %}
+                      <tr>
+                        <td>{{ row.name }}</td>
+                        <td data-animate-number>{{ row.specialists }}</td>
+                        <td data-animate-number>{{ row.requests }}</td>
+                      </tr>
+                    {% empty %}
+                      <tr>
+                        <td colspan="3">لا توجد بيانات تصنيفية متاحة.</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          <a class="tab-btn {% if section == 'access' %}active{% endif %}" href="?section=access" data-section-link="access">إدارة الصلاحيات</a>
+          <a class="tab-btn {% if section == 'reports' %}active{% endif %}" href="?section=reports" data-section-link="reports">إحصاءات وتقارير المنصة</a>
+          <a class="tab-btn" href="{% url 'dashboard:content_dashboard_home' %}">لوحة إدارة المحتوى</a>
+          <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
+
+          <div class="side-card">
+            <h4>بحث سريع</h4>
+            <div class="quick-stat"><span>مستوى Admin</span><strong>{{ access_summary.by_level.admin|default:0 }}</strong></div>
+            <div class="quick-stat"><span>مستوى Power</span><strong>{{ access_summary.by_level.power|default:0 }}</strong></div>
+            <div class="quick-stat"><span>مستوى User</span><strong>{{ access_summary.by_level.user|default:0 }}</strong></div>
+            <div class="quick-stat"><span>مستوى QA</span><strong>{{ access_summary.by_level.qa|default:0 }}</strong></div>
+            <div class="quick-stat"><span>مستوى Client</span><strong>{{ access_summary.by_level.client|default:0 }}</strong></div>
+          </div>
+
+          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsFiltersCard">
+            <h4>إعدادات التقارير</h4>
+            <form method="get" class="stack">
+              <input type="hidden" name="section" value="reports">
+              <div class="field">
+                <label>بداية التقرير</label>
+                <input type="date" class="input-control" name="start" value="{{ reports.start }}">
+              </div>
+              <div class="field">
+                <label>نهاية التقرير</label>
+                <input type="date" class="input-control" name="end" value="{{ reports.end }}">
+              </div>
+              <button type="submit" class="primary-btn light">تحديث</button>
+            </form>
+          </div>
+
+          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsExportCard">
+            <h4>تصدير البيانات</h4>
+            <div class="stack">
+              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=pdf">تصدير PDF</a>
+              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=xlsx">تصدير Excel</a>
+              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=csv">تصدير CSV</a>
+            </div>
+          </div>
+
+          <a href="{% url 'dashboard:logout' %}" class="ghost-btn">تسجيل الخروج</a>
+        </div>
+      </aside>
+    </main>
   </div>
 
-  <!-- Stats Cards -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-sm">👥</div>
-        <span class="text-sm text-gray-500 font-semibold">المستخدمون</span>
-      </div>
-      <div class="text-2xl font-bold text-gray-800">{{ total_users }}</div>
-      <div class="text-xs text-gray-400 mt-1">{{ active_users }} نشط &middot; {{ staff_users_count }} موظف</div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-sm">🛡️</div>
-        <span class="text-sm text-gray-500 font-semibold">ملفات الصلاحيات</span>
-      </div>
-      <div class="text-2xl font-bold text-gray-800">{{ active_profiles }}</div>
-      <div class="text-xs text-gray-400 mt-1">{{ total_profiles }} إجمالي</div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-sm">📊</div>
-        <span class="text-sm text-gray-500 font-semibold">لوحات التحكم</span>
-      </div>
-      <div class="text-2xl font-bold text-gray-800">{{ dashboards_count }}</div>
-      <div class="text-xs text-gray-400 mt-1">مسجلة ونشطة</div>
-    </div>
-
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-sm">🔍</div>
-        <span class="text-sm text-gray-500 font-semibold">سجل التدقيق</span>
-      </div>
-      <div class="text-2xl font-bold text-gray-800">{{ recent_audit|length }}</div>
-      <div class="text-xs text-gray-400 mt-1">آخر الإجراءات</div>
-    </div>
-  </div>
-
-  <!-- Quick Links -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-    <a href="{% url 'dashboard:users_list' %}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover flex items-center gap-3 group">
-      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">👥</div>
-      <div>
-        <div class="font-bold text-gray-800 group-hover:text-blue-700">إدارة المستخدمين</div>
-        <div class="text-xs text-gray-400">عرض وتعديل الحسابات</div>
-      </div>
-    </a>
-    <a href="{% url 'dashboard:access_profiles_list' %}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover flex items-center gap-3 group">
-      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">🔐</div>
-      <div>
-        <div class="font-bold text-gray-800 group-hover:text-emerald-700">صلاحيات التشغيل</div>
-        <div class="text-xs text-gray-400">إدارة ملفات الوصول</div>
-      </div>
-    </a>
-    <a href="{% url 'dashboard:audit_log_list' %}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover flex items-center gap-3 group">
-      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">🔍</div>
-      <div>
-        <div class="font-bold text-gray-800 group-hover:text-amber-700">سجل التدقيق</div>
-        <div class="text-xs text-gray-400">تتبع الإجراءات</div>
-      </div>
-    </a>
-    <a href="{% url 'dashboard:plans_list' %}" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 card-hover flex items-center gap-3 group">
-      <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-lg group-hover:scale-110 transition-transform">💎</div>
-      <div>
-        <div class="font-bold text-gray-800 group-hover:text-violet-700">إدارة الخطط</div>
-        <div class="text-xs text-gray-400">خطط الاشتراكات</div>
-      </div>
-    </a>
-  </div>
-
-  <!-- Recent Audit Log -->
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-      <h2 class="font-bold text-lg text-gray-800">آخر إجراءات التدقيق</h2>
-      <a href="{% url 'dashboard:audit_log_list' %}" class="text-sm text-indigo-600 font-semibold hover:text-indigo-700">عرض الكل →</a>
-    </div>
-    <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-600">
-        <tr>
-          <th class="px-5 py-3 text-right font-semibold">المستخدم</th>
-          <th class="px-5 py-3 text-right font-semibold">الإجراء</th>
-          <th class="px-5 py-3 text-right font-semibold">المرجع</th>
-          <th class="px-5 py-3 text-right font-semibold">التاريخ</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for log in recent_audit %}
-        <tr class="hover:bg-gray-50 transition-colors">
-          <td class="px-5 py-3 font-semibold text-gray-800">{{ log.actor.phone|default:"—" }}</td>
-          <td class="px-5 py-3 text-gray-600">{{ log.get_action_display }}</td>
-          <td class="px-5 py-3 text-gray-500">{{ log.reference_type }} #{{ log.reference_id }}</td>
-          <td class="px-5 py-3 text-gray-400">{{ log.created_at|date:"Y/m/d H:i" }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="px-5 py-8 text-center text-gray-400">لا توجد إجراءات مسجلة.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-{% endblock %}
+  <script>
+    window.dashboardPageState = {
+      section: "{{ section }}",
+    };
+  </script>
+  <script src="{% static 'dashboard/js/admin.js' %}"></script>
+</body>
+</html>
