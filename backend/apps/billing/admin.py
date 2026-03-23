@@ -3,7 +3,14 @@ from django.contrib import admin, messages
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
 
-from .models import Invoice, PaymentAttempt, WebhookEvent, TRUSTED_PAYMENT_REFERENCE_TYPES
+from .models import Invoice, InvoiceLineItem, PaymentAttempt, WebhookEvent, TRUSTED_PAYMENT_REFERENCE_TYPES
+
+
+class InvoiceLineItemInline(admin.TabularInline):
+    model = InvoiceLineItem
+    extra = 0
+    fields = ("item_code", "title", "amount", "sort_order", "created_at")
+    readonly_fields = ("created_at",)
 
 
 @admin.register(Invoice)
@@ -24,6 +31,7 @@ class InvoiceAdmin(admin.ModelAdmin):
         "payment_amount",
         "payment_currency",
     )
+    inlines = [InvoiceLineItemInline]
 
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
@@ -69,6 +77,16 @@ class PaymentAttemptAdmin(admin.ModelAdmin):
     list_filter = ("provider", "status", "currency")
     search_fields = ("provider_reference", "idempotency_key", "invoice__code")
     ordering = ("-created_at",)
+
+
+@admin.register(InvoiceLineItem)
+class InvoiceLineItemAdmin(admin.ModelAdmin):
+    list_display = ("id", "invoice", "item_code", "title", "amount", "sort_order", "created_at")
+    list_filter = ("invoice__status",)
+    search_fields = ("invoice__code", "item_code", "title")
+    ordering = ("invoice", "sort_order", "id")
+    readonly_fields = ("created_at",)
+    list_select_related = ("invoice",)
 
 
 @admin.register(WebhookEvent)

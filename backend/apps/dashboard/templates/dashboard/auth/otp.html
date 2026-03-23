@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>التحقق الثنائي</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}التحقق الثنائي{% endblock %}
+{% block body %}
   <main class="auth-shell">
     <section class="auth-layout">
       <aside class="auth-brand fade-in">
@@ -51,7 +45,7 @@
               <input type="text" maxlength="1" class="otp-slot" inputmode="numeric">
             </div>
             <noscript>
-              <div style="margin-top: 10px;">{{ form.code }}</div>
+              <div>{{ form.code }}</div>
             </noscript>
             {% if form.code.errors %}<small>{{ form.code.errors|striptags }}</small>{% endif %}
           </div>
@@ -62,7 +56,7 @@
           </div>
         </form>
 
-        <form method="post" action="{% url 'dashboard:otp_resend' %}" style="margin-top: 10px;">
+        <form method="post" action="{% url 'dashboard:otp_resend' %}">
           {% csrf_token %}
           <button type="submit" class="small-link">إعادة إرسال رمز التحقق</button>
         </form>
@@ -73,7 +67,6 @@
       </section>
     </section>
   </main>
-  <script src="{% static 'dashboard/js/auth.js' %}"></script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}<script src="{% static 'dashboard/js/auth.js' %}"></script>{% endblock %}
 

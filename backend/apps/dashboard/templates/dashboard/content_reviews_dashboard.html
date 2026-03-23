@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>إدارة التقييم والمراجعات</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}إدارة التقييم والمراجعات{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -181,7 +175,7 @@
                 </div>
               </div>
 
-              <div class="actions" style="margin-top: 12px;">
+              <div class="actions">
                 {% if can_manage_content %}
                   <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
                   <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق</button>
@@ -241,5 +235,4 @@
   </div>
 
   <script src="{% static 'dashboard/js/content.js' %}"></script>
-</body>
-</html>
+{% endblock %}

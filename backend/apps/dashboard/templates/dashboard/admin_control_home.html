@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin User Access</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}Admin User Access{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -175,7 +169,7 @@
                   {% if access_form.dashboards.errors %}<small>{{ access_form.dashboards.errors|striptags }}</small>{% endif %}
                 </div>
               </div>
-              <div class="actions" style="margin-top: 12px;">
+              <div class="actions">
                 <button type="submit" class="primary-btn">حفظ</button>
                 <a href="?section=access" class="ghost-btn">إلغاء</a>
               </div>
@@ -259,7 +253,7 @@
 
             <article class="kpi-card">
               <h3>التصنيف الرئيسي لمجال الخدمات</h3>
-              <div class="kpi-content" style="grid-template-columns: 1fr;">
+              <div class="kpi-content single-col-grid">
                 <table class="category-table">
                   <thead>
                     <tr>
@@ -332,8 +326,6 @@
               <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=csv">تصدير CSV</a>
             </div>
           </div>
-
-          <a href="{% url 'dashboard:logout' %}" class="ghost-btn">تسجيل الخروج</a>
         </div>
       </aside>
     </main>
@@ -345,5 +337,4 @@
     };
   </script>
   <script src="{% static 'dashboard/js/admin.js' %}"></script>
-</body>
-</html>
+{% endblock %}

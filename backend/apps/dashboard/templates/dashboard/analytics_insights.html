@@ -1,19 +1,18 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>تحليلات التشغيل</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
-  <header class="dash-header">
-    <h1>مؤشرات التشغيل والتجارة</h1>
-    <p class="subtitle">الفترة: {{ start }} إلى {{ end }}</p>
-  </header>
+{% block title %}تحليلات التشغيل{% endblock %}
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>مؤشرات التشغيل والتجارة</h1>
+          <p class="subtitle">الفترة: {{ start }} إلى {{ end }}</p>
+        </div>
+      </div>
+    </header>
 
-  <main class="dash-shell" style="grid-template-columns: 1fr;">
+  <main class="dash-shell">
     <section class="panel content-panel">
       <div class="report-grid">
         <article class="kpi-card">
@@ -23,7 +22,7 @@
             <div class="metric"><div class="label">المحادثات</div><div class="value">{{ provider_data.summary.chat_starts }}</div></div>
             <div class="metric"><div class="label">طلبات مستلمة</div><div class="value">{{ provider_data.summary.requests_received }}</div></div>
           </div>
-          <div class="table-wrap" style="padding: 10px;">
+          <div class="table-wrap">
             <table class="dash-table">
               <thead>
                 <tr><th>المزود</th><th>المدينة</th><th>الطلبات</th></tr>
@@ -63,6 +62,6 @@
       </div>
     </section>
   </main>
-</body>
-</html>
+  </div>
+{% endblock %}
 

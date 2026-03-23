@@ -1,25 +1,21 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>لوحة التميز</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
-  <header class="dash-header">
-    <h1>لوحة التميز</h1>
-    <p class="subtitle">مرشحو شارات التميز</p>
-  </header>
-
-  <main class="dash-shell" style="grid-template-columns: 1fr;">
-    <section class="panel content-panel">
-      <div class="actions" style="margin-bottom: 10px;">
-        <a class="ghost-btn" href="?export=xlsx">تصدير Excel</a>
-        <a class="ghost-btn" href="?export=pdf">تصدير PDF</a>
-        <a class="ghost-btn" href="?export=csv">تصدير CSV</a>
+{% block title %}لوحة التميز{% endblock %}
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>لوحة التميز</h1>
+          <p class="subtitle">مرشحو شارات التميز</p>
+        </div>
+        <div class="hero-stats">
+          <a class="ghost-btn export-btn" href="?export=xlsx">Excel</a>
+          <a class="ghost-btn export-btn" href="?export=pdf">PDF</a>
+          <a class="ghost-btn export-btn" href="?export=csv">CSV</a>
+        </div>
       </div>
+    </header>
 
       <div class="table-wrap">
         <table class="dash-table">
@@ -51,6 +47,6 @@
       </div>
     </section>
   </main>
-</body>
-</html>
+  </div>
+{% endblock %}
 

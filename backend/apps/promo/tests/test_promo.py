@@ -1,5 +1,6 @@
 import pytest
 from datetime import timedelta
+from decimal import Decimal
 from io import StringIO
 from django.core.management import call_command
 from django.db.models import Q
@@ -15,7 +16,7 @@ from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.billing.models import InvoiceStatus
 from apps.core.models import PlatformConfig
-from apps.promo.models import HomeBanner, PromoAdType, PromoAsset, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
+from apps.promo.models import HomeBanner, PromoAdType, PromoAsset, PromoFrequency, PromoOpsStatus, PromoPosition, PromoPricingRule, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.promo.models import PromoAdPrice
 from apps.promo.serializers import PromoRequestCreateSerializer
 from apps.notifications.models import EventLog, Notification
@@ -36,6 +37,7 @@ from apps.subscriptions.models import (
 from apps.promo.services import quote_and_create_invoice
 from apps.promo.services import calc_promo_quote
 from apps.promo.services import (
+    ensure_default_pricing_rules,
     reject_request,
     send_due_promo_messages,
     set_promo_ops_status,
@@ -428,6 +430,52 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
     assert payload.get("mobile_scale") == 88
     assert payload.get("tablet_scale") == 96
     assert payload.get("desktop_scale") == 112
+
+
+def test_public_home_banners_without_limit_returns_all_active_assets(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود بنرات شامل",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    created_asset_ids = []
+    for idx in range(22):
+        promo_request = PromoRequest.objects.create(
+            requester=user,
+            title=f"home banner {idx}",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=now - timedelta(hours=1),
+            end_at=now + timedelta(days=2),
+            frequency=PromoFrequency.S60,
+            position=PromoPosition.NORMAL,
+            status=PromoRequestStatus.ACTIVE,
+            activated_at=now,
+        )
+        created_asset = PromoAsset.objects.create(
+            request=promo_request,
+            asset_type="image",
+            title=f"asset-{idx}",
+            file=SimpleUploadedFile(
+                f"home-{idx}.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+            uploaded_by=user,
+        )
+        created_asset_ids.append(created_asset.id)
+
+    unbounded_response = api.get("/api/promo/banners/home/")
+    assert unbounded_response.status_code == 200
+    unbounded_ids = {row["id"] for row in unbounded_response.data}
+    assert unbounded_ids.issuperset(set(created_asset_ids))
+
+    limited_response = api.get("/api/promo/banners/home/?limit=10")
+    assert limited_response.status_code == 200
+    assert len(limited_response.data) == 10
 
 
 def test_public_home_carousel_includes_device_scales(api, user):
@@ -2055,6 +2103,76 @@ def test_promo_dashboard_pages_render(client, promo_operator_user, user):
     assert client.get("/dashboard/promo/").status_code == 200
     assert client.get(f"/dashboard/promo/{pr.id}/").status_code == 200
     assert client.get("/dashboard/promo/modules/home_banner/").status_code == 200
+
+
+def test_promo_pricing_dashboard_updates_amounts(client, promo_operator_user):
+    ensure_default_pricing_rules()
+    pricing_rules = list(PromoPricingRule.objects.filter(is_active=True).order_by("sort_order", "id"))
+    assert pricing_rules
+
+    target_rule = pricing_rules[0]
+    target_new_amount = target_rule.amount + Decimal("125.75")
+
+    payload = {f"amount_{rule.id}": str(rule.amount) for rule in pricing_rules}
+    payload[f"amount_{target_rule.id}"] = str(target_new_amount)
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post("/dashboard/promo/pricing/", data=payload, follow=True)
+    assert response.status_code == 200
+
+    target_rule.refresh_from_db()
+    assert target_rule.amount == target_new_amount
+
+
+def test_promo_module_home_banner_prefills_selected_request_and_shows_assets(client, promo_operator_user, user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=3)
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="بنر الصفحة الرئيسية",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=start_at,
+        end_at=end_at,
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        target_category="التصميم وصناعة المحتوى",
+        target_city="الرياض",
+        redirect_url="https://example.com/promo",
+    )
+    asset = PromoAsset.objects.create(
+        request=promo_request,
+        asset_type="image",
+        title="home-banner",
+        file=SimpleUploadedFile(
+            "home-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.get("/dashboard/promo/modules/home_banner/")
+    assert response.status_code == 200
+    assert response.context["selected_request"].id == promo_request.id
+
+    form = response.context["module_form"]
+    assert str(form["request_id"].value()) == str(promo_request.id)
+    assert (form["title"].value() or "") == promo_request.title
+    assert (form["start_at"].value() or "") != ""
+    assert (form["end_at"].value() or "") != ""
+
+    module_assets = response.context["selected_request_module_assets"]
+    assert len(module_assets) == 1
+    assert module_assets[0].id == asset.id
 
 
 def test_promo_module_search_results_creates_one_item_per_scope(client, promo_operator_user, user):

@@ -4,7 +4,7 @@
    Fetches same API endpoints:
      • GET /api/providers/categories/
      • GET /api/providers/list/?page_size=10
-     • GET /api/promo/banners/home/?limit=10
+     • GET /api/promo/banners/home/
      • GET /api/promo/home-carousel/?limit=10
      • GET /api/providers/spotlights/feed/?limit=16
    SWR caching, auto-scroll reels, SpotlightViewer on tap.
@@ -22,6 +22,7 @@ const HomePage = (() => {
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
   let $portfolioShowcaseSection, $portfolioShowcaseList, $sponsorshipsSection, $sponsorshipsList;
+  let $snapshotsSection, $snapshotsList, $promoMessageSection, $promoMessageCard;
   let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
   let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
 
@@ -44,6 +45,7 @@ const HomePage = (() => {
   let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
   let _portfolioShowcaseData = [];
+  let _snapshotsData = [];
   let _homeContent = {
     heroTitle: '',
     heroSubtitle: '',
@@ -77,6 +79,10 @@ const HomePage = (() => {
     $portfolioShowcaseList = document.getElementById('portfolio-showcase-list');
     $sponsorshipsSection = document.getElementById('sponsorships');
     $sponsorshipsList = document.getElementById('sponsorships-list');
+    $snapshotsSection = document.getElementById('home-snapshots');
+    $snapshotsList = document.getElementById('home-snapshots-list');
+    $promoMessageSection = document.getElementById('home-promo-message');
+    $promoMessageCard = document.getElementById('home-promo-message-card');
     _bindReelsInteraction();
     _bindProvidersInteraction();
     _applyHomeContent();
@@ -217,10 +223,14 @@ const HomePage = (() => {
   }
 
   function _mergeBannerLists(primaryBanners, fallbackBanners, limit = 10) {
-    const cappedPrimary = primaryBanners.slice(0, limit);
-    const remaining = Math.max(0, limit - cappedPrimary.length);
-    if (!remaining) return cappedPrimary;
-    return cappedPrimary.concat(fallbackBanners.slice(0, remaining));
+    const safePrimary = Array.isArray(primaryBanners) ? primaryBanners : [];
+    const safeFallback = Array.isArray(fallbackBanners) ? fallbackBanners : [];
+    if (!safePrimary.length) {
+      return safeFallback.slice(0, limit);
+    }
+    const remaining = Math.max(0, limit - safePrimary.length);
+    if (!remaining) return safePrimary;
+    return safePrimary.concat(safeFallback.slice(0, remaining));
   }
 
   function _classifyCarouselMediaRatio(width, height) {
@@ -370,17 +380,19 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes, snapshotsRes, promoMessageRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
-      ApiClient.get('/api/promo/banners/home/?limit=10'),
+      ApiClient.get('/api/promo/banners/home/'),
       ApiClient.get('/api/promo/home-carousel/?limit=10'),
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
       ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=10'),
       ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
       ApiClient.get('/api/promo/active/?service_type=sponsorship&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=snapshots&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
     ]);
 
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
@@ -490,6 +502,26 @@ const HomePage = (() => {
       _renderSponsorships(placements);
     } else {
       _renderSponsorships([]);
+    }
+
+    // Promo snapshots strip
+    if (snapshotsRes.status === 'fulfilled' && snapshotsRes.value.ok && snapshotsRes.value.data) {
+      const placements = Array.isArray(snapshotsRes.value.data)
+        ? snapshotsRes.value.data
+        : (snapshotsRes.value.data.results || []);
+      _renderSnapshots(placements);
+    } else {
+      _renderSnapshots([]);
+    }
+
+    // Promo messages card
+    if (promoMessageRes.status === 'fulfilled' && promoMessageRes.value.ok && promoMessageRes.value.data) {
+      const rows = Array.isArray(promoMessageRes.value.data)
+        ? promoMessageRes.value.data
+        : (promoMessageRes.value.data.results || []);
+      _renderPromoMessage(rows.length ? rows[0] : null);
+    } else {
+      _renderPromoMessage(null);
     }
 
     // Offline detection
@@ -852,6 +884,125 @@ const HomePage = (() => {
 
     $sponsorshipsList.textContent = '';
     $sponsorshipsList.appendChild(frag);
+  }
+
+  function _normalizeSnapshotItem(rawPromo) {
+    if (!rawPromo || typeof rawPromo !== 'object') return null;
+    const assets = Array.isArray(rawPromo.assets) ? rawPromo.assets : [];
+    const first = assets.length ? assets[0] : null;
+    const fileUrl = _readBannerString(first && (first.file || first.file_url));
+    if (!fileUrl) return null;
+    const fileType = _readBannerString(first && first.file_type) || 'image';
+    return {
+      id: _readBannerInt(rawPromo.item_id || rawPromo.id),
+      provider_id: _readBannerInt(rawPromo.target_provider_id),
+      provider_display_name: _readBannerString(rawPromo.target_provider_display_name) || 'مقدم خدمة',
+      provider_profile_image: _readBannerString(rawPromo.target_provider_profile_image),
+      file_type: fileType,
+      file_url: fileUrl,
+      thumbnail_url: fileType === 'video' ? '' : fileUrl,
+      caption: _readBannerString(rawPromo.title) || 'لمحة ممولة',
+      redirect_url: _readBannerString(rawPromo.redirect_url),
+    };
+  }
+
+  function _renderSnapshots(placements) {
+    if (!$snapshotsSection || !$snapshotsList) return;
+    const items = (Array.isArray(placements) ? placements : [])
+      .map(_normalizeSnapshotItem)
+      .filter(Boolean);
+    _snapshotsData = items;
+    if (!items.length) {
+      $snapshotsSection.style.display = 'none';
+      $snapshotsList.textContent = '';
+      return;
+    }
+    $snapshotsSection.style.display = '';
+
+    const frag = document.createDocumentFragment();
+    items.forEach((item, index) => {
+      const card = UI.el('div', { className: 'showcase-card', role: 'button', tabindex: '0' });
+      const media = UI.el('div', { className: 'showcase-media' });
+      const thumbUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url);
+      if (thumbUrl) {
+        const img = UI.el('img', { alt: item.caption || 'لمحة ممولة', loading: 'lazy' });
+        img.src = thumbUrl;
+        media.appendChild(img);
+      }
+      media.appendChild(UI.el('span', { className: 'showcase-chip', textContent: 'ممّول' }));
+      if ((item.file_type || '').toLowerCase() === 'video') {
+        media.appendChild(UI.el('span', { className: 'showcase-video-badge', textContent: '▶' }));
+      }
+      card.appendChild(media);
+
+      const body = UI.el('div', { className: 'showcase-body' });
+      body.appendChild(UI.el('div', { className: 'showcase-copy' }, [
+        UI.el('div', { className: 'showcase-title', textContent: item.caption || 'لمحة ممولة' }),
+        UI.el('div', { className: 'showcase-provider', textContent: item.provider_display_name || 'مقدم خدمة' }),
+      ]));
+      card.appendChild(body);
+
+      const open = () => {
+        const redirect = _readBannerString(item.redirect_url);
+        if (redirect) {
+          window.open(redirect, '_blank', 'noopener');
+          return;
+        }
+        if (item.provider_id > 0) {
+          window.location.href = '/provider/' + encodeURIComponent(String(item.provider_id)) + '/';
+          return;
+        }
+        if (typeof SpotlightViewer !== 'undefined') {
+          SpotlightViewer.open(_snapshotsData, index, { label: 'لمحة ممولة', source: 'promo_snapshot' });
+        }
+      };
+
+      card.addEventListener('click', open);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open();
+        }
+      });
+      frag.appendChild(card);
+    });
+
+    $snapshotsList.textContent = '';
+    $snapshotsList.appendChild(frag);
+  }
+
+  function _renderPromoMessage(promo) {
+    if (!$promoMessageSection || !$promoMessageCard) return;
+    if (!promo || typeof promo !== 'object') {
+      $promoMessageSection.style.display = 'none';
+      $promoMessageCard.textContent = '';
+      return;
+    }
+    const title = _readBannerString(promo.message_title || promo.title) || 'رسالة دعائية';
+    const body = _readBannerString(promo.message_body);
+    const redirect = _readBannerString(promo.redirect_url);
+    const providerId = _readBannerInt(promo.target_provider_id);
+
+    $promoMessageSection.style.display = '';
+    $promoMessageCard.textContent = '';
+    const chip = UI.el('span', { className: 'sponsor-chip', textContent: 'رسالة دعائية' });
+    const headline = UI.el('div', { className: 'sponsor-title', textContent: title });
+    const message = UI.el('div', { className: 'sponsor-body', textContent: body || 'عرض جديد مخصص لك.' });
+    const action = UI.el('a', { className: 'ghost-btn', href: '#', textContent: 'عرض التفاصيل' });
+    action.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (redirect) {
+        window.open(redirect, '_blank', 'noopener');
+        return;
+      }
+      if (providerId > 0) {
+        window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+      }
+    });
+    $promoMessageCard.appendChild(chip);
+    $promoMessageCard.appendChild(headline);
+    $promoMessageCard.appendChild(message);
+    $promoMessageCard.appendChild(action);
   }
 
   /* ----------------------------------------------------------

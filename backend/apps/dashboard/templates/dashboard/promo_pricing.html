@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>أسعار الترويج</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}أسعار الترويج{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -24,89 +18,236 @@
 
     <main class="dash-shell">
       <section class="panel content-panel">
-        <section class="section-panel slide-up">
-          <div class="title-row"><h2>بنر الصفحة الرئيسية</h2></div>
-          {% if home_banner_rule %}
-            <div class="quick-stat">
-              <span>{{ home_banner_rule.title }}</span>
-              <strong>{{ home_banner_rule.amount }} ريال / يوم</strong>
-            </div>
-          {% else %}
-            <p class="subtitle">لا توجد قاعدة تسعير مفعلة حاليًا.</p>
-          {% endif %}
-        </section>
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}"><span>{{ message }}</span><button type="button">×</button></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
 
-        <section class="section-panel slide-up">
-          <div class="title-row"><h2>تسعير معدل الظهور</h2></div>
-          <div class="table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>الخدمة</th>
-                  <th>معدل الظهور</th>
-                  <th>التكلفة (ريال/يوم)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for rule in featured_rules %}
-                  <tr><td>شريط أبرز المختصين</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
-                {% endfor %}
-                {% for rule in portfolio_rules %}
-                  <tr><td>شريط البنرات والمشاريع</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
-                {% endfor %}
-                {% for rule in snapshot_rules %}
-                  <tr><td>شريط اللمحات</td><td>{{ rule.get_frequency_display }}</td><td>{{ rule.amount }}</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
+        <form method="post" class="stack" id="promoPricingForm">
+          {% csrf_token %}
+
+          <div class="actions pricing-actions">
+            {% if can_write %}
+              <button type="submit" class="primary-btn">حفظ التسعيرات</button>
+              <span class="subtitle">سيتم اعتماد الأسعار الجديدة فور الحفظ.</span>
+            {% else %}
+              <span class="pill danger">وضع القراءة فقط</span>
+              <span class="subtitle">هذا الحساب لا يملك صلاحية تعديل التسعير.</span>
+            {% endif %}
           </div>
-        </section>
 
-        <section class="section-panel slide-up">
-          <div class="title-row"><h2>الظهور في قوائم البحث</h2></div>
-          <div class="table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>ترتيب الظهور</th>
-                  <th>التكلفة (ريال/يوم)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for rule in search_rules %}
+          <section class="section-panel slide-up">
+            <div class="title-row"><h2>بنر الصفحة الرئيسية</h2></div>
+            {% if home_banner_rule %}
+              <div class="quick-stat">
+                <span>{{ home_banner_rule.title }}</span>
+                <label class="price-inline">
+                  <input
+                    class="input-control pricing-input"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputmode="decimal"
+                    lang="en"
+                    name="amount_{{ home_banner_rule.id }}"
+                    value="{{ home_banner_rule.amount|floatformat:2 }}"
+                    {% if not can_write %}disabled{% endif %}
+                  >
+                  <span>ريال / يوم</span>
+                </label>
+              </div>
+            {% else %}
+              <p class="subtitle">لا توجد قاعدة تسعير مفعلة حاليًا.</p>
+            {% endif %}
+          </section>
+
+          <section class="section-panel slide-up">
+            <div class="title-row"><h2>تسعير معدل الظهور</h2></div>
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
                   <tr>
-                    <td>{{ rule.get_search_position_display }}</td>
-                    <td>{{ rule.amount }}</td>
+                    <th>الخدمة</th>
+                    <th>معدل الظهور</th>
+                    <th>التكلفة (ريال/يوم)</th>
                   </tr>
-                {% empty %}
-                  <tr><td colspan="2">لا توجد قواعد بحث مفعلة.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                </thead>
+                <tbody>
+                  {% for rule in featured_rules %}
+                    <tr>
+                      <td>شريط أبرز المختصين</td>
+                      <td>{{ rule.get_frequency_display }}</td>
+                      <td>
+                        <label class="price-cell">
+                          <input
+                            class="input-control pricing-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                            lang="en"
+                            name="amount_{{ rule.id }}"
+                            value="{{ rule.amount|floatformat:2 }}"
+                            {% if not can_write %}disabled{% endif %}
+                          >
+                          <span>ريال</span>
+                        </label>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                  {% for rule in portfolio_rules %}
+                    <tr>
+                      <td>شريط البنرات والمشاريع</td>
+                      <td>{{ rule.get_frequency_display }}</td>
+                      <td>
+                        <label class="price-cell">
+                          <input
+                            class="input-control pricing-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                            lang="en"
+                            name="amount_{{ rule.id }}"
+                            value="{{ rule.amount|floatformat:2 }}"
+                            {% if not can_write %}disabled{% endif %}
+                          >
+                          <span>ريال</span>
+                        </label>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                  {% for rule in snapshot_rules %}
+                    <tr>
+                      <td>شريط اللمحات</td>
+                      <td>{{ rule.get_frequency_display }}</td>
+                      <td>
+                        <label class="price-cell">
+                          <input
+                            class="input-control pricing-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                            lang="en"
+                            name="amount_{{ rule.id }}"
+                            value="{{ rule.amount|floatformat:2 }}"
+                            {% if not can_write %}disabled{% endif %}
+                          >
+                          <span>ريال</span>
+                        </label>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="3">لا توجد قواعد تسعير مفعلة لهذا القسم.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
 
-        <section class="section-panel slide-up">
-          <div class="title-row"><h2>الرسائل الدعائية والرعاية</h2></div>
-          <div class="content-two-col">
-            <div class="side-card">
-              <h4>الرسائل الدعائية</h4>
-              {% for rule in message_rules %}
-                <div class="quick-stat"><span>{{ rule.title }}</span><strong>{{ rule.amount }} ريال</strong></div>
-              {% empty %}
-                <p class="subtitle">لا توجد قواعد رسائل مفعلة.</p>
-              {% endfor %}
+          <section class="section-panel slide-up">
+            <div class="title-row"><h2>الظهور في قوائم البحث</h2></div>
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>ترتيب الظهور</th>
+                    <th>التكلفة (ريال/يوم)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for rule in search_rules %}
+                    <tr>
+                      <td>{{ rule.get_search_position_display }}</td>
+                      <td>
+                        <label class="price-cell">
+                          <input
+                            class="input-control pricing-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            inputmode="decimal"
+                            lang="en"
+                            name="amount_{{ rule.id }}"
+                            value="{{ rule.amount|floatformat:2 }}"
+                            {% if not can_write %}disabled{% endif %}
+                          >
+                          <span>ريال</span>
+                        </label>
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="2">لا توجد قواعد بحث مفعلة.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
-            <div class="side-card">
-              <h4>الرعاية</h4>
-              {% for rule in sponsorship_rules %}
-                <div class="quick-stat"><span>{{ rule.title }}</span><strong>{{ rule.amount }} ريال / شهر</strong></div>
-              {% empty %}
-                <p class="subtitle">لا توجد قواعد رعاية مفعلة.</p>
-              {% endfor %}
+          </section>
+
+          <section class="section-panel slide-up">
+            <div class="title-row"><h2>الرسائل الدعائية والرعاية</h2></div>
+            <div class="content-two-col">
+              <div class="side-card">
+                <h4>الرسائل الدعائية</h4>
+                {% for rule in message_rules %}
+                  <div class="quick-stat">
+                    <span>{{ rule.title }}</span>
+                    <label class="price-inline">
+                      <input
+                        class="input-control pricing-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputmode="decimal"
+                        lang="en"
+                        name="amount_{{ rule.id }}"
+                        value="{{ rule.amount|floatformat:2 }}"
+                        {% if not can_write %}disabled{% endif %}
+                      >
+                      <span>ريال / حملة</span>
+                    </label>
+                  </div>
+                {% empty %}
+                  <p class="subtitle">لا توجد قواعد رسائل مفعلة.</p>
+                {% endfor %}
+              </div>
+              <div class="side-card">
+                <h4>الرعاية</h4>
+                {% for rule in sponsorship_rules %}
+                  <div class="quick-stat">
+                    <span>{{ rule.title }}</span>
+                    <label class="price-inline">
+                      <input
+                        class="input-control pricing-input"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        inputmode="decimal"
+                        lang="en"
+                        name="amount_{{ rule.id }}"
+                        value="{{ rule.amount|floatformat:2 }}"
+                        {% if not can_write %}disabled{% endif %}
+                      >
+                      <span>ريال / شهر</span>
+                    </label>
+                  </div>
+                {% empty %}
+                  <p class="subtitle">لا توجد قواعد رعاية مفعلة.</p>
+                {% endfor %}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+
+          {% if can_write %}
+            <div class="actions pricing-actions">
+              <button type="submit" class="primary-btn">حفظ التسعيرات</button>
+            </div>
+          {% endif %}
+        </form>
       </section>
 
       <aside class="panel side-panel">
@@ -119,5 +260,4 @@
     </main>
   </div>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
-</body>
-</html>
+{% endblock %}

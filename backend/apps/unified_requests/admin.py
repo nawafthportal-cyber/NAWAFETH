@@ -32,3 +32,42 @@ class UnifiedRequestAdmin(admin.ModelAdmin):
     search_fields = ("code", "requester__phone", "summary", "source_app", "source_model", "source_object_id")
     ordering = ("-id",)
     inlines = [UnifiedRequestMetadataInline, UnifiedRequestStatusLogInline, UnifiedRequestAssignmentLogInline]
+    list_select_related = ("requester", "assigned_user")
+
+
+@admin.register(UnifiedRequestMetadata)
+class UnifiedRequestMetadataAdmin(admin.ModelAdmin):
+    list_display = ("id", "request", "updated_by", "updated_at")
+    search_fields = ("request__code", "request__summary", "updated_by__phone", "updated_by__username")
+    ordering = ("-id",)
+    list_select_related = ("request", "updated_by")
+    readonly_fields = ("updated_at",)
+
+
+@admin.register(UnifiedRequestAssignmentLog)
+class UnifiedRequestAssignmentLogAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "request",
+        "from_team_code",
+        "to_team_code",
+        "from_user",
+        "to_user",
+        "changed_by",
+        "created_at",
+    )
+    list_filter = ("from_team_code", "to_team_code")
+    search_fields = ("request__code", "note", "from_user__phone", "to_user__phone", "changed_by__phone")
+    ordering = ("-id",)
+    list_select_related = ("request", "from_user", "to_user", "changed_by")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(UnifiedRequestStatusLog)
+class UnifiedRequestStatusLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "request", "from_status", "to_status", "changed_by", "created_at")
+    list_filter = ("from_status", "to_status")
+    search_fields = ("request__code", "note", "changed_by__phone", "changed_by__username")
+    ordering = ("-id",)
+    list_select_related = ("request", "changed_by")
+    readonly_fields = ("created_at",)

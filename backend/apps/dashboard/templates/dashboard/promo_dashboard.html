@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>لوحة فريق إدارة الترويج</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}لوحة فريق إدارة الترويج{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -207,7 +201,7 @@
                   {{ inquiry_form.attachment }}
                 </div>
               </div>
-              <div class="actions" style="margin-top: 12px;">
+              <div class="actions">
                 {% if can_write %}
                   <button type="submit" name="action" value="save_inquiry" class="primary-btn">حفظ</button>
                   <button type="submit" name="action" value="close_inquiry" class="ghost-btn">إغلاق</button>
@@ -288,7 +282,7 @@
                 </div>
               </div>
 
-              <div class="actions" style="margin-top: 12px;">
+              <div class="actions">
                 {% if can_write %}
                   <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
                   <button type="submit" name="action" value="quote_request" class="ghost-btn">اعتماد التسعير</button>
@@ -300,7 +294,7 @@
               </div>
             </form>
 
-            <div class="side-card" style="margin-top: 10px;">
+            <div class="side-card">
               <h4>الملفات المرفقة من مزود الخدمة</h4>
               <div class="timeline-list">
                 {% for asset in selected_request_assets %}
@@ -352,7 +346,7 @@
             </div>
 
             {% if selected_request_quote %}
-              <div class="side-card" style="margin-top: 10px;">
+              <div class="side-card">
                 <h4>ملخص الطلب والتكلفة</h4>
                 <div class="table-wrap">
                   <table class="dash-table">
@@ -376,7 +370,7 @@
                     </tbody>
                   </table>
                 </div>
-                <div class="support-meta-grid" style="margin-top: 10px;">
+                <div class="support-meta-grid">
                   <div class="quick-stat"><span>المجموع</span><strong>{{ selected_request_quote.subtotal }} SAR</strong></div>
                   <div class="quick-stat"><span>VAT ({{ selected_request_quote.vat_percent }}%)</span><strong>{{ selected_request_quote.vat_amount }} SAR</strong></div>
                   <div class="quick-stat"><span>الإجمالي</span><strong>{{ selected_request_quote.total }} SAR</strong></div>
@@ -459,6 +453,5 @@
     })();
   </script>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
-</body>
-</html>
+{% endblock %}
 

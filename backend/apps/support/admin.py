@@ -33,3 +33,33 @@ class SupportTicketAdmin(admin.ModelAdmin):
     search_fields = ("code", "description", "requester__phone")
     inlines = [SupportAttachmentInline, SupportCommentInline, SupportStatusLogInline]
     ordering = ("-id",)
+    list_select_related = ("requester", "assigned_team", "assigned_to")
+
+
+@admin.register(SupportAttachment)
+class SupportAttachmentAdmin(admin.ModelAdmin):
+    list_display = ("id", "ticket", "uploaded_by", "created_at")
+    search_fields = ("ticket__code", "uploaded_by__phone", "uploaded_by__username")
+    ordering = ("-id",)
+    list_select_related = ("ticket", "uploaded_by")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(SupportComment)
+class SupportCommentAdmin(admin.ModelAdmin):
+    list_display = ("id", "ticket", "is_internal", "created_by", "created_at")
+    list_filter = ("is_internal",)
+    search_fields = ("ticket__code", "text", "created_by__phone", "created_by__username")
+    ordering = ("-id",)
+    list_select_related = ("ticket", "created_by")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(SupportStatusLog)
+class SupportStatusLogAdmin(admin.ModelAdmin):
+    list_display = ("id", "ticket", "from_status", "to_status", "changed_by", "created_at")
+    list_filter = ("from_status", "to_status")
+    search_fields = ("ticket__code", "note", "changed_by__phone", "changed_by__username")
+    ordering = ("-id",)
+    list_select_related = ("ticket", "changed_by")
+    readonly_fields = ("created_at",)

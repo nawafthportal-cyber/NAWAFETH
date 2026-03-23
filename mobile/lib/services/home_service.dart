@@ -101,7 +101,9 @@ class HomeService {
           .toList();
     }
 
-    final promoRes = await ApiClient.get('/api/promo/banners/home/?limit=$limit');
+    // Promo home banners should not be capped by client-side limit.
+    // We fetch all active promo banners, then only use fallback carousel when needed.
+    final promoRes = await ApiClient.get('/api/promo/banners/home/');
     final promoBanners = (promoRes.isSuccess && promoRes.data != null)
         ? parseBannerList(promoRes.data)
         : <BannerModel>[];

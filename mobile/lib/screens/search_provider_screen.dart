@@ -57,6 +57,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   int? _searchBannerProviderId;
   String? _searchBannerProviderName;
   bool _searchBannerImpressionTracked = false;
+  String _lastCategoryPopupKey = '';
 
   @override
   void initState() {
@@ -75,6 +76,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Future<void> _loadSearchPromos() async {
     try {
       final selectedCategoryName = _selectedCategoryName();
+      final selectedCategoryCity = _activeCity.trim();
       final searchPromoUri = Uri(
         path: '/api/promo/active/',
         queryParameters: {
@@ -86,62 +88,56 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           if (selectedCategoryName.isNotEmpty) 'category': selectedCategoryName,
         },
       );
+      final categoryBannerFuture = selectedCategoryName.isNotEmpty
+          ? ApiClient.get(
+              Uri(
+                path: '/api/promo/active/',
+                queryParameters: {
+                  'ad_type': 'banner_category',
+                  'limit': '1',
+                  'category': selectedCategoryName,
+                  if (selectedCategoryCity.isNotEmpty) 'city': selectedCategoryCity,
+                },
+              ).toString(),
+            )
+          : Future.value(null);
+      final categoryPopupFuture = selectedCategoryName.isNotEmpty
+          ? ApiClient.get(
+              Uri(
+                path: '/api/promo/active/',
+                queryParameters: {
+                  'ad_type': 'popup_category',
+                  'limit': '1',
+                  'category': selectedCategoryName,
+                  if (selectedCategoryCity.isNotEmpty) 'city': selectedCategoryCity,
+                },
+              ).toString(),
+            )
+          : Future.value(null);
+
       final results = await Future.wait([
+        categoryBannerFuture,
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=1'),
+        categoryPopupFuture,
         ApiClient.get(searchPromoUri.toString()),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
-      final bannerRes = results[0];
-      final searchRes = results[1];
-      final featuredRes = results[2];
+      final categoryBannerRes = results[0];
+      final searchBannerRes = results[1];
+      final categoryPopupRes = results[2];
+      final searchRes = results[3];
+      final featuredRes = results[4];
 
-      if (bannerRes.isSuccess && bannerRes.data != null) {
-        final items = bannerRes.data is List
-            ? bannerRes.data as List
-            : (bannerRes.data['results'] as List?) ?? [];
-        if (items.isNotEmpty) {
-          final promo = items[0] as Map<String, dynamic>;
-          final assets = (promo['assets'] as List?) ?? [];
-          if (assets.isNotEmpty) {
-            final asset = assets[0] as Map<String, dynamic>;
-            final url = ApiClient.buildMediaUrl(
-              (asset['file'] ?? asset['file_url']) as String?,
-            );
-            if (url != null && mounted) {
-              final providerIdRaw = promo['target_provider_id'];
-              setState(() {
-                _searchBannerMediaUrl = url;
-                _searchBannerMediaType =
-                    ((asset['file_type'] as String?) ?? 'image')
-                        .trim()
-                        .toLowerCase();
-                _searchBannerRedirectUrl =
-                    (promo['redirect_url'] as String?)?.trim();
-                _searchBannerProviderId = providerIdRaw is int
-                    ? providerIdRaw
-                    : int.tryParse('$providerIdRaw');
-                _searchBannerProviderName =
-                    promo['target_provider_display_name'] as String?;
-              });
-              if (!_searchBannerImpressionTracked) {
-                _searchBannerImpressionTracked = true;
-                AnalyticsService.trackFireAndForget(
-                  eventName: 'promo.banner_impression',
-                  surface: 'flutter.search.banner',
-                  sourceApp: 'promo',
-                  objectType: 'ProviderProfile',
-                  objectId: (_searchBannerProviderId ?? 0).toString(),
-                  dedupeKey:
-                      'promo.banner_impression:flutter.search:${_searchBannerProviderId ?? 0}',
-                  payload: {
-                    'media_type': _searchBannerMediaType,
-                    'redirect_url': _searchBannerRedirectUrl ?? '',
-                  },
-                );
-              }
-            }
-          }
-        }
+      final categoryBanner = _firstPromoMap(categoryBannerRes);
+      final searchBanner = _firstPromoMap(searchBannerRes);
+      final chosenBanner = categoryBanner ?? searchBanner;
+      _applySearchBanner(chosenBanner);
+
+      final popupPromo = _firstPromoMap(categoryPopupRes);
+      final popupKey = selectedCategoryName.trim().toLowerCase();
+      if (popupPromo != null && popupKey.isNotEmpty && popupKey != _lastCategoryPopupKey) {
+        _lastCategoryPopupKey = popupKey;
+        await _showSearchPromoPopup(popupPromo);
       }
 
       final searchItems = _promoMapsFromResponse(searchRes);
@@ -173,6 +169,171 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Map<String, dynamic>? _firstPromoMap(dynamic response) {
+    final data = response?.data;
+    final items = data is List
+        ? data
+        : (data is Map<String, dynamic> ? (data['results'] as List? ?? const []) : const []);
+    if (items.isEmpty) return null;
+    final first = items.first;
+    if (first is! Map) return null;
+    return Map<String, dynamic>.from(first);
+  }
+
+  void _applySearchBanner(Map<String, dynamic>? promo) {
+    if (!mounted) return;
+    if (promo == null) {
+      setState(() {
+        _searchBannerMediaUrl = null;
+        _searchBannerMediaType = 'image';
+        _searchBannerRedirectUrl = null;
+        _searchBannerProviderId = null;
+        _searchBannerProviderName = null;
+      });
+      return;
+    }
+    final assets = (promo['assets'] as List?) ?? [];
+    if (assets.isEmpty) return;
+    final asset = assets.first;
+    if (asset is! Map) return;
+    final url = ApiClient.buildMediaUrl((asset['file'] ?? asset['file_url']) as String?);
+    if (url == null) return;
+    final providerIdRaw = promo['target_provider_id'];
+    setState(() {
+      _searchBannerMediaUrl = url;
+      _searchBannerMediaType = ((asset['file_type'] as String?) ?? 'image').trim().toLowerCase();
+      _searchBannerRedirectUrl = (promo['redirect_url'] as String?)?.trim();
+      _searchBannerProviderId = providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
+      _searchBannerProviderName = promo['target_provider_display_name'] as String?;
+    });
+    if (!_searchBannerImpressionTracked) {
+      _searchBannerImpressionTracked = true;
+      AnalyticsService.trackFireAndForget(
+        eventName: 'promo.banner_impression',
+        surface: 'flutter.search.banner',
+        sourceApp: 'promo',
+        objectType: 'ProviderProfile',
+        objectId: (_searchBannerProviderId ?? 0).toString(),
+        dedupeKey: 'promo.banner_impression:flutter.search:${_searchBannerProviderId ?? 0}',
+        payload: {
+          'media_type': _searchBannerMediaType,
+          'redirect_url': _searchBannerRedirectUrl ?? '',
+        },
+      );
+    }
+  }
+
+  Future<void> _showSearchPromoPopup(Map<String, dynamic> promo) async {
+    final assets = (promo['assets'] as List?) ?? [];
+    if (assets.isEmpty || !mounted) return;
+    final asset = assets.first;
+    if (asset is! Map) return;
+    final mediaUrl = ApiClient.buildMediaUrl((asset['file'] ?? asset['file_url']) as String?);
+    if (mediaUrl == null) return;
+    final mediaType = ((asset['file_type'] as String?) ?? 'image').trim().toLowerCase();
+    final title = (promo['title'] as String?) ?? '';
+    final redirectUrl = (promo['redirect_url'] as String?)?.trim();
+    final providerIdRaw = promo['target_provider_id'];
+    final providerId = providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
+    final providerName = promo['target_provider_display_name'] as String?;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(24),
+          child: Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Material(
+                  color: Colors.white,
+                  child: InkWell(
+                    onTap: () async {
+                      Navigator.of(ctx).pop();
+                      await _openSearchBannerFrom(
+                        redirectUrl: redirectUrl,
+                        providerId: providerId,
+                        providerName: providerName,
+                      );
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        PromoMediaTile(
+                          mediaUrl: mediaUrl,
+                          mediaType: mediaType,
+                          height: 240,
+                          borderRadius: 0,
+                          autoplay: true,
+                          isActive: true,
+                          showVideoBadge: mediaType == 'video',
+                          fallback: const SizedBox.shrink(),
+                        ),
+                        if (title.trim().isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              title,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Cairo',
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: GestureDetector(
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.close, color: Colors.white, size: 18),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openSearchBannerFrom({
+    String? redirectUrl,
+    int? providerId,
+    String? providerName,
+  }) async {
+    final redirect = (redirectUrl ?? '').trim();
+    if (redirect.isNotEmpty && await _openExternalPromoUrl(redirect)) {
+      return;
+    }
+    if (!mounted || providerId == null || providerId <= 0) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProviderProfileScreen(
+          providerId: providerId.toString(),
+          providerName: providerName ?? 'مقدم خدمة',
+        ),
+      ),
+    );
   }
 
   String _selectedCategoryName() {

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import csv
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from io import StringIO
@@ -63,6 +63,7 @@ from apps.content.models import ContentBlockKey, LegalDocumentType, SiteContentB
 from apps.content.services import sanitize_multiline_text, sanitize_text
 from apps.excellence.models import ExcellenceBadgeCandidate, ExcellenceBadgeType
 from apps.promo.models import (
+    PromoAdType,
     PromoAsset,
     PromoAssetType,
     PromoFrequency,
@@ -166,6 +167,19 @@ def _parse_datetime_local(raw_value):
         except Exception:
             continue
     return None
+
+
+_ARABIC_DECIMAL_TRANSLATION = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
+
+
+def _normalize_decimal_text(raw_value: str) -> str:
+    value = str(raw_value or "").strip()
+    if not value:
+        return ""
+    value = value.translate(_ARABIC_DECIMAL_TRANSLATION)
+    value = value.replace("٫", ".").replace("٬", "").replace(",", "")
+    value = value.replace(" ", "").replace("\u00A0", "")
+    return value
 
 
 def _dashboard_allowed(user, dashboard_code: str, *, write: bool = False) -> bool:
@@ -1829,6 +1843,178 @@ def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
     return rows
 
 
+PROMO_MODULE_LEGACY_AD_TYPES_BY_SERVICE: dict[str, set[str]] = {
+    PromoServiceType.HOME_BANNER: {
+        PromoAdType.BANNER_HOME,
+    },
+    PromoServiceType.FEATURED_SPECIALISTS: {
+        PromoAdType.FEATURED_TOP5,
+        PromoAdType.FEATURED_TOP10,
+        PromoAdType.BOOST_PROFILE,
+    },
+    PromoServiceType.PROMO_MESSAGES: {
+        PromoAdType.PUSH_NOTIFICATION,
+    },
+}
+
+
+def _promo_datetime_local_input_value(dt) -> str:
+    if not dt:
+        return ""
+    try:
+        local_dt = timezone.localtime(dt)
+    except Exception:
+        local_dt = dt
+    return local_dt.strftime("%Y-%m-%dT%H:%M")
+
+
+def _promo_module_request_candidates_queryset(requests_base_qs, *, service_type: str):
+    service_type_value = str(service_type or "").strip()
+    if not service_type_value:
+        return requests_base_qs.none()
+    filter_q = Q(items__service_type=service_type_value)
+    legacy_ad_types = PROMO_MODULE_LEGACY_AD_TYPES_BY_SERVICE.get(service_type_value, set())
+    if legacy_ad_types:
+        filter_q |= Q(ad_type__in=legacy_ad_types)
+    return requests_base_qs.filter(filter_q).distinct().order_by("-created_at", "-id")
+
+
+def _promo_selected_request_item_for_service(selected_request: PromoRequest | None, *, service_type: str) -> PromoRequestItem | None:
+    if selected_request is None:
+        return None
+    matches = [row for row in selected_request.items.all() if row.service_type == service_type]
+    if not matches:
+        return None
+    matches.sort(key=lambda row: (int(row.sort_order or 0), int(row.id or 0)))
+    return matches[-1]
+
+
+def _promo_module_initial_data_from_request(
+    *,
+    service_type: str,
+    selected_request: PromoRequest | None,
+    selected_item: PromoRequestItem | None,
+) -> dict:
+    if selected_request is None:
+        return {"request_id": ""}
+
+    requester_identifier = (
+        (selected_request.requester.username or selected_request.requester.phone or "").strip()
+        if getattr(selected_request, "requester", None)
+        else ""
+    )
+    requester_provider = getattr(getattr(selected_request, "requester", None), "provider_profile", None)
+    target_provider_id = (
+        getattr(selected_item, "target_provider_id", None)
+        or getattr(selected_request, "target_provider_id", None)
+        or (getattr(requester_provider, "id", None) if requester_provider else None)
+        or ""
+    )
+
+    search_scopes: list[str] = []
+    if service_type == PromoServiceType.SEARCH_RESULTS:
+        for row in selected_request.items.all():
+            if row.service_type != service_type:
+                continue
+            scope = str(row.search_scope or "").strip()
+            if scope and scope not in search_scopes:
+                search_scopes.append(scope)
+
+    use_notification_channel = False
+    use_chat_channel = False
+    if selected_item is not None:
+        use_notification_channel = bool(selected_item.use_notification_channel)
+        use_chat_channel = bool(selected_item.use_chat_channel)
+    elif selected_request.ad_type == PromoAdType.PUSH_NOTIFICATION:
+        use_notification_channel = True
+
+    initial = {
+        "request_id": selected_request.id,
+        "requester_identifier": requester_identifier,
+        "title": (
+            (selected_item.title if selected_item else "")
+            or selected_request.title
+            or ""
+        ),
+        "start_at": _promo_datetime_local_input_value((selected_item.start_at if selected_item else None) or selected_request.start_at),
+        "end_at": _promo_datetime_local_input_value((selected_item.end_at if selected_item else None) or selected_request.end_at),
+        "send_at": _promo_datetime_local_input_value((selected_item.send_at if selected_item else None) or selected_request.start_at),
+        "frequency": (
+            (selected_item.frequency if selected_item else "")
+            or selected_request.frequency
+            or ""
+        ),
+        "search_scope": (selected_item.search_scope if selected_item else "") or (search_scopes[0] if search_scopes else ""),
+        "search_scopes": search_scopes,
+        "search_position": (
+            (selected_item.search_position if selected_item else "")
+            or selected_request.position
+            or ""
+        ),
+        "target_provider_id": target_provider_id,
+        "target_category": (
+            (selected_item.target_category if selected_item else "")
+            or selected_request.target_category
+            or ""
+        ),
+        "target_city": (
+            (selected_item.target_city if selected_item else "")
+            or selected_request.target_city
+            or ""
+        ),
+        "redirect_url": (
+            (selected_item.redirect_url if selected_item else "")
+            or selected_request.redirect_url
+            or ""
+        ),
+        "message_title": (
+            (selected_item.message_title if selected_item else "")
+            or selected_request.message_title
+            or ""
+        ),
+        "message_body": (
+            (selected_item.message_body if selected_item else "")
+            or selected_request.message_body
+            or ""
+        ),
+        "use_notification_channel": use_notification_channel,
+        "use_chat_channel": use_chat_channel,
+        "sponsor_name": (selected_item.sponsor_name if selected_item else "") or "",
+        "sponsor_url": (selected_item.sponsor_url if selected_item else "") or "",
+        "sponsorship_months": int((selected_item.sponsorship_months if selected_item else 0) or 0),
+        "attachment_specs": (selected_item.attachment_specs if selected_item else "") or "",
+        "operator_note": (selected_item.operator_note if selected_item else "") or "",
+        "mobile_scale": int(selected_request.mobile_scale or 100),
+        "tablet_scale": int(selected_request.tablet_scale or 100),
+        "desktop_scale": int(selected_request.desktop_scale or 100),
+    }
+    return initial
+
+
+def _promo_module_assets_for_selected_request(
+    *,
+    selected_request: PromoRequest | None,
+    service_type: str,
+) -> list[PromoAsset]:
+    if selected_request is None:
+        return []
+
+    service_assets = [asset for asset in selected_request.assets.all() if getattr(asset, "item", None) and getattr(asset.item, "service_type", "") == service_type]
+    if service_assets:
+        service_assets.sort(key=lambda row: int(row.id or 0), reverse=True)
+        return service_assets
+
+    unassigned_assets = [asset for asset in selected_request.assets.all() if getattr(asset, "item", None) is None]
+    if not unassigned_assets:
+        return []
+
+    legacy_types = PROMO_MODULE_LEGACY_AD_TYPES_BY_SERVICE.get(service_type, set())
+    if selected_request.ad_type in legacy_types or service_type == PromoServiceType.HOME_BANNER:
+        unassigned_assets.sort(key=lambda row: int(row.id or 0), reverse=True)
+        return unassigned_assets
+    return []
+
+
 def _promo_module_action(request) -> str:
     raw = (request.POST.get("workflow_action") or request.POST.get("action") or "").strip().lower()
     if raw in {"preview_item", "approve_item", "save_item"}:
@@ -1884,6 +2070,20 @@ def promo_module(request, module_key: str):
     query_filter = (request.GET.get("q") or "").strip()
     selected_request_id_raw = (request.GET.get("request_id") or "").strip()
     selected_request = requests_base_qs.filter(id=int(selected_request_id_raw)).first() if selected_request_id_raw.isdigit() else None
+    module_requests_qs = _promo_module_request_candidates_queryset(
+        requests_base_qs,
+        service_type=service_type,
+    )
+    if selected_request is None:
+        selected_request = module_requests_qs.first()
+    selected_request_item = _promo_selected_request_item_for_service(
+        selected_request,
+        service_type=service_type,
+    )
+    selected_request_module_assets = _promo_module_assets_for_selected_request(
+        selected_request=selected_request,
+        service_type=service_type,
+    )
 
     module_items_qs = (
         PromoRequestItem.objects.select_related("request", "request__requester")
@@ -1901,13 +2101,27 @@ def promo_module(request, module_key: str):
 
     module_form = PromoModuleItemForm(
         service_type=service_type,
-        initial={
-            "request_id": selected_request.id if selected_request else "",
-        },
+        initial=_promo_module_initial_data_from_request(
+            service_type=service_type,
+            selected_request=selected_request,
+            selected_item=selected_request_item,
+        ),
     )
     preview_payload = None
 
     if request.method == "POST":
+        posted_request_id_raw = (request.POST.get("request_id") or "").strip()
+        if posted_request_id_raw.isdigit():
+            selected_request = requests_base_qs.filter(id=int(posted_request_id_raw)).first() or selected_request
+            selected_request_item = _promo_selected_request_item_for_service(
+                selected_request,
+                service_type=service_type,
+            )
+            selected_request_module_assets = _promo_module_assets_for_selected_request(
+                selected_request=selected_request,
+                service_type=service_type,
+            )
+
         if not can_write:
             return HttpResponseForbidden("لا تملك صلاحية إدارة وحدات الترويج.")
         module_action = _promo_module_action(request)
@@ -2106,6 +2320,8 @@ def promo_module(request, module_key: str):
             "can_write": can_write,
             "filters": {"q": query_filter},
             "selected_request": selected_request,
+            "selected_request_item": selected_request_item,
+            "selected_request_module_assets": selected_request_module_assets,
             "selected_request_quote": _promo_quote_snapshot(selected_request) if selected_request else None,
             "preview_payload": preview_payload,
             "is_search_module": service_type == PromoServiceType.SEARCH_RESULTS,
@@ -2122,6 +2338,52 @@ def promo_module(request, module_key: str):
 def promo_pricing(request):
     ensure_default_pricing_rules()
     pricing_rules = list(PromoPricingRule.objects.filter(is_active=True).order_by("sort_order", "id"))
+    can_write = dashboard_allowed(request.user, "promo", write=True)
+
+    if request.method == "POST":
+        if not can_write:
+            return HttpResponseForbidden("لا تملك صلاحية تعديل تسعيرات الترويج.")
+
+        validation_errors: list[str] = []
+        parsed_amounts: dict[int, Decimal] = {}
+
+        for rule in pricing_rules:
+            field_name = f"amount_{rule.id}"
+            normalized_value = _normalize_decimal_text(request.POST.get(field_name, ""))
+            if not normalized_value:
+                validation_errors.append(f"يرجى إدخال قيمة سعرية للبند: {rule.title}.")
+                continue
+            try:
+                amount_value = Decimal(normalized_value).quantize(Decimal("0.01"))
+            except (InvalidOperation, ValueError):
+                validation_errors.append(f"صيغة السعر غير صحيحة للبند: {rule.title}.")
+                continue
+            if amount_value < 0:
+                validation_errors.append(f"لا يمكن إدخال سعر سالب للبند: {rule.title}.")
+                continue
+            parsed_amounts[rule.id] = amount_value
+
+        if validation_errors:
+            for error_text in validation_errors[:4]:
+                messages.error(request, error_text)
+            extra_errors_count = len(validation_errors) - 4
+            if extra_errors_count > 0:
+                messages.error(request, f"يوجد {extra_errors_count} أخطاء إضافية. راجع جميع القيم قبل الحفظ.")
+        else:
+            updated_count = 0
+            for rule in pricing_rules:
+                new_amount = parsed_amounts.get(rule.id, rule.amount)
+                if rule.amount == new_amount:
+                    continue
+                rule.amount = new_amount
+                rule.save(update_fields=["amount", "updated_at"])
+                updated_count += 1
+            if updated_count:
+                messages.success(request, f"تم تحديث {updated_count} بند تسعير بنجاح.")
+            else:
+                messages.info(request, "لم يتم إجراء أي تعديل على التسعيرات.")
+            return redirect("dashboard:promo_pricing")
+
     by_service: dict[str, list[PromoPricingRule]] = {}
     for rule in pricing_rules:
         by_service.setdefault(rule.service_type, []).append(rule)
@@ -2138,6 +2400,7 @@ def promo_pricing(request):
             "search_rules": by_service.get(PromoServiceType.SEARCH_RESULTS, []),
             "message_rules": by_service.get(PromoServiceType.PROMO_MESSAGES, []),
             "sponsorship_rules": by_service.get(PromoServiceType.SPONSORSHIP, []),
+            "can_write": can_write,
         }
     )
     return render(request, "dashboard/promo_pricing.html", context)

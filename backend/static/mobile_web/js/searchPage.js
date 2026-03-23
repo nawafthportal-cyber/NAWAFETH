@@ -24,6 +24,7 @@ const SearchPage = (() => {
   let _searchPromoPlacements = [];
   let _categoriesById = new Map();
   let _promoBannerEl = null;
+  let _lastCategoryPopupKey = '';
   let _isProvidersMapPage = false;
 
   let _input;
@@ -914,16 +915,53 @@ const SearchPage = (() => {
       );
       if (selectedCategoryName) searchQuery.set('category', selectedCategoryName);
       if (_activeCity) searchQuery.set('city', _activeCity);
-      const [bannerRes, searchRes, featuredRes] = await Promise.allSettled([
+      const categoryBannerQuery = new URLSearchParams();
+      if (selectedCategoryName) {
+        categoryBannerQuery.set('ad_type', 'banner_category');
+        categoryBannerQuery.set('limit', '1');
+        categoryBannerQuery.set('category', selectedCategoryName);
+        if (_activeCity) categoryBannerQuery.set('city', _activeCity);
+      }
+
+      const categoryPopupQuery = new URLSearchParams();
+      if (selectedCategoryName) {
+        categoryPopupQuery.set('ad_type', 'popup_category');
+        categoryPopupQuery.set('limit', '1');
+        categoryPopupQuery.set('category', selectedCategoryName);
+        if (_activeCity) categoryPopupQuery.set('city', _activeCity);
+      }
+
+      const categoryBannerPromise = selectedCategoryName
+        ? ApiClient.get('/api/promo/active/?' + categoryBannerQuery.toString())
+        : Promise.resolve({ ok: false, data: [] });
+      const categoryPopupPromise = selectedCategoryName
+        ? ApiClient.get('/api/promo/active/?' + categoryPopupQuery.toString())
+        : Promise.resolve({ ok: false, data: [] });
+
+      const [categoryBannerRes, bannerRes, categoryPopupRes, searchRes, featuredRes] = await Promise.allSettled([
+        categoryBannerPromise,
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=5'),
+        categoryPopupPromise,
         ApiClient.get('/api/promo/active/?' + searchQuery.toString()),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
+      if (_promoBannerEl) {
+        _promoBannerEl.textContent = '';
+        _promoBannerEl.classList.add('hidden');
+      }
+
+      const pickFirstPromo = (result) => {
+        if (result.status !== 'fulfilled' || !result.value.ok) return null;
+        const rows = result.value.data?.results || result.value.data || [];
+        if (!Array.isArray(rows) || !rows.length || typeof rows[0] !== 'object') return null;
+        return rows[0];
+      };
+
+      const chosenBanner = pickFirstPromo(categoryBannerRes) || pickFirstPromo(bannerRes);
+
       // Banner
-      if (bannerRes.status === 'fulfilled' && bannerRes.value.ok) {
-        const banners = bannerRes.value.data?.results || bannerRes.value.data || [];
-        if (banners.length && _promoBannerEl) {
-          const promo = banners[0];
+      if (chosenBanner && _promoBannerEl) {
+          const promo = chosenBanner;
           const asset = (promo.assets || [])[0];
           const assetFile = asset && (asset.file || asset.file_url);
           if (assetFile) {
@@ -996,7 +1034,13 @@ const SearchPage = (() => {
               );
             }
           }
-        }
+      }
+
+      const popupPromo = pickFirstPromo(categoryPopupRes);
+      const popupKey = String(selectedCategoryName || '').trim().toLowerCase();
+      if (popupPromo && popupKey && popupKey !== _lastCategoryPopupKey) {
+        _lastCategoryPopupKey = popupKey;
+        _showSearchPromoPopup(popupPromo);
       }
       // Search placements + featured providers
       const searchItems = searchRes.status === 'fulfilled' && searchRes.value.ok
@@ -1026,6 +1070,110 @@ const SearchPage = (() => {
       });
       if (_providers.length) _renderProviders();
     } catch (_) { /* non-critical */ }
+  }
+
+  function _showSearchPromoPopup(promo) {
+    if (!promo || typeof promo !== 'object') return;
+    const asset = (promo.assets && promo.assets.length) ? promo.assets[0] : null;
+    const assetFile = asset && (asset.file || asset.file_url);
+    if (!assetFile) return;
+    const mediaUrl = ApiClient.mediaUrl(assetFile);
+    if (!mediaUrl) return;
+    const fileType = String((asset && asset.file_type) || 'image').toLowerCase();
+    const title = String(promo.title || '').trim();
+    const redirectUrl = String(promo.redirect_url || '').trim();
+    const providerId = promo.target_provider_id ? String(promo.target_provider_id) : '';
+    const providerHref = providerId
+      ? ('/provider/' + encodeURIComponent(providerId) + '/')
+      : '';
+    const href = redirectUrl || providerHref;
+
+    const overlay = UI.el('div', { className: 'promo-popup-overlay' });
+    const modal = UI.el('div', { className: 'promo-popup-modal' });
+    const closeBtn = UI.el('button', { className: 'promo-popup-close', textContent: '✕', type: 'button' });
+    Object.assign(overlay.style, {
+      position: 'fixed',
+      inset: '0',
+      background: 'rgba(0,0,0,0.55)',
+      zIndex: '9999',
+      display: 'grid',
+      placeItems: 'center',
+      padding: '18px',
+    });
+    Object.assign(modal.style, {
+      width: 'min(420px, 100%)',
+      maxHeight: '90vh',
+      overflow: 'hidden',
+      borderRadius: '16px',
+      background: '#fff',
+      position: 'relative',
+      boxShadow: '0 18px 36px rgba(0,0,0,.25)',
+    });
+    Object.assign(closeBtn.style, {
+      position: 'absolute',
+      top: '8px',
+      left: '8px',
+      width: '32px',
+      height: '32px',
+      borderRadius: '999px',
+      border: 'none',
+      background: 'rgba(0,0,0,.45)',
+      color: '#fff',
+      cursor: 'pointer',
+      zIndex: '2',
+    });
+
+    const media = fileType === 'video'
+      ? UI.el('video', {
+          className: 'promo-popup-media promo-popup-video',
+          src: mediaUrl,
+          autoplay: true,
+          loop: true,
+          muted: true,
+          playsinline: true,
+        })
+      : UI.el('img', { className: 'promo-popup-media promo-popup-img', alt: title || 'عرض ترويجي' });
+    if (fileType !== 'video') media.src = mediaUrl;
+
+    const body = UI.el('div', { className: 'promo-popup-body' });
+    Object.assign(body.style, { padding: '10px 12px 14px' });
+    if (title) {
+      body.appendChild(UI.el('p', { className: 'promo-popup-title', textContent: title }));
+    }
+
+    const content = href
+      ? UI.el('a', { href, className: 'promo-popup-media-link' }, [media])
+      : media;
+    if (content && content.style) {
+      Object.assign(content.style, {
+        display: 'block',
+        textDecoration: 'none',
+        color: 'inherit',
+      });
+    }
+    Object.assign(media.style, {
+      width: '100%',
+      display: 'block',
+      maxHeight: '62vh',
+      objectFit: 'cover',
+      background: '#111',
+    });
+    if (redirectUrl) {
+      content.target = '_blank';
+      content.rel = 'noopener';
+    }
+
+    const close = () => overlay.remove();
+    closeBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) close();
+    });
+
+    modal.appendChild(closeBtn);
+    modal.appendChild(content);
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
   }
 
   function _showToast(message) {

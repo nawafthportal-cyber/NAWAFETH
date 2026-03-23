@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{ module_meta.label }}</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}{{ module_meta.label }}{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -44,6 +38,9 @@
         <section class="section-panel slide-up">
           <div class="title-row">
             <h2>إدارة {{ module_meta.label }}</h2>
+            {% if selected_request %}
+              <span class="pill mint">الطلب المختار: {{ selected_request.code|default:selected_request.id }}</span>
+            {% endif %}
           </div>
 
           {% if module_form.non_field_errors %}
@@ -281,7 +278,7 @@
               </section>
             </div>
 
-            <div class="actions" style="margin-top: 12px;">
+            <div class="actions">
               {% if can_write %}
                 <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
                 <button class="primary-btn" type="submit" name="workflow_action" value="approve_item" data-require-confirm="اعتماد هذا البند بشكل نهائي؟">
@@ -293,6 +290,65 @@
             </div>
           </form>
         </section>
+
+        {% if selected_request %}
+          <section class="section-panel slide-up">
+            <div class="title-row">
+              <h2>بيانات الطلب المختار</h2>
+              <div class="actions">
+                <span class="pill brand">حالة الطلب: {{ selected_request.get_status_display }}</span>
+                <span class="pill accent">حالة التنفيذ: {{ selected_request.get_ops_status_display }}</span>
+              </div>
+            </div>
+            <div class="support-meta-grid">
+              <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code|default:selected_request.id }}</strong></div>
+              <div class="quick-stat"><span>العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+              <div class="quick-stat"><span>تاريخ البداية</span><strong>{{ selected_request.start_at|date:"d/m/Y - H:i" }}</strong></div>
+              <div class="quick-stat"><span>تاريخ النهاية</span><strong>{{ selected_request.end_at|date:"d/m/Y - H:i" }}</strong></div>
+              {% if selected_request_item %}
+                <div class="quick-stat"><span>آخر بند للوحدة</span><strong>{{ selected_request_item.title|default:selected_request_item.get_service_type_display }}</strong></div>
+                <div class="quick-stat"><span>حالة البند</span><strong>{{ selected_request_item.get_service_type_display }}</strong></div>
+              {% endif %}
+            </div>
+
+            <div class="side-card">
+              <h4>مرفقات الطلب لهذه الوحدة</h4>
+              <div class="timeline-list">
+                {% for asset in selected_request_module_assets %}
+                  <div class="timeline-item">
+                    <strong>{{ asset.get_asset_type_display }} - {{ asset.uploaded_at|date:"d/m/Y H:i" }}</strong>
+                    <p>
+                      {% if asset.title %}{{ asset.title }}{% else %}ملف مرفق{% endif %}
+                      {% if asset.uploaded_by %}
+                        - بواسطة {{ asset.uploaded_by.username|default:asset.uploaded_by.phone }}
+                      {% endif %}
+                    </p>
+                    {% if asset.asset_type == 'image' %}
+                      <div class="promo-asset-preview">
+                        <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق ترويجي' }}" loading="lazy">
+                      </div>
+                    {% elif asset.asset_type == 'video' %}
+                      <div class="promo-asset-preview">
+                        <video controls preload="metadata" playsinline>
+                          <source src="{{ asset.file.url }}">
+                        </video>
+                      </div>
+                    {% elif asset.asset_type == 'pdf' %}
+                      <div class="promo-asset-preview promo-asset-pdf-preview">
+                        <iframe src="{{ asset.file.url }}" title="{{ asset.title|default:'ملف PDF' }}" loading="lazy"></iframe>
+                      </div>
+                    {% else %}
+                      <div class="promo-asset-no-preview">لا توجد معاينة مباشرة لهذا النوع من الملفات.</div>
+                    {% endif %}
+                    <a class="ticket-link" href="{{ asset.file.url }}" target="_blank" rel="noopener">فتح الملف</a>
+                  </div>
+                {% empty %}
+                  <p class="subtitle">لا توجد مرفقات مرتبطة بهذه الوحدة حتى الآن.</p>
+                {% endfor %}
+              </div>
+            </div>
+          </section>
+        {% endif %}
 
         {% if preview_payload %}
           <section class="section-panel slide-up">
@@ -410,5 +466,4 @@
     </main>
   </div>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
-</body>
-</html>
+{% endblock %}

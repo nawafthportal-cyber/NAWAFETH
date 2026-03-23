@@ -51,6 +51,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _promoPopupShown = false;
   List<MediaItemModel> _portfolioShowcase = [];
   List<Map<String, dynamic>> _sponsorships = [];
+  List<Map<String, dynamic>> _snapshotPlacements = [];
+  Map<String, dynamic>? _promoMessagePlacement;
+  bool _promoMessageDismissed = false;
   final Set<int> _seenBannerImpressions = <int>{};
 
   // -- Banner carousel --
@@ -142,6 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!_promoPopupShown) _loadPromoPopup();
     _loadPromoPortfolioShowcase();
     _loadPromoSponsorships();
+    _loadPromoSnapshots();
+    _loadPromoMessages();
 
     categoriesFuture.then((categories) {
       if (!mounted) return;
@@ -285,6 +290,32 @@ class _HomeScreenState extends State<HomeScreen> {
       final items = _promoMapItemsFromResponse(res);
       if (!mounted) return;
       setState(() => _sponsorships = items);
+    } catch (_) {}
+  }
+
+  Future<void> _loadPromoSnapshots() async {
+    try {
+      final res = await ApiClient.get(
+        '/api/promo/active/?service_type=snapshots&limit=10',
+      );
+      if (!mounted || !res.isSuccess) return;
+      final items = _promoMapItemsFromResponse(res);
+      if (!mounted) return;
+      setState(() => _snapshotPlacements = items);
+    } catch (_) {}
+  }
+
+  Future<void> _loadPromoMessages() async {
+    try {
+      final res = await ApiClient.get(
+        '/api/promo/active/?service_type=promo_messages&limit=1',
+      );
+      if (!mounted || !res.isSuccess) return;
+      final items = _promoMapItemsFromResponse(res);
+      if (!mounted) return;
+      setState(() {
+        _promoMessagePlacement = items.isNotEmpty ? items.first : null;
+      });
     } catch (_) {}
   }
 
@@ -637,6 +668,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // -- Reels carousel --
             SliverToBoxAdapter(child: _buildReels(isDark)),
+
+            // -- Promo snapshots strip --
+            if (_snapshotPlacements.isNotEmpty)
+              SliverToBoxAdapter(child: _buildSnapshotsStrip(isDark, purple)),
+
+            // -- Promo messages callout --
+            if (_promoMessagePlacement != null && !_promoMessageDismissed)
+              SliverToBoxAdapter(child: _buildPromoMessageCard(isDark, purple)),
 
             // -- Categories --
             SliverToBoxAdapter(child: _buildCategories(isDark, purple)),
@@ -1129,6 +1168,178 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSnapshotsStrip(bool isDark, Color purple) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('لمحات ممولة', isDark),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 124,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _snapshotPlacements.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final placement = _snapshotPlacements[index];
+                final mediaUrl = _promoAssetUrl(placement);
+                final assets = placement['assets'];
+                final first = (assets is List && assets.isNotEmpty)
+                    ? assets.first
+                    : null;
+                final mediaType = (first is Map)
+                    ? ((first['file_type'] as String?) ?? 'image')
+                    : 'image';
+                return SizedBox(
+                  width: 180,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () async {
+                      await _openSponsorPlacement(placement);
+                    },
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: PromoMediaTile(
+                              mediaUrl: mediaUrl,
+                              mediaType: mediaType,
+                              height: 124,
+                              borderRadius: 14,
+                              autoplay: true,
+                              isActive: true,
+                              showVideoBadge: mediaType == 'video',
+                              fallback: _gradientPlaceholder(),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              (placement['title'] as String?)?.trim().isNotEmpty ==
+                                      true
+                                  ? (placement['title'] as String)
+                                  : 'لمحة ممولة',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                fontFamily: 'Cairo',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoMessageCard(bool isDark, Color purple) {
+    final placement = _promoMessagePlacement;
+    if (placement == null) return const SizedBox.shrink();
+    final title =
+        (placement['message_title'] as String?)?.trim().isNotEmpty == true
+            ? (placement['message_title'] as String)
+            : ((placement['title'] as String?) ?? 'رسالة دعائية');
+    final body = (placement['message_body'] as String?) ?? '';
+    final providerIdRaw = placement['target_provider_id'];
+    final providerId = providerIdRaw is int
+        ? providerIdRaw
+        : int.tryParse('$providerIdRaw');
+    final providerName = placement['target_provider_display_name'] as String?;
+    final redirectUrl = placement['redirect_url'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1F1A2A) : const Color(0xFFF2ECFF),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: purple.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF2A1A4A),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Cairo',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'إخفاء',
+                  onPressed: () {
+                    if (!mounted) return;
+                    setState(() => _promoMessageDismissed = true);
+                  },
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                ),
+              ],
+            ),
+            if (body.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 8),
+                child: Text(
+                  body,
+                  style: TextStyle(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.85)
+                        : Colors.black87,
+                    fontSize: 12,
+                    height: 1.5,
+                    fontFamily: 'Cairo',
+                  ),
+                ),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonal(
+                onPressed: () async {
+                  await _openPromoPlacement(
+                    redirectUrl: redirectUrl,
+                    providerId: providerId,
+                    providerName: providerName,
+                  );
+                },
+                child: const Text('عرض التفاصيل'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

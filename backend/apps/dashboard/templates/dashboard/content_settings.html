@@ -1,13 +1,7 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>تحديث معلومات صفحة الإعدادات</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
+{% block title %}تحديث معلومات صفحة الإعدادات{% endblock %}
+{% block body %}
   <div class="dashboard-layout">
     <header class="dash-header">
       <div class="hero-panel panel fade-in">
@@ -78,17 +72,17 @@
                 </div>
               </div>
               {% if current_doc %}
-                <div class="quick-stat" style="margin-top:10px;">
+                <div class="quick-stat">
                   <span>المستند النشط</span>
                   <strong>v{{ current_doc.version }} - {{ current_doc.published_at|date:"Y-m-d H:i" }}</strong>
                 </div>
                 {% if current_doc.file %}
-                  <div class="actions" style="margin-top: 8px;">
+                  <div class="actions">
                     <a class="ghost-btn" href="{{ current_doc.file.url }}" target="_blank" rel="noopener">معاينة الملف الحالي</a>
                   </div>
                 {% endif %}
               {% endif %}
-              <div class="actions" style="margin-top: 12px;">
+              <div class="actions">
                 {% if can_manage %}
                   <button class="primary-btn" type="submit">حفظ</button>
                 {% else %}
@@ -134,7 +128,7 @@
                 {{ links_form.email }}
               </div>
             </div>
-            <div class="actions" style="margin-top: 12px;">
+            <div class="actions">
               {% if can_manage %}
                 <button class="primary-btn" type="submit">حفظ</button>
               {% else %}
@@ -164,5 +158,4 @@
     </main>
   </div>
   <script src="{% static 'dashboard/js/content.js' %}"></script>
-</body>
-</html>
+{% endblock %}

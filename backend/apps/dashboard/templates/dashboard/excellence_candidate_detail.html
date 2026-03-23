@@ -1,19 +1,16 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>تفاصيل مرشح التميز</title>
-  <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
-</head>
-<body class="dashboard-body">
-  <header class="dash-header">
-    <h1>تفاصيل مرشح التميز</h1>
-    <p class="subtitle">{{ candidate.provider.display_name }} - {{ candidate.badge_type.name_ar }}</p>
-  </header>
-
-  <main class="dash-shell" style="grid-template-columns: 1fr;">
+{% block title %}تفاصيل مرشح التميز{% endblock %}
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>تفاصيل مرشح التميز</h1>
+          <p class="subtitle">{{ candidate.provider.display_name }} - {{ candidate.badge_type.name_ar }}</p>
+        </div>
+      </div>
+    </header>
     <section class="panel content-panel">
       <div class="kpi-content">
         <div class="metric"><div class="label">الترتيب</div><div class="value">{{ candidate.rank_position }}</div></div>
@@ -22,7 +19,7 @@
       </div>
 
       {% if can_write %}
-        <div class="actions" style="margin-top: 12px;">
+        <div class="actions">
           <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}">
             {% csrf_token %}
             <button type="submit" class="primary-btn">اعتماد الشارة</button>
@@ -37,6 +34,6 @@
       {% endif %}
     </section>
   </main>
-</body>
-</html>
+  </div>
+{% endblock %}
 
