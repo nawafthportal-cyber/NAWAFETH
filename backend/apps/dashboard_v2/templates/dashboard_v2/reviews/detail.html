@@ -1,0 +1,102 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Review</p>
+<h2 class="text-lg font-extrabold text-ink">مراجعة #{{ review.id }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=review.moderation_status label=review.get_moderation_status_display %}
+    <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">التقييم: {{ review.rating }}/5</span>
+    {% if priority_code == "high" %}
+        {% include "dashboard_v2/components/status_badge.html" with value="escalated" label="أولوية عالية" %}
+    {% elif priority_code == "normal" %}
+        {% include "dashboard_v2/components/status_badge.html" with value="in_progress" label="أولوية متوسطة" %}
+    {% else %}
+        {% include "dashboard_v2/components/status_badge.html" with value="closed" label="أولوية منخفضة" %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:reviews_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">بيانات المراجعة</h3>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <p class="text-xs text-slate-500">تعليق العميل</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ review.comment|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المزود</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ review.provider.display_name|default:review.provider.user.phone }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">العميل</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ review.client.phone|default:review.client_id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">طلب الخدمة</p>
+                    <p class="text-sm font-semibold text-slate-800">#{{ review.request_id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">آخر إشراف</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ review.moderated_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">التقييم التفصيلي</h3>
+            <div class="space-y-2">
+                {% for metric in rating_criteria %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-700">{{ metric.label }}</p>
+                            <p class="text-xs font-bold text-slate-700">{{ metric.value }}/5</p>
+                        </div>
+                        <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div class="h-full rounded-full bg-teal-600" style="width: {{ metric.pct }}%;"></div>
+                        </div>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد معايير تفصيلية" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        {% if can_moderate %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">إجراء إشرافي</h3>
+            <form method="post" action="{% url 'dashboard_v2:reviews_moderate_action' review.id %}" class="space-y-3">
+                {% csrf_token %}
+                <select name="action" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                    <option value="approve">اعتماد</option>
+                    <option value="hide">إخفاء</option>
+                    <option value="reject">رفض</option>
+                </select>
+                <textarea name="moderation_note" rows="2" placeholder="ملاحظة الإشراف" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">{{ review.moderation_note|default:'' }}</textarea>
+                <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-900">تنفيذ الإجراء</button>
+            </form>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">رد إداري</h3>
+            <form method="post" action="{% url 'dashboard_v2:reviews_respond_action' review.id %}" class="space-y-3">
+                {% csrf_token %}
+                <textarea name="management_reply" rows="3" placeholder="اكتب الرد الإداري" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">{{ review.management_reply|default:'' }}</textarea>
+                <button type="submit" class="w-full rounded-xl bg-tealbrand px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">حفظ الرد</button>
+            </form>
+        </article>
+        {% else %}
+            {% include "dashboard_v2/components/empty_state.html" with title="وضع قراءة فقط" text="لا تملك صلاحية الإشراف على المراجعات." compact=True %}
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+

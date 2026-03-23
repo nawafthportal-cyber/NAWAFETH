@@ -1,0 +1,16 @@
+{% for banner in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3 align-top">
+        <p class="text-sm font-bold text-slate-800">{{ banner.title }}</p>
+        {% if banner.link_url %}
+            <a href="{{ banner.link_url }}" target="_blank" class="mt-1 inline-flex text-xs font-semibold text-teal-700 hover:text-teal-800">فتح الرابط</a>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ banner.get_media_type_display }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ banner.provider.display_name|default:"—" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-600">{{ banner.start_at|date:"Y-m-d H:i"|default:"—" }} → {{ banner.end_at|date:"Y-m-d H:i"|default:"—" }}</td>
+    <td class="px-4 py-3 align-top">{% include "dashboard_v2/components/status_badge.html" with value=banner.is_active|yesno:"active,inactive" label=banner.is_active|yesno:"مفعل,غير مفعل" %}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-600">{{ banner.display_order }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ banner.updated_at|date:"Y-m-d H:i" }}</td>
+</tr>
+{% endfor %}

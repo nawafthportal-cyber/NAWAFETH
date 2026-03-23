@@ -1,0 +1,16 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-5">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {% for card in settings_cards %}
+            <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+                <h2 class="text-sm font-extrabold text-ink">{{ card.title }}</h2>
+                <p class="mt-2 text-xs text-slate-600">{{ card.text }}</p>
+            </article>
+        {% empty %}
+            {% include "dashboard_v2/components/empty_state.html" with title="لا توجد إعدادات متاحة" text="سيتم إظهار أي إعدادات قابلة للتعديل هنا عند ربطها بالخدمات." %}
+        {% endfor %}
+    </section>
+</div>
+{% endblock %}

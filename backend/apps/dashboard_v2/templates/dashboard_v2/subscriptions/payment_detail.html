@@ -1,0 +1,89 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Subscription Payment</p>
+<h2 class="text-lg font-extrabold text-ink">#{{ sub.id }} - {{ sub.user.phone|default:"—" }}</h2>
+{% if invoice %}
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=invoice.status label=invoice.get_status_display %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:subscriptions_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+<a href="{% url 'dashboard_v2:subscription_request_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الطلب</a>
+<a href="{% url 'dashboard_v2:subscription_account_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الحساب</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">بيانات الفاتورة</h3>
+            {% if invoice %}
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">رقم الفاتورة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ invoice.code|default:invoice.id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الحالة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ invoice.get_status_display }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المجموع قبل الضريبة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ invoice.subtotal }} {{ invoice.currency }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الضريبة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ invoice.vat_amount }} {{ invoice.currency }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <p class="text-xs text-slate-500">الإجمالي</p>
+                    <p class="text-sm font-extrabold text-slate-800">{{ invoice.total }} {{ invoice.currency }}</p>
+                </div>
+            </div>
+            {% else %}
+                {% include "dashboard_v2/components/empty_state.html" with title="لا توجد فاتورة مرتبطة" compact=True %}
+            {% endif %}
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">بنود الفاتورة</h3>
+            <div class="space-y-2">
+                {% for line in line_items %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-semibold text-slate-700">{{ line.title }}</p>
+                            <p class="text-xs font-bold text-slate-800">{{ line.amount }}</p>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-500">{{ line.item_code|default:"—" }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد بنود" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">محاولات الدفع</h3>
+            <div class="space-y-2">
+                {% for attempt in attempts %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ attempt.provider }}</p>
+                            {% include "dashboard_v2/components/status_badge.html" with value=attempt.status label=attempt.get_status_display %}
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-500">{{ attempt.amount }} {{ attempt.currency }} - {{ attempt.created_at|date:"Y-m-d H:i" }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد محاولات دفع" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

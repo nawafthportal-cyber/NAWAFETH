@@ -1,0 +1,160 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Support Ticket</p>
+<h2 class="text-lg font-extrabold text-ink">{{ ticket.code|default:ticket.id }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=ticket.status label=ticket.get_status_display %}
+    <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ ticket.get_ticket_type_display }}</span>
+    <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{{ ticket.get_priority_display }}</span>
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:support_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">معلومات التذكرة</h3>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <p class="text-xs text-slate-500">الوصف</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ticket.description|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">العميل</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ticket.requester.phone|default:ticket.requester_id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الفريق</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ticket.assigned_team.name_ar|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المسند إليه</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ticket.assigned_to.phone|default:"غير مسند" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">آخر تحديث</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ticket.updated_at|date:"Y-m-d H:i" }}</p>
+                </div>
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">Timeline الحالة</h3>
+            <div class="space-y-2">
+                {% for log in logs %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ log.from_status }} → {{ log.to_status }}</p>
+                            <p class="text-[11px] text-slate-500">{{ log.created_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-500">بواسطة: {{ log.changed_by.phone|default:"النظام" }}</p>
+                        {% if log.note %}
+                            <p class="mt-1 text-[11px] text-slate-500">ملاحظة: {{ log.note }}</p>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد سجل حالات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        {% if can_assign %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">إسناد التذكرة</h3>
+            <form method="post" action="{% url 'dashboard_v2:support_assign_action' ticket.id %}" class="space-y-3">
+                {% csrf_token %}
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">الفريق</span>
+                    <select name="assigned_team" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <option value="">بدون تغيير</option>
+                        {% for team in teams %}
+                            <option value="{{ team.id }}" {% if ticket.assigned_team_id == team.id %}selected{% endif %}>{{ team.name_ar }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">المستخدم</span>
+                    <select name="assigned_to" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <option value="">بدون إسناد</option>
+                        {% for staff_user in assignees %}
+                            <option value="{{ staff_user.id }}" {% if ticket.assigned_to_id == staff_user.id %}selected{% endif %}>{{ staff_user.phone|default:staff_user.id }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">ملاحظة</span>
+                    <textarea name="note" rows="2" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40"></textarea>
+                </label>
+                <button type="submit" class="w-full rounded-xl bg-tealbrand px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">تحديث الإسناد</button>
+            </form>
+        </article>
+        {% endif %}
+
+        {% if can_set_status %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تحديث الحالة</h3>
+            <form method="post" action="{% url 'dashboard_v2:support_status_action' ticket.id %}" class="space-y-3">
+                {% csrf_token %}
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">الحالة</span>
+                    <select name="status" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        {% for status_key, status_label in status_choices %}
+                            <option value="{{ status_key }}" {% if ticket.status == status_key %}selected{% endif %}>{{ status_label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">ملاحظة</span>
+                    <textarea name="note" rows="2" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40"></textarea>
+                </label>
+                <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-900">تحديث الحالة</button>
+            </form>
+        </article>
+        {% endif %}
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-2 text-sm font-extrabold text-ink">التعليقات</h3>
+            <div class="space-y-2">
+                {% for comment in comments %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <p class="text-xs text-slate-700">{{ comment.text }}</p>
+                        <div class="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                            <span>{{ comment.created_by.phone|default:"النظام" }}</span>
+                            <span>{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+                            {% if comment.is_internal %}
+                                <span class="rounded-full bg-amber-50 px-2 py-0.5 font-bold text-amber-700">Internal</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد تعليقات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-2 text-sm font-extrabold text-ink">المرفقات</h3>
+            <div class="space-y-2">
+                {% for item in attachments %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <p class="text-xs font-bold text-slate-700">ملف #{{ item.id }}</p>
+                        {% if item.file %}
+                            <a href="{{ item.file.url }}" target="_blank" rel="noopener noreferrer" class="mt-1 inline-flex text-xs font-bold text-teal-700 hover:text-teal-800">فتح الملف</a>
+                        {% endif %}
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد مرفقات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}
+

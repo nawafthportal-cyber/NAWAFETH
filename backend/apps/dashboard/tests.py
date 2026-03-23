@@ -137,6 +137,27 @@ def test_dashboard_allowed_staff_without_access_profile_is_denied():
 
 
 @pytest.mark.django_db
+def test_dashboard_allowed_admin_alias_maps_to_admin_control():
+	staff_user = User.objects.create_user(
+		phone="05000002070",
+		password="Pass12345!",
+		is_staff=True,
+	)
+	admin_dashboard, _ = Dashboard.objects.get_or_create(
+		code="admin_control",
+		defaults={"name_ar": "الإدارة", "sort_order": 1},
+	)
+	ap = UserAccessProfile.objects.create(
+		user=staff_user,
+		level=AccessLevel.USER,
+	)
+	ap.allowed_dashboards.set([admin_dashboard])
+
+	assert _dashboard_allowed(staff_user, "admin", write=False) is True
+	assert _dashboard_allowed(staff_user, "access", write=False) is True
+
+
+@pytest.mark.django_db
 def test_access_profile_update_action_updates_level_dashboards_and_expiry():
 	admin_user = User.objects.create_user(
 		phone="0500000208",
@@ -289,6 +310,11 @@ def test_unified_requests_list_dashboard_page_and_csv_export():
 	body = res_csv.content.decode("utf-8")
 	assert "الكود" in body
 	assert "طلب ترويج تجريبي" in body
+	assert AuditLog.objects.filter(
+		action=AuditAction.DATA_EXPORTED,
+		reference_type="export",
+		reference_id="unified_requests.csv",
+	).exists()
 
 
 @pytest.mark.django_db
@@ -893,7 +919,7 @@ def test_subscription_request_detail_quick_status_updates_unified_request():
 	)
 	assert res2.status_code == 302
 	ur.refresh_from_db()
-	assert ur.status == "completed"
+	assert ur.status == "closed"
 	assert ur.closed_at is not None
 	audit = AuditLog.objects.filter(
 		action=AuditAction.SUBSCRIPTION_REQUEST_STATUS_CHANGED,
@@ -910,6 +936,7 @@ def test_subscription_request_detail_assigns_unified_request():
 	assignee_user = User.objects.create_user(phone="0500000912", password="Pass12345!", is_staff=True)
 	subs_dashboard, _ = Dashboard.objects.get_or_create(code="subs", defaults={"name_ar": "الاشتراكات", "sort_order": 19})
 	UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN).allowed_dashboards.set([subs_dashboard])
+	UserAccessProfile.objects.create(user=assignee_user, level=AccessLevel.USER).allowed_dashboards.set([subs_dashboard])
 
 	requester = User.objects.create_user(phone="0500000913", password="Pass12345!")
 	plan = SubscriptionPlan.objects.create(code="SD_ASSIGN", title="الأساسية", period="year", price="100.00", is_active=True)

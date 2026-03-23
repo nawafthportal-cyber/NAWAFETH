@@ -22,7 +22,7 @@ from apps.moderation.models import (
 from apps.moderation.services import assign_case, change_case_status, record_decision
 
 from .auth import dashboard_staff_required as staff_member_required
-from .access import dashboard_assignment_users
+from .access import can_access_object, dashboard_assignment_users
 from .views import _dashboard_allowed, dashboard_access_required
 
 
@@ -174,6 +174,8 @@ def moderation_cases_list(request: HttpRequest) -> HttpResponse:
 def moderation_case_detail(request: HttpRequest, case_id: int) -> HttpResponse:
     _ensure_moderation_flag()
     case = get_object_or_404(_moderation_queryset(), id=case_id)
+    if not can_access_object(request.user, case, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
+        return HttpResponse("غير مصرح", status=403)
     assign_policy = ModerationAssignPolicy.evaluate(request.user)
     resolve_policy = ModerationResolvePolicy.evaluate(request.user)
     return render(
@@ -198,6 +200,8 @@ def moderation_case_detail(request: HttpRequest, case_id: int) -> HttpResponse:
 def moderation_case_assign_action(request: HttpRequest, case_id: int) -> HttpResponse:
     _ensure_moderation_flag()
     case = get_object_or_404(ModerationCase, id=case_id)
+    if not can_access_object(request.user, case, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
+        return HttpResponse("غير مصرح", status=403)
     policy = ModerationAssignPolicy.evaluate_and_log(
         request.user,
         request=request,
@@ -237,6 +241,8 @@ def moderation_case_assign_action(request: HttpRequest, case_id: int) -> HttpRes
 def moderation_case_status_action(request: HttpRequest, case_id: int) -> HttpResponse:
     _ensure_moderation_flag()
     case = get_object_or_404(ModerationCase, id=case_id)
+    if not can_access_object(request.user, case, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
+        return HttpResponse("غير مصرح", status=403)
     policy = ModerationResolvePolicy.evaluate_and_log(
         request.user,
         request=request,
@@ -265,6 +271,8 @@ def moderation_case_status_action(request: HttpRequest, case_id: int) -> HttpRes
 def moderation_case_decision_action(request: HttpRequest, case_id: int) -> HttpResponse:
     _ensure_moderation_flag()
     case = get_object_or_404(ModerationCase, id=case_id)
+    if not can_access_object(request.user, case, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
+        return HttpResponse("غير مصرح", status=403)
     policy = ModerationResolvePolicy.evaluate_and_log(
         request.user,
         request=request,

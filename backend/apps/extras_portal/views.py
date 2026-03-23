@@ -11,6 +11,7 @@ from django.utils import timezone
 
 from apps.accounts.models import OTP, User
 from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
+from apps.dashboard.security import is_safe_redirect_url
 from apps.dashboard.exports import pdf_response, xlsx_response
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
@@ -137,7 +138,7 @@ def portal_otp(request: HttpRequest) -> HttpResponse:
         request.session[SESSION_PORTAL_OTP_VERIFIED_KEY] = True
 
         next_url = (request.session.pop(SESSION_PORTAL_NEXT_URL_KEY, "") or "").strip()
-        if next_url and next_url.startswith("/"):
+        if is_safe_redirect_url(next_url):
             return redirect(next_url)
         return redirect("extras_portal:reports")
 

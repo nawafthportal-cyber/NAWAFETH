@@ -1,0 +1,51 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="grid gap-5 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h2 class="mb-3 text-sm font-extrabold text-ink">بيانات الحساب</h2>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">رقم الجوال</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.phone|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">اسم المستخدم</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.username|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الاسم الأول</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.first_name|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">اسم العائلة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.last_name|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">البريد</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.email|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المدينة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ user_obj.city|default:"—" }}</p>
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h2 class="mb-3 text-sm font-extrabold text-ink">معلومات صلاحية</h2>
+            <div class="space-y-2">
+                {% if can_write_portal %}
+                    <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Client Portal Write</span>
+                {% else %}
+                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">Client Portal Read</span>
+                {% endif %}
+                <p class="text-[11px] text-slate-500">جميع الإجراءات الحساسة تمر عبر صلاحيات الباكند الحالية.</p>
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

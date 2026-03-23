@@ -6,27 +6,26 @@ from django.utils import timezone
 
 from apps.accounts.models import User, UserRole
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
+from .contracts import (
+    DashboardCode,
+    canonical_dashboard_code,
+)
 
 
 DASHBOARD_ROUTE_CANDIDATES: list[tuple[str, str]] = [
-    ("analytics", "dashboard:home"),
-    ("content", "dashboard:requests_list"),
+    (DashboardCode.ANALYTICS, "dashboard:home"),
+    (DashboardCode.CONTENT, "dashboard:requests_list"),
     ("billing", "dashboard:billing_invoices_list"),
-    ("support", "dashboard:support_tickets_list"),
-    ("moderation", "dashboard:moderation_cases_list"),
-    ("verify", "dashboard:verification_ops"),
+    (DashboardCode.SUPPORT, "dashboard:support_tickets_list"),
+    (DashboardCode.MODERATION, "dashboard:moderation_cases_list"),
+    (DashboardCode.VERIFY, "dashboard:verification_ops"),
     ("excellence", "dashboard:excellence_dashboard"),
-    ("promo", "dashboard:promo_requests_list"),
-    ("subs", "dashboard:subscriptions_ops"),
-    ("extras", "dashboard:extras_ops"),
-    ("client_extras", "dashboard:client_extras_catalog"),
-    ("admin_control", "dashboard:admin_home"),
+    (DashboardCode.PROMO, "dashboard:promo_requests_list"),
+    (DashboardCode.SUBS, "dashboard:subscriptions_ops"),
+    (DashboardCode.EXTRAS, "dashboard:extras_ops"),
+    (DashboardCode.CLIENT_EXTRAS, "dashboard:client_extras_catalog"),
+    (DashboardCode.ADMIN_CONTROL, "dashboard:admin_home"),
 ]
-
-# Backward-compatible alias: old code "access" maps to "admin_control"
-_DASHBOARD_CODE_ALIASES: dict[str, str] = {
-    "access": "admin_control",
-}
 
 BACKOFFICE_ACCESS_LEVELS = frozenset(
     {
@@ -79,8 +78,8 @@ def backoffice_portal_eligible(user) -> bool:
 
 
 def _resolve_dashboard_code(dashboard_code: str) -> str:
-    """Resolve backward-compatible aliases (e.g. 'access' → 'admin_control')."""
-    return _DASHBOARD_CODE_ALIASES.get(dashboard_code, dashboard_code)
+    """Resolve backward-compatible aliases (e.g. 'admin'/'access' → 'admin_control')."""
+    return canonical_dashboard_code(dashboard_code)
 
 
 def dashboard_allowed(user, dashboard_code: str, write: bool = False) -> bool:
@@ -217,6 +216,11 @@ def can_access_dashboard(user, panel_code: str, write: bool = False) -> bool:
     return dashboard_allowed(user, panel_code, write=write)
 
 
+def has_dashboard_access(user, panel_code: str, write: bool = False) -> bool:
+    """Alias kept for readability in service/views layers."""
+    return can_access_dashboard(user, panel_code, write=write)
+
+
 def has_action_permission(user, permission_code: str) -> bool:
     """
     Check if user has a specific fine-grained action permission.
@@ -232,6 +236,59 @@ def has_action_permission(user, permission_code: str) -> bool:
     if not access_profile:
         return False
     return access_profile.has_permission_code(permission_code)
+
+
+def can_access_object(
+    user,
+    obj,
+    *,
+    assigned_field: str = "assigned_to",
+    owner_field: str | None = None,
+    allow_unassigned_for_user_level: bool = True,
+) -> bool:
+    """Object-level guard:
+    - superuser/admin/power: allow
+    - QA: read-only handled at view level; object visibility allowed
+    - USER: if owner_field passed, must own object; otherwise must be assigned
+      (or unassigned if allowed)
+    - CLIENT: bound to owner_field when provided
+    """
+    if not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+
+    access_profile = active_access_profile_for_user(user)
+    if not access_profile:
+        return False
+
+    if access_profile.level in (AccessLevel.ADMIN, AccessLevel.POWER, AccessLevel.QA):
+        return True
+
+    if access_profile.level == AccessLevel.CLIENT:
+        if not owner_field:
+            return False
+        owner_id = getattr(obj, f"{owner_field}_id", None)
+        if owner_id is None:
+            owner_obj = getattr(obj, owner_field, None)
+            owner_id = getattr(owner_obj, "id", None) if owner_obj is not None else None
+        return owner_id == user.id
+
+    if owner_field:
+        owner_id = getattr(obj, f"{owner_field}_id", None)
+        if owner_id is None:
+            owner_obj = getattr(obj, owner_field, None)
+            owner_id = getattr(owner_obj, "id", None) if owner_obj is not None else None
+        if owner_id is not None:
+            return owner_id == user.id
+
+    assigned_id = getattr(obj, f"{assigned_field}_id", None)
+    if assigned_id is None:
+        assigned_obj = getattr(obj, assigned_field, None)
+        assigned_id = getattr(assigned_obj, "id", None) if assigned_obj is not None else None
+    if assigned_id is None:
+        return allow_unassigned_for_user_level
+    return assigned_id == user.id
 
 
 def dashboard_panel_required(panel_code: str, write: bool = False):

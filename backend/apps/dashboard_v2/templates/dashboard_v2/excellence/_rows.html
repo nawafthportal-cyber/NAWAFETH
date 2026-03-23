@@ -1,0 +1,22 @@
+{% for candidate in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3">
+        <a href="{% url 'dashboard_v2:excellence_candidate_detail' candidate.id %}" class="font-bold text-slate-800 hover:text-teal-700">
+            {{ candidate.provider.display_name|default:candidate.provider.user.phone }}
+        </a>
+        <p class="mt-1 text-xs text-slate-500">{{ candidate.provider.user.phone|default:"—" }}</p>
+    </td>
+    <td class="px-4 py-3 text-xs font-semibold text-slate-700">{{ candidate.badge_type.name_ar }}</td>
+    <td class="px-4 py-3">{% include "dashboard_v2/components/status_badge.html" with value=candidate.status label=candidate.get_status_display %}</td>
+    <td class="px-4 py-3 text-xs text-slate-700">#{{ candidate.rank_position }}</td>
+    <td class="px-4 py-3 text-xs text-slate-600">
+        <p>متابعون: {{ candidate.followers_count }}</p>
+        <p>طلبات: {{ candidate.completed_orders_count }}</p>
+        <p>تقييم: {{ candidate.rating_avg }} ({{ candidate.rating_count }})</p>
+    </td>
+    <td class="px-4 py-3">
+        <a href="{% url 'dashboard_v2:excellence_candidate_detail' candidate.id %}" class="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">تفاصيل</a>
+    </td>
+</tr>
+{% endfor %}
+

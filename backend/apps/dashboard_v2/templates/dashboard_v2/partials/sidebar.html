@@ -1,0 +1,32 @@
+<aside id="v2-sidebar" class="v2-sidebar w-72 max-w-[82vw] border-l border-slate-200 bg-white/90 backdrop-blur-sm shadow-soft transition-all duration-200" aria-label="القائمة الجانبية">
+    <div class="h-16 flex items-center justify-between px-4 border-b border-slate-100">
+        <div>
+            <p class="text-xs uppercase tracking-widest text-slate-400 font-plex">NAWAFETH</p>
+            <h2 class="text-lg font-bold text-tealbrand">Dashboard V2</h2>
+        </div>
+        <div class="flex items-center gap-2">
+            <button type="button" id="sidebar-collapse" aria-label="طي القائمة" class="hidden md:inline-flex rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100">طي</button>
+            <button type="button" id="sidebar-close" aria-label="إغلاق القائمة" class="md:hidden rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100">إغلاق</button>
+        </div>
+    </div>
+    <nav class="p-3 space-y-1 overflow-y-auto max-h-[calc(100vh-4rem)]" aria-label="روابط اللوحات">
+        {% for item in sidebar_items %}
+            <a href="{{ item.url }}"
+               title="{{ item.label }}"
+               aria-current="{% if item.active %}page{% else %}false{% endif %}"
+               class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition
+               {% if item.active %}
+                    bg-tealbrand text-white shadow-soft ring-1 ring-teal-700/20
+                {% else %}
+                    text-slate-700 hover:bg-slate-100
+                {% endif %}">
+                <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg {% if item.active %}bg-white/20{% else %}bg-slate-100{% endif %}">
+                    <span class="h-2 w-2 rounded-full {% if item.active %}bg-white{% else %}bg-tealbrand{% endif %}"></span>
+                </span>
+                <span class="truncate">{{ item.label }}</span>
+            </a>
+        {% empty %}
+            {% include "dashboard_v2/components/empty_state.html" with title="لا توجد لوحات متاحة" text="لم يتم العثور على لوحات تشغيل ضمن صلاحيات هذا الحساب." compact=True %}
+        {% endfor %}
+    </nav>
+</aside>

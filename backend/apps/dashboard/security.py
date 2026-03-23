@@ -153,24 +153,12 @@ def apply_user_level_filter(qs, user, *, assigned_field: str = "assigned_to"):
 
 
 def check_object_access(request, obj, *, assigned_field: str = "assigned_to") -> bool:
-    """Return True if user has access to this specific object.
+    """Return True if user has access to this specific object."""
+    from .access import can_access_object
 
-    For user-level profiles, checks that the object is assigned to them.
-    Admin/power/superuser always have access.
-    """
-    from apps.backoffice.models import AccessLevel
-
-    user = request.user
-    if getattr(user, "is_superuser", False):
-        return True
-
-    ap = getattr(user, "access_profile", None)
-    if not ap or ap.level != AccessLevel.USER:
-        return True
-
-    assigned_to_id = getattr(obj, f"{assigned_field}_id", None)
-    if assigned_to_id is None:
-        assigned_to = getattr(obj, assigned_field, None)
-        assigned_to_id = getattr(assigned_to, "id", None) if assigned_to else None
-
-    return assigned_to_id == user.id
+    return can_access_object(
+        request.user,
+        obj,
+        assigned_field=assigned_field,
+        allow_unassigned_for_user_level=True,
+    )

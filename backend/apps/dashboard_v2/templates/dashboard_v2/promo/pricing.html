@@ -1,0 +1,69 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'dashboard_v2:promo_requests_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">طلبات الترويج</a>
+            <a href="{% url 'dashboard_v2:promo_inquiries_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الاستفسارات</a>
+            <a href="{% url 'dashboard_v2:promo_banners_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">البنرات</a>
+            {% if can_manage %}
+                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Writable Pricing</span>
+            {% else %}
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">Read Only</span>
+            {% endif %}
+        </div>
+    </section>
+
+    {% for group in groups %}
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <h2 class="mb-3 text-sm font-extrabold text-ink">{{ group.label }}</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                    <tr>
+                        <th class="px-3 py-2 text-right font-bold">القاعدة</th>
+                        <th class="px-3 py-2 text-right font-bold">الوحدة</th>
+                        <th class="px-3 py-2 text-right font-bold">السعر</th>
+                        <th class="px-3 py-2 text-right font-bold">نشط</th>
+                        <th class="px-3 py-2 text-right font-bold">إجراء</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    {% for row in group.rows %}
+                    <tr>
+                        <td class="px-3 py-2">{{ row.title }}</td>
+                        <td class="px-3 py-2">{{ row.get_unit_display }}</td>
+                        {% if can_manage %}
+                        <td class="px-3 py-2" colspan="3">
+                            <form method="post" action="{% url 'dashboard_v2:promo_pricing_update_action' %}" class="grid gap-2 sm:grid-cols-4">
+                                {% csrf_token %}
+                                <input type="hidden" name="code" value="{{ row.code }}">
+                                <input type="number" step="0.01" min="0" name="amount" value="{{ row.amount }}" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs">
+                                <label class="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                                    <input type="checkbox" name="is_active" value="1" {% if row.is_active %}checked{% endif %}>
+                                    مفعل
+                                </label>
+                                <button type="submit" class="rounded-xl bg-tealbrand px-3 py-2 text-xs font-bold text-white hover:bg-teal-700">حفظ</button>
+                            </form>
+                        </td>
+                        {% else %}
+                        <td class="px-3 py-2">{{ row.amount }}</td>
+                        <td class="px-3 py-2">{% include "dashboard_v2/components/status_badge.html" with value=row.is_active|yesno:"active,inactive" label=row.is_active|yesno:"نعم,لا" %}</td>
+                        <td class="px-3 py-2 text-xs text-slate-500">—</td>
+                        {% endif %}
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-3 py-4">
+                            {% include "dashboard_v2/components/empty_state.html" with title="لا توجد قواعد تسعير" compact=True %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endfor %}
+</div>
+{% endblock %}

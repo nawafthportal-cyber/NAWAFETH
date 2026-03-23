@@ -1,0 +1,17 @@
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+<div class="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3">
+    <p class="text-xs text-slate-500">
+        صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
+    </p>
+    <div class="flex items-center gap-2">
+        {% if page_obj.has_previous %}
+            <a class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+               href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">السابق</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+            <a class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+               href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">التالي</a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

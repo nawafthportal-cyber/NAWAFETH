@@ -1,0 +1,40 @@
+{% for user_item in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3 align-top">
+        <a href="{% url 'dashboard_v2:user_detail' user_item.id %}" class="font-bold text-slate-800 hover:text-teal-700">
+            {{ user_item.phone|default:user_item.username|default:user_item.id }}
+        </a>
+        <p class="mt-1 text-xs text-slate-500">
+            {{ user_item.first_name|default:"" }} {{ user_item.last_name|default:"" }}
+        </p>
+    </td>
+    <td class="px-4 py-3 align-top">
+        {% if user_item.access_profile %}
+            <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ user_item.access_profile.get_level_display }}</span>
+        {% else %}
+            <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">NO ACCESS</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 align-top">
+        {% include "dashboard_v2/components/status_badge.html" with value=user_item.is_active|yesno:"active,inactive" label=user_item.is_active|yesno:"نشط,غير نشط" %}
+    </td>
+    <td class="px-4 py-3 align-top">
+        {% if user_item.access_profile %}
+            <div class="flex flex-wrap gap-1">
+                {% for dash in user_item.access_profile.allowed_dashboards.all %}
+                    <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">{{ dash.code }}</span>
+                {% empty %}
+                    <span class="text-xs text-slate-500">—</span>
+                {% endfor %}
+            </div>
+        {% else %}
+            <span class="text-xs text-slate-500">—</span>
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ user_item.created_at|date:"Y-m-d H:i" }}</td>
+    <td class="px-4 py-3 align-top">
+        {% url 'dashboard_v2:user_detail' user_item.id as user_detail_url %}
+        {% include "dashboard_v2/components/action_menu.html" with single_url=user_detail_url single_label="تفاصيل" %}
+    </td>
+</tr>
+{% endfor %}

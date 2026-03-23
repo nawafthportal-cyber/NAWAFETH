@@ -1,0 +1,19 @@
+{% if actions or single_url %}
+<details class="relative" data-auto-close="1">
+    <summary class="list-none cursor-pointer rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">إجراءات</summary>
+    <div class="absolute left-0 z-20 mt-1 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-soft">
+        <ul class="space-y-1">
+            {% for action in actions %}
+                <li>
+                    <a href="{{ action.url }}" class="block rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ action.label }}</a>
+                </li>
+            {% endfor %}
+            {% if single_url %}
+                <li>
+                    <a href="{{ single_url }}" class="block rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">{{ single_label|default:"فتح" }}</a>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+</details>
+{% endif %}

@@ -1,0 +1,23 @@
+{% extends "dashboard_v2/base.html" %}
+{% load dashboard_v2_access %}
+
+{% block content %}
+<div class="space-y-4">
+    {% include "dashboard_v2/components/filter_bar.html" with form_action=request.path fields_template="dashboard_v2/requests/_requests_filters.html" %}
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-sm font-extrabold text-ink">Inbox الطلبات الموحدة</h2>
+            {% if can_view_all_requests %}
+                <span class="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700">Full Scope</span>
+            {% else %}
+                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">Scoped</span>
+            {% endif %}
+        </div>
+
+        {% include "dashboard_v2/components/data_table.html" with headers=table_headers rows_template="dashboard_v2/requests/_requests_rows.html" col_count=7 empty_title="لا توجد طلبات" empty_text="لا توجد نتائج حسب الفلاتر الحالية." %}
+        {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+    </section>
+</div>
+{% endblock %}
+

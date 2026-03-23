@@ -1,0 +1,57 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-5">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {% include "dashboard_v2/components/card.html" with title="OPEN REQUESTS" value=cards.requests_open subtitle="طلبات مفتوحة" %}
+        {% include "dashboard_v2/components/card.html" with title="SERVICES" value=cards.services_total subtitle="إجمالي الخدمات" %}
+        {% include "dashboard_v2/components/card.html" with title="ACTIVE" value=cards.services_active subtitle="خدمات نشطة" %}
+        {% include "dashboard_v2/components/card.html" with title="PENDING INVOICES" value=cards.invoices_pending subtitle="فواتير بانتظار الدفع" %}
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <h2 class="mb-3 text-sm font-extrabold text-ink">الوصول السريع</h2>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {% for link in quick_links %}
+                <a href="{% url link.url %}" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">{{ link.label }}</a>
+            {% endfor %}
+        </div>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">آخر الطلبات</h3>
+            <div class="space-y-2">
+                {% for ur in recent_requests %}
+                    <a href="{% url 'dashboard_v2:client_portal_request_detail' ur.id %}" class="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ ur.code|default:ur.id }}</p>
+                            {% include "dashboard_v2/components/status_badge.html" with value=ur.status label=ur.get_status_display %}
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600">{{ ur.summary|default:"—" }}</p>
+                    </a>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد طلبات حديثة" text="عند إنشاء أو تحديث طلب جديد سيظهر هنا تلقائيًا." compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">آخر الخدمات</h3>
+            <div class="space-y-2">
+                {% for purchase in recent_services %}
+                    <a href="{% url 'dashboard_v2:client_portal_service_detail' purchase.id %}" class="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ purchase.title|default:"—" }}</p>
+                            {% include "dashboard_v2/components/status_badge.html" with value=purchase.status label=purchase.get_status_display %}
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600">{{ purchase.sku|default:"—" }}</p>
+                    </a>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد خدمات حديثة" text="سيتم عرض آخر الخدمات المفعّلة والبانتظار هنا." compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

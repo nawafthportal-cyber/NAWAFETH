@@ -93,11 +93,14 @@ class UserAccessProfile(models.Model):
     CLIENT_ONLY_DASHBOARDS = frozenset({"client_extras"})
 
     def is_allowed(self, dashboard_code: str) -> bool:
+        normalized_dashboard_code = str(dashboard_code or "").strip().lower()
+        if normalized_dashboard_code in {"access", "admin"}:
+            normalized_dashboard_code = "admin_control"
         if self.level in (AccessLevel.ADMIN, AccessLevel.POWER):
-            return dashboard_code not in self.CLIENT_ONLY_DASHBOARDS
+            return normalized_dashboard_code not in self.CLIENT_ONLY_DASHBOARDS
         if self.level == AccessLevel.CLIENT:
-            return dashboard_code in self.CLIENT_ALLOWED_DASHBOARDS
-        return self.allowed_dashboards.filter(code=dashboard_code, is_active=True).exists()
+            return normalized_dashboard_code in self.CLIENT_ALLOWED_DASHBOARDS
+        return self.allowed_dashboards.filter(code=normalized_dashboard_code, is_active=True).exists()
 
     def granted_permission_codes(self) -> list[str]:
         if self.level in (AccessLevel.ADMIN, AccessLevel.POWER):

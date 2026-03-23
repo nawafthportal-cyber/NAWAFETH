@@ -1,0 +1,160 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Subscription Request</p>
+<h2 class="text-lg font-extrabold text-ink">#{{ sub.id }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=sub.status label=sub.get_status_display %}
+    {% if ur %}
+        {% include "dashboard_v2/components/status_badge.html" with value=ur.status label=ur.get_status_display %}
+    {% endif %}
+    {% if sub.invoice %}
+        {% include "dashboard_v2/components/status_badge.html" with value=sub.invoice.status label=sub.invoice.get_status_display %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:subscriptions_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+<a href="{% url 'dashboard_v2:subscription_account_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الحساب</a>
+<a href="{% url 'dashboard_v2:subscription_payment_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الدفع</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">ملخص الطلب</h3>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المستخدم</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.user.phone|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الخطة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.plan.title }} ({{ sub.plan.code }})</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الفترة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.plan.get_period_display }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">Auto Renew</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.auto_renew|yesno:"نعم,لا" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">تاريخ التفعيل</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.start_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">تاريخ النهاية</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.end_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+                {% if ur %}
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <p class="text-xs text-slate-500">الطلب الموحد SD</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ ur.code|default:ur.id }} - {{ ur.get_status_display }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </article>
+
+        {% if invoice_lines %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تفاصيل الفاتورة</h3>
+            <div class="space-y-2">
+                {% for line in invoice_lines %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-semibold text-slate-700">{{ line.title }}</p>
+                            <p class="text-xs font-bold text-slate-800">{{ line.amount }}</p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </article>
+        {% endif %}
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">ملاحظات تشغيلية</h3>
+            {% if can_manage %}
+                <form method="post" action="{% url 'dashboard_v2:subscription_request_add_note_action' sub.id %}" class="mb-3 space-y-2">
+                    {% csrf_token %}
+                    <textarea name="note" rows="2" maxlength="300" placeholder="ملاحظة داخلية" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm"></textarea>
+                    <button type="submit" class="rounded-xl bg-tealbrand px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">إضافة ملاحظة</button>
+                </form>
+            {% endif %}
+            <div class="space-y-2">
+                {% for note in ops_notes %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ note.by_user_phone|default:"النظام" }}</p>
+                            <p class="text-[11px] text-slate-500">{{ note.created_at|default:"—" }}</p>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{{ note.text }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد ملاحظات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        {% if can_manage %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">إسناد طلب SD</h3>
+            {% if ur %}
+            <form method="post" action="{% url 'dashboard_v2:subscription_request_assign_action' sub.id %}" class="space-y-3">
+                {% csrf_token %}
+                <select name="assigned_to" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+                    <option value="">غير مكلّف</option>
+                    {% for staff_user in assignees %}
+                        <option value="{{ staff_user.id }}" {% if ur.assigned_user_id == staff_user.id %}selected{% endif %}>{{ staff_user.phone|default:staff_user.id }}</option>
+                    {% endfor %}
+                </select>
+                <textarea name="note" rows="2" maxlength="200" placeholder="ملاحظة الإسناد" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm"></textarea>
+                <button type="submit" class="w-full rounded-xl bg-tealbrand px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">تحديث الإسناد</button>
+            </form>
+            {% else %}
+                {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد طلب SD مرتبط" compact=True %}
+            {% endif %}
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تحديث حالة SD</h3>
+            {% if ur %}
+            <form method="post" action="{% url 'dashboard_v2:subscription_request_set_status_action' sub.id %}" class="space-y-3">
+                {% csrf_token %}
+                <select name="status" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm">
+                    {% for key, label in status_choices %}
+                        <option value="{{ key }}" {% if ur.status == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <textarea name="note" rows="2" maxlength="200" placeholder="ملاحظة الحالة" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm"></textarea>
+                <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-900">حفظ الحالة</button>
+            </form>
+            {% else %}
+                {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد طلب SD مرتبط" compact=True %}
+            {% endif %}
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">عمليات الاشتراك</h3>
+            <form method="post" action="{% url 'dashboard_v2:subscription_refresh_action' sub.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="w-full rounded-xl bg-slate-100 px-4 py-2 text-xs font-bold text-slate-800 hover:bg-slate-200">تحديث الحالة الزمنية</button>
+            </form>
+            <form method="post" action="{% url 'dashboard_v2:subscription_activate_action' sub.id %}" class="mt-2">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.path }}">
+                <button type="submit" class="w-full rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700">تفعيل بعد الدفع</button>
+            </form>
+        </article>
+        {% else %}
+            {% include "dashboard_v2/components/empty_state.html" with title="صلاحية قراءة فقط" text="لا تملك صلاحية إدارة الاشتراكات." compact=True %}
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

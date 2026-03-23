@@ -1,0 +1,13 @@
+<label class="block">
+    <span class="mb-1 block text-[11px] font-bold text-slate-600">بحث</span>
+    <input type="text" name="q" value="{{ q }}" placeholder="SKU / عنوان الخدمة" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs">
+</label>
+
+<label class="block">
+    <span class="mb-1 block text-[11px] font-bold text-slate-600">النشاط</span>
+    <select name="active" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs">
+        <option value="">الكل</option>
+        <option value="1" {% if active_val == "1" or active_val == "true" or active_val == "yes" %}selected{% endif %}>نشط</option>
+        <option value="0" {% if active_val == "0" or active_val == "false" or active_val == "no" %}selected{% endif %}>غير نشط</option>
+    </select>
+</label>

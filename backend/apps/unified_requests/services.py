@@ -9,6 +9,7 @@ from .models import (
     UnifiedRequestMetadata,
     UnifiedRequestStatusLog,
 )
+from .workflows import canonical_status_for_workflow
 
 
 @transaction.atomic
@@ -29,6 +30,7 @@ def upsert_unified_request(
     changed_by=None,
 ) -> UnifiedRequest:
     source_object_id = str(source_object_id)
+    status = canonical_status_for_workflow(request_type=request_type, status=status)
     ur, created = UnifiedRequest.objects.select_for_update().get_or_create(
         source_app=source_app,
         source_model=source_model,
@@ -43,6 +45,7 @@ def upsert_unified_request(
             "assigned_team_name": (assigned_team_name or "")[:120],
             "assigned_user": assigned_user,
             "assigned_at": timezone.now() if assigned_user else None,
+            "closed_at": timezone.now() if status == "closed" else None,
         },
     )
 
@@ -77,8 +80,11 @@ def upsert_unified_request(
             ur.assigned_user = assigned_user
             ur.assigned_at = timezone.now() if assigned_user else None
             updates.extend(["assigned_user", "assigned_at"])
-        if status in {"closed", "completed", "cancelled", "expired"} and ur.closed_at is None:
+        if status == "closed" and ur.closed_at is None:
             ur.closed_at = timezone.now()
+            updates.append("closed_at")
+        if status != "closed" and ur.closed_at is not None and old_status == "closed":
+            ur.closed_at = None
             updates.append("closed_at")
         if updates:
             updates.append("updated_at")

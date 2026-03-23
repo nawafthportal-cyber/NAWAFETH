@@ -1,0 +1,12 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    {% include "dashboard_v2/components/filter_bar.html" with form_action=request.path fields_template="dashboard_v2/subscriptions/_plans_filters.html" %}
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        {% include "dashboard_v2/components/data_table.html" with headers=table_headers rows_template="dashboard_v2/subscriptions/_plans_rows.html" col_count=6 empty_title="لا توجد خطط" empty_text="لا توجد خطط مطابقة للفلاتر الحالية." %}
+        {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+    </section>
+</div>
+{% endblock %}

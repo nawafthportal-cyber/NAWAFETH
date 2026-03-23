@@ -10,7 +10,8 @@ from apps.backoffice.models import Dashboard
 from apps.moderation.models import ModerationCase
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
-from apps.support.models import SupportTeam, SupportTicket
+from apps.support.models import SupportTeam, SupportTicket, SupportTicketStatus
+from apps.support.services import change_ticket_status
 from apps.unified_requests.models import UnifiedRequest
 
 
@@ -261,3 +262,19 @@ def test_provider_pioneer_ticket_gets_high_priority(api):
     assert response.status_code == 201
     ticket = SupportTicket.objects.get(pk=response.data["id"])
     assert ticket.priority == "high"
+
+
+def test_support_status_transition_blocks_reopen_after_closed(client_user, support_operator_user):
+    ticket = SupportTicket.objects.create(
+        requester=client_user,
+        ticket_type="tech",
+        description="closed ticket",
+        status=SupportTicketStatus.CLOSED,
+    )
+    with pytest.raises(ValueError):
+        change_ticket_status(
+            ticket=ticket,
+            new_status=SupportTicketStatus.IN_PROGRESS,
+            by_user=support_operator_user,
+            note="invalid reopen",
+        )

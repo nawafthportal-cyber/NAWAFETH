@@ -2,6 +2,17 @@ from rest_framework import serializers
 
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
 from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
+from apps.uploads.validators import (
+    AUDIO_EXTENSIONS,
+    AUDIO_MIME_TYPES,
+    DOCUMENT_EXTENSIONS,
+    DOCUMENT_MIME_TYPES,
+    IMAGE_EXTENSIONS,
+    IMAGE_MIME_TYPES,
+    VIDEO_EXTENSIONS,
+    VIDEO_MIME_TYPES,
+    validate_secure_upload,
+)
 
 
 class ServiceRequestCreateSerializer(serializers.ModelSerializer):
@@ -129,6 +140,44 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "subcategory_ids": "مزود الخدمة لا يدعم أيًا من التصنيفات المختارة"
                 })
+
+        for image in attrs.get("images") or []:
+            validate_secure_upload(
+                image,
+                allowed_extensions=IMAGE_EXTENSIONS,
+                allowed_mime_types=IMAGE_MIME_TYPES,
+                max_size_mb=20,
+                rename=True,
+                rename_prefix="marketplace_image",
+            )
+        for video in attrs.get("videos") or []:
+            validate_secure_upload(
+                video,
+                allowed_extensions=VIDEO_EXTENSIONS,
+                allowed_mime_types=VIDEO_MIME_TYPES,
+                max_size_mb=50,
+                rename=True,
+                rename_prefix="marketplace_video",
+            )
+        for doc in attrs.get("files") or []:
+            validate_secure_upload(
+                doc,
+                allowed_extensions=DOCUMENT_EXTENSIONS,
+                allowed_mime_types=DOCUMENT_MIME_TYPES,
+                max_size_mb=25,
+                rename=True,
+                rename_prefix="marketplace_file",
+            )
+        audio = attrs.get("audio")
+        if audio is not None:
+            validate_secure_upload(
+                audio,
+                allowed_extensions=AUDIO_EXTENSIONS,
+                allowed_mime_types=AUDIO_MIME_TYPES,
+                max_size_mb=20,
+                rename=True,
+                rename_prefix="marketplace_audio",
+            )
 
         return attrs
 

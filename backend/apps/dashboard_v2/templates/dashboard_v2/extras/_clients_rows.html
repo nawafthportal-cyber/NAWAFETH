@@ -1,0 +1,11 @@
+{% for row in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3 align-top text-xs font-bold text-slate-800">{{ row.provider.display_name|default:"—" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ row.provider.user.phone|default:"—" }}</td>
+    <td class="px-4 py-3 align-top">{% include "dashboard_v2/components/status_badge.html" with value=row.status label=row.get_status_display %}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ row.plan_title|default:"—" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ row.started_at|date:"Y-m-d H:i"|default:"—" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ row.ends_at|date:"Y-m-d H:i"|default:"—" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ row.updated_at|date:"Y-m-d H:i" }}</td>
+</tr>
+{% endfor %}

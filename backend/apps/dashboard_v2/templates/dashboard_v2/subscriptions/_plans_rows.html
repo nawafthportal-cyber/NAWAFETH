@@ -1,0 +1,24 @@
+{% for plan in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3 align-top">
+        <p class="text-sm font-bold text-slate-800">{{ plan.title }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ plan.code }} - {{ plan.get_tier_display }}</p>
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ plan.get_period_display }}</td>
+    <td class="px-4 py-3 align-top text-xs font-semibold text-slate-800">{{ plan.price }} SAR</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">
+        <div class="flex flex-wrap gap-1">
+            {% for key in plan.features %}
+                <span class="rounded-lg bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">{{ key }}</span>
+            {% empty %}
+                <span>—</span>
+            {% endfor %}
+        </div>
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">
+        <div>Blue: {{ plan.verification_blue_fee|default:"0.00" }}</div>
+        <div>Green: {{ plan.verification_green_fee|default:"0.00" }}</div>
+    </td>
+    <td class="px-4 py-3 align-top">{% include "dashboard_v2/components/status_badge.html" with value=plan.is_active|yesno:"active,inactive" label=plan.is_active|yesno:"نشطة,غير نشطة" %}</td>
+</tr>
+{% endfor %}

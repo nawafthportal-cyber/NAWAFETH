@@ -51,6 +51,10 @@ class AuditAction(models.TextChoices):
 	CONTENT_LINKS_UPDATED = "content_links_updated", "تحديث روابط المنصة"
 	REVIEW_MODERATED = "review_moderated", "تعديل حالة مراجعة"
 	REVIEW_RESPONSE_ADDED = "review_response_added", "إضافة رد إداري على مراجعة"
+	FIELD_CHANGED = "field_changed", "تغيير حقل تشغيلي"
+	DATA_EXPORTED = "data_exported", "تصدير بيانات"
+	FILE_UPLOADED = "file_uploaded", "رفع ملف"
+	FILE_DELETED = "file_deleted", "حذف ملف"
 
 	LOGIN_OTP_SENT = "login_otp_sent", "إرسال OTP"
 	LOGIN_OTP_VERIFIED = "login_otp_verified", "تأكيد OTP"

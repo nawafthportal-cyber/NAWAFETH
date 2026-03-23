@@ -114,6 +114,7 @@ from apps.unified_requests.models import (
 from apps.unified_requests.workflows import (
     THREE_STAGE_ALLOWED_STATUSES,
     allowed_statuses_for_request_type,
+    canonical_status_for_workflow,
     is_valid_transition,
 )
 from .forms import AcceptAssignProviderForm, CategoryForm, SubCategoryForm
@@ -121,6 +122,7 @@ from .access import (
     active_dashboard_choices,
     backoffice_assignment_users,
     can_access_dashboard,
+    can_access_object,
     dashboard_allowed,
     dashboard_assignee_user,
     dashboard_assignment_users,
@@ -2113,8 +2115,7 @@ def support_ticket_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
         id=ticket_id,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     comments = ticket.comments.select_related("created_by").order_by("-id")
     logs = ticket.status_logs.select_related("changed_by").order_by("-id")
@@ -2243,8 +2244,7 @@ def promo_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
         ticket_type=SupportTicketType.ADS,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     comments = ticket.comments.select_related("created_by").order_by("-id")
@@ -2281,7 +2281,7 @@ def promo_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
 
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     team_id = request.POST.get("assigned_team") or None
@@ -2346,8 +2346,7 @@ def promo_inquiry_profile_action(request: HttpRequest, ticket_id: int) -> HttpRe
 def promo_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.ADS)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     status_new = (request.POST.get("status") or "").strip()
@@ -2524,8 +2523,7 @@ def support_ticket_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
         messages.error(request, "غير مصرح بتعيين هذه التذكرة")
         return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     team_id = request.POST.get("assigned_team") or None
     assigned_to = request.POST.get("assigned_to") or None
@@ -2577,8 +2575,7 @@ def support_ticket_status_action(request: HttpRequest, ticket_id: int) -> HttpRe
         messages.error(request, "غير مصرح بتحديث حالة هذه التذكرة")
         return redirect("dashboard:support_ticket_detail", ticket_id=ticket.id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     status_new = (request.POST.get("status") or "").strip()
     note = (request.POST.get("note") or "").strip()
@@ -2601,7 +2598,7 @@ def support_ticket_quick_update_action(request: HttpRequest, ticket_id: int) -> 
     ticket = get_object_or_404(SupportTicket, id=ticket_id)
 
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     team_id = request.POST.get("assigned_team") or None
@@ -2775,8 +2772,7 @@ def verification_request_detail(request: HttpRequest, verification_id: int) -> H
         id=verification_id,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, vr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     docs = VerificationDocument.objects.filter(request=vr).select_related("decided_by").order_by("-id")
     reqs = (
@@ -2886,8 +2882,7 @@ def verification_requirement_decision_action(request: HttpRequest, req_id: int) 
     req = get_object_or_404(VerificationRequirement.objects.select_related("request"), id=req_id)
     vr = req.request
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, vr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     raw = (request.POST.get("is_approved") or "").strip().lower()
@@ -2921,8 +2916,7 @@ def verification_finalize_action(request: HttpRequest, verification_id: int) -> 
         messages.error(request, "غير مصرح بإنهاء هذا الطلب")
         return redirect("dashboard:verification_request_detail", verification_id=verification_id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, vr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     try:
         vr = finalize_request_and_create_invoice(vr=vr, by_user=request.user)
@@ -2948,8 +2942,7 @@ def verification_activate_action(request: HttpRequest, verification_id: int) -> 
         messages.error(request, "غير مصرح بتفعيل طلب التوثيق")
         return redirect("dashboard:verification_request_detail", verification_id=verification_id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and vr.assigned_to_id is not None and vr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, vr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     try:
         activate_verification_after_payment(vr=vr)
@@ -3045,8 +3038,7 @@ def verification_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpRes
         ticket_type=SupportTicketType.VERIFY,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     comments = ticket.comments.select_related("created_by").order_by("-id")
@@ -3083,7 +3075,7 @@ def verification_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> 
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.VERIFY)
 
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     team_id = request.POST.get("assigned_team") or None
@@ -3121,8 +3113,7 @@ def verification_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> 
 def verification_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.VERIFY)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     status_new = (request.POST.get("status") or "").strip()
@@ -3208,8 +3199,7 @@ def promo_request_detail(request: HttpRequest, promo_id: int) -> HttpResponse:
         id=promo_id,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     items = pr.items.select_related("target_provider", "target_portfolio_item").prefetch_related("assets").all().order_by("sort_order", "id")
     assets = pr.assets.select_related("item").all().order_by("-id")
@@ -3245,7 +3235,7 @@ def promo_request_assign_action(request: HttpRequest, promo_id: int) -> HttpResp
 
     pr = get_object_or_404(PromoRequest, id=promo_id)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     assigned_to = request.POST.get("assigned_to") or None
@@ -3293,8 +3283,7 @@ def promo_request_ops_status_action(request: HttpRequest, promo_id: int) -> Http
     if not policy.allowed:
         messages.error(request, "غير مصرح بتحديث تشغيل هذه الحملة")
         return redirect("dashboard:promo_request_detail", promo_id=promo_id)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     status_new = (request.POST.get("status") or "").strip()
     note = (request.POST.get("note") or "").strip()
@@ -3387,8 +3376,7 @@ def promo_quote_action(request: HttpRequest, promo_id: int) -> HttpResponse:
         messages.error(request, "غير مصرح بتسعير هذه الحملة")
         return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     note = (request.POST.get("quote_note") or "").strip()
     try:
@@ -3415,8 +3403,7 @@ def promo_reject_action(request: HttpRequest, promo_id: int) -> HttpResponse:
         messages.error(request, "غير مصرح برفض هذه الحملة")
         return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     reason = (request.POST.get("reject_reason") or "").strip()
     if not reason:
@@ -3446,8 +3433,7 @@ def promo_activate_action(request: HttpRequest, promo_id: int) -> HttpResponse:
         messages.error(request, "غير مصرح بتفعيل هذه الحملة")
         return redirect("dashboard:promo_request_detail", promo_id=promo_id)
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and pr.assigned_to_id is not None and pr.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, pr, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
     try:
         activate_promo_after_payment(pr=pr)
@@ -4058,8 +4044,7 @@ def subscription_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpRes
         ticket_type=SupportTicketType.SUBS,
     )
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     comments = ticket.comments.select_related("created_by").order_by("-id")
@@ -4095,7 +4080,7 @@ def subscription_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpRes
 def subscription_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.SUBS)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     team_id = request.POST.get("assigned_team") or None
@@ -4130,8 +4115,7 @@ def subscription_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> 
 @require_POST
 def subscription_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, id=ticket_id, ticket_type=SupportTicketType.SUBS)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     status_new = (request.POST.get("status") or "").strip()
@@ -4152,8 +4136,7 @@ def subscription_inquiry_status_action(request: HttpRequest, ticket_id: int) -> 
 @dashboard_access_required("subs")
 def subscription_request_detail(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription.objects.select_related("user", "plan", "invoice"), id=subscription_id)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and sub.user_id != request.user.id:
+    if not can_access_object(request.user, sub, owner_field="user", allow_unassigned_for_user_level=False):
         return HttpResponse("غير مصرح", status=403)
 
     ur = UnifiedRequest.objects.select_related("assigned_user").filter(
@@ -4267,6 +4250,10 @@ def subscription_request_set_status_action(request: HttpRequest, subscription_id
         messages.error(request, "غير مصرح بتحديث حالة طلب الاشتراك")
         return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
     new_status = (request.POST.get("status") or "").strip()
+    new_status = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.SUBSCRIPTION,
+        status=new_status,
+    )
     note = (request.POST.get("note") or "").strip()
     allowed_statuses = set(allowed_statuses_for_request_type(UnifiedRequestType.SUBSCRIPTION))
     if new_status not in allowed_statuses:
@@ -4295,7 +4282,7 @@ def subscription_request_set_status_action(request: HttpRequest, subscription_id
         return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
 
     ur.status = new_status
-    if new_status == UnifiedRequestStatus.COMPLETED:
+    if new_status == UnifiedRequestStatus.CLOSED:
         ur.closed_at = ur.closed_at or timezone.now()
     else:
         ur.closed_at = None
@@ -4351,7 +4338,6 @@ def subscription_request_assign_action(request: HttpRequest, subscription_id: in
     except Exception:
         assigned_to = None
 
-    ap = getattr(request.user, "access_profile", None)
     ur = UnifiedRequest.objects.filter(
         source_app="subscriptions",
         source_model="Subscription",
@@ -4361,9 +4347,10 @@ def subscription_request_assign_action(request: HttpRequest, subscription_id: in
         messages.error(request, "لا يوجد طلب موحد مرتبط بطلب الاشتراك")
         return redirect("dashboard:subscription_request_detail", subscription_id=sub.id)
 
+    ap = getattr(request.user, "access_profile", None)
+    if not can_access_object(request.user, ur, assigned_field="assigned_user", allow_unassigned_for_user_level=True):
+        return HttpResponse("غير مصرح", status=403)
     if ap and ap.level == "user":
-        if ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
-            return HttpResponse("غير مصرح", status=403)
         if assigned_to not in (None, request.user.id):
             return HttpResponse("غير مصرح", status=403)
 
@@ -4464,8 +4451,20 @@ def extras_ops(request: HttpRequest) -> HttpResponse:
 
     _e_agg = UnifiedRequest.objects.filter(request_type=UnifiedRequestType.EXTRAS).aggregate(
         total=Count("id"),
-        open=Count("id", filter=Q(status=UnifiedRequestStatus.OPEN)),
-        pending=Count("id", filter=Q(status=UnifiedRequestStatus.PENDING_PAYMENT)),
+        open=Count(
+            "id",
+            filter=Q(
+                status__in=[
+                    UnifiedRequestStatus.NEW,
+                    UnifiedRequestStatus.IN_PROGRESS,
+                    UnifiedRequestStatus.RETURNED,
+                ]
+            ),
+        ),
+        pending=Count(
+            "id",
+            filter=Q(status__in=[UnifiedRequestStatus.PENDING_PAYMENT, UnifiedRequestStatus.NEW]),
+        ),
     )
     _inq_new = SupportTicket.objects.filter(ticket_type=SupportTicketType.EXTRAS, status=SupportTicketStatus.NEW).count()
     _purchases_active = ExtraPurchase.objects.filter(status=ExtraPurchaseStatus.ACTIVE).count()
@@ -4503,7 +4502,7 @@ def extras_inquiry_detail(request: HttpRequest, ticket_id: int) -> HttpResponse:
     )
 
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     comments = ticket.comments.select_related("created_by").order_by("-id")
@@ -4549,7 +4548,7 @@ def extras_inquiry_assign_action(request: HttpRequest, ticket_id: int) -> HttpRe
         messages.error(request, "غير مصرح بإسناد استفسار الخدمات الإضافية")
         return redirect("dashboard:extras_inquiry_detail", ticket_id=ticket.id)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     team_id = request.POST.get("assigned_team") or None
@@ -4595,10 +4594,14 @@ def extras_inquiry_status_action(request: HttpRequest, ticket_id: int) -> HttpRe
         messages.error(request, "غير مصرح بتحديث استفسار الخدمات الإضافية")
         return redirect("dashboard:extras_inquiry_detail", ticket_id=ticket.id)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     status_new = (request.POST.get("status") or "").strip()
+    status_new = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.EXTRAS,
+        status=status_new,
+    )
     note = (request.POST.get("note") or "").strip()
     if not status_new:
         messages.warning(request, "اختر حالة الاستفسار")
@@ -4628,7 +4631,7 @@ def extras_request_detail(request: HttpRequest, unified_request_id: int) -> Http
     )
 
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
+    if not can_access_object(request.user, ur, assigned_field="assigned_user", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     metadata_record = getattr(ur, "metadata_record", None)
@@ -4681,7 +4684,7 @@ def extras_request_assign_action(request: HttpRequest, unified_request_id: int) 
         messages.error(request, "غير مصرح بإسناد طلب الخدمات الإضافية")
         return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
+    if not can_access_object(request.user, ur, assigned_field="assigned_user", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     assigned_to = request.POST.get("assigned_to") or None
@@ -4743,7 +4746,7 @@ def extras_request_status_action(request: HttpRequest, unified_request_id: int) 
         messages.error(request, "غير مصرح بتحديث طلب الخدمات الإضافية")
         return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
     ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and ur.assigned_user_id is not None and ur.assigned_user_id != request.user.id:
+    if not can_access_object(request.user, ur, assigned_field="assigned_user", allow_unassigned_for_user_level=True):
         return HttpResponse("غير مصرح", status=403)
 
     status_new = (request.POST.get("status") or "").strip()
@@ -4766,7 +4769,7 @@ def extras_request_status_action(request: HttpRequest, unified_request_id: int) 
                     messages.warning(request, "انتقال الحالة غير مسموح في مسار الخدمات الإضافية")
                     return redirect("dashboard:extras_request_detail", unified_request_id=ur.id)
                 ur.status = status_new
-                if status_new == UnifiedRequestStatus.COMPLETED and ur.closed_at is None:
+                if status_new == UnifiedRequestStatus.CLOSED and ur.closed_at is None:
                     ur.closed_at = timezone.now()
                     ur.save(update_fields=["status", "closed_at", "updated_at"])
                 else:
@@ -4789,8 +4792,7 @@ def extras_request_status_action(request: HttpRequest, unified_request_id: int) 
 @dashboard_access_required("subs")
 def subscription_account_detail(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription.objects.select_related("user", "plan", "invoice"), id=subscription_id)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and sub.user_id != request.user.id:
+    if not can_access_object(request.user, sub, owner_field="user", allow_unassigned_for_user_level=False):
         return HttpResponse("غير مصرح", status=403)
 
     plans = SubscriptionPlan.objects.filter(is_active=True).order_by("price", "id")
@@ -4975,8 +4977,7 @@ def subscription_upgrade_summary(request: HttpRequest, subscription_id: int) -> 
         except Exception:
             plan = None
 
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and sub.user_id != request.user.id:
+    if not can_access_object(request.user, sub, owner_field="user", allow_unassigned_for_user_level=False):
         return HttpResponse("غير مصرح", status=403)
 
     vat_percent = Decimal("15.00")
@@ -5173,8 +5174,7 @@ def subscription_account_cancel_action(request: HttpRequest, subscription_id: in
 @dashboard_access_required("subs")
 def subscription_payment_checkout(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription.objects.select_related("user", "plan", "invoice"), id=subscription_id)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and sub.user_id != request.user.id:
+    if not can_access_object(request.user, sub, owner_field="user", allow_unassigned_for_user_level=False):
         return HttpResponse("غير مصرح", status=403)
     if not sub.invoice_id:
         messages.warning(request, "لا توجد فاتورة مرتبطة بهذا الطلب")
@@ -5281,8 +5281,7 @@ def subscription_payment_complete_action(request: HttpRequest, subscription_id: 
 @dashboard_access_required("subs")
 def subscription_payment_success(request: HttpRequest, subscription_id: int) -> HttpResponse:
     sub = get_object_or_404(Subscription.objects.select_related("user", "plan", "invoice"), id=subscription_id)
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == "user" and sub.user_id != request.user.id:
+    if not can_access_object(request.user, sub, owner_field="user", allow_unassigned_for_user_level=False):
         return HttpResponse("غير مصرح", status=403)
     return render(
         request,

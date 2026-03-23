@@ -1,0 +1,22 @@
+{% for item in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3">
+        <p class="text-xs font-bold text-slate-800">#{{ item.id }}</p>
+        <p class="mt-1 text-xs text-slate-500">{{ item.caption|default:"—"|truncatechars:50 }}</p>
+    </td>
+    <td class="px-4 py-3 text-xs text-slate-700">{{ item.provider.display_name|default:item.provider.user.phone }}</td>
+    <td class="px-4 py-3">{% include "dashboard_v2/components/status_badge.html" with value=item.file_type label=item.get_file_type_display %}</td>
+    <td class="px-4 py-3 text-xs text-slate-500">{{ item.created_at|date:"Y-m-d H:i" }}</td>
+    <td class="px-4 py-3">
+        {% if can_delete_content %}
+            <form method="post" action="{% url 'dashboard_v2:content_spotlight_delete_action' item.id %}">
+                {% csrf_token %}
+                <button type="submit" class="rounded-lg border border-rose-300 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100">حذف</button>
+            </form>
+        {% else %}
+            <span class="text-xs text-slate-500">قراءة فقط</span>
+        {% endif %}
+    </td>
+</tr>
+{% endfor %}
+

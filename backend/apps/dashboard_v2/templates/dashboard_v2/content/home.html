@@ -1,0 +1,95 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {% include "dashboard_v2/components/card.html" with title="Blocks" value=blocks_count subtitle="إجمالي البلوكات" %}
+        {% include "dashboard_v2/components/card.html" with title="Active Blocks" value=active_blocks_count subtitle="بلوكات فعالة" %}
+        {% include "dashboard_v2/components/card.html" with title="Portfolio" value=portfolio_count subtitle="عناصر معرض الأعمال" %}
+        {% include "dashboard_v2/components/card.html" with title="Spotlights" value=spotlight_count subtitle="عناصر الأضواء" %}
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'dashboard_v2:content_portfolio_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">مراجعة Portfolio</a>
+            <a href="{% url 'dashboard_v2:content_spotlight_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">مراجعة Spotlight</a>
+            {% if can_manage_content %}
+                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">content.manage</span>
+            {% endif %}
+            {% if can_hide_delete_content %}
+                <span class="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">content.hide_delete</span>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="grid gap-4 xl:grid-cols-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h2 class="mb-3 text-sm font-extrabold text-ink">بلوكات المحتوى</h2>
+            <div class="space-y-3">
+                {% for group in grouped_blocks %}
+                    <details class="rounded-xl border border-slate-200 p-3" {% if forloop.first %}open{% endif %}>
+                        <summary class="cursor-pointer list-none text-sm font-extrabold text-slate-800">{{ group.title }}</summary>
+                        <p class="mt-1 text-xs text-slate-500">{{ group.description }}</p>
+                        <div class="mt-3 space-y-3">
+                            {% for item in group.items %}
+                                {% include "dashboard_v2/content/_block_item.html" with item=item can_manage_content=can_manage_content %}
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد بلوكات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="space-y-4">
+            <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+                <h2 class="mb-3 text-sm font-extrabold text-ink">المستندات القانونية</h2>
+                <div class="space-y-3">
+                    {% for row in doc_rows %}
+                        <details class="rounded-xl border border-slate-200 p-3">
+                            <summary class="cursor-pointer list-none text-sm font-bold text-slate-800">{{ row.label }}</summary>
+                            {% if row.doc %}
+                                <p class="mt-1 text-xs text-slate-500">الإصدار الحالي: {{ row.doc.version }} - {{ row.doc.published_at|date:"Y-m-d H:i" }}</p>
+                            {% endif %}
+                            {% if can_manage_content %}
+                                <form method="post" action="{% url 'dashboard_v2:content_doc_upload_action' row.key %}" enctype="multipart/form-data" class="mt-3 grid gap-2">
+                                    {% csrf_token %}
+                                    <input type="text" name="version" value="{{ row.doc.version|default:'1.0' }}" placeholder="الإصدار" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                                    <textarea name="body_ar" rows="3" placeholder="نص المستند" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">{{ row.doc.body_ar|default:'' }}</textarea>
+                                    <input type="file" name="file" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs">
+                                    <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                        <input type="checkbox" name="is_active" value="1" {% if row.doc and row.doc.is_active %}checked{% endif %}>
+                                        جعله مستندًا فعالًا
+                                    </label>
+                                    <input type="datetime-local" name="published_at" value="{{ row.doc.published_at|date:'Y-m-d\\TH:i' }}" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                                    <button type="submit" class="rounded-xl bg-tealbrand px-3 py-2 text-xs font-bold text-white hover:bg-teal-700">حفظ المستند</button>
+                                </form>
+                            {% endif %}
+                        </details>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+                <h2 class="mb-3 text-sm font-extrabold text-ink">روابط المنصة</h2>
+                {% if can_manage_content %}
+                    <form method="post" action="{% url 'dashboard_v2:content_links_update_action' %}" class="grid gap-2">
+                        {% csrf_token %}
+                        <input type="url" name="x_url" value="{{ links.x_url|default:'' }}" placeholder="X URL" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <input type="url" name="whatsapp_url" value="{{ links.whatsapp_url|default:'' }}" placeholder="WhatsApp URL" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <input type="email" name="email" value="{{ links.email|default:'' }}" placeholder="Email" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <input type="url" name="android_store" value="{{ links.android_store|default:'' }}" placeholder="Android Store URL" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <input type="url" name="ios_store" value="{{ links.ios_store|default:'' }}" placeholder="iOS Store URL" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <input type="url" name="website_url" value="{{ links.website_url|default:'' }}" placeholder="Website URL" class="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <button type="submit" class="rounded-xl bg-slate-800 px-3 py-2 text-xs font-bold text-white hover:bg-slate-900">تحديث الروابط</button>
+                    </form>
+                {% else %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="وضع قراءة فقط" text="لا تملك صلاحية تعديل روابط المنصة." compact=True %}
+                {% endif %}
+            </section>
+        </article>
+    </section>
+</div>
+{% endblock %}
+

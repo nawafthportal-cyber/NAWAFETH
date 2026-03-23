@@ -1,0 +1,14 @@
+<label class="block xl:col-span-2">
+    <span class="mb-1 block text-xs font-bold text-slate-600">المزود</span>
+    <input type="search" name="provider" value="{{ provider_q }}" placeholder="اسم المزود"
+           class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+</label>
+<label class="block">
+    <span class="mb-1 block text-xs font-bold text-slate-600">النوع</span>
+    <select name="file_type" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+        <option value="">الكل</option>
+        <option value="image" {% if file_type == "image" %}selected{% endif %}>صورة</option>
+        <option value="video" {% if file_type == "video" %}selected{% endif %}>فيديو</option>
+    </select>
+</label>
+

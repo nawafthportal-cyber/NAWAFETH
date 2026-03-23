@@ -1,0 +1,88 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">User Profile</p>
+<h2 class="text-lg font-extrabold text-ink">{{ target_user.phone|default:target_user.id }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=target_user.is_active|yesno:"active,inactive" label=target_user.is_active|yesno:"نشط,غير نشط" %}
+    {% if access_profile %}
+        <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ access_profile.get_level_display }}</span>
+    {% else %}
+        <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">NO ACCESS</span>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:users_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+{% if can_manage_access %}
+    <span class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Manage Access Enabled</span>
+{% endif %}
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 lg:grid-cols-3">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft lg:col-span-2">
+        <h3 class="mb-3 text-sm font-extrabold text-ink">بيانات الحساب</h3>
+        <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">الاسم</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.first_name|default:"—" }} {{ target_user.last_name|default:"" }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">البريد</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.email|default:"—" }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">المدينة</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.city|default:"—" }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">تاريخ الإنشاء</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.created_at|date:"Y-m-d H:i" }}</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="space-y-4">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-2 text-sm font-extrabold text-ink">اللوحات المسموحة</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for dash in allowed_dashboards %}
+                    <span class="rounded-full bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">{{ dash.code }}</span>
+                {% empty %}
+                    <span class="text-xs text-slate-500">لا توجد لوحات محددة</span>
+                {% endfor %}
+            </div>
+        </article>
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-2 text-sm font-extrabold text-ink">الصلاحيات</h3>
+            <div class="flex flex-wrap gap-2">
+                {% for permission in granted_permissions %}
+                    <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700">{{ permission.code }}</span>
+                {% empty %}
+                    <span class="text-xs text-slate-500">لا توجد صلاحيات فعلية مضافة.</span>
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+
+<section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+    <h3 class="mb-3 text-sm font-extrabold text-ink">Audit مبسط</h3>
+    <div class="space-y-2">
+        {% for entry in audit_entries %}
+            <article class="rounded-xl border border-slate-200 p-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <p class="text-xs font-bold text-slate-700">{{ entry.get_action_display }}</p>
+                    <p class="text-[11px] text-slate-500">{{ entry.created_at|date:"Y-m-d H:i" }}</p>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">{{ entry.reference_type }} / {{ entry.reference_id }}</p>
+            </article>
+        {% empty %}
+            {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد سجل تدقيق" compact=True %}
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
+

@@ -1,0 +1,16 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    {% include "dashboard_v2/components/filter_bar.html" with form_action=request.path fields_template="dashboard_v2/content/_media_filters.html" %}
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="mb-3 flex items-center justify-between gap-2">
+            <h2 class="text-sm font-extrabold text-ink">عناصر معرض الأعمال</h2>
+            <a href="{% url 'dashboard_v2:content_home' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للمحتوى</a>
+        </div>
+        {% include "dashboard_v2/components/data_table.html" with headers=table_headers rows_template="dashboard_v2/content/_portfolio_rows.html" col_count=5 empty_title="لا توجد عناصر" empty_text="لم يتم العثور على نتائج." %}
+        {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+    </section>
+</div>
+{% endblock %}
+

@@ -1,0 +1,152 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Moderation Case</p>
+<h2 class="text-lg font-extrabold text-ink">{{ case.code|default:case.id }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=case.status label=case.get_status_display %}
+    {% include "dashboard_v2/components/status_badge.html" with value=case.severity label=case.get_severity_display %}
+    {% if sla_state == "overdue" %}
+        {% include "dashboard_v2/components/status_badge.html" with value="escalated" label="SLA متجاوزة" %}
+    {% elif sla_state == "due_soon" %}
+        {% include "dashboard_v2/components/status_badge.html" with value="in_progress" label="SLA قريبًا" %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:moderation_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">بيانات القضية</h3>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                    <p class="text-xs text-slate-500">الملخص</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ case.summary|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المبلغ</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ case.reporter.phone|default:case.reporter_id }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المبلغ عليه</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ case.reported_user.phone|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المصدر</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ source_context.source_title }}</p>
+                    {% if source_context.source_url %}
+                        <a href="{{ source_context.source_url }}" class="mt-1 inline-flex text-xs font-bold text-teal-700 hover:text-teal-800">فتح المصدر</a>
+                    {% endif %}
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">SLA</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sla_due_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                    {% if overdue_for_hours %}
+                        <p class="mt-1 text-xs font-bold text-rose-700">متأخرة {{ overdue_for_hours }} ساعة</p>
+                    {% endif %}
+                </div>
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">سجل الإجراءات</h3>
+            <div class="space-y-2">
+                {% for log in case.action_logs.all|slice:":60" %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ log.get_action_type_display }}</p>
+                            <p class="text-[11px] text-slate-500">{{ log.created_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-600">{{ log.note|default:"—" }}</p>
+                        <p class="mt-1 text-[11px] text-slate-500">بواسطة: {{ log.created_by.phone|default:"النظام" }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد سجل إجراءات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">سجل القرارات</h3>
+            <div class="space-y-2">
+                {% for decision in case.decisions.all|slice:":30" %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ decision.get_decision_code_display }}</p>
+                            <p class="text-[11px] text-slate-500">{{ decision.applied_at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                        <p class="mt-1 text-[11px] text-slate-600">{{ decision.note|default:"—" }}</p>
+                        <p class="mt-1 text-[11px] text-slate-500">بواسطة: {{ decision.applied_by.phone|default:"النظام" }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد قرارات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        {% if can_assign %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">إسناد القضية</h3>
+            <form method="post" action="{% url 'dashboard_v2:moderation_assign_action' case.id %}" class="space-y-3">
+                {% csrf_token %}
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">المستخدم</span>
+                    <select name="assigned_to" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        <option value="">بدون إسناد</option>
+                        {% for staff_user in assignee_users %}
+                            <option value="{{ staff_user.id }}" {% if case.assigned_to_id == staff_user.id %}selected{% endif %}>{{ staff_user.phone|default:staff_user.id }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <input type="hidden" name="assigned_team_code" value="moderation">
+                <input type="hidden" name="assigned_team_name" value="الإشراف">
+                <textarea name="note" rows="2" placeholder="ملاحظة الإسناد" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40"></textarea>
+                <button type="submit" class="w-full rounded-xl bg-tealbrand px-4 py-2 text-xs font-bold text-white hover:bg-teal-700">تحديث الإسناد</button>
+            </form>
+        </article>
+        {% endif %}
+
+        {% if can_resolve %}
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تحديث الحالة</h3>
+            <form method="post" action="{% url 'dashboard_v2:moderation_status_action' case.id %}" class="space-y-3">
+                {% csrf_token %}
+                <select name="status" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                    {% for status_key, status_label in status_choices %}
+                        <option value="{{ status_key }}" {% if case.status == status_key %}selected{% endif %}>{{ status_label }}</option>
+                    {% endfor %}
+                </select>
+                <textarea name="note" rows="2" placeholder="ملاحظة الحالة" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40"></textarea>
+                <button type="submit" class="w-full rounded-xl bg-slate-800 px-4 py-2 text-xs font-bold text-white hover:bg-slate-900">تحديث الحالة</button>
+            </form>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تسجيل قرار</h3>
+            <form method="post" action="{% url 'dashboard_v2:moderation_decision_action' case.id %}" class="space-y-3">
+                {% csrf_token %}
+                <select name="decision_code" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                    {% for code_key, code_label in decision_choices %}
+                        <option value="{{ code_key }}">{{ code_label }}</option>
+                    {% endfor %}
+                </select>
+                <textarea name="note" rows="2" placeholder="ملاحظة القرار" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40"></textarea>
+                <label class="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <input type="checkbox" name="is_final" value="1" checked>
+                    قرار نهائي
+                </label>
+                <button type="submit" class="w-full rounded-xl bg-rose-700 px-4 py-2 text-xs font-bold text-white hover:bg-rose-800">حفظ القرار</button>
+            </form>
+        </article>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+

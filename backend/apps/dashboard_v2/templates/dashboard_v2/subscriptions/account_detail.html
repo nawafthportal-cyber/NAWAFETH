@@ -1,0 +1,120 @@
+{% extends "dashboard_v2/components/detail_layout.html" %}
+
+{% block detail_meta %}
+<p class="text-xs uppercase tracking-widest text-slate-400">Subscription Account</p>
+<h2 class="text-lg font-extrabold text-ink">#{{ sub.id }} - {{ sub.user.phone|default:"—" }}</h2>
+<div class="flex flex-wrap items-center gap-2">
+    {% include "dashboard_v2/components/status_badge.html" with value=sub.status label=sub.get_status_display %}
+    {% if sub.invoice %}
+        {% include "dashboard_v2/components/status_badge.html" with value=sub.invoice.status label=sub.invoice.get_status_display %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block detail_actions %}
+<a href="{% url 'dashboard_v2:subscriptions_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
+<a href="{% url 'dashboard_v2:subscription_request_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الطلب</a>
+<a href="{% url 'dashboard_v2:subscription_payment_detail' sub.id %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">الدفع</a>
+{% endblock %}
+
+{% block detail_main %}
+<div class="grid gap-4 xl:grid-cols-3">
+    <section class="space-y-4 xl:col-span-2">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تفاصيل الحساب</h3>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">الخطة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.plan.title }} ({{ sub.plan.code }})</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">المدة</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.plan.get_period_display }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">تاريخ البداية</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.start_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">تاريخ النهاية</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.end_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">فترة السماح</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.grace_end_at|date:"Y-m-d H:i"|default:"—" }}</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p class="text-xs text-slate-500">التجديد التلقائي</p>
+                    <p class="text-sm font-semibold text-slate-800">{{ sub.auto_renew|yesno:"نعم,لا" }}</p>
+                </div>
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">Timeline</h3>
+            <div class="space-y-2">
+                {% for item in timeline %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ item.title }}</p>
+                            <p class="text-[11px] text-slate-500">{{ item.at|date:"Y-m-d H:i" }}</p>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600">{{ item.detail }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا يوجد سجل زمني" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+
+    <section class="space-y-4">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">تنبيهات</h3>
+            <div class="space-y-2">
+                {% for alert in alerts %}
+                    <div class="rounded-xl p-3 text-xs font-semibold
+                        {% if alert.level == 'danger' %}border border-rose-200 bg-rose-50 text-rose-800
+                        {% elif alert.level == 'warning' %}border border-amber-200 bg-amber-50 text-amber-800
+                        {% else %}border border-emerald-200 bg-emerald-50 text-emerald-800{% endif %}">
+                        {{ alert.text }}
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد تنبيهات" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">ملاحظات حساب</h3>
+            <div class="space-y-2">
+                {% for note in account_ops_notes %}
+                    <div class="rounded-xl border border-slate-200 p-3">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-bold text-slate-800">{{ note.by_user_phone|default:"النظام" }}</p>
+                            <p class="text-[11px] text-slate-500">{{ note.created_at|default:"—" }}</p>
+                        </div>
+                        <p class="mt-1 text-xs text-slate-600 whitespace-pre-wrap">{{ note.text }}</p>
+                    </div>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد ملاحظات حساب" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">سجلات أخرى لنفس العميل</h3>
+            <div class="space-y-2">
+                {% for row in recent_for_user %}
+                    <a href="{% url 'dashboard_v2:subscription_account_detail' row.id %}" class="block rounded-xl border border-slate-200 p-3 hover:bg-slate-50">
+                        <p class="text-xs font-bold text-slate-800">{{ row.plan.title }} ({{ row.plan.code }})</p>
+                        <p class="mt-1 text-[11px] text-slate-500">{{ row.get_status_display }} - {{ row.created_at|date:"Y-m-d H:i" }}</p>
+                    </a>
+                {% empty %}
+                    {% include "dashboard_v2/components/empty_state.html" with title="لا توجد سجلات إضافية" compact=True %}
+                {% endfor %}
+            </div>
+        </article>
+    </section>
+</div>
+{% endblock %}

@@ -1,6 +1,17 @@
 from rest_framework import serializers
 
 from .models import Message, Thread, ThreadUserState
+from apps.uploads.validators import (
+    AUDIO_EXTENSIONS,
+    AUDIO_MIME_TYPES,
+    DOCUMENT_EXTENSIONS,
+    DOCUMENT_MIME_TYPES,
+    IMAGE_EXTENSIONS,
+    IMAGE_MIME_TYPES,
+    VIDEO_EXTENSIONS,
+    VIDEO_MIME_TYPES,
+    validate_secure_upload,
+)
 
 
 class ThreadSerializer(serializers.ModelSerializer):
@@ -38,8 +49,48 @@ class MessageCreateSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         body = (attrs.get("body") or "").strip()
         attachment = attrs.get("attachment")
+        attachment_type = (attrs.get("attachment_type") or "").strip().lower()
         if not body and not attachment:
             raise serializers.ValidationError("نص الرسالة أو المرفق مطلوب")
+
+        if attachment is not None:
+            if attachment_type == "image":
+                validate_secure_upload(
+                    attachment,
+                    allowed_extensions=IMAGE_EXTENSIONS,
+                    allowed_mime_types=IMAGE_MIME_TYPES,
+                    max_size_mb=20,
+                    rename=True,
+                    rename_prefix="msg_image",
+                )
+            elif attachment_type == "video":
+                validate_secure_upload(
+                    attachment,
+                    allowed_extensions=VIDEO_EXTENSIONS,
+                    allowed_mime_types=VIDEO_MIME_TYPES,
+                    max_size_mb=50,
+                    rename=True,
+                    rename_prefix="msg_video",
+                )
+            elif attachment_type == "audio":
+                validate_secure_upload(
+                    attachment,
+                    allowed_extensions=AUDIO_EXTENSIONS,
+                    allowed_mime_types=AUDIO_MIME_TYPES,
+                    max_size_mb=20,
+                    rename=True,
+                    rename_prefix="msg_audio",
+                )
+            else:
+                validate_secure_upload(
+                    attachment,
+                    allowed_extensions=DOCUMENT_EXTENSIONS | AUDIO_EXTENSIONS,
+                    allowed_mime_types=DOCUMENT_MIME_TYPES | AUDIO_MIME_TYPES,
+                    max_size_mb=25,
+                    rename=True,
+                    rename_prefix="msg_file",
+                )
+            attrs["attachment_name"] = (attrs.get("attachment_name") or attachment.name or "")[:255]
         attrs["body"] = body
         return attrs
 

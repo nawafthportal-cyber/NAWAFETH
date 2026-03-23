@@ -1,0 +1,45 @@
+{% extends "dashboard_v2/base.html" %}
+
+{% block content %}
+<div class="space-y-4">
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        {% include "dashboard_v2/components/card.html" with title="TOTAL" value=summary.total subtitle="إجمالي الطلبات" %}
+        {% include "dashboard_v2/components/card.html" with title="NEW" value=summary.new subtitle="طلبات جديدة" %}
+        {% include "dashboard_v2/components/card.html" with title="ACTIVE" value=summary.active subtitle="طلبات مفعلة" %}
+        {% include "dashboard_v2/components/card.html" with title="OPS DONE" value=summary.completed subtitle="تنفيذ مكتمل" %}
+        {% include "dashboard_v2/components/card.html" with title="INQUIRIES" value=summary.new_inquiries subtitle="استفسارات جديدة" %}
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="{% url 'dashboard_v2:promo_inquiries_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">استفسارات الترويج</a>
+            <a href="{% url 'dashboard_v2:promo_pricing' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">تسعير الترويج</a>
+            <a href="{% url 'dashboard_v2:promo_banners_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">بنرات الترويج</a>
+            {% if can_manage %}
+                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">promo.quote_activate</span>
+            {% endif %}
+        </div>
+    </section>
+
+    {% include "dashboard_v2/components/filter_bar.html" with form_action=request.path fields_template="dashboard_v2/promo/_requests_filters.html" %}
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        {% include "dashboard_v2/components/data_table.html" with headers=table_headers rows_template="dashboard_v2/promo/_requests_rows.html" col_count=7 empty_title="لا توجد طلبات ترويج" empty_text="لا توجد نتائج مطابقة للفلاتر الحالية." %}
+        {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+    </section>
+
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <h2 class="mb-3 text-sm font-extrabold text-ink">خدمات الترويج</h2>
+        <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {% for row in service_counts %}
+                <div class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p class="text-xs font-bold text-slate-700">{{ row.label }}</p>
+                    <p class="mt-1 text-sm font-extrabold text-tealbrand">{{ row.count }}</p>
+                </div>
+            {% empty %}
+                {% include "dashboard_v2/components/empty_state.html" with title="لا توجد بيانات خدمات" compact=True %}
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% for row in page_items %}
+{% with case=row.case sla_value=row.sla_state %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3">
+        <a href="{% url 'dashboard_v2:moderation_detail' case.id %}" class="font-bold text-slate-800 hover:text-teal-700">{{ case.code|default:case.id }}</a>
+        <p class="mt-1 text-xs text-slate-500">{{ case.summary|default:case.reason|truncatechars:60 }}</p>
+    </td>
+    <td class="px-4 py-3 text-xs text-slate-700">{{ case.reason }}</td>
+    <td class="px-4 py-3">{% include "dashboard_v2/components/status_badge.html" with value=case.status label=case.get_status_display %}</td>
+    <td class="px-4 py-3">{% include "dashboard_v2/components/status_badge.html" with value=case.severity label=case.get_severity_display %}</td>
+    <td class="px-4 py-3 text-xs text-slate-700">{{ case.assigned_to.phone|default:"غير مسند" }}</td>
+    <td class="px-4 py-3">
+        {% if sla_value == "overdue" %}
+            {% include "dashboard_v2/components/status_badge.html" with value="escalated" label="متجاوزة" %}
+        {% elif sla_value == "due_soon" %}
+            {% include "dashboard_v2/components/status_badge.html" with value="in_progress" label="مستحقة قريبًا" %}
+        {% elif sla_value == "closed" %}
+            {% include "dashboard_v2/components/status_badge.html" with value="closed" label="مغلقة" %}
+        {% else %}
+            {% include "dashboard_v2/components/status_badge.html" with value="new" label="مفتوحة" %}
+        {% endif %}
+    </td>
+    <td class="px-4 py-3">
+        {% url 'dashboard_v2:moderation_detail' case.id as moderation_detail_url %}
+        {% include "dashboard_v2/components/action_menu.html" with single_url=moderation_detail_url single_label="فتح" %}
+    </td>
+</tr>
+{% endwith %}
+{% endfor %}

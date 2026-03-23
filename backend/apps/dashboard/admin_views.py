@@ -34,6 +34,7 @@ from apps.subscriptions.bootstrap import infer_plan_tier
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from .access import (
     active_dashboard_choices,
+    can_access_object,
     dashboard_assignee_user,
     dashboard_assignment_users,
     has_action_permission,
@@ -99,13 +100,9 @@ def admin_control_home(request: HttpRequest) -> HttpResponse:
 def support_ticket_add_comment(request: HttpRequest, ticket_id: int) -> HttpResponse:
     ticket = get_object_or_404(SupportTicket, pk=ticket_id)
 
-    # Object-level check: user-level staff can only comment on their assigned tickets
-    from apps.backoffice.models import AccessLevel
-    ap = getattr(request.user, "access_profile", None)
-    if ap and ap.level == AccessLevel.USER:
-        if ticket.assigned_to_id is not None and ticket.assigned_to_id != request.user.id:
-            messages.error(request, "غير مصرح لك بالتعليق على هذه التذكرة")
-            return redirect("dashboard:support_ticket_detail", ticket_id=ticket.pk)
+    if not can_access_object(request.user, ticket, assigned_field="assigned_to", allow_unassigned_for_user_level=True):
+        messages.error(request, "غير مصرح لك بالتعليق على هذه التذكرة")
+        return redirect("dashboard:support_ticket_detail", ticket_id=ticket.pk)
 
     text = (request.POST.get("text") or "").strip()
     if not text:

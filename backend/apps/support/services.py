@@ -7,6 +7,24 @@ from .models import SupportTicket, SupportStatusLog, SupportTicketStatus
 from apps.notifications.services import create_notification
 
 
+SUPPORT_STATUS_TRANSITIONS: dict[str, set[str]] = {
+    SupportTicketStatus.NEW: {
+        SupportTicketStatus.IN_PROGRESS,
+        SupportTicketStatus.RETURNED,
+        SupportTicketStatus.CLOSED,
+    },
+    SupportTicketStatus.IN_PROGRESS: {
+        SupportTicketStatus.RETURNED,
+        SupportTicketStatus.CLOSED,
+    },
+    SupportTicketStatus.RETURNED: {
+        SupportTicketStatus.IN_PROGRESS,
+        SupportTicketStatus.CLOSED,
+    },
+    SupportTicketStatus.CLOSED: set(),
+}
+
+
 def _sync_ticket_to_unified(*, ticket: SupportTicket, changed_by=None):
     """
     مزامنة تذكرة الدعم مع محرك الطلبات الموحد (تكامل تدريجي غير معطّل).
@@ -42,8 +60,15 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
     """
     تغيير الحالة + تسجيل Log
     """
+    if new_status not in set(SupportTicketStatus.values):
+        raise ValueError("حالة التذكرة غير صالحة")
+
     if ticket.status == new_status:
         return ticket
+
+    allowed = SUPPORT_STATUS_TRANSITIONS.get(ticket.status, set())
+    if new_status not in allowed:
+        raise ValueError("انتقال حالة التذكرة غير مسموح")
 
     old = ticket.status
     ticket.status = new_status

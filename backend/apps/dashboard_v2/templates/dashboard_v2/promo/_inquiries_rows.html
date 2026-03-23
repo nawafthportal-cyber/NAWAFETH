@@ -1,0 +1,16 @@
+{% for ticket in page_obj.object_list %}
+<tr class="hover:bg-slate-50/80">
+    <td class="px-4 py-3 align-top">
+        <a href="{% url 'dashboard_v2:promo_inquiry_detail' ticket.id %}" class="font-bold text-slate-800 hover:text-teal-700">{{ ticket.code|default:ticket.id }}</a>
+        <p class="mt-1 text-xs text-slate-500">{{ ticket.description|default:"—"|truncatechars:70 }}</p>
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ ticket.requester.phone|default:"—" }}</td>
+    <td class="px-4 py-3 align-top">{% include "dashboard_v2/components/status_badge.html" with value=ticket.priority label=ticket.get_priority_display %}</td>
+    <td class="px-4 py-3 align-top">{% include "dashboard_v2/components/status_badge.html" with value=ticket.status label=ticket.get_status_display %}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-600">{{ ticket.assigned_to.phone|default:"غير مسند" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ ticket.updated_at|date:"Y-m-d H:i" }}</td>
+    <td class="px-4 py-3 align-top">
+        <a href="{% url 'dashboard_v2:promo_inquiry_detail' ticket.id %}" class="inline-flex items-center rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">فتح</a>
+    </td>
+</tr>
+{% endfor %}
