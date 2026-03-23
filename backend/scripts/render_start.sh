@@ -15,7 +15,7 @@ TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
 # such as migrations and collectstatic is expected to happen in pre-deploy/build
 # stages. The start script keeps optional fallbacks, but they are disabled by
 # default so startup stays deterministic and avoids port-scan timeouts.
-RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
+RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-180}"
 COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-300}"
