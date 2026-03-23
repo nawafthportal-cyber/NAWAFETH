@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: bash scripts/render_build.sh
-    preDeployCommand: python manage.py migrate --noinput && python scripts/startup_smoke.py
+    preDeployCommand: python manage.py migrate --noinput && python manage.py collectstatic --clear --noinput && python scripts/startup_smoke.py
     startCommand: bash scripts/render_start.sh
     autoDeployTrigger: commit
     healthCheckPath: /healthz/

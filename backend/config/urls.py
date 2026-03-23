@@ -198,3 +198,23 @@ if settings.DEBUG or getattr(settings, "SERVE_MEDIA", False):
                 {"document_root": settings.MEDIA_ROOT},
             ),
         ]
+
+if settings.DEBUG or getattr(settings, "SERVE_STATIC", False):
+    # Resilient static fallback for production environments where STATIC_ROOT
+    # artifacts may be missing unexpectedly. WhiteNoise will still serve first
+    # when collectstatic output exists.
+    if settings.DEBUG:
+        urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    else:
+        import re as _re
+        from django.urls import re_path as _re_path
+        from django.contrib.staticfiles.views import serve as _serve_staticfiles
+
+        _static_prefix = settings.STATIC_URL.lstrip("/")
+        urlpatterns += [
+            _re_path(
+                r"^%s(?P<path>.*)$" % _re.escape(_static_prefix),
+                _serve_staticfiles,
+                {"insecure": True},
+            ),
+        ]

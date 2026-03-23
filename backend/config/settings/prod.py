@@ -12,6 +12,10 @@ FEATURE_ANALYTICS_KPI_SURFACES = env_bool("FEATURE_ANALYTICS_KPI_SURFACES", True
 
 # Fallback when staticfiles was not pre-collected in ephemeral environments.
 WHITENOISE_USE_FINDERS = env_bool("WHITENOISE_USE_FINDERS", True)
+# Keep pages styled even if STATIC_ROOT is unexpectedly empty on a deploy.
+# WhiteNoise still serves static efficiently when collectstatic artifacts exist;
+# this acts as a safety net for missing artifacts.
+SERVE_STATIC = env_bool("DJANGO_SERVE_STATIC", True)
 
 # Production resilience: avoid runtime 500s from manifest hash resolution
 # mismatches on ephemeral deploy environments.
