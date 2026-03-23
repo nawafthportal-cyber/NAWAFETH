@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: bash scripts/render_build.sh
-    preDeployCommand: python manage.py migrate --noinput
+    preDeployCommand: python manage.py migrate --noinput && python scripts/startup_smoke.py
     startCommand: bash scripts/render_start.sh
     autoDeployTrigger: commit
     healthCheckPath: /healthz/
@@ -32,11 +32,13 @@ services:
           type: keyvalue
           property: connectionString
       - key: RUN_MIGRATIONS_ON_START
-        value: "1"
+        value: "0"
       - key: RUN_COLLECTSTATIC_ON_START
         value: "0"
+      - key: RUN_COLLECTSTATIC_RECOVERY_ON_START
+        value: "0"
       - key: RUN_STARTUP_SMOKE
-        value: "1"
+        value: "0"
       - key: STARTUP_SMOKE_TIMEOUT_SECONDS
         value: "60"
       - key: FEATURE_MODERATION_CENTER

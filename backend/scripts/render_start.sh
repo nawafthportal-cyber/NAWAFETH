@@ -15,11 +15,12 @@ TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
 # such as migrations and collectstatic is expected to happen in pre-deploy/build
 # stages. The start script keeps optional fallbacks, but they are disabled by
 # default so startup stays deterministic and avoids port-scan timeouts.
-RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
+RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
+RUN_COLLECTSTATIC_RECOVERY_ON_START="${RUN_COLLECTSTATIC_RECOVERY_ON_START:-0}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-180}"
 COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-300}"
-RUN_STARTUP_SMOKE="${RUN_STARTUP_SMOKE:-1}"
+RUN_STARTUP_SMOKE="${RUN_STARTUP_SMOKE:-0}"
 STARTUP_SMOKE_TIMEOUT_SECONDS="${STARTUP_SMOKE_TIMEOUT_SECONDS:-60}"
 
 STATIC_ROOT_DIR="${PROJECT_ROOT}/staticfiles"
@@ -34,10 +35,21 @@ ensure_static_ready() {
 	return 0
 }
 
+run_with_timeout() {
+	local seconds="$1"
+	shift
+	if command -v timeout >/dev/null 2>&1; then
+		timeout "${seconds}" "$@"
+	else
+		echo "[start] WARN: 'timeout' command is unavailable; running command without timeout: $*"
+		"$@"
+	fi
+}
+
 # ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
 	echo "[start] Running migrations before startup (timeout ${MIGRATION_TIMEOUT_SECONDS}s)..."
-	if ! timeout "${MIGRATION_TIMEOUT_SECONDS}" python manage.py migrate --noinput 2>&1; then
+	if ! run_with_timeout "${MIGRATION_TIMEOUT_SECONDS}" python manage.py migrate --noinput 2>&1; then
 		echo "[start] ERROR: migrate failed or timed out; refusing to start with a potentially stale schema."
 		exit 1
 	fi
@@ -50,22 +62,25 @@ fi
 # Keep startup port-first. Static recovery is handled during build by default.
 if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
 	echo "[start] RUN_COLLECTSTATIC_ON_START=1 — running collectstatic (best-effort, timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
-	timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
+	run_with_timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
 	echo "[start] collectstatic best-effort done."
 else
 	if ensure_static_ready; then
 		echo "[start] Skipping collectstatic on startup (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START}); staticfiles already present."
-	else
+	elif [ "${RUN_COLLECTSTATIC_RECOVERY_ON_START}" = "1" ]; then
 		echo "[start] staticfiles missing/empty at ${STATIC_ROOT_DIR}; running collectstatic recovery (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
-		timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
+		run_with_timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
 		echo "[start] collectstatic recovery done."
+	else
+		echo "[start] WARN: staticfiles missing/empty at ${STATIC_ROOT_DIR}; skipping collectstatic recovery to keep startup fast."
+		echo "[start] WARN: Set RUN_COLLECTSTATIC_RECOVERY_ON_START=1 to enable runtime recovery."
 	fi
 fi
 
 # ── Startup smoke checks (optional, blocking) ─────────────────────
 if [ "${RUN_STARTUP_SMOKE}" = "1" ]; then
 	echo "[start] Running startup smoke checks (timeout ${STARTUP_SMOKE_TIMEOUT_SECONDS}s)..."
-	if ! timeout "${STARTUP_SMOKE_TIMEOUT_SECONDS}" python scripts/startup_smoke.py 2>&1; then
+	if ! run_with_timeout "${STARTUP_SMOKE_TIMEOUT_SECONDS}" python scripts/startup_smoke.py 2>&1; then
 		echo "[start] ERROR: startup smoke checks failed; refusing to start."
 		exit 1
 	fi

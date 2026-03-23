@@ -294,6 +294,9 @@ _r2_media_ready = USE_R2_MEDIA and all(
 # Quick connectivity check for R2 to avoid silent 500s on every upload.
 # Runs only once at startup; falls back to local storage on failure.
 R2_HEAD_BUCKET_STRICT = env_bool("R2_HEAD_BUCKET_STRICT", False)
+R2_HEAD_BUCKET_CONNECT_TIMEOUT = float(os.getenv("R2_HEAD_BUCKET_CONNECT_TIMEOUT", "3"))
+R2_HEAD_BUCKET_READ_TIMEOUT = float(os.getenv("R2_HEAD_BUCKET_READ_TIMEOUT", "3"))
+R2_HEAD_BUCKET_MAX_ATTEMPTS = int(os.getenv("R2_HEAD_BUCKET_MAX_ATTEMPTS", "1"))
 if _r2_media_ready:
     try:
         boto3 = import_module("boto3")
@@ -307,6 +310,9 @@ if _r2_media_ready:
             config=BotoConfig(
                 signature_version=AWS_S3_SIGNATURE_VERSION,
                 s3={"addressing_style": AWS_S3_ADDRESSING_STYLE},
+                connect_timeout=R2_HEAD_BUCKET_CONNECT_TIMEOUT,
+                read_timeout=R2_HEAD_BUCKET_READ_TIMEOUT,
+                retries={"max_attempts": R2_HEAD_BUCKET_MAX_ATTEMPTS, "mode": "standard"},
             ),
         )
         _test_client.head_bucket(Bucket=AWS_STORAGE_BUCKET_NAME)
