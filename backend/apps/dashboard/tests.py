@@ -1778,6 +1778,27 @@ def test_dashboard_otp_requires_real_code_when_dev_bypass_disabled():
 
 
 @pytest.mark.django_db
+@override_settings(DEBUG=False, OTP_APP_BYPASS=True, OTP_DEV_BYPASS_ENABLED=False, OTP_DEV_ACCEPT_ANY_4_DIGITS=False)
+def test_dashboard_otp_accepts_any_4_digits_when_app_bypass_enabled():
+	support_dashboard, _ = Dashboard.objects.get_or_create(
+		code="support",
+		defaults={"name_ar": "الدعم", "sort_order": 1},
+	)
+	staff_user = User.objects.create_user(phone="0500000999", password="Pass12345!")
+	ap = UserAccessProfile.objects.create(user=staff_user, level=AccessLevel.USER)
+	ap.allowed_dashboards.set([support_dashboard])
+
+	c = Client()
+	login_res = c.post(reverse("dashboard:login"), data={"phone": staff_user.phone})
+	assert login_res.status_code == 302
+	assert reverse("dashboard:otp") in login_res.url
+
+	otp_res = c.post(reverse("dashboard:otp"), data={"code": "9876"})
+	assert otp_res.status_code == 302
+	assert otp_res.url == reverse("dashboard:support_tickets_list")
+
+
+@pytest.mark.django_db
 def test_requests_list_export_uses_platform_config_limits(mocker):
     content_dashboard, _ = Dashboard.objects.get_or_create(code="content", defaults={"name_ar": "إدارة المحتوى", "sort_order": 20})
     staff_user = User.objects.create_user(phone="0500000232", password="Pass12345!", is_staff=True)

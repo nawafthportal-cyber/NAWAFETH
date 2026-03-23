@@ -59,10 +59,17 @@ def otp_dev_test_code() -> str:
 
 
 def accept_any_otp_code() -> bool:
-    """Development OTP mode: accept any 4-digit code only in explicit dev bypass."""
-    return otp_dev_bypass_enabled() and bool(
+    """Accept any 4-digit OTP when explicit bypass is enabled.
+
+    Supports:
+    - Development bypass (DEBUG + OTP_DEV_BYPASS_ENABLED + OTP_DEV_ACCEPT_ANY_4_DIGITS)
+    - App bypass flag (OTP_APP_BYPASS) used by QA/staging and dashboard OTP flows.
+    """
+    dev_any = otp_dev_bypass_enabled() and bool(
         getattr(settings, "OTP_DEV_ACCEPT_ANY_4_DIGITS", False)
     )
+    app_any = bool(getattr(settings, "OTP_APP_BYPASS", False))
+    return bool(dev_any or app_any)
 
 
 def matches_dev_test_code(code: str) -> bool:
