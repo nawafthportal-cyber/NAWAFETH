@@ -19,6 +19,20 @@ RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-1}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-180}"
 COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-300}"
+RUN_STARTUP_SMOKE="${RUN_STARTUP_SMOKE:-1}"
+STARTUP_SMOKE_TIMEOUT_SECONDS="${STARTUP_SMOKE_TIMEOUT_SECONDS:-60}"
+
+STATIC_ROOT_DIR="${PROJECT_ROOT}/staticfiles"
+
+ensure_static_ready() {
+	if [ ! -d "${STATIC_ROOT_DIR}" ]; then
+		return 1
+	fi
+	if [ -z "$(ls -A "${STATIC_ROOT_DIR}" 2>/dev/null || true)" ]; then
+		return 1
+	fi
+	return 0
+}
 
 # ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
@@ -39,7 +53,25 @@ if [ "${RUN_COLLECTSTATIC_ON_START}" = "1" ]; then
 	timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
 	echo "[start] collectstatic best-effort done."
 else
-	echo "[start] Skipping collectstatic on startup (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START}); expect build-time collectstatic to be available."
+	if ensure_static_ready; then
+		echo "[start] Skipping collectstatic on startup (RUN_COLLECTSTATIC_ON_START=${RUN_COLLECTSTATIC_ON_START}); staticfiles already present."
+	else
+		echo "[start] staticfiles missing/empty at ${STATIC_ROOT_DIR}; running collectstatic recovery (timeout ${COLLECTSTATIC_TIMEOUT_SECONDS}s)..."
+		timeout "${COLLECTSTATIC_TIMEOUT_SECONDS}" python manage.py collectstatic --clear --noinput 2>&1 || true
+		echo "[start] collectstatic recovery done."
+	fi
+fi
+
+# ── Startup smoke checks (optional, blocking) ─────────────────────
+if [ "${RUN_STARTUP_SMOKE}" = "1" ]; then
+	echo "[start] Running startup smoke checks (timeout ${STARTUP_SMOKE_TIMEOUT_SECONDS}s)..."
+	if ! timeout "${STARTUP_SMOKE_TIMEOUT_SECONDS}" python scripts/startup_smoke.py 2>&1; then
+		echo "[start] ERROR: startup smoke checks failed; refusing to start."
+		exit 1
+	fi
+	echo "[start] Startup smoke checks passed."
+else
+	echo "[start] Skipping startup smoke checks (RUN_STARTUP_SMOKE=${RUN_STARTUP_SMOKE})."
 fi
 
 # ── Gunicorn ────────────────────────────────────────────────

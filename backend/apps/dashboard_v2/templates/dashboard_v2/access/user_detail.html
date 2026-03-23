@@ -16,7 +16,7 @@
 {% block detail_actions %}
 <a href="{% url 'dashboard_v2:users_list' %}" class="rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">العودة للقائمة</a>
 {% if can_manage_access %}
-    <span class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Manage Access Enabled</span>
+    <span class="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">إدارة الوصول مفعلة</span>
 {% endif %}
 {% endblock %}
 
@@ -25,6 +25,14 @@
     <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft lg:col-span-2">
         <h3 class="mb-3 text-sm font-extrabold text-ink">بيانات الحساب</h3>
         <div class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">اسم المستخدم</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.username|default:"—" }}</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">رقم الجوال</p>
+                <p class="text-sm font-bold text-slate-800">{{ target_user.phone|default:"—" }}</p>
+            </div>
             <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p class="text-xs text-slate-500">الاسم</p>
                 <p class="text-sm font-bold text-slate-800">{{ target_user.first_name|default:"—" }} {{ target_user.last_name|default:"" }}</p>
@@ -41,10 +49,61 @@
                 <p class="text-xs text-slate-500">تاريخ الإنشاء</p>
                 <p class="text-sm font-bold text-slate-800">{{ target_user.created_at|date:"Y-m-d H:i" }}</p>
             </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">كلمة المرور</p>
+                <p class="text-sm font-bold text-slate-800">************</p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                <p class="text-xs text-slate-500">انتهاء صلاحية الدخول</p>
+                <p class="text-sm font-bold text-slate-800">
+                    {% if access_profile and access_profile.expires_at %}
+                        {{ access_profile.expires_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
+            </div>
+            <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:col-span-2">
+                <p class="text-xs text-slate-500">تاريخ سحب الصلاحيات</p>
+                <p class="text-sm font-bold text-slate-800">
+                    {% if access_profile and access_profile.revoked_at %}
+                        {{ access_profile.revoked_at|date:"Y-m-d H:i" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </p>
+            </div>
         </div>
     </section>
 
     <section class="space-y-4">
+        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+            <h3 class="mb-2 text-sm font-extrabold text-ink">إجراءات الحساب</h3>
+            {% if can_manage_access %}
+                <div class="space-y-3">
+                    <form method="post" action="{% url 'dashboard_v2:user_toggle_active_action' target_user.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">
+                            {% if target_user.is_active %}تعطيل الحساب{% else %}تفعيل الحساب{% endif %}
+                        </button>
+                    </form>
+                    <form method="post" action="{% url 'dashboard_v2:user_update_role_action' target_user.id %}" class="space-y-2">
+                        {% csrf_token %}
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-bold text-slate-600">دور المستخدم</span>
+                            <select name="role_state" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                                {% for role_value, role_label in role_state_choices %}
+                                    <option value="{{ role_value }}" {% if target_user.role_state == role_value %}selected{% endif %}>{{ role_label }}</option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <button type="submit" class="w-full rounded-xl bg-ink px-3 py-2 text-xs font-bold text-white hover:opacity-90">حفظ الدور</button>
+                    </form>
+                </div>
+            {% else %}
+                <p class="text-xs text-slate-500">لا تملك صلاحية تعديل الحساب.</p>
+            {% endif %}
+        </article>
         <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
             <h3 class="mb-2 text-sm font-extrabold text-ink">اللوحات المسموحة</h3>
             <div class="flex flex-wrap gap-2">
@@ -69,6 +128,78 @@
 </div>
 
 <section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+    <h3 class="mb-3 text-sm font-extrabold text-ink">إدارة ملف الصلاحيات</h3>
+    {% if can_manage_access %}
+        <form method="post" action="{% url 'dashboard_v2:access_profile_upsert_action' target_user.id %}" class="space-y-4">
+            {% csrf_token %}
+            <div class="grid gap-3 md:grid-cols-3">
+                <label class="block">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">مستوى الوصول</span>
+                    <select name="level" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                        {% for level_value, level_label in access_level_choices %}
+                            <option value="{{ level_value }}" {% if access_profile and access_profile.level == level_value %}selected{% endif %}>{{ level_label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="block md:col-span-2">
+                    <span class="mb-1 block text-xs font-bold text-slate-600">تاريخ انتهاء الوصول (اختياري)</span>
+                    <input type="datetime-local" name="expires_at" value="{{ expires_at_local }}"
+                           class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-tealbrand/40">
+                </label>
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-2">
+                <div>
+                    <p class="mb-2 text-xs font-bold text-slate-600">اللوحات المسموحة</p>
+                    <div class="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        {% for dash in all_dashboards %}
+                            <label class="flex items-center gap-2 text-xs text-slate-700">
+                                <input type="checkbox" name="dashboard_ids" value="{{ dash.id }}"
+                                       {% if dash.id in selected_dashboard_ids %}checked{% endif %}
+                                       class="h-4 w-4 rounded border-slate-300 text-tealbrand focus:ring-tealbrand/40">
+                                <span>{{ dash.name_ar }} <span class="text-slate-400">({{ dash.code }})</span></span>
+                            </label>
+                        {% empty %}
+                            <p class="text-xs text-slate-500">لا توجد لوحات مفعّلة.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    <p class="mb-2 text-xs font-bold text-slate-600">الصلاحيات الدقيقة</p>
+                    <div class="max-h-48 space-y-2 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3">
+                        {% for permission in permission_catalog %}
+                            <label class="flex items-center gap-2 text-xs text-slate-700">
+                                <input type="checkbox" name="permission_ids" value="{{ permission.id }}"
+                                       {% if permission.id in selected_permission_ids %}checked{% endif %}
+                                       class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-300">
+                                <span>{{ permission.name_ar }} <span class="text-slate-400">({{ permission.code }})</span></span>
+                            </label>
+                        {% empty %}
+                            <p class="text-xs text-slate-500">لا توجد صلاحيات معرفة.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <button type="submit" class="rounded-xl bg-ink px-4 py-2 text-xs font-bold text-white hover:opacity-90">
+                    {% if access_profile %}تحديث ملف الصلاحيات{% else %}إنشاء ملف الصلاحيات{% endif %}
+                </button>
+                {% if access_profile %}
+                    <button type="submit"
+                            formaction="{% url 'dashboard_v2:access_profile_toggle_revoke_action' target_user.id %}"
+                            class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-700 hover:bg-amber-100">
+                        {% if access_profile.revoked_at %}إلغاء سحب الصلاحيات{% else %}سحب الصلاحيات{% endif %}
+                    </button>
+                {% endif %}
+            </div>
+        </form>
+    {% else %}
+        <p class="text-xs text-slate-500">لا تملك صلاحية إدارة ملف الوصول.</p>
+    {% endif %}
+</section>
+
+<section class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
     <h3 class="mb-3 text-sm font-extrabold text-ink">Audit مبسط</h3>
     <div class="space-y-2">
         {% for entry in audit_entries %}
@@ -85,4 +216,3 @@
     </div>
 </section>
 {% endblock %}
-

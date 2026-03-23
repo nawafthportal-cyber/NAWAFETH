@@ -1,8 +1,8 @@
 {% for user_item in page_obj.object_list %}
-<tr class="hover:bg-slate-50/80">
+<tr class="hover:bg-fuchsia-50/40">
     <td class="px-4 py-3 align-top">
         <a href="{% url 'dashboard_v2:user_detail' user_item.id %}" class="font-bold text-slate-800 hover:text-teal-700">
-            {{ user_item.phone|default:user_item.username|default:user_item.id }}
+            {{ user_item.username|default:user_item.phone|default:user_item.id }}
         </a>
         <p class="mt-1 text-xs text-slate-500">
             {{ user_item.first_name|default:"" }} {{ user_item.last_name|default:"" }}
@@ -10,7 +10,7 @@
     </td>
     <td class="px-4 py-3 align-top">
         {% if user_item.access_profile %}
-            <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-700">{{ user_item.access_profile.get_level_display }}</span>
+            <span class="rounded-lg bg-fuchsia-100 px-2 py-1 text-xs font-bold text-fuchsia-800">{{ user_item.access_profile.get_level_display }}</span>
         {% else %}
             <span class="rounded-lg bg-slate-100 px-2 py-1 text-xs font-bold text-slate-500">NO ACCESS</span>
         {% endif %}
@@ -22,7 +22,7 @@
         {% if user_item.access_profile %}
             <div class="flex flex-wrap gap-1">
                 {% for dash in user_item.access_profile.allowed_dashboards.all %}
-                    <span class="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">{{ dash.code }}</span>
+                    <span class="rounded-full bg-indigo-50 px-2 py-1 text-[11px] font-semibold text-indigo-700">{{ dash.code }}</span>
                 {% empty %}
                     <span class="text-xs text-slate-500">—</span>
                 {% endfor %}
@@ -31,10 +31,37 @@
             <span class="text-xs text-slate-500">—</span>
         {% endif %}
     </td>
-    <td class="px-4 py-3 align-top text-xs text-slate-500">{{ user_item.created_at|date:"Y-m-d H:i" }}</td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">
+        {% if user_item.access_profile and user_item.access_profile.expires_at %}
+            {{ user_item.access_profile.expires_at|date:"Y-m-d H:i" }}
+        {% else %}
+            —
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-500">
+        {% if user_item.access_profile and user_item.access_profile.revoked_at %}
+            {{ user_item.access_profile.revoked_at|date:"Y-m-d H:i" }}
+        {% else %}
+            —
+        {% endif %}
+    </td>
+    <td class="px-4 py-3 align-top text-xs text-slate-700">{{ user_item.phone|default:"—" }}</td>
     <td class="px-4 py-3 align-top">
-        {% url 'dashboard_v2:user_detail' user_item.id as user_detail_url %}
-        {% include "dashboard_v2/components/action_menu.html" with single_url=user_detail_url single_label="تفاصيل" %}
+        <a href="{% url 'dashboard_v2:user_detail' user_item.id %}" class="inline-flex items-center justify-center rounded-lg border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100">
+            تحديث
+        </a>
+    </td>
+    <td class="px-4 py-3 align-top">
+        {% if can_manage_access and user_item.id != request.user.id and not user_item.is_superuser %}
+            <form method="post" action="{% url 'dashboard_v2:user_toggle_active_action' user_item.id %}">
+                {% csrf_token %}
+                <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50">
+                    {% if user_item.is_active %}تعطيل{% else %}تفعيل{% endif %}
+                </button>
+            </form>
+        {% else %}
+            <span class="text-xs text-slate-400">—</span>
+        {% endif %}
     </td>
 </tr>
 {% endfor %}

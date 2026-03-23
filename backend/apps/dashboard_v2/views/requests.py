@@ -43,7 +43,6 @@ from ..view_utils import (
     apply_role_scope,
     build_layout_context,
     dashboard_v2_login_required,
-    dashboard_v2_access_required,
     parse_date_yyyy_mm_dd,
 )
 
@@ -340,7 +339,7 @@ def request_detail_view(request, request_id: int):
     return render(request, "dashboard_v2/requests/request_detail.html", context)
 
 
-@dashboard_v2_access_required(DashboardCode.ANALYTICS, write=True)
+@dashboard_v2_login_required
 @require_POST
 def request_assign_action(request, request_id: int):
     ur = get_object_or_404(UnifiedRequest, id=request_id)
@@ -417,7 +416,7 @@ def request_assign_action(request, request_id: int):
     return redirect("dashboard_v2:request_detail", request_id=ur.id)
 
 
-@dashboard_v2_access_required(DashboardCode.ANALYTICS, write=True)
+@dashboard_v2_login_required
 @require_POST
 def request_status_action(request, request_id: int):
     ur = get_object_or_404(UnifiedRequest, id=request_id)

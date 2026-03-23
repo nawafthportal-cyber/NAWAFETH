@@ -103,6 +103,7 @@ def login_view(request: HttpRequest) -> HttpResponse:
             return render(request, "dashboard_v2/auth/login.html", {"phone": phone_raw})
 
         request.session[SESSION_LOGIN_PHONE_KEY] = dashboard_user.phone
+        _reset_rate_limit("login_ip", client_ip)
         if not accept_any_otp_code():
             create_otp(dashboard_user.phone, request)
             logger.info("Dashboard V2 OTP generated phone=%s", dashboard_user.phone)
@@ -168,4 +169,3 @@ def logout_view(request: HttpRequest) -> HttpResponse:
         pass
     logout(request)
     return redirect("dashboard_v2:login")
-

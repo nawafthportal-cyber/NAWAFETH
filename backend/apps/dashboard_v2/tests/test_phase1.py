@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import pytest
+from django.core.cache import cache
 from django.test import Client
 from django.urls import reverse
 
 from apps.accounts.models import User
-from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
+from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard, UserAccessProfile
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
+from apps.dashboard_v2.views.auth import _rate_limit_key
 from apps.support.models import SupportPriority, SupportTicket, SupportTicketStatus, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestStatus, UnifiedRequestType
 
@@ -151,3 +153,115 @@ def test_dashboard_v2_role_based_rendering_support_detail():
     assert status_action_url in admin_html
     assert assign_action_url in admin_html
 
+
+@pytest.mark.django_db
+def test_dashboard_v2_requests_actions_allow_team_operator_without_analytics_dashboard():
+    support_dashboard = _dashboard("support", "الدعم")
+
+    support_assign, _ = AccessPermission.objects.get_or_create(
+        code="support.assign",
+        defaults={"name_ar": "إسناد الدعم", "dashboard_code": "support"},
+    )
+    support_resolve, _ = AccessPermission.objects.get_or_create(
+        code="support.resolve",
+        defaults={"name_ar": "تحديث حالة الدعم", "dashboard_code": "support"},
+    )
+
+    operator = User.objects.create_user(phone="0500100031", password="Pass12345!", is_staff=True, role_state="staff")
+    requester = User.objects.create_user(phone="0500100032", password="Pass12345!")
+    access_profile = _access_profile(operator, level=AccessLevel.USER, dashboards=[support_dashboard])
+    access_profile.granted_permissions.set([support_assign, support_resolve])
+
+    ur = UnifiedRequest.objects.create(
+        request_type=UnifiedRequestType.HELPDESK,
+        requester=requester,
+        status=UnifiedRequestStatus.NEW,
+        summary="support-action",
+        assigned_user=operator,
+        assigned_team_code="support",
+        assigned_team_name="الدعم",
+    )
+
+    client = Client()
+    _login_dashboard_v2(client, user=operator)
+
+    assign_response = client.post(
+        reverse("dashboard_v2:request_assign_action", args=[ur.id]),
+        {"assigned_to": str(operator.id), "note": "self-assign"},
+    )
+    assert assign_response.status_code == 302
+    assert reverse("dashboard_v2:request_detail", args=[ur.id]) in assign_response["Location"]
+
+    status_response = client.post(
+        reverse("dashboard_v2:request_status_action", args=[ur.id]),
+        {"status": UnifiedRequestStatus.IN_PROGRESS, "note": "progress"},
+    )
+    assert status_response.status_code == 302
+    ur.refresh_from_db()
+    assert ur.status == UnifiedRequestStatus.IN_PROGRESS
+
+
+@pytest.mark.django_db
+def test_dashboard_v2_access_user_detail_actions_create_profile_and_toggle_active():
+    admin_dashboard = _dashboard("admin_control", "الإدارة")
+    support_dashboard = _dashboard("support", "الدعم")
+
+    admin_user = User.objects.create_user(phone="0500100041", password="Pass12345!", is_staff=True, role_state="staff")
+    UserAccessProfile.objects.create(user=admin_user, level=AccessLevel.ADMIN)
+
+    target_user = User.objects.create_user(phone="0500100042", password="Pass12345!", is_staff=False)
+    target_user.is_active = True
+    target_user.save(update_fields=["is_active"])
+
+    manage_access, _ = AccessPermission.objects.get_or_create(
+        code="admin_control.manage_access",
+        defaults={"name_ar": "إدارة الوصول", "dashboard_code": admin_dashboard.code},
+    )
+    ap = admin_user.access_profile
+    ap.allowed_dashboards.set([admin_dashboard])
+    ap.granted_permissions.set([manage_access])
+
+    support_assign, _ = AccessPermission.objects.get_or_create(
+        code="support.assign",
+        defaults={"name_ar": "إسناد الدعم", "dashboard_code": support_dashboard.code},
+    )
+
+    client = Client()
+    _login_dashboard_v2(client, user=admin_user)
+
+    upsert_response = client.post(
+        reverse("dashboard_v2:access_profile_upsert_action", args=[target_user.id]),
+        {
+            "level": AccessLevel.USER,
+            "dashboard_ids": [str(support_dashboard.id)],
+            "permission_ids": [str(support_assign.id)],
+            "expires_at": "",
+        },
+    )
+    assert upsert_response.status_code == 302
+
+    created_profile = UserAccessProfile.objects.get(user=target_user)
+    assert created_profile.level == AccessLevel.USER
+    assert list(created_profile.allowed_dashboards.values_list("code", flat=True)) == [support_dashboard.code]
+    assert list(created_profile.granted_permissions.values_list("code", flat=True)) == [support_assign.code]
+
+    toggle_response = client.post(reverse("dashboard_v2:user_toggle_active_action", args=[target_user.id]))
+    assert toggle_response.status_code == 302
+    target_user.refresh_from_db()
+    assert target_user.is_active is False
+
+
+@pytest.mark.django_db
+def test_dashboard_v2_login_success_resets_ip_rate_limit_counter():
+    _dashboard("support", "الدعم")
+    user = User.objects.create_user(phone="0500100051", password="Pass12345!", is_staff=True, role_state="staff")
+    UserAccessProfile.objects.create(user=user, level=AccessLevel.ADMIN)
+
+    key = _rate_limit_key("login_ip", "127.0.0.1")
+    cache.set(key, 4, 600)
+
+    client = Client()
+    response = client.post(reverse("dashboard_v2:login"), {"phone": user.phone})
+    assert response.status_code == 302
+    assert reverse("dashboard_v2:otp") in response["Location"]
+    assert cache.get(key) in (None, 0)

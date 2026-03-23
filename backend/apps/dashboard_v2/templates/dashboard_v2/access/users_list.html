@@ -2,18 +2,138 @@
 
 {% block content %}
 <div class="space-y-4">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div class="grid gap-4 lg:grid-cols-12">
+            <article class="lg:col-span-8 overflow-hidden rounded-2xl border border-fuchsia-200">
+                <header class="bg-fuchsia-700 px-4 py-3 text-white">
+                    <h2 class="text-sm font-extrabold">مستوى الصلاحيات</h2>
+                </header>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-fuchsia-50 text-fuchsia-900">
+                        <tr>
+                            <th class="px-4 py-2 text-right font-bold">المستوى</th>
+                            <th class="px-4 py-2 text-right font-bold">الصلاحيات</th>
+                        </tr>
+                        </thead>
+                        <tbody class="divide-y divide-fuchsia-100">
+                        {% for role_item in role_matrix %}
+                            <tr>
+                                <td class="px-4 py-2.5 font-bold text-slate-800">{{ role_item.level }}</td>
+                                <td class="px-4 py-2.5 text-slate-700">{{ role_item.description }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+            <article class="lg:col-span-4 rounded-2xl border border-fuchsia-200 bg-fuchsia-50/50 p-4">
+                <h3 class="mb-2 text-sm font-extrabold text-fuchsia-900">لوحات التحكم المتاحة</h3>
+                <ol class="space-y-1 text-sm text-slate-700">
+                    {% for board_item in dashboard_matrix %}
+                        <li class="flex items-start gap-2">
+                            <span class="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-fuchsia-700 text-[11px] font-bold text-white">{{ board_item.index }}</span>
+                            <span>{{ board_item.label }} <span class="text-slate-400">({{ board_item.code }})</span></span>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </article>
+        </div>
+    </section>
+
     {% include "dashboard_v2/components/filter_bar.html" with form_action=request.path fields_template="dashboard_v2/access/_users_filters.html" %}
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
-        <div class="mb-3 flex items-center justify-between gap-2">
-            <h2 class="text-sm font-extrabold text-ink">قائمة المستخدمين</h2>
-            {% if can_manage_access %}
-                <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Manage Access</span>
-            {% endif %}
-        </div>
+    <section class="grid gap-4 lg:grid-cols-12">
+        <article class="rounded-2xl border border-fuchsia-200 bg-white p-4 shadow-soft lg:col-span-7">
+            <div class="mb-3 flex items-center justify-between gap-2">
+                <h2 class="text-sm font-extrabold text-ink">بيانات الدخول (تشغيلي)</h2>
+                <div class="flex items-center gap-2">
+                    {% if can_manage_access %}
+                        <span class="rounded-full bg-fuchsia-100 px-2.5 py-1 text-[11px] font-bold text-fuchsia-800">Admin Access Enabled</span>
+                    {% endif %}
+                    <a href="#create-user-form" class="rounded-xl bg-fuchsia-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-fuchsia-800">جديد</a>
+                </div>
+            </div>
 
-        {% include "dashboard_v2/components/data_table.html" with headers=table_headers rows_template="dashboard_v2/access/_users_rows.html" col_count=6 empty_title="لا يوجد مستخدمون" empty_text="جرّب تعديل معايير البحث." %}
-        {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+            <div class="overflow-x-auto rounded-xl border border-fuchsia-200">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-fuchsia-700 text-white">
+                    <tr>
+                        {% for header in table_headers %}
+                            <th class="whitespace-nowrap px-4 py-3 text-right font-bold">{{ header }}</th>
+                        {% endfor %}
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-fuchsia-100 bg-white">
+                    {% if page_obj.object_list %}
+                        {% include "dashboard_v2/access/_users_rows.html" %}
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="px-4 py-6 text-center text-sm text-slate-500">لا يوجد مستخدمون مطابقون للفلاتر الحالية.</td>
+                        </tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% include "dashboard_v2/components/pagination.html" with page_obj=page_obj query_string=query_string %}
+        </article>
+
+        <article class="rounded-2xl border border-fuchsia-200 bg-white p-4 shadow-soft lg:col-span-5" id="create-user-form">
+            <h3 class="mb-3 text-sm font-extrabold text-ink">نموذج إضافة حساب جديد</h3>
+            {% if can_manage_access %}
+                <form method="post" action="{% url 'dashboard_v2:create_access_user_action' %}" class="space-y-3">
+                    {% csrf_token %}
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">اسم المستخدم</span>
+                        <input type="text" name="username" placeholder="حروف وأرقام"
+                               class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">مستوى الصلاحية</span>
+                        <select name="level" class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                            {% for level_value, level_label in access_level_choices %}
+                                <option value="{{ level_value }}">{{ level_label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">لوحات التحكم</span>
+                        <select name="dashboard_ids" multiple class="h-24 w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                            {% for dash in all_dashboards %}
+                                <option value="{{ dash.id }}">{{ dash.name_ar }} ({{ dash.code }})</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">كلمة المرور</span>
+                        <input type="password" name="password" placeholder="Strong password"
+                               class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">تاريخ تحديث كلمة المرور</span>
+                        <input type="datetime-local" name="expires_at"
+                               class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">تاريخ انتهاء الحساب</span>
+                        <input type="datetime-local" name="revoked_at"
+                               class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-bold text-slate-600">رقم الجوال</span>
+                        <input type="text" name="phone" placeholder="9665xxxxxxxx"
+                               class="w-full rounded-xl border border-fuchsia-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fuchsia-300">
+                    </label>
+
+                    <div class="flex items-center justify-end gap-2 pt-1">
+                        <button type="reset" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">إلغاء</button>
+                        <button type="submit" class="rounded-xl bg-fuchsia-700 px-4 py-2 text-xs font-bold text-white hover:bg-fuchsia-800">حفظ</button>
+                    </div>
+                </form>
+            {% else %}
+                <p class="text-xs text-slate-500">لا تملك صلاحية إنشاء حسابات جديدة.</p>
+            {% endif %}
+        </article>
     </section>
 </div>
 {% endblock %}

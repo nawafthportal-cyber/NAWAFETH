@@ -35,6 +35,16 @@ services:
         value: "1"
       - key: RUN_COLLECTSTATIC_ON_START
         value: "0"
+      - key: RUN_STARTUP_SMOKE
+        value: "1"
+      - key: STARTUP_SMOKE_TIMEOUT_SECONDS
+        value: "60"
+      - key: FEATURE_MODERATION_CENTER
+        value: "1"
+      - key: FEATURE_ANALYTICS_EVENTS
+        value: "1"
+      - key: FEATURE_ANALYTICS_KPI_SURFACES
+        value: "1"
 
   - type: keyvalue
     name: nawafeth-redis

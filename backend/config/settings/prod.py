@@ -4,6 +4,15 @@ import os
 
 DEBUG = False
 
+# Keep key operational surfaces enabled in production by default.
+# These can still be turned off explicitly through environment variables.
+FEATURE_MODERATION_CENTER = env_bool("FEATURE_MODERATION_CENTER", True)
+FEATURE_ANALYTICS_EVENTS = env_bool("FEATURE_ANALYTICS_EVENTS", True)
+FEATURE_ANALYTICS_KPI_SURFACES = env_bool("FEATURE_ANALYTICS_KPI_SURFACES", True)
+
+# Fallback when staticfiles was not pre-collected in ephemeral environments.
+WHITENOISE_USE_FINDERS = env_bool("WHITENOISE_USE_FINDERS", True)
+
 # Production resilience: avoid runtime 500s from manifest hash resolution
 # mismatches on ephemeral deploy environments.
 STATICFILES_BACKEND = "whitenoise.storage.CompressedStaticFilesStorage"
