@@ -1,6 +1,9 @@
 -r base.txt
 gunicorn>=22.0
-uvicorn>=0.30
+# Keep uvicorn within the tested range and use the standalone gunicorn worker
+# package to avoid breakage when uvicorn removes/deprecates workers module paths.
+uvicorn>=0.30,<0.42
+uvicorn-worker>=0.4,<0.5
 websockets>=13.0
 whitenoise>=6.7
 celery>=5.4

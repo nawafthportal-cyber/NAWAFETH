@@ -90,11 +90,26 @@ else
 fi
 
 # ── Gunicorn ────────────────────────────────────────────────
-echo "[start] Launching gunicorn on 0.0.0.0:${PORT_VALUE}"
+WORKER_CLASS=""
+if python -c "from uvicorn_worker import UvicornWorker" >/dev/null 2>&1; then
+	WORKER_CLASS="uvicorn_worker.UvicornWorker"
+elif python -c "from uvicorn.workers import UvicornWorker" >/dev/null 2>&1; then
+	WORKER_CLASS="uvicorn.workers.UvicornWorker"
+fi
 
-exec gunicorn config.asgi:application \
-	-k uvicorn.workers.UvicornWorker \
-	--bind "0.0.0.0:${PORT_VALUE}" \
+if [ -n "${WORKER_CLASS}" ]; then
+	echo "[start] Launching gunicorn on 0.0.0.0:${PORT_VALUE} with worker ${WORKER_CLASS}"
+	exec gunicorn config.asgi:application \
+		-k "${WORKER_CLASS}" \
+		--bind "0.0.0.0:${PORT_VALUE}" \
+		--workers "${WEB_CONCURRENCY_VALUE}" \
+		--log-level "${LOG_LEVEL_VALUE}" \
+		--timeout "${TIMEOUT_VALUE}"
+fi
+
+echo "[start] WARN: Uvicorn gunicorn worker class is unavailable. Falling back to uvicorn directly."
+exec python -m uvicorn config.asgi:application \
+	--host "0.0.0.0" \
+	--port "${PORT_VALUE}" \
 	--workers "${WEB_CONCURRENCY_VALUE}" \
-	--log-level "${LOG_LEVEL_VALUE}" \
-	--timeout "${TIMEOUT_VALUE}"
+	--log-level "${LOG_LEVEL_VALUE}"
