@@ -26,6 +26,12 @@ from .models import (
 )
 
 
+_ASSET_REQUIRED_SERVICE_TYPES = {
+    PromoServiceType.HOME_BANNER,
+    PromoServiceType.SPONSORSHIP,
+}
+
+
 def _read_banner_scale(value, *, fallback: int, minimum: int, maximum: int) -> int:
     try:
         parsed = int(value)
@@ -175,6 +181,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         service_type = attrs.get("service_type")
+        asset_count = int(attrs.get("asset_count") or 0)
         start_at = attrs.get("start_at")
         end_at = attrs.get("end_at")
         send_at = attrs.get("send_at")
@@ -242,6 +249,9 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
 
         if service_type == PromoServiceType.SPONSORSHIP and int(attrs.get("sponsorship_months") or 0) <= 0:
             raise serializers.ValidationError("مدة الرعاية بالأشهر مطلوبة.")
+
+        if service_type in _ASSET_REQUIRED_SERVICE_TYPES and asset_count <= 0:
+            raise serializers.ValidationError("يجب إضافة مرفق واحد على الأقل لهذا النوع من الخدمات.")
 
         return attrs
 

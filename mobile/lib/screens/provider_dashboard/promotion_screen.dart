@@ -36,6 +36,7 @@ const _invoiceStatusLabels = {
 
 const _frequencyLabels = {
   '10s': 'كل 10 ثواني',
+  '20s': 'كل 20 ثانية',
   '30s': 'كل 30 ثانية',
   '60s': 'كل دقيقة',
   '300s': 'كل 5 دقائق',
@@ -525,10 +526,12 @@ class _PromotionScreenState extends State<PromotionScreen>
                           );
                           if (!mounted) return;
                           if (!payRes.isSuccess) {
+                            if (!dialogContext.mounted) return;
                             setDialogState(() => isPaying = false);
                             _snack(payRes.error ?? 'تعذر إتمام الدفع', true);
                             return;
                           }
+                          if (!dialogContext.mounted) return;
                           Navigator.pop(dialogContext, true);
                         },
                   style: FilledButton.styleFrom(
@@ -1141,19 +1144,36 @@ class _PromoComposerState extends State<_PromoComposer> {
       }
     }
 
+    final uploadFailures = <String>[];
     if (requestId != null) {
       for (int i = 0; i < _selected.length; i++) {
         final draft = _drafts[_selected[i]]!;
         for (final file in draft.files) {
-          await PromoService.uploadAsset(
+          final uploadRes = await PromoService.uploadAsset(
             requestId: requestId,
             itemId: ids['${draft.service.type}:$i'],
             file: file,
             assetType: _assetType(file),
             title: draft.service.label,
           );
+          if (!mounted) return;
+          if (!uploadRes.isSuccess) {
+            final reason = uploadRes.error ?? 'تعذر رفع الملف.';
+            uploadFailures.add('${_name(file)}: $reason');
+          }
         }
       }
+    }
+
+    if (uploadFailures.isNotEmpty) {
+      final sample = uploadFailures.first;
+      setState(() => _sending = false);
+      widget.onCreated();
+      _snack(
+        'تم إنشاء الطلب ولكن فشل رفع ${uploadFailures.length} ملف. $sample',
+        true,
+      );
+      return;
     }
 
     _title.clear();

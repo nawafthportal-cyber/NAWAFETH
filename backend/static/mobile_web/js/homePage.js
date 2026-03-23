@@ -28,15 +28,19 @@ const HomePage = (() => {
   // State
   let _isLoading = false;
   let _reelsData = [];           // keep spotlight items for SpotlightViewer
-  let _reelsAutoTimer = null;    // auto-scroll interval
+  let _reelsAutoTimer = null;    // sequential reels timer
   let _reelsPaused = false;      // pause while user is touching/dragging
   let _reelsBound = false;       // bind track interaction handlers once
+  let _reelsActiveIdx = 0;       // active reel index for sequential preview
   let _carouselItems = [];       // carousel banner data
   let _carouselIdx = 0;          // current slide index
   let _carouselTimer = null;     // auto-rotate timer
   let _carouselPaused = false;   // pause on interaction
   let _carouselBound = false;    // bind carousel interaction handlers once
   let _carouselResizeBound = false;
+  let _providersAutoTimer = null;
+  let _providersPaused = false;
+  let _providersBound = false;
   let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
   let _portfolioShowcaseData = [];
@@ -74,6 +78,7 @@ const HomePage = (() => {
     $sponsorshipsSection = document.getElementById('sponsorships');
     $sponsorshipsList = document.getElementById('sponsorships-list');
     _bindReelsInteraction();
+    _bindProvidersInteraction();
     _applyHomeContent();
 
     // Network listener
@@ -620,6 +625,7 @@ const HomePage = (() => {
     });
     $providersList.textContent = '';
     $providersList.appendChild(frag);
+    _startProvidersAutoRotate();
   }
 
   function _ratingText(provider) {
@@ -637,6 +643,7 @@ const HomePage = (() => {
 
   function _renderProvidersEmpty() {
     if (!$providersList) return;
+    _stopProvidersAutoRotate();
     $providersList.textContent = '';
     $providersList.appendChild(
       UI.el('div', { className: 'providers-empty' }, [
@@ -644,6 +651,50 @@ const HomePage = (() => {
         UI.el('span', { textContent: 'لا يوجد مزودو خدمة حالياً' }),
       ])
     );
+  }
+
+  function _bindProvidersInteraction() {
+    if (!$providersList || _providersBound) return;
+    _providersBound = true;
+
+    const pause = () => { _providersPaused = true; };
+    const resume = () => { _providersPaused = false; };
+
+    $providersList.addEventListener('pointerdown', pause, { passive: true });
+    $providersList.addEventListener('pointerup', resume, { passive: true });
+    $providersList.addEventListener('pointercancel', resume, { passive: true });
+    $providersList.addEventListener('mouseenter', pause, { passive: true });
+    $providersList.addEventListener('mouseleave', resume, { passive: true });
+  }
+
+  function _startProvidersAutoRotate() {
+    _stopProvidersAutoRotate();
+    if (!$providersList) return;
+    const cards = $providersList.querySelectorAll('.provider-card');
+    if (cards.length <= 1) return;
+
+    _providersPaused = false;
+    _providersAutoTimer = setInterval(() => {
+      if (_providersPaused || !$providersList) return;
+      const maxScroll = $providersList.scrollWidth - $providersList.clientWidth;
+      if (maxScroll <= 0) return;
+
+      const firstCard = $providersList.querySelector('.provider-card');
+      const step = firstCard
+        ? Math.round(firstCard.getBoundingClientRect().width + 12)
+        : Math.max(140, Math.round($providersList.clientWidth * 0.72));
+
+      const next = $providersList.scrollLeft + step;
+      const target = next >= maxScroll - 2 ? 0 : next;
+      $providersList.scrollTo({ left: target, behavior: 'smooth' });
+    }, 3000);
+  }
+
+  function _stopProvidersAutoRotate() {
+    if (_providersAutoTimer) {
+      clearInterval(_providersAutoTimer);
+      _providersAutoTimer = null;
+    }
   }
 
   function _normalizePortfolioShowcaseItem(rawPromo) {
@@ -806,7 +857,7 @@ const HomePage = (() => {
   /* ----------------------------------------------------------
      RENDER: BANNERS CAROUSEL
      Full-width auto-rotating carousel with images & videos.
-     Auto-rotates every 2 seconds. Supports swipe on mobile.
+      Auto-rotates every 3 seconds. Supports swipe on mobile.
   ---------------------------------------------------------- */
   function _renderBanners(banners) {
     if (!$carouselTrack || !$bannersSection) return;
@@ -990,7 +1041,7 @@ const HomePage = (() => {
     _carouselTimer = setInterval(() => {
       if (_carouselPaused) return;
       _goToSlide((_carouselIdx + 1) % _carouselItems.length);
-    }, 2000);
+    }, 3000);
   }
 
   function _stopCarouselAutoRotate() {
@@ -1041,13 +1092,16 @@ const HomePage = (() => {
   ---------------------------------------------------------- */
   function _renderReels(items) {
     if (!$reelsTrack) return;
-    // Stop existing auto-scroll
+    // Stop existing sequential timer
     _stopAutoScroll();
+    _reelsActiveIdx = 0;
 
     const frag = document.createDocumentFragment();
 
     items.forEach((item, idx) => {
       const thumb = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
+      const mediaUrl = ApiClient.mediaUrl(item.file_url || '');
+      const isVideo = String(item.file_type || '').toLowerCase() === 'video' && !!mediaUrl;
       const caption = (item.caption || '').trim() || 'لمحة';
 
       // Always a div — click opens SpotlightViewer, NOT provider page
@@ -1060,7 +1114,22 @@ const HomePage = (() => {
       const ring = UI.el('div', { className: 'reel-ring' });
       const inner = UI.el('div', { className: 'reel-inner' });
 
-      if (thumb) {
+      if (isVideo) {
+        const preview = UI.el('video', {
+          className: 'reel-preview-video',
+          preload: 'metadata',
+          muted: true,
+          playsinline: true,
+          tabindex: '-1',
+          'aria-hidden': 'true',
+        });
+        preview.src = mediaUrl;
+        preview.loop = true;
+        preview.setAttribute('playsinline', '');
+        preview.setAttribute('disablepictureinpicture', '');
+        if (thumb) preview.poster = thumb;
+        inner.appendChild(preview);
+      } else if (thumb) {
         inner.appendChild(UI.lazyImg(thumb, caption));
       } else {
         inner.appendChild(UI.el('div', { className: 'reel-placeholder' }));
@@ -1069,6 +1138,7 @@ const HomePage = (() => {
       ring.appendChild(inner);
       reel.appendChild(ring);
       reel.appendChild(UI.el('div', { className: 'reel-caption', textContent: caption }));
+      reel.setAttribute('data-reel-index', String(idx));
 
       // Click → open SpotlightViewer at this index
       reel.addEventListener('click', () => {
@@ -1090,14 +1160,16 @@ const HomePage = (() => {
 
     $reelsTrack.textContent = '';
     $reelsTrack.appendChild(frag);
+    _setActiveReel(0, { scroll: false });
 
-    // Start auto-scroll (mirrors Flutter Timer.periodic)
+    // Start sequential previews
     _startAutoScroll();
   }
 
   function _renderReelsEmpty() {
     if (!$reelsTrack) return;
     _stopAutoScroll();
+    _reelsActiveIdx = 0;
     $reelsTrack.textContent = '';
     $reelsTrack.appendChild(
       UI.el('div', { className: 'reels-empty', textContent: 'لا توجد لمحات حالياً' })
@@ -1105,33 +1177,65 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     REELS AUTO-SCROLL (mirrors Flutter Timer.periodic)
-     Scrolls continuously with small steps and loops to start.
+     REELS AUTO-PREVIEW (sequential every 3s)
    ---------------------------------------------------------- */
+  function _setActiveReel(index, options = {}) {
+    if (!$reelsTrack) return;
+    const reels = Array.from($reelsTrack.querySelectorAll('.reel-item'));
+    if (!reels.length) return;
+
+    const normalized = ((index % reels.length) + reels.length) % reels.length;
+    _reelsActiveIdx = normalized;
+
+    reels.forEach((reel, idx) => {
+      const isActive = idx === normalized;
+      reel.classList.toggle('is-active', isActive);
+
+      reel.querySelectorAll('video').forEach(video => {
+        if (isActive) {
+          const playPromise = video.play();
+          if (playPromise && typeof playPromise.catch === 'function') {
+            playPromise.catch(() => {});
+          }
+        } else {
+          video.pause();
+          try { video.currentTime = 0; } catch (_) {}
+        }
+      });
+    });
+
+    if (options.scroll === false) return;
+    const activeReel = reels[normalized];
+    if (activeReel && typeof activeReel.scrollIntoView === 'function') {
+      activeReel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }
+
   function _bindReelsInteraction() {
     if (!$reelsTrack || _reelsBound) return;
     _reelsBound = true;
 
     const pause = () => { _reelsPaused = true; };
-    const resume = () => { _reelsPaused = false; };
+    const resume = () => { window.setTimeout(() => { _reelsPaused = false; }, 500); };
 
     $reelsTrack.addEventListener('pointerdown', pause, { passive: true });
     $reelsTrack.addEventListener('pointerup', resume, { passive: true });
     $reelsTrack.addEventListener('pointercancel', resume, { passive: true });
+    $reelsTrack.addEventListener('mouseenter', pause, { passive: true });
     $reelsTrack.addEventListener('mouseleave', resume, { passive: true });
   }
 
   function _startAutoScroll() {
+    _stopAutoScroll();
     if (!$reelsTrack) return;
+    const count = $reelsTrack.querySelectorAll('.reel-item').length;
+    if (count <= 1) return;
     _reelsPaused = false;
 
     _reelsAutoTimer = setInterval(() => {
       if (_reelsPaused || !$reelsTrack) return;
-      const maxScroll = $reelsTrack.scrollWidth - $reelsTrack.clientWidth;
-      if (maxScroll <= 0) return;
-      const next = $reelsTrack.scrollLeft + 1;
-      $reelsTrack.scrollLeft = next >= maxScroll ? 0 : next;
-    }, 50);
+      _setActiveReel(_reelsActiveIdx + 1);
+    }, 3000);
   }
 
   function _stopAutoScroll() {

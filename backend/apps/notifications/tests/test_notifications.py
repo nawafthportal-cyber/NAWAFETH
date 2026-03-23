@@ -119,6 +119,34 @@ def test_notification_preferences_api_exposes_canonical_tier_compatibly():
 
 
 @pytest.mark.django_db
+def test_notification_preferences_require_client_or_higher():
+    phone_only_user = User.objects.create_user(phone="0509000091", role_state=UserRole.PHONE_ONLY)
+    client_user = User.objects.create_user(phone="0509000092", role_state=UserRole.CLIENT)
+
+    api = APIClient()
+
+    api.force_authenticate(user=phone_only_user)
+    denied_get = api.get("/api/notifications/preferences/")
+    denied_patch = api.patch(
+        "/api/notifications/preferences/",
+        {"updates": []},
+        format="json",
+    )
+    assert denied_get.status_code == 403
+    assert denied_patch.status_code == 403
+
+    api.force_authenticate(user=client_user)
+    allowed_get = api.get("/api/notifications/preferences/")
+    allowed_patch = api.patch(
+        "/api/notifications/preferences/",
+        {"updates": []},
+        format="json",
+    )
+    assert allowed_get.status_code == 200
+    assert allowed_patch.status_code == 200
+
+
+@pytest.mark.django_db
 def test_notification_preferences_are_filtered_by_requested_mode():
     user = User.objects.create_user(phone="0509000013", role_state=UserRole.CLIENT)
 

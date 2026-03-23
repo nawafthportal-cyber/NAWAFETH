@@ -355,7 +355,7 @@ def _serialize_access_rows():
     for profile in profiles:
         user = profile.user
         allowed_codes = list(profile.allowed_dashboards.values_list("code", flat=True))
-        if profile.level in (AccessLevel.ADMIN, AccessLevel.POWER):
+        if profile.level == AccessLevel.ADMIN:
             dashboard_text = "All"
         else:
             dashboard_text = _dashboard_codes_to_numbers(allowed_codes) or "-"
@@ -810,7 +810,7 @@ def _dashboard_assignee_choices(dashboard_code: str) -> list[tuple[str, str]]:
         if not (getattr(user, "is_staff", False) or getattr(user, "is_superuser", False)):
             continue
 
-        has_access = profile.level in (AccessLevel.ADMIN, AccessLevel.POWER) or profile.is_allowed(normalized_code)
+        has_access = profile.level == AccessLevel.ADMIN or profile.is_allowed(normalized_code)
         if not has_access:
             continue
         if user.id in seen_ids:
@@ -1218,7 +1218,7 @@ def _promo_inquiries_queryset_for_user(user):
 def _promo_requests_queryset_for_user(user):
     qs = (
         PromoRequest.objects.select_related("requester", "assigned_to", "invoice")
-        .prefetch_related("items")
+        .prefetch_related("items", "assets", "assets__uploaded_by", "assets__item")
         .order_by("-created_at", "-id")
     )
     access_profile = active_access_profile_for_user(user)
@@ -1765,6 +1765,11 @@ def promo_dashboard(request, request_id: int | None = None):
 
     selected_request_quote = _promo_quote_snapshot(selected_request) if selected_request else None
     selected_request_items = list(selected_request.items.order_by("sort_order", "id")) if selected_request else []
+    selected_request_assets = (
+        list(selected_request.assets.select_related("item", "uploaded_by").order_by("-uploaded_at", "-id"))
+        if selected_request
+        else []
+    )
     selected_inquiry_attachments = (
         list(selected_inquiry.attachments.order_by("-id")[:8]) if selected_inquiry else []
     )
@@ -1783,6 +1788,7 @@ def promo_dashboard(request, request_id: int | None = None):
             "selected_inquiry": selected_inquiry,
             "selected_request": selected_request,
             "selected_request_items": selected_request_items,
+            "selected_request_assets": selected_request_assets,
             "selected_request_quote": selected_request_quote,
             "selected_inquiry_attachments": selected_inquiry_attachments,
             "selected_inquiry_comments": selected_inquiry_comments,

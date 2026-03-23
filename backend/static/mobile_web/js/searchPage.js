@@ -22,6 +22,7 @@ const SearchPage = (() => {
   let _mapMarkersLayer = null;
   let _featuredProviderIds = new Set();
   let _searchPromoPlacements = [];
+  let _categoriesById = new Map();
   let _promoBannerEl = null;
   let _isProvidersMapPage = false;
 
@@ -62,7 +63,6 @@ const SearchPage = (() => {
     _bindCategoryFilter();
     _bindSortSheet();
     _bindMapModal();
-    _loadSearchPromos();
 
     const params = new URLSearchParams(window.location.search);
     const urlQ = (params.get('q') || '').trim();
@@ -82,7 +82,9 @@ const SearchPage = (() => {
     _syncResultsLink();
 
     _renderLoading();
-    _fetchCategories();
+    _fetchCategories().finally(() => {
+      _loadSearchPromos();
+    });
     _fetchProviders();
   }
 
@@ -123,6 +125,7 @@ const SearchPage = (() => {
       row.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       _activeCat = chip.dataset.catId || '';
+      _loadSearchPromos();
       _fetchProviders();
     });
   }
@@ -227,6 +230,7 @@ const SearchPage = (() => {
     const row = document.getElementById('filter-row');
     if (!row) return;
     row.innerHTML = '';
+    _categoriesById = new Map();
 
     const allBtn = document.createElement('button');
     allBtn.className = 'filter-chip' + (!_activeCat ? ' active' : '');
@@ -240,6 +244,10 @@ const SearchPage = (() => {
       btn.dataset.catId = String(cat.id);
       btn.textContent = cat.name || '';
       row.appendChild(btn);
+      _categoriesById.set(String(cat.id), {
+        id: cat.id,
+        name: String(cat.name || '').trim(),
+      });
     });
   }
 
@@ -617,6 +625,42 @@ const SearchPage = (() => {
     return 9;
   }
 
+  function _readPromoString(value) {
+    return String(value || '').trim();
+  }
+
+  function _selectedCategoryName() {
+    if (!_activeCat) return '';
+    const row = _categoriesById.get(String(_activeCat));
+    return _readPromoString(row && row.name);
+  }
+
+  function _matchesSearchPromoScope(placement) {
+    const scope = _readPromoString(placement?.search_scope).toLowerCase();
+    if (!scope || scope === 'default' || scope === 'main_results') return true;
+    if (scope === 'category_match') return !!_selectedCategoryName();
+    return true;
+  }
+
+  function _matchesSearchPromoTargeting(placement) {
+    const categoryContext = _selectedCategoryName().toLowerCase();
+    const cityContext = _readPromoString(_activeCity).toLowerCase();
+    const targetCategory = _readPromoString(placement?.target_category).toLowerCase();
+    const targetCity = _readPromoString(placement?.target_city).toLowerCase();
+
+    if (targetCategory) {
+      if (!categoryContext) return false;
+      if (targetCategory !== categoryContext) return false;
+    }
+
+    if (targetCity) {
+      if (!cityContext) return false;
+      if (targetCity !== cityContext) return false;
+    }
+
+    return true;
+  }
+
   function _buildProviderCard(provider) {
     const displayName = (provider.display_name || '').trim() || 'مزود خدمة';
     const city = (provider.city || '').trim();
@@ -860,9 +904,19 @@ const SearchPage = (() => {
 
   async function _loadSearchPromos() {
     try {
+      const selectedCategoryName = _selectedCategoryName();
+      const searchQuery = new URLSearchParams();
+      searchQuery.set('service_type', 'search_results');
+      searchQuery.set('limit', '10');
+      searchQuery.set(
+        'search_scope',
+        selectedCategoryName ? 'default,main_results,category_match' : 'default,main_results'
+      );
+      if (selectedCategoryName) searchQuery.set('category', selectedCategoryName);
+      if (_activeCity) searchQuery.set('city', _activeCity);
       const [bannerRes, searchRes, featuredRes] = await Promise.allSettled([
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=5'),
-        ApiClient.get('/api/promo/active/?service_type=search_results&limit=10'),
+        ApiClient.get('/api/promo/active/?' + searchQuery.toString()),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
       // Banner
@@ -955,12 +1009,14 @@ const SearchPage = (() => {
       _featuredProviderIds = new Set();
       searchItems.forEach(item => {
         if (item && item.target_provider_id) {
+          if (!_matchesSearchPromoScope(item) || !_matchesSearchPromoTargeting(item)) return;
           _featuredProviderIds.add(String(item.target_provider_id));
           _searchPromoPlacements.push(item);
         }
       });
       featuredItems.forEach(item => {
         if (item && item.target_provider_id) {
+          if (!_matchesSearchPromoScope(item) || !_matchesSearchPromoTargeting(item)) return;
           _featuredProviderIds.add(String(item.target_provider_id));
           _searchPromoPlacements.push({
             ...item,

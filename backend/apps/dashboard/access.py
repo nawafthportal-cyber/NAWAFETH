@@ -149,7 +149,7 @@ def dashboards_for_user(user) -> Iterable[str]:
     access_profile = active_access_profile_for_user(user)
     if not access_profile:
         return []
-    if access_profile.level in (AccessLevel.ADMIN, AccessLevel.POWER):
+    if access_profile.level == AccessLevel.ADMIN:
         return ["*"]
     return list(access_profile.allowed_dashboards.values_list("code", flat=True))
 

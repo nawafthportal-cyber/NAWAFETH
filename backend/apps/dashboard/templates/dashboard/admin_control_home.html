@@ -292,8 +292,12 @@
         <div class="stack">
           <a class="tab-btn {% if section == 'access' %}active{% endif %}" href="?section=access" data-section-link="access">إدارة الصلاحيات</a>
           <a class="tab-btn {% if section == 'reports' %}active{% endif %}" href="?section=reports" data-section-link="reports">إحصاءات وتقارير المنصة</a>
-          <a class="tab-btn" href="{% url 'dashboard:content_dashboard_home' %}">لوحة إدارة المحتوى</a>
-          <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
+          {% if dashboard_nav_access.content %}
+            <a class="tab-btn" href="{% url 'dashboard:content_dashboard_home' %}">لوحة إدارة المحتوى</a>
+          {% endif %}
+          {% if dashboard_nav_access.promo %}
+            <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
+          {% endif %}
 
           <div class="side-card">
             <h4>بحث سريع</h4>

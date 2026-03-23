@@ -40,13 +40,13 @@ def main() -> int:
 
     critical_paths = [
         "/api/analytics/events/",
-        "/dashboard-v2/moderation/",
+        "/dashboard/promo/",
         "/dashboard/analytics/insights/",
     ]
 
     critical_assets = [
-        "dashboard_v2/css/main.css",
-        "dashboard_v2/js/dashboard.js",
+        "dashboard/css/admin.css",
+        "dashboard/js/promo.js",
         "mobile_web/css/app.css",
         "mobile_web/js/homePage.js",
         "mobile_web/js/nav.js",

@@ -292,6 +292,31 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
 )
 
 
+_ASSET_REQUIRED_SERVICE_TYPES = {
+    PromoServiceType.HOME_BANNER,
+    PromoServiceType.SPONSORSHIP,
+}
+
+
+def _ensure_required_assets_uploaded(pr: PromoRequest) -> None:
+    missing_labels: list[str] = []
+    for item in pr.items.all():
+        if item.service_type not in _ASSET_REQUIRED_SERVICE_TYPES:
+            continue
+        if item.assets.exists():
+            continue
+        label = item.get_service_type_display()
+        if label not in missing_labels:
+            missing_labels.append(label)
+
+    if missing_labels:
+        raise ValueError(
+            "لا يمكن التسعير قبل رفع المرفقات المطلوبة للخدمات التالية: "
+            + "، ".join(missing_labels)
+            + "."
+        )
+
+
 def _platform_config():
     from apps.core.models import PlatformConfig
 
@@ -1107,6 +1132,8 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
 
     if not pr.items.exists() and not pr.assets.exists():
         raise ValueError("لا يمكن التسعير قبل إضافة بنود الترويج أو مواد الإعلان.")
+
+    _ensure_required_assets_uploaded(pr)
 
     _sync_invoice_from_items(pr=pr)
     pr.quote_note = (quote_note or "")[:300]

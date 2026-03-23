@@ -96,7 +96,7 @@ class UserAccessProfile(models.Model):
         normalized_dashboard_code = str(dashboard_code or "").strip().lower()
         if normalized_dashboard_code in {"access", "admin"}:
             normalized_dashboard_code = "admin_control"
-        if self.level in (AccessLevel.ADMIN, AccessLevel.POWER):
+        if self.level == AccessLevel.ADMIN:
             return normalized_dashboard_code not in self.CLIENT_ONLY_DASHBOARDS
         if self.level == AccessLevel.CLIENT:
             return normalized_dashboard_code in self.CLIENT_ALLOWED_DASHBOARDS

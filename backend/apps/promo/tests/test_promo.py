@@ -660,7 +660,7 @@ def test_management_command_expires_due_active_promos(user):
     assert still_active.status == PromoRequestStatus.ACTIVE
     assert "Expired promo requests: 1" in out.getvalue()
     due_ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(due.id))
-    assert due_ur.status == "expired"
+    assert due_ur.status == "closed"
     assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
     event = EventLog.objects.filter(target_user=user, request_id=due.id).order_by("-id").first()
     assert event is not None
@@ -698,7 +698,7 @@ def test_quote_updates_unified_request_pending_payment(user):
     pr = quote_and_create_invoice(pr=pr, by_user=user, quote_note="ok")
     ur = UnifiedRequest.objects.get(source_app="promo", source_model="PromoRequest", source_object_id=str(pr.id))
     assert pr.status == PromoRequestStatus.PENDING_PAYMENT
-    assert ur.status == "pending_payment"
+    assert ur.status == "new"
     assert ur.metadata_record.payload.get("invoice_id") == pr.invoice_id
     assert Notification.objects.filter(user=user, kind="promo_status_change").exists()
     event = EventLog.objects.filter(target_user=user, request_id=pr.id).order_by("-id").first()
@@ -909,6 +909,56 @@ def test_promo_item_validation_uses_platform_config_min_campaign_hours(user):
     assert "48 ساعة" in str(serializer.errors)
 
 
+def test_promo_item_validation_requires_assets_for_required_service_types(user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+
+    request_stub = type("RequestStub", (), {"user": user})()
+    serializer = PromoRequestCreateSerializer(
+        data={
+            "title": "طلب متعدد بدون مرفقات",
+            "items": [
+                {
+                    "service_type": PromoServiceType.HOME_BANNER,
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "asset_count": 0,
+                }
+            ],
+        },
+        context={"request": request_stub},
+    )
+
+    assert serializer.is_valid() is False
+    assert "مرفق واحد على الأقل" in str(serializer.errors)
+
+
+def test_quote_requires_uploaded_assets_for_required_service_types(user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="طلب بنر بدون مرفقات",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=start_at,
+        end_at=end_at,
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.NEW,
+    )
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر رئيسي",
+        start_at=start_at,
+        end_at=end_at,
+        sort_order=0,
+    )
+
+    with pytest.raises(ValueError, match="المرفقات المطلوبة"):
+        quote_and_create_invoice(pr=pr, by_user=user, quote_note="requires-assets")
+
+
 def test_public_active_promos_returns_targeting_and_assets(api, user):
     pp = ProviderProfile.objects.create(
         user=user,
@@ -1052,6 +1102,59 @@ def test_public_active_promos_orders_search_result_items_by_position(api, user):
     assert r.status_code == 200
     item_ids = [row.get("item_id") for row in r.data]
     assert item_ids[:2] == [first_item.id, top10_item.id]
+
+
+def test_public_active_promos_filters_search_result_items_by_scope_query(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="company",
+        display_name="مزود نطاقات",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="scope bundle",
+        ad_type="bundle",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    default_item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="default",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        search_scope="default",
+        search_position="top5",
+        sort_order=10,
+    )
+    category_item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="category",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        search_scope="category_match",
+        search_position="top5",
+        sort_order=20,
+    )
+
+    filtered = api.get("/api/promo/active/?service_type=search_results&search_scope=category_match&limit=10")
+    assert filtered.status_code == 200
+    filtered_ids = [row.get("item_id") for row in filtered.data]
+    assert filtered_ids == [category_item.id]
+
+    mixed = api.get("/api/promo/active/?service_type=search_results&search_scope=default,category_match&limit=10")
+    assert mixed.status_code == 200
+    mixed_ids = [row.get("item_id") for row in mixed.data]
+    assert set(mixed_ids) == {default_item.id, category_item.id}
 
 
 def test_public_active_promos_return_portfolio_showcase_payload(api, user):
@@ -1627,6 +1730,7 @@ def test_create_multi_item_promo_request(api, user):
                     "title": "بنر الرئيسية",
                     "start_at": start_at.isoformat(),
                     "end_at": end_at.isoformat(),
+                    "asset_count": 1,
                 },
                 {
                     "service_type": "search_results",
@@ -1701,6 +1805,91 @@ def test_quote_multi_item_request_creates_invoice_lines(user):
     assert str(pr.subtotal) == "2200.00"
     assert str(pr.invoice.vat_amount) == "330.00"
     assert str(pr.invoice.total) == "2530.00"
+
+
+def test_create_upload_and_quote_multi_item_request_via_api(api, user, admin_user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود تكاملي",
+        bio="bio",
+        city="الرياض",
+        years_experience=2,
+    )
+    plan = SubscriptionPlan.objects.create(code="PRO_E2E", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+
+    api.force_authenticate(user=user)
+    create_res = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "رحلة تكاملية",
+            "items": [
+                {
+                    "service_type": "home_banner",
+                    "title": "بنر",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "asset_count": 1,
+                },
+                {
+                    "service_type": "search_results",
+                    "title": "بحث",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scope": "main_results",
+                    "search_position": "top10",
+                },
+            ],
+        },
+        format="json",
+    )
+    assert create_res.status_code == 201
+
+    request_id = int(create_res.data["id"])
+    detail_res = api.get(f"/api/promo/requests/{request_id}/")
+    assert detail_res.status_code == 200
+
+    banner_item_id = None
+    for row in detail_res.data.get("items", []):
+        if row.get("service_type") == PromoServiceType.HOME_BANNER:
+            banner_item_id = row.get("id")
+            break
+    assert banner_item_id is not None
+
+    upload_res = api.post(
+        f"/api/promo/requests/{request_id}/assets/",
+        data={
+            "item_id": banner_item_id,
+            "asset_type": "image",
+            "title": "banner-e2e",
+            "file": SimpleUploadedFile(
+                "banner-e2e.png",
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+                content_type="image/png",
+            ),
+        },
+    )
+    assert upload_res.status_code == 201
+
+    api.force_authenticate(user=admin_user)
+    quote_res = api.post(
+        f"/api/promo/backoffice/requests/{request_id}/quote/",
+        data={"quote_note": "e2e quote"},
+        format="json",
+    )
+    assert quote_res.status_code == 200
+    assert quote_res.data.get("status") == PromoRequestStatus.PENDING_PAYMENT
+    assert quote_res.data.get("invoice") is not None
 
 
 def test_preview_multi_item_request_returns_expected_pricing(api, user):

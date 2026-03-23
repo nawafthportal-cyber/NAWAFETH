@@ -182,7 +182,7 @@ class NotificationActionView(APIView):
 
 
 class NotificationPreferencesView(APIView):
-    permission_classes = [IsAtLeastPhoneOnly]
+    permission_classes = [IsAtLeastClient]
 
     def get(self, request):
         mode = normalize_preference_mode(request.query_params.get("mode"))

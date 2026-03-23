@@ -60,9 +60,15 @@
           {% for item in nav_items %}
             <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
           {% endfor %}
-          <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
-          <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
-          <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+          {% if dashboard_nav_access.promo %}
+            <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
+          {% endif %}
+          {% if dashboard_nav_access.support %}
+            <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
+          {% endif %}
+          {% if dashboard_nav_access.admin_control %}
+            <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+          {% endif %}
 
           <div class="side-card">
             <h4>الفرق المعتمدة</h4>

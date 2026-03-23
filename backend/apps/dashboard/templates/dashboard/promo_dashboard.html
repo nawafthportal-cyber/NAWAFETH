@@ -300,6 +300,57 @@
               </div>
             </form>
 
+            <div class="side-card" style="margin-top: 10px;">
+              <h4>الملفات المرفقة من مزود الخدمة</h4>
+              <div class="timeline-list">
+                {% for asset in selected_request_assets %}
+                  <div class="timeline-item">
+                    <strong>
+                      {{ asset.get_asset_type_display }}
+                      {% if asset.item %}
+                        - {{ asset.item.get_service_type_display }}
+                      {% endif %}
+                    </strong>
+                    <p>
+                      {% if asset.title %}{{ asset.title }}{% else %}ملف مرفق{% endif %}
+                      - {{ asset.uploaded_at|date:"d/m/Y H:i" }}
+                      {% if asset.uploaded_by %}
+                        - بواسطة {{ asset.uploaded_by.username|default:asset.uploaded_by.phone }}
+                      {% endif %}
+                    </p>
+                    {% if asset.asset_type == 'image' %}
+                      <div class="promo-asset-preview">
+                        <button
+                          type="button"
+                          class="promo-asset-lightbox-trigger"
+                          data-lightbox-src="{{ asset.file.url }}"
+                          data-lightbox-title="{{ asset.title|default:'مرفق ترويجي' }}"
+                          aria-label="تكبير الصورة"
+                        >
+                          <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق ترويجي' }}" loading="lazy">
+                        </button>
+                      </div>
+                    {% elif asset.asset_type == 'video' %}
+                      <div class="promo-asset-preview">
+                        <video controls preload="metadata" playsinline>
+                          <source src="{{ asset.file.url }}">
+                        </video>
+                      </div>
+                    {% elif asset.asset_type == 'pdf' %}
+                      <div class="promo-asset-preview promo-asset-pdf-preview">
+                        <iframe src="{{ asset.file.url }}" title="{{ asset.title|default:'ملف PDF' }}" loading="lazy"></iframe>
+                      </div>
+                    {% else %}
+                      <div class="promo-asset-no-preview">لا توجد معاينة مباشرة لهذا النوع من الملفات.</div>
+                    {% endif %}
+                    <a class="ticket-link" href="{{ asset.file.url }}" target="_blank" rel="noopener">فتح الملف</a>
+                  </div>
+                {% empty %}
+                  <p class="subtitle">لا توجد ملفات مرفقة لهذا الطلب.</p>
+                {% endfor %}
+              </div>
+            </div>
+
             {% if selected_request_quote %}
               <div class="side-card" style="margin-top: 10px;">
                 <h4>ملخص الطلب والتكلفة</h4>
@@ -342,8 +393,12 @@
           {% for item in nav_items %}
             <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
           {% endfor %}
-          <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
-          <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+          {% if dashboard_nav_access.support %}
+            <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
+          {% endif %}
+          {% if dashboard_nav_access.admin_control %}
+            <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
+          {% endif %}
 
           <div class="side-card">
             <h4>رموز الطلبات</h4>
@@ -362,6 +417,47 @@
       </aside>
     </main>
   </div>
+  <div class="promo-lightbox" id="promoLightbox" hidden>
+    <button type="button" class="promo-lightbox-close" id="promoLightboxClose" aria-label="إغلاق">×</button>
+    <div class="promo-lightbox-content" role="dialog" aria-modal="true" aria-label="معاينة المرفق">
+      <img id="promoLightboxImage" alt="">
+      <p id="promoLightboxTitle"></p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const lightbox = document.getElementById('promoLightbox');
+      const closeBtn = document.getElementById('promoLightboxClose');
+      const image = document.getElementById('promoLightboxImage');
+      const title = document.getElementById('promoLightboxTitle');
+      if (!lightbox || !closeBtn || !image || !title) return;
+
+      const closeLightbox = () => {
+        lightbox.hidden = true;
+        image.src = '';
+        title.textContent = '';
+      };
+
+      document.querySelectorAll('.promo-asset-lightbox-trigger').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const src = btn.getAttribute('data-lightbox-src') || '';
+          const label = btn.getAttribute('data-lightbox-title') || 'مرفق ترويجي';
+          if (!src) return;
+          image.src = src;
+          title.textContent = label;
+          lightbox.hidden = false;
+        });
+      });
+
+      closeBtn.addEventListener('click', closeLightbox);
+      lightbox.addEventListener('click', (event) => {
+        if (event.target === lightbox) closeLightbox();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !lightbox.hidden) closeLightbox();
+      });
+    })();
+  </script>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
 </body>
 </html>

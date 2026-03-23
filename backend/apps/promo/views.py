@@ -21,6 +21,7 @@ from .models import (
     PromoRequest,
     PromoRequestItem,
     PromoRequestStatus,
+    PromoSearchScope,
     PromoServiceType,
 )
 from .serializers import (
@@ -65,6 +66,23 @@ def _position_rank_value(position: str) -> int:
         PromoPosition.TOP10: 3,
         PromoPosition.NORMAL: 4,
     }.get(str(position or "").strip().lower(), 9)
+
+
+def _parse_multi_query_param(query_params, key: str) -> list[str]:
+    values: list[str] = []
+    raw_values = []
+    try:
+        raw_values = list(query_params.getlist(key))
+    except Exception:
+        raw_single = query_params.get(key)
+        if raw_single not in (None, ""):
+            raw_values = [raw_single]
+    for raw in raw_values:
+        for part in str(raw or "").split(","):
+            token = str(part or "").strip()
+            if token:
+                values.append(token)
+    return list(dict.fromkeys(values))
 
 
 _SERVICE_TYPE_TO_LEGACY_AD_TYPES = {
@@ -310,6 +328,10 @@ class PublicActivePromosView(generics.ListAPIView):
         service_type = (self.request.query_params.get("service_type") or "").strip()
         city = (self.request.query_params.get("city") or "").strip()
         category = (self.request.query_params.get("category") or "").strip()
+        requested_search_scopes = _parse_multi_query_param(self.request.query_params, "search_scope")
+        search_scope_filter = {
+            scope for scope in requested_search_scopes if scope in set(PromoSearchScope.values)
+        }
 
         request_qs = (
             PromoRequest.objects.select_related(
@@ -357,6 +379,12 @@ class PublicActivePromosView(generics.ListAPIView):
             if not _item_is_active_now(item=item, now=now):
                 continue
             placement = _build_item_placement(item)
+            if (
+                search_scope_filter
+                and placement.get("service_type") == PromoServiceType.SEARCH_RESULTS
+                and str(placement.get("search_scope") or "").strip() not in search_scope_filter
+            ):
+                continue
             if _placement_matches_scope(placement=placement, city=city, category=category):
                 placements.append(placement)
 

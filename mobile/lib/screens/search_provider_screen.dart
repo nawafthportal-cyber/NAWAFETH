@@ -74,9 +74,21 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
   Future<void> _loadSearchPromos() async {
     try {
+      final selectedCategoryName = _selectedCategoryName();
+      final searchPromoUri = Uri(
+        path: '/api/promo/active/',
+        queryParameters: {
+          'service_type': 'search_results',
+          'limit': '10',
+          'search_scope': selectedCategoryName.isNotEmpty
+              ? 'default,main_results,category_match'
+              : 'default,main_results',
+          if (selectedCategoryName.isNotEmpty) 'category': selectedCategoryName,
+        },
+      );
       final results = await Future.wait([
         ApiClient.get('/api/promo/active/?ad_type=banner_search&limit=1'),
-        ApiClient.get('/api/promo/active/?service_type=search_results&limit=10'),
+        ApiClient.get(searchPromoUri.toString()),
         ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
       ]);
       final bannerRes = results[0];
@@ -140,7 +152,13 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       final allItems = <Map<String, dynamic>>[
         ...searchItems,
         ...featuredItems,
-      ];
+      ]
+          .where(_matchesSearchPromoScope)
+          .where((item) => _matchesSearchPromoTargeting(
+                item,
+                selectedCategoryName: selectedCategoryName,
+              ))
+          .toList();
       if (mounted) {
         final ids = <int>{};
         for (final item in allItems) {
@@ -155,6 +173,48 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  String _selectedCategoryName() {
+    if (_selectedCatId == null || _categories.isEmpty) return '';
+    for (final category in _categories) {
+      if (category.id == _selectedCatId) {
+        return category.name.trim();
+      }
+    }
+    return '';
+  }
+
+  bool _matchesSearchPromoScope(Map<String, dynamic> item) {
+    final scope = (item['search_scope'] as String? ?? '').trim().toLowerCase();
+    if (scope.isEmpty || scope == 'default' || scope == 'main_results') {
+      return true;
+    }
+    if (scope == 'category_match') {
+      return _selectedCatId != null;
+    }
+    return true;
+  }
+
+  bool _matchesSearchPromoTargeting(
+    Map<String, dynamic> item, {
+    required String selectedCategoryName,
+  }) {
+    final targetCategory =
+        (item['target_category'] as String? ?? '').trim().toLowerCase();
+    final targetCity = (item['target_city'] as String? ?? '').trim().toLowerCase();
+    final categoryContext = selectedCategoryName.trim().toLowerCase();
+
+    if (targetCategory.isNotEmpty) {
+      if (categoryContext.isEmpty) return false;
+      if (targetCategory != categoryContext) return false;
+    }
+
+    // شاشة البحث في Flutter لا تمرّر سياق مدينة، لذلك لا نعرض حملات
+    // مستهدفة لمدينة محددة حتى لا تظهر خارج نطاقها.
+    if (targetCity.isNotEmpty) return false;
+
+    return true;
   }
 
   Future<void> _loadCategories() async {
@@ -440,6 +500,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   void _onCategorySelected(int? catId) {
     setState(() => _selectedCatId = catId);
     _searchProviders();
+    _loadSearchPromos();
   }
 
   @override
