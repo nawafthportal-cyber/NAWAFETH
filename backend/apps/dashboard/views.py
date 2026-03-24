@@ -23,7 +23,7 @@ from apps.analytics.models import AnalyticsEvent
 from apps.analytics.services import extras_kpis, kpis_summary, promo_kpis, provider_kpis, subscription_kpis
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
-from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
+from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard, UserAccessProfile
 from apps.backoffice.policies import (
     ContentHideDeletePolicy,
     ContentManagePolicy,
@@ -290,6 +290,14 @@ def login_view(request):
 
         if not accept_any_otp_code():
             create_otp(user.phone or "", request)
+            log_action(
+                actor=user,
+                action=AuditAction.LOGIN_OTP_SENT,
+                reference_type="dashboard.auth",
+                reference_id=str(user.id),
+                request=request,
+                extra={"channel": "dashboard"},
+            )
 
         return redirect("dashboard:otp")
 
@@ -311,7 +319,8 @@ def otp_view(request):
 
     if request.method == "POST" and form.is_valid():
         code = form.cleaned_data["code"]
-        is_valid = bypass_enabled and code.isdigit() and len(code) >= 4
+        bypass_used = bool(bypass_enabled and code.isdigit() and len(code) >= 4)
+        is_valid = bypass_used
         if not is_valid:
             is_valid = verify_otp(pending_user.phone or "", code)
         if not is_valid:
@@ -325,6 +334,14 @@ def otp_view(request):
         login(request, pending_user, backend="django.contrib.auth.backends.ModelBackend")
         request.session[SESSION_OTP_VERIFIED_KEY] = True
         request.session.pop(SESSION_LOGIN_USER_ID_KEY, None)
+        log_action(
+            actor=pending_user,
+            action=AuditAction.LOGIN_OTP_VERIFIED,
+            reference_type="dashboard.auth",
+            reference_id=str(pending_user.id),
+            request=request,
+            extra={"channel": "dashboard", "bypass_used": bool(bypass_used)},
+        )
 
         next_url = (request.session.pop(SESSION_NEXT_URL_KEY, "") or "").strip()
         if is_safe_redirect_url(next_url):
@@ -363,7 +380,7 @@ def _serialize_access_rows():
     rows = []
     profiles = (
         UserAccessProfile.objects.select_related("user")
-        .prefetch_related("allowed_dashboards")
+        .prefetch_related("allowed_dashboards", "granted_permissions")
         .order_by("user__username", "user__phone", "id")
     )
     for profile in profiles:
@@ -373,6 +390,11 @@ def _serialize_access_rows():
             dashboard_text = "All"
         else:
             dashboard_text = _dashboard_codes_to_numbers(allowed_codes) or "-"
+        if profile.level in {AccessLevel.ADMIN, AccessLevel.POWER}:
+            permissions_text = "All"
+        else:
+            permission_codes = list(profile.granted_permissions.values_list("code", flat=True))
+            permissions_text = ", ".join(permission_codes) if permission_codes else "-"
         rows.append(
             {
                 "profile_id": profile.id,
@@ -380,6 +402,7 @@ def _serialize_access_rows():
                 "level": profile.get_level_display(),
                 "level_code": profile.level,
                 "dashboards_text": dashboard_text,
+                "permissions_text": permissions_text,
                 "mobile": user.phone or "",
                 "password_mask": "***********",
                 "password_expiration_date": profile.expires_at.date().isoformat() if profile.expires_at else "",
@@ -414,9 +437,49 @@ def _profile_to_form_initial(profile: UserAccessProfile) -> dict:
         "mobile_number": user.phone or "",
         "level": profile.level,
         "dashboards": list(profile.allowed_dashboards.values_list("code", flat=True)),
+        "permissions": list(profile.granted_permissions.values_list("code", flat=True)),
         "password_expiration_date": profile.expires_at.date() if profile.expires_at else None,
         "account_revoke_date": profile.revoked_at.date() if profile.revoked_at else None,
     }
+
+
+def _to_eod_aware_datetime(value: date | None):
+    if not value:
+        return None
+    return timezone.make_aware(
+        datetime.combine(value, time(hour=23, minute=59, second=59)),
+        timezone.get_current_timezone(),
+    )
+
+
+def _is_active_admin_profile(profile: UserAccessProfile) -> bool:
+    if profile.level != AccessLevel.ADMIN:
+        return False
+    if profile.revoked_at is not None:
+        return False
+    if profile.expires_at and profile.expires_at <= timezone.now():
+        return False
+    return True
+
+
+def _active_admin_count() -> int:
+    now = timezone.now()
+    return UserAccessProfile.objects.filter(
+        level=AccessLevel.ADMIN,
+        revoked_at__isnull=True,
+    ).filter(
+        Q(expires_at__isnull=True) | Q(expires_at__gt=now),
+    ).count()
+
+
+def _would_still_be_active_admin(level: str, revoked_at, expires_at) -> bool:
+    if level != AccessLevel.ADMIN:
+        return False
+    if revoked_at is not None:
+        return False
+    if expires_at and expires_at <= timezone.now():
+        return False
+    return True
 
 
 def _upsert_access_profile(request, form: AccessProfileForm):
@@ -425,9 +488,12 @@ def _upsert_access_profile(request, form: AccessProfileForm):
     mobile = (form.cleaned_data.get("mobile_number") or "").strip()
     level = form.cleaned_data.get("level")
     dashboards = form.cleaned_data.get("dashboards") or []
+    permissions = form.cleaned_data.get("permissions") or []
     password = form.cleaned_data.get("password") or ""
     password_expiration_date = form.cleaned_data.get("password_expiration_date")
     account_revoke_date = form.cleaned_data.get("account_revoke_date")
+    expires_at_value = _to_eod_aware_datetime(password_expiration_date)
+    revoked_at_value = _to_eod_aware_datetime(account_revoke_date)
 
     User = get_user_model()
 
@@ -436,6 +502,11 @@ def _upsert_access_profile(request, form: AccessProfileForm):
         profile = UserAccessProfile.objects.select_related("user").filter(id=profile_id).first()
     created_new = False
     if profile:
+        if _is_active_admin_profile(profile):
+            will_still_be_active_admin = _would_still_be_active_admin(level, revoked_at_value, expires_at_value)
+            if not will_still_be_active_admin and _active_admin_count() <= 1:
+                messages.error(request, "لا يمكن خفض/تعطيل آخر Admin فعّال في المنصة.")
+                return None
         user = profile.user
     else:
         created_new = True
@@ -457,24 +528,12 @@ def _upsert_access_profile(request, form: AccessProfileForm):
     profile, _ = UserAccessProfile.objects.get_or_create(user=user, defaults={"level": level})
     profile.level = level
 
-    if password_expiration_date:
-        profile.expires_at = timezone.make_aware(
-            datetime.combine(password_expiration_date, time(hour=23, minute=59, second=59)),
-            timezone.get_current_timezone(),
-        )
-    else:
-        profile.expires_at = None
-
-    if account_revoke_date:
-        profile.revoked_at = timezone.make_aware(
-            datetime.combine(account_revoke_date, time(hour=23, minute=59, second=59)),
-            timezone.get_current_timezone(),
-        )
-    else:
-        profile.revoked_at = None
+    profile.expires_at = expires_at_value
+    profile.revoked_at = revoked_at_value
 
     profile.save()
     profile.allowed_dashboards.set(Dashboard.objects.filter(code__in=dashboards, is_active=True))
+    profile.granted_permissions.set(AccessPermission.objects.filter(code__in=permissions, is_active=True))
 
     changed_fields = sync_dashboard_user_access(
         user,
@@ -493,6 +552,9 @@ def _deactivate_access_profile(request):
     profile = UserAccessProfile.objects.select_related("user").filter(id=profile_id).first()
     if not profile:
         messages.error(request, "المستخدم المطلوب غير موجود.")
+        return
+    if _is_active_admin_profile(profile) and _active_admin_count() <= 1:
+        messages.error(request, "لا يمكن تعطيل آخر Admin فعّال في المنصة.")
         return
     profile.revoked_at = timezone.now()
     profile.save(update_fields=["revoked_at", "updated_at"])
@@ -513,6 +575,9 @@ def _toggle_revoke_access_profile(request):
     profile = UserAccessProfile.objects.select_related("user").filter(id=profile_id).first()
     if not profile:
         messages.error(request, "المستخدم المطلوب غير موجود.")
+        return
+    if _is_active_admin_profile(profile) and _active_admin_count() <= 1:
+        messages.error(request, "لا يمكن سحب صلاحية آخر Admin فعّال في المنصة.")
         return
     profile.revoked_at = None if profile.revoked_at else timezone.now()
     profile.save(update_fields=["revoked_at", "updated_at"])
@@ -675,7 +740,8 @@ def admin_control_home(request):
             form = AccessProfileForm(request.POST)
             if form.is_valid():
                 profile = _upsert_access_profile(request, form)
-                return redirect(f"{request.path}?section=access&edit={profile.id}")
+                if profile is not None:
+                    return redirect(f"{request.path}?section=access&edit={profile.id}")
             messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
         elif action == "delete_user":
             _deactivate_access_profile(request)

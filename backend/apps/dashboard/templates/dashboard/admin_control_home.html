@@ -63,6 +63,7 @@
                   <th>تاريخ السحب</th>
                   <th>تاريخ انتهاء كلمة المرور</th>
                   <th>كلمة المرور</th>
+                  <th>الصلاحيات الدقيقة</th>
                   <th>اللوحات</th>
                   <th>المستوى</th>
                   <th>اسم المستخدم</th>
@@ -110,6 +111,7 @@
                     <td>{{ row.account_revoke_date|default:"-" }}</td>
                     <td>{{ row.password_expiration_date|default:"-" }}</td>
                     <td>{{ row.password_mask }}</td>
+                    <td>{{ row.permissions_text }}</td>
                     <td>{{ row.dashboards_text }}</td>
                     <td>
                       <span class="status-dot {% if not row.revoked %}active{% else %}revoked{% endif %}"></span>
@@ -119,7 +121,7 @@
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="9">لا توجد حسابات تشغيل حالياً.</td>
+                    <td colspan="10">لا توجد حسابات تشغيل حالياً.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -167,6 +169,13 @@
                     {{ access_form.dashboards }}
                   </div>
                   {% if access_form.dashboards.errors %}<small>{{ access_form.dashboards.errors|striptags }}</small>{% endif %}
+                </div>
+                <div class="field full">
+                  <label for="{{ access_form.permissions.id_for_label }}">الصلاحيات الدقيقة المسموحة</label>
+                  <div class="checks">
+                    {{ access_form.permissions }}
+                  </div>
+                  {% if access_form.permissions.errors %}<small>{{ access_form.permissions.errors|striptags }}</small>{% endif %}
                 </div>
               </div>
               <div class="actions">

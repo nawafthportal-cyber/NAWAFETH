@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django import forms
 
-from apps.backoffice.models import AccessLevel, Dashboard
+from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard
 from apps.content.models import (
     LegalDocumentType,
     validate_content_block_media,
@@ -96,6 +96,11 @@ class AccessProfileForm(forms.Form):
         required=False,
         widget=forms.CheckboxSelectMultiple,
     )
+    permissions = forms.MultipleChoiceField(
+        label="الصلاحيات الدقيقة",
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
     password = forms.CharField(
         label="كلمة المرور",
         required=False,
@@ -124,6 +129,10 @@ class AccessProfileForm(forms.Form):
         self.fields["level"].widget.attrs.update({"class": "input-control"})
         dashboards = Dashboard.objects.filter(is_active=True).order_by("sort_order", "id")
         self.fields["dashboards"].choices = [(dash.code, f"{dash.code} - {dash.name_ar}") for dash in dashboards]
+        permissions = AccessPermission.objects.filter(is_active=True).order_by("sort_order", "id")
+        self.fields["permissions"].choices = [
+            (perm.code, f"{perm.code} - {perm.name_ar}") for perm in permissions
+        ]
 
     def clean_mobile_number(self):
         value = (self.cleaned_data.get("mobile_number") or "").strip()
