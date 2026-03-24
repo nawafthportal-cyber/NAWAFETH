@@ -38,7 +38,7 @@ services:
       - key: RUN_COLLECTSTATIC_ON_START
         value: "0"
       - key: RUN_COLLECTSTATIC_RECOVERY_ON_START
-        value: "0"
+        value: "1"
       - key: RUN_STARTUP_SMOKE
         value: "0"
       - key: STARTUP_SMOKE_TIMEOUT_SECONDS

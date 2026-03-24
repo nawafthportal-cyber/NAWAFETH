@@ -17,7 +17,7 @@ TIMEOUT_VALUE="${GUNICORN_TIMEOUT:-60}"
 # default so startup stays deterministic and avoids port-scan timeouts.
 RUN_MIGRATIONS_ON_START="${RUN_MIGRATIONS_ON_START:-0}"
 RUN_COLLECTSTATIC_ON_START="${RUN_COLLECTSTATIC_ON_START:-0}"
-RUN_COLLECTSTATIC_RECOVERY_ON_START="${RUN_COLLECTSTATIC_RECOVERY_ON_START:-0}"
+RUN_COLLECTSTATIC_RECOVERY_ON_START="${RUN_COLLECTSTATIC_RECOVERY_ON_START:-1}"
 MIGRATION_TIMEOUT_SECONDS="${MIGRATION_TIMEOUT_SECONDS:-180}"
 COLLECTSTATIC_TIMEOUT_SECONDS="${COLLECTSTATIC_TIMEOUT_SECONDS:-300}"
 RUN_STARTUP_SMOKE="${RUN_STARTUP_SMOKE:-0}"
@@ -97,7 +97,7 @@ elif python -c "from uvicorn.workers import UvicornWorker" >/dev/null 2>&1; then
 	WORKER_CLASS="uvicorn.workers.UvicornWorker"
 fi
 
-if [ -n "${WORKER_CLASS}" ]; then
+if [ -n "${WORKER_CLASS}" ] && command -v gunicorn >/dev/null 2>&1; then
 	echo "[start] Launching gunicorn on 0.0.0.0:${PORT_VALUE} with worker ${WORKER_CLASS}"
 	exec gunicorn config.asgi:application \
 		-k "${WORKER_CLASS}" \
@@ -107,7 +107,11 @@ if [ -n "${WORKER_CLASS}" ]; then
 		--timeout "${TIMEOUT_VALUE}"
 fi
 
-echo "[start] WARN: Uvicorn gunicorn worker class is unavailable. Falling back to uvicorn directly."
+if [ -n "${WORKER_CLASS}" ]; then
+	echo "[start] WARN: Gunicorn is unavailable in PATH. Falling back to uvicorn directly."
+else
+	echo "[start] WARN: Uvicorn gunicorn worker class is unavailable. Falling back to uvicorn directly."
+fi
 exec python -m uvicorn config.asgi:application \
 	--host "0.0.0.0" \
 	--port "${PORT_VALUE}" \
