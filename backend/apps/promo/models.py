@@ -10,7 +10,7 @@ from django.utils import timezone
 from apps.providers.models import ProviderProfile, ProviderPortfolioItem
 from apps.support.models import SupportTicket
 
-from .validators import validate_file_size, validate_extension
+from .validators import validate_file_size, validate_extension, validate_home_banner_media_dimensions
 
 
 _HOME_BANNER_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
@@ -447,6 +447,11 @@ class HomeBanner(models.Model):
                 errors["media_file"] = "بانر الصفحة الرئيسية يقبل الصور أو فيديو MP4 فقط."
             elif self.media_type != detected_type:
                 errors["media_type"] = "نوع الوسائط المحدد لا يطابق الملف المرفوع."
+            else:
+                try:
+                    validate_home_banner_media_dimensions(self.media_file, asset_type=detected_type)
+                except ValidationError as exc:
+                    errors["media_file"] = str(exc)
 
         if errors:
             raise ValidationError(errors)

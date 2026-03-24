@@ -36,6 +36,7 @@ from .serializers import (
 )
 from .permissions import IsOwnerOrBackofficePromo
 from .services import preview_promo_request, quote_and_create_invoice, reject_request, _sync_promo_to_unified
+from .validators import validate_home_banner_media_dimensions
 
 
 def _position_rank_case(field_name: str = "position"):
@@ -66,6 +67,12 @@ def _position_rank_value(position: str) -> int:
         PromoPosition.TOP10: 3,
         PromoPosition.NORMAL: 4,
     }.get(str(position or "").strip().lower(), 9)
+
+
+def _requires_home_banner_dimensions_validation(pr: PromoRequest, item: PromoRequestItem | None) -> bool:
+    if item is not None and str(getattr(item, "service_type", "") or "").strip() == PromoServiceType.HOME_BANNER:
+        return True
+    return str(getattr(pr, "ad_type", "") or "").strip() == PromoAdType.BANNER_HOME
 
 
 def _parse_multi_query_param(query_params, key: str) -> list[str]:
@@ -545,13 +552,16 @@ class PromoAddAssetView(generics.CreateAPIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        asset_type = (request.data.get("asset_type") or "image").strip().lower()
+
         try:
             validate_extension(file_obj)
             validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
+            if _requires_home_banner_dimensions_validation(pr, item):
+                validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
         except DjangoValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        asset_type = (request.data.get("asset_type") or "image").strip()
         title = (request.data.get("title") or "").strip()
 
         asset = PromoAsset.objects.create(

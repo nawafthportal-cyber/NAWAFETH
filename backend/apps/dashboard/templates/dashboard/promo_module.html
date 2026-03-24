@@ -255,6 +255,9 @@
                     <div class="field full">
                       <label for="{{ module_form.media_file.id_for_label }}">رفع التصميم/الملف</label>
                       {{ module_form.media_file }}
+                      {% if module_meta.key == "home_banner" %}
+                        <small>المقاس المعتمد لبنر الصفحة الرئيسية: 1920x840 (نسبة 16:7) للصور والفيديو MP4.</small>
+                      {% endif %}
                       {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
                     </div>
                     <div class="field">

@@ -1,11 +1,16 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:nawafeth/services/billing_service.dart';
 import 'package:nawafeth/services/promo_service.dart';
+import 'package:video_player/video_player.dart';
 
 const _brandColor = Colors.deepPurple;
+const _homeBannerRequiredWidth = 1920;
+const _homeBannerRequiredHeight = 840;
 
 const _statusLabels = {
   'new': 'جديد',
@@ -581,7 +586,7 @@ class _PromoComposerState extends State<_PromoComposer> {
   void initState() {
     super.initState();
     _drafts = {
-      for (final service in _promoServices) service.type: _PromoDraft(service),
+      for (final service in _promoServices) service.type: _PromoDraft.withDefaults(service),
     };
   }
 
@@ -878,6 +883,18 @@ class _PromoComposerState extends State<_PromoComposer> {
               ),
             ],
             if (service.needsAssets) ...[
+              if (service.type == 'home_banner')
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'المقاس المعتمد: 1920x840 (نسبة 16:7) للصور والفيديو MP4.',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
                 onPressed: () => _pickAttachment(draft),
@@ -974,13 +991,88 @@ class _PromoComposerState extends State<_PromoComposer> {
   Future<void> _pickAttachment(_PromoDraft draft) async {
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
     if (result == null) return;
+    final selected = result.files
+        .where((f) => f.path != null && f.path!.isNotEmpty)
+        .map((f) => File(f.path!))
+        .toList();
+
+    if (draft.service.type == 'home_banner') {
+      final validFiles = <File>[];
+      final errors = <String>[];
+
+      for (final file in selected) {
+        final validationError = await _validateHomeBannerFile(file);
+        if (validationError == null) {
+          validFiles.add(file);
+        } else {
+          errors.add('${_name(file)}: $validationError');
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        draft.files.addAll(validFiles);
+      });
+      if (errors.isNotEmpty) {
+        _snack(errors.first, true);
+      }
+      return;
+    }
+
     setState(() {
-      draft.files.addAll(
-        result.files
-            .where((f) => f.path != null && f.path!.isNotEmpty)
-            .map((f) => File(f.path!)),
-      );
+      draft.files.addAll(selected);
     });
+  }
+
+  Future<String?> _validateHomeBannerFile(File file) async {
+    final type = _assetType(file);
+    if (type != 'image' && type != 'video') {
+      return 'بنر الصفحة الرئيسية يقبل الصور أو الفيديو فقط.';
+    }
+
+    if (type == 'image') {
+      try {
+        final bytes = await file.readAsBytes();
+        final image = await _decodeImage(bytes);
+        final width = image.width;
+        final height = image.height;
+        if (width != _homeBannerRequiredWidth || height != _homeBannerRequiredHeight) {
+          return 'الأبعاد المطلوبة ${_homeBannerRequiredWidth}x${_homeBannerRequiredHeight}. '
+              'الأبعاد الحالية ${width}x${height}.';
+        }
+      } catch (_) {
+        return 'تعذر قراءة أبعاد الصورة.';
+      }
+      return null;
+    }
+
+    VideoPlayerController? controller;
+    try {
+      controller = VideoPlayerController.file(file);
+      await controller.initialize();
+      final size = controller.value.size;
+      final width = size.width.round();
+      final height = size.height.round();
+      if (width != _homeBannerRequiredWidth || height != _homeBannerRequiredHeight) {
+        return 'أبعاد الفيديو المطلوبة ${_homeBannerRequiredWidth}x${_homeBannerRequiredHeight}. '
+            'الأبعاد الحالية ${width}x${height}.';
+      }
+      return null;
+    } catch (_) {
+      return 'تعذر قراءة أبعاد الفيديو.';
+    } finally {
+      await controller?.dispose();
+    }
+  }
+
+  Future<ui.Image> _decodeImage(List<int> bytes) {
+    final completer = Completer<ui.Image>();
+    ui.decodeImageFromList(bytes, (image) {
+      if (!completer.isCompleted) {
+        completer.complete(image);
+      }
+    });
+    return completer.future;
   }
 
   Future<bool> _confirmQuotePreview(Map<String, dynamic> preview) async {
@@ -1254,6 +1346,12 @@ class _PromoDraft {
 
   _PromoDraft(this.service);
 
+  _PromoDraft.withDefaults(this.service) {
+    if (service.type == 'home_banner') {
+      specs.text = 'PNG/MP4 - 1920x840 (16:7)';
+    }
+  }
+
   int get monthCount => int.tryParse(months.text.trim()) ?? 0;
 
   void syncSponsorship() {
@@ -1323,6 +1421,9 @@ class _PromoDraft {
     sponsorName.clear();
     months.text = '1';
     specs.clear();
+    if (service.type == 'home_banner') {
+      specs.text = 'PNG/MP4 - 1920x840 (16:7)';
+    }
     files.clear();
     startAt = null;
     endAt = null;

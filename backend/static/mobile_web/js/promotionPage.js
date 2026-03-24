@@ -38,6 +38,9 @@ var PromotionPage = (function () {
     "sponsorship": "الرعاية"
   };
 
+  var HOME_BANNER_REQUIRED_WIDTH = 1920;
+  var HOME_BANNER_REQUIRED_HEIGHT = 840;
+
   var selectedServices = [];
   var requestsCache = {};
   var modalState = { resolve: null };
@@ -288,6 +291,12 @@ var PromotionPage = (function () {
         return;
       }
 
+      var mediaValidationError = await validateSelectedServiceFiles();
+      if (mediaValidationError) {
+        alert(mediaValidationError);
+        return;
+      }
+
       var items = [];
       for (var i = 0; i < selectedServices.length; i += 1) {
         var service = selectedServices[i];
@@ -368,6 +377,83 @@ var PromotionPage = (function () {
         button.disabled = false;
         button.textContent = "معاينة التسعير ثم الإرسال";
       }
+    });
+  }
+
+  async function validateSelectedServiceFiles() {
+    for (var i = 0; i < selectedServices.length; i += 1) {
+      var service = selectedServices[i];
+      if (service !== "home_banner") continue;
+      var block = document.querySelector('[data-service-block="' + service + '"]');
+      var input = block ? block.querySelector('[data-field="files"]') : null;
+      var files = input && input.files ? Array.from(input.files) : [];
+      for (var j = 0; j < files.length; j += 1) {
+        var err = await validateHomeBannerFile(files[j]);
+        if (err) return err;
+      }
+    }
+    return "";
+  }
+
+  async function validateHomeBannerFile(file) {
+    var assetType = detectAssetType(String(file && file.name || ""));
+    if (assetType !== "image" && assetType !== "video") {
+      return "بنر الصفحة الرئيسية يقبل الصور أو الفيديو فقط.";
+    }
+
+    var dims;
+    try {
+      dims = await readMediaDimensions(file, assetType);
+    } catch (err) {
+      return "تعذر قراءة أبعاد الملف " + String(file.name || "") + ".";
+    }
+
+    if (!dims || !dims.width || !dims.height) {
+      return "تعذر قراءة أبعاد الملف " + String(file.name || "") + ".";
+    }
+
+    if (dims.width !== HOME_BANNER_REQUIRED_WIDTH || dims.height !== HOME_BANNER_REQUIRED_HEIGHT) {
+      return "ملف " + String(file.name || "") + " يجب أن يكون بأبعاد "
+        + HOME_BANNER_REQUIRED_WIDTH + "x" + HOME_BANNER_REQUIRED_HEIGHT
+        + " بكسل. الأبعاد الحالية: " + dims.width + "x" + dims.height + ".";
+    }
+
+    return "";
+  }
+
+  function readMediaDimensions(file, assetType) {
+    return new Promise(function (resolve, reject) {
+      var objectUrl = URL.createObjectURL(file);
+      var done = false;
+      function finish(result, error) {
+        if (done) return;
+        done = true;
+        try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+        if (error) reject(error);
+        else resolve(result);
+      }
+
+      if (assetType === "image") {
+        var img = new Image();
+        img.onload = function () {
+          finish({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = function () {
+          finish(null, new Error("image-load-failed"));
+        };
+        img.src = objectUrl;
+        return;
+      }
+
+      var video = document.createElement("video");
+      video.preload = "metadata";
+      video.onloadedmetadata = function () {
+        finish({ width: video.videoWidth, height: video.videoHeight });
+      };
+      video.onerror = function () {
+        finish(null, new Error("video-load-failed"));
+      };
+      video.src = objectUrl;
     });
   }
 

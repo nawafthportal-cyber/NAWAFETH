@@ -855,7 +855,7 @@ class PromoModuleItemForm(forms.Form):
         label="مواصفات الملف المرفوع",
         required=False,
         max_length=300,
-        widget=forms.TextInput(attrs={"class": "input-control", "placeholder": "مثال: PNG - 1080x1920"}),
+        widget=forms.TextInput(attrs={"class": "input-control", "placeholder": "مثال: PNG/MP4 - 1920x840 (نسبة 16:7)"}),
     )
     operator_note = forms.CharField(
         label="ملاحظة تشغيلية",

@@ -130,7 +130,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final hasSubtitle = (widget.subtitle ?? '').trim().isNotEmpty;
 
     return AspectRatio(
-      aspectRatio: 16 / 6,
+      aspectRatio: 16 / 7,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(widget.borderRadius),
         child: Stack(
@@ -209,7 +209,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     }
 
     final size = controller.value.size;
-    final mainFit = size.width > size.height ? BoxFit.cover : BoxFit.contain;
+    final mainFit = BoxFit.cover;
 
     return Stack(
       fit: StackFit.expand,

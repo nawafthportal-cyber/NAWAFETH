@@ -521,6 +521,13 @@ PROMO_FREQUENCY_MULTIPLIER = {
     "60s": 1.0,
 }
 
+# Home banner canonical media specs across web/mobile/dashboard.
+PROMO_HOME_BANNER_REQUIRED_DIMENSIONS = env_json(
+    "PROMO_HOME_BANNER_REQUIRED_DIMENSIONS",
+    [1920, 840],
+)
+PROMO_HOME_BANNER_TARGET_ASPECT_RATIO = "16:7"
+
 # ✅ Notifications
 NOTIFICATIONS_RETENTION_DAYS = int(os.getenv("NOTIFICATIONS_RETENTION_DAYS", "90"))
 UNREAD_BADGE_CACHE_TTL = int(os.getenv("UNREAD_BADGE_CACHE_TTL", "15"))

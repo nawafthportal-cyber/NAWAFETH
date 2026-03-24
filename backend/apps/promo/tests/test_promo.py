@@ -2,12 +2,14 @@ import re
 import pytest
 from datetime import timedelta
 from decimal import Decimal
+from io import BytesIO
 from io import StringIO
 from django.core.management import call_command
 from django.db.models import Q
 from django.test import override_settings
 from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 
 from django.utils import timezone
 
@@ -125,6 +127,12 @@ def _ensure_provider_requester(user):
         city="الرياض",
         years_experience=1,
     )
+
+
+def _png_upload(name: str = "banner.png", size: tuple[int, int] = (1920, 840)):
+    stream = BytesIO()
+    Image.new("RGB", size, color=(32, 80, 140)).save(stream, format="PNG")
+    return SimpleUploadedFile(name, stream.getvalue(), content_type="image/png")
 
 
 def test_create_promo_request(api, user):
@@ -1827,11 +1835,7 @@ def test_banner_asset_limit_uses_subscription_capability(api, user):
         f"/api/promo/requests/{pr.id}/assets/",
         data={
             "asset_type": "image",
-            "file": SimpleUploadedFile(
-                "banner1.png",
-                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
-                content_type="image/png",
-            ),
+            "file": _png_upload("banner1.png"),
         },
         format="multipart",
     )
@@ -1841,16 +1845,53 @@ def test_banner_asset_limit_uses_subscription_capability(api, user):
         f"/api/promo/requests/{pr.id}/assets/",
         data={
             "asset_type": "image",
-            "file": SimpleUploadedFile(
-                "banner2.png",
-                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
-                content_type="image/png",
-            ),
+            "file": _png_upload("banner2.png"),
         },
         format="multipart",
     )
     assert second_upload.status_code == 400
     assert "الحد الأقصى" in str(second_upload.data.get("detail", ""))
+
+
+def test_home_banner_asset_upload_rejects_invalid_dimensions(api, user):
+    _ensure_provider_requester(user)
+    plan = SubscriptionPlan.objects.create(
+        code="pro_home_banner_dims",
+        title="Pro",
+        tier="pro",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="banner dims",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=timezone.now() + timedelta(days=1),
+        end_at=timezone.now() + timedelta(days=3),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+    )
+
+    api.force_authenticate(user=user)
+    response = api.post(
+        f"/api/promo/requests/{pr.id}/assets/",
+        data={
+            "asset_type": "image",
+            "file": _png_upload("wrong-size.png", size=(1280, 720)),
+        },
+        format="multipart",
+    )
+
+    assert response.status_code == 400
+    assert "الأبعاد المعتمدة" in str(response.data.get("detail", ""))
 
 
 def test_create_multi_item_promo_request(api, user):
@@ -2026,11 +2067,7 @@ def test_create_upload_and_quote_multi_item_request_via_api(api, user, admin_use
             "item_id": banner_item_id,
             "asset_type": "image",
             "title": "banner-e2e",
-            "file": SimpleUploadedFile(
-                "banner-e2e.png",
-                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
-                content_type="image/png",
-            ),
+            "file": _png_upload("banner-e2e.png"),
         },
     )
     assert upload_res.status_code == 201
