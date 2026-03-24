@@ -1813,9 +1813,6 @@ def promo_dashboard(request, request_id: int | None = None):
                     by_user=request.user,
                     note=ops_note,
                 )
-                if target_request.status == PromoRequestStatus.ACTIVE:
-                    target_request.status = PromoRequestStatus.COMPLETED
-                    updates.append("status")
 
             if updates:
                 updates.append("updated_at")

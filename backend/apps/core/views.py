@@ -2,7 +2,7 @@ from pathlib import Path
 
 from django.contrib.staticfiles import finders
 from django.db import DatabaseError, OperationalError
-from django.http import FileResponse, HttpResponse
+from django.http import HttpResponse
 from django.views import View
 from rest_framework import status
 from rest_framework.response import Response
@@ -48,7 +48,8 @@ class RootFaviconView(View):
     def get(self, request):
         asset_path = finders.find("icons/favicon.svg")
         if asset_path:
-            response = FileResponse(Path(asset_path).open("rb"), content_type="image/svg+xml")
+            content = Path(asset_path).read_text(encoding="utf-8")
+            response = HttpResponse(content, content_type="image/svg+xml")
         else:
             response = HttpResponse(_DEFAULT_FAVICON_SVG, content_type="image/svg+xml")
         response["Cache-Control"] = "public, max-age=86400"
@@ -59,7 +60,8 @@ class RootRobotsTxtView(View):
     def get(self, request):
         asset_path = finders.find("robots.txt")
         if asset_path:
-            response = FileResponse(Path(asset_path).open("rb"), content_type="text/plain; charset=utf-8")
+            content = Path(asset_path).read_text(encoding="utf-8")
+            response = HttpResponse(content, content_type="text/plain; charset=utf-8")
         else:
             response = HttpResponse(_DEFAULT_ROBOTS_TXT, content_type="text/plain; charset=utf-8")
         response["Cache-Control"] = "public, max-age=3600"

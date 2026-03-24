@@ -882,6 +882,93 @@ def test_ops_completion_does_not_end_active_home_banner_campaign(api, user):
     assert any(item["id"] == asset.id for item in response.data)
 
 
+def test_dashboard_complete_request_keeps_active_status_and_home_banner_visible(client, promo_operator_user, user):
+    now = timezone.now()
+    _ensure_provider_requester(user)
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="بنر عبر لوحة الترويج",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(minutes=30),
+        end_at=now + timedelta(days=1),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+        activated_at=now - timedelta(minutes=30),
+    )
+    asset = PromoAsset.objects.create(
+        request=promo_request,
+        asset_type="image",
+        title="dashboard-home-banner",
+        file=SimpleUploadedFile(
+            "dashboard-home-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post(
+        "/dashboard/promo/",
+        data={
+            "action": "complete_request",
+            "promo_request_id": promo_request.id,
+            "assigned_to": "",
+            "ops_status": PromoOpsStatus.COMPLETED,
+            "ops_note": "تم إنجاز التنفيذ",
+            "quote_note": "",
+        },
+        follow=True,
+    )
+    assert response.status_code == 200
+
+    promo_request.refresh_from_db()
+    assert promo_request.ops_status == PromoOpsStatus.COMPLETED
+    assert promo_request.status == PromoRequestStatus.ACTIVE
+
+    banners_response = client.get("/api/promo/banners/home/?limit=10")
+    assert banners_response.status_code == 200
+    assert any(item["id"] == asset.id for item in banners_response.data)
+
+
+def test_completed_status_home_banner_is_visible_while_campaign_window_active(api, user):
+    now = timezone.now()
+    _ensure_provider_requester(user)
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="بنر مكتمل مع حملة جارية",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=1),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.COMPLETED,
+        ops_status=PromoOpsStatus.COMPLETED,
+        activated_at=now - timedelta(hours=1),
+    )
+    asset = PromoAsset.objects.create(
+        request=promo_request,
+        asset_type="image",
+        title="completed-home-banner",
+        file=SimpleUploadedFile(
+            "completed-home-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    response = api.get("/api/promo/banners/home/?limit=10")
+    assert response.status_code == 200
+    assert any(item["id"] == asset.id for item in response.data)
+
+
 def test_calc_quote_uses_db_price_override(user):
     PromoAdPrice.objects.update_or_create(ad_type="banner_home", defaults={"price_per_day": "123.45", "is_active": True})
 

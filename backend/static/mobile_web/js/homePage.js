@@ -18,6 +18,10 @@ const HomePage = (() => {
   const CACHE_BANNERS    = 'home_banners';
   const CACHE_SPOTLIGHTS = 'home_spotlights';
   const TTL = 90; // seconds
+  const CAROUSEL_IMAGE_ROTATE_MS = 3000;
+  const CAROUSEL_VIDEO_FALLBACK_ROTATE_MS = 30000;
+  const CAROUSEL_VIDEO_MIN_ROTATE_MS = 6000;
+  const CAROUSEL_VIDEO_MAX_ROTATE_MS = 90000;
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
@@ -212,6 +216,12 @@ const HomePage = (() => {
       mobile_scale: mobileScale,
       tablet_scale: tabletScale,
       desktop_scale: _readBannerScale(raw.desktop_scale, tabletScale, 40, 160),
+      duration_seconds: _readBannerInt(
+        raw.duration_seconds
+        || raw.video_duration_seconds
+        || raw.media_duration_seconds
+        || raw.display_seconds
+      ),
     };
   }
 
@@ -1145,8 +1155,9 @@ const HomePage = (() => {
     _startCarouselAutoRotate();
   }
 
-  function _goToSlide(idx) {
+  function _goToSlide(idx, opts = {}) {
     if (!_carouselItems.length) return;
+    const restartTimer = opts.restartTimer !== false;
     const slides = $carouselTrack.querySelectorAll('.carousel-slide');
     const dots = $carouselDots ? $carouselDots.querySelectorAll('.carousel-dot') : [];
 
@@ -1167,6 +1178,7 @@ const HomePage = (() => {
       _syncCarouselSlideMedia(newSlide, true);
     }
     if (dots[_carouselIdx]) dots[_carouselIdx].classList.add('active');
+    if (restartTimer) _startCarouselAutoRotate();
     if (typeof NwAnalytics !== 'undefined' && _carouselItems[_carouselIdx]) {
       const banner = _carouselItems[_carouselIdx];
       NwAnalytics.trackOnce(
@@ -1186,17 +1198,56 @@ const HomePage = (() => {
     }
   }
 
+  function _resolveCarouselSlideDurationMs(banner) {
+    if (!banner || (banner.media_type || '').toLowerCase() !== 'video') {
+      return CAROUSEL_IMAGE_ROTATE_MS;
+    }
+
+    let durationSeconds = Number(banner.duration_seconds);
+    if (!(Number.isFinite(durationSeconds) && durationSeconds > 0) && $carouselTrack) {
+      const activeSlide = $carouselTrack.querySelector('.carousel-slide.active');
+      const videoEl = activeSlide ? activeSlide.querySelector('video.carousel-media-video') : null;
+      if (videoEl && Number.isFinite(videoEl.duration) && videoEl.duration > 0) {
+        durationSeconds = Number(videoEl.duration);
+      }
+    }
+
+    if (!(Number.isFinite(durationSeconds) && durationSeconds > 0)) {
+      return CAROUSEL_VIDEO_FALLBACK_ROTATE_MS;
+    }
+
+    const rawMs = Math.round(durationSeconds * 1000);
+    return Math.max(CAROUSEL_VIDEO_MIN_ROTATE_MS, Math.min(rawMs, CAROUSEL_VIDEO_MAX_ROTATE_MS));
+  }
+
+  function _resolveCarouselActiveDelayMs() {
+    const banner = _carouselItems[_carouselIdx];
+    return _resolveCarouselSlideDurationMs(banner);
+  }
+
   function _startCarouselAutoRotate() {
     _stopCarouselAutoRotate();
     if (_carouselItems.length <= 1) return;
-    _carouselTimer = setInterval(() => {
-      if (_carouselPaused) return;
-      _goToSlide((_carouselIdx + 1) % _carouselItems.length);
-    }, 3000);
+    const scheduleNext = () => {
+      if (_carouselItems.length <= 1) return;
+      const delayMs = _resolveCarouselActiveDelayMs();
+      _carouselTimer = setTimeout(() => {
+        if (_carouselPaused) {
+          scheduleNext();
+          return;
+        }
+        _goToSlide((_carouselIdx + 1) % _carouselItems.length, { restartTimer: false });
+        scheduleNext();
+      }, delayMs);
+    };
+    scheduleNext();
   }
 
   function _stopCarouselAutoRotate() {
-    if (_carouselTimer) { clearInterval(_carouselTimer); _carouselTimer = null; }
+    if (_carouselTimer) {
+      clearTimeout(_carouselTimer);
+      _carouselTimer = null;
+    }
   }
 
   function _bindCarouselSwipe() {

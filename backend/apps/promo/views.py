@@ -114,6 +114,13 @@ _PUBLIC_ITEM_DEFERRED_FIELDS = (
     "message_dispatch_error",
 )
 
+# Ops completion can happen while campaign window is still running.
+# Keep completed-in-ops requests publicly visible until their schedule ends.
+_PUBLIC_VISIBLE_REQUEST_STATUSES = (
+    PromoRequestStatus.ACTIVE,
+    PromoRequestStatus.COMPLETED,
+)
+
 
 def _resolve_target_provider(*, promo_request: PromoRequest, item: PromoRequestItem | None = None):
     if item is not None and getattr(item, "target_provider", None) is not None:
@@ -244,7 +251,7 @@ def _public_home_banner_asset_queryset(*, now):
         )
         .defer(*(f"item__{field_name}" for field_name in _PUBLIC_ITEM_DEFERRED_FIELDS))
         .filter(
-            request__status=PromoRequestStatus.ACTIVE,
+            request__status__in=_PUBLIC_VISIBLE_REQUEST_STATUSES,
         )
         .filter(
             Q(
@@ -280,7 +287,7 @@ def _public_active_bundle_item_queryset():
         .prefetch_related("assets", "request__assets")
         .defer(*_PUBLIC_ITEM_DEFERRED_FIELDS)
         .filter(
-            request__status=PromoRequestStatus.ACTIVE,
+            request__status__in=_PUBLIC_VISIBLE_REQUEST_STATUSES,
             request__ad_type=PromoAdType.BUNDLE,
         )
     )
@@ -342,7 +349,7 @@ class PublicActivePromosView(generics.ListAPIView):
             )
             .prefetch_related("assets")
             .filter(
-                status=PromoRequestStatus.ACTIVE,
+                status__in=_PUBLIC_VISIBLE_REQUEST_STATUSES,
                 start_at__lte=now,
                 end_at__gte=now,
             )

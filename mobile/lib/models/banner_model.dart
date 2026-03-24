@@ -8,6 +8,7 @@ class BannerModel {
   final int? providerId;
   final String? providerDisplayName;
   final int displayOrder;
+  final int? durationSeconds;
   final int mobileScale;
   final int tabletScale;
   final int desktopScale;
@@ -21,6 +22,7 @@ class BannerModel {
     this.providerId,
     this.providerDisplayName,
     this.displayOrder = 0,
+    this.durationSeconds,
     this.mobileScale = 100,
     this.tabletScale = 100,
     this.desktopScale = 100,
@@ -67,6 +69,12 @@ class BannerModel {
       providerId: _readInt(json['provider_id']),
       providerDisplayName: _readString(json['provider_display_name']),
       displayOrder: _readInt(json['display_order']) ?? 0,
+      durationSeconds: _readInt(
+        json['duration_seconds'] ??
+            json['video_duration_seconds'] ??
+            json['media_duration_seconds'] ??
+            json['display_seconds'],
+      ),
       mobileScale: mobileScale,
       tabletScale: tabletScale,
       desktopScale: _readScale(

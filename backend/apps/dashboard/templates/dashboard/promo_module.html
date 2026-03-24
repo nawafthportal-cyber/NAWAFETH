@@ -325,13 +325,25 @@
                     </p>
                     {% if asset.asset_type == 'image' %}
                       <div class="promo-asset-preview">
-                        <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق ترويجي' }}" loading="lazy">
+                        {% if asset.file %}
+                          <img src="{{ asset.file.url }}" alt="{{ asset.title|default:'مرفق ترويجي' }}" class="w-full h-full object-cover" loading="lazy">
+                        {% else %}
+                          <img src="{% static 'icons/favicon.svg' %}" alt="{{ asset.title|default:'مرفق ترويجي' }}" class="w-full h-full object-cover" loading="lazy">
+                        {% endif %}
                       </div>
                     {% elif asset.asset_type == 'video' %}
-                      <div class="promo-asset-preview">
-                        <video controls preload="metadata" playsinline>
-                          <source src="{{ asset.file.url }}">
-                        </video>
+                      <div class="promo-asset-preview relative overflow-hidden">
+                        {% if asset.file %}
+                          <video class="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-105" controls preload="none" muted loop playsinline>
+                            <source src="{{ asset.file.url }}">
+                          </video>
+                          <video class="absolute inset-0 w-full h-full object-contain sm:object-contain md:object-cover object-center" controls preload="metadata" playsinline>
+                            <source src="{{ asset.file.url }}">
+                          </video>
+                          <div class="absolute inset-0 bg-black/45 pointer-events-none"></div>
+                        {% else %}
+                          <img src="{% static 'icons/favicon.svg' %}" alt="{{ asset.title|default:'مرفق ترويجي' }}" class="w-full h-full object-cover" loading="lazy">
+                        {% endif %}
                       </div>
                     {% elif asset.asset_type == 'pdf' %}
                       <div class="promo-asset-preview promo-asset-pdf-preview">

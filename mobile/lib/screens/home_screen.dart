@@ -15,6 +15,7 @@ import '../models/banner_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/promo_banner_widget.dart';
 import '../widgets/promo_media_tile.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
@@ -60,6 +61,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final PageController _bannerPageController = PageController();
   Timer? _bannerAutoTimer;
   int _bannerCurrentPage = 0;
+  static const Duration _imageBannerRotateDelay = Duration(seconds: 3);
+  static const Duration _videoBannerFallbackRotateDelay = Duration(seconds: 30);
+  static const Duration _videoBannerMinRotateDelay = Duration(seconds: 6);
+  static const Duration _videoBannerMaxRotateDelay = Duration(seconds: 90);
 
   // -- Reels auto scroll --
   final ScrollController _reelsScroll = ScrollController();
@@ -884,6 +889,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onPageChanged: (idx) {
         if (_bannerCurrentPage == idx) return;
         setState(() => _bannerCurrentPage = idx);
+        _scheduleNextBannerAutoRotate();
       },
       itemBuilder: (context, index) {
         final banner = _banners[index];
@@ -1019,7 +1025,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     final radius = BorderRadius.circular(borderRadius);
-    final foreground = DecoratedBox(
+    final foreground = Container(
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: [
@@ -1030,28 +1036,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: radius,
-        child: ColoredBox(
-          color: Colors.black.withValues(alpha: banner.isVideo ? 0.32 : 0.18),
-          child: banner.isVideo
-              ? PromoMediaTile(
-                  key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-                  mediaUrl: mediaUrl,
-                  mediaType: 'video',
-                  borderRadius: 0,
-                  autoplay: true,
-                  isActive: isActive,
-                  fit: BoxFit.contain,
-                  showVideoBadge: false,
-                  fallback: _gradientPlaceholder(),
-                )
-              : Image.network(
-                  mediaUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => _gradientPlaceholder(),
-                ),
-        ),
+      child: PromoBannerWidget(
+        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
+        mediaUrl: mediaUrl,
+        isVideo: banner.isVideo,
+        isActive: isActive,
+        autoplay: true,
+        title: banner.title,
+        subtitle: banner.providerDisplayName,
+        borderRadius: borderRadius,
+        fallback: _gradientPlaceholder(),
       ),
     );
     return Transform.scale(scale: scale, child: foreground);
@@ -2021,17 +2015,50 @@ class _HomeScreenState extends State<HomeScreen> {
   //  PROMO BANNERS — Full-width auto-rotating carousel
   // =============================================
 
-  void _startBannerAutoRotate() {
+  Duration _resolveBannerRotateDelay(BannerModel banner) {
+    if (!banner.isVideo) return _imageBannerRotateDelay;
+    final seconds = banner.durationSeconds;
+    if (seconds == null || seconds <= 0) {
+      return _videoBannerFallbackRotateDelay;
+    }
+    final raw = Duration(seconds: seconds);
+    if (raw < _videoBannerMinRotateDelay) return _videoBannerMinRotateDelay;
+    if (raw > _videoBannerMaxRotateDelay) return _videoBannerMaxRotateDelay;
+    return raw;
+  }
+
+  void _scheduleNextBannerAutoRotate() {
     _bannerAutoTimer?.cancel();
-    if (_banners.length <= 1) return;
-    _bannerAutoTimer = Timer.periodic(const Duration(seconds: 2), (_) {
-      if (!mounted || !_bannerPageController.hasClients) return;
+    if (!mounted || _banners.length <= 1 || !_bannerPageController.hasClients) {
+      return;
+    }
+    final safeIndex = _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
+        ? _bannerCurrentPage
+        : 0;
+    final delay = _resolveBannerRotateDelay(_banners[safeIndex]);
+    _bannerAutoTimer = Timer(delay, () {
+      if (!mounted || !_bannerPageController.hasClients || _banners.length <= 1) {
+        return;
+      }
       final next = (_bannerCurrentPage + 1) % _banners.length;
       _bannerPageController.animateToPage(
         next,
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
       );
+    });
+  }
+
+  void _startBannerAutoRotate() {
+    _bannerAutoTimer?.cancel();
+    if (_banners.length <= 1) return;
+    if (_bannerPageController.hasClients) {
+      _scheduleNextBannerAutoRotate();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _banners.length <= 1) return;
+      _scheduleNextBannerAutoRotate();
     });
   }
 
@@ -2055,6 +2082,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemCount: _banners.length,
                     onPageChanged: (idx) {
                       setState(() => _bannerCurrentPage = idx);
+                      _scheduleNextBannerAutoRotate();
                       if (idx >= 0 && idx < _banners.length) {
                         _trackBannerImpression(
                           _banners[idx],
