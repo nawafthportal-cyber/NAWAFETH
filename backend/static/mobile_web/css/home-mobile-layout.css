@@ -34,6 +34,7 @@ body.home-mobile-layout .hero-banner-shell .carousel-wrapper {
   aspect-ratio: auto;
   border-radius: 0;
   background: transparent;
+  overflow: hidden; /* explicit clip in hero context */
 }
 
 body.home-mobile-layout .hero-banner-shell .carousel-track {
@@ -59,18 +60,24 @@ body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-rati
   padding: 0;
 }
 
-/* Banner image/video covers the full hero — hero-overlay handles text readability */
+/* Banner image/video contained within the full hero — shows completely without cropping */
 body.home-mobile-layout .hero-banner-shell .carousel-media {
   width: 100%;
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: cover;
-  object-position: center top;
+  object-fit: contain;
+  object-position: center center;
   border-radius: 0;
   box-shadow: none;
   transform: none;
+  will-change: auto; /* disable compositor layer promotion so overflow:hidden clips correctly */
   background: transparent;
+}
+
+/* Keep backdrop strictly inside the frame in hero context */
+body.home-mobile-layout .hero-banner-shell .carousel-media-backdrop {
+  inset: 0;
 }
 
 body.home-mobile-layout .hero-bg {
@@ -93,6 +100,8 @@ body.home-mobile-layout #top-navbar {
 
 body.home-mobile-layout #hero {
   min-height: var(--home-hero-min-height);
+  overflow: hidden; /* hard clip — prevents banner from overflowing hero bounds */
+  contain: paint;   /* compositor boundary so promoted layers are clipped */
 }
 
 /* ── Hero Top Bar (mirrors Flutter: menu | "نوافــذ" | notifications + chat) ── */

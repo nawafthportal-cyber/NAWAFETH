@@ -1323,6 +1323,8 @@ const HomePage = (() => {
           'aria-hidden': 'true',
         });
         preview.src = mediaUrl;
+        preview.muted = true;   // explicit DOM property — required for some browsers
+        preview.volume = 0;     // belt-and-suspenders: zero volume before any play()
         preview.loop = true;
         preview.setAttribute('playsinline', '');
         preview.setAttribute('disablepictureinpicture', '');
@@ -1391,6 +1393,7 @@ const HomePage = (() => {
       reel.classList.toggle('is-active', isActive);
 
       reel.querySelectorAll('video').forEach(video => {
+        video.muted = true; // enforce mute on preview — audio opens only in SpotlightViewer
         if (isActive) {
           const playPromise = video.play();
           if (playPromise && typeof playPromise.catch === 'function') {
