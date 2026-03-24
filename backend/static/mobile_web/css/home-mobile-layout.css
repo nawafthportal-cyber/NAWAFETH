@@ -60,13 +60,13 @@ body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-rati
   padding: 0;
 }
 
-/* Banner image/video contained within the full hero — shows completely without cropping */
+/* Banner image/video covers the full hero — hero-overlay handles text readability */
 body.home-mobile-layout .hero-banner-shell .carousel-media {
   width: 100%;
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   object-position: center center;
   border-radius: 0;
   box-shadow: none;
