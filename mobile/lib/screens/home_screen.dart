@@ -911,54 +911,31 @@ class _HomeScreenState extends State<HomeScreen> {
     required String? mediaUrl,
     required bool isActive,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewportWidth = constraints.maxWidth.isFinite && constraints.maxWidth > 0
-            ? constraints.maxWidth
-            : MediaQuery.of(context).size.width;
-        final viewportHeight =
-            constraints.maxHeight.isFinite && constraints.maxHeight > 0
-                ? constraints.maxHeight
-                : 280.0;
-        final stagePadding = _heroBannerStagePadding(
-          width: viewportWidth,
-          height: viewportHeight,
-        );
-        final borderRadius =
-            _clampResponsiveValue(viewportWidth * 0.05, 18, 26);
-
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildHeroBannerBackdrop(banner, mediaUrl),
-            Positioned.fill(
-              child: Padding(
-                padding: stagePadding,
-                child: _buildHeroBannerForeground(
-                  banner: banner,
-                  mediaUrl: mediaUrl,
-                  isActive: isActive,
-                  scale: banner.scaleForWidth(viewportWidth),
-                  borderRadius: borderRadius,
-                ),
-              ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildHeroBannerBackdrop(banner, mediaUrl),
+        Positioned.fill(
+          child: _buildHeroBannerForeground(
+            banner: banner,
+            mediaUrl: mediaUrl,
+            isActive: isActive,
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.black.withValues(alpha: 0.18),
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.black.withValues(alpha: 0.18),
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.08),
-                  ],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        ),
+      ],
     );
   }
 
@@ -1017,38 +994,28 @@ class _HomeScreenState extends State<HomeScreen> {
     required BannerModel banner,
     required String? mediaUrl,
     required bool isActive,
-    required double scale,
-    required double borderRadius,
   }) {
-    if (mediaUrl == null) {
-      return _gradientPlaceholder();
-    }
+    if (mediaUrl == null) return _gradientPlaceholder();
 
-    final radius = BorderRadius.circular(borderRadius);
-    final foreground = Container(
-      decoration: BoxDecoration(
-        borderRadius: radius,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: PromoBannerWidget(
+    if (banner.isVideo) {
+      return PromoBannerWidget(
         key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
         mediaUrl: mediaUrl,
-        isVideo: banner.isVideo,
+        isVideo: true,
         isActive: isActive,
         autoplay: true,
-        title: banner.title,
-        subtitle: banner.providerDisplayName,
-        borderRadius: borderRadius,
+        borderRadius: 0,
         fallback: _gradientPlaceholder(),
-      ),
+      );
+    }
+
+    return Image.network(
+      mediaUrl,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
     );
-    return Transform.scale(scale: scale, child: foreground);
   }
 
   Widget _heroIconBtn({

@@ -16,15 +16,34 @@ class NotificationConsumer(AsyncJsonWebsocketConsumer):
         self.user = user
         self.group_name = f"notifications_user_{user.id}"
 
-        await self.channel_layer.group_add(self.group_name, self.channel_name)
+        try:
+            await self.channel_layer.group_add(self.group_name, self.channel_name)
+        except Exception:
+            logger.warning(
+                "notification websocket: channel_layer.group_add failed for user %s — closing",
+                user.id,
+            )
+            await self.close(code=4503)
+            return
+
         await self.accept()
         await self.send_json({"type": "connected"})
 
     async def disconnect(self, close_code):
+        group_name = getattr(self, "group_name", None)
+        if not group_name:
+            return
         try:
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            channel_layer = self.channel_layer
+            if channel_layer is not None:
+                await channel_layer.group_discard(group_name, self.channel_name)
         except Exception:
-            logger.exception("notification websocket disconnect error")
+            # group_discard failures are non-critical (Redis may be temporarily unavailable).
+            logger.debug(
+                "notification websocket: group_discard failed for group %s (code=%s)",
+                group_name,
+                close_code,
+            )
 
     async def receive_json(self, content, **kwargs):
         if (content or {}).get("type") == "ping":

@@ -76,7 +76,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Future<void> _loadSearchPromos() async {
     try {
       final selectedCategoryName = _selectedCategoryName();
-      final selectedCategoryCity = _activeCity.trim();
+      final selectedCategoryCity = '';
       final searchPromoUri = Uri(
         path: '/api/promo/active/',
         queryParameters: {

@@ -1051,11 +1051,8 @@ const HomePage = (() => {
         slide.appendChild(_buildCarouselMedia(b, url, isVideo, i === 0));
       }
 
-      // Overlay with title & provider
-      const overlay = UI.el('div', { className: 'carousel-overlay' });
-      if (b.title) overlay.appendChild(UI.el('div', { className: 'carousel-caption', textContent: b.title }));
-      if (b.provider_display_name) overlay.appendChild(UI.el('div', { className: 'carousel-provider', textContent: b.provider_display_name }));
-      slide.appendChild(overlay);
+      // Gradient overlay (no text — keeps background-readable gradient without captions)
+      slide.appendChild(UI.el('div', { className: 'carousel-overlay' }));
 
       // Link wrapper
       if (b.link_url) {

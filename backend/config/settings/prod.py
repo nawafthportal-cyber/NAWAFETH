@@ -1,7 +1,6 @@
 from .base import *  # noqa
 
 import os
-from pathlib import Path
 
 DEBUG = False
 
@@ -19,20 +18,21 @@ WHITENOISE_USE_FINDERS = env_bool("WHITENOISE_USE_FINDERS", True)
 SERVE_STATIC = env_bool("DJANGO_SERVE_STATIC", True)
 
 # Prefer hashed + compressed static assets in production via WhiteNoise.
-# If collectstatic artifacts are missing unexpectedly on a deploy, gracefully
-# fall back so the app still boots and serves static from finders.
+# Keep backend deterministic so collectstatic always produces staticfiles.json.
 _manifest_static_backend = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 _fallback_static_backend = "whitenoise.storage.CompressedStaticFilesStorage"
-_manifest_path = Path(STATIC_ROOT) / "staticfiles.json"
-if _manifest_path.exists():
-	STATICFILES_BACKEND = _manifest_static_backend
-else:
+
+# Emergency-only fallback for broken deploys. Keep disabled by default.
+ENABLE_STATICFILES_FALLBACK = env_bool("ENABLE_STATICFILES_FALLBACK", False)
+if ENABLE_STATICFILES_FALLBACK:
 	STATICFILES_BACKEND = _fallback_static_backend
 	WHITENOISE_USE_FINDERS = True
 	print(
-		f"[settings] WARN: static manifest missing at {_manifest_path}; "
-		f"falling back to {_fallback_static_backend}."
+		f"[settings] WARN: ENABLE_STATICFILES_FALLBACK=1; using {_fallback_static_backend}."
 	)
+else:
+	STATICFILES_BACKEND = _manifest_static_backend
+
 STORAGES["staticfiles"] = {"BACKEND": STATICFILES_BACKEND}
 
 
