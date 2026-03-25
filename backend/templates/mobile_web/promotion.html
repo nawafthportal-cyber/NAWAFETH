@@ -30,6 +30,12 @@
     </div>
 
     <form id="promo-form" class="detail-card">
+      <div class="attachment-guide" style="margin-bottom:12px">
+        <strong>سياسة وشروط الإرفاق (مزود الخدمة)</strong>
+        <p style="margin:6px 0 0">يرجى رفع ملفات مرخصة وواضحة وخالية من أي حقوق غير مصرح بها. أي ملف غير مدعوم أو غير مطابق لنوع الخدمة أو مخالف للسياسات سيتم رفضه تلقائيًا ولن يتم إرسال الطلب حتى التصحيح.</p>
+        <p style="margin:6px 0 0">سيظهر تنبيه مباشر عند اختيار ملف غير مدعوم مع عرض الامتدادات المسموحة لكل خدمة.</p>
+      </div>
+
       <div class="form-group">
         <label class="form-label">عنوان الطلب</label>
         <input id="promo-title" type="text" class="form-input" placeholder="مثال: حملة إبراز الحساب" required>
@@ -51,10 +57,14 @@
       <div id="promo-service-blocks">
         <div class="promo-service-block" data-service-block="home_banner" hidden>
           <h4>بنر الصفحة الرئيسية</h4>
+          <div class="attachment-guide">
+            <strong>قبل رفع مرفقات البنر:</strong>
+            <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840. إذا كانت الصورة بمقاس مختلف يمكنك تفعيل الضبط التلقائي.</p>
+          </div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">مرفقات البانر</label><input data-field="files" type="file" class="form-input" multiple></div>
+          <div class="form-group"><label class="form-label">مرفقات البانر</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
           <div class="banner-editor" id="home-banner-editor" hidden>
             <div class="banner-editor-head">
               <strong>معاينة وتحجيم البانر</strong>
@@ -118,22 +128,30 @@
 
         <div class="promo-service-block" data-service-block="promo_messages" hidden>
           <h4>الرسائل الدعائية</h4>
+          <div class="attachment-guide">
+            <strong>قبل رفع مرفقات الرسائل:</strong>
+            <p style="margin:6px 0 0">يمكنك الإرسال بنص فقط أو بمرفق فقط أو بكليهما. عند استخدام مرفقات، استخدم ملفات خفيفة وواضحة لتسهيل التسليم في التنبيهات والمحادثات.</p>
+          </div>
           <div class="form-group"><label class="form-label">وقت الإرسال</label><input data-field="send_at" type="datetime-local" class="form-input"></div>
           <div class="check-row"><label><input data-field="use_notification_channel" type="checkbox" checked> رسائل التنبيه</label><label><input data-field="use_chat_channel" type="checkbox"> رسائل المحادثات</label></div>
           <div class="form-group"><label class="form-label">نص الرسالة الترويجية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">مرفقات الرسالة</label><input data-field="files" type="file" class="form-input" multiple></div>
+          <div class="form-group"><label class="form-label">مرفقات الرسالة</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4,.pdf" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4, PDF</small></div>
         </div>
 
         <div class="promo-service-block" data-service-block="sponsorship" hidden>
           <h4>الرعاية</h4>
+          <div class="attachment-guide">
+            <strong>قبل رفع شعار الراعي:</strong>
+            <p style="margin:6px 0 0">ارفع شعارًا بجودة عالية وخلفية مناسبة للعرض داخل التطبيق. يفضّل تسمية الملف باسم الجهة الراعية لتسهيل المراجعة.</p>
+          </div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">اسم الراعي</label><input data-field="sponsor_name" type="text" class="form-input"></div>
           <div class="form-group"><label class="form-label">مدة الرعاية بالأشهر</label><input data-field="sponsorship_months" type="number" min="1" class="form-input" value="1"></div>
           <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
           <div class="form-group"><label class="form-label">نص رسالة الرعاية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">شعار الراعي</label><input data-field="files" type="file" class="form-input" multiple></div>
+          <div class="form-group"><label class="form-label">شعار الراعي</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4,.pdf" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4, PDF</small></div>
         </div>
       </div>
 
@@ -161,6 +179,8 @@
   .chips-wrap{display:flex;flex-wrap:wrap;gap:8px}
   .chip-btn{border:1px solid #c8b3ea;background:#fff;color:#663d90;border-radius:999px;padding:10px 14px;font:inherit}
   .chip-btn.active{background:#efe7fb;border-color:#663d90}
+  .attachment-guide{border:1px solid #ece6f8;background:#faf7ff;border-radius:12px;padding:10px 12px;color:#4b2d73;font-size:13px;line-height:1.7;margin:0 0 10px}
+  .attachment-guide strong{display:block;font-weight:700}
   .promo-service-block{border:1px solid #eee;border-radius:16px;padding:14px;margin:0 0 12px;background:#fff}
   .promo-service-block h4{margin:0 0 12px;color:#663d90}
   .check-row{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px}

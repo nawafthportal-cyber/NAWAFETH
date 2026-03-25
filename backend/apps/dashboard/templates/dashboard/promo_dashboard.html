@@ -286,6 +286,9 @@
                 {% if can_write %}
                   <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
                   <button type="submit" name="action" value="quote_request" class="ghost-btn">اعتماد التسعير</button>
+                  {% if can_reject_selected_request %}
+                    <button type="submit" name="action" value="reject_request" class="ghost-btn">رفض وإعادة للعميل</button>
+                  {% endif %}
                   <button type="submit" name="action" value="activate_request" class="ghost-btn">تفعيل</button>
                   <button type="submit" name="action" value="complete_request" class="ghost-btn">إكمال</button>
                 {% else %}

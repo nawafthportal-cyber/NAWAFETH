@@ -946,6 +946,83 @@ def test_dashboard_complete_request_keeps_active_status_and_home_banner_visible(
     assert any(item["id"] == asset.id for item in banners_response.data)
 
 
+def test_dashboard_can_reject_request_before_pricing(client, promo_operator_user, user):
+    now = timezone.now()
+    _ensure_provider_requester(user)
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="طلب قبل التسعير",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now + timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+        ops_status=PromoOpsStatus.NEW,
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post(
+        "/dashboard/promo/",
+        data={
+            "action": "reject_request",
+            "promo_request_id": promo_request.id,
+            "assigned_to": "",
+            "ops_status": PromoOpsStatus.NEW,
+            "ops_note": "",
+            "quote_note": "مرفقات غير مكتملة، يرجى التعديل وإعادة الإرسال",
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    promo_request.refresh_from_db()
+    assert promo_request.status == PromoRequestStatus.REJECTED
+    assert "غير مكتملة" in str(promo_request.reject_reason or "")
+
+
+def test_dashboard_reject_after_pricing_is_blocked(client, promo_operator_user, user):
+    now = timezone.now()
+    _ensure_provider_requester(user)
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="طلب مسعّر",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now + timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.QUOTED,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+    )
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post(
+        "/dashboard/promo/",
+        data={
+            "action": "reject_request",
+            "promo_request_id": promo_request.id,
+            "assigned_to": "",
+            "ops_status": PromoOpsStatus.IN_PROGRESS,
+            "ops_note": "",
+            "quote_note": "محاولة رفض بعد التسعير",
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    promo_request.refresh_from_db()
+    assert promo_request.status == PromoRequestStatus.QUOTED
+
+
 def test_completed_status_home_banner_is_visible_while_campaign_window_active(api, user):
     now = timezone.now()
     _ensure_provider_requester(user)

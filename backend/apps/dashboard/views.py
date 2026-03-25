@@ -82,6 +82,7 @@ from apps.promo.services import (
     calc_promo_request_quote,
     ensure_default_pricing_rules,
     quote_and_create_invoice,
+    reject_request,
     set_promo_ops_status,
     _sync_promo_to_unified,
 )
@@ -1743,7 +1744,7 @@ def promo_dashboard(request, request_id: int | None = None):
                 request_id=(linked_request.id if linked_request else None),
             )
 
-        if action in {"save_request", "quote_request", "activate_request", "complete_request"}:
+        if action in {"save_request", "quote_request", "activate_request", "complete_request", "reject_request"}:
             raw_request_id = (request.POST.get("promo_request_id") or "").strip()
             if not raw_request_id.isdigit():
                 messages.error(request, "تعذر تحديد طلب الترويج المطلوب.")
@@ -1836,6 +1837,23 @@ def promo_dashboard(request, request_id: int | None = None):
                     note=ops_note,
                 )
 
+            elif action == "reject_request":
+                rejectable_statuses = {
+                    PromoRequestStatus.NEW,
+                    PromoRequestStatus.IN_REVIEW,
+                    PromoRequestStatus.REJECTED,
+                }
+                if target_request.status not in rejectable_statuses:
+                    messages.error(request, "يمكن رفض الطلب قبل التسعير فقط.")
+                    return _promo_redirect_with_state(request, request_id=target_request.id)
+
+                reject_reason = (post_form.cleaned_data.get("quote_note") or post_form.cleaned_data.get("ops_note") or "").strip()
+                if not reject_reason:
+                    messages.error(request, "اكتب سبب الرفض لإعادة الطلب للعميل.")
+                    return _promo_redirect_with_state(request, request_id=target_request.id)
+
+                target_request = reject_request(pr=target_request, reason=reject_reason, by_user=request.user)
+
             if updates:
                 updates.append("updated_at")
                 target_request.save(update_fields=updates)
@@ -1863,6 +1881,10 @@ def promo_dashboard(request, request_id: int | None = None):
             return pdf_response("promo_requests.pdf", "قائمة طلبات الترويج", headers, rows, landscape=True)
 
     selected_request_quote = _promo_quote_snapshot(selected_request) if selected_request else None
+    can_reject_selected_request = bool(
+        selected_request
+        and selected_request.status in {PromoRequestStatus.NEW, PromoRequestStatus.IN_REVIEW, PromoRequestStatus.REJECTED}
+    )
     selected_request_items = list(selected_request.items.order_by("sort_order", "id")) if selected_request else []
     selected_request_assets = (
         list(selected_request.assets.select_related("item", "uploaded_by").order_by("-uploaded_at", "-id"))
@@ -1886,6 +1908,7 @@ def promo_dashboard(request, request_id: int | None = None):
             "request_summary": _promo_requests_summary(promo_requests),
             "selected_inquiry": selected_inquiry,
             "selected_request": selected_request,
+            "can_reject_selected_request": can_reject_selected_request,
             "selected_request_items": selected_request_items,
             "selected_request_assets": selected_request_assets,
             "selected_request_quote": selected_request_quote,

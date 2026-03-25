@@ -40,6 +40,11 @@ var PromotionPage = (function () {
 
   var HOME_BANNER_REQUIRED_WIDTH = 1920;
   var HOME_BANNER_REQUIRED_HEIGHT = 840;
+  var SERVICE_ALLOWED_EXTENSIONS = {
+    home_banner: [".jpg", ".jpeg", ".png", ".mp4"],
+    promo_messages: [".jpg", ".jpeg", ".png", ".mp4", ".pdf"],
+    sponsorship: [".jpg", ".jpeg", ".png", ".mp4", ".pdf"]
+  };
 
   var selectedServices = [];
   var requestsCache = {};
@@ -54,11 +59,42 @@ var PromotionPage = (function () {
   function init() {
     bindTabs();
     bindServicePicks();
+    bindAttachmentPolicyHints();
     bindHomeBannerEditor();
     bindForm();
     bindRequestActions();
     bindModal();
     loadRequests();
+  }
+
+  function bindAttachmentPolicyHints() {
+    ["home_banner", "promo_messages", "sponsorship"].forEach(function (service) {
+      var input = document.querySelector('[data-service-block="' + service + '"] [data-field="files"]');
+      if (!input) return;
+
+      var allowed = SERVICE_ALLOWED_EXTENSIONS[service] || [];
+      if (allowed.length) {
+        input.setAttribute("accept", allowed.join(","));
+      }
+
+      input.addEventListener("change", function () {
+        var files = input.files ? Array.from(input.files) : [];
+        var badFiles = files.filter(function (file) {
+          return !isSupportedAttachmentForService(service, file);
+        });
+        if (!badFiles.length) return;
+
+        input.value = "";
+        if (service === "home_banner") {
+          renderHomeBannerPreview(null);
+        }
+        alert(
+          "الملف المرفق غير مدعوم.\\n"
+          + "الملفات المدعومة: "
+          + supportedExtensionsLabel(service)
+        );
+      });
+    });
   }
 
   function bindTabs() {
@@ -102,6 +138,9 @@ var PromotionPage = (function () {
     var tabsRoot = document.getElementById("home-banner-device-tabs");
     var scaleRange = document.getElementById("home-banner-scale-range");
     if (!filesInput || !tabsRoot || !scaleRange) return;
+
+    // Keep picker aligned with backend-allowed extensions for home banner.
+    filesInput.setAttribute("accept", ".jpg,.jpeg,.png,.mp4");
 
     filesInput.addEventListener("change", function () {
       var file = filesInput.files && filesInput.files[0] ? filesInput.files[0] : null;
@@ -150,6 +189,22 @@ var PromotionPage = (function () {
     empty.hidden = true;
 
     var assetType = detectAssetType(String(file.name || ""));
+    dims.textContent = "جاري تحميل المعاينة...";
+
+    if (assetType !== "image" && assetType !== "video") {
+      empty.hidden = false;
+      dims.textContent = "نوع الملف غير مدعوم للمعاينة";
+      note.textContent = "الأنواع المدعومة لبنر الصفحة الرئيسية: صور أو فيديو MP4 فقط.";
+      return;
+    }
+
+    if (assetType === "video" && !isMp4File(file)) {
+      empty.hidden = false;
+      dims.textContent = "الفيديو يجب أن يكون بصيغة MP4";
+      note.textContent = "يرجى اختيار فيديو MP4 ليعمل معاينة البنر والرفع بشكل صحيح.";
+      return;
+    }
+
     homeBannerEditor.previewUrl = URL.createObjectURL(file);
 
     if (assetType === "video") {
@@ -163,6 +218,9 @@ var PromotionPage = (function () {
       video.onloadedmetadata = function () {
         dims.textContent = "الأبعاد: " + video.videoWidth + "x" + video.videoHeight + " • فيديو";
       };
+      video.onerror = function () {
+        dims.textContent = "تعذر معاينة الفيديو المختار";
+      };
       wrap.appendChild(video);
       note.textContent = "الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.";
       updateHomeBannerScaleUi();
@@ -175,6 +233,9 @@ var PromotionPage = (function () {
     img.src = homeBannerEditor.previewUrl;
     img.onload = function () {
       dims.textContent = "الأبعاد: " + img.naturalWidth + "x" + img.naturalHeight + " • صورة";
+    };
+    img.onerror = function () {
+      dims.textContent = "تعذر معاينة الصورة المختارة";
     };
     wrap.appendChild(img);
     note.textContent = "يمكن ضبط الصورة تلقائياً إلى 1920x840 قبل الرفع عند تفعيل الخيار أدناه.";
@@ -549,8 +610,16 @@ var PromotionPage = (function () {
             var uploadFile = sourceFile;
             var uploadType = detectAssetType(sourceFile.name);
             if (s === "home_banner" && uploadType === "image" && homeBannerAutoFitEnabled()) {
-              uploadFile = await normalizeHomeBannerImage(sourceFile);
-              uploadType = "image";
+              try {
+                uploadFile = await normalizeHomeBannerImage(sourceFile);
+                uploadType = "image";
+              } catch (normalizeErr) {
+                uploadFailures.push(
+                  (sourceFile && sourceFile.name ? sourceFile.name : "ملف")
+                  + ": تعذر ضبط الصورة تلقائياً قبل الرفع. استخدم صورة صالحة أو ألغِ خيار الضبط التلقائي."
+                );
+                continue;
+              }
             }
 
             var fd = new FormData();
@@ -581,6 +650,7 @@ var PromotionPage = (function () {
         await loadRequests();
         alert("تم إرسال طلب الترويج بنجاح");
       } catch (err) {
+        console.error("Promo submit failed", err);
         alert("تعذر إكمال عملية الترويج. حاول مرة أخرى.");
       } finally {
         button.disabled = false;
@@ -592,10 +662,19 @@ var PromotionPage = (function () {
   async function validateSelectedServiceFiles() {
     for (var i = 0; i < selectedServices.length; i += 1) {
       var service = selectedServices[i];
-      if (service !== "home_banner") continue;
       var block = document.querySelector('[data-service-block="' + service + '"]');
       var input = block ? block.querySelector('[data-field="files"]') : null;
       var files = input && input.files ? Array.from(input.files) : [];
+
+      for (var j = 0; j < files.length; j += 1) {
+        var file = files[j];
+        if (!isSupportedAttachmentForService(service, file)) {
+          return "الملف المرفق غير مدعوم. الملفات المدعومة: " + supportedExtensionsLabel(service);
+        }
+      }
+
+      if (service !== "home_banner") continue;
+
       for (var j = 0; j < files.length; j += 1) {
         var err = await validateHomeBannerFile(files[j]);
         if (err) return err;
@@ -608,6 +687,10 @@ var PromotionPage = (function () {
     var assetType = detectAssetType(String(file && file.name || ""));
     if (assetType !== "image" && assetType !== "video") {
       return "بنر الصفحة الرئيسية يقبل الصور أو الفيديو فقط.";
+    }
+
+    if (assetType === "video" && !isMp4File(file)) {
+      return "بنر الصفحة الرئيسية يدعم الفيديو بصيغة MP4 فقط.";
     }
 
     if (assetType === "image" && homeBannerAutoFitEnabled()) {
@@ -856,6 +939,31 @@ var PromotionPage = (function () {
     if (["mp4", "mov", "avi", "mkv", "webm"].indexOf(ext) >= 0) return "video";
     if (ext === "pdf") return "pdf";
     return "other";
+  }
+
+  function fileExtension(name) {
+    var clean = String(name || "").trim().toLowerCase();
+    if (!clean || clean.indexOf(".") < 0) return "";
+    return "." + clean.split(".").pop();
+  }
+
+  function isSupportedAttachmentForService(service, file) {
+    var allowed = SERVICE_ALLOWED_EXTENSIONS[service];
+    if (!allowed || !allowed.length) return true;
+    var ext = fileExtension(file && file.name);
+    if (!ext) return false;
+    return allowed.indexOf(ext) >= 0;
+  }
+
+  function supportedExtensionsLabel(service) {
+    var allowed = SERVICE_ALLOWED_EXTENSIONS[service] || [];
+    if (!allowed.length) return "غير محدد";
+    return allowed.map(function (ext) { return ext.toUpperCase().replace(".", ""); }).join(", ");
+  }
+
+  function isMp4File(file) {
+    var name = String(file && file.name || "").toLowerCase();
+    return name.endsWith(".mp4");
   }
 
   function money(value) {
