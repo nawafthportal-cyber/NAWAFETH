@@ -1,0 +1,180 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-nawafeth}
+      POSTGRES_USER: ${POSTGRES_USER:-nawafeth}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nawafeth_change_me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nawafeth} -d ${POSTGRES_DB:-nawafeth}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: ${DJANGO_ENV:-prod}
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_MEDIA_ROOT: /app/backend/media
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nawafeth}:${POSTGRES_PASSWORD:-nawafeth_change_me}@db:5432/${POSTGRES_DB:-nawafeth}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "1"
+      RUN_COLLECTSTATIC: "1"
+      STARTUP_TIMEOUT_SECONDS: ${STARTUP_TIMEOUT_SECONDS:-90}
+    command: >-
+      gunicorn config.asgi:application
+      -k uvicorn_worker.UvicornWorker
+      --bind 0.0.0.0:8000
+      --workers ${GUNICORN_WORKERS:-3}
+      --threads ${GUNICORN_THREADS:-2}
+      --worker-tmp-dir /dev/shm
+      --max-requests ${GUNICORN_MAX_REQUESTS:-1000}
+      --max-requests-jitter ${GUNICORN_MAX_REQUESTS_JITTER:-100}
+      --timeout ${GUNICORN_TIMEOUT:-120}
+      --graceful-timeout ${GUNICORN_GRACEFUL_TIMEOUT:-30}
+      --keep-alive ${GUNICORN_KEEPALIVE:-5}
+      --access-logfile -
+      --error-logfile -
+    expose:
+      - "8000"
+    volumes:
+      - static_data:/app/backend/staticfiles
+      - media_data:/app/backend/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app_network
+
+  celery_worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: ${DJANGO_ENV:-prod}
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_MEDIA_ROOT: /app/backend/media
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nawafeth}:${POSTGRES_PASSWORD:-nawafeth_change_me}@db:5432/${POSTGRES_DB:-nawafeth}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "0"
+      RUN_COLLECTSTATIC: "0"
+      STARTUP_TIMEOUT_SECONDS: ${STARTUP_TIMEOUT_SECONDS:-90}
+    command: celery -A config worker --loglevel=${CELERY_LOG_LEVEL:-INFO} --concurrency=${CELERY_WORKER_CONCURRENCY:-2}
+    volumes:
+      - media_data:/app/backend/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  celery_beat:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: ${DJANGO_ENV:-prod}
+      DJANGO_SETTINGS_MODULE: config.settings
+      DJANGO_MEDIA_ROOT: /app/backend/media
+      DATABASE_URL: postgresql://${POSTGRES_USER:-nawafeth}:${POSTGRES_PASSWORD:-nawafeth_change_me}@db:5432/${POSTGRES_DB:-nawafeth}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "0"
+      RUN_COLLECTSTATIC: "0"
+      STARTUP_TIMEOUT_SECONDS: ${STARTUP_TIMEOUT_SECONDS:-90}
+    command: celery -A config beat --loglevel=${CELERY_LOG_LEVEL:-INFO}
+    volumes:
+      - media_data:/app/backend/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/srv/static:ro
+      - media_data:/srv/media:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz/ || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - app_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_data:
+  media_data:
+
+networks:
+  app_network:
+    driver: bridge

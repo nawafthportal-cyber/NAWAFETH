@@ -313,23 +313,29 @@ _ASSET_REQUIRED_SERVICE_TYPES = {
 
 
 def _ensure_required_assets_uploaded(pr: PromoRequest) -> None:
+    required_service_types = {
+        PromoServiceType.HOME_BANNER,
+        PromoServiceType.SPONSORSHIP,
+    }
+
     missing_labels: list[str] = []
     for item in pr.items.all():
-        if item.service_type not in _ASSET_REQUIRED_SERVICE_TYPES:
-            continue
-        if item.assets.exists():
-            continue
-        label = item.get_service_type_display()
-        if label not in missing_labels:
-            missing_labels.append(label)
+        if item.service_type in required_service_types and not item.assets.exists():
+            missing_labels.append(item.get_service_type_display())
 
     if missing_labels:
-        raise ValueError(
-            "لا يمكن التسعير قبل رفع المرفقات المطلوبة للخدمات التالية: "
-            + "، ".join(missing_labels)
-            + "."
-        )
+        unique_labels: list[str] = []
+        seen: set[str] = set()
+        for label in missing_labels:
+            if label not in seen:
+                seen.add(label)
+                unique_labels.append(label)
 
+        labels_text = "، ".join(unique_labels)
+        raise ValueError(
+            "لا يمكن اعتماد التسعير لأن المرفقات غير مكتملة. "
+            f"يرجى رفع مرفق وربطه مباشرةً بكل بند من البنود التالية: {labels_text}."
+        )
 
 def _platform_config():
     from apps.core.models import PlatformConfig
@@ -858,35 +864,63 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
     total_days = 0
     preview_items = []
 
+    expanded_index = 0
     for index, row in enumerate(items_data):
-        normalized = {key: value for key, value in row.items() if key != "asset_count"}
-        if (
-            provider_profile is not None
-            and normalized.get("service_type") in auto_targeted_service_types
-            and not normalized.get("target_provider")
-        ):
-            normalized["target_provider"] = provider_profile
+        normalized = {
+            key: value
+            for key, value in row.items()
+            if key not in {"asset_count", "search_scopes", "resolved_search_scopes"}
+        }
+        scopes = [
+            str(scope).strip()
+            for scope in (row.get("resolved_search_scopes") or row.get("search_scopes") or [])
+            if str(scope).strip()
+        ]
+        if not scopes and normalized.get("search_scope"):
+            scopes = [str(normalized.get("search_scope") or "").strip()]
 
-        item = PromoRequestItem(request=pr, **normalized)
-        item.sort_order = int(normalized.get("sort_order") or index)
-        item._preview_asset_count = int(row.get("asset_count") or 0)
-        quote = calc_promo_item_quote(item=item)
-        rule = quote.get("rule")
-        rule_code = quote.get("rule_code") or getattr(rule, "code", item.service_type)
-        item_subtotal = money_round(quote["subtotal"])
-        item_days = int(quote.get("days") or 0)
-        subtotal += item_subtotal
-        total_days = max(total_days, item_days)
-        preview_items.append(
-            {
-                "service_type": item.service_type,
-                "service_type_label": item.get_service_type_display(),
-                "title": item.title or item.get_service_type_display(),
-                "subtotal": item_subtotal,
-                "duration_days": item_days,
-                "pricing_rule_code": rule_code,
-            }
-        )
+        expanded_rows = []
+        if normalized.get("service_type") == PromoServiceType.SEARCH_RESULTS and scopes:
+            scope_labels = dict(PromoSearchScope.choices)
+            for scope in scopes:
+                expanded = dict(normalized)
+                expanded["search_scope"] = scope
+                base_title = str(expanded.get("title") or "").strip()
+                if base_title and len(scopes) > 1:
+                    expanded["title"] = f"{base_title} - {scope_labels.get(scope, scope)}"[:160]
+                expanded_rows.append(expanded)
+        else:
+            expanded_rows.append(normalized)
+
+        for expanded in expanded_rows:
+            if (
+                provider_profile is not None
+                and expanded.get("service_type") in auto_targeted_service_types
+                and not expanded.get("target_provider")
+            ):
+                expanded["target_provider"] = provider_profile
+
+            item = PromoRequestItem(request=pr, **expanded)
+            item.sort_order = int(expanded.get("sort_order") or (index * 10 + expanded_index))
+            item._preview_asset_count = int(row.get("asset_count") or 0)
+            quote = calc_promo_item_quote(item=item)
+            rule = quote.get("rule")
+            rule_code = quote.get("rule_code") or getattr(rule, "code", item.service_type)
+            item_subtotal = money_round(quote["subtotal"])
+            item_days = int(quote.get("days") or 0)
+            subtotal += item_subtotal
+            total_days = max(total_days, item_days)
+            preview_items.append(
+                {
+                    "service_type": item.service_type,
+                    "service_type_label": item.get_service_type_display(),
+                    "title": item.title or item.get_service_type_display(),
+                    "subtotal": item_subtotal,
+                    "duration_days": item_days,
+                    "pricing_rule_code": rule_code,
+                }
+            )
+            expanded_index += 1
 
     subtotal = money_round(subtotal)
     vat_amount = money_round((subtotal * vat_percent) / Decimal("100"))

@@ -45,10 +45,16 @@ var PromotionPage = (function () {
   var requestsCache = {};
   var modalState = { resolve: null };
   var modalElements = null;
+  var homeBannerEditor = {
+    activeDevice: "mobile",
+    scales: { mobile: 100, tablet: 100, desktop: 100 },
+    previewUrl: ""
+  };
 
   function init() {
     bindTabs();
     bindServicePicks();
+    bindHomeBannerEditor();
     bindForm();
     bindRequestActions();
     bindModal();
@@ -88,6 +94,187 @@ var PromotionPage = (function () {
           toggleServiceBlock(service, true);
         }
       });
+    });
+  }
+
+  function bindHomeBannerEditor() {
+    var filesInput = document.querySelector('[data-service-block="home_banner"] [data-field="files"]');
+    var tabsRoot = document.getElementById("home-banner-device-tabs");
+    var scaleRange = document.getElementById("home-banner-scale-range");
+    if (!filesInput || !tabsRoot || !scaleRange) return;
+
+    filesInput.addEventListener("change", function () {
+      var file = filesInput.files && filesInput.files[0] ? filesInput.files[0] : null;
+      renderHomeBannerPreview(file);
+    });
+
+    tabsRoot.addEventListener("click", function (e) {
+      var tab = e.target.closest(".banner-device-tab");
+      if (!tab) return;
+      homeBannerEditor.activeDevice = String(tab.dataset.device || "mobile");
+      updateHomeBannerScaleUi();
+    });
+
+    scaleRange.addEventListener("input", function () {
+      var limits = scaleLimitsForDevice(homeBannerEditor.activeDevice);
+      var value = clampScale(scaleRange.value, limits.min, limits.max);
+      homeBannerEditor.scales[homeBannerEditor.activeDevice] = value;
+      updateHomeBannerScaleUi();
+    });
+
+    updateHomeBannerScaleUi();
+  }
+
+  function renderHomeBannerPreview(file) {
+    var editor = document.getElementById("home-banner-editor");
+    var wrap = document.getElementById("home-banner-preview-media-wrap");
+    var empty = document.getElementById("home-banner-preview-empty");
+    var dims = document.getElementById("home-banner-dims");
+    var note = document.getElementById("home-banner-editor-note");
+    if (!editor || !wrap || !empty || !dims || !note) return;
+
+    if (homeBannerEditor.previewUrl) {
+      try { URL.revokeObjectURL(homeBannerEditor.previewUrl); } catch (e) {}
+      homeBannerEditor.previewUrl = "";
+    }
+    wrap.innerHTML = "";
+
+    if (!file) {
+      editor.hidden = true;
+      empty.hidden = false;
+      dims.textContent = "لم يتم اختيار ملف بعد";
+      return;
+    }
+
+    editor.hidden = false;
+    empty.hidden = true;
+
+    var assetType = detectAssetType(String(file.name || ""));
+    homeBannerEditor.previewUrl = URL.createObjectURL(file);
+
+    if (assetType === "video") {
+      var video = document.createElement("video");
+      video.className = "banner-preview-media";
+      video.src = homeBannerEditor.previewUrl;
+      video.controls = true;
+      video.muted = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.onloadedmetadata = function () {
+        dims.textContent = "الأبعاد: " + video.videoWidth + "x" + video.videoHeight + " • فيديو";
+      };
+      wrap.appendChild(video);
+      note.textContent = "الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.";
+      updateHomeBannerScaleUi();
+      return;
+    }
+
+    var img = document.createElement("img");
+    img.className = "banner-preview-media";
+    img.alt = "معاينة البنر";
+    img.src = homeBannerEditor.previewUrl;
+    img.onload = function () {
+      dims.textContent = "الأبعاد: " + img.naturalWidth + "x" + img.naturalHeight + " • صورة";
+    };
+    wrap.appendChild(img);
+    note.textContent = "يمكن ضبط الصورة تلقائياً إلى 1920x840 قبل الرفع عند تفعيل الخيار أدناه.";
+    updateHomeBannerScaleUi();
+  }
+
+  function scaleLimitsForDevice(device) {
+    if (device === "mobile") return { min: 40, max: 140 };
+    if (device === "tablet") return { min: 40, max: 150 };
+    return { min: 40, max: 160 };
+  }
+
+  function clampScale(value, min, max) {
+    var parsed = parseInt(String(value || ""), 10);
+    if (!Number.isFinite(parsed)) return min;
+    if (parsed < min) return min;
+    if (parsed > max) return max;
+    return parsed;
+  }
+
+  function updateHomeBannerScaleUi() {
+    var tabsRoot = document.getElementById("home-banner-device-tabs");
+    var scaleRange = document.getElementById("home-banner-scale-range");
+    var valueEl = document.getElementById("home-banner-scale-value");
+    var stage = document.getElementById("home-banner-preview-stage");
+    if (!tabsRoot || !scaleRange || !valueEl || !stage) return;
+
+    tabsRoot.querySelectorAll(".banner-device-tab").forEach(function (tab) {
+      var isActive = String(tab.dataset.device || "") === homeBannerEditor.activeDevice;
+      tab.classList.toggle("active", isActive);
+    });
+
+    var limits = scaleLimitsForDevice(homeBannerEditor.activeDevice);
+    var value = clampScale(homeBannerEditor.scales[homeBannerEditor.activeDevice], limits.min, limits.max);
+    homeBannerEditor.scales[homeBannerEditor.activeDevice] = value;
+    scaleRange.min = String(limits.min);
+    scaleRange.max = String(limits.max);
+    scaleRange.value = String(value);
+    valueEl.textContent = value + "%";
+    stage.style.setProperty("--hb-preview-scale", String(value / 100));
+  }
+
+  function homeBannerAutoFitEnabled() {
+    var checkbox = document.getElementById("home-banner-auto-fit");
+    return !!(checkbox && checkbox.checked);
+  }
+
+  function collectHomeBannerScalePayload() {
+    if (selectedServices.indexOf("home_banner") < 0) return {};
+    return {
+      mobile_scale: clampScale(homeBannerEditor.scales.mobile, 40, 140),
+      tablet_scale: clampScale(homeBannerEditor.scales.tablet, 40, 150),
+      desktop_scale: clampScale(homeBannerEditor.scales.desktop, 40, 160)
+    };
+  }
+
+  async function normalizeHomeBannerImage(file) {
+    return new Promise(function (resolve, reject) {
+      var imageUrl = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var canvas = document.createElement("canvas");
+          canvas.width = HOME_BANNER_REQUIRED_WIDTH;
+          canvas.height = HOME_BANNER_REQUIRED_HEIGHT;
+          var ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("canvas-context-unavailable");
+
+          ctx.fillStyle = "#0f172a";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          var scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
+          var drawWidth = img.naturalWidth * scale;
+          var drawHeight = img.naturalHeight * scale;
+          var offsetX = (canvas.width - drawWidth) / 2;
+          var offsetY = (canvas.height - drawHeight) / 2;
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = "high";
+          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+
+          canvas.toBlob(function (blob) {
+            try { URL.revokeObjectURL(imageUrl); } catch (e) {}
+            if (!blob) {
+              reject(new Error("image-export-failed"));
+              return;
+            }
+            var baseName = String(file.name || "banner").replace(/\.[^/.]+$/, "");
+            var outputName = baseName + "-banner.jpg";
+            resolve(new File([blob], outputName, { type: "image/jpeg", lastModified: Date.now() }));
+          }, "image/jpeg", 0.92);
+        } catch (err) {
+          try { URL.revokeObjectURL(imageUrl); } catch (e) {}
+          reject(err);
+        }
+      };
+      img.onerror = function () {
+        try { URL.revokeObjectURL(imageUrl); } catch (e) {}
+        reject(new Error("image-load-failed"));
+      };
+      img.src = imageUrl;
     });
   }
 
@@ -313,9 +500,11 @@ var PromotionPage = (function () {
       button.disabled = true;
       try {
         button.textContent = "جاري احتساب التسعير...";
+        var requestBody = Object.assign({ title: title, items: items }, collectHomeBannerScalePayload());
+
         var previewRes = await ApiClient.request("/api/promo/requests/preview/", {
           method: "POST",
-          body: { title: title, items: items }
+          body: requestBody
         });
         if (!previewRes.ok) {
           alert(extractError(previewRes, "تعذر معاينة التسعير"));
@@ -333,7 +522,7 @@ var PromotionPage = (function () {
         button.textContent = "جاري الإرسال...";
         var createRes = await ApiClient.request("/api/promo/requests/create/", {
           method: "POST",
-          body: { title: title, items: items }
+          body: requestBody
         });
         if (!createRes.ok) {
           alert(extractError(createRes, "فشل إرسال الطلب"));
@@ -349,22 +538,42 @@ var PromotionPage = (function () {
           if (item && item.id) ids[(item.service_type || "") + ":" + (item.sort_order || 0)] = item.id;
         });
 
+        var uploadFailures = [];
         for (var x = 0; x < selectedServices.length; x += 1) {
           var s = selectedServices[x];
           var sBlock = document.querySelector('[data-service-block="' + s + '"]');
           var fileInput = sBlock.querySelector('[data-field="files"]');
           var files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
           for (var y = 0; y < files.length; y += 1) {
+            var sourceFile = files[y];
+            var uploadFile = sourceFile;
+            var uploadType = detectAssetType(sourceFile.name);
+            if (s === "home_banner" && uploadType === "image" && homeBannerAutoFitEnabled()) {
+              uploadFile = await normalizeHomeBannerImage(sourceFile);
+              uploadType = "image";
+            }
+
             var fd = new FormData();
-            fd.append("file", files[y]);
-            fd.append("asset_type", detectAssetType(files[y].name));
+            fd.append("file", uploadFile, uploadFile.name);
+            fd.append("asset_type", uploadType);
             if (ids[s + ":" + x]) fd.append("item_id", String(ids[s + ":" + x]));
-            await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
+            var uploadRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
               method: "POST",
               body: fd,
               formData: true
             });
+            if (!uploadRes.ok) {
+              uploadFailures.push((uploadFile && uploadFile.name ? uploadFile.name : "ملف") + ": " + extractError(uploadRes, "تعذر رفع المرفق"));
+            }
           }
+        }
+
+        if (uploadFailures.length) {
+          resetForm();
+          document.querySelector('[data-tab="requests"]').click();
+          await loadRequests();
+          alert("تم إنشاء الطلب، لكن فشل رفع " + uploadFailures.length + " مرفق/مرفقات. " + uploadFailures[0]);
+          return;
         }
 
         resetForm();
@@ -399,6 +608,10 @@ var PromotionPage = (function () {
     var assetType = detectAssetType(String(file && file.name || ""));
     if (assetType !== "image" && assetType !== "video") {
       return "بنر الصفحة الرئيسية يقبل الصور أو الفيديو فقط.";
+    }
+
+    if (assetType === "image" && homeBannerAutoFitEnabled()) {
+      return "";
     }
 
     var dims;
@@ -475,6 +688,11 @@ var PromotionPage = (function () {
       var input = field("files");
       return input && input.files ? input.files.length : 0;
     }
+    function checkedValues(name) {
+      return Array.from(block.querySelectorAll('[data-field="' + name + '"]:checked')).map(function (el) {
+        return String(el.value || "").trim();
+      }).filter(Boolean);
+    }
 
     body.asset_count = fileCount();
 
@@ -487,7 +705,9 @@ var PromotionPage = (function () {
       body.frequency = valueOf(field("frequency")) || "60s";
     }
     if (service === "search_results") {
-      body.search_scope = valueOf(field("search_scope")) || "default";
+      body.search_scopes = checkedValues("search_scopes");
+      if (!body.search_scopes.length) return "اختر قائمة ظهور واحدة على الأقل";
+      body.search_scope = body.search_scopes[0];
       body.search_position = valueOf(field("search_position")) || "first";
       body.target_category = valueOf(field("target_category"));
     }
@@ -498,7 +718,7 @@ var PromotionPage = (function () {
       body.use_chat_channel = !!(field("use_chat_channel") && field("use_chat_channel").checked);
       if (!body.use_notification_channel && !body.use_chat_channel) return "اختر قناة واحدة على الأقل للرسائل الدعائية";
       body.message_body = valueOf(field("message_body"));
-      if (!body.message_body) return "اكتب نص الرسالة الترويجية";
+      if (!body.message_body && !body.asset_count) return "أدخل نص الرسالة أو أرفق مادة دعائية واحدة على الأقل";
       body.attachment_specs = valueOf(field("attachment_specs"));
     }
     if (service === "sponsorship") {
@@ -603,10 +823,27 @@ var PromotionPage = (function () {
   }
 
   function resetForm() {
+    if (homeBannerEditor.previewUrl) {
+      try { URL.revokeObjectURL(homeBannerEditor.previewUrl); } catch (e) {}
+    }
+    homeBannerEditor.previewUrl = "";
+    homeBannerEditor.activeDevice = "mobile";
+    homeBannerEditor.scales = { mobile: 100, tablet: 100, desktop: 100 };
+
     document.getElementById("promo-form").reset();
     selectedServices = [];
     document.querySelectorAll(".chip-btn").forEach(function (btn) { btn.classList.remove("active"); });
     document.querySelectorAll(".promo-service-block").forEach(function (block) { block.hidden = true; });
+
+    var editor = document.getElementById("home-banner-editor");
+    var mediaWrap = document.getElementById("home-banner-preview-media-wrap");
+    var empty = document.getElementById("home-banner-preview-empty");
+    var dims = document.getElementById("home-banner-dims");
+    if (editor) editor.hidden = true;
+    if (mediaWrap) mediaWrap.innerHTML = "";
+    if (empty) empty.hidden = false;
+    if (dims) dims.textContent = "لم يتم اختيار ملف بعد";
+    updateHomeBannerScaleUi();
   }
 
   function valueOf(element) {

@@ -177,6 +177,11 @@ Important production defaults:
 - `DJANGO_DEBUG=0`
 - HTTPS/security headers and CORS/CSRF constraints are enforced in prod settings.
 
+Promo home banner video autofit (production):
+- `PROMO_HOME_BANNER_VIDEO_AUTOFIT=1` enables automatic server-side fitting of uploaded home-banner videos to `1920x840`.
+- `INSTALL_FFMPEG_ON_BUILD=1` lets `backend/scripts/render_build.sh` attempt installing `ffmpeg` during build.
+- `REQUIRE_FFMPEG=1` fails the build when autofit is enabled but `ffmpeg` is unavailable.
+
 ## Static and Media Files
 
 - Static assets are collected to `backend/staticfiles` and served with WhiteNoise.

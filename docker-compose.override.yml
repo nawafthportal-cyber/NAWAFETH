@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  web:
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_DEBUG: "1"
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,0.0.0.0
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "1"
+      RUN_COLLECTSTATIC: "0"
+    command: python manage.py runserver 0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - media_data:/app/backend/media
+
+  celery_worker:
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_DEBUG: "1"
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "0"
+      RUN_COLLECTSTATIC: "0"
+    command: celery -A config worker --loglevel=INFO --concurrency=2
+    volumes:
+      - ./backend:/app/backend
+      - media_data:/app/backend/media
+
+  celery_beat:
+    env_file:
+      - .env
+    environment:
+      DJANGO_ENV: dev
+      DJANGO_DEBUG: "1"
+      WAIT_FOR_DB: "1"
+      WAIT_FOR_REDIS: "1"
+      RUN_MIGRATIONS: "0"
+      RUN_COLLECTSTATIC: "0"
+    command: celery -A config beat --loglevel=INFO
+    volumes:
+      - ./backend:/app/backend
+      - media_data:/app/backend/media

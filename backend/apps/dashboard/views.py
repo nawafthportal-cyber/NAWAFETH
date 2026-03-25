@@ -1515,6 +1515,28 @@ def _promo_quote_snapshot(promo_request: PromoRequest) -> dict | None:
         "items": quote_items,
     }
 
+def _promo_items_missing_required_assets(selected_request: PromoRequest | None) -> list[str]:
+    if selected_request is None:
+        return []
+
+    required_service_types = {
+        PromoServiceType.HOME_BANNER,
+        PromoServiceType.SPONSORSHIP,
+    }
+
+    missing_labels: list[str] = []
+    for item in selected_request.items.all():
+        if item.service_type in required_service_types and not item.assets.exists():
+            missing_labels.append(item.get_service_type_display())
+
+    # إزالة التكرار مع الحفاظ على الترتيب
+    unique_labels: list[str] = []
+    seen: set[str] = set()
+    for label in missing_labels:
+        if label not in seen:
+            seen.add(label)
+            unique_labels.append(label)
+    return unique_labels
 
 @dashboard_staff_required
 @require_dashboard_access("promo")
@@ -2062,7 +2084,11 @@ def _promo_module_assets_for_selected_request(
     if selected_request is None:
         return []
 
-    service_assets = [asset for asset in selected_request.assets.all() if getattr(asset, "item", None) and getattr(asset.item, "service_type", "") == service_type]
+    service_assets = [
+        asset
+        for asset in selected_request.assets.all()
+        if getattr(asset, "item", None) and getattr(asset.item, "service_type", "") == service_type
+    ]
     if service_assets:
         service_assets.sort(key=lambda row: int(row.id or 0), reverse=True)
         return service_assets
@@ -2072,11 +2098,10 @@ def _promo_module_assets_for_selected_request(
         return []
 
     legacy_types = PROMO_MODULE_LEGACY_AD_TYPES_BY_SERVICE.get(service_type, set())
-    if selected_request.ad_type in legacy_types or service_type == PromoServiceType.HOME_BANNER:
+    if selected_request.ad_type in legacy_types:
         unassigned_assets.sort(key=lambda row: int(row.id or 0), reverse=True)
         return unassigned_assets
     return []
-
 
 def _promo_module_action(request) -> str:
     raw = (request.POST.get("workflow_action") or request.POST.get("action") or "").strip().lower()
@@ -2193,15 +2218,8 @@ def promo_module(request, module_key: str):
             cleaned = module_form.cleaned_data
             request_id = cleaned.get("request_id")
             promo_request = requests_base_qs.filter(id=int(request_id)).first() if request_id else None
-            requester_user = None
-
-            if request_id and promo_request is None:
+            if promo_request is None:
                 module_form.add_error("request_id", "رقم طلب الترويج المحدد غير متاح.")
-            if not request_id:
-                requester_identifier = cleaned.get("requester_identifier") or ""
-                requester_user = _get_user_by_identifier(requester_identifier)
-                if requester_user is None:
-                    module_form.add_error("requester_identifier", "تعذر العثور على العميل. استخدم اسم المستخدم أو رقم الجوال.")
 
             target_provider = None
             target_provider_id = cleaned.get("target_provider_id")
@@ -2221,31 +2239,6 @@ def promo_module(request, module_key: str):
                 messages.info(request, "تم تجهيز معاينة البند. راجع الملخص ثم اضغط اعتماد للتنفيذ.")
             else:
                 try:
-                    if promo_request is None:
-                        start_at = cleaned.get("start_at") or cleaned.get("send_at") or timezone.now()
-                        end_at = cleaned.get("end_at") or (start_at + timedelta(days=1))
-                        if end_at <= start_at:
-                            end_at = start_at + timedelta(days=1)
-                        promo_request = PromoRequest.objects.create(
-                            requester=requester_user,
-                            title=(cleaned.get("title") or module_meta["label"])[:160],
-                            ad_type="bundle",
-                            start_at=start_at,
-                            end_at=end_at,
-                            frequency=PromoFrequency.S60,
-                            position=PromoPosition.NORMAL,
-                            target_category=cleaned.get("target_category") or "",
-                            target_city=cleaned.get("target_city") or "",
-                            redirect_url=cleaned.get("redirect_url") or "",
-                            mobile_scale=int(cleaned.get("mobile_scale") or 100),
-                            tablet_scale=int(cleaned.get("tablet_scale") or 100),
-                            desktop_scale=int(cleaned.get("desktop_scale") or 100),
-                            status=PromoRequestStatus.NEW,
-                            ops_status=PromoOpsStatus.NEW,
-                            assigned_to=request.user,
-                            assigned_at=timezone.now(),
-                        )
-
                     if (
                         target_provider is None
                         and getattr(promo_request.requester, "provider_profile", None) is not None
@@ -2364,9 +2357,7 @@ def promo_module(request, module_key: str):
                                 f"الإجمالي: {quote_snapshot['total']} SAR (يشمل الضريبة)."
                             ),
                         )
-                    return redirect(
-                        f"{reverse('dashboard:promo_module', kwargs={'module_key': module_key})}?request_id={promo_request.id}"
-                    )
+                    return redirect('dashboard:promo_request_detail', request_id=promo_request.id)
                 except ValueError as exc:
                     messages.error(request, str(exc))
         else:

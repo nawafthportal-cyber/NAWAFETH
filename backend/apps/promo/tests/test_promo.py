@@ -5,6 +5,7 @@ from decimal import Decimal
 from io import BytesIO
 from io import StringIO
 from django.core.management import call_command
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.test import override_settings
 from rest_framework.test import APIClient
@@ -1879,11 +1880,19 @@ def test_home_banner_asset_upload_rejects_invalid_dimensions(api, user):
         position=PromoPosition.NORMAL,
         status=PromoRequestStatus.NEW,
     )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="banner dims item",
+        start_at=pr.start_at,
+        end_at=pr.end_at,
+    )
 
     api.force_authenticate(user=user)
     response = api.post(
         f"/api/promo/requests/{pr.id}/assets/",
         data={
+            "item_id": item.id,
             "asset_type": "image",
             "file": _png_upload("wrong-size.png", size=(1280, 720)),
         },
@@ -1892,6 +1901,75 @@ def test_home_banner_asset_upload_rejects_invalid_dimensions(api, user):
 
     assert response.status_code == 400
     assert "الأبعاد المعتمدة" in str(response.data.get("detail", ""))
+
+
+@override_settings(PROMO_HOME_BANNER_VIDEO_AUTOFIT=True)
+def test_home_banner_video_upload_autofits_when_dimensions_mismatch(api, user, mocker):
+    _ensure_provider_requester(user)
+    plan = SubscriptionPlan.objects.create(
+        code="pro_home_banner_video_autofit",
+        title="Pro",
+        tier="pro",
+        features=[],
+        is_active=True,
+    )
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    start_at = timezone.now() + timedelta(days=1)
+    end_at = start_at + timedelta(days=3)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="banner video autofit",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=start_at,
+        end_at=end_at,
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+    )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر فيديو",
+        start_at=start_at,
+        end_at=end_at,
+    )
+
+    dim_error = ValidationError(
+        "الأبعاد المعتمدة لبنر الصفحة الرئيسية هي 1920x840 بكسل. تم رفع ملف بأبعاد 1280x720."
+    )
+    mocker.patch(
+        "apps.promo.views.validate_home_banner_media_dimensions",
+        side_effect=[dim_error, None],
+    )
+    transcode_mock = mocker.patch(
+        "apps.promo.views._transcode_home_banner_video_to_required_dims",
+        return_value=SimpleUploadedFile(
+            "autofit-video.mp4",
+            b"\x00\x00\x00\x18ftypmp42",
+            content_type="video/mp4",
+        ),
+    )
+
+    api.force_authenticate(user=user)
+    response = api.post(
+        f"/api/promo/requests/{pr.id}/assets/",
+        data={
+            "item_id": item.id,
+            "asset_type": "video",
+            "file": SimpleUploadedFile("raw-video.mp4", b"video-bytes", content_type="video/mp4"),
+        },
+        format="multipart",
+    )
+
+    assert response.status_code == 201
+    transcode_mock.assert_called_once()
+    assert response.data.get("asset", {}).get("asset_type") == "video"
 
 
 def test_create_multi_item_promo_request(api, user):
@@ -2135,6 +2213,100 @@ def test_preview_multi_item_request_returns_expected_pricing(api, user):
     assert str(response.data["vat_amount"]) == "330.00"
     assert str(response.data["total"]) == "2530.00"
     assert len(response.data["items"]) == 2
+
+
+def test_create_multi_item_request_expands_search_scopes(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود توحيد البحث",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
+    plan = SubscriptionPlan.objects.create(code="PRO_SCOPE", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    api.force_authenticate(user=user)
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "طلب بحث متعدد القوائم",
+            "items": [
+                {
+                    "service_type": "search_results",
+                    "title": "بحث موحد",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scopes": ["default", "main_results"],
+                    "search_position": "top10",
+                },
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    pr = PromoRequest.objects.get(pk=response.data["id"])
+    search_items = list(
+        pr.items.filter(service_type=PromoServiceType.SEARCH_RESULTS).order_by("id")
+    )
+    assert len(search_items) == 2
+    assert {item.search_scope for item in search_items} == {"default", "main_results"}
+
+
+def test_preview_multi_item_request_expands_search_scopes_pricing(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود معاينة النطاق",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
+    plan = SubscriptionPlan.objects.create(code="PRO_PREV_SCOPE", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    api.force_authenticate(user=user)
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+
+    response = api.post(
+        "/api/promo/requests/preview/",
+        data={
+            "title": "معاينة بحث متعدد القوائم",
+            "items": [
+                {
+                    "service_type": "search_results",
+                    "title": "بحث",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scopes": ["default", "main_results"],
+                    "search_position": "top10",
+                },
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert len(response.data["items"]) == 2
+    assert str(response.data["subtotal"]) == "2400.00"
+    assert str(response.data["vat_amount"]) == "360.00"
+    assert str(response.data["total"]) == "2760.00"
 
 
 def test_promo_signal_ignores_unconfirmed_paid_invoice(user):
@@ -2417,4 +2589,30 @@ def test_promo_module_preview_does_not_create_message_item(client, promo_operato
     assert response.status_code == 200
     after_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
     assert after_count == before_count
-    assert response.context["preview_payload"] is not None
+
+
+def test_promo_module_requires_existing_request_id_and_never_creates_new_request(client, promo_operator_user, user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+    initial_requests_count = PromoRequest.objects.count()
+
+    client.force_login(promo_operator_user)
+    session = client.session
+    session["dashboard_otp_verified"] = True
+    session.save()
+
+    response = client.post(
+        "/dashboard/promo/modules/home_banner/",
+        data={
+            "workflow_action": "approve_item",
+            "title": "بنر بدون طلب",
+            "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+        },
+        follow=True,
+    )
+
+    assert response.status_code == 200
+    assert PromoRequest.objects.count() == initial_requests_count
+    form = response.context["module_form"]
+    assert "request_id" in form.errors

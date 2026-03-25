@@ -9,6 +9,10 @@ class PromoBannerWidget extends StatefulWidget {
   final bool isVideo;
   final bool isActive;
   final bool autoplay;
+  final bool stretchToParent;
+  final BoxFit mediaFit;
+  final EdgeInsetsGeometry contentPadding;
+  final double mediaOverlayOpacity;
   final String? title;
   final String? subtitle;
   final double borderRadius;
@@ -20,6 +24,10 @@ class PromoBannerWidget extends StatefulWidget {
     required this.isVideo,
     this.isActive = true,
     this.autoplay = true,
+    this.stretchToParent = false,
+    this.mediaFit = BoxFit.cover,
+    this.contentPadding = EdgeInsets.zero,
+    this.mediaOverlayOpacity = 0.4,
     this.title,
     this.subtitle,
     this.borderRadius = 16,
@@ -129,70 +137,82 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final hasTitle = (widget.title ?? '').trim().isNotEmpty;
     final hasSubtitle = (widget.subtitle ?? '').trim().isNotEmpty;
 
-    return AspectRatio(
-      aspectRatio: 16 / 7,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(widget.borderRadius),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (url.isEmpty)
-              _fallback()
-            else if (widget.isVideo)
-              _buildVideoLayers()
-            else
-              _buildImage(url),
+    final bannerLayers = ClipRRect(
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (url.isEmpty)
+            _fallback()
+          else if (widget.isVideo)
+            _buildVideoLayers()
+          else
+            _buildImage(url),
+          if (widget.mediaOverlayOpacity > 0)
             Positioned.fill(
-              child: ColoredBox(color: Colors.black.withValues(alpha: 0.4)),
+              child: ColoredBox(color: Colors.black.withValues(alpha: widget.mediaOverlayOpacity)),
             ),
-            if (hasTitle || hasSubtitle)
-              Positioned.fill(
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (hasTitle)
-                          Text(
-                            widget.title!.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: 'Cairo',
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                            ),
+          if (hasTitle || hasSubtitle)
+            Positioned.fill(
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (hasTitle)
+                        Text(
+                          widget.title!.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'Cairo',
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
                           ),
-                        if (hasSubtitle)
-                          Text(
-                            widget.subtitle!.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.9),
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
+                        ),
+                      if (hasSubtitle)
+                        Text(
+                          widget.subtitle!.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
+    );
+
+    final padded = Padding(
+      padding: widget.contentPadding,
+      child: bannerLayers,
+    );
+
+    if (widget.stretchToParent) {
+      return padded;
+    }
+
+    return AspectRatio(
+      aspectRatio: 16 / 7,
+      child: padded,
     );
   }
 
   Widget _buildImage(String url) {
     return Image.network(
       url,
-      fit: BoxFit.cover,
+      fit: widget.mediaFit,
       errorBuilder: (_, __, ___) => _fallback(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
@@ -209,7 +229,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     }
 
     final size = controller.value.size;
-    final mainFit = BoxFit.cover;
+    final mainFit = widget.mediaFit;
 
     return Stack(
       fit: StackFit.expand,

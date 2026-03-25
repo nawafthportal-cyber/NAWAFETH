@@ -698,8 +698,8 @@ class PromoRequestActionForm(forms.Form):
 
 class PromoModuleItemForm(forms.Form):
     request_id = forms.IntegerField(
-        label="رقم طلب الترويج (اختياري)",
-        required=False,
+        label="رقم طلب الترويج",
+        required=True,
         min_value=1,
         widget=forms.NumberInput(
             attrs={
@@ -910,10 +910,8 @@ class PromoModuleItemForm(forms.Form):
         cleaned = super().clean()
         service_type = str(self.service_type or "").strip()
         request_id = cleaned.get("request_id")
-        requester_identifier = (cleaned.get("requester_identifier") or "").strip()
-
-        if not request_id and not requester_identifier:
-            self.add_error("requester_identifier", "أدخل عميل الحملة أو رقم طلب ترويج قائم.")
+        if not request_id:
+            self.add_error("request_id", "اختر رقم طلب ترويج قائم أولاً.")
 
         start_at = cleaned.get("start_at")
         end_at = cleaned.get("end_at")

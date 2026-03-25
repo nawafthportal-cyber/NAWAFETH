@@ -997,24 +997,39 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     if (mediaUrl == null) return _gradientPlaceholder();
 
-    if (banner.isVideo) {
-      return PromoBannerWidget(
-        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-        mediaUrl: mediaUrl,
-        isVideo: true,
-        isActive: isActive,
-        autoplay: true,
-        borderRadius: 0,
-        fallback: _gradientPlaceholder(),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 390.0;
+        final height = constraints.maxHeight.isFinite ? constraints.maxHeight : 280.0;
+        final stagePadding = _heroBannerStagePadding(width: width, height: height);
 
-    return Image.network(
-      mediaUrl,
-      fit: BoxFit.cover,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+        if (banner.isVideo) {
+          return PromoBannerWidget(
+            key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
+            mediaUrl: mediaUrl,
+            isVideo: true,
+            isActive: isActive,
+            autoplay: true,
+            borderRadius: 0,
+            stretchToParent: true,
+            mediaFit: BoxFit.contain,
+            mediaOverlayOpacity: 0,
+            contentPadding: stagePadding,
+            fallback: _gradientPlaceholder(),
+          );
+        }
+
+        return Padding(
+          padding: stagePadding,
+          child: Image.network(
+            mediaUrl,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
+            errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+          ),
+        );
+      },
     );
   }
 

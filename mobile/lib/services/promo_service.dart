@@ -21,11 +21,23 @@ class PromoService {
     String? messageTitle,
     String? messageBody,
     String? redirectUrl,
+    int? mobileScale,
+    int? tabletScale,
+    int? desktopScale,
     List<Map<String, dynamic>>? items,
   }) async {
     final body = <String, dynamic>{'title': title};
     if (items != null && items.isNotEmpty) {
       body['items'] = items;
+      if (mobileScale != null) {
+        body['mobile_scale'] = mobileScale;
+      }
+      if (tabletScale != null) {
+        body['tablet_scale'] = tabletScale;
+      }
+      if (desktopScale != null) {
+        body['desktop_scale'] = desktopScale;
+      }
       return ApiClient.post('/api/promo/requests/create/', body: body);
     }
     body.addAll({
@@ -53,14 +65,32 @@ class PromoService {
     if (redirectUrl != null && redirectUrl.isNotEmpty) {
       body['redirect_url'] = redirectUrl;
     }
+    if (mobileScale != null) {
+      body['mobile_scale'] = mobileScale;
+    }
+    if (tabletScale != null) {
+      body['tablet_scale'] = tabletScale;
+    }
+    if (desktopScale != null) {
+      body['desktop_scale'] = desktopScale;
+    }
     return ApiClient.post('/api/promo/requests/create/', body: body);
   }
 
   static Future<ApiResponse> createBundleRequest({
     required String title,
     required List<Map<String, dynamic>> items,
+    int? mobileScale,
+    int? tabletScale,
+    int? desktopScale,
   }) {
-    return createRequest(title: title, items: items);
+    return createRequest(
+      title: title,
+      items: items,
+      mobileScale: mobileScale,
+      tabletScale: tabletScale,
+      desktopScale: desktopScale,
+    );
   }
 
   static Future<ApiResponse> previewRequest({
@@ -77,10 +107,22 @@ class PromoService {
     String? messageTitle,
     String? messageBody,
     String? redirectUrl,
+    int? mobileScale,
+    int? tabletScale,
+    int? desktopScale,
   }) async {
     final body = <String, dynamic>{'title': title};
     if (items != null && items.isNotEmpty) {
       body['items'] = items;
+      if (mobileScale != null) {
+        body['mobile_scale'] = mobileScale;
+      }
+      if (tabletScale != null) {
+        body['tablet_scale'] = tabletScale;
+      }
+      if (desktopScale != null) {
+        body['desktop_scale'] = desktopScale;
+      }
       return ApiClient.post('/api/promo/requests/preview/', body: body);
     }
     body.addAll({
@@ -108,14 +150,32 @@ class PromoService {
     if (redirectUrl != null && redirectUrl.isNotEmpty) {
       body['redirect_url'] = redirectUrl;
     }
+    if (mobileScale != null) {
+      body['mobile_scale'] = mobileScale;
+    }
+    if (tabletScale != null) {
+      body['tablet_scale'] = tabletScale;
+    }
+    if (desktopScale != null) {
+      body['desktop_scale'] = desktopScale;
+    }
     return ApiClient.post('/api/promo/requests/preview/', body: body);
   }
 
   static Future<ApiResponse> previewBundleRequest({
     required String title,
     required List<Map<String, dynamic>> items,
+    int? mobileScale,
+    int? tabletScale,
+    int? desktopScale,
   }) {
-    return previewRequest(title: title, items: items);
+    return previewRequest(
+      title: title,
+      items: items,
+      mobileScale: mobileScale,
+      tabletScale: tabletScale,
+      desktopScale: desktopScale,
+    );
   }
 
   /// جلب طلبات الترويج الخاصة بي

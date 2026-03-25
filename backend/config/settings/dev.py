@@ -7,3 +7,6 @@ OTP_DEV_BYPASS_ENABLED = True
 OTP_DEV_ACCEPT_ANY_4_DIGITS = True
 OTP_DEV_TEST_CODE = "0000"
 OTP_DEV_ACCEPT_ANY_CODE = True
+
+# Keep local development lightweight unless explicitly enabled.
+PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", False)

@@ -55,6 +55,32 @@
           <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
           <div class="form-group"><label class="form-label">مرفقات البانر</label><input data-field="files" type="file" class="form-input" multiple></div>
+          <div class="banner-editor" id="home-banner-editor" hidden>
+            <div class="banner-editor-head">
+              <strong>معاينة وتحجيم البانر</strong>
+              <small id="home-banner-dims" class="text-muted">لم يتم اختيار ملف بعد</small>
+            </div>
+            <div class="banner-preview-frame" id="home-banner-preview-frame">
+              <div class="banner-preview-stage" id="home-banner-preview-stage">
+                <div class="banner-preview-empty" id="home-banner-preview-empty">اختر صورة أو فيديو للمعاينة</div>
+                <div class="banner-preview-media-wrap" id="home-banner-preview-media-wrap"></div>
+              </div>
+            </div>
+            <div class="banner-device-tabs" id="home-banner-device-tabs">
+              <button type="button" class="banner-device-tab active" data-device="mobile">جوال</button>
+              <button type="button" class="banner-device-tab" data-device="tablet">تابلت</button>
+              <button type="button" class="banner-device-tab" data-device="desktop">ديسكتوب</button>
+            </div>
+            <div class="form-group" style="margin-bottom:8px">
+              <label class="form-label" for="home-banner-scale-range">نسبة التحجيم</label>
+              <input id="home-banner-scale-range" type="range" min="40" max="160" value="100" class="form-input">
+              <small class="text-muted">القيمة الحالية: <span id="home-banner-scale-value">100%</span></small>
+            </div>
+            <div class="check-row" style="margin:4px 0 0">
+              <label><input id="home-banner-auto-fit" type="checkbox" checked> ضبط الصور تلقائياً إلى 1920x840 قبل الرفع</label>
+            </div>
+            <small id="home-banner-editor-note" class="text-muted">الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.</small>
+          </div>
         </div>
 
         <div class="promo-service-block" data-service-block="featured_specialists" hidden>
@@ -79,7 +105,14 @@
           <h4>الظهور في قوائم البحث</h4>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">تصنيف المختص</label><input data-field="target_category" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">قائمة الظهور</label><select data-field="search_scope" class="form-select"><option value="default">قائمة البحث الافتراضية</option><option value="main_results">نتائج البحث الرئيسية</option><option value="category_match">نتائج البحث المطابقة للتصنيف</option></select></div>
+          <div class="form-group">
+            <label class="form-label">قوائم الظهور</label>
+            <div class="check-row">
+              <label><input data-field="search_scopes" type="checkbox" value="default" checked> قائمة البحث الافتراضية</label>
+              <label><input data-field="search_scopes" type="checkbox" value="main_results"> نتائج البحث الرئيسية</label>
+              <label><input data-field="search_scopes" type="checkbox" value="category_match"> نتائج البحث المطابقة للتصنيف</label>
+            </div>
+          </div>
           <div class="form-group"><label class="form-label">ترتيب الظهور</label><select data-field="search_position" class="form-select"><option value="first">الأول في القائمة</option><option value="second">الثاني في القائمة</option><option value="top5">من أول خمسة أسماء</option><option value="top10">من أول عشرة أسماء</option></select></div>
         </div>
 
@@ -148,6 +181,16 @@
   .promo-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .promo-summary-grid .promo-modal-item{margin-bottom:0;background:#faf8ff}
   .promo-note{margin:0;color:#6b7280;line-height:1.8;font-size:13px}
+  .banner-editor{border:1px solid #ebe3f8;border-radius:14px;padding:12px;background:#faf7ff}
+  .banner-editor-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+  .banner-preview-frame{position:relative;width:100%;aspect-ratio:16/7;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#0f172a,#1e293b)}
+  .banner-preview-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;--hb-preview-scale:1}
+  .banner-preview-empty{color:#e5e7eb;font-size:13px;text-align:center;padding:10px}
+  .banner-preview-media-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px}
+  .banner-preview-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:scale(var(--hb-preview-scale));transform-origin:center center}
+  .banner-device-tabs{display:flex;gap:8px;margin:10px 0}
+  .banner-device-tab{border:1px solid #d6c8ef;background:#fff;color:#5d2d95;padding:8px 10px;border-radius:999px;font:inherit;font-size:13px}
+  .banner-device-tab.active{background:#efe7fb;border-color:#5d2d95}
   .promo-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f0f6}
   .promo-line:last-child{border-bottom:0}
   .promo-line span:first-child{color:#6b7280}

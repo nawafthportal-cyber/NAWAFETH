@@ -43,6 +43,12 @@ services:
         value: "0"
       - key: STARTUP_SMOKE_TIMEOUT_SECONDS
         value: "60"
+      - key: PROMO_HOME_BANNER_VIDEO_AUTOFIT
+        value: "1"
+      - key: INSTALL_FFMPEG_ON_BUILD
+        value: "1"
+      - key: REQUIRE_FFMPEG
+        value: "1"
       - key: FEATURE_MODERATION_CENTER
         value: "1"
       - key: FEATURE_ANALYTICS_EVENTS

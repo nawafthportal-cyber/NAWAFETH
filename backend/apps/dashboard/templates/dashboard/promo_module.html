@@ -53,21 +53,19 @@
 
           <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm">
             {% csrf_token %}
-            <h3>إضافة بند ترويجي</h3>
+            <h3>إضافة بند ترويجي على طلب قائم</h3>
 
             <div class="module-form-layout">
               <section class="module-block">
                 <h4>بيانات الربط</h4>
                 <div class="form-grid">
-                  <div class="field">
-                    <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج (اختياري)</label>
-                    {{ module_form.request_id }}
-                    {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                  <div class="field full">
+                    <small>التشغيل الموحد: لا يتم إنشاء طلب جديد من هذه الشاشة. اختر طلبًا قائمًا ثم أضف البند المطلوب.</small>
                   </div>
                   <div class="field">
-                    <label for="{{ module_form.requester_identifier.id_for_label }}">اسم المستخدم/جوال العميل</label>
-                    {{ module_form.requester_identifier }}
-                    {% for err in module_form.requester_identifier.errors %}<small>{{ err }}</small>{% endfor %}
+                    <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                    {{ module_form.request_id }}
+                    {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
                   </div>
                   <div class="field full">
                     <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>

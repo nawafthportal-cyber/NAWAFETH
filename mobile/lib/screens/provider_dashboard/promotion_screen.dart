@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
@@ -56,12 +57,41 @@ const _searchScopeLabels = {
   'category_match': 'نتائج البحث المطابقة للتصنيف',
 };
 
+const _searchScopeOrder = ['default', 'main_results', 'category_match'];
+
 const _searchPositionLabels = {
   'first': 'الأول في القائمة',
   'second': 'الثاني في القائمة',
   'top5': 'من أول خمسة أسماء',
   'top10': 'من أول عشرة أسماء',
 };
+
+String? validatePromoMessageOrAssetRequirement({
+  required bool requiresMessage,
+  required String messageText,
+  required int assetCount,
+}) {
+  if (!requiresMessage) return null;
+  if (messageText.trim().isEmpty && assetCount <= 0) {
+    return 'أدخل نص الرسالة أو أضف مرفقًا';
+  }
+  return null;
+}
+
+List<String> orderedSearchScopes(Iterable<String> selectedScopes) {
+  final set = selectedScopes.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+  return _searchScopeOrder.where(set.contains).toList(growable: false);
+}
+
+String buildHomeBannerVideoAutofitWarning({
+  required int requiredWidth,
+  required int requiredHeight,
+  required int currentWidth,
+  required int currentHeight,
+}) {
+  return 'WARN: سيتم ضبط الفيديو تلقائيًا إلى ${requiredWidth}x$requiredHeight على الخادم '
+      '(المقاس الحالي ${currentWidth}x$currentHeight).';
+}
 
 const _promoServices = [
   _PromoServiceDef(
@@ -582,6 +612,13 @@ class _PromoComposerState extends State<_PromoComposer> {
   final List<String> _selected = [];
   bool _sending = false;
 
+  _PromoDraft? get _homeBannerDraft {
+    if (_selected.contains('home_banner')) {
+      return _drafts['home_banner'];
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -754,24 +791,37 @@ class _PromoComposerState extends State<_PromoComposer> {
             ],
             if (service.needsSearch) ...[
               const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                initialValue: draft.searchScope,
-                decoration: _decoration(
-                  'قائمة الظهور',
-                  Icons.manage_search_rounded,
+              const Text(
+                'قوائم الظهور',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w600,
                 ),
-                items: _searchScopeLabels.entries
-                    .map((e) => DropdownMenuItem(
-                          value: e.key,
-                          child: Text(
-                            e.value,
-                            style: const TextStyle(fontFamily: 'Cairo'),
-                          ),
-                        ))
-                    .toList(),
-                onChanged: (value) => setState(
-                  () => draft.searchScope = value ?? 'default',
-                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final scope in _searchScopeOrder)
+                    FilterChip(
+                      selected: draft.searchScopes.contains(scope),
+                      selectedColor: const Color(0xFFE9E0FA),
+                      label: Text(
+                        _searchScopeLabels[scope] ?? scope,
+                        style: const TextStyle(fontFamily: 'Cairo'),
+                      ),
+                      onSelected: (selected) {
+                        setState(() {
+                          if (selected) {
+                            draft.searchScopes.add(scope);
+                          } else {
+                            draft.searchScopes.remove(scope);
+                          }
+                        });
+                      },
+                    ),
+                ],
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
@@ -884,16 +934,45 @@ class _PromoComposerState extends State<_PromoComposer> {
             ],
             if (service.needsAssets) ...[
               if (service.type == 'home_banner')
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    'المقاس المعتمد: 1920x840 (نسبة 16:7) للصور والفيديو MP4.',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      color: Colors.black54,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'المقاس المعتمد: 1920x840 (نسبة 16:7) للصور والفيديو MP4.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
                     ),
-                  ),
+                    _buildScaleSlider(
+                      label: 'تحجيم الجوال',
+                      value: draft.mobileScale,
+                      min: 40,
+                      max: 140,
+                      onChanged: (value) =>
+                          setState(() => draft.mobileScale = value.round()),
+                    ),
+                    _buildScaleSlider(
+                      label: 'تحجيم التابلت',
+                      value: draft.tabletScale,
+                      min: 40,
+                      max: 150,
+                      onChanged: (value) =>
+                          setState(() => draft.tabletScale = value.round()),
+                    ),
+                    _buildScaleSlider(
+                      label: 'تحجيم الديسكتوب',
+                      value: draft.desktopScale,
+                      min: 40,
+                      max: 160,
+                      onChanged: (value) =>
+                          setState(() => draft.desktopScale = value.round()),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
@@ -935,6 +1014,51 @@ class _PromoComposerState extends State<_PromoComposer> {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+    );
+  }
+
+  Widget _buildScaleSlider({
+    required String label,
+    required int value,
+    required double min,
+    required double max,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            Text(
+              '$value%',
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.toDouble().clamp(min, max),
+          min: min,
+          max: max,
+          divisions: (max - min).round(),
+          label: '$value%',
+          activeColor: _brandColor,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 
@@ -999,11 +1123,15 @@ class _PromoComposerState extends State<_PromoComposer> {
     if (draft.service.type == 'home_banner') {
       final validFiles = <File>[];
       final errors = <String>[];
+      final warnings = <String>[];
 
       for (final file in selected) {
         final validationError = await _validateHomeBannerFile(file);
         if (validationError == null) {
           validFiles.add(file);
+        } else if (validationError.startsWith('WARN:')) {
+          validFiles.add(file);
+          warnings.add('${_name(file)}: ${validationError.replaceFirst('WARN:', '').trim()}');
         } else {
           errors.add('${_name(file)}: $validationError');
         }
@@ -1015,6 +1143,8 @@ class _PromoComposerState extends State<_PromoComposer> {
       });
       if (errors.isNotEmpty) {
         _snack(errors.first, true);
+      } else if (warnings.isNotEmpty) {
+        _snack(warnings.first, false);
       }
       return;
     }
@@ -1037,8 +1167,8 @@ class _PromoComposerState extends State<_PromoComposer> {
         final width = image.width;
         final height = image.height;
         if (width != _homeBannerRequiredWidth || height != _homeBannerRequiredHeight) {
-          return 'الأبعاد المطلوبة ${_homeBannerRequiredWidth}x${_homeBannerRequiredHeight}. '
-              'الأبعاد الحالية ${width}x${height}.';
+          return 'الأبعاد المطلوبة ${_homeBannerRequiredWidth}x$_homeBannerRequiredHeight. '
+              'الأبعاد الحالية ${width}x$height.';
         }
       } catch (_) {
         return 'تعذر قراءة أبعاد الصورة.';
@@ -1054,8 +1184,12 @@ class _PromoComposerState extends State<_PromoComposer> {
       final width = size.width.round();
       final height = size.height.round();
       if (width != _homeBannerRequiredWidth || height != _homeBannerRequiredHeight) {
-        return 'أبعاد الفيديو المطلوبة ${_homeBannerRequiredWidth}x${_homeBannerRequiredHeight}. '
-            'الأبعاد الحالية ${width}x${height}.';
+        return buildHomeBannerVideoAutofitWarning(
+          requiredWidth: _homeBannerRequiredWidth,
+          requiredHeight: _homeBannerRequiredHeight,
+          currentWidth: width,
+          currentHeight: height,
+        );
       }
       return null;
     } catch (_) {
@@ -1065,7 +1199,7 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
   }
 
-  Future<ui.Image> _decodeImage(List<int> bytes) {
+  Future<ui.Image> _decodeImage(Uint8List bytes) {
     final completer = Completer<ui.Image>();
     ui.decodeImageFromList(bytes, (image) {
       if (!completer.isCompleted) {
@@ -1194,6 +1328,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final previewRes = await PromoService.previewBundleRequest(
       title: _title.text.trim(),
       items: items,
+      mobileScale: _homeBannerDraft?.mobileScale,
+      tabletScale: _homeBannerDraft?.tabletScale,
+      desktopScale: _homeBannerDraft?.desktopScale,
     );
     if (!mounted) return;
     if (!previewRes.isSuccess) {
@@ -1214,6 +1351,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final createRes = await PromoService.createBundleRequest(
       title: _title.text.trim(),
       items: items,
+      mobileScale: _homeBannerDraft?.mobileScale,
+      tabletScale: _homeBannerDraft?.tabletScale,
+      desktopScale: _homeBannerDraft?.desktopScale,
     );
     if (!mounted) return;
     if (!createRes.isSuccess) {
@@ -1339,8 +1479,11 @@ class _PromoDraft {
   DateTime? endAt;
   DateTime? sendAt;
   String frequency = '60s';
-  String searchScope = 'default';
+  final Set<String> searchScopes = {'default'};
   String searchPosition = 'first';
+  int mobileScale = 100;
+  int tabletScale = 100;
+  int desktopScale = 100;
   bool notify = true;
   bool chat = false;
 
@@ -1375,7 +1518,13 @@ class _PromoDraft {
     }
     if (service.needsSendAt && sendAt == null) return 'حدد وقت الإرسال';
     if (service.needsChannels && !notify && !chat) return 'اختر قناة إرسال';
-    if (service.needsMessage && message.text.trim().isEmpty) return 'اكتب نص الرسالة';
+    final msgValidation = validatePromoMessageOrAssetRequirement(
+      requiresMessage: service.needsMessage,
+      messageText: message.text,
+      assetCount: files.length,
+    );
+    if (msgValidation != null) return msgValidation;
+    if (service.needsSearch && searchScopes.isEmpty) return 'اختر قائمة ظهور واحدة على الأقل';
     if (service.needsSponsor && sponsorName.text.trim().isEmpty) return 'أدخل اسم الراعي';
     if (service.needsSponsor && monthCount <= 0) return 'أدخل مدة الرعاية';
     if (service.attachmentsRequired && files.isEmpty) return 'أضف المرفقات المطلوبة';
@@ -1396,7 +1545,9 @@ class _PromoDraft {
     if (service.needsSendAt) body['send_at'] = sendAt!.toUtc().toIso8601String();
     if (service.needsFrequency) body['frequency'] = frequency;
     if (service.needsSearch) {
-      body['search_scope'] = searchScope;
+      final orderedScopes = orderedSearchScopes(searchScopes);
+      body['search_scopes'] = orderedScopes;
+      body['search_scope'] = orderedScopes.isNotEmpty ? orderedScopes.first : 'default';
       body['search_position'] = searchPosition;
     }
     if (category.text.trim().isNotEmpty) body['target_category'] = category.text.trim();
@@ -1409,6 +1560,11 @@ class _PromoDraft {
     if (service.needsSponsor) {
       body['sponsor_name'] = sponsorName.text.trim();
       body['sponsorship_months'] = monthCount;
+    }
+    if (service.type == 'home_banner') {
+      body['mobile_scale'] = mobileScale;
+      body['tablet_scale'] = tabletScale;
+      body['desktop_scale'] = desktopScale;
     }
     if (specs.text.trim().isNotEmpty) body['attachment_specs'] = specs.text.trim();
     return body;
@@ -1429,8 +1585,13 @@ class _PromoDraft {
     endAt = null;
     sendAt = null;
     frequency = '60s';
-    searchScope = 'default';
+    searchScopes
+      ..clear()
+      ..add('default');
     searchPosition = 'first';
+    mobileScale = 100;
+    tabletScale = 100;
+    desktopScale = 100;
     notify = true;
     chat = false;
   }

@@ -147,6 +147,11 @@ class PromoAssetSerializer(serializers.ModelSerializer):
 
 class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
     asset_count = serializers.IntegerField(required=False, min_value=0, write_only=True)
+    search_scopes = serializers.ListField(
+        child=serializers.ChoiceField(choices=PromoSearchScope.choices),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = PromoRequestItem
@@ -159,6 +164,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             "send_at",
             "frequency",
             "search_scope",
+            "search_scopes",
             "search_position",
             "target_category",
             "target_city",
@@ -219,8 +225,20 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("معدل الظهور غير صحيح.")
 
         if service_type == PromoServiceType.SEARCH_RESULTS:
-            if attrs.get("search_scope") not in PromoSearchScope.values:
+            scopes = [str(scope).strip() for scope in (attrs.get("search_scopes") or []) if str(scope).strip()]
+            legacy_scope = str(attrs.get("search_scope") or "").strip()
+            if not scopes and legacy_scope:
+                scopes = [legacy_scope]
+            deduped_scopes: list[str] = []
+            for scope in scopes:
+                if scope in deduped_scopes:
+                    continue
+                deduped_scopes.append(scope)
+
+            if not deduped_scopes:
                 raise serializers.ValidationError("قائمة الظهور مطلوبة.")
+            attrs["resolved_search_scopes"] = deduped_scopes
+            attrs["search_scope"] = deduped_scopes[0]
             if attrs.get("search_position") not in {
                 PromoPosition.FIRST,
                 PromoPosition.SECOND,
@@ -429,14 +447,42 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 PromoServiceType.SEARCH_RESULTS,
             }
             for row in items_data:
-                normalized = {key: value for key, value in row.items() if key != "asset_count"}
-                if (
-                    provider_profile is not None
-                    and normalized.get("service_type") in auto_targeted_service_types
-                    and not normalized.get("target_provider")
-                ):
-                    normalized["target_provider"] = provider_profile
-                normalized_items.append(normalized)
+                normalized = {
+                    key: value
+                    for key, value in row.items()
+                    if key not in {"asset_count", "search_scopes", "resolved_search_scopes"}
+                }
+
+                service_type = normalized.get("service_type")
+                scopes = [
+                    str(scope).strip()
+                    for scope in (row.get("resolved_search_scopes") or row.get("search_scopes") or [])
+                    if str(scope).strip()
+                ]
+                if not scopes and normalized.get("search_scope"):
+                    scopes = [str(normalized.get("search_scope") or "").strip()]
+
+                expanded_rows = []
+                if service_type == PromoServiceType.SEARCH_RESULTS and scopes:
+                    scope_labels = dict(PromoSearchScope.choices)
+                    for scope in scopes:
+                        expanded = dict(normalized)
+                        expanded["search_scope"] = scope
+                        base_title = str(expanded.get("title") or "").strip()
+                        if base_title and len(scopes) > 1:
+                            expanded["title"] = f"{base_title} - {scope_labels.get(scope, scope)}"[:160]
+                        expanded_rows.append(expanded)
+                else:
+                    expanded_rows.append(normalized)
+
+                for expanded in expanded_rows:
+                    if (
+                        provider_profile is not None
+                        and expanded.get("service_type") in auto_targeted_service_types
+                        and not expanded.get("target_provider")
+                    ):
+                        expanded["target_provider"] = provider_profile
+                    normalized_items.append(expanded)
 
             schedule_points = []
             for row in normalized_items:

@@ -50,23 +50,23 @@ body.home-mobile-layout .hero-banner-shell .carousel-arrow {
   opacity: 0.72;
 }
 
-/* Full-bleed: promotional banner fills the entire hero area (no floating-card padding) */
+/* Keep a safe stage so full creative remains visible behind hero UI overlays. */
 body.home-mobile-layout .hero-banner-shell .carousel-media-stage {
-  padding: 0;
+  padding: var(--hero-banner-safe-top) var(--hero-banner-safe-inline) var(--hero-banner-safe-bottom);
 }
 
 body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="portrait"] .carousel-media-stage,
 body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="square"] .carousel-media-stage {
-  padding: 0;
+  padding: var(--hero-banner-safe-top) var(--hero-banner-safe-inline) var(--hero-banner-safe-bottom);
 }
 
-/* Banner image/video fills hero 100% (full bleed) */
+/* Show the full banner asset while the backdrop keeps the hero visually rich. */
 body.home-mobile-layout .hero-banner-shell .carousel-media {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  object-fit: cover;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   object-position: center center;
   padding: 0;
   border-radius: 0;

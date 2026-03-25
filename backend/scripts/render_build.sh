@@ -9,6 +9,30 @@ cd "${PROJECT_ROOT}"
 # expected at runtime.
 export DJANGO_ENV="${DJANGO_ENV:-prod}"
 
+# Optional: install ffmpeg at build-time for promo home-banner video autofit.
+if [[ "${INSTALL_FFMPEG_ON_BUILD:-1}" == "1" ]]; then
+	if command -v apt-get >/dev/null 2>&1; then
+		echo "[build] Installing ffmpeg via apt-get..."
+		apt-get update && apt-get install -y ffmpeg || echo "[build] WARN: ffmpeg install failed via apt-get."
+	else
+		echo "[build] WARN: apt-get not available; skipping ffmpeg installation."
+	fi
+fi
+
+if [[ "${PROMO_HOME_BANNER_VIDEO_AUTOFIT:-1}" == "1" && "${REQUIRE_FFMPEG:-1}" == "1" ]]; then
+	if ! command -v ffmpeg >/dev/null 2>&1; then
+		echo "[build] ERROR: PROMO_HOME_BANNER_VIDEO_AUTOFIT=1 requires ffmpeg but it was not found."
+		echo "[build] Hint: keep INSTALL_FFMPEG_ON_BUILD=1 or bake ffmpeg into the runtime image."
+		exit 1
+	fi
+fi
+
+if command -v ffmpeg >/dev/null 2>&1; then
+	echo "[build] ffmpeg found: $(ffmpeg -version | head -1)"
+else
+	echo "[build] ffmpeg not found (video autofit will fail at runtime if enabled)."
+fi
+
 python -m pip install --upgrade pip
 pip install -r requirements/prod.txt
 
