@@ -500,15 +500,16 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          {% for item in nav_items %}
-            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-          {% endfor %}
-          {% if dashboard_nav_access.support %}
-            <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
-          {% endif %}
-          {% if dashboard_nav_access.admin_control %}
-            <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
-          {% endif %}
+          {% include 'dashboard/_sidebar_main_nav.html' %}
+
+          <div class="side-card">
+            <h4>القائمة الفرعية</h4>
+            <div class="stack sidebar-menu-stack">
+              {% for item in nav_items %}
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
 
           <div class="side-card teams-fixed-card" id="teamFixedMenu">
             <h4>قوائم الفرق</h4>
@@ -583,4 +584,3 @@
   </script>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
 {% endblock %}
-

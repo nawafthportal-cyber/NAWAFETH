@@ -171,9 +171,15 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          {% for item in content_modules %}
-            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-          {% endfor %}
+          {% include 'dashboard/_sidebar_main_nav.html' %}
+          <div class="side-card">
+            <h4>القائمة الفرعية</h4>
+            <div class="stack sidebar-menu-stack">
+              {% for item in content_modules %}
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
         </div>
       </aside>
     </main>

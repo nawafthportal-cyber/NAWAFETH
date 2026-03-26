@@ -247,19 +247,7 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          <a class="tab-btn active" href="{% url 'dashboard:support_dashboard' %}">لوحة الدعم والمساعدة</a>
-          {% if dashboard_nav_access.admin_control %}
-            <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
-          {% endif %}
-          {% if dashboard_nav_access.content %}
-            <a class="tab-btn" href="{% url 'dashboard:content_dashboard_home' %}">لوحة إدارة المحتوى</a>
-          {% endif %}
-          {% if dashboard_nav_access.promo %}
-            <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
-          {% endif %}
-          {% if dashboard_nav_access.analytics %}
-            <a class="tab-btn" href="{% url 'dashboard:analytics_insights' %}">التحليلات</a>
-          {% endif %}
+          {% include 'dashboard/_sidebar_main_nav.html' %}
 
           <div class="side-card teams-fixed-card" id="teamFixedMenu">
             <h4>قوائم الفرق</h4>

@@ -505,9 +505,16 @@ body.dashboard-body {
 .dash-shell {
   margin-top: 18px;
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 18px;
   align-items: start;
+  /* Force menu column to stay physically on the right in RTL pages. */
+  direction: ltr;
+}
+
+.dash-shell > .content-panel,
+.dash-shell > .side-panel {
+  direction: rtl;
 }
 
 /* ── Content Panel ── */
@@ -824,6 +831,14 @@ table.dash-table {
   color: var(--brand-strong);
 }
 
+.sidebar-menu-stack {
+  gap: 8px;
+}
+
+.sidebar-menu-card {
+  padding: 12px;
+}
+
 /* ── Quick Stat ── */
 .quick-stat {
   display: flex;
@@ -911,6 +926,11 @@ table.dash-table {
 
 .team-lists-panel {
   margin-top: 16px;
+}
+
+.team-panels {
+  display: grid;
+  gap: 12px;
 }
 
 .team-panel-card {

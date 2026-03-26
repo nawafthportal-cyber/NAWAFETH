@@ -1,0 +1,10 @@
+{% if dashboard_main_nav_items %}
+  <div class="side-card sidebar-menu-card">
+    <h4>القائمة الرئيسية</h4>
+    <div class="stack sidebar-menu-stack">
+      {% for item in dashboard_main_nav_items %}
+        <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+      {% endfor %}
+    </div>
+  </div>
+{% endif %}

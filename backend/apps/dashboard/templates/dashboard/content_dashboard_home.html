@@ -49,12 +49,12 @@
         <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
           <div class="title-row">
             <h2>القوائم المرتبطة بلوحة إدارة المحتوى</h2>
-            <span class="pill info">اختر الوحدة من القائمة الثابتة يمينًا</span>
+            <span class="pill info">عرض مباشر لجميع الوحدات بدون إخفاء</span>
           </div>
 
           <div class="team-panels" id="teamPanels">
             {% for item in content_modules %}
-              <article class="team-panel-card{% if item.key == 'first_time' %} active{% endif %}" data-team-panel="{{ item.key }}" {% if item.key != 'first_time' %}hidden{% endif %}>
+              <article class="team-panel-card" data-team-panel="{{ item.key }}">
                 <header class="team-panel-header">
                   <h3>{{ item.label }}</h3>
                   <p>{{ item.description }}</p>
@@ -81,25 +81,13 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          {% for item in content_modules %}
-            <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-          {% endfor %}
+          {% include 'dashboard/_sidebar_main_nav.html' %}
 
-          <div class="side-card teams-fixed-card" id="teamFixedMenu">
-            <h4>قوائم الوحدات</h4>
-            <p class="teams-fixed-note">القائمة ثابتة. انقر على الوحدة لعرض تفاصيلها بالأسفل.</p>
-            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الوحدات">
+          <div class="side-card">
+            <h4>القائمة الفرعية</h4>
+            <div class="stack sidebar-menu-stack">
               {% for item in content_modules %}
-                <button
-                  type="button"
-                  class="team-fixed-btn{% if item.key == 'first_time' %} active{% endif %}"
-                  data-team-target="{{ item.key }}"
-                  role="tab"
-                  aria-selected="{% if item.key == 'first_time' %}true{% else %}false{% endif %}"
-                >
-                  <span>{{ forloop.counter }}</span>
-                  <strong>{{ item.label }}</strong>
-                </button>
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
               {% endfor %}
             </div>
           </div>
