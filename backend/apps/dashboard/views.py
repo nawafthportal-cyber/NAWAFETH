@@ -761,8 +761,8 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
         "refunded": payment_attempts_qs.filter(status=PaymentAttemptStatus.REFUNDED).count(),
     }
 
-    paid_totals = paid_invoices_qs.aggregate(total=Count("id"), amount_sum=Sum("total"))
-    payment_summary["paid_invoices"] = int(paid_totals.get("total") or 0)
+    paid_totals = paid_invoices_qs.aggregate(invoice_count=Count("id"), amount_sum=Sum("total"))
+    payment_summary["paid_invoices"] = int(paid_totals.get("invoice_count") or 0)
     payment_summary["paid_amount_total"] = float(paid_totals.get("amount_sum") or 0)
 
     specialist_classification = {
