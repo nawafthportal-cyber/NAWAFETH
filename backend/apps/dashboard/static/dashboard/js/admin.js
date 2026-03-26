@@ -124,6 +124,106 @@
     applyAccessFilters();
   }
 
+  function setupAccessLevelHints() {
+    const form = document.getElementById("accessForm");
+    if (!form) {
+      return;
+    }
+
+    const levelSelect = form.querySelector("select[name='level']");
+    const dashboardChecks = Array.from(form.querySelectorAll("input[name='dashboards']"));
+    const levelHint = document.getElementById("accessLevelHint");
+    const dashboardsHint = document.getElementById("accessDashboardsHint");
+    if (!levelSelect || !dashboardChecks.length) {
+      return;
+    }
+
+    const hints = {
+      admin: {
+        level: "Admin: صلاحية كاملة على جميع اللوحات وجميع العمليات.",
+        dashboards: "سيتم منح جميع اللوحات الداخلية تلقائيًا عند الحفظ.",
+        lock: true,
+        pickOne: false,
+      },
+      power: {
+        level: "Power User: يمكنه العمل على لوحة واحدة أو أكثر بكامل العمليات.",
+        dashboards: "اختر لوحة واحدة على الأقل.",
+        lock: false,
+        pickOne: false,
+      },
+      user: {
+        level: "User: يعمل على لوحة واحدة فقط وضمن نطاق الطلبات المكلف بها.",
+        dashboards: "اختر لوحة تحكم واحدة فقط.",
+        lock: false,
+        pickOne: true,
+      },
+      qa: {
+        level: "QA: وصول لجميع اللوحات بدون صلاحيات تنفيذ (قراءة فقط).",
+        dashboards: "سيتم منح جميع اللوحات الداخلية تلقائيًا (قراءة فقط).",
+        lock: true,
+        pickOne: false,
+      },
+      client: {
+        level: "Client: وصول إلى لوحة العميل للخدمات الإضافية فقط.",
+        dashboards: "سيتم تعيين لوحة العميل للخدمات الإضافية تلقائيًا عند الحفظ.",
+        lock: true,
+        pickOne: false,
+      },
+    };
+
+    function applyUserSingleSelectionRule(changedInput) {
+      if ((levelSelect.value || "") !== "user") {
+        return;
+      }
+      if (!changedInput || !changedInput.checked) {
+        return;
+      }
+      dashboardChecks.forEach((input) => {
+        if (input !== changedInput) {
+          input.checked = false;
+        }
+      });
+    }
+
+    function applyHints() {
+      const selectedLevel = (levelSelect.value || "").trim().toLowerCase();
+      const cfg = hints[selectedLevel] || {
+        level: "اختر مستوى الصلاحية لتظهر القاعدة التشغيلية.",
+        dashboards: "اختر اللوحات المناسبة حسب المستوى.",
+        lock: false,
+        pickOne: false,
+      };
+
+      if (levelHint) {
+        levelHint.textContent = cfg.level;
+      }
+      if (dashboardsHint) {
+        dashboardsHint.textContent = cfg.dashboards;
+      }
+
+      dashboardChecks.forEach((input) => {
+        input.disabled = !!cfg.lock;
+      });
+
+      if (cfg.pickOne) {
+        const checked = dashboardChecks.filter((input) => input.checked);
+        if (checked.length > 1) {
+          checked.slice(1).forEach((input) => {
+            input.checked = false;
+          });
+        }
+      }
+    }
+
+    dashboardChecks.forEach((input) => {
+      input.addEventListener("change", () => {
+        applyUserSingleSelectionRule(input);
+      });
+    });
+    levelSelect.addEventListener("change", applyHints);
+    applyHints();
+  }
+
   function updateQueryString(section) {
     const url = new URL(window.location.href);
     url.searchParams.set("section", section);
@@ -194,6 +294,7 @@
     closeAlerts();
     setupSectionTabs();
     setupAccessFilters();
+    setupAccessLevelHints();
     setupExportButtons();
     if ((state.section || "") !== "reports") {
       animateCounters();

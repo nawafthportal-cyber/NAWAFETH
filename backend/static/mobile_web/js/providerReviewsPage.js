@@ -179,6 +179,15 @@ var ProviderReviewsPage = (function () {
     return html;
   }
 
+  function escapeHtml(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
   function sortAndRender() {
     var sort = document.getElementById("rv-sort").value;
     var sorted = reviews.slice();
@@ -203,14 +212,110 @@ var ProviderReviewsPage = (function () {
       var name = r.client_name || r.user_name || r.user?.name || "عميل";
       var date = r.created_at ? new Date(r.created_at).toLocaleDateString("ar-SA") : "";
       var reply = r.provider_reply || r.reply || "";
+      var liked = !!r.provider_liked;
+      var requestId = r.request_id || "";
+      var reviewId = r.id;
       return '<div class="review-card">' +
-        '<div class="rv-card-header"><strong>' + name + '</strong><span class="text-muted">' + date + '</span></div>' +
+        '<div class="rv-card-header"><strong>' + escapeHtml(name) + '</strong><span class="text-muted">' + escapeHtml(date) + '</span></div>' +
         '<div class="rv-card-stars">' + buildStars(r.rating || 0) + '</div>' +
-        '<p class="rv-card-text">' + (r.comment || r.text || r.review_text || "") + '</p>' +
-        (reply ? '<div class="rv-reply"><strong>ردك:</strong> ' + reply + '</div>' : '') +
-        (!reply ? '<div class="rv-reply-form" data-id="' + r.id + '"><textarea class="form-input rv-reply-input" rows="2" placeholder="اكتب ردك..."></textarea><button class="btn btn-sm btn-primary rv-reply-btn">إرسال الرد</button></div>' : '') +
+        '<p class="rv-card-text">' + escapeHtml(r.comment || r.text || r.review_text || "") + '</p>' +
+        '<div class="rv-actions" data-review-id="' + reviewId + '">' +
+          '<button type="button" class="btn btn-sm btn-outline rv-like-btn" data-id="' + reviewId + '" data-liked="' + (liked ? "1" : "0") + '">' + (liked ? 'تم الإعجاب' : 'إعجاب') + '</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-chat-btn" data-id="' + reviewId + '" data-client-name="' + escapeHtml(name) + '">فتح الشات</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-request-btn" data-request-id="' + requestId + '" ' + (requestId ? '' : 'disabled') + '>عرض الطلب</button>' +
+          '<button type="button" class="btn btn-sm btn-outline rv-report-btn" data-id="' + reviewId + '" data-client-id="' + (r.client_id || '') + '">إبلاغ</button>' +
+        '</div>' +
+        (reply ? '<div class="rv-reply"><strong>ردك:</strong> ' + escapeHtml(reply) + '</div>' : '') +
+        (!reply ? '<div class="rv-reply-form" data-id="' + reviewId + '"><textarea class="form-input rv-reply-input" rows="2" placeholder="اكتب ردك..."></textarea><button class="btn btn-sm btn-primary rv-reply-btn">إرسال الرد</button></div>' : '') +
         '</div>';
     }).join("");
+
+    document.querySelectorAll('.rv-like-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var reviewId = this.getAttribute('data-id');
+        var currentLiked = this.getAttribute('data-liked') === '1';
+        var nextLiked = !currentLiked;
+        var button = this;
+        button.disabled = true;
+        safeRequest('/api/reviews/reviews/' + reviewId + '/provider-like/', {
+          method: 'POST',
+          body: { liked: nextLiked }
+        }).then(function (resp) {
+          if (!resp || !resp.ok) {
+            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر تحديث الإعجاب'));
+          }
+          loadData();
+        }).catch(function (err) {
+          alert((err && err.message) ? err.message : 'تعذر تحديث الإعجاب');
+          button.disabled = false;
+        });
+      });
+    });
+
+    document.querySelectorAll('.rv-chat-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var reviewId = this.getAttribute('data-id');
+        var button = this;
+        button.disabled = true;
+        safeRequest('/api/reviews/reviews/' + reviewId + '/provider-chat-thread/', {
+          method: 'POST'
+        }).then(function (resp) {
+          if (!resp || !resp.ok) {
+            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر فتح المحادثة'));
+          }
+          var threadId = resp.data && resp.data.thread_id;
+          if (!threadId) {
+            throw new Error('تعذر فتح المحادثة');
+          }
+          window.location.href = '/chat/' + threadId + '/';
+        }).catch(function (err) {
+          alert((err && err.message) ? err.message : 'تعذر فتح المحادثة');
+          button.disabled = false;
+        });
+      });
+    });
+
+    document.querySelectorAll('.rv-request-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var requestId = this.getAttribute('data-request-id');
+        if (!requestId) return;
+        window.location.href = '/provider-orders/' + requestId + '/';
+      });
+    });
+
+    document.querySelectorAll('.rv-report-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var reviewId = this.getAttribute('data-id');
+        var clientIdRaw = this.getAttribute('data-client-id');
+        var details = window.prompt('اكتب سبب البلاغ عن هذا التقييم:');
+        if (!details || !details.trim()) return;
+        var body = {
+          ticket_type: 'complaint',
+          description: details.trim(),
+          reported_kind: 'review',
+          reported_object_id: String(reviewId)
+        };
+        var clientId = parseInt(clientIdRaw || '', 10);
+        if (!Number.isNaN(clientId) && clientId > 0) {
+          body.reported_user = clientId;
+        }
+        var button = this;
+        button.disabled = true;
+        safeRequest('/api/support/tickets/create/', {
+          method: 'POST',
+          body: body
+        }).then(function (resp) {
+          if (!resp || !resp.ok) {
+            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر إرسال البلاغ'));
+          }
+          alert('تم إرسال البلاغ بنجاح');
+        }).catch(function (err) {
+          alert((err && err.message) ? err.message : 'تعذر إرسال البلاغ');
+        }).finally(function () {
+          button.disabled = false;
+        });
+      });
+    });
 
     // Bind reply buttons
     document.querySelectorAll(".rv-reply-btn").forEach(function (btn) {

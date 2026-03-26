@@ -424,6 +424,14 @@ const ChatsPage = (() => {
       avatar.textContent = (displayName || 'م').charAt(0);
     }
 
+    const excellenceBadges = UI.normalizeExcellenceBadges(thread.peer_excellence_badges);
+    if (excellenceBadges.length) {
+      avatarWrap.appendChild(UI.el('span', {
+        className: 'thread-avatar-excellence-top',
+        textContent: excellenceBadges[0].name || excellenceBadges[0].code || 'تميز',
+      }));
+    }
+
     if (unreadCount > 0) {
       avatarWrap.appendChild(UI.el('span', { className: 'thread-unread-dot', textContent: '' }));
     }
@@ -433,7 +441,16 @@ const ChatsPage = (() => {
 
     const topRow = UI.el('div', { className: 'thread-top-row' });
     const titleWrap = UI.el('div', { className: 'thread-title-wrap' });
-    titleWrap.appendChild(UI.el('span', { className: 'thread-name', textContent: displayName || 'مستخدم' }));
+    const nameWrap = UI.el('div', { className: 'thread-name-wrap' });
+    nameWrap.appendChild(UI.el('span', { className: 'thread-name', textContent: displayName || 'مستخدم' }));
+
+    const inlineExcellence = UI.buildExcellenceBadges(excellenceBadges, {
+      className: 'excellence-badges compact thread-inline-excellence',
+      compact: true,
+      iconSize: 10,
+    });
+    if (inlineExcellence) nameWrap.appendChild(inlineExcellence);
+    titleWrap.appendChild(nameWrap);
 
     if (thread.peer_provider_id) {
       titleWrap.appendChild(UI.el('span', { className: 'thread-role-chip', textContent: 'مزود خدمة' }));

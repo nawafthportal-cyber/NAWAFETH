@@ -73,7 +73,7 @@ class AccessProfileForm(forms.Form):
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "user_name",
+                "placeholder": "ثمانية حروف وارقام",
                 "autocomplete": "username",
             }
         ),
@@ -141,6 +141,13 @@ class AccessProfileForm(forms.Form):
             raise forms.ValidationError("رقم الجوال غير صالح.")
         return normalized
 
+    def clean_username(self):
+        value = (self.cleaned_data.get("username") or "").strip()
+        normalized = value.replace("_", "")
+        if len(normalized) < 8 or not normalized.isalnum():
+            raise forms.ValidationError("اسم المستخدم يجب أن يكون 8 أحرف/أرقام على الأقل وبدون رموز.")
+        return value
+
     def clean_password(self):
         value = (self.cleaned_data.get("password") or "").strip()
         if not value:
@@ -155,6 +162,14 @@ class AccessProfileForm(forms.Form):
         cleaned_data = super().clean()
         profile_id = cleaned_data.get("profile_id")
         password = (cleaned_data.get("password") or "").strip()
+        level = cleaned_data.get("level")
+        dashboards = cleaned_data.get("dashboards") or []
+
+        if level == AccessLevel.POWER and len(dashboards) < 1:
+            self.add_error("dashboards", "مستوى Power User يتطلب اختيار لوحة واحدة على الأقل.")
+        if level == AccessLevel.USER and len(dashboards) != 1:
+            self.add_error("dashboards", "مستوى User يتطلب اختيار لوحة تحكم واحدة فقط.")
+
         if not profile_id and not password:
             self.add_error("password", "كلمة المرور مطلوبة عند إنشاء حساب جديد.")
         return cleaned_data
@@ -326,8 +341,10 @@ class ContentDesignUploadForm(forms.Form):
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "مثال: PNG/JPG/WEBP - الحد 25MB",
+                "placeholder": "يتم تعبئته تلقائيًا بعد اختيار الملف",
                 "maxlength": 180,
+                "readonly": "readonly",
+                "tabindex": "-1",
             }
         ),
     )

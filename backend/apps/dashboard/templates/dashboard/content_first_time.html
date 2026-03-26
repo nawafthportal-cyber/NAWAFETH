@@ -35,19 +35,50 @@
           </div>
 
           <div class="content-layout-grid">
-            <div class="mobile-preview">
-              <h4>معاينة شاشة الدخول</h4>
-              {% if intro_block.media_file %}
-                <div class="media-preview">
-                  {% if intro_block.media_type == "video" %}
-                    <video controls preload="metadata" src="{{ intro_block.media_file.url }}"></video>
-                  {% else %}
-                    <img src="{{ intro_block.media_file.url }}" alt="معاينة التصميم">
-                  {% endif %}
+            <div class="mobile-preview app-screen-preview">
+              <h4>معاينة كشاشة تطبيق جوال</h4>
+              <div class="phone-shell">
+                <div class="phone-notch"></div>
+                <div class="phone-display">
+                  <div class="onboarding-card-preview">
+                    <div class="preview-slide-counter">01 / 03</div>
+                    {% if intro_block.media_file %}
+                      <div class="media-preview app-media-preview" id="contentFirstTimeAppMediaPreview">
+                        {% if intro_block.media_type == "video" %}
+                          <video controls preload="metadata" src="{{ intro_block.media_file.url }}"></video>
+                        {% else %}
+                          <img src="{{ intro_block.media_file.url }}" alt="معاينة التصميم">
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <div class="preview-placeholder" id="contentFirstTimeAppMediaPlaceholder">لا يوجد تصميم مرفوع حالياً.</div>
+                    {% endif %}
+
+                    <h5 id="previewIntroTitle">{{ text_form.intro_title.value|default:intro_block.title_ar }}</h5>
+                    <p id="previewIntroBody">{{ text_form.intro_body.value|default:intro_block.body_ar }}</p>
+
+                    <div class="preview-sections-grid">
+                      <div class="preview-section-box">
+                        <strong id="previewClientTitle">{{ text_form.client_title.value|default:client_block.title_ar }}</strong>
+                        <span id="previewClientBody">{{ text_form.client_body.value|default:client_block.body_ar }}</span>
+                      </div>
+                      <div class="preview-section-box">
+                        <strong id="previewProviderTitle">{{ text_form.provider_title.value|default:provider_block.title_ar }}</strong>
+                        <span id="previewProviderBody">{{ text_form.provider_body.value|default:provider_block.body_ar }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="preview-dots" aria-hidden="true">
+                    <span class="active"></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <div class="phone-preview-actions">
+                    <span>تخطي</span>
+                    <button type="button">التالي</button>
+                  </div>
                 </div>
-              {% else %}
-                <div class="preview-placeholder">لا يوجد تصميم مرفوع حالياً.</div>
-              {% endif %}
+              </div>
             </div>
 
             <form method="post" class="form-shell" id="contentFirstTimeTextForm">
@@ -99,19 +130,36 @@
           <form method="post" enctype="multipart/form-data" class="form-shell" id="contentFirstTimeDesignForm">
             {% csrf_token %}
             <input type="hidden" name="action" value="upload_design">
-            <div class="form-grid">
-              <div class="field full">
-                <label for="{{ design_form.design_file.id_for_label }}">رفع التصميم</label>
-                {{ design_form.design_file }}
+            <div class="content-layout-grid">
+              <div class="mobile-preview" id="contentFirstTimeDesignPreviewCard">
+                <h4>معاينة التصميم</h4>
+                <div class="media-preview" id="contentFirstTimeDesignPreview" {% if not intro_block.media_file %}hidden{% endif %}>
+                  {% if intro_block.media_file %}
+                    {% if intro_block.media_type == "video" %}
+                      <video controls preload="metadata" src="{{ intro_block.media_file.url }}"></video>
+                    {% else %}
+                      <img src="{{ intro_block.media_file.url }}" alt="معاينة التصميم الحالي">
+                    {% endif %}
+                  {% endif %}
+                </div>
+                <div class="preview-placeholder" id="contentFirstTimeDesignPlaceholder" {% if intro_block.media_file %}hidden{% endif %}>اختر ملفًا ثم اضغط معاينة لعرض التصميم قبل الحفظ.</div>
               </div>
-              <div class="field full">
-                <label for="{{ design_form.file_specs.id_for_label }}">مواصفات الملف المرفوع</label>
-                {{ design_form.file_specs }}
+
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="{{ design_form.design_file.id_for_label }}">رفع التصميم</label>
+                  {{ design_form.design_file }}
+                </div>
+                <div class="field full">
+                  <label for="{{ design_form.file_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                  {{ design_form.file_specs }}
+                </div>
               </div>
             </div>
             <div class="actions">
               {% if can_manage %}
-                <button class="primary-btn light" type="submit">معاينة ثم حفظ</button>
+                <button class="ghost-btn" type="button" id="contentFirstTimePreviewBtn">معاينة</button>
+                <button class="primary-btn light" type="submit">حفظ</button>
                 <a class="ghost-btn" href="{% url 'dashboard:content_first_time' %}">إلغاء</a>
               {% else %}
                 <span class="pill danger">رفع التصميم غير متاح لهذا الحساب</span>
@@ -123,12 +171,9 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          {% for item in nav_items %}
+          {% for item in content_modules %}
             <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
           {% endfor %}
-          {% if dashboard_nav_access.support %}
-            <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
-          {% endif %}
         </div>
       </aside>
     </main>

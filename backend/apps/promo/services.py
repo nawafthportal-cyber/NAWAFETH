@@ -1411,4 +1411,23 @@ def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: st
         update_fields.append("ops_completed_at")
     pr.save(update_fields=update_fields)
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
+    if new_status == PromoOpsStatus.COMPLETED:
+        _notify_promo_status_change(pr=pr, status=pr.status, actor=by_user)
     return pr
+
+
+def auto_expire_promo_requests() -> int:
+    """Mark active requests as EXPIRED when their campaign end_at has passed."""
+    now = timezone.now()
+    expired_qs = PromoRequest.objects.filter(
+        status=PromoRequestStatus.ACTIVE,
+        end_at__lt=now,
+    )
+    count = 0
+    for pr in expired_qs:
+        pr.status = PromoRequestStatus.EXPIRED
+        pr.save(update_fields=["status", "updated_at"])
+        _sync_promo_to_unified(pr=pr, changed_by=None)
+        _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=None)
+        count += 1
+    return count

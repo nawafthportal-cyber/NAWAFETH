@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 
 import 'package:nawafeth/services/reviews_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
+import 'package:nawafeth/services/support_service.dart';
+import 'package:nawafeth/screens/chat_detail_screen.dart';
+
+import 'provider_order_details_screen.dart';
 
 class ReviewsTab extends StatefulWidget {
   const ReviewsTab({
@@ -42,6 +46,7 @@ class _ReviewsTabState extends State<ReviewsTab> {
   String _sortOption = 'الأحدث';
   final Map<String, bool> _isReplying = {};
   final Map<String, TextEditingController> _replyControllers = {};
+  final Map<String, bool> _isActionLoading = {};
   bool get _canReply => widget.providerId == null;
 
   @override
@@ -193,6 +198,138 @@ class _ReviewsTabState extends State<ReviewsTab> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('ميزة المحادثة غير مفعلة هنا.')),
     );
+  }
+
+  Future<void> _toggleLike(Map<String, dynamic> review) async {
+    if (!_canReply) return;
+    final reviewId = review['id'] as int?;
+    if (reviewId == null) return;
+    final key = 'like_$reviewId';
+    setState(() => _isActionLoading[key] = true);
+
+    final currentLiked = review['provider_liked'] as bool? ?? false;
+    final res = await ReviewsService.toggleProviderLike(
+      reviewId,
+      liked: !currentLiked,
+    );
+
+    if (!mounted) return;
+    setState(() => _isActionLoading[key] = false);
+
+    if (!res.isSuccess) {
+      _showSnack(res.error ?? 'تعذر تحديث الإعجاب', isError: true);
+      return;
+    }
+
+    final data = res.dataAsMap ?? {};
+    review['provider_liked'] = data['provider_liked'] ?? !currentLiked;
+    review['provider_liked_at'] = data['provider_liked_at'];
+    setState(() {});
+  }
+
+  Future<void> _openReviewChat(Map<String, dynamic> review) async {
+    if (!_canReply) return;
+    final reviewId = review['id'] as int?;
+    if (reviewId == null) return;
+
+    final key = 'chat_$reviewId';
+    setState(() => _isActionLoading[key] = true);
+
+    final res = await ReviewsService.getOrCreateProviderReviewChatThread(reviewId);
+    if (!mounted) return;
+    setState(() => _isActionLoading[key] = false);
+
+    if (!res.isSuccess) {
+      _showSnack(res.error ?? 'تعذر فتح المحادثة', isError: true);
+      return;
+    }
+
+    final threadId = res.dataAsMap?['thread_id'] as int?;
+    if (threadId == null) {
+      _showSnack('تعذر فتح المحادثة', isError: true);
+      return;
+    }
+
+    final customerName = (review['client_name'] as String?)?.trim();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatDetailScreen(
+          threadId: threadId,
+          peerName: (customerName != null && customerName.isNotEmpty)
+              ? customerName
+              : 'العميل',
+          peerId: review['client_id'] as int?,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openClientRequest(Map<String, dynamic> review) async {
+    final requestId = review['request_id'] as int?;
+    if (requestId == null) {
+      _showSnack('لا يمكن تحديد الطلب المرتبط بهذا التقييم', isError: true);
+      return;
+    }
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProviderOrderDetailsScreen(requestId: requestId),
+      ),
+    );
+  }
+
+  Future<void> _reportReview(Map<String, dynamic> review) async {
+    if (!_canReply) return;
+    final reviewId = review['id'] as int?;
+    if (reviewId == null) return;
+
+    final textController = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('إبلاغ عن التقييم'),
+        content: TextField(
+          controller: textController,
+          maxLines: 4,
+          decoration: const InputDecoration(
+            hintText: 'اكتب سبب البلاغ',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, textController.text.trim()),
+            child: const Text('إرسال البلاغ'),
+          ),
+        ],
+      ),
+    );
+
+    textController.dispose();
+    if (reason == null || reason.isEmpty) return;
+
+    final key = 'report_$reviewId';
+    setState(() => _isActionLoading[key] = true);
+    final res = await SupportService.createTicket(
+      ticketType: 'complaint',
+      description: reason,
+      reportedKind: 'review',
+      reportedObjectId: '$reviewId',
+      reportedUser: review['client_id'] as int?,
+    );
+
+    if (!mounted) return;
+    setState(() => _isActionLoading[key] = false);
+    if (res.isSuccess) {
+      _showSnack('تم إرسال البلاغ بنجاح');
+      return;
+    }
+    _showSnack(res.error ?? 'تعذر إرسال البلاغ', isError: true);
   }
 
   void _showSnack(String msg, {bool isError = false}) {
@@ -429,6 +566,8 @@ class _ReviewsTabState extends State<ReviewsTab> {
     final providerReply = (review['provider_reply'] as String? ?? '').trim();
     final providerReplyAt = review['provider_reply_at'] as String?;
     final isEdited = review['provider_reply_is_edited'] as bool? ?? false;
+    final providerLiked = review['provider_liked'] as bool? ?? false;
+    final requestId = review['request_id'] as int?;
     final createdAt = review['created_at'] as String?;
 
     _replyControllers.putIfAbsent(reviewKey, () => TextEditingController());
@@ -515,6 +654,48 @@ class _ReviewsTabState extends State<ReviewsTab> {
               const SizedBox(height: 10),
               Text(comment,
                   style: const TextStyle(fontSize: 14, height: 1.4)),
+            ],
+
+            if (_canReply) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: (_isActionLoading['like_$reviewId'] ?? false)
+                        ? null
+                        : () => _toggleLike(review),
+                    icon: Icon(
+                      providerLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                      size: 18,
+                      color: providerLiked ? Colors.green : Colors.deepPurple,
+                    ),
+                    label: Text(providerLiked ? 'تم الإعجاب' : 'إعجاب'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: (_isActionLoading['chat_$reviewId'] ?? false)
+                        ? null
+                        : () => _openReviewChat(review),
+                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    label: const Text('فتح الشات'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: requestId == null
+                        ? null
+                        : () => _openClientRequest(review),
+                    icon: const Icon(Icons.assignment_outlined, size: 18),
+                    label: const Text('عرض الطلب'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: (_isActionLoading['report_$reviewId'] ?? false)
+                        ? null
+                        : () => _reportReview(review),
+                    icon: const Icon(Icons.flag_outlined, size: 18),
+                    label: const Text('إبلاغ'),
+                  ),
+                ],
+              ),
             ],
 
             // عرض الرد الحالي (من API)

@@ -3,15 +3,15 @@
 {% block title %}إدارة التميز{% endblock %}
 {% block body %}
   <div class="dashboard-layout">
-    <header class="dash-header">
+    <header class="dash-header" id="contentExcellencePage">
       <div class="hero-panel panel fade-in">
         <div>
           <h1>{{ hero_title }}</h1>
           <p class="subtitle">{{ hero_subtitle }}</p>
         </div>
         <div class="hero-stats">
-          <span class="pill brand">إجمالي المرشحين: {{ total_rows }}</span>
-          <span class="pill accent">الدورة الحالية تنتهي: {{ cycle_end|date:"Y-m-d" }}</span>
+          <span class="pill brand">إجمالي المرشحين: <strong id="excellenceTotalRows">{{ total_rows }}</strong></span>
+          <span class="pill accent">الدورة الحالية تنتهي: <strong id="excellenceCycleEnd">{{ cycle_end|date:"Y-m-d" }}</strong></span>
         </div>
       </div>
     </header>
@@ -31,72 +31,93 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>مرشحو الشارات</h2>
+            <h2>لوحة إدارة التميز</h2>
             <div class="actions">
-              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=pdf">PDF</a>
-              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=xlsx">Excel</a>
-              <a class="ghost-btn export-btn" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=csv">CSV</a>
+              <a class="ghost-btn export-btn" id="excellenceExportPdf" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=pdf">PDF</a>
+              <a class="ghost-btn export-btn" id="excellenceExportXlsx" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" id="excellenceExportCsv" href="?badge={{ badge_filter }}&q={{ q|urlencode }}&export=csv">CSV</a>
             </div>
           </div>
 
-          <form method="get" class="toolbar">
-            <input class="input-control" type="search" name="q" value="{{ q }}" placeholder="بحث باسم المختص أو التصنيف أو الجوال">
-            <select class="input-control" name="badge">
-              <option value="">كل الشارات</option>
-              {% for badge in badge_types %}
-                <option value="{{ badge.code }}" {% if badge_filter == badge.code %}selected{% endif %}>{{ badge.name_ar }}</option>
-              {% endfor %}
-            </select>
-            <div class="actions">
-              <button class="primary-btn light" type="submit">تحديث</button>
-              <a class="ghost-btn" href="{% url 'dashboard:content_excellence' %}">مسح الفلاتر</a>
-            </div>
-          </form>
+          <div class="excellence-criteria-grid" aria-label="معايير التميز">
+            <article class="excellence-criteria-card">
+              <h4>الكبار</h4>
+              <p>أكثر 100 مختص من عدد المتابعين (الأعلى في الفئة/التصنيف).</p>
+              <div class="criteria-count" data-badge-count="top_100_club">
+                {{ badge_tabs.0.count|default:0 }}
+              </div>
+            </article>
+            <article class="excellence-criteria-card">
+              <h4>الإنجاز العالي</h4>
+              <p>أكثر 100 مختص من حيث الطلبات المكتملة منذ سنة.</p>
+              <div class="criteria-count" data-badge-count="high_achievement">
+                {% for badge in badge_tabs %}{% if badge.code == 'high_achievement' %}{{ badge.count }}{% endif %}{% endfor %}
+              </div>
+            </article>
+            <article class="excellence-criteria-card">
+              <h4>الخدمة المتميزة</h4>
+              <p>أفضل المختصين الأعلى تقييماً ضمن كل فئة (Top 10%).</p>
+              <div class="criteria-count" data-badge-count="featured_service">
+                {% for badge in badge_tabs %}{% if badge.code == 'featured_service' %}{{ badge.count }}{% endif %}{% endfor %}
+              </div>
+            </article>
+          </div>
 
-          <div class="badge-kpi-grid">
-            {% for badge in badge_types %}
-              <article class="badge-chip">
-                <h4>{{ badge.name_ar }}</h4>
-                <p>{{ badge.description }}</p>
-                <div class="quick-stat"><span>مرشحون</span><strong>{{ badge.candidates_count }}</strong></div>
-              </article>
+          <div class="excellence-tabs" id="excellenceTabs" role="tablist" aria-label="فلاتر التميز">
+            <button type="button" class="excellence-tab{% if not badge_filter %} active{% endif %}" data-badge="" role="tab" aria-selected="{% if not badge_filter %}true{% else %}false{% endif %}">
+              جميع القوائم
+            </button>
+            {% for badge in badge_tabs %}
+              <button
+                type="button"
+                class="excellence-tab{% if badge_filter == badge.code %} active{% endif %}"
+                data-badge="{{ badge.code }}"
+                role="tab"
+                aria-selected="{% if badge_filter == badge.code %}true{% else %}false{% endif %}"
+              >
+                {{ badge.name }}
+              </button>
             {% endfor %}
           </div>
 
+          <form method="get" class="toolbar" id="contentExcellenceFiltersForm">
+            <input class="input-control" id="excellenceSearchInput" type="search" name="q" value="{{ q }}" placeholder="بحث باسم المختص أو التصنيف أو الجوال">
+            <div class="actions">
+              <button class="primary-btn light" type="submit">تحديث</button>
+              <button class="ghost-btn" type="button" id="excellenceClearFiltersBtn">مسح الفلاتر</button>
+            </div>
+          </form>
+
+          <p class="subtitle">قائمة بكل من تنطبق عليه معايير التميز.</p>
+
           <div class="table-wrap">
-            <table class="dash-table">
+            <table class="dash-table" id="contentExcellenceTable">
               <thead>
                 <tr>
                   <th>اسم المختص</th>
-                  <th>رقم الجوال</th>
-                  <th>الشارة</th>
-                  <th>الترتيب</th>
+                  <th>الأولوية</th>
                   <th>عدد المتابعين</th>
-                  <th>عدد الطلبات المغلقة</th>
-                  <th>متوسط التقييم</th>
-                  <th>عدد التقييمات</th>
-                  <th>التصنيف الرئيسي</th>
-                  <th>التصنيف الفرعي</th>
-                  <th>الحالة</th>
+                  <th>عدد الطلبات المغلقة منذ سنة</th>
+                  <th>الأعلى تقييماً منذ سنة</th>
+                  <th>فئة المختص</th>
+                  <th>تصنيف المختص</th>
+                  <th>نوع الشارة</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody id="contentExcellenceRowsBody">
                 {% for row in rows %}
                   <tr>
                     <td>{{ row.provider_name }}</td>
-                    <td>{{ row.provider_phone }}</td>
-                    <td>{{ row.badge_name }}</td>
                     <td>{{ row.rank_position }}</td>
                     <td>{{ row.followers_count }}</td>
                     <td>{{ row.completed_orders_count }}</td>
-                    <td>{{ row.rating_avg }}</td>
-                    <td>{{ row.rating_count }}</td>
-                    <td>{{ row.category_name }}</td>
+                    <td>{{ row.rating_avg }} / 5 ({{ row.rating_count }})</td>
                     <td>{{ row.subcategory_name }}</td>
-                    <td>{{ row.status }}</td>
+                    <td>{{ row.category_name }}</td>
+                    <td>{{ row.badge_name }}</td>
                   </tr>
                 {% empty %}
-                  <tr><td colspan="11">لا توجد بيانات مرشحين ضمن الفلاتر الحالية.</td></tr>
+                  <tr><td colspan="8">لا توجد بيانات مرشحين ضمن الفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -113,5 +134,13 @@
       </aside>
     </main>
   </div>
+  <script>
+    window.contentExcellenceState = {
+      apiUrl: "{% url 'dashboard:content_excellence_api' %}",
+      exportBaseUrl: "{% url 'dashboard:content_excellence' %}",
+      badgeFilter: "{{ badge_filter|escapejs }}",
+      query: "{{ q|escapejs }}"
+    };
+  </script>
   <script src="{% static 'dashboard/js/content.js' %}"></script>
 {% endblock %}

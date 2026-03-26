@@ -122,33 +122,68 @@
                 <tr>
                   <th>رقم الطلب</th>
                   <th>اسم العميل</th>
-                  <th>الخدمات</th>
-                  <th>حالة التنفيذ</th>
-                  <th>حالة الفاتورة</th>
+                  <th>الأولوية</th>
+                  <th>تاريخ وقت اعتماد الطلب</th>
+                  <th>حالة الطلب</th>
                   <th>المكلف بالطلب</th>
-                  <th>تاريخ الإنشاء</th>
+                  <th>تاريخ وقت التكليف</th>
                 </tr>
               </thead>
               <tbody>
                 {% for row in promo_requests %}
-                  <tr class="{% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
+                  <tr class="support-row {{ row.priority_class }} {% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
                     <td>
                       <a class="ticket-link" href="{% url 'dashboard:promo_request_detail' row.id %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}">
                         {{ row.code }}
                       </a>
                     </td>
                     <td>{{ row.requester }}</td>
-                    <td>{{ row.services_text }}</td>
-                    <td>{{ row.status }}</td>
-                    <td>{{ row.invoice_status }}</td>
+                    <td>{{ row.priority_number }}</td>
+                    <td>{{ row.approved_at }}</td>
+                    <td>{{ row.request_status }}</td>
                     <td>{{ row.assignee }}</td>
-                    <td>{{ row.created_at }}</td>
+                    <td>{{ row.assigned_at }}</td>
                   </tr>
                 {% empty %}
                   <tr><td colspan="7">لا توجد طلبات ترويج حالياً.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
+          <div class="title-row">
+            <h2>قوائم الفرق المرتبطة</h2>
+            <span class="pill info">اختر الفريق من القائمة الثابتة يمينًا</span>
+          </div>
+          <div class="team-panels" id="teamPanels">
+            {% for panel in team_panels %}
+              <article class="team-panel-card{% if forloop.first %} active{% endif %}" data-team-panel="{{ panel.key }}" {% if not forloop.first %}hidden{% endif %}>
+                <header class="team-panel-header">
+                  <h3>{{ panel.team }}</h3>
+                  <p>{{ panel.summary }}</p>
+                </header>
+                <div class="team-panel-grid">
+                  <section class="team-list-block">
+                    <h4>اللوحات المرتبطة</h4>
+                    <ul>
+                      {% for item in panel.dashboards %}
+                        <li><a href="{{ item.url }}" class="team-link">{{ item.label }}</a></li>
+                      {% endfor %}
+                    </ul>
+                  </section>
+                  <section class="team-list-block">
+                    <h4>قوائم التشغيل</h4>
+                    <ul>
+                      {% for item in panel.worklists %}
+                        <li>{{ item }}</li>
+                      {% endfor %}
+                    </ul>
+                  </section>
+                </div>
+              </article>
+            {% endfor %}
           </div>
         </section>
 
@@ -167,14 +202,21 @@
               <input type="hidden" name="action" value="save_inquiry">
               <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
               <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+              <input type="hidden" name="assigned_team" value="{{ promo_support_team.id|default:selected_inquiry.assigned_team_id|default:'' }}">
+              <div class="support-meta-grid promo-inquiry-meta-grid">
+                <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
+                <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
+                <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
+                <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
+              </div>
               <div class="support-action-grid">
                 <div class="field">
                   <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
                   {{ inquiry_form.status }}
                 </div>
                 <div class="field">
-                  <label for="{{ inquiry_form.assigned_team.id_for_label }}">فريق الدعم</label>
-                  {{ inquiry_form.assigned_team }}
+                  <label>فريق الدعم</label>
+                  <div class="input-control static-field"><strong>{{ promo_support_team.name_ar|default:'فريق إدارة الترويج' }}</strong></div>
                 </div>
                 <div class="field">
                   <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
@@ -227,11 +269,15 @@
               </div>
               <div class="side-card">
                 <h4>آخر المرفقات</h4>
-                <div class="timeline-list">
+                <div class="timeline-list promo-inquiry-attachments">
                   {% for file in selected_inquiry_attachments %}
                     <div class="timeline-item">
-                      <strong>{{ file.created_at|date:"d/m/Y H:i" }}</strong>
-                      <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض المرفق</a>
+                      <strong>{{ file.file.name|default:'مرفق' }}</strong>
+                      <p>{{ file.created_at|date:"d/m/Y H:i" }}{% if file.uploaded_by %} - بواسطة {{ file.uploaded_by.username|default:file.uploaded_by.phone }}{% endif %}</p>
+                      <div class="actions">
+                        <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض</a>
+                        <a class="ghost-btn" href="{{ file.file.url }}" download>تنزيل</a>
+                      </div>
                     </div>
                   {% empty %}
                     <p class="subtitle">لا توجد مرفقات.</p>
@@ -296,6 +342,61 @@
                 {% endif %}
               </div>
             </form>
+
+            {% if selected_request_items %}
+            <div class="side-card">
+              <h4>تفاصيل الخدمات المطلوبة</h4>
+              {% for item in selected_request_items %}
+              <div class="promo-item-detail-card">
+                <div class="promo-item-detail-header">
+                  <span class="pill brand">{{ item.get_service_type_display }}</span>
+                  {% if item.subtotal %}<span class="pill accent">{{ item.subtotal }} ريال</span>{% endif %}
+                  {% if item.duration_days %}<span class="pill mint">{{ item.duration_days }} يوم</span>{% endif %}
+                </div>
+                <div class="support-meta-grid promo-item-fields">
+                  {% if item.title %}<div class="quick-stat"><span>العنوان</span><strong>{{ item.title }}</strong></div>{% endif %}
+                  {% if item.start_at %}<div class="quick-stat"><span>بداية</span><strong>{{ item.start_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
+                  {% if item.end_at %}<div class="quick-stat"><span>نهاية</span><strong>{{ item.end_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
+                  {% if item.frequency %}<div class="quick-stat"><span>معدل الظهور</span><strong>{{ item.get_frequency_display }}</strong></div>{% endif %}
+                  {% if item.search_scope %}<div class="quick-stat"><span>نطاق البحث</span><strong>{{ item.get_search_scope_display }}</strong></div>{% endif %}
+                  {% if item.search_position %}<div class="quick-stat"><span>ترتيب الظهور</span><strong>{{ item.get_search_position_display }}</strong></div>{% endif %}
+                  {% if item.target_category %}<div class="quick-stat"><span>التصنيف</span><strong>{{ item.target_category }}</strong></div>{% endif %}
+                  {% if item.target_city %}<div class="quick-stat"><span>المدينة</span><strong>{{ item.target_city }}</strong></div>{% endif %}
+                  {% if item.send_at %}<div class="quick-stat"><span>وقت الإرسال</span><strong>{{ item.send_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
+                  {% if item.redirect_url %}<div class="quick-stat"><span>رابط التحويل</span><strong><a href="{{ item.redirect_url }}" target="_blank" rel="noopener">{{ item.redirect_url }}</a></strong></div>{% endif %}
+                </div>
+                {% if item.message_title or item.message_body %}
+                <div class="promo-item-message-block">
+                  {% if item.message_title %}<p><strong>عنوان الرسالة:</strong> {{ item.message_title }}</p>{% endif %}
+                  {% if item.message_body %}<p><strong>نص الرسالة:</strong> {{ item.message_body }}</p>{% endif %}
+                  {% if item.use_notification_channel %}<span class="pill mint">إشعار</span>{% endif %}
+                  {% if item.use_chat_channel %}<span class="pill info">محادثة</span>{% endif %}
+                </div>
+                {% endif %}
+                {% if item.sponsor_name or item.sponsor_url or item.sponsorship_months %}
+                <div class="promo-item-message-block">
+                  {% if item.sponsor_name %}<p><strong>اسم الراعي:</strong> {{ item.sponsor_name }}</p>{% endif %}
+                  {% if item.sponsor_url %}<p><strong>رابط الراعي:</strong> <a href="{{ item.sponsor_url }}" target="_blank" rel="noopener">{{ item.sponsor_url }}</a></p>{% endif %}
+                  {% if item.sponsorship_months %}<p><strong>مدة الرعاية:</strong> {{ item.sponsorship_months }} شهر</p>{% endif %}
+                </div>
+                {% endif %}
+                {% if item.operator_note %}<p class="subtitle" style="margin-top:6px"><strong>ملاحظة المشغل:</strong> {{ item.operator_note }}</p>{% endif %}
+                {% if item.assets.all %}
+                <div class="promo-item-assets">
+                  <strong>المرفقات:</strong>
+                  {% for asset in item.assets.all %}
+                  <div class="promo-item-asset-row">
+                    <span>{{ asset.get_asset_type_display }} - {{ asset.title|default:"ملف مرفق" }}</span>
+                    <a class="ticket-link" href="{{ asset.file.url }}" target="_blank" rel="noopener">عرض</a>
+                    <a class="ghost-btn" href="{{ asset.file.url }}" download>تنزيل</a>
+                  </div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+              </div>
+              {% endfor %}
+            </div>
+            {% endif %}
 
             <div class="side-card">
               <h4>الملفات المرفقة من مزود الخدمة</h4>
@@ -408,6 +509,19 @@
           {% if dashboard_nav_access.admin_control %}
             <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
           {% endif %}
+
+          <div class="side-card teams-fixed-card" id="teamFixedMenu">
+            <h4>قوائم الفرق</h4>
+            <p class="teams-fixed-note">ثابتة أثناء التمرير. انقر لعرض القوائم المرتبطة في الأسفل.</p>
+            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الفرق">
+              {% for panel in team_panels %}
+                <button type="button" class="team-fixed-btn{% if forloop.first %} active{% endif %}" data-team-target="{{ panel.key }}" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                  <span>{{ forloop.counter }}</span>
+                  <strong>{{ panel.team }}</strong>
+                </button>
+              {% endfor %}
+            </div>
+          </div>
 
           <div class="side-card">
             <h4>رموز الطلبات</h4>

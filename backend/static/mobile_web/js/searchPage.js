@@ -704,6 +704,15 @@ const SearchPage = (() => {
     avatarWrap.appendChild(avatar);
     media.appendChild(avatarWrap);
 
+    const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
+    if (excellenceItems.length) {
+      const topBadge = UI.el('span', {
+        className: 'provider-list-excellence-top',
+        textContent: excellenceItems[0].name || excellenceItems[0].code || 'تميز',
+      });
+      media.appendChild(topBadge);
+    }
+
     if (provider.is_verified_blue || provider.is_verified_green) {
       const badge = UI.el('span', { className: 'provider-list-verified' });
       badge.appendChild(

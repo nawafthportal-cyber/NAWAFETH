@@ -9,7 +9,7 @@ from django.db.models import Q
 
 from apps.backoffice.policies import SupportAssignPolicy, SupportResolvePolicy
 
-from .models import SupportTicket, SupportAttachment, SupportComment, SupportTeam
+from .models import SupportTicket, SupportAttachment, SupportComment, SupportTeam, SupportTicketEntrypoint
 from .serializers import (
     SupportTicketCreateSerializer,
     SupportTicketDetailSerializer,
@@ -68,7 +68,7 @@ class SupportTicketBackofficeListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = SupportTicket.objects.all().order_by("-id")
+        qs = SupportTicket.objects.filter(entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM).order_by("-id")
 
         # لو ليس admin/power: قيد على المكلّف فقط (حسب مواصفات NAWAFETH)
         ap = getattr(user, "access_profile", None)

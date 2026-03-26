@@ -349,6 +349,11 @@ body.home-mobile-layout .reel-item:hover {
   gap: 8px;
 }
 
+.providers-scroll .provider-avatar-shell {
+  position: relative;
+  flex-shrink: 0;
+}
+
 .providers-scroll .provider-avatar {
   width: 44px;
   height: 44px;
@@ -371,6 +376,24 @@ body.home-mobile-layout .reel-item:hover {
   object-fit: contain;
 }
 
+.providers-scroll .provider-avatar-excellence-top {
+  position: absolute;
+  top: -8px;
+  left: -6px;
+  z-index: 2;
+  max-width: 92px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.86);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .providers-scroll .provider-meta {
   flex: 1;
   min-width: 0;
@@ -388,6 +411,7 @@ body.home-mobile-layout .reel-item:hover {
 
 .providers-scroll .provider-name-row {
   margin-top: 0;
+  flex-wrap: wrap;
 }
 
 .providers-scroll .provider-card.no-cover .provider-name-row {

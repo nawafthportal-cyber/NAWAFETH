@@ -227,7 +227,7 @@ def test_support_assign_enforced_mode_denies_without_permission_and_logs(api, su
     ).exists()
 
 
-def test_provider_pioneer_ticket_gets_high_priority(api):
+def test_provider_pioneer_ticket_gets_normal_priority(api):
     provider_user = User.objects.create_user(phone="0511111122", password="Pass12345!")
     ProviderProfile.objects.create(
         user=provider_user,
@@ -261,7 +261,7 @@ def test_provider_pioneer_ticket_gets_high_priority(api):
 
     assert response.status_code == 201
     ticket = SupportTicket.objects.get(pk=response.data["id"])
-    assert ticket.priority == "high"
+    assert ticket.priority == "normal"
 
 
 def test_support_status_transition_blocks_reopen_after_closed(client_user, support_operator_user):

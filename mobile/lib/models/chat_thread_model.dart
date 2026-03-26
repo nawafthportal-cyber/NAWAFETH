@@ -1,3 +1,5 @@
+import 'excellence_badge_model.dart';
+
 /// نموذج محادثة مباشرة من GET /api/messaging/direct/threads/
 class ChatThread {
   final int threadId;
@@ -9,6 +11,8 @@ class ChatThread {
   final String peerUsername;
   final String peerPhone;
   final String peerCity;
+  final String peerProfileImage;
+  final List<ExcellenceBadgeModel> peerExcellenceBadges;
   final String lastMessage;
   final DateTime lastMessageAt;
   final int unreadCount;
@@ -30,6 +34,8 @@ class ChatThread {
     this.peerUsername = '',
     required this.peerPhone,
     this.peerCity = '',
+    this.peerProfileImage = '',
+    this.peerExcellenceBadges = const [],
     required this.lastMessage,
     required this.lastMessageAt,
     required this.unreadCount,
@@ -51,10 +57,21 @@ class ChatThread {
       peerUsername: (json['peer_username'] ?? '') as String,
       peerPhone: (json['peer_phone'] ?? '') as String,
       peerCity: (json['peer_city'] ?? json['city'] ?? json['peer_city_name'] ?? '') as String,
+      peerProfileImage: (json['peer_profile_image'] ?? '') as String,
+      peerExcellenceBadges: _parsePeerExcellence(json['peer_excellence_badges']),
       lastMessage: (json['last_message'] ?? '') as String,
       lastMessageAt: DateTime.tryParse(json['last_message_at'] ?? '') ?? DateTime.now(),
       unreadCount: (json['unread_count'] ?? 0) as int,
     );
+  }
+
+  static List<ExcellenceBadgeModel> _parsePeerExcellence(dynamic value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<Map>()
+        .map((item) => ExcellenceBadgeModel.fromJson(Map<String, dynamic>.from(item)))
+        .where((item) => item.code.isNotEmpty || item.name.isNotEmpty)
+        .toList(growable: false);
   }
 
   String get peerDisplayName {

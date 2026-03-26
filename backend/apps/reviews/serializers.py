@@ -107,6 +107,8 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
 
 
 class ReviewListSerializer(serializers.ModelSerializer):
+    request_id = serializers.IntegerField(read_only=True)
+    client_id = serializers.IntegerField(read_only=True)
     client_phone = serializers.CharField(source="client.phone", read_only=True)
     client_name = serializers.SerializerMethodField()
     provider_reply_is_edited = serializers.SerializerMethodField()
@@ -115,6 +117,8 @@ class ReviewListSerializer(serializers.ModelSerializer):
         model = Review
         fields = (
             "id",
+            "request_id",
+            "client_id",
             "rating",
             "response_speed",
             "cost_value",
@@ -122,6 +126,8 @@ class ReviewListSerializer(serializers.ModelSerializer):
             "credibility",
             "on_time",
             "comment",
+            "provider_liked",
+            "provider_liked_at",
             "provider_reply",
             "provider_reply_at",
             "provider_reply_edited_at",

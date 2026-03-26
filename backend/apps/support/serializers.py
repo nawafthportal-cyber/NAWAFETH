@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from .models import (
     SupportTicket, SupportAttachment, SupportComment,
-    SupportTeam, SupportTicketStatus, SupportStatusLog
+    SupportTeam, SupportTicketStatus, SupportStatusLog, SupportTicketEntrypoint
 )
 
 
@@ -79,6 +79,7 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
         ticket = SupportTicket.objects.create(
             requester=user,
             priority=support_priority(user),
+            entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
             **validated_data,
         )
         _sync_ticket_to_unified(ticket=ticket, changed_by=user)

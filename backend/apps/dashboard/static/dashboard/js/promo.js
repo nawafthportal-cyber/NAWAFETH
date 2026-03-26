@@ -147,6 +147,60 @@
     });
   }
 
+  function setupTeamPanels() {
+    const storageKey = "dashboard.promo.selectedTeamPanel";
+    const menu = document.getElementById("teamFixedMenu");
+    const panelRoot = document.getElementById("teamPanels");
+    if (!menu || !panelRoot) {
+      return;
+    }
+
+    const buttons = Array.from(menu.querySelectorAll(".team-fixed-btn"));
+    const panels = Array.from(panelRoot.querySelectorAll(".team-panel-card"));
+    if (!buttons.length || !panels.length) {
+      return;
+    }
+
+    function activate(teamKey) {
+      buttons.forEach((btn) => {
+        const active = btn.dataset.teamTarget === teamKey;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+
+      panels.forEach((panel) => {
+        const active = panel.dataset.teamPanel === teamKey;
+        panel.classList.toggle("active", active);
+        panel.hidden = !active;
+      });
+
+      try {
+        window.localStorage.setItem(storageKey, teamKey);
+      } catch (_) {
+        // Ignore storage failures in restricted browser modes.
+      }
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.teamTarget;
+        if (!key) {
+          return;
+        }
+        activate(key);
+      });
+    });
+
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved && buttons.some((btn) => btn.dataset.teamTarget === saved)) {
+        activate(saved);
+      }
+    } catch (_) {
+      // Ignore storage failures in restricted browser modes.
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     closeAlerts();
     attachCharCounters();
@@ -154,5 +208,6 @@
     setupActionConfirmations();
     setupModuleWorkflow();
     scrollActiveRow();
+    setupTeamPanels();
   });
 })();

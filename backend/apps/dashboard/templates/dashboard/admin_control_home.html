@@ -34,7 +34,28 @@
           <div class="title-row">
             <h2>إدارة الصلاحيات</h2>
             <div class="actions">
-              <a href="?section=access" class="primary-btn">حساب جديد</a>
+              <a href="?section=access" class="primary-btn">جديد</a>
+            </div>
+          </div>
+
+          <div class="side-card" style="margin-bottom:12px;">
+            <h4>مستوى الصلاحيات</h4>
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>المستوى</th>
+                    <th>الصلاحيات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>Admin</td><td>الدخول على جميع لوحات التحكم وإجراء جميع العمليات.</td></tr>
+                  <tr><td>Power User</td><td>الدخول على لوحة تحكم أو أكثر وإجراء جميع العمليات في لوحات التحكم المعطاة.</td></tr>
+                  <tr><td>User</td><td>الدخول على لوحة تحكم واحدة وإجراء العمليات على الطلبات المكلف بها في لوحة التحكم المحددة.</td></tr>
+                  <tr><td>QA</td><td>الدخول على جميع لوحات التحكم بدون صلاحية إجراء أي عملية.</td></tr>
+                  <tr><td>Client</td><td>الدخول على لوحة الخدمات الإضافية (التقارير - إدارة العملاء - الإدارة المالية).</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
@@ -63,7 +84,6 @@
                   <th>تاريخ السحب</th>
                   <th>تاريخ انتهاء كلمة المرور</th>
                   <th>كلمة المرور</th>
-                  <th>الصلاحيات الدقيقة</th>
                   <th>اللوحات</th>
                   <th>المستوى</th>
                   <th>اسم المستخدم</th>
@@ -111,7 +131,6 @@
                     <td>{{ row.account_revoke_date|default:"-" }}</td>
                     <td>{{ row.password_expiration_date|default:"-" }}</td>
                     <td>{{ row.password_mask }}</td>
-                    <td>{{ row.permissions_text }}</td>
                     <td>{{ row.dashboards_text }}</td>
                     <td>
                       <span class="status-dot {% if not row.revoked %}active{% else %}revoked{% endif %}"></span>
@@ -121,7 +140,7 @@
                   </tr>
                 {% empty %}
                   <tr>
-                    <td colspan="10">لا توجد حسابات تشغيل حالياً.</td>
+                    <td colspan="9">لا توجد حسابات تشغيل حالياً.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -143,6 +162,7 @@
                 <div class="field">
                   <label for="{{ access_form.level.id_for_label }}">مستوى الصلاحية</label>
                   {{ access_form.level }}
+                  <small id="accessLevelHint" class="text-muted" style="display:block; margin-top:6px;"></small>
                   {% if access_form.level.errors %}<small>{{ access_form.level.errors|striptags }}</small>{% endif %}
                 </div>
                 <div class="field">
@@ -165,17 +185,11 @@
                 </div>
                 <div class="field full">
                   <label for="{{ access_form.dashboards.id_for_label }}">لوحات التحكم المسموحة</label>
+                  <small id="accessDashboardsHint" class="text-muted" style="display:block; margin-bottom:6px;"></small>
                   <div class="checks">
                     {{ access_form.dashboards }}
                   </div>
                   {% if access_form.dashboards.errors %}<small>{{ access_form.dashboards.errors|striptags }}</small>{% endif %}
-                </div>
-                <div class="field full">
-                  <label for="{{ access_form.permissions.id_for_label }}">الصلاحيات الدقيقة المسموحة</label>
-                  <div class="checks">
-                    {{ access_form.permissions }}
-                  </div>
-                  {% if access_form.permissions.errors %}<small>{{ access_form.permissions.errors|striptags }}</small>{% endif %}
                 </div>
               </div>
               <div class="actions">
@@ -261,6 +275,68 @@
             </article>
 
             <article class="kpi-card">
+              <h3>تحميلات التطبيق</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">عدد تحميلات iOS</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.ios }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد تحميلات Android</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.android }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد تحميلات Web</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.web }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">إجمالي التحميلات</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.total }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات زوار التطبيق</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">عدد حسابات الزوار</div><div class="value" data-animate-number>{{ reports.visitor_summary.visitor_accounts }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد حسابات رقم فقط</div><div class="value" data-animate-number>{{ reports.visitor_summary.phone_only_accounts }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد زيارات ملفات المختصين</div><div class="value" data-animate-number>{{ reports.visitor_summary.profile_views }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">عدد نقرات نتائج البحث</div><div class="value" data-animate-number>{{ reports.visitor_summary.search_clicks }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات الخدمات المدفوعة</h3>
+              <div class="kpi-content">
+                {% for row in reports.paid_services_rows %}
+                  <div class="metric">
+                    <div class="label">{{ row.type_label }}</div>
+                    <div class="value" data-animate-number>{{ row.total }}</div>
+                    <div class="bar"><span data-bar-fill></span></div>
+                  </div>
+                {% empty %}
+                  <div class="metric">
+                    <div class="label">لا توجد بيانات</div>
+                    <div class="value" data-animate-number>0</div>
+                    <div class="bar"><span data-bar-fill></span></div>
+                  </div>
+                {% endfor %}
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>إحصاءات الدفع الإلكتروني</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">إجمالي محاولات الدفع</div><div class="value" data-animate-number>{{ reports.payment_summary.attempts_total }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">محاولات ناجحة</div><div class="value" data-animate-number>{{ reports.payment_summary.success }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">محاولات فاشلة</div><div class="value" data-animate-number>{{ reports.payment_summary.failed }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">محاولات ملغاة</div><div class="value" data-animate-number>{{ reports.payment_summary.cancelled }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">فواتير مدفوعة</div><div class="value" data-animate-number>{{ reports.payment_summary.paid_invoices }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">إجمالي المبالغ المدفوعة</div><div class="value" data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:2 }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
+              <h3>تصنيف المختصين</h3>
+              <div class="kpi-content">
+                <div class="metric"><div class="label">ماهر</div><div class="value" data-animate-number>{{ reports.specialist_classification.maher }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">مستشار</div><div class="value" data-animate-number>{{ reports.specialist_classification.mostashar }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">مؤهل</div><div class="value" data-animate-number>{{ reports.specialist_classification.moahel }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">كفو</div><div class="value" data-animate-number>{{ reports.specialist_classification.kafo }}</div><div class="bar"><span data-bar-fill></span></div></div>
+                <div class="metric"><div class="label">إجمالي المختصين</div><div class="value" data-animate-number>{{ reports.specialist_classification.total_specialists }}</div><div class="bar"><span data-bar-fill></span></div></div>
+              </div>
+            </article>
+
+            <article class="kpi-card">
               <h3>التصنيف الرئيسي لمجال الخدمات</h3>
               <div class="kpi-content single-col-grid">
                 <table class="category-table">
@@ -309,6 +385,20 @@
             <div class="quick-stat"><span>مستوى User</span><strong>{{ access_summary.by_level.user|default:0 }}</strong></div>
             <div class="quick-stat"><span>مستوى QA</span><strong>{{ access_summary.by_level.qa|default:0 }}</strong></div>
             <div class="quick-stat"><span>مستوى Client</span><strong>{{ access_summary.by_level.client|default:0 }}</strong></div>
+          </div>
+
+          <div class="side-card">
+            <h4>لوحات التحكم المرتبطة</h4>
+            <div class="stack">
+              <div class="quick-stat"><span>1</span><strong>لوحة إدارة الصلاحيات وتقارير المنصة</strong></div>
+              <div class="quick-stat"><span>2</span><strong>فريق الدعم والمساعدة</strong></div>
+              <div class="quick-stat"><span>3</span><strong>فريق إدارة المحتوى</strong></div>
+              <div class="quick-stat"><span>4</span><strong>فريق إدارة الإعلانات والترويج</strong></div>
+              <div class="quick-stat"><span>5</span><strong>فريق التوثيق</strong></div>
+              <div class="quick-stat"><span>6</span><strong>فريق إدارة الترقية والاشتراكات</strong></div>
+              <div class="quick-stat"><span>7</span><strong>فريق إدارة الخدمات الإضافية</strong></div>
+              <div class="quick-stat"><span>8</span><strong>لوحة تحكم العملاء للخدمات الإضافية</strong></div>
+            </div>
           </div>
 
           <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsFiltersCard">

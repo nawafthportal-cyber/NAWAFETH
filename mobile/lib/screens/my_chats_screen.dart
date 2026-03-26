@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
+import '../widgets/excellence_badges_wrap.dart';
 import '../models/chat_thread_model.dart';
 import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
+import '../services/api_client.dart';
 import 'chat_detail_screen.dart';
 
 class MyChatsScreen extends StatefulWidget {
@@ -602,20 +604,51 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
             // ✅ صورة + حالة الاتصال
             Stack(
               children: [
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: Colors.deepPurple.shade100,
-                  child: Text(
-                    thread.peerDisplayName.isNotEmpty
-                        ? thread.peerDisplayName[0]
-                        : '?',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      color: Colors.deepPurple,
-                      fontWeight: FontWeight.bold,
+                Builder(builder: (_) {
+                  final imageUrl = ApiClient.buildMediaUrl(thread.peerProfileImage);
+                  return CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.deepPurple.shade100,
+                    backgroundImage: imageUrl != null ? NetworkImage(imageUrl) : null,
+                    child: imageUrl == null
+                        ? Text(
+                            thread.peerDisplayName.isNotEmpty
+                                ? thread.peerDisplayName[0]
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              color: Colors.deepPurple,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  );
+                }),
+                if (thread.peerExcellenceBadges.isNotEmpty)
+                  Positioned(
+                    top: -7,
+                    left: -6,
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 82),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        thread.peerExcellenceBadges.first.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
+                        ),
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             const SizedBox(width: 12),
@@ -628,14 +661,30 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(
-                          thread.peerDisplayName,
-                          style: TextStyle(
-                            fontFamily: "Cairo",
-                            fontWeight:
-                                isUnread ? FontWeight.w700 : FontWeight.w600,
-                            fontSize: 15,
-                          ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                thread.peerDisplayName,
+                                style: TextStyle(
+                                  fontFamily: "Cairo",
+                                  fontWeight:
+                                      isUnread ? FontWeight.w700 : FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (thread.peerExcellenceBadges.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: ExcellenceBadgesWrap(
+                                  badges: thread.peerExcellenceBadges,
+                                  compact: true,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                       if (isFavorite)

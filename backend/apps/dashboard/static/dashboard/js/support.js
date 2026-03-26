@@ -97,11 +97,138 @@
     row.scrollIntoView({ block: "center", behavior: "smooth" });
   }
 
+  function shouldScrollToDetails() {
+    if ((window.location.hash || "") === "#supportActionForm") {
+      return true;
+    }
+    if (/\/support\/\d+\/?$/i.test(window.location.pathname || "")) {
+      return true;
+    }
+    const params = new URLSearchParams(window.location.search || "");
+    return params.has("ticket");
+  }
+
+  function scrollToTicketDetailsIfNeeded() {
+    if (!shouldScrollToDetails()) {
+      return;
+    }
+    const details = document.querySelector(".support-detail-shell") || document.getElementById("supportActionForm");
+    if (!details) {
+      return;
+    }
+    details.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function setupAssigneeFilterByTeam() {
+    const form = document.getElementById("supportActionForm");
+    if (!form) {
+      return;
+    }
+
+    const teamSelect = form.querySelector("select[name='assigned_team']");
+    const assigneeSelect = form.querySelector("select[name='assigned_to']");
+    const state = window.supportDashboardState || {};
+    const assigneesByTeam = state.assigneesByTeam || {};
+    if (!teamSelect || !assigneeSelect || !Object.keys(assigneesByTeam).length) {
+      return;
+    }
+
+    function renderOptions(teamId) {
+      const currentValue = assigneeSelect.value || "";
+      const choices = Array.isArray(assigneesByTeam[String(teamId)]) ? assigneesByTeam[String(teamId)] : [];
+
+      assigneeSelect.innerHTML = "";
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "غير محدد";
+      assigneeSelect.appendChild(blank);
+
+      choices.forEach((entry) => {
+        if (!Array.isArray(entry) || entry.length < 2) {
+          return;
+        }
+        const option = document.createElement("option");
+        option.value = String(entry[0] || "");
+        option.textContent = String(entry[1] || "");
+        assigneeSelect.appendChild(option);
+      });
+
+      if (currentValue && choices.some((entry) => String(entry[0] || "") === currentValue)) {
+        assigneeSelect.value = currentValue;
+      } else {
+        assigneeSelect.value = "";
+      }
+    }
+
+    teamSelect.addEventListener("change", () => {
+      renderOptions(teamSelect.value || "");
+    });
+
+    renderOptions(teamSelect.value || "");
+  }
+
+  function setupTeamPanels() {
+    const storageKey = "dashboard.support.selectedTeamPanel";
+    const menu = document.getElementById("teamFixedMenu");
+    const panelRoot = document.getElementById("teamPanels");
+    if (!menu || !panelRoot) {
+      return;
+    }
+
+    const buttons = Array.from(menu.querySelectorAll(".team-fixed-btn"));
+    const panels = Array.from(panelRoot.querySelectorAll(".team-panel-card"));
+    if (!buttons.length || !panels.length) {
+      return;
+    }
+
+    function activate(teamKey) {
+      buttons.forEach((btn) => {
+        const active = btn.dataset.teamTarget === teamKey;
+        btn.classList.toggle("active", active);
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+      });
+
+      panels.forEach((panel) => {
+        const active = panel.dataset.teamPanel === teamKey;
+        panel.classList.toggle("active", active);
+        panel.hidden = !active;
+      });
+
+      try {
+        window.localStorage.setItem(storageKey, teamKey);
+      } catch (_) {
+        // Ignore storage failures in restricted browser modes.
+      }
+    }
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.teamTarget;
+        if (!key) {
+          return;
+        }
+        activate(key);
+      });
+    });
+
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved && buttons.some((btn) => btn.dataset.teamTarget === saved)) {
+        activate(saved);
+      }
+    } catch (_) {
+      // Ignore storage failures in restricted browser modes.
+    }
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     closeAlerts();
     setupLiveSearch();
     setupActionForm();
     markActiveTicket();
+    scrollToTicketDetailsIfNeeded();
+    setupAssigneeFilterByTeam();
+    setupTeamPanels();
   });
 })();
 

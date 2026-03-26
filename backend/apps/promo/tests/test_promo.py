@@ -1023,6 +1023,33 @@ def test_dashboard_reject_after_pricing_is_blocked(client, promo_operator_user, 
     assert promo_request.status == PromoRequestStatus.QUOTED
 
 
+def test_my_promo_requests_includes_reject_reason(api, user):
+    now = timezone.now()
+    _ensure_provider_requester(user)
+    reject_text = "المرفقات غير مطابقة لمتطلبات الخدمة"
+    PromoRequest.objects.create(
+        requester=user,
+        title="طلب مرفوض",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now + timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.REJECTED,
+        ops_status=PromoOpsStatus.NEW,
+        reject_reason=reject_text,
+    )
+
+    api.force_authenticate(user=user)
+    response = api.get("/api/promo/requests/my/")
+
+    assert response.status_code == 200
+    assert isinstance(response.data, list)
+    assert response.data
+    assert response.data[0].get("status") == PromoRequestStatus.REJECTED
+    assert reject_text in str(response.data[0].get("reject_reason") or "")
+
+
 def test_completed_status_home_banner_is_visible_while_campaign_window_active(api, user):
     now = timezone.now()
     _ensure_provider_requester(user)
@@ -1195,7 +1222,7 @@ def test_quote_requires_uploaded_assets_for_required_service_types(user):
         sort_order=0,
     )
 
-    with pytest.raises(ValueError, match="المرفقات المطلوبة"):
+    with pytest.raises(ValueError, match="المرفقات غير مكتملة"):
         quote_and_create_invoice(pr=pr, by_user=user, quote_note="requires-assets")
 
 

@@ -56,7 +56,7 @@
 
       <div id="promo-service-blocks">
         <div class="promo-service-block" data-service-block="home_banner" hidden>
-          <h4>بنر الصفحة الرئيسية</h4>
+          <div class="service-block-header"><h4>بنر الصفحة الرئيسية</h4><button type="button" class="btn-preview-service" data-preview-service="home_banner">معاينة</button></div>
           <div class="attachment-guide">
             <strong>قبل رفع مرفقات البنر:</strong>
             <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840. إذا كانت الصورة بمقاس مختلف يمكنك تفعيل الضبط التلقائي.</p>
@@ -94,25 +94,25 @@
         </div>
 
         <div class="promo-service-block" data-service-block="featured_specialists" hidden>
-          <h4>شريط أبرز المختصين</h4>
+          <div class="service-block-header"><h4>شريط أبرز المختصين</h4><button type="button" class="btn-preview-service" data-preview-service="featured_specialists">معاينة</button></div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
         </div>
 
         <div class="promo-service-block" data-service-block="portfolio_showcase" hidden>
-          <h4>شريط البنرات والمشاريع</h4>
+          <div class="service-block-header"><h4>شريط البنرات والمشاريع</h4><button type="button" class="btn-preview-service" data-preview-service="portfolio_showcase">معاينة</button></div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
         </div>
 
         <div class="promo-service-block" data-service-block="snapshots" hidden>
-          <h4>شريط اللمحات</h4>
+          <div class="service-block-header"><h4>شريط اللمحات</h4><button type="button" class="btn-preview-service" data-preview-service="snapshots">معاينة</button></div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">معدل الظهور</label><select data-field="frequency" class="form-select"><option value="10s">كل 10 ثواني</option><option value="30s">كل 30 ثانية</option><option value="60s" selected>كل دقيقة</option><option value="300s">كل 5 دقائق</option><option value="900s">كل 15 دقيقة</option><option value="1800s">كل 30 دقيقة</option><option value="3600s">كل ساعة</option></select></div>
         </div>
 
         <div class="promo-service-block" data-service-block="search_results" hidden>
-          <h4>الظهور في قوائم البحث</h4>
+          <div class="service-block-header"><h4>الظهور في قوائم البحث</h4><button type="button" class="btn-preview-service" data-preview-service="search_results">معاينة</button></div>
           <div class="form-row"><div class="form-group half"><label class="form-label">البداية</label><input data-field="start_at" type="datetime-local" class="form-input"></div><div class="form-group half"><label class="form-label">النهاية</label><input data-field="end_at" type="datetime-local" class="form-input"></div></div>
           <div class="form-group"><label class="form-label">تصنيف المختص</label><input data-field="target_category" type="text" class="form-input"></div>
           <div class="form-group">
@@ -127,7 +127,7 @@
         </div>
 
         <div class="promo-service-block" data-service-block="promo_messages" hidden>
-          <h4>الرسائل الدعائية</h4>
+          <div class="service-block-header"><h4>الرسائل الدعائية</h4><button type="button" class="btn-preview-service" data-preview-service="promo_messages">معاينة</button></div>
           <div class="attachment-guide">
             <strong>قبل رفع مرفقات الرسائل:</strong>
             <p style="margin:6px 0 0">يمكنك الإرسال بنص فقط أو بمرفق فقط أو بكليهما. عند استخدام مرفقات، استخدم ملفات خفيفة وواضحة لتسهيل التسليم في التنبيهات والمحادثات.</p>
@@ -136,11 +136,11 @@
           <div class="check-row"><label><input data-field="use_notification_channel" type="checkbox" checked> رسائل التنبيه</label><label><input data-field="use_chat_channel" type="checkbox"> رسائل المحادثات</label></div>
           <div class="form-group"><label class="form-label">نص الرسالة الترويجية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">مرفقات الرسالة</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4,.pdf" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4, PDF</small></div>
+          <div class="form-group"><label class="form-label">مرفقات الرسالة</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
         </div>
 
         <div class="promo-service-block" data-service-block="sponsorship" hidden>
-          <h4>الرعاية</h4>
+          <div class="service-block-header"><h4>الرعاية</h4><button type="button" class="btn-preview-service" data-preview-service="sponsorship">معاينة</button></div>
           <div class="attachment-guide">
             <strong>قبل رفع شعار الراعي:</strong>
             <p style="margin:6px 0 0">ارفع شعارًا بجودة عالية وخلفية مناسبة للعرض داخل التطبيق. يفضّل تسمية الملف باسم الجهة الراعية لتسهيل المراجعة.</p>
@@ -151,14 +151,36 @@
           <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
           <div class="form-group"><label class="form-label">نص رسالة الرعاية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
           <div class="form-group"><label class="form-label">مواصفات الملف</label><input data-field="attachment_specs" type="text" class="form-input"></div>
-          <div class="form-group"><label class="form-label">شعار الراعي</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4,.pdf" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4, PDF</small></div>
+          <div class="form-group"><label class="form-label">شعار الراعي</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
         </div>
+      </div>
+
+      <div id="promo-live-total" class="promo-live-total" hidden>
+        <div class="promo-live-total-head">
+          <strong>مجمل التكلفة</strong>
+          <div id="promo-live-spinner" class="spinner-inline" hidden></div>
+        </div>
+        <div class="promo-live-total-amount" id="promo-live-amount">0.00 ريال</div>
+        <div class="promo-live-total-detail" id="promo-live-detail">قبل الضريبة: 0.00 ريال • VAT: 0.00 ريال</div>
       </div>
 
       <button type="submit" class="btn btn-primary btn-block" id="promo-submit">معاينة التسعير ثم الإرسال</button>
     </form>
   </section>
 </main>
+
+<!-- ── Success Dialog ── -->
+<div id="promo-success-modal" class="promo-modal" hidden>
+  <div class="promo-modal-backdrop"></div>
+  <div class="promo-modal-card promo-success-card" role="dialog" aria-modal="true">
+    <div class="success-code-badge" id="success-request-code">رقم الطلب: —</div>
+    <div class="success-message-box">
+      <strong>تمت عملية الدفع بنجاح</strong>
+      <p>سيتم التواصل معكم لتنفيذ طلبكم</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="success-close-btn" style="background:#2f7d1e;border-color:#2f7d1e">إغلاق</button>
+  </div>
+</div>
 
 <div id="promo-modal" class="promo-modal" hidden>
   <div class="promo-modal-backdrop" data-close-modal="1"></div>
@@ -219,6 +241,131 @@
     .promo-modal-body{max-height:calc(100vh - 170px)}
     .promo-summary-grid{grid-template-columns:1fr}
   }
+</style>
+
+<!-- ── Summary Screen ── -->
+<main class="page-shell promo-screen" id="promo-summary-screen" hidden>
+  <div class="page-header">
+    <button class="btn-back" id="summary-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>ملخص طلب الترويج والتكلفة</h1>
+  </div>
+  <div class="detail-card">
+    <p id="summary-provider-name" style="font-weight:700;margin:0 0 8px"></p>
+    <p class="text-muted" style="margin:0 0 12px">عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند</p>
+    <div class="summary-table-wrap">
+      <table class="summary-table" id="summary-items-table">
+        <thead><tr><th>البند</th><th>التكلفة</th></tr></thead>
+        <tbody id="summary-items-body"></tbody>
+      </table>
+    </div>
+    <table class="summary-totals-table" id="summary-totals-table">
+      <tbody>
+        <tr><td>المجموع</td><td id="summary-subtotal">0.00 ريال</td></tr>
+        <tr><td>VAT</td><td id="summary-vat">0.00 ريال</td></tr>
+        <tr class="total-row"><td>التكلفة الكلية</td><td id="summary-total">0.00 ريال</td></tr>
+      </tbody>
+    </table>
+    <div class="summary-actions">
+      <button type="button" class="btn btn-secondary" id="summary-cancel">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="summary-continue" style="background:#2f7d1e;border-color:#2f7d1e">استمرار</button>
+    </div>
+  </div>
+</main>
+
+<!-- ── Payment Screen ── -->
+<main class="page-shell promo-screen" id="promo-payment-screen" hidden>
+  <div class="page-header">
+    <button class="btn-back" id="payment-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+    <h1>شاشة الدفع</h1>
+  </div>
+  <div class="detail-card">
+    <p id="payment-amount-label" style="font-weight:700;margin:0 0 14px"></p>
+    <div class="payment-method-tabs" id="payment-method-tabs">
+      <button type="button" class="payment-tab active" data-method="apple_pay"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C3.79 16.17 4.36 9.02 8.9 8.76c1.28.06 2.15.72 2.89.75.96-.19 1.88-.83 2.93-.75 1.25.1 2.19.59 2.8 1.51-2.56 1.54-1.95 4.94.53 5.88-.63 1.65-1.4 3.27-3 4.13zM12.02 8.7c-.12-2.28 1.71-4.19 3.89-4.47.28 2.56-2.06 4.72-3.89 4.47z"/></svg> Apple Pay</button>
+      <button type="button" class="payment-tab" data-method="card"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg> بطاقة بنكية</button>
+    </div>
+
+    <div id="payment-apple-section">
+      <div class="apple-pay-button">
+        <span> Pay with Apple Pay</span>
+      </div>
+    </div>
+
+    <div id="payment-card-section" hidden>
+      <div class="form-group">
+        <label class="form-label">اسم حامل البطاقة</label>
+        <input id="pay-card-name" type="text" class="form-input" autocomplete="cc-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">رقم البطاقة</label>
+        <input id="pay-card-number" type="text" class="form-input" maxlength="19" inputmode="numeric" autocomplete="cc-number" placeholder="•••• •••• •••• ••••">
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label class="form-label">تاريخ الانتهاء</label>
+          <input id="pay-card-expiry" type="text" class="form-input" maxlength="5" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY">
+        </div>
+        <div class="form-group half">
+          <label class="form-label">CVV</label>
+          <input id="pay-card-cvv" type="password" class="form-input" maxlength="4" inputmode="numeric" autocomplete="cc-csc" placeholder="•••">
+        </div>
+      </div>
+    </div>
+
+    <p class="promo-note" style="margin:14px 0">أفضل الممارسات: لا يتم تخزين بيانات البطاقة داخل التطبيق ويتم إرسالها عبر قناة مشفرة فقط.</p>
+    <button type="button" class="btn btn-primary btn-block" id="payment-pay-btn" style="background:#2f7d1e;border-color:#2f7d1e">دفع</button>
+  </div>
+</main>
+
+<style>
+  /* ── Service block header ── */
+  .service-block-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}
+  .service-block-header h4{margin:0;color:#663d90}
+  .btn-preview-service{border:1px solid #c8b3ea;background:#faf7ff;color:#663d90;border-radius:999px;padding:6px 16px;font:inherit;font-size:13px;cursor:pointer;transition:background .15s}
+  .btn-preview-service:hover{background:#efe7fb}
+
+  /* ── Live total card ── */
+  .promo-live-total{border:1px solid rgba(102,61,144,.3);background:#faf7ff;border-radius:14px;padding:14px;margin:0 0 14px}
+  .promo-live-total-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .promo-live-total-head strong{color:#663d90;font-size:15px}
+  .promo-live-total-amount{font-size:22px;font-weight:800;color:#1a1a2e}
+  .promo-live-total-detail{font-size:12px;color:#6b7280;margin-top:2px}
+
+  /* ── Summary screen ── */
+  .promo-screen .detail-card{max-width:680px;margin:0 auto}
+  .summary-table-wrap{overflow-x:auto;margin:0 0 14px}
+  .summary-table{width:100%;border-collapse:collapse;border:1px solid #a12d9d}
+  .summary-table thead th{background:#a12d9d;color:#fff;padding:10px 14px;text-align:right;font-weight:700}
+  .summary-table tbody td{padding:10px 14px;border:1px solid #d6b8e8}
+  .summary-totals-table{width:100%;border-collapse:collapse;border:1px solid #a12d9d;margin:0 0 16px}
+  .summary-totals-table td{padding:10px 14px;border:1px solid #d6b8e8}
+  .summary-totals-table td:first-child{font-weight:700}
+  .summary-totals-table .total-row td{background:#faf7ff;font-weight:700;font-size:16px}
+  .summary-actions{display:flex;gap:10px;flex-wrap:wrap}
+  .summary-actions .btn{flex:1;min-width:120px;min-height:44px}
+
+  /* ── Payment screen ── */
+  .payment-method-tabs{display:flex;gap:8px;margin:0 0 16px}
+  .payment-tab{display:inline-flex;align-items:center;gap:6px;border:1px solid #c8b3ea;background:#fff;color:#663d90;border-radius:999px;padding:10px 18px;font:inherit;font-size:14px;cursor:pointer;transition:background .15s}
+  .payment-tab.active{background:#efe7fb;border-color:#663d90;font-weight:600}
+  .apple-pay-button{background:#000;color:#fff;border-radius:12px;padding:18px;text-align:center;font-size:18px;font-weight:700;cursor:pointer}
+
+  /* ── Success dialog ── */
+  .promo-success-card{max-width:420px;text-align:center;padding:28px 24px}
+  .success-code-badge{display:inline-block;border:2px solid #2f7d1e;color:#2f7d1e;border-radius:8px;padding:8px 24px;font-weight:700;font-size:15px;margin:0 0 18px}
+  .success-message-box{border:2px solid #2f7d1e;border-radius:8px;padding:16px;margin:0 0 18px}
+  .success-message-box strong{display:block;font-size:17px;margin:0 0 4px}
+  .success-message-box p{margin:0;color:#6b7280}
+
+  /* ── Requests table ── */
+  .promo-requests-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
+  .promo-requests-head h3{margin:0;font-size:16px;color:#663d90;font-weight:700}
+  .promo-requests-head .dot{width:10px;height:10px;background:#663d90;border-radius:50%}
+  .promo-requests-table-wrap{overflow-x:auto;margin:0 0 8px}
+  .promo-requests-table{width:100%;border-collapse:collapse;border:1px solid #d6c8ef;font-size:13px}
+  .promo-requests-table thead th{background:#f3edfc;color:#663d90;padding:10px 12px;text-align:right;white-space:nowrap;font-weight:700}
+  .promo-requests-table tbody td{padding:10px 12px;border:1px solid #e8e0f5;white-space:nowrap}
+  .promo-requests-table tbody tr:hover{background:#faf7ff;cursor:pointer}
 </style>
 {% endblock %}
 

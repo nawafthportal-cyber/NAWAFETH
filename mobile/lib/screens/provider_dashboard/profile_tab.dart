@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:nawafeth/constants/saudi_cities.dart';
+import 'package:nawafeth/models/excellence_badge_model.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
+import 'package:nawafeth/widgets/excellence_badges_wrap.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -257,6 +259,158 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     );
   }
 
+  List<ExcellenceBadgeModel> get _excellenceBadges =>
+      _providerProfile?.excellenceBadges ?? const [];
+
+  List<ExcellenceBadgeModel> _recentlyAwardedBadges({int days = 14}) {
+    final now = DateTime.now();
+    return _excellenceBadges.where((badge) {
+      final raw = (badge.awardedAt ?? '').trim();
+      if (raw.isEmpty) return false;
+      final awardedAt = DateTime.tryParse(raw);
+      if (awardedAt == null) return false;
+      final diff = now.difference(awardedAt);
+      return !diff.isNegative && diff.inDays <= days;
+    }).toList(growable: false);
+  }
+
+  Widget _buildProfileIdentityCard() {
+    final profile = _providerProfile;
+    if (profile == null) return const SizedBox.shrink();
+
+    final badges = _excellenceBadges;
+    final recentBadges = _recentlyAwardedBadges();
+    final displayName = profile.displayName.trim().isNotEmpty
+        ? profile.displayName.trim()
+        : 'مزود الخدمة';
+    final topBadge = badges.isNotEmpty ? badges.first : null;
+    final profileImage = (profile.profileImage ?? '').trim();
+    final hasImage = profileImage.isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [Color(0xFFFFFFFF), Color(0xFFF6F1FF)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 12,
+            offset: Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  CircleAvatar(
+                    radius: 34,
+                    backgroundColor: mainColor.withAlpha(25),
+                    backgroundImage: hasImage ? NetworkImage(profileImage) : null,
+                    child: hasImage
+                        ? null
+                        : Text(
+                            displayName.substring(0, 1),
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.bold,
+                              color: mainColor,
+                              fontSize: 20,
+                            ),
+                          ),
+                  ),
+                  if (topBadge != null)
+                    Positioned(
+                      top: -6,
+                      left: -4,
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 100),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          topBadge.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Color(0xFF17192D),
+                      ),
+                    ),
+                    if (badges.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      ExcellenceBadgesWrap(
+                        badges: badges,
+                        compact: true,
+                        alignment: WrapAlignment.start,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (recentBadges.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4D6),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE8C566)),
+              ),
+              child: Text(
+                'تهانينا! حصلت على شارة ${recentBadges.first.name} وتم عرضها الآن في نافذتي.',
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  color: Color(0xFF6B4C05),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget buildField(
     String key,
     String label,
@@ -394,6 +548,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        _buildProfileIdentityCard(),
         InkWell(
           onTap: _openPortfolio,
           borderRadius: BorderRadius.circular(18),

@@ -88,7 +88,7 @@
                     <td>
                       <a
                         class="ticket-link"
-                        href="{% url 'dashboard:support_ticket_detail' row.id %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}"
+                        href="{% url 'dashboard:support_ticket_detail' row.id %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}#supportActionForm"
                       >
                         {{ row.code }}
                       </a>
@@ -112,6 +112,41 @@
           </div>
         </section>
 
+        <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
+          <div class="title-row">
+            <h2>قوائم الفرق المرتبطة</h2>
+            <span class="pill info">اختيار الفريق من القائمة الثابتة يمينًا</span>
+          </div>
+          <div class="team-panels" id="teamPanels">
+            {% for panel in team_panels %}
+              <article class="team-panel-card{% if forloop.first %} active{% endif %}" data-team-panel="{{ panel.key }}" {% if not forloop.first %}hidden{% endif %}>
+                <header class="team-panel-header">
+                  <h3>{{ panel.team }}</h3>
+                  <p>{{ panel.summary }}</p>
+                </header>
+                <div class="team-panel-grid">
+                  <section class="team-list-block">
+                    <h4>اللوحات المرتبطة</h4>
+                    <ul>
+                      {% for item in panel.dashboards %}
+                        <li><a href="{{ item.url }}" class="team-link">{{ item.label }}</a></li>
+                      {% endfor %}
+                    </ul>
+                  </section>
+                  <section class="team-list-block">
+                    <h4>قوائم التشغيل</h4>
+                    <ul>
+                      {% for item in panel.worklists %}
+                        <li>{{ item }}</li>
+                      {% endfor %}
+                    </ul>
+                  </section>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+
         {% if selected_ticket %}
           <section class="section-panel slide-up support-detail-shell">
             <div class="title-row">
@@ -125,6 +160,44 @@
               <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
               <div class="quick-stat"><span>فريق الدعم الحالي</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
             </div>
+
+            <section class="support-attachments-view" aria-label="مرفقات الطلب">
+              <div class="title-row">
+                <h2>مرفقات الطلب</h2>
+                <span class="pill info">{{ selected_ticket_attachments|length }} مرفق</span>
+              </div>
+              {% if selected_ticket_attachments %}
+                <div class="support-attachments-grid">
+                  {% for attachment in selected_ticket_attachments %}
+                    <article class="attachment-card">
+                      {% if attachment.is_image and attachment.url %}
+                        <a class="attachment-preview" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                          <img src="{{ attachment.url }}" alt="{{ attachment.name }}">
+                        </a>
+                      {% else %}
+                        <a class="attachment-preview attachment-preview-file" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                          <span>📎</span>
+                        </a>
+                      {% endif %}
+                      <div class="attachment-body">
+                        <h4 title="{{ attachment.name }}">{{ attachment.name }}</h4>
+                        <p>
+                          <span>النوع: {{ attachment.ext|default:"-"|upper }}</span>
+                          <span>رفع بواسطة: {{ attachment.uploaded_by }}</span>
+                          <span>تاريخ الرفع: {{ attachment.created_at }}</span>
+                        </p>
+                        <div class="actions">
+                          <a class="ghost-btn export-btn" href="{{ attachment.url }}" target="_blank" rel="noopener">فتح</a>
+                          <a class="ghost-btn" href="{{ attachment.url }}" download>تنزيل</a>
+                        </div>
+                      </div>
+                    </article>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب حتى الآن.</div>
+              {% endif %}
+            </section>
 
             <form method="post" enctype="multipart/form-data" id="supportActionForm">
               {% csrf_token %}
@@ -188,6 +261,19 @@
             <a class="tab-btn" href="{% url 'dashboard:analytics_insights' %}">التحليلات</a>
           {% endif %}
 
+          <div class="side-card teams-fixed-card" id="teamFixedMenu">
+            <h4>قوائم الفرق</h4>
+            <p class="teams-fixed-note">ثابتة أثناء التمرير. انقر لعرض القوائم المرتبطة أدناه.</p>
+            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الفرق">
+              {% for panel in team_panels %}
+                <button type="button" class="team-fixed-btn{% if forloop.first %} active{% endif %}" data-team-target="{{ panel.key }}" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
+                  <span>{{ forloop.counter }}</span>
+                  <strong>{{ panel.team }}</strong>
+                </button>
+              {% endfor %}
+            </div>
+          </div>
+
           <div class="side-card">
             <h4>مرجع الأولوية</h4>
             <div class="quick-stat"><span>1</span><strong>الأساسية</strong></div>
@@ -207,9 +293,12 @@
     </main>
   </div>
 
+  {{ team_assignee_map|json_script:"supportTeamAssigneeMapData" }}
   <script>
+    const assigneeMapNode = document.getElementById("supportTeamAssigneeMapData");
     window.supportDashboardState = {
       canWrite: {% if can_write %}true{% else %}false{% endif %},
+      assigneesByTeam: assigneeMapNode ? JSON.parse(assigneeMapNode.textContent || "{}") : {},
     };
   </script>
   <script src="{% static 'dashboard/js/support.js' %}"></script>

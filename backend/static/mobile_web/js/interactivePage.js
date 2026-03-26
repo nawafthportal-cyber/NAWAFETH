@@ -247,11 +247,21 @@ const InteractivePage = (() => {
     });
 
     const header = UI.el('div', { className: 'interactive-following-head' });
+    const avatarWrap = UI.el('div', { className: 'interactive-following-avatar-wrap' });
     const avatar = UI.el('div', { className: 'interactive-following-avatar' });
     const profileUrl = ApiClient.mediaUrl(provider.profile_image || '');
     if (profileUrl) avatar.appendChild(UI.lazyImg(profileUrl, provider.display_name || ''));
     else avatar.appendChild(UI.text(((provider.display_name || '').trim().charAt(0)) || '؟'));
-    header.appendChild(avatar);
+
+    const excellenceItems = UI.normalizeExcellenceBadges(provider.excellence_badges);
+    if (excellenceItems.length) {
+      avatarWrap.appendChild(UI.el('span', {
+        className: 'interactive-following-avatar-excellence-top',
+        textContent: excellenceItems[0].name || excellenceItems[0].code || 'تميز',
+      }));
+    }
+    avatarWrap.appendChild(avatar);
+    header.appendChild(avatarWrap);
 
     const meta = UI.el('div', { className: 'interactive-following-meta' });
     const nameRow = UI.el('div', { className: 'interactive-following-name-row' });
@@ -271,12 +281,12 @@ const InteractivePage = (() => {
     }
     meta.appendChild(nameRow);
 
-    const excellence = UI.buildExcellenceBadges(provider.excellence_badges, {
+    const excellence = UI.buildExcellenceBadges(excellenceItems, {
       className: 'excellence-badges compact interactive-excellence-badges',
       compact: true,
       iconSize: 10,
     });
-    if (excellence) meta.appendChild(excellence);
+    if (excellence) nameRow.appendChild(excellence);
 
     const cityText = String(provider.city || '').trim() || 'غير محدد';
     const rating = Number(provider.rating_avg || provider.ratingAvg || 0);

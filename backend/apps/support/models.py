@@ -30,6 +30,11 @@ class SupportPriority(models.TextChoices):
     HIGH = "high", "عالية"
 
 
+class SupportTicketEntrypoint(models.TextChoices):
+    CONTACT_PLATFORM = "contact_platform", "تواصل مع المنصة"
+    MESSAGING_REPORT = "messaging_report", "بلاغ المحادثات"
+
+
 class SupportTeam(models.Model):
     """
     فرق الدعم (قابلة للإدارة من الأدمن):
@@ -67,6 +72,11 @@ class SupportTicket(models.Model):
     ticket_type = models.CharField(max_length=20, choices=SupportTicketType.choices)
     status = models.CharField(max_length=20, choices=SupportTicketStatus.choices, default=SupportTicketStatus.NEW)
     priority = models.CharField(max_length=20, choices=SupportPriority.choices, default=SupportPriority.NORMAL)
+    entrypoint = models.CharField(
+        max_length=32,
+        choices=SupportTicketEntrypoint.choices,
+        default=SupportTicketEntrypoint.CONTACT_PLATFORM,
+    )
 
     description = models.CharField(max_length=300)
 

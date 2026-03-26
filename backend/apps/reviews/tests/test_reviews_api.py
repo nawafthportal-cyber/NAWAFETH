@@ -9,6 +9,7 @@ from apps.marketplace.models import ServiceRequest, RequestType, RequestStatus
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.notifications.models import Notification
 from apps.unified_requests.models import UnifiedRequest
+from apps.messaging.models import Thread
 
 
 @pytest.mark.django_db
@@ -509,3 +510,197 @@ def test_delete_review_updates_provider_rating_aggregates():
     provider.refresh_from_db()
     assert provider.rating_count == 0
     assert float(provider.rating_avg) == 0.0
+
+
+@pytest.mark.django_db
+def test_provider_like_toggle_and_reviews_list_fields():
+    client_user = User.objects.create_user(phone="0510000501", role_state=UserRole.CLIENT)
+    provider_user = User.objects.create_user(phone="0510000502", role_state=UserRole.PROVIDER)
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    cat = Category.objects.create(name="خدمات")
+    sub = SubCategory.objects.create(category=cat, name="اختبار")
+    ProviderCategory.objects.create(provider=provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.NORMAL,
+        status=RequestStatus.COMPLETED,
+        city="الرياض",
+    )
+
+    api_client = APIClient()
+    api_client.force_authenticate(user=client_user)
+    r_create = api_client.post(
+        f"/api/reviews/requests/{sr.id}/review/",
+        {
+            "response_speed": 5,
+            "cost_value": 5,
+            "quality": 5,
+            "credibility": 5,
+            "on_time": 5,
+            "comment": "مراجعة لاختبار الإعجاب",
+        },
+        format="json",
+    )
+    assert r_create.status_code == 201
+    review_id = int(r_create.data["review_id"])
+
+    api_provider = APIClient()
+    api_provider.force_authenticate(user=provider_user)
+
+    r_like_on = api_provider.post(
+        f"/api/reviews/reviews/{review_id}/provider-like/",
+        {"liked": True},
+        format="json",
+    )
+    assert r_like_on.status_code == 200
+    assert r_like_on.data["provider_liked"] is True
+
+    r_like_toggle = api_provider.post(
+        f"/api/reviews/reviews/{review_id}/provider-like/",
+        {},
+        format="json",
+    )
+    assert r_like_toggle.status_code == 200
+    assert r_like_toggle.data["provider_liked"] is False
+
+    r_list = APIClient().get(f"/api/reviews/providers/{provider.id}/reviews/")
+    assert r_list.status_code == 200
+    assert len(r_list.data) >= 1
+    row = r_list.data[0]
+    assert row["id"] == review_id
+    assert row["request_id"] == sr.id
+    assert row["client_id"] == client_user.id
+    assert row["provider_liked"] is False
+
+
+@pytest.mark.django_db
+def test_provider_like_forbidden_for_other_provider():
+    client_user = User.objects.create_user(phone="0510000601", role_state=UserRole.CLIENT)
+    owner_provider_user = User.objects.create_user(phone="0510000602", role_state=UserRole.PROVIDER)
+    other_provider_user = User.objects.create_user(phone="0510000603", role_state=UserRole.PROVIDER)
+
+    owner_provider = ProviderProfile.objects.create(
+        user=owner_provider_user,
+        provider_type="individual",
+        display_name="مزود مالك",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    other_provider = ProviderProfile.objects.create(
+        user=other_provider_user,
+        provider_type="individual",
+        display_name="مزود آخر",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    cat = Category.objects.create(name="صيانة")
+    sub = SubCategory.objects.create(category=cat, name="منزلية")
+    ProviderCategory.objects.create(provider=owner_provider, subcategory=sub)
+    ProviderCategory.objects.create(provider=other_provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=owner_provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.NORMAL,
+        status=RequestStatus.COMPLETED,
+        city="الرياض",
+    )
+    review = Review.objects.create(
+        request=sr,
+        provider=owner_provider,
+        client=client_user,
+        rating=5,
+        comment="ممتاز",
+        moderation_status=ReviewModerationStatus.APPROVED,
+    )
+
+    api_other = APIClient()
+    api_other.force_authenticate(user=other_provider_user)
+    r = api_other.post(
+        f"/api/reviews/reviews/{review.id}/provider-like/",
+        {"liked": True},
+        format="json",
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.django_db
+def test_provider_chat_thread_from_review_creates_and_reuses_thread():
+    client_user = User.objects.create_user(phone="0510000701", role_state=UserRole.CLIENT)
+    provider_user = User.objects.create_user(phone="0510000702", role_state=UserRole.PROVIDER)
+
+    provider = ProviderProfile.objects.create(
+        user=provider_user,
+        provider_type="individual",
+        display_name="مزود",
+        bio="bio",
+        years_experience=1,
+        city="الرياض",
+        accepts_urgent=True,
+    )
+    cat = Category.objects.create(name="برمجة")
+    sub = SubCategory.objects.create(category=cat, name="ويب")
+    ProviderCategory.objects.create(provider=provider, subcategory=sub)
+
+    sr = ServiceRequest.objects.create(
+        client=client_user,
+        provider=provider,
+        subcategory=sub,
+        title="طلب",
+        description="وصف",
+        request_type=RequestType.NORMAL,
+        status=RequestStatus.COMPLETED,
+        city="الرياض",
+    )
+    review = Review.objects.create(
+        request=sr,
+        provider=provider,
+        client=client_user,
+        rating=4,
+        comment="جيد",
+        moderation_status=ReviewModerationStatus.APPROVED,
+    )
+
+    api_provider = APIClient()
+    api_provider.force_authenticate(user=provider_user)
+
+    r_first = api_provider.post(
+        f"/api/reviews/reviews/{review.id}/provider-chat-thread/",
+        {},
+        format="json",
+    )
+    assert r_first.status_code == 200
+    thread_id = int(r_first.data["thread_id"])
+
+    thread = Thread.objects.get(id=thread_id)
+    assert thread.is_direct is True
+    assert {thread.participant_1_id, thread.participant_2_id} == {provider_user.id, client_user.id}
+
+    r_second = api_provider.post(
+        f"/api/reviews/reviews/{review.id}/provider-chat-thread/",
+        {},
+        format="json",
+    )
+    assert r_second.status_code == 200
+    assert int(r_second.data["thread_id"]) == thread_id

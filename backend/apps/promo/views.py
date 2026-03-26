@@ -597,6 +597,16 @@ class PromoRequestPreviewView(APIView):
     def post(self, request):
         serializer = PromoRequestCreateSerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():
+            import logging
+
+            logging.getLogger("apps.promo").warning(
+                "PromoRequest preview validation failed user=%s errors=%s data=%s",
+                request.user.id,
+                serializer.errors,
+                {k: v for k, v in request.data.items() if k != "password"}
+                if hasattr(request.data, "items")
+                else str(request.data)[:500],
+            )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         try:
             payload = preview_promo_request(

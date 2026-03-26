@@ -11,8 +11,7 @@
         </div>
         <div class="hero-stats">
           <span class="pill brand">إجمالي الطلبات: {{ summary.total }}</span>
-          <span class="pill accent">اقتراحات: {{ summary.suggestions }}</span>
-          <span class="pill danger">بلاغات: {{ summary.complaints }}</span>
+          <span class="pill danger">بلاغات التقييم: {{ summary.complaints }}</span>
         </div>
       </div>
     </header>
@@ -32,7 +31,7 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>طلبات التقييم والمراجعات</h2>
+            <h2>بلاغات التقييمات والمراجعات</h2>
             <div class="actions">
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">PDF</a>
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=xlsx">Excel</a>
@@ -49,7 +48,7 @@
               {% endfor %}
             </select>
             <select class="input-control" name="type">
-              <option value="">كل أنواع الطلبات</option>
+              <option value="">كل أنواع البلاغات</option>
               {% for code,label in ticket_type_choices %}
                 <option value="{{ code }}" {% if filters.type == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
@@ -119,72 +118,137 @@
               </div>
             </div>
 
-            <div class="support-meta-grid">
-              <div class="quick-stat"><span>اسم العميل</span><strong>{% if selected_ticket.requester.username %}@{{ selected_ticket.requester.username }}{% else %}@{{ selected_ticket.requester.phone }}{% endif %}</strong></div>
-              <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
-              <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
-              <div class="quick-stat"><span>فريق الدعم الحالي</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
-            </div>
+            <div class="review-report-shell">
+              <div class="review-report-main">
+                <form method="post" enctype="multipart/form-data" id="contentReviewsActionForm">
+                  {% csrf_token %}
+                  <input type="hidden" name="ticket_id" value="{{ selected_ticket.id }}">
+                  <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
 
-            <div class="target-card">
-              <h4>مصدر البلاغ / المراجعة</h4>
-              <div class="quick-stat"><span>النوع</span><strong>{{ target_info.label }}</strong></div>
-              <div class="quick-stat"><span>المعرف</span><strong>{{ target_info.object_id|default:"-" }}</strong></div>
-              <div class="quick-stat"><span>المستخدم المُشتكى ضده</span><strong>{{ target_info.reported_user|default:"-" }}</strong></div>
-              {% if target_info.url %}
-                <a class="ghost-btn" href="{{ target_info.url }}" target="_blank" rel="noopener">فتح العنصر في لوحة الإدارة</a>
-              {% endif %}
-            </div>
+                  <div class="field full">
+                    <label for="{{ review_form.description.id_for_label }}">تفاصيل الطلب (300 حرف)</label>
+                    {{ review_form.description }}
+                  </div>
 
-            <form method="post" enctype="multipart/form-data" id="contentReviewsActionForm">
-              {% csrf_token %}
-              <input type="hidden" name="ticket_id" value="{{ selected_ticket.id }}">
-              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-              <div class="support-action-grid">
-                <div class="field">
-                  <label for="{{ review_form.status.id_for_label }}">حالة الطلب</label>
-                  {{ review_form.status }}
-                </div>
-                <div class="field">
-                  <label for="{{ review_form.assigned_team.id_for_label }}">فريق الدعم</label>
-                  {{ review_form.assigned_team }}
-                </div>
-                <div class="field">
-                  <label for="{{ review_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                  {{ review_form.assigned_to }}
-                </div>
-                <div class="field full">
-                  <label for="{{ review_form.description.id_for_label }}">تفاصيل الطلب (300 حرف)</label>
-                  {{ review_form.description }}
-                </div>
-                <div class="field full">
-                  <label for="{{ review_form.assignee_comment.id_for_label }}">تعليق المكلف بالطلب (300 حرف)</label>
-                  {{ review_form.assignee_comment }}
-                </div>
-                <div class="field full">
-                  <label for="{{ review_form.management_reply.id_for_label }}">رد الإدارة على التقييم (500 حرف)</label>
-                  {{ review_form.management_reply }}
-                </div>
-                <div class="field">
-                  <label for="{{ review_form.moderation_action.id_for_label }}">إجراء إشرافي</label>
-                  {{ review_form.moderation_action }}
-                </div>
-                <div class="field">
-                  <label for="{{ review_form.attachment.id_for_label }}">المرفقات</label>
-                  {{ review_form.attachment }}
-                </div>
+                  <div class="field full">
+                    <label>اسم المستخدم المُشتكى ضده أو رابط الموضوع للشكوى</label>
+                    <div class="input-control static-field">
+                      <strong>{{ detail_info.reported_account }}</strong>
+                      {% if target_info.url %}
+                        <a class="ticket-link" href="{{ target_info.url }}" target="_blank" rel="noopener">فتح رابط الموضوع</a>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="field full">
+                    <label for="{{ review_form.attachment.id_for_label }}">المرفقات</label>
+                    {{ review_form.attachment }}
+                  </div>
+
+                  <section class="support-attachments-view" aria-label="مرفقات البلاغ">
+                    <div class="title-row">
+                      <h2>مرفقات البلاغ</h2>
+                      <span class="pill info">{{ selected_ticket_attachments|length }} مرفق</span>
+                    </div>
+                    {% if selected_ticket_attachments %}
+                      <div class="support-attachments-grid">
+                        {% for attachment in selected_ticket_attachments %}
+                          <article class="attachment-card">
+                            {% if attachment.is_image and attachment.url %}
+                              <a class="attachment-preview" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                                <img src="{{ attachment.url }}" alt="{{ attachment.name }}">
+                              </a>
+                            {% else %}
+                              <a class="attachment-preview attachment-preview-file" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                                <span>📎</span>
+                              </a>
+                            {% endif %}
+                            <div class="attachment-body">
+                              <h4 title="{{ attachment.name }}">{{ attachment.name }}</h4>
+                              <p>
+                                <span>النوع: {{ attachment.ext|default:"-"|upper }}</span>
+                                <span>رفع بواسطة: {{ attachment.uploaded_by }}</span>
+                                <span>تاريخ الرفع: {{ attachment.created_at }}</span>
+                              </p>
+                              <div class="actions">
+                                <a class="ghost-btn export-btn" href="{{ attachment.url }}" target="_blank" rel="noopener">فتح</a>
+                                <a class="ghost-btn" href="{{ attachment.url }}" download>تنزيل</a>
+                              </div>
+                            </div>
+                          </article>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="empty-note">لا توجد مرفقات مضافة لهذا البلاغ حتى الآن.</div>
+                    {% endif %}
+                  </section>
+
+                  <div class="support-action-grid review-processing-grid">
+                    <div class="field">
+                      <label for="{{ review_form.status.id_for_label }}">حالة الطلب</label>
+                      {{ review_form.status }}
+                    </div>
+                    <div class="field">
+                      <label for="{{ review_form.assigned_team.id_for_label }}">فريق الدعم</label>
+                      {{ review_form.assigned_team }}
+                    </div>
+                    <div class="field">
+                      <label for="{{ review_form.assigned_to.id_for_label }}">المكلف بالطلبات</label>
+                      {{ review_form.assigned_to }}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ review_form.assignee_comment.id_for_label }}">تعليق المكلف بالطلب (300 حرف)</label>
+                      {{ review_form.assignee_comment }}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ review_form.management_reply.id_for_label }}">رد الإدارة على التقييم (500 حرف)</label>
+                      {{ review_form.management_reply }}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ review_form.moderation_action.id_for_label }}">إجراء إشرافي</label>
+                      {{ review_form.moderation_action }}
+                    </div>
+                  </div>
+
+                  <div class="actions">
+                    {% if can_manage_content %}
+                      <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
+                      <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق + حذف المحتوى</button>
+                      <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
+                    {% else %}
+                      <span class="pill danger">وضع قراءة فقط</span>
+                    {% endif %}
+                  </div>
+                </form>
               </div>
 
-              <div class="actions">
-                {% if can_manage_content %}
-                  <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
-                  <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق</button>
-                  <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
-                {% else %}
-                  <span class="pill danger">وضع قراءة فقط</span>
-                {% endif %}
-              </div>
-            </form>
+              <aside class="review-report-side">
+                <div class="target-card">
+                  <h4>بطاقة البلاغ</h4>
+                  <div class="quick-stat"><span>رقم البلاغ</span><strong>{{ selected_ticket.code }}</strong></div>
+                  <div class="quick-stat"><span>حساب المُبلِّغ</span><strong>{{ detail_info.reporter_account }}</strong></div>
+                  <div class="quick-stat"><span>حساب المُبلَّغ عنه</span><strong>{{ detail_info.reported_account }}</strong></div>
+                  <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
+                  <div class="quick-stat"><span>فريق الدعم</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
+                  <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
+                </div>
+
+                <div class="target-card">
+                  <h4>تفاصيل الشكوى الكاملة</h4>
+                  <div class="quick-stat"><span>موضوع الشكوى</span><strong>{{ detail_info.complaint_subject }}</strong></div>
+                  <div class="quick-stat"><span>وصف الشكوى</span><strong>{{ detail_info.complaint_details }}</strong></div>
+                  <div class="quick-stat"><span>معرف التقييم</span><strong>{{ detail_info.review_id|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>رقم الطلب المرتبط</span><strong>{{ detail_info.request_id|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>تقييم النجوم</span><strong>{% if detail_info.review_rating %}{{ detail_info.review_rating }}/5{% else %}-{% endif %}</strong></div>
+                  <div class="quick-stat"><span>نص التقييم</span><strong>{{ detail_info.review_comment|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>العميل صاحب التقييم</span><strong>{{ detail_info.review_client|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>مقدم الخدمة</span><strong>{{ detail_info.review_provider|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>رد مقدم الخدمة</span><strong>{{ detail_info.review_provider_reply|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>رد الإدارة</span><strong>{{ detail_info.review_management_reply|default:"-" }}</strong></div>
+                  <div class="quick-stat"><span>تاريخ التقييم</span><strong>{{ detail_info.review_created_at|default:"-" }}</strong></div>
+                </div>
+              </aside>
+            </div>
 
             <div class="content-two-col">
               <div class="side-card">
@@ -197,19 +261,6 @@
                     </div>
                   {% empty %}
                     <p class="subtitle">لا توجد ملاحظات داخلية حتى الآن.</p>
-                  {% endfor %}
-                </div>
-              </div>
-              <div class="side-card">
-                <h4>آخر المرفقات</h4>
-                <div class="timeline-list">
-                  {% for file in selected_ticket_attachments %}
-                    <div class="timeline-item">
-                      <strong>{{ file.created_at|date:"d/m/Y H:i" }}</strong>
-                      <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض المرفق</a>
-                    </div>
-                  {% empty %}
-                    <p class="subtitle">لا توجد مرفقات.</p>
                   {% endfor %}
                 </div>
               </div>

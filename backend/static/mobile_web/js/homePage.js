@@ -616,13 +616,24 @@ const HomePage = (() => {
       const info = UI.el('div', { className: 'provider-info' });
       const head = UI.el('div', { className: 'provider-head' });
 
+      const avatarShell = UI.el('div', { className: 'provider-avatar-shell' });
       const avatar = UI.el('div', { className: 'provider-avatar' });
       if (profileUrl) {
         avatar.appendChild(UI.lazyImg(profileUrl, initial));
       } else {
         avatar.appendChild(UI.text(initial));
       }
-      head.appendChild(avatar);
+      avatarShell.appendChild(avatar);
+
+      const topExcellenceItems = UI.normalizeExcellenceBadges(p.excellence_badges);
+      if (topExcellenceItems.length) {
+        avatarShell.appendChild(UI.el('span', {
+          className: 'provider-avatar-excellence-top',
+          textContent: topExcellenceItems[0].name || topExcellenceItems[0].code || 'تميز',
+        }));
+      }
+
+      head.appendChild(avatarShell);
 
       const meta = UI.el('div', { className: 'provider-meta' });
 
@@ -631,14 +642,14 @@ const HomePage = (() => {
       if (isFeatured) {
         nameRow.appendChild(UI.el('span', { className: 'promo-featured-badge', textContent: 'مميز' }));
       }
-      meta.appendChild(nameRow);
 
       const excellence = UI.buildExcellenceBadges(p.excellence_badges, {
         className: 'excellence-badges compact provider-card-excellence',
         compact: true,
         iconSize: 10,
       });
-      if (excellence) meta.appendChild(excellence);
+      if (excellence) nameRow.appendChild(excellence);
+      meta.appendChild(nameRow);
 
       const isVerified = !!(p.is_verified_blue || p.is_verified_green || p.is_verified);
       if (isVerified) {

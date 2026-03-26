@@ -47,4 +47,21 @@ class ReviewsService {
       body: {'provider_reply': replyText},
     );
   }
+
+  /// تبديل/ضبط إعجاب المزود بالتقييم
+  static Future<ApiResponse> toggleProviderLike(int reviewId, {bool? liked}) async {
+    final body = <String, dynamic>{};
+    if (liked != null) {
+      body['liked'] = liked;
+    }
+    return ApiClient.post(
+      '/api/reviews/reviews/$reviewId/provider-like/',
+      body: body,
+    );
+  }
+
+  /// إنشاء/جلب محادثة مباشرة مع صاحب التقييم
+  static Future<ApiResponse> getOrCreateProviderReviewChatThread(int reviewId) async {
+    return ApiClient.post('/api/reviews/reviews/$reviewId/provider-chat-thread/');
+  }
 }

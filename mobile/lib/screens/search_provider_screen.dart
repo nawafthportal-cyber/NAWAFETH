@@ -1123,26 +1123,57 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                     ),
                     // Avatar
                     Center(
-                      child: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: Colors.white,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: purple.withValues(alpha: 0.1),
-                          backgroundImage: profileUrl != null
-                              ? NetworkImage(profileUrl)
-                              : null,
-                          child: profileUrl == null
-                              ? Text(
-                                  p.displayName.isNotEmpty
-                                      ? p.displayName[0]
-                                      : '؟',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      color: purple))
-                              : null,
-                        ),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundColor: Colors.white,
+                            child: CircleAvatar(
+                              radius: 18,
+                              backgroundColor: purple.withValues(alpha: 0.1),
+                              backgroundImage: profileUrl != null
+                                  ? NetworkImage(profileUrl)
+                                  : null,
+                              child: profileUrl == null
+                                  ? Text(
+                                      p.displayName.isNotEmpty
+                                          ? p.displayName[0]
+                                          : '؟',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: purple))
+                                  : null,
+                            ),
+                          ),
+                          if (p.hasExcellenceBadges)
+                            Positioned(
+                              top: -8,
+                              left: -6,
+                              child: Container(
+                                constraints: const BoxConstraints(maxWidth: 84),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  p.excellenceBadges.first.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Cairo',
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                     // Verified badge
@@ -1193,6 +1224,15 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                             child: const Text('مميز', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
                           ),
                         ],
+                        if (p.hasExcellenceBadges) ...[
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: ExcellenceBadgesWrap(
+                              badges: p.excellenceBadges,
+                              compact: true,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                     if (p.city != null) ...[
@@ -1213,13 +1253,6 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                                       ? Colors.white38
                                       : Colors.grey.shade500)),
                         ],
-                      ),
-                    ],
-                    if (p.hasExcellenceBadges) ...[
-                      const SizedBox(height: 4),
-                      ExcellenceBadgesWrap(
-                        badges: p.excellenceBadges,
-                        compact: true,
                       ),
                     ],
                     if (distanceKm != null) ...[

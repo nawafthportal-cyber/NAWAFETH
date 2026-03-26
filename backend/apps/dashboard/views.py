@@ -10,8 +10,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Q
-from django.http import Http404, HttpResponse, HttpResponseForbidden
+from django.db.models import Count, Q, Sum
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -33,6 +33,7 @@ from apps.backoffice.policies import (
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.moderation.integrations import record_content_action_case, record_support_target_delete_case, sync_review_case
+from apps.notifications.models import DeviceToken
 from apps.providers.models import (
     Category,
     ProviderCategory,
@@ -49,12 +50,15 @@ from apps.providers.models import (
 )
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.reviews.services import sync_review_to_unified
+from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus
+from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 from apps.support.models import (
     SupportAttachment,
     SupportComment,
     SupportPriority,
     SupportTeam,
     SupportTicket,
+    SupportTicketEntrypoint,
     SupportTicketStatus,
     SupportTicketType,
 )
@@ -77,8 +81,10 @@ from apps.promo.models import (
     PromoSearchScope,
     PromoServiceType,
 )
+from apps.verification.models import VerificationRequest
 from apps.promo.services import (
     activate_after_payment,
+    auto_expire_promo_requests,
     calc_promo_request_quote,
     ensure_default_pricing_rules,
     quote_and_create_invoice,
@@ -93,6 +99,7 @@ from apps.excellence.selectors import (
     current_review_window as excellence_current_review_window,
 )
 from apps.excellence.services import sync_badge_type_catalog
+from apps.features.support import support_priority
 
 from .access import (
     active_access_profile_for_user,
@@ -387,7 +394,7 @@ def _serialize_access_rows():
     for profile in profiles:
         user = profile.user
         allowed_codes = list(profile.allowed_dashboards.values_list("code", flat=True))
-        if profile.level == AccessLevel.ADMIN:
+        if profile.level in {AccessLevel.ADMIN, AccessLevel.QA}:
             dashboard_text = "All"
         else:
             dashboard_text = _dashboard_codes_to_numbers(allowed_codes) or "-"
@@ -483,13 +490,39 @@ def _would_still_be_active_admin(level: str, revoked_at, expires_at) -> bool:
     return True
 
 
+def _resolve_granted_permissions(level: str, dashboard_codes: list[str]):
+    active_permissions = AccessPermission.objects.filter(is_active=True)
+    if level == AccessLevel.ADMIN:
+        return active_permissions
+    if level in {AccessLevel.QA, AccessLevel.CLIENT}:
+        return AccessPermission.objects.none()
+    allowed_codes = [code for code in dashboard_codes if code]
+    if not allowed_codes:
+        return AccessPermission.objects.none()
+    return active_permissions.filter(dashboard_code__in=allowed_codes)
+
+
+def _normalize_dashboards_for_level(level: str, dashboard_codes: list[str]) -> list[str]:
+    requested_codes = [str(code).strip() for code in (dashboard_codes or []) if str(code).strip()]
+    active_codes = set(Dashboard.objects.filter(is_active=True).values_list("code", flat=True))
+
+    if level == AccessLevel.CLIENT:
+        return ["client_extras"] if "client_extras" in active_codes else []
+    if level in {AccessLevel.ADMIN, AccessLevel.QA}:
+        return [
+            code
+            for code in sorted(active_codes)
+            if code not in UserAccessProfile.CLIENT_ONLY_DASHBOARDS
+        ]
+    return [code for code in requested_codes if code in active_codes]
+
+
 def _upsert_access_profile(request, form: AccessProfileForm):
     profile_id = form.cleaned_data.get("profile_id")
     username = (form.cleaned_data.get("username") or "").strip()
     mobile = (form.cleaned_data.get("mobile_number") or "").strip()
     level = form.cleaned_data.get("level")
-    dashboards = form.cleaned_data.get("dashboards") or []
-    permissions = form.cleaned_data.get("permissions") or []
+    dashboards = _normalize_dashboards_for_level(level, form.cleaned_data.get("dashboards") or [])
     password = form.cleaned_data.get("password") or ""
     password_expiration_date = form.cleaned_data.get("password_expiration_date")
     account_revoke_date = form.cleaned_data.get("account_revoke_date")
@@ -534,7 +567,7 @@ def _upsert_access_profile(request, form: AccessProfileForm):
 
     profile.save()
     profile.allowed_dashboards.set(Dashboard.objects.filter(code__in=dashboards, is_active=True))
-    profile.granted_permissions.set(AccessPermission.objects.filter(code__in=permissions, is_active=True))
+    profile.granted_permissions.set(_resolve_granted_permissions(level, dashboards))
 
     changed_fields = sync_dashboard_user_access(
         user,
@@ -669,6 +702,79 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
     kpi_subs = subscription_kpis(start_date=start_date, end_date=end_date, limit=20)
     kpi_extras = extras_kpis(start_date=start_date, end_date=end_date, limit=20)
 
+    app_downloads_summary = {
+        "android": DeviceToken.objects.filter(platform="android", is_active=True).values("token").distinct().count(),
+        "ios": DeviceToken.objects.filter(platform="ios", is_active=True).values("token").distinct().count(),
+        "web": DeviceToken.objects.filter(platform="web", is_active=True).values("token").distinct().count(),
+    }
+    app_downloads_summary["total"] = (
+        app_downloads_summary["android"] + app_downloads_summary["ios"] + app_downloads_summary["web"]
+    )
+
+    visitor_summary = {
+        "visitor_accounts": get_user_model().objects.filter(role_state=UserRole.VISITOR).count(),
+        "phone_only_accounts": get_user_model().objects.filter(role_state=UserRole.PHONE_ONLY).count(),
+        "profile_views": AnalyticsEvent.objects.filter(
+            occurred_at__range=(start_dt, end_dt),
+            event_name="provider.profile_view",
+        ).count(),
+        "search_clicks": AnalyticsEvent.objects.filter(
+            occurred_at__range=(start_dt, end_dt),
+            event_name="search.result_click",
+        ).count(),
+    }
+
+    paid_invoices_qs = Invoice.objects.filter(
+        status=InvoiceStatus.PAID,
+        paid_at__range=(start_dt, end_dt),
+    )
+    paid_services_labels = {
+        "subscription": "الاشتراكات",
+        "verify_request": "طلبات التوثيق",
+        "promo_request": "طلبات الترويج",
+        "extras": "الخدمات الإضافية",
+        "": "غير مصنف",
+    }
+    paid_services_rows = []
+    for row in (
+        paid_invoices_qs.values("reference_type")
+        .annotate(total=Count("id"))
+        .order_by("-total", "reference_type")
+    ):
+        ref_type = str(row.get("reference_type") or "").strip()
+        paid_services_rows.append(
+            {
+                "type_code": ref_type,
+                "type_label": paid_services_labels.get(ref_type, ref_type or "غير مصنف"),
+                "total": int(row.get("total") or 0),
+            }
+        )
+
+    payment_attempts_qs = PaymentAttempt.objects.filter(created_at__range=(start_dt, end_dt))
+    payment_summary = {
+        "attempts_total": payment_attempts_qs.count(),
+        "initiated": payment_attempts_qs.filter(status=PaymentAttemptStatus.INITIATED).count(),
+        "redirected": payment_attempts_qs.filter(status=PaymentAttemptStatus.REDIRECTED).count(),
+        "success": payment_attempts_qs.filter(status=PaymentAttemptStatus.SUCCESS).count(),
+        "failed": payment_attempts_qs.filter(status=PaymentAttemptStatus.FAILED).count(),
+        "cancelled": payment_attempts_qs.filter(status=PaymentAttemptStatus.CANCELLED).count(),
+        "refunded": payment_attempts_qs.filter(status=PaymentAttemptStatus.REFUNDED).count(),
+    }
+
+    paid_totals = paid_invoices_qs.aggregate(total=Count("id"), amount_sum=Sum("total"))
+    payment_summary["paid_invoices"] = int(paid_totals.get("total") or 0)
+    payment_summary["paid_amount_total"] = float(paid_totals.get("amount_sum") or 0)
+
+    specialist_classification = {
+        # Temporarily unlinked from subscription tiers until business mapping is finalized.
+        "maher": 0,
+        "mostashar": 0,
+        "moahel": 0,
+        "kafo": 0,
+        "total_specialists": 0,
+        "is_linked": False,
+    }
+
     return {
         "start": start_date.isoformat(),
         "end": end_date.isoformat(),
@@ -684,6 +790,11 @@ def _collect_reports(start_date: date, end_date: date) -> dict:
         "category_stats": category_stats,
         "search_events": search_events,
         "email_events": email_events,
+        "app_downloads_summary": app_downloads_summary,
+        "visitor_summary": visitor_summary,
+        "paid_services_rows": paid_services_rows,
+        "payment_summary": payment_summary,
+        "specialist_classification": specialist_classification,
         "kpi_general": kpi_general,
         "kpi_provider": kpi_provider,
         "kpi_promo": kpi_promo,
@@ -707,6 +818,16 @@ def _reports_export_rows(report: dict) -> tuple[list[str], list[list]]:
 
     for row in report["support_type_rows"]:
         rows.append(["إحصاءات الدعم", row["type_label"], row["total"]])
+    for key, value in report.get("app_downloads_summary", {}).items():
+        rows.append(["تحميلات التطبيق", key, value])
+    for key, value in report.get("visitor_summary", {}).items():
+        rows.append(["زوار التطبيق", key, value])
+    for row in report.get("paid_services_rows", []):
+        rows.append(["الخدمات المدفوعة", row["type_label"], row["total"]])
+    for key, value in report.get("payment_summary", {}).items():
+        rows.append(["الدفع الإلكتروني", key, value])
+    for key, value in report.get("specialist_classification", {}).items():
+        rows.append(["تصنيف المختصين", key, value])
     for row in report["category_stats"]:
         rows.append(["التصنيف الرئيسي", f"{row['name']} - عدد المتخصصين", row["specialists"]])
         rows.append(["التصنيف الرئيسي", f"{row['name']} - عدد الطلبات", row["requests"]])
@@ -821,7 +942,7 @@ SUPPORT_PRIORITY_TO_NUMBER = {
 }
 
 SUPPORT_TICKET_TYPE_TO_TEAM_LABEL = {
-    SupportTicketType.TECH: "فريق الدعم الفني",
+    SupportTicketType.TECH: "فريق الدعم والمساعدة",
     SupportTicketType.SUBS: "فريق إدارة الترقية والاشتراكات",
     SupportTicketType.VERIFY: "فريق التوثيق",
     SupportTicketType.SUGGEST: "فريق إدارة المحتوى",
@@ -871,8 +992,52 @@ def _support_team_label(ticket: SupportTicket) -> str:
     return SUPPORT_TICKET_TYPE_TO_TEAM_LABEL.get(ticket.ticket_type, "فريق الدعم والمساعدة")
 
 
+def _support_attachment_rows(ticket: SupportTicket) -> list[dict]:
+    image_exts = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".svg"}
+    rows: list[dict] = []
+    for attachment in ticket.attachments.select_related("uploaded_by").order_by("-id"):
+        file_obj = getattr(attachment, "file", None)
+        name = ""
+        url = ""
+        ext = ""
+        if file_obj is not None:
+            name = str(getattr(file_obj, "name", "") or "").split("/")[-1]
+            try:
+                url = str(file_obj.url or "")
+            except Exception:
+                url = ""
+            if "." in name:
+                ext = f".{name.rsplit('.', 1)[-1].lower()}"
+
+        uploaded_by = getattr(attachment, "uploaded_by", None)
+        uploader_label = "-"
+        if uploaded_by:
+            uploader_label = (
+                getattr(uploaded_by, "username", "")
+                or getattr(uploaded_by, "phone", "")
+                or f"user-{uploaded_by.id}"
+            )
+
+        rows.append(
+            {
+                "id": attachment.id,
+                "name": name or f"attachment-{attachment.id}",
+                "url": url,
+                "ext": ext.lstrip("."),
+                "is_image": ext in image_exts,
+                "uploaded_by": uploader_label,
+                "created_at": _format_dt(attachment.created_at),
+            }
+        )
+    return rows
+
+
 def _support_queryset_for_user(user):
-    qs = SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to").order_by("-created_at", "-id")
+    qs = (
+        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to")
+        .filter(entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM)
+        .order_by("-created_at", "-id")
+    )
     access_profile = active_access_profile_for_user(user)
     if access_profile and access_profile.level == AccessLevel.USER:
         qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
@@ -916,8 +1081,45 @@ def _support_assignee_choices() -> list[tuple[str, str]]:
     return _dashboard_assignee_choices("support")
 
 
+SUPPORT_TEAM_TO_DASHBOARD_CODE = {
+    "support": "support",
+    "content": "content",
+    "promo": "promo",
+    "verification": "verify",
+    "finance": "subs",
+    "extras": "extras",
+}
+
+
+def _support_team_dashboard_code(team_id) -> str:
+    try:
+        normalized_team_id = int(team_id)
+    except (TypeError, ValueError):
+        return "support"
+
+    team = SupportTeam.objects.filter(id=normalized_team_id, is_active=True).only("code").first()
+    if team is None:
+        return "support"
+    return SUPPORT_TEAM_TO_DASHBOARD_CODE.get(str(team.code or "").strip().lower(), "support")
+
+
+def _support_assignee_choices_by_team() -> dict[str, list[tuple[str, str]]]:
+    mapping: dict[str, list[tuple[str, str]]] = {}
+    for team in SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id"):
+        dashboard_code = _support_team_dashboard_code(team.id)
+        mapping[str(team.id)] = _dashboard_assignee_choices(dashboard_code)
+    return mapping
+
+
 def _support_team_choices() -> list[tuple[str, str]]:
     return [(str(team.id), team.name_ar) for team in SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")]
+
+def _promo_support_team() -> SupportTeam | None:
+    return (
+        SupportTeam.objects.filter(is_active=True, code__iexact="promo")
+        .order_by("sort_order", "id")
+        .first()
+    )
 
 
 def _serialize_support_rows(tickets: list[SupportTicket]) -> list[dict]:
@@ -1038,8 +1240,13 @@ def support_dashboard(request, ticket_id: int | None = None):
     if selected_ticket is None and tickets:
         selected_ticket = tickets[0]
 
-    assignee_choices = _support_assignee_choices()
     team_choices = _support_team_choices()
+    assignee_choices_by_team = _support_assignee_choices_by_team()
+    assignee_map: dict[str, str] = {}
+    for choices in assignee_choices_by_team.values():
+        for value, label in choices:
+            assignee_map[str(value)] = label
+    assignee_choices = sorted(assignee_map.items(), key=lambda item: item[1].lower())
     can_write = dashboard_allowed(request.user, "support", write=True)
 
     support_form = None
@@ -1103,10 +1310,21 @@ def support_dashboard(request, ticket_id: int | None = None):
             team_id = int(team_id_raw) if team_id_raw.isdigit() else target_ticket.assigned_team_id
             assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else target_ticket.assigned_to_id
 
+            if team_id is not None and assigned_to_id is not None:
+                allowed_assignees = {
+                    int(value)
+                    for value, _ in assignee_choices_by_team.get(str(team_id), [])
+                    if str(value).isdigit()
+                }
+                if assigned_to_id not in allowed_assignees:
+                    messages.error(request, "المكلف المختار غير مرتبط بفريق الدعم المحدد.")
+                    return _support_redirect_with_state(request, ticket_id=target_ticket.id)
+
             if assigned_to_id is not None:
-                assignee = dashboard_assignee_user(assigned_to_id, "support", write=True)
+                assignee_dashboard_code = _support_team_dashboard_code(team_id)
+                assignee = dashboard_assignee_user(assigned_to_id, assignee_dashboard_code, write=True)
                 if assignee is None:
-                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الدعم.")
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الفريق المحدد.")
                     return _support_redirect_with_state(request, ticket_id=target_ticket.id)
                 if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
                     return HttpResponseForbidden("لا يمكنك تعيين الطلب لمستخدم آخر.")
@@ -1181,6 +1399,7 @@ def support_dashboard(request, ticket_id: int | None = None):
         {
             "tickets": _serialize_support_rows(tickets),
             "selected_ticket": selected_ticket,
+            "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
             "support_form": support_form,
             "summary": _support_summary(tickets),
             "can_write": can_write,
@@ -1193,7 +1412,9 @@ def support_dashboard(request, ticket_id: int | None = None):
                 "priority": priority_filter,
                 "q": query_filter,
             },
+            "team_panels": _dashboard_team_panels(),
             "redirect_query": request.GET.urlencode(),
+            "team_assignee_map": assignee_choices_by_team,
         },
     )
 
@@ -1252,14 +1473,7 @@ PROMO_TARGETED_SERVICE_TYPES = {
 
 
 def _promo_nav_items(active_key: str) -> list[dict]:
-    items = [
-        {
-            "key": "home",
-            "label": "لوحة فريق إدارة الترويج",
-            "description": "قائمة الاستفسارات وطلبات الترويج التشغيلية.",
-            "url": reverse("dashboard:promo_dashboard"),
-        }
-    ]
+    items = []
     for module in PROMO_MODULE_DEFINITIONS:
         items.append(
             {
@@ -1283,11 +1497,20 @@ def _promo_nav_items(active_key: str) -> list[dict]:
 
 
 def _promo_base_context(active_key: str) -> dict:
+    latest_helpdesk_code = (
+        SupportTicket.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "HD000001"
+    )
+    latest_promo_code = (
+        PromoRequest.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "MD000001"
+    )
+
     return {
         "nav_items": _promo_nav_items(active_key),
         "request_codes": [
-            {"code": "HD0001", "label": "استفسارات الترويج"},
-            {"code": "MD0006", "label": "طلبات الترويج"},
+            {"code": latest_helpdesk_code, "label": "استفسارات الترويج"},
+            {"code": latest_promo_code, "label": "طلبات الترويج"},
         ],
     }
 
@@ -1324,6 +1547,8 @@ def _promo_assignee_label(promo_request: PromoRequest) -> str:
 def _promo_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
     rows: list[dict] = []
     for ticket in tickets:
+        team_label = _support_team_label(ticket)
+        team_label = team_label.replace("فريق ", "") if team_label.startswith("فريق ") else team_label
         rows.append(
             {
                 "id": ticket.id,
@@ -1334,7 +1559,7 @@ def _promo_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
-                "team": _support_team_label(ticket),
+                "team": team_label,
                 "assignee": _support_assignee_label(ticket),
                 "assigned_at": _format_dt(ticket.assigned_at),
             }
@@ -1345,23 +1570,21 @@ def _promo_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
 def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
     rows: list[dict] = []
     for promo_request in requests:
-        service_labels: list[str] = []
-        for item in promo_request.items.all():
-            label = item.get_service_type_display()
-            if label not in service_labels:
-                service_labels.append(label)
+        priority = support_priority(promo_request.requester)
         rows.append(
             {
                 "id": promo_request.id,
                 "code": promo_request.code or f"MD{promo_request.id:06d}",
                 "requester": _promo_requester_label(promo_request.requester),
-                "priority_number": 1,
+                "priority_number": _support_priority_number(priority),
+                "priority_class": _support_priority_row_class(priority),
                 "created_at": _format_dt(promo_request.created_at),
-                "status": promo_request.get_ops_status_display(),
+                "approved_at": _format_dt(promo_request.reviewed_at or promo_request.created_at),
+                "request_status": promo_request.get_status_display(),
+                "ops_status": promo_request.get_ops_status_display(),
                 "team": "إدارة الترويج",
                 "assignee": _promo_assignee_label(promo_request),
                 "assigned_at": _format_dt(promo_request.assigned_at),
-                "services_text": "، ".join(service_labels) if service_labels else promo_request.get_ad_type_display(),
                 "invoice_status": getattr(promo_request.invoice, "status", "") or "بدون فاتورة",
             }
         )
@@ -1435,11 +1658,11 @@ def _promo_request_export_rows(requests: list[PromoRequest]) -> tuple[list[str],
     headers = [
         "رقم الطلب",
         "اسم العميل",
-        "الخدمات",
-        "حالة التنفيذ",
-        "حالة الفاتورة",
+        "الأولوية",
+        "تاريخ وقت اعتماد الطلب",
+        "حالة الطلب",
         "المكلف بالطلب",
-        "تاريخ الإنشاء",
+        "تاريخ وقت التكليف",
     ]
     rows: list[list] = []
     for row in _promo_request_rows(requests):
@@ -1447,11 +1670,11 @@ def _promo_request_export_rows(requests: list[PromoRequest]) -> tuple[list[str],
             [
                 row["code"],
                 row["requester"],
-                row["services_text"],
-                row["status"],
-                row["invoice_status"],
+                row["priority_number"],
+                row["approved_at"],
+                row["request_status"],
                 row["assignee"],
-                row["created_at"],
+                row["assigned_at"],
             ]
         )
     return headers, rows
@@ -1542,10 +1765,12 @@ def _promo_items_missing_required_assets(selected_request: PromoRequest | None) 
 @dashboard_staff_required
 @require_dashboard_access("promo")
 def promo_dashboard(request, request_id: int | None = None):
+    auto_expire_promo_requests()
     can_write = dashboard_allowed(request.user, "promo", write=True)
     access_profile = active_access_profile_for_user(request.user)
     assignee_choices = _dashboard_assignee_choices("promo")
-    team_choices = _support_team_choices()
+    promo_team = _promo_support_team()
+    team_choices = [(str(promo_team.id), promo_team.name_ar)] if promo_team else []
 
     inquiries_base_qs = _promo_inquiries_queryset_for_user(request.user)
     promo_requests_base_qs = _promo_requests_queryset_for_user(request.user)
@@ -1597,10 +1822,15 @@ def promo_dashboard(request, request_id: int | None = None):
     ]
 
     inquiry_profile = getattr(selected_inquiry, "promo_profile", None) if selected_inquiry else None
+    promo_team_id = promo_team.id if promo_team is not None else None
+    initial_team_id = promo_team_id
+    if initial_team_id is None and selected_inquiry is not None:
+        initial_team_id = selected_inquiry.assigned_team_id
+
     inquiry_form = PromoInquiryActionForm(
         initial={
             "status": selected_inquiry.status if selected_inquiry else SupportTicketStatus.NEW,
-            "assigned_team": str(selected_inquiry.assigned_team_id or "") if selected_inquiry else "",
+            "assigned_team": str(initial_team_id or ""),
             "assigned_to": str(selected_inquiry.assigned_to_id or "") if selected_inquiry else "",
             "description": (selected_inquiry.description or "") if selected_inquiry else "",
             "operator_comment": (inquiry_profile.operator_comment or "") if inquiry_profile else "",
@@ -1637,8 +1867,12 @@ def promo_dashboard(request, request_id: int | None = None):
                 if target_ticket.assigned_to_id and target_ticket.assigned_to_id != request.user.id:
                     return HttpResponseForbidden("غير مصرح: الاستفسار ليس ضمن المهام المكلف بها.")
 
+            post_data = request.POST.copy()
+            if promo_team is not None:
+                post_data["assigned_team"] = str(promo_team.id)
+
             post_form = PromoInquiryActionForm(
-                request.POST,
+                post_data,
                 request.FILES,
                 assignee_choices=assignee_choices,
                 team_choices=team_choices,
@@ -1654,9 +1888,8 @@ def promo_dashboard(request, request_id: int | None = None):
             if action == "close_inquiry":
                 desired_status = SupportTicketStatus.CLOSED
 
-            team_id_raw = (post_form.cleaned_data.get("assigned_team") or "").strip()
             assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
-            team_id = int(team_id_raw) if team_id_raw.isdigit() else target_ticket.assigned_team_id
+            team_id = promo_team.id if promo_team is not None else target_ticket.assigned_team_id
             assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else target_ticket.assigned_to_id
 
             if assigned_to_id is not None:
@@ -1664,8 +1897,6 @@ def promo_dashboard(request, request_id: int | None = None):
                 if assignee is None:
                     messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الترويج.")
                     return _promo_redirect_with_state(request, inquiry_id=target_ticket.id)
-                if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
-                    return HttpResponseForbidden("لا يمكنك تعيين الاستفسار لمستخدم آخر.")
 
             if team_id is not None and not SupportTeam.objects.filter(id=team_id, is_active=True).exists():
                 messages.error(request, "فريق الدعم المحدد غير صالح.")
@@ -1910,6 +2141,7 @@ def promo_dashboard(request, request_id: int | None = None):
             "selected_request": selected_request,
             "can_reject_selected_request": can_reject_selected_request,
             "selected_request_items": selected_request_items,
+            "promo_support_team": promo_team,
             "selected_request_assets": selected_request_assets,
             "selected_request_quote": selected_request_quote,
             "selected_inquiry_attachments": selected_inquiry_attachments,
@@ -1921,6 +2153,7 @@ def promo_dashboard(request, request_id: int | None = None):
                 "request_q": request_q,
                 "ops": ops_filter,
             },
+            "team_panels": _dashboard_team_panels(),
             "redirect_query": request.GET.urlencode(),
         }
     )
@@ -2501,15 +2734,130 @@ CONTENT_MANAGED_TEAM_NAMES = [
     "فريق إدارة الترقية والاشتراكات",
     "فريق إدارة الخدمات الإضافية",
 ]
-CONTENT_REQUEST_CODES = [
-    {"code": "HD0001", "label": "طلبات الدعم والمساعدة"},
-    {"code": "MD0006", "label": "طلبات الإعلانات والترويج"},
-    {"code": "AD0006", "label": "طلبات التوثيق"},
-    {"code": "SD0006", "label": "طلبات الترقية والاشتراكات"},
-    {"code": "P00006", "label": "طلبات الخدمات الإضافية"},
-]
+def _latest_request_code(prefix: str, *, request_type: str | None = None) -> str:
+    query = UnifiedRequest.objects.exclude(code="")
+    if request_type:
+        query = query.filter(request_type=request_type)
+    value = query.order_by("-id").values_list("code", flat=True).first()
+    return value or f"{prefix}000001"
+
+
+def _content_request_codes() -> list[dict]:
+    helpdesk_code = (
+        SupportTicket.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "HD000001"
+    )
+    promo_code = (
+        PromoRequest.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "MD000001"
+    )
+    verification_code = (
+        VerificationRequest.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "AD000001"
+    )
+    subscription_code = _latest_request_code("SD", request_type=UnifiedRequestType.SUBSCRIPTION)
+    extras_code = _latest_request_code("P", request_type=UnifiedRequestType.EXTRAS)
+
+    return [
+        {"code": helpdesk_code, "label": "طلبات الدعم والمساعدة"},
+        {"code": promo_code, "label": "طلبات الإعلانات والترويج"},
+        {"code": verification_code, "label": "طلبات التوثيق"},
+        {"code": subscription_code, "label": "طلبات الترقية والاشتراكات"},
+        {"code": extras_code, "label": "طلبات الخدمات الإضافية"},
+    ]
+
+
+def _dashboard_team_panels() -> list[dict]:
+    return [
+        {
+            "key": "support",
+            "team": "فريق الدعم والمساعدة",
+            "summary": "إدارة البلاغات والتذاكر المفتوحة ومتابعة الردود والإسناد.",
+            "dashboards": [
+                {"label": "لوحة الدعم والمساعدة", "url": reverse("dashboard:support_dashboard")},
+                {"label": "إدارة التقييم والمراجعات", "url": reverse("dashboard:content_reviews_dashboard")},
+            ],
+            "worklists": [
+                "طلبات الدعم والمساعدة",
+                "بلاغات المحادثات والشكاوى",
+                "إغلاق الطلبات أو إعادتها للعميل",
+            ],
+        },
+        {
+            "key": "content",
+            "team": "فريق إدارة المحتوى",
+            "summary": "تشغيل محتوى المنصة، صفحات البداية، والمراجعات التشغيلية.",
+            "dashboards": [
+                {"label": "لوحة إدارة المحتوى", "url": reverse("dashboard:content_dashboard_home")},
+                {"label": "إدارة التمييز", "url": reverse("dashboard:content_excellence")},
+            ],
+            "worklists": [
+                "محتوى صفحة الدخول لأول مرة",
+                "محتوى بروفة التعريف",
+                "قوائم الجودة والتقييمات",
+            ],
+        },
+        {
+            "key": "promo",
+            "team": "فريق إدارة الإعلانات والترويج",
+            "summary": "متابعة الاستفسارات الترويجية، التسعير، والتفعيل بعد الاعتماد.",
+            "dashboards": [
+                {"label": "لوحة إدارة الترويج", "url": reverse("dashboard:promo_dashboard")},
+                {"label": "تسعير خدمات الترويج", "url": reverse("dashboard:promo_pricing")},
+            ],
+            "worklists": [
+                "قائمة استفسارات الترويج",
+                "قائمة طلبات الترويج",
+                "طلبات الاعتماد قبل الدفع",
+            ],
+        },
+        {
+            "key": "verification",
+            "team": "فريق التوثيق",
+            "summary": "متابعة حالات التوثيق والتحقق من استيفاء المتطلبات النظامية.",
+            "dashboards": [
+                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+            ],
+            "worklists": [
+                "طلبات التوثيق",
+                "حالات الاعتماد أو الإرجاع",
+                "التدقيق على البيانات المرفقة",
+            ],
+        },
+        {
+            "key": "subs",
+            "team": "فريق إدارة الترقية والاشتراكات",
+            "summary": "إدارة طلبات الاشتراك والترقية وما يرتبط بها من فواتير تشغيلية.",
+            "dashboards": [
+                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+            ],
+            "worklists": [
+                "طلبات الترقية والاشتراكات",
+                "متابعة حالات السداد",
+                "إدارة التجديد والانتهاء",
+            ],
+        },
+        {
+            "key": "extras",
+            "team": "فريق إدارة الخدمات الإضافية",
+            "summary": "تشغيل الطلبات الإضافية وتحويلها للمسار التنفيذي المناسب.",
+            "dashboards": [
+                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+            ],
+            "worklists": [
+                "طلبات الخدمات الإضافية",
+                "توزيع المهام على الفرق المختصة",
+                "متابعة الإغلاق ومعايير التسليم",
+            ],
+        },
+    ]
 CONTENT_REVIEW_TYPES = {SupportTicketType.SUGGEST, SupportTicketType.COMPLAINT}
 CONTENT_EXCELLENCE_BADGE_CODES = [
+    TOP_100_CLUB_BADGE_CODE,
+    HIGH_ACHIEVEMENT_BADGE_CODE,
+    FEATURED_SERVICE_BADGE_CODE,
+]
+CONTENT_EXCELLENCE_BADGE_TAB_ORDER = [
     TOP_100_CLUB_BADGE_CODE,
     HIGH_ACHIEVEMENT_BADGE_CODE,
     FEATURED_SERVICE_BADGE_CODE,
@@ -2538,8 +2886,8 @@ def _content_nav_items(active_key: str) -> list[dict]:
         },
         {
             "key": "settings",
-            "label": "تحديث معلومات صفحة الإعدادات",
-            "description": "الشروط والخصوصية والروابط الرسمية للمنصة.",
+            "label": "تحديث ملفات الشروط والأحكام",
+            "description": "تحديث ملفات الشروط والأحكام والخصوصية وروابط المنصة الرسمية.",
             "url": reverse("dashboard:content_settings"),
         },
         {
@@ -2561,10 +2909,13 @@ def _content_nav_items(active_key: str) -> list[dict]:
 
 
 def _content_base_context(active_key: str) -> dict:
+    nav_items = _content_nav_items(active_key)
+    content_modules = [item for item in nav_items if item.get("key") != "home"]
     return {
-        "nav_items": _content_nav_items(active_key),
+        "nav_items": nav_items,
+        "content_modules": content_modules,
         "managed_teams": CONTENT_MANAGED_TEAM_NAMES,
-        "request_codes": CONTENT_REQUEST_CODES,
+        "request_codes": _content_request_codes(),
     }
 
 
@@ -2645,6 +2996,7 @@ def content_dashboard_home(request):
         {
             "hero_title": "لوحة فريق إدارة المحتوى",
             "hero_subtitle": "إدارة نصوص وتجارب الدخول، ضبط الإعدادات، متابعة التقييمات، وتشغيل التميز من لوحة موحدة.",
+            "team_panels": _dashboard_team_panels(),
         }
     )
     return render(request, "dashboard/content_dashboard_home.html", context)
@@ -2949,7 +3301,8 @@ def content_settings(request):
 
 def _content_review_queryset_for_user(user):
     return _support_queryset_for_user(user).filter(
-        Q(ticket_type__in=CONTENT_REVIEW_TYPES) | Q(assigned_team__code="content")
+        ticket_type=SupportTicketType.COMPLAINT,
+        reported_kind__iexact="review",
     )
 
 
@@ -2998,6 +3351,83 @@ def _content_ticket_target_info(ticket: SupportTicket | None) -> dict:
     }
 
 
+def _content_review_detail_payload(ticket: SupportTicket | None) -> dict:
+    if ticket is None:
+        return {
+            "reporter_account": "-",
+            "reported_account": "-",
+            "complaint_subject": "-",
+            "complaint_details": "-",
+            "review_id": None,
+            "request_id": None,
+            "review_rating": None,
+            "review_comment": "",
+            "review_created_at": "-",
+            "review_client": "-",
+            "review_provider": "-",
+            "review_provider_reply": "",
+            "review_management_reply": "",
+        }
+
+    requester = ticket.requester
+    requester_name = (
+        getattr(requester, "username", "")
+        or getattr(requester, "phone", "")
+        or f"user-{getattr(requester, 'id', '-') }"
+    )
+    reporter_account = requester_name if str(requester_name).startswith("@") else f"@{requester_name}"
+
+    target_info = _content_ticket_target_info(ticket)
+    payload = {
+        "reporter_account": reporter_account,
+        "reported_account": target_info.get("reported_user") or "-",
+        "complaint_subject": target_info.get("label") or "التقييم",
+        "complaint_details": (ticket.description or "").strip() or "-",
+        "review_id": None,
+        "request_id": None,
+        "review_rating": None,
+        "review_comment": "",
+        "review_created_at": "-",
+        "review_client": "-",
+        "review_provider": "-",
+        "review_provider_reply": "",
+        "review_management_reply": "",
+    }
+
+    review = _content_find_review_for_ticket(ticket)
+    if review is None:
+        return payload
+
+    client_label = (
+        getattr(review.client, "username", "")
+        or getattr(review.client, "phone", "")
+        or f"user-{review.client_id}"
+    )
+    provider_user = getattr(getattr(review.provider, "user", None), "username", "") or getattr(
+        getattr(review.provider, "user", None), "phone", ""
+    )
+    provider_label = (
+        getattr(review.provider, "display_name", "")
+        or provider_user
+        or f"provider-{review.provider_id}"
+    )
+
+    payload.update(
+        {
+            "review_id": review.id,
+            "request_id": review.request_id,
+            "review_rating": int(review.rating or 0),
+            "review_comment": (review.comment or "").strip(),
+            "review_created_at": _format_dt(review.created_at),
+            "review_client": client_label if str(client_label).startswith("@") else f"@{client_label}",
+            "review_provider": provider_label,
+            "review_provider_reply": (review.provider_reply or "").strip(),
+            "review_management_reply": (review.management_reply or "").strip(),
+        }
+    )
+    return payload
+
+
 def _content_review_ticket_rows(tickets: list[SupportTicket]) -> list[dict]:
     rows = []
     for ticket in tickets:
@@ -3024,17 +3454,14 @@ def _content_review_ticket_rows(tickets: list[SupportTicket]) -> list[dict]:
 def _content_review_summary(tickets: list[SupportTicket]) -> dict:
     by_status: dict[str, int] = {}
     complaints = 0
-    suggestions = 0
     for ticket in tickets:
         by_status[ticket.status] = by_status.get(ticket.status, 0) + 1
         if ticket.ticket_type == SupportTicketType.COMPLAINT:
             complaints += 1
-        if ticket.ticket_type == SupportTicketType.SUGGEST:
-            suggestions += 1
     return {
         "total": len(tickets),
         "complaints": complaints,
-        "suggestions": suggestions,
+        "suggestions": 0,
         "new": by_status.get(SupportTicketStatus.NEW, 0),
         "in_progress": by_status.get(SupportTicketStatus.IN_PROGRESS, 0),
         "returned": by_status.get(SupportTicketStatus.RETURNED, 0),
@@ -3338,6 +3765,8 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
 
             if action == "close_ticket":
                 desired_status = SupportTicketStatus.CLOSED
+                # Closing content-review complaints should always remove/hide the reported target.
+                moderation_action = ContentReviewActionForm.MODERATION_ACTION_DELETE_TARGET
             elif action == "return_ticket":
                 desired_status = SupportTicketStatus.RETURNED
 
@@ -3464,7 +3893,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
     context.update(
         {
             "hero_title": "إدارة التقييم والمراجعات",
-            "hero_subtitle": "متابعة طلبات الاقتراحات والبلاغات ومعالجة الحالات التشغيلية والمحتوى محل الشكوى.",
+            "hero_subtitle": "متابعة بلاغات التقييمات فقط ومعالجة الشكوى والمحتوى محل البلاغ بشكل تشغيلي كامل.",
             "tickets": _content_review_ticket_rows(tickets),
             "selected_ticket": selected_ticket,
             "review_form": review_form,
@@ -3475,7 +3904,6 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "can_hide_delete": can_hide_delete,
             "status_choices": SupportTicketStatus.choices,
             "ticket_type_choices": [
-                (SupportTicketType.SUGGEST, dict(SupportTicketType.choices).get(SupportTicketType.SUGGEST)),
                 (SupportTicketType.COMPLAINT, dict(SupportTicketType.choices).get(SupportTicketType.COMPLAINT)),
             ],
             "priority_choices": [("1", "1 - الأساسية"), ("2", "2 - الريادية"), ("3", "3 - الاحترافية")],
@@ -3487,8 +3915,9 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             },
             "redirect_query": request.GET.urlencode(),
             "target_info": _content_ticket_target_info(selected_ticket),
+            "detail_info": _content_review_detail_payload(selected_ticket),
             "selected_ticket_comments": list(selected_ticket.comments.order_by("-id")[:8]) if selected_ticket else [],
-            "selected_ticket_attachments": list(selected_ticket.attachments.order_by("-id")[:8]) if selected_ticket else [],
+            "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
         }
     )
     return render(request, "dashboard/content_reviews_dashboard.html", context)
@@ -3555,15 +3984,11 @@ def _content_excellence_export_rows(rows: list[dict]) -> tuple[list[str], list[l
     return headers, payload
 
 
-@dashboard_staff_required
-@require_dashboard_access("content")
-def content_excellence(request):
+def _content_excellence_payload(*, badge_filter: str = "", q: str = "") -> dict[str, object]:
     sync_badge_type_catalog()
-    badge_filter = (request.GET.get("badge") or "").strip()
-    q = (request.GET.get("q") or "").strip()
 
     cycle_start, cycle_end = excellence_current_review_window()
-    candidates_qs = ExcellenceBadgeCandidate.objects.select_related(
+    base_qs = ExcellenceBadgeCandidate.objects.select_related(
         "badge_type",
         "provider",
         "provider__user",
@@ -3575,7 +4000,7 @@ def content_excellence(request):
         evaluation_period_end=cycle_end,
     )
 
-    if not candidates_qs.exists():
+    if not base_qs.exists():
         latest_cycle_end = (
             ExcellenceBadgeCandidate.objects.filter(badge_type__code__in=CONTENT_EXCELLENCE_BADGE_CODES)
             .order_by("-evaluation_period_end")
@@ -3583,7 +4008,7 @@ def content_excellence(request):
             .first()
         )
         if latest_cycle_end:
-            candidates_qs = ExcellenceBadgeCandidate.objects.select_related(
+            base_qs = ExcellenceBadgeCandidate.objects.select_related(
                 "badge_type",
                 "provider",
                 "provider__user",
@@ -3595,18 +4020,64 @@ def content_excellence(request):
             )
             cycle_end = latest_cycle_end
 
-    if badge_filter:
-        candidates_qs = candidates_qs.filter(badge_type__code=badge_filter)
     if q:
-        candidates_qs = candidates_qs.filter(
+        base_qs = base_qs.filter(
             Q(provider__display_name__icontains=q)
             | Q(provider__user__phone__icontains=q)
             | Q(category__name__icontains=q)
             | Q(subcategory__name__icontains=q)
         )
 
-    candidates = list(candidates_qs.order_by("badge_type__sort_order", "rank_position", "provider_id"))
-    rows = _content_excellence_rows(candidates)
+    filtered_qs = base_qs
+    if badge_filter:
+        filtered_qs = filtered_qs.filter(badge_type__code=badge_filter)
+
+    rows = _content_excellence_rows(list(filtered_qs.order_by("badge_type__sort_order", "rank_position", "provider_id")))
+
+    badge_types = list(
+        ExcellenceBadgeType.objects.filter(code__in=CONTENT_EXCELLENCE_BADGE_CODES, is_active=True).order_by("sort_order", "id")
+    )
+    badge_type_map = {badge.code: badge for badge in badge_types}
+
+    badge_counts_qs = (
+        base_qs.values("badge_type__code")
+        .annotate(total=Count("id"))
+        .order_by()
+    )
+    counts_by_badge: dict[str, int] = {
+        str(row.get("badge_type__code") or ""): int(row.get("total") or 0)
+        for row in badge_counts_qs
+    }
+
+    badge_tabs: list[dict[str, object]] = []
+    for code in CONTENT_EXCELLENCE_BADGE_TAB_ORDER:
+        badge = badge_type_map.get(code)
+        if not badge:
+            continue
+        badge_tabs.append(
+            {
+                "code": badge.code,
+                "name": badge.name_ar,
+                "description": badge.description,
+                "count": counts_by_badge.get(badge.code, 0),
+            }
+        )
+
+    return {
+        "cycle_end": cycle_end,
+        "rows": rows,
+        "badge_tabs": badge_tabs,
+        "total_rows": len(rows),
+    }
+
+
+@dashboard_staff_required
+@require_dashboard_access("content")
+def content_excellence(request):
+    badge_filter = (request.GET.get("badge") or "").strip()
+    q = (request.GET.get("q") or "").strip()
+    payload = _content_excellence_payload(badge_filter=badge_filter, q=q)
+    rows = payload["rows"]
 
     headers, export_rows = _content_excellence_export_rows(rows)
     if _want_csv(request):
@@ -3616,29 +4087,43 @@ def content_excellence(request):
     if _want_pdf(request):
         return pdf_response("content_excellence.pdf", "لوحة إدارة التميز", headers, export_rows, landscape=True)
 
-    badge_types = list(
-        ExcellenceBadgeType.objects.filter(code__in=CONTENT_EXCELLENCE_BADGE_CODES, is_active=True).order_by("sort_order", "id")
-    )
-    counts_by_badge: dict[str, int] = {badge.code: 0 for badge in badge_types}
-    for row in rows:
-        counts_by_badge[row["badge_code"]] = counts_by_badge.get(row["badge_code"], 0) + 1
-    for badge in badge_types:
-        badge.candidates_count = counts_by_badge.get(badge.code, 0)
-
     context = _content_base_context("excellence")
     context.update(
         {
             "hero_title": "إدارة التميز",
-            "hero_subtitle": "مرشحو نادي المئة الكبار والإنجاز العالي والخدمة المتميزة مع تصدير فوري للتقارير.",
+            "hero_subtitle": "قائمة من تنطبق عليه معايير التميز مع عرض فوري حسب نوع الشارة.",
             "rows": rows,
-            "badge_types": badge_types,
+            "badge_tabs": payload["badge_tabs"],
             "badge_filter": badge_filter,
             "q": q,
-            "cycle_end": cycle_end,
-            "total_rows": len(rows),
+            "cycle_end": payload["cycle_end"],
+            "total_rows": payload["total_rows"],
         }
     )
     return render(request, "dashboard/content_excellence.html", context)
+
+
+@dashboard_staff_required
+@require_dashboard_access("content")
+def content_excellence_api(request):
+    badge_filter = (request.GET.get("badge") or "").strip()
+    q = (request.GET.get("q") or "").strip()
+
+    payload = _content_excellence_payload(badge_filter=badge_filter, q=q)
+    cycle_end = payload["cycle_end"]
+    cycle_end_str = cycle_end.date().isoformat() if hasattr(cycle_end, "date") else str(cycle_end)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "filters": {"badge": badge_filter, "q": q},
+            "cycle_end": cycle_end_str,
+            "total_rows": payload["total_rows"],
+            "badge_tabs": payload["badge_tabs"],
+            "rows": payload["rows"],
+        },
+        json_dumps_params={"ensure_ascii": False},
+    )
 
 
 @require_POST

@@ -1,11 +1,14 @@
 from django.shortcuts import get_object_or_404
 from django.db.models import Avg, Count
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import permissions, status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
 from apps.marketplace.models import ServiceRequest
+from apps.messaging.models import Thread
+from apps.messaging.views import _active_context_mode_from_request
 from apps.providers.models import ProviderProfile
 from apps.notifications.services import create_notification
 from .models import Review, ReviewModerationStatus
@@ -193,3 +196,79 @@ class ProviderRatingSummaryView(APIView):
 			**breakdown,
 		}
 		return Response(ProviderRatingSummarySerializer(data).data, status=status.HTTP_200_OK)
+
+
+class ProviderReviewLikeToggleView(APIView):
+	permission_classes = [IsAtLeastProvider]
+
+	def post(self, request, review_id):
+		review = get_object_or_404(Review.objects.select_related("provider__user"), id=review_id)
+		if review.provider.user_id != request.user.id:
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+		incoming_liked = request.data.get("liked", None)
+		if incoming_liked is None:
+			liked = not bool(review.provider_liked)
+		else:
+			liked = str(incoming_liked).strip().lower() in {"1", "true", "yes", "on"}
+
+		review.provider_liked = liked
+		review.provider_liked_at = timezone.now() if liked else None
+		review.save(update_fields=["provider_liked", "provider_liked_at"])
+
+		return Response(
+			{
+				"ok": True,
+				"review_id": review.id,
+				"provider_liked": review.provider_liked,
+				"provider_liked_at": review.provider_liked_at,
+			},
+			status=status.HTTP_200_OK,
+		)
+
+
+class ProviderReviewChatThreadView(APIView):
+	permission_classes = [IsAtLeastProvider]
+
+	def post(self, request, review_id):
+		review = get_object_or_404(Review.objects.select_related("provider__user", "client"), id=review_id)
+		if review.provider.user_id != request.user.id:
+			return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+		if not review.client_id:
+			return Response({"detail": "لا يوجد عميل مرتبط بهذا التقييم"}, status=status.HTTP_400_BAD_REQUEST)
+
+		mode = _active_context_mode_from_request(request)
+		desired_mode = (
+			mode
+			if mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
+			else Thread.ContextMode.SHARED
+		)
+
+		thread = (
+			Thread.objects.filter(is_direct=True)
+			.filter(
+				Q(participant_1_id=request.user.id, participant_2_id=review.client_id)
+				| Q(participant_1_id=review.client_id, participant_2_id=request.user.id)
+			)
+			.filter(context_mode__in=[desired_mode, Thread.ContextMode.SHARED])
+			.order_by("-id")
+			.first()
+		)
+
+		if not thread:
+			thread = Thread.objects.create(
+				is_direct=True,
+				context_mode=desired_mode,
+				participant_1=request.user,
+				participant_2=review.client,
+			)
+
+		return Response(
+			{
+				"ok": True,
+				"review_id": review.id,
+				"thread_id": thread.id,
+			},
+			status=status.HTTP_200_OK,
+		)

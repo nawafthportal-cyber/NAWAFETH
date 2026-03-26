@@ -243,6 +243,113 @@ var ProviderProfileEditPage = (function () {
     return result;
   }
 
+  function parseIsoDate(value) {
+    var text = String(value || "").trim();
+    if (!text) return null;
+    var parsed = new Date(text);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function formatAwardDate(value) {
+    var parsed = parseIsoDate(value);
+    if (!parsed) return "";
+    try {
+      return parsed.toLocaleDateString("ar-SA");
+    } catch (_err) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  function _isRecentlyAwarded(badge, windowDays) {
+    var awarded = parseIsoDate(badge && badge.awarded_at);
+    if (!awarded) return false;
+    var maxAgeDays = Number(windowDays || 14);
+    var diffMs = Date.now() - awarded.getTime();
+    return diffMs >= 0 && diffMs <= (maxAgeDays * 24 * 60 * 60 * 1000);
+  }
+
+  function _identityInitial(name) {
+    var clean = String(name || "").trim();
+    return clean ? clean.charAt(0) : "ن";
+  }
+
+  function renderIdentityCard(prov, user) {
+    var card = document.getElementById("pe-identity-card");
+    if (!card) return;
+
+    var badges = UI.normalizeExcellenceBadges(prov && prov.excellence_badges);
+    var displayName = String((prov && prov.display_name) || (user && user.full_name) || "مزود الخدمة").trim();
+    var avatarUrl = String((prov && prov.profile_image) || "").trim();
+
+    var nameNode = document.getElementById("pe-display-name");
+    if (nameNode) nameNode.textContent = displayName || "مزود الخدمة";
+
+    var avatarImg = document.getElementById("pe-avatar-img");
+    var avatarFallback = document.getElementById("pe-avatar-fallback");
+    if (avatarFallback) avatarFallback.textContent = _identityInitial(displayName);
+    if (avatarImg) {
+      if (avatarUrl) {
+        avatarImg.src = avatarUrl;
+        avatarImg.classList.remove("hidden");
+        if (avatarFallback) avatarFallback.classList.add("hidden");
+        avatarImg.onerror = function () {
+          avatarImg.classList.add("hidden");
+          if (avatarFallback) avatarFallback.classList.remove("hidden");
+        };
+      } else {
+        avatarImg.removeAttribute("src");
+        avatarImg.classList.add("hidden");
+        if (avatarFallback) avatarFallback.classList.remove("hidden");
+      }
+    }
+
+    var inlineMount = document.getElementById("pe-inline-badges");
+    if (inlineMount) {
+      inlineMount.innerHTML = "";
+      var inlineBadges = UI.buildExcellenceBadges(badges, {
+        className: "excellence-badges compact pe-name-excellence",
+        compact: true,
+      });
+      if (inlineBadges) {
+        inlineMount.appendChild(inlineBadges);
+        inlineMount.classList.remove("hidden");
+      } else {
+        inlineMount.classList.add("hidden");
+      }
+    }
+
+    var avatarBadge = document.getElementById("pe-avatar-badge");
+    if (avatarBadge) {
+      var topBadge = badges.length ? badges[0] : null;
+      if (topBadge) {
+        avatarBadge.textContent = topBadge.name || topBadge.code || "شارة تميز";
+        avatarBadge.classList.remove("hidden");
+      } else {
+        avatarBadge.classList.add("hidden");
+        avatarBadge.textContent = "";
+      }
+    }
+
+    var congratsNode = document.getElementById("pe-congrats-banner");
+    if (congratsNode) {
+      var newBadge = badges.find(function (badge) {
+        return _isRecentlyAwarded(badge, 14);
+      });
+      if (newBadge) {
+        var issuedOn = formatAwardDate(newBadge.awarded_at);
+        congratsNode.textContent = issuedOn
+          ? ("تهانينا! حصلت على شارة " + (newBadge.name || "التميز") + " بتاريخ " + issuedOn + " وتم نشرها تلقائيًا في ملفك.")
+          : ("تهانينا! حصلت على شارة " + (newBadge.name || "التميز") + " وتم نشرها تلقائيًا في ملفك.");
+        congratsNode.classList.remove("hidden");
+      } else {
+        congratsNode.classList.add("hidden");
+        congratsNode.textContent = "";
+      }
+    }
+
+    card.style.display = "";
+  }
+
   function isSectionFlowActive() {
     return !!(initialSection && SECTION_CONFIG[initialSection]);
   }
@@ -532,6 +639,7 @@ var ProviderProfileEditPage = (function () {
         seoMetaDescription: prov.seo_meta_description || "",
         seoSlug: prov.seo_slug || ""
       };
+      renderIdentityCard(prov, user);
       renderAll();
       applyEntryNavigation();
       document.getElementById("pe-loading").style.display = "none";

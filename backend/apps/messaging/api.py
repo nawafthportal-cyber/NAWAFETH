@@ -27,7 +27,7 @@ from apps.core.unread_badges import (
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.capabilities import direct_chat_quota_for_user
-from apps.support.models import SupportTicket, SupportTicketType, SupportPriority
+from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
 
 from .models import Message, MessageRead, Thread, ThreadUserState
 from .pagination import MessagePagination
@@ -401,11 +401,22 @@ class MyDirectThreadsListView(APIView):
 
 			# Get provider profile for peer if exists
 			peer_provider = getattr(peer, "provider_profile", None)
+			peer_profile_image = ""
+			if peer_provider:
+				profile_image = getattr(peer_provider, "profile_image", None)
+				if profile_image and getattr(profile_image, "name", ""):
+					peer_profile_image = getattr(profile_image, "url", "") or ""
 
 			result.append({
 				"thread_id": t.id,
 				"peer_id": peer.id,
 				"peer_provider_id": getattr(peer_provider, "id", None),
+				"peer_profile_image": peer_profile_image,
+				"peer_excellence_badges": (
+					getattr(peer_provider, "excellence_badges_cache", [])
+					if peer_provider and isinstance(getattr(peer_provider, "excellence_badges_cache", []), list)
+					else []
+				),
 				"peer_name": (
 					peer_provider.display_name if peer_provider
 					else _display_name_for_user(peer)
@@ -639,6 +650,7 @@ class ThreadReportView(APIView):
 			requester=request.user,
 			ticket_type=SupportTicketType.COMPLAINT,
 			priority=SupportPriority.NORMAL,
+			entrypoint=SupportTicketEntrypoint.MESSAGING_REPORT,
 			description=full,
 			reported_kind="thread",
 			reported_object_id=str(thread.id),

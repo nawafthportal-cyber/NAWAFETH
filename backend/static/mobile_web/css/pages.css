@@ -6900,6 +6900,30 @@ body.page-search .results-count {
   right: 6px;
 }
 
+.provider-list-excellence-top {
+  position: absolute;
+  right: 6px;
+  top: 6px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.86);
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[dir="rtl"] .provider-list-excellence-top {
+  right: auto;
+  left: 6px;
+}
+
 .provider-list-body {
   flex: 1;
   padding: 8px 10px;
@@ -8044,6 +8068,10 @@ body.page-interactive .page-content {
   align-items: flex-start;
   gap: 10px;
 }
+.page-interactive .interactive-following-avatar-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
 .page-interactive .interactive-following-avatar {
   width: 52px;
   height: 52px;
@@ -8058,6 +8086,24 @@ body.page-interactive .page-content {
   font-size: 12px;
   font-weight: 800;
   flex-shrink: 0;
+}
+.page-interactive .interactive-following-avatar-excellence-top {
+  position: absolute;
+  top: -7px;
+  left: -6px;
+  z-index: 2;
+  max-width: 88px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.86);
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .page-interactive .interactive-following-avatar img {
   width: 100%;
@@ -9378,6 +9424,25 @@ body.page-chats .thread-avatar-wrap {
   flex-shrink: 0;
 }
 
+body.page-chats .thread-avatar-excellence-top {
+  position: absolute;
+  top: -7px;
+  inset-inline-start: -6px;
+  z-index: 2;
+  max-width: 88px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.86);
+  color: #fff;
+  font-family: 'Cairo', sans-serif;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 body.page-chats .thread-avatar {
   width: 54px;
   height: 54px;
@@ -9438,6 +9503,18 @@ body.page-chats .thread-title-wrap {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+body.page-chats .thread-name-wrap {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+body.page-chats .thread-inline-excellence {
+  max-width: min(100%, 210px);
 }
 
 body.page-chats .thread-name {

@@ -381,16 +381,46 @@ class _InteractiveScreenState extends State<InteractiveScreen>
             padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: purple.withValues(alpha: 0.1),
-                  backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
-                  child: profileUrl == null
-                      ? Text(
-                          provider.displayName.isNotEmpty ? provider.displayName[0] : '؟',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: purple),
-                        )
-                      : null,
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: purple.withValues(alpha: 0.1),
+                      backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
+                      child: profileUrl == null
+                          ? Text(
+                              provider.displayName.isNotEmpty ? provider.displayName[0] : '؟',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: purple),
+                            )
+                          : null,
+                    ),
+                    if (provider.hasExcellenceBadges)
+                      Positioned(
+                        top: -8,
+                        left: -6,
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 84),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            provider.excellenceBadges.first.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(width: 6),
                 Expanded(
@@ -415,16 +445,17 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                               iconSize: 12,
                             ),
                           ],
+                          if (provider.hasExcellenceBadges) ...[
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: ExcellenceBadgesWrap(
+                                badges: provider.excellenceBadges,
+                                compact: true,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
-                      if (provider.hasExcellenceBadges)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 3),
-                          child: ExcellenceBadgesWrap(
-                            badges: provider.excellenceBadges,
-                            compact: true,
-                          ),
-                        ),
                       if (provider.city != null && provider.city!.isNotEmpty)
                         Text(provider.city!, style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
                     ],

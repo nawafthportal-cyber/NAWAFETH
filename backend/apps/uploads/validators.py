@@ -37,6 +37,8 @@ VIDEO_MIME_TYPES = frozenset(
 AUDIO_MIME_TYPES = frozenset(
     {
         "audio/aac",
+        "audio/x-aac",
+        "audio/vnd.dlna.adts",
         "audio/mpeg",
         "audio/wav",
         "audio/x-wav",

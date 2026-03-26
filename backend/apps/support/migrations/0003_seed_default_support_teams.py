@@ -5,12 +5,12 @@ def seed_default_support_teams(apps, schema_editor):
     SupportTeam = apps.get_model("support", "SupportTeam")
 
     required_teams = [
-        ("support", "الدعم", 10),
-        ("promo", "الترويج", 20),
-        ("technical", "الدعم الفني", 30),
-        ("finance", "المالية", 40),
-        ("verification", "التوثيق", 50),
-        ("content", "المحتوى", 60),
+        ("support", "فريق الدعم والمساعدة", 10),
+        ("content", "فريق إدارة المحتوى", 20),
+        ("promo", "فريق إدارة الإعلانات والترويج", 30),
+        ("verification", "فريق التوثيق", 40),
+        ("finance", "فريق إدارة الترقية والاشتراكات", 50),
+        ("extras", "فريق إدارة الخدمات الإضافية", 60),
     ]
 
     for code, name_ar, sort_order in required_teams:

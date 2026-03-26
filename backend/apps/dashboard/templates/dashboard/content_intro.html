@@ -34,19 +34,39 @@
             <h2>رفع التصميم</h2>
           </div>
           <div class="content-layout-grid">
-            <div class="mobile-preview">
-              <h4>معاينة شاشة البروفة</h4>
-              {% if intro_preview_block.media_file %}
-                <div class="media-preview">
-                  {% if intro_preview_block.media_type == "video" %}
-                    <video controls preload="metadata" src="{{ intro_preview_block.media_file.url }}"></video>
-                  {% else %}
-                    <img src="{{ intro_preview_block.media_file.url }}" alt="معاينة البروفة">
-                  {% endif %}
+            <div class="mobile-preview app-screen-preview">
+              <h4>معاينة كشاشة تطبيق جوال</h4>
+              <div class="phone-shell">
+                <div class="phone-notch"></div>
+                <div class="phone-display">
+                  <div class="onboarding-card-preview">
+                    <div class="preview-slide-counter">02 / 03</div>
+                    {% if intro_preview_block.media_file %}
+                      <div class="media-preview app-media-preview" id="contentIntroAppMediaPreview">
+                        {% if intro_preview_block.media_type == "video" %}
+                          <video controls preload="metadata" src="{{ intro_preview_block.media_file.url }}"></video>
+                        {% else %}
+                          <img src="{{ intro_preview_block.media_file.url }}" alt="معاينة البروفة">
+                        {% endif %}
+                      </div>
+                    {% else %}
+                      <div class="preview-placeholder" id="contentIntroAppMediaPlaceholder">لا يوجد ملف بروفة معتمد بعد.</div>
+                    {% endif %}
+
+                    <h5>صفحة بروفة التعريف بالتطبيق</h5>
+                    <p>تظهر هذه الشريحة في منتصف تسلسل الشاشات التعريفية عند أول فتح للتطبيق.</p>
+                  </div>
+                  <div class="preview-dots" aria-hidden="true">
+                    <span></span>
+                    <span class="active"></span>
+                    <span></span>
+                  </div>
+                  <div class="phone-preview-actions">
+                    <span>تخطي</span>
+                    <button type="button">التالي</button>
+                  </div>
                 </div>
-              {% else %}
-                <div class="preview-placeholder">لا يوجد ملف بروفة معتمد بعد.</div>
-              {% endif %}
+              </div>
             </div>
 
             <form method="post" enctype="multipart/form-data" class="form-shell" id="contentIntroForm">
@@ -62,10 +82,26 @@
                   <label for="{{ upload_form.file_specs.id_for_label }}">مواصفات الملف المرفوع</label>
                   {{ upload_form.file_specs }}
                 </div>
+                <div class="field full">
+                  <div class="mobile-preview" id="contentIntroDesignPreviewCard">
+                    <h4>معاينة الملف قبل الحفظ</h4>
+                    <div class="media-preview" id="contentIntroDesignPreview" {% if not intro_preview_block.media_file %}hidden{% endif %}>
+                      {% if intro_preview_block.media_file %}
+                        {% if intro_preview_block.media_type == "video" %}
+                          <video controls preload="metadata" src="{{ intro_preview_block.media_file.url }}"></video>
+                        {% else %}
+                          <img src="{{ intro_preview_block.media_file.url }}" alt="معاينة الملف الحالي">
+                        {% endif %}
+                      {% endif %}
+                    </div>
+                    <div class="preview-placeholder" id="contentIntroDesignPlaceholder" {% if intro_preview_block.media_file %}hidden{% endif %}>اختر ملفًا ثم اضغط معاينة لعرضه قبل الحفظ.</div>
+                  </div>
+                </div>
               </div>
               <div class="actions">
                 {% if can_manage %}
-                  <button class="primary-btn light" type="submit">معاينة ثم حفظ</button>
+                  <button class="ghost-btn" type="button" id="contentIntroPreviewBtn">معاينة</button>
+                  <button class="primary-btn light" type="submit">حفظ</button>
                   <a class="ghost-btn" href="{% url 'dashboard:content_intro' %}">إلغاء</a>
                 {% else %}
                   <span class="pill danger">رفع الملفات غير متاح</span>

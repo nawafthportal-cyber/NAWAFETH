@@ -64,6 +64,8 @@ class Review(models.Model):
 		validators=[MinValueValidator(1), MaxValueValidator(5)],
 	)
 	comment = models.CharField(max_length=500, blank=True)
+	provider_liked = models.BooleanField(default=False)
+	provider_liked_at = models.DateTimeField(null=True, blank=True)
 	provider_reply = models.CharField(max_length=500, blank=True)
 	provider_reply_at = models.DateTimeField(null=True, blank=True)
 	provider_reply_edited_at = models.DateTimeField(null=True, blank=True)

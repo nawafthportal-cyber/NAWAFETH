@@ -36,14 +36,44 @@
           </div>
 
           <div class="module-grid">
-            {% for item in nav_items %}
-              {% if item.key != "home" %}
+            {% for item in content_modules %}
                 <a class="module-card" href="{{ item.url }}">
                   <h3>{{ item.label }}</h3>
                   <p>{{ item.description }}</p>
                   <span class="ghost-btn">فتح الوحدة</span>
                 </a>
-              {% endif %}
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
+          <div class="title-row">
+            <h2>القوائم المرتبطة بلوحة إدارة المحتوى</h2>
+            <span class="pill info">اختر الوحدة من القائمة الثابتة يمينًا</span>
+          </div>
+
+          <div class="team-panels" id="teamPanels">
+            {% for item in content_modules %}
+              <article class="team-panel-card{% if item.key == 'first_time' %} active{% endif %}" data-team-panel="{{ item.key }}" {% if item.key != 'first_time' %}hidden{% endif %}>
+                <header class="team-panel-header">
+                  <h3>{{ item.label }}</h3>
+                  <p>{{ item.description }}</p>
+                </header>
+                <div class="team-panel-grid">
+                  <section class="team-list-block">
+                    <h4>الرابط المرتبط</h4>
+                    <ul>
+                      <li><a href="{{ item.url }}" class="team-link">{{ item.label }}</a></li>
+                    </ul>
+                  </section>
+                  <section class="team-list-block">
+                    <h4>نطاق العمل</h4>
+                    <ul>
+                      <li>{{ item.description }}</li>
+                    </ul>
+                  </section>
+                </div>
+              </article>
             {% endfor %}
           </div>
         </section>
@@ -51,24 +81,27 @@
 
       <aside class="panel side-panel">
         <div class="stack">
-          {% for item in nav_items %}
+          {% for item in content_modules %}
             <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
           {% endfor %}
-          {% if dashboard_nav_access.promo %}
-            <a class="tab-btn" href="{% url 'dashboard:promo_dashboard' %}">لوحة إدارة الترويج</a>
-          {% endif %}
-          {% if dashboard_nav_access.support %}
-            <a class="tab-btn" href="{% url 'dashboard:support_dashboard' %}">لوحة فريق الدعم</a>
-          {% endif %}
-          {% if dashboard_nav_access.admin_control %}
-            <a class="tab-btn" href="{% url 'dashboard:admin_control_home' %}">إدارة الصلاحيات</a>
-          {% endif %}
 
-          <div class="side-card">
-            <h4>الفرق المعتمدة</h4>
-            {% for team in managed_teams %}
-              <div class="quick-stat"><span>{{ forloop.counter }}</span><strong>{{ team }}</strong></div>
-            {% endfor %}
+          <div class="side-card teams-fixed-card" id="teamFixedMenu">
+            <h4>قوائم الوحدات</h4>
+            <p class="teams-fixed-note">القائمة ثابتة. انقر على الوحدة لعرض تفاصيلها بالأسفل.</p>
+            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الوحدات">
+              {% for item in content_modules %}
+                <button
+                  type="button"
+                  class="team-fixed-btn{% if item.key == 'first_time' %} active{% endif %}"
+                  data-team-target="{{ item.key }}"
+                  role="tab"
+                  aria-selected="{% if item.key == 'first_time' %}true{% else %}false{% endif %}"
+                >
+                  <span>{{ forloop.counter }}</span>
+                  <strong>{{ item.label }}</strong>
+                </button>
+              {% endfor %}
+            </div>
           </div>
 
           <div class="side-card">

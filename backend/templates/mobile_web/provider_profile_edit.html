@@ -17,6 +17,26 @@
   <div id="pe-loading" class="loading-center pe-loading"><div class="spinner"></div></div>
 
   <div id="pe-content" class="pe-page-content" style="display:none">
+    <section class="detail-card pe-identity-card" id="pe-identity-card" style="display:none" aria-live="polite">
+      <div class="pe-identity-main">
+        <div class="pe-avatar-shell">
+          <div class="pe-avatar-wrap" id="pe-avatar-wrap">
+            <img id="pe-avatar-img" class="pe-avatar-img" alt="صورة الملف الشخصي" loading="lazy">
+            <span id="pe-avatar-fallback" class="pe-avatar-fallback" aria-hidden="true"></span>
+            <div id="pe-avatar-badge" class="pe-avatar-badge hidden"></div>
+          </div>
+        </div>
+        <div class="pe-identity-copy">
+          <div class="pe-name-row">
+            <h2 id="pe-display-name" class="pe-display-name"></h2>
+          </div>
+          <div id="pe-inline-badges" class="pe-inline-badges"></div>
+          <p id="pe-identity-subtitle" class="pe-identity-subtitle">ملفك يظهر للعملاء مع شارات التميز تلقائيًا عند الاستحقاق.</p>
+        </div>
+      </div>
+      <div id="pe-congrats-banner" class="pe-congrats-banner hidden"></div>
+    </section>
+
     <div class="pe-layout">
       <aside class="pe-sidebar">
         <section class="detail-card pe-section-links-card" id="pe-section-links-card" style="display:none" aria-label="أقسام إكمال الملف التعريفي">

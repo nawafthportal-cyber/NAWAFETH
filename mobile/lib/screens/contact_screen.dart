@@ -45,6 +45,12 @@ class _ContactScreenState extends State<ContactScreen> {
 
   // تحويل اسم الفريق العربي إلى ticket_type
   static const Map<String, String> _teamToTicketType = {
+    'فريق الدعم والمساعدة': 'tech',
+    'فريق إدارة المحتوى': 'suggest',
+    'فريق إدارة الإعلانات والترويج': 'ads',
+    'فريق التوثيق': 'verify',
+    'فريق إدارة الترقية والاشتراكات': 'subs',
+    'فريق إدارة الخدمات الإضافية': 'extras',
     'الدعم': 'tech',
     'الترويج': 'ads',
     'الدعم الفني': 'tech',
@@ -97,7 +103,14 @@ class _ContactScreenState extends State<ContactScreen> {
     } else {
       // fallback to static list
       setState(() {
-        supportTeams = ['الدعم الفني', 'الاشتراكات', 'التوثيق', 'الاقتراحات', 'الإعلانات', 'الشكاوى والبلاغات'];
+        supportTeams = [
+          'فريق الدعم والمساعدة',
+          'فريق إدارة المحتوى',
+          'فريق إدارة الإعلانات والترويج',
+          'فريق التوثيق',
+          'فريق إدارة الترقية والاشتراكات',
+          'فريق إدارة الخدمات الإضافية',
+        ];
       });
       final team = widget.initialSupportTeam;
       if (team != null && supportTeams.contains(team)) {
@@ -578,7 +591,7 @@ class _ContactScreenState extends State<ContactScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            selectedSupportTeam ?? 'فريق الدعم الفني',
+                            selectedSupportTeam ?? 'فريق الدعم والمساعدة',
                             style: TextStyle(
                               fontFamily: 'Cairo',
                               fontWeight: FontWeight.bold,

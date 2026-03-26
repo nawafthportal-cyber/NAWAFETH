@@ -31,56 +31,173 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>تحديث محتوى أيقونة الشروط والأحكام</h2>
+            <h2>تحديث ملفات صفحة الإعدادات</h2>
           </div>
 
-          <div class="settings-grid">
-            <div class="legal-tabs">
-              {% for code,label in legal_form.doc_type.field.choices %}
-                <a
-                  class="doc-tab {% if selected_doc_type == code %}active{% endif %}"
-                  href="{% url 'dashboard:content_settings' %}?doc_type={{ code }}"
-                >
-                  {{ label }}
-                </a>
-              {% endfor %}
+          <div class="settings-switch" id="contentSettingsSwitch" role="tablist" aria-label="خيارات الإعدادات" data-initial-target="{% if links_form.errors %}aboutOptionPanel{% else %}legalOptionPanel{% endif %}">
+            <button
+              type="button"
+              class="settings-switch-btn active"
+              data-target="legalOptionPanel"
+              role="tab"
+              aria-selected="true"
+            >
+              <span class="settings-switch-icon" aria-hidden="true">📄</span>
+              <span>
+                <strong>تحديث ملفات الشروط والأحكام</strong>
+                <small>النص أو ملف PDF/صورة</small>
+              </span>
+            </button>
+            <button
+              type="button"
+              class="settings-switch-btn"
+              data-target="aboutOptionPanel"
+              role="tab"
+              aria-selected="false"
+            >
+              <span class="settings-switch-icon" aria-hidden="true">🔗</span>
+              <span>
+                <strong>حول منصة نوافذ</strong>
+                <small>الوصف وروابط المنصة</small>
+              </span>
+            </button>
+          </div>
+
+          <div class="settings-option-panel active" id="legalOptionPanel" role="tabpanel">
+            <div class="option-head">
+              <h3>الخيار الأول: تحديث مستند قانوني</h3>
+              <p>يمكنك إدخال نص متعدد الأسطر أو رفع ملف (PDF/صورة). يكفي تعبئة أحدهما أو كليهما.</p>
             </div>
 
-            <form method="post" enctype="multipart/form-data" class="form-shell">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save_legal">
-              <div class="form-grid">
-                <div class="field full">
-                  <label for="{{ legal_form.doc_type.id_for_label }}">نوع المستند</label>
-                  {{ legal_form.doc_type }}
-                </div>
-                <div class="field full">
-                  <label for="{{ legal_form.body_ar.id_for_label }}">النص القانوني</label>
-                  {{ legal_form.body_ar }}
-                </div>
-                <div class="field">
-                  <label for="{{ legal_form.file.id_for_label }}">رفع الملف</label>
-                  {{ legal_form.file }}
-                </div>
-                <div class="field">
-                  <label for="{{ legal_form.version.id_for_label }}">الإصدار</label>
-                  {{ legal_form.version }}
-                </div>
-                <div class="field full">
-                  <label for="{{ legal_form.published_at.id_for_label }}">تاريخ النشر</label>
-                  {{ legal_form.published_at }}
-                </div>
+            <div class="settings-grid">
+              <div class="legal-tabs">
+                {% for code,label in legal_form.doc_type.field.choices %}
+                  <a
+                    class="doc-tab {% if selected_doc_type == code %}active{% endif %}"
+                    href="{% url 'dashboard:content_settings' %}?doc_type={{ code }}"
+                  >
+                    {{ label }}
+                  </a>
+                {% endfor %}
               </div>
-              {% if current_doc %}
-                <div class="quick-stat">
-                  <span>المستند النشط</span>
-                  <strong>v{{ current_doc.version }} - {{ current_doc.published_at|date:"Y-m-d H:i" }}</strong>
+
+              <form method="post" enctype="multipart/form-data" class="form-shell" id="contentSettingsLegalForm">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_legal">
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ legal_form.doc_type.id_for_label }}">نوع المستند</label>
+                    {{ legal_form.doc_type }}
+                    {% for err in legal_form.doc_type.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ legal_form.body_ar.id_for_label }}">النص القانوني (متعدد الأسطر)</label>
+                    {{ legal_form.body_ar }}
+                    {% for err in legal_form.body_ar.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ legal_form.file.id_for_label }}">رفع ملف PDF أو صورة</label>
+                    {{ legal_form.file }}
+                    {% for err in legal_form.file.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field">
+                    <label for="{{ legal_form.version.id_for_label }}">الإصدار</label>
+                    {{ legal_form.version }}
+                    {% for err in legal_form.version.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ legal_form.published_at.id_for_label }}">تاريخ النشر</label>
+                    {{ legal_form.published_at }}
+                    {% for err in legal_form.published_at.errors %}<small>{{ err }}</small>{% endfor %}
+                  </div>
                 </div>
-                {% if current_doc.file %}
-                  <div class="actions">
-                    <a class="ghost-btn" href="{{ current_doc.file.url }}" target="_blank" rel="noopener">معاينة الملف الحالي</a>
+                {% if legal_form.non_field_errors %}
+                  <div class="target-card">
+                    {% for err in legal_form.non_field_errors %}
+                      <small>{{ err }}</small>
+                    {% endfor %}
                   </div>
                 {% endif %}
+                <div class="target-card">
+                  <h4>معاينة سريعة قبل الحفظ</h4>
+                  <p class="subtitle" id="legalPreviewHint">اختر ملفًا ثم اضغط معاينة، أو اكتب النص القانوني مباشرة.</p>
+                  <div class="actions">
+                    <button type="button" class="ghost-btn" id="contentSettingsLegalPreviewBtn">معاينة الملف المحدد</button>
+                    {% if current_doc and current_doc.file %}
+                      <a class="ghost-btn" href="{{ current_doc.file.url }}" target="_blank" rel="noopener">فتح الملف النشط</a>
+                    {% endif %}
+                  </div>
+                  <div class="legal-file-preview" id="contentSettingsLegalPreviewWrap" hidden></div>
+                </div>
+                {% if current_doc %}
+                  <div class="quick-stat">
+                    <span>المستند النشط</span>
+                    <strong>v{{ current_doc.version }} - {{ current_doc.published_at|date:"Y-m-d H:i" }}</strong>
+                  </div>
+                {% endif %}
+                <div class="actions">
+                  {% if can_manage %}
+                    <button class="primary-btn" type="submit">حفظ</button>
+                  {% else %}
+                    <span class="pill danger">التعديل غير متاح</span>
+                  {% endif %}
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="settings-option-panel" id="aboutOptionPanel" role="tabpanel" hidden>
+            <div class="option-head">
+              <h3>الخيار الثاني: حول منصة نوافذ</h3>
+              <p>هذا المحتوى يظهر في قسم عن المنصة وروابط التواصل على الويب والجوال عبر واجهة المحتوى العامة.</p>
+            </div>
+
+            <form method="post" class="form-shell" id="contentLinksForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_links">
+              <div class="form-grid">
+                <div class="field full">
+                  <label for="{{ links_form.about_text.id_for_label }}">نص تعريف المنصة</label>
+                  {{ links_form.about_text }}
+                  {% for err in links_form.about_text.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.website_url.id_for_label }}">رابط الموقع على الويب</label>
+                  {{ links_form.website_url }}
+                  {% for err in links_form.website_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.ios_store.id_for_label }}">رابط التحميل في آبل ستور</label>
+                  {{ links_form.ios_store }}
+                  {% for err in links_form.ios_store.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.android_store.id_for_label }}">رابط التحميل في الأندرويد</label>
+                  {{ links_form.android_store }}
+                  {% for err in links_form.android_store.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.x_url.id_for_label }}">رابط منصة إكس</label>
+                  {{ links_form.x_url }}
+                  {% for err in links_form.x_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.whatsapp_url.id_for_label }}">رابط الواتساب</label>
+                  {{ links_form.whatsapp_url }}
+                  {% for err in links_form.whatsapp_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field full">
+                  <label for="{{ links_form.email.id_for_label }}">إيميل المنصة</label>
+                  {{ links_form.email }}
+                  {% for err in links_form.email.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+              </div>
+              {% if links_form.non_field_errors %}
+                <div class="target-card">
+                  {% for err in links_form.non_field_errors %}
+                    <small>{{ err }}</small>
+                  {% endfor %}
+                </div>
               {% endif %}
               <div class="actions">
                 {% if can_manage %}
@@ -91,51 +208,6 @@
               </div>
             </form>
           </div>
-        </section>
-
-        <section class="section-panel slide-up">
-          <div class="title-row"><h2>تعديل معلومات أيقونة (حول منصة مختص)</h2></div>
-          <form method="post" class="form-shell" id="contentLinksForm">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="save_links">
-            <div class="form-grid">
-              <div class="field full">
-                <label for="{{ links_form.about_text.id_for_label }}">نص تعريف المنصة</label>
-                {{ links_form.about_text }}
-              </div>
-              <div class="field">
-                <label for="{{ links_form.website_url.id_for_label }}">رابط الموقع على الويب</label>
-                {{ links_form.website_url }}
-              </div>
-              <div class="field">
-                <label for="{{ links_form.ios_store.id_for_label }}">رابط التحميل في آبل ستور</label>
-                {{ links_form.ios_store }}
-              </div>
-              <div class="field">
-                <label for="{{ links_form.android_store.id_for_label }}">رابط التحميل في الأندرويد</label>
-                {{ links_form.android_store }}
-              </div>
-              <div class="field">
-                <label for="{{ links_form.x_url.id_for_label }}">رابط منصة إكس</label>
-                {{ links_form.x_url }}
-              </div>
-              <div class="field">
-                <label for="{{ links_form.whatsapp_url.id_for_label }}">رابط الواتساب</label>
-                {{ links_form.whatsapp_url }}
-              </div>
-              <div class="field full">
-                <label for="{{ links_form.email.id_for_label }}">إيميل المنصة</label>
-                {{ links_form.email }}
-              </div>
-            </div>
-            <div class="actions">
-              {% if can_manage %}
-                <button class="primary-btn" type="submit">حفظ</button>
-              {% else %}
-                <span class="pill danger">التعديل غير متاح</span>
-              {% endif %}
-            </div>
-          </form>
         </section>
       </section>
 
@@ -152,6 +224,13 @@
                 <strong>{% if doc %}v{{ doc.version }}{% else %}غير متوفر{% endif %}</strong>
               </div>
             {% endfor %}
+          </div>
+          <div class="side-card">
+            <h4>ربط الويب والجوال</h4>
+            <p class="subtitle">يتم نشر هذه البيانات عبر API: <strong>/api/content/public/</strong></p>
+            <div class="quick-stat"><span>المستندات</span><strong>documents</strong></div>
+            <div class="quick-stat"><span>روابط المنصة</span><strong>links</strong></div>
+            <div class="quick-stat"><span>عن المنصة</span><strong>blocks.about_section_about</strong></div>
           </div>
         </div>
       </aside>
