@@ -19,6 +19,29 @@ from apps.promo.services import promo_min_campaign_hours, promo_min_campaign_mes
 from apps.support.models import SupportTeam, SupportTicketStatus
 
 
+ACCESS_MANAGED_DASHBOARD_CODES = (
+    "admin_control",
+    "support",
+    "content",
+    "promo",
+    "verify",
+    "subs",
+    "extras",
+    "client_extras",
+)
+
+ACCESS_MANAGED_DASHBOARD_LABELS = {
+    "admin_control": "لوحة إدارة الصلاحيات وتقارير المنصة",
+    "support": "فريق الدعم والمساعدة",
+    "content": "فريق إدارة المحتوى",
+    "promo": "فريق إدارة الإعلانات والترويج",
+    "verify": "فريق التوثيق",
+    "subs": "فريق إدارة الترقية والاشتراكات",
+    "extras": "فريق إدارة الخدمات الإضافية",
+    "client_extras": "لوحة تحكم العملاء للخدمات الإضافية",
+}
+
+
 class DashboardLoginForm(forms.Form):
     username = forms.CharField(
         label="اسم المستخدم",
@@ -127,8 +150,19 @@ class AccessProfileForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["level"].widget.attrs.update({"class": "input-control"})
-        dashboards = Dashboard.objects.filter(is_active=True).order_by("sort_order", "id")
-        self.fields["dashboards"].choices = [(dash.code, f"{dash.code} - {dash.name_ar}") for dash in dashboards]
+        dashboards = Dashboard.objects.filter(
+            is_active=True,
+            code__in=ACCESS_MANAGED_DASHBOARD_CODES,
+        )
+        dashboards_by_code = {dash.code: dash for dash in dashboards}
+        self.fields["dashboards"].choices = [
+            (
+                code,
+                f"{code} - {ACCESS_MANAGED_DASHBOARD_LABELS.get(code, dashboards_by_code[code].name_ar)}",
+            )
+            for code in ACCESS_MANAGED_DASHBOARD_CODES
+            if code in dashboards_by_code
+        ]
         permissions = AccessPermission.objects.filter(is_active=True).order_by("sort_order", "id")
         self.fields["permissions"].choices = [
             (perm.code, f"{perm.code} - {perm.name_ar}") for perm in permissions

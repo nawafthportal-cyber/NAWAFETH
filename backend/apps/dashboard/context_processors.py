@@ -10,7 +10,6 @@ MAIN_DASHBOARD_NAV = (
     ("support", "لوحة الدعم والمساعدة", "dashboard:support_dashboard"),
     ("content", "لوحة إدارة المحتوى", "dashboard:content_dashboard_home"),
     ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard"),
-    ("analytics", "التحليلات", "dashboard:analytics_insights"),
 )
 
 

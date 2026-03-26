@@ -70,7 +70,10 @@
                 {% for row in inquiries %}
                   <tr class="support-row {{ row.priority_class }} {% if selected_inquiry and selected_inquiry.id == row.id %}active-ticket{% endif %}">
                     <td>
-                      <a class="ticket-link" href="?inquiry={{ row.id }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}">
+                      <a
+                        class="ticket-link"
+                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_request %}&request={{ selected_request.id }}{% endif %}{% if not selected_inquiry or selected_inquiry.id != row.id %}&inquiry={{ row.id }}{% endif %}"
+                      >
                         {{ row.code }}
                       </a>
                     </td>
@@ -124,7 +127,7 @@
                   <th>اسم العميل</th>
                   <th>الأولوية</th>
                   <th>تاريخ وقت اعتماد الطلب</th>
-                  <th>حالة الطلب</th>
+                  <th>حالة التنفيذ</th>
                   <th>المكلف بالطلب</th>
                   <th>تاريخ وقت التكليف</th>
                 </tr>
@@ -133,14 +136,17 @@
                 {% for row in promo_requests %}
                   <tr class="support-row {{ row.priority_class }} {% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
                     <td>
-                      <a class="ticket-link" href="{% url 'dashboard:promo_request_detail' row.id %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}">
+                      <a
+                        class="ticket-link"
+                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_inquiry %}&inquiry={{ selected_inquiry.id }}{% endif %}{% if not selected_request or selected_request.id != row.id %}&request={{ row.id }}{% endif %}"
+                      >
                         {{ row.code }}
                       </a>
                     </td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.priority_number }}</td>
                     <td>{{ row.approved_at }}</td>
-                    <td>{{ row.request_status }}</td>
+                    <td>{{ row.ops_status }}</td>
                     <td>{{ row.assignee }}</td>
                     <td>{{ row.assigned_at }}</td>
                   </tr>
@@ -149,41 +155,6 @@
                 {% endfor %}
               </tbody>
             </table>
-          </div>
-        </section>
-
-        <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
-          <div class="title-row">
-            <h2>قوائم الفرق المرتبطة</h2>
-            <span class="pill info">اختر الفريق من القائمة الثابتة يمينًا</span>
-          </div>
-          <div class="team-panels" id="teamPanels">
-            {% for panel in team_panels %}
-              <article class="team-panel-card{% if forloop.first %} active{% endif %}" data-team-panel="{{ panel.key }}" {% if not forloop.first %}hidden{% endif %}>
-                <header class="team-panel-header">
-                  <h3>{{ panel.team }}</h3>
-                  <p>{{ panel.summary }}</p>
-                </header>
-                <div class="team-panel-grid">
-                  <section class="team-list-block">
-                    <h4>اللوحات المرتبطة</h4>
-                    <ul>
-                      {% for item in panel.dashboards %}
-                        <li><a href="{{ item.url }}" class="team-link">{{ item.label }}</a></li>
-                      {% endfor %}
-                    </ul>
-                  </section>
-                  <section class="team-list-block">
-                    <h4>قوائم التشغيل</h4>
-                    <ul>
-                      {% for item in panel.worklists %}
-                        <li>{{ item }}</li>
-                      {% endfor %}
-                    </ul>
-                  </section>
-                </div>
-              </article>
-            {% endfor %}
           </div>
         </section>
 
@@ -269,16 +240,19 @@
               </div>
               <div class="side-card">
                 <h4>آخر المرفقات</h4>
-                <div class="timeline-list promo-inquiry-attachments">
+                <div class="promo-attachments-grid promo-inquiry-attachments">
                   {% for file in selected_inquiry_attachments %}
-                    <div class="timeline-item">
-                      <strong>{{ file.file.name|default:'مرفق' }}</strong>
-                      <p>{{ file.created_at|date:"d/m/Y H:i" }}{% if file.uploaded_by %} - بواسطة {{ file.uploaded_by.username|default:file.uploaded_by.phone }}{% endif %}</p>
-                      <div class="actions">
+                    <article class="promo-attachment-card">
+                      <div class="promo-attachment-head">
+                        <strong title="{{ file.file.name|default:'مرفق' }}">{{ file.file.name|default:'مرفق' }}</strong>
+                        <span class="pill info">مرفق</span>
+                      </div>
+                      <p class="promo-attachment-meta">{{ file.created_at|date:"d/m/Y H:i" }}{% if file.uploaded_by %} - بواسطة {{ file.uploaded_by.username|default:file.uploaded_by.phone }}{% endif %}</p>
+                      <div class="actions promo-attachment-actions">
                         <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض</a>
                         <a class="ghost-btn" href="{{ file.file.url }}" download>تنزيل</a>
                       </div>
-                    </div>
+                    </article>
                   {% empty %}
                     <p class="subtitle">لا توجد مرفقات.</p>
                   {% endfor %}
@@ -400,18 +374,22 @@
 
             <div class="side-card">
               <h4>الملفات المرفقة من مزود الخدمة</h4>
-              <div class="timeline-list">
+              <div class="promo-attachments-grid promo-request-attachments">
                 {% for asset in selected_request_assets %}
-                  <div class="timeline-item">
-                    <strong>
-                      {{ asset.get_asset_type_display }}
-                      {% if asset.item %}
-                        - {{ asset.item.get_service_type_display }}
-                      {% endif %}
-                    </strong>
-                    <p>
-                      {% if asset.title %}{{ asset.title }}{% else %}ملف مرفق{% endif %}
-                      - {{ asset.uploaded_at|date:"d/m/Y H:i" }}
+                  <article class="promo-attachment-card promo-asset-card">
+                    <div class="promo-attachment-head">
+                      <strong>
+                        {% if asset.title %}{{ asset.title }}{% else %}ملف مرفق{% endif %}
+                      </strong>
+                      <span class="pill brand">
+                        {{ asset.get_asset_type_display }}
+                        {% if asset.item %}
+                          - {{ asset.item.get_service_type_display }}
+                        {% endif %}
+                      </span>
+                    </div>
+                    <p class="promo-attachment-meta">
+                      {{ asset.uploaded_at|date:"d/m/Y H:i" }}
                       {% if asset.uploaded_by %}
                         - بواسطة {{ asset.uploaded_by.username|default:asset.uploaded_by.phone }}
                       {% endif %}
@@ -453,8 +431,11 @@
                     {% else %}
                       <div class="promo-asset-no-preview">لا توجد معاينة مباشرة لهذا النوع من الملفات.</div>
                     {% endif %}
-                    <a class="ticket-link" href="{{ asset.file.url }}" target="_blank" rel="noopener">فتح الملف</a>
-                  </div>
+                    <div class="actions promo-attachment-actions">
+                      <a class="ticket-link" href="{{ asset.file.url }}" target="_blank" rel="noopener">فتح الملف</a>
+                      <a class="ghost-btn" href="{{ asset.file.url }}" download>تنزيل</a>
+                    </div>
+                  </article>
                 {% empty %}
                   <p class="subtitle">لا توجد ملفات مرفقة لهذا الطلب.</p>
                 {% endfor %}
@@ -501,35 +482,6 @@
       <aside class="panel side-panel">
         <div class="stack">
           {% include 'dashboard/_sidebar_main_nav.html' %}
-
-          <div class="side-card">
-            <h4>القائمة الفرعية</h4>
-            <div class="stack sidebar-menu-stack">
-              {% for item in nav_items %}
-                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="side-card teams-fixed-card" id="teamFixedMenu">
-            <h4>قوائم الفرق</h4>
-            <p class="teams-fixed-note">ثابتة أثناء التمرير. انقر لعرض القوائم المرتبطة في الأسفل.</p>
-            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الفرق">
-              {% for panel in team_panels %}
-                <button type="button" class="team-fixed-btn{% if forloop.first %} active{% endif %}" data-team-target="{{ panel.key }}" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
-                  <span>{{ forloop.counter }}</span>
-                  <strong>{{ panel.team }}</strong>
-                </button>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="side-card">
-            <h4>رموز الطلبات</h4>
-            {% for item in request_codes %}
-              <div class="quick-stat"><span>{{ item.code }}</span><strong>{{ item.label }}</strong></div>
-            {% endfor %}
-          </div>
 
           <div class="side-card">
             <h4>حالة التنفيذ</h4>

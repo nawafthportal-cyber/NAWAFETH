@@ -224,6 +224,99 @@
     applyHints();
   }
 
+  function setupAccessFormToggle() {
+    const shell = document.getElementById("accessFormShell");
+    const openBtn = document.getElementById("openAccessFormBtn");
+    const closeBtn = document.getElementById("closeAccessFormBtn");
+    const cancelBtn = document.getElementById("cancelAccessFormBtn");
+    const form = document.getElementById("accessForm");
+    if (!shell || !openBtn || !form) {
+      return;
+    }
+
+    const levelSelect = form.querySelector("select[name='level']");
+    const dashboardChecks = Array.from(form.querySelectorAll("input[name='dashboards']"));
+    const profileIdInput = form.querySelector("input[name='profile_id']");
+
+    function syncExpandedState() {
+      openBtn.setAttribute("aria-expanded", shell.classList.contains("hidden") ? "false" : "true");
+    }
+
+    function syncAccessFormQuery(isOpen) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("section", "access");
+      if (isOpen) {
+        url.searchParams.set("new", "1");
+      } else {
+        url.searchParams.delete("new");
+        url.searchParams.delete("edit");
+      }
+      window.history.replaceState({}, "", url.toString());
+    }
+
+    function clearFormForNewAccount() {
+      form.reset();
+      if (profileIdInput) {
+        profileIdInput.value = "";
+      }
+      dashboardChecks.forEach((input) => {
+        input.checked = false;
+        input.disabled = false;
+      });
+      if (levelSelect) {
+        const firstOption = levelSelect.options[0];
+        if (firstOption) {
+          levelSelect.value = firstOption.value;
+        }
+        levelSelect.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+
+    function openFormInline() {
+      shell.classList.remove("hidden");
+      state.accessFormOpen = true;
+      state.editingAccessProfile = false;
+      state.accessFormHasErrors = false;
+      syncExpandedState();
+      syncAccessFormQuery(true);
+    }
+
+    function closeFormInline() {
+      shell.classList.add("hidden");
+      clearFormForNewAccount();
+      state.accessFormOpen = false;
+      state.editingAccessProfile = false;
+      state.accessFormHasErrors = false;
+      syncExpandedState();
+      syncAccessFormQuery(false);
+    }
+
+    openBtn.addEventListener("click", (event) => {
+      if (state.editingAccessProfile || state.accessFormHasErrors) {
+        return;
+      }
+      event.preventDefault();
+      openFormInline();
+    });
+
+    [closeBtn, cancelBtn].forEach((btn) => {
+      if (!btn) {
+        return;
+      }
+      btn.addEventListener("click", (event) => {
+        event.preventDefault();
+        closeFormInline();
+      });
+    });
+
+    if (state.accessFormOpen || state.editingAccessProfile || state.accessFormHasErrors) {
+      shell.classList.remove("hidden");
+    } else {
+      shell.classList.add("hidden");
+    }
+    syncExpandedState();
+  }
+
   function updateQueryString(section) {
     const url = new URL(window.location.href);
     url.searchParams.set("section", section);
@@ -295,6 +388,7 @@
     setupSectionTabs();
     setupAccessFilters();
     setupAccessLevelHints();
+    setupAccessFormToggle();
     setupExportButtons();
     if ((state.section || "") !== "reports") {
       animateCounters();
@@ -302,4 +396,3 @@
     }
   });
 })();
-

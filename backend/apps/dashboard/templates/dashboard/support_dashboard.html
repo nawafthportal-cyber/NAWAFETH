@@ -88,7 +88,7 @@
                     <td>
                       <a
                         class="ticket-link"
-                        href="{% url 'dashboard:support_ticket_detail' row.id %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}#supportActionForm"
+                        href="{% if selected_ticket and selected_ticket.id == row.id %}{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}{% else %}{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&ticket={{ row.id }}#supportActionForm{% endif %}"
                       >
                         {{ row.code }}
                       </a>
@@ -109,41 +109,6 @@
                 {% endfor %}
               </tbody>
             </table>
-          </div>
-        </section>
-
-        <section class="section-panel slide-up team-lists-panel" id="teamListsPanel">
-          <div class="title-row">
-            <h2>قوائم الفرق المرتبطة</h2>
-            <span class="pill info">اختيار الفريق من القائمة الثابتة يمينًا</span>
-          </div>
-          <div class="team-panels" id="teamPanels">
-            {% for panel in team_panels %}
-              <article class="team-panel-card{% if forloop.first %} active{% endif %}" data-team-panel="{{ panel.key }}" {% if not forloop.first %}hidden{% endif %}>
-                <header class="team-panel-header">
-                  <h3>{{ panel.team }}</h3>
-                  <p>{{ panel.summary }}</p>
-                </header>
-                <div class="team-panel-grid">
-                  <section class="team-list-block">
-                    <h4>اللوحات المرتبطة</h4>
-                    <ul>
-                      {% for item in panel.dashboards %}
-                        <li><a href="{{ item.url }}" class="team-link">{{ item.label }}</a></li>
-                      {% endfor %}
-                    </ul>
-                  </section>
-                  <section class="team-list-block">
-                    <h4>قوائم التشغيل</h4>
-                    <ul>
-                      {% for item in panel.worklists %}
-                        <li>{{ item }}</li>
-                      {% endfor %}
-                    </ul>
-                  </section>
-                </div>
-              </article>
-            {% endfor %}
           </div>
         </section>
 
@@ -248,19 +213,6 @@
       <aside class="panel side-panel">
         <div class="stack">
           {% include 'dashboard/_sidebar_main_nav.html' %}
-
-          <div class="side-card teams-fixed-card" id="teamFixedMenu">
-            <h4>قوائم الفرق</h4>
-            <p class="teams-fixed-note">ثابتة أثناء التمرير. انقر لعرض القوائم المرتبطة أدناه.</p>
-            <div class="team-fixed-nav" role="tablist" aria-label="قوائم الفرق">
-              {% for panel in team_panels %}
-                <button type="button" class="team-fixed-btn{% if forloop.first %} active{% endif %}" data-team-target="{{ panel.key }}" role="tab" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">
-                  <span>{{ forloop.counter }}</span>
-                  <strong>{{ panel.team }}</strong>
-                </button>
-              {% endfor %}
-            </div>
-          </div>
 
           <div class="side-card">
             <h4>مرجع الأولوية</h4>

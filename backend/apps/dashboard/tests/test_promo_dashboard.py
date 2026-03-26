@@ -311,3 +311,48 @@ def test_promo_operator_can_reassign_inquiry_to_another_promo_operator():
     ticket.refresh_from_db()
     assert ticket.assigned_team_id == promo_team.id
     assert ticket.assigned_to_id == operator_2.id
+
+
+def test_promo_save_request_persists_assignment_and_ops_status_and_reflects_in_table_rows():
+    client = _dashboard_client()
+    promo_request = _create_promo_request(plan_tier="riyadi")
+
+    promo_dashboard, _ = Dashboard.objects.get_or_create(
+        code="promo",
+        defaults={"name_ar": "لوحة الترويج", "is_active": True, "sort_order": 30},
+    )
+    assignee = User.objects.create_user(
+        phone="0554002099",
+        password="Pass12345!",
+        is_staff=True,
+        role_state=UserRole.STAFF,
+    )
+    assignee_profile = UserAccessProfile.objects.create(user=assignee, level=AccessLevel.USER)
+    assignee_profile.allowed_dashboards.add(promo_dashboard)
+
+    response = client.post(
+        reverse("dashboard:promo_dashboard"),
+        {
+            "action": "save_request",
+            "promo_request_id": str(promo_request.id),
+            "assigned_to": str(assignee.id),
+            "ops_status": PromoOpsStatus.COMPLETED,
+            "ops_note": "تم إنهاء التنفيذ بنجاح",
+            "quote_note": "",
+            "redirect_query": f"request={promo_request.id}",
+        },
+    )
+
+    assert response.status_code == 302
+
+    promo_request.refresh_from_db()
+    assert promo_request.assigned_to_id == assignee.id
+    assert promo_request.ops_status == PromoOpsStatus.COMPLETED
+
+    listing = client.get(reverse("dashboard:promo_dashboard"), {"request": str(promo_request.id)})
+    assert listing.status_code == 200
+
+    rows = listing.context["promo_requests"]
+    target = next(row for row in rows if row["id"] == promo_request.id)
+    assert target["ops_status"] == promo_request.get_ops_status_display()
+    assert target["assignee"] == (assignee.username or assignee.phone)

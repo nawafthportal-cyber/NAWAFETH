@@ -118,6 +118,7 @@ from .auth import (
 )
 from .exports import pdf_response, xlsx_response
 from .forms import (
+    ACCESS_MANAGED_DASHBOARD_CODES,
     AccessProfileForm,
     ContentDesignUploadForm,
     ContentFirstTimeForm,
@@ -504,17 +505,31 @@ def _resolve_granted_permissions(level: str, dashboard_codes: list[str]):
 
 def _normalize_dashboards_for_level(level: str, dashboard_codes: list[str]) -> list[str]:
     requested_codes = [str(code).strip() for code in (dashboard_codes or []) if str(code).strip()]
-    active_codes = set(Dashboard.objects.filter(is_active=True).values_list("code", flat=True))
+    active_codes = set(
+        Dashboard.objects.filter(
+            is_active=True,
+            code__in=ACCESS_MANAGED_DASHBOARD_CODES,
+        ).values_list("code", flat=True)
+    )
+    ordered_active_codes = [code for code in ACCESS_MANAGED_DASHBOARD_CODES if code in active_codes]
 
     if level == AccessLevel.CLIENT:
         return ["client_extras"] if "client_extras" in active_codes else []
     if level in {AccessLevel.ADMIN, AccessLevel.QA}:
         return [
             code
-            for code in sorted(active_codes)
+            for code in ordered_active_codes
             if code not in UserAccessProfile.CLIENT_ONLY_DASHBOARDS
         ]
-    return [code for code in requested_codes if code in active_codes]
+
+    normalized_codes: list[str] = []
+    for code in requested_codes:
+        if code not in active_codes:
+            continue
+        if code in normalized_codes:
+            continue
+        normalized_codes.append(code)
+    return normalized_codes
 
 
 def _upsert_access_profile(request, form: AccessProfileForm):
@@ -852,6 +867,8 @@ def admin_control_home(request):
     section = (request.GET.get("section") or "access").strip().lower()
     if section not in {"access", "reports"}:
         section = "access"
+    new_form_requested = (request.GET.get("new") or "").strip().lower() in {"1", "true", "yes"}
+    access_form = None
 
     if request.method == "POST":
         action = (request.POST.get("action") or "").strip()
@@ -859,9 +876,9 @@ def admin_control_home(request):
             return HttpResponseForbidden("لا تملك صلاحية التعديل.")
 
         if action == "save_user":
-            form = AccessProfileForm(request.POST)
-            if form.is_valid():
-                profile = _upsert_access_profile(request, form)
+            access_form = AccessProfileForm(request.POST)
+            if access_form.is_valid():
+                profile = _upsert_access_profile(request, access_form)
                 if profile is not None:
                     return redirect(f"{request.path}?section=access&edit={profile.id}")
             messages.error(request, "يرجى تصحيح الأخطاء في النموذج.")
@@ -877,7 +894,10 @@ def admin_control_home(request):
     if edit_profile_id and str(edit_profile_id).isdigit():
         edit_profile = UserAccessProfile.objects.select_related("user").filter(id=int(edit_profile_id)).first()
 
-    access_form = AccessProfileForm(initial=_profile_to_form_initial(edit_profile) if edit_profile else None)
+    if access_form is None:
+        access_form = AccessProfileForm(initial=_profile_to_form_initial(edit_profile) if edit_profile else None)
+    access_form_has_errors = access_form.is_bound and bool(access_form.errors)
+    access_form_open = bool(edit_profile or new_form_requested or access_form_has_errors)
     access_rows = _serialize_access_rows()
     access_summary = _access_summary(access_rows)
 
@@ -901,6 +921,8 @@ def admin_control_home(request):
             "access_rows": access_rows,
             "access_summary": access_summary,
             "access_form": access_form,
+            "access_form_has_errors": access_form_has_errors,
+            "access_form_open": access_form_open,
             "edit_profile": edit_profile,
             "reports": reports,
         },
@@ -1237,8 +1259,6 @@ def support_dashboard(request, ticket_id: int | None = None):
 
     tickets = list(tickets_qs)
     selected_ticket = _resolve_selected_ticket(base_qs, request, ticket_id)
-    if selected_ticket is None and tickets:
-        selected_ticket = tickets[0]
 
     team_choices = _support_team_choices()
     assignee_choices_by_team = _support_assignee_choices_by_team()
@@ -1803,8 +1823,6 @@ def promo_dashboard(request, request_id: int | None = None):
 
     selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
     selected_inquiry = inquiries_base_qs.filter(id=int(selected_inquiry_id_raw)).first() if selected_inquiry_id_raw.isdigit() else None
-    if selected_inquiry is None and inquiries:
-        selected_inquiry = inquiries[0]
 
     selected_request = None
     if request_id is not None:
@@ -1813,8 +1831,6 @@ def promo_dashboard(request, request_id: int | None = None):
         selected_request_id_raw = (request.GET.get("request") or "").strip()
         if selected_request_id_raw.isdigit():
             selected_request = promo_requests_base_qs.filter(id=int(selected_request_id_raw)).first()
-    if selected_request is None and promo_requests:
-        selected_request = promo_requests[0]
 
     linked_request_choices = [
         (str(row.id), f"{row.code or f'MD{row.id:06d}'} - {_promo_requester_label(row.requester)}")
@@ -2008,11 +2024,6 @@ def promo_dashboard(request, request_id: int | None = None):
                 assignee = None
 
             updates: list[str] = []
-            if assigned_to_id != target_request.assigned_to_id:
-                target_request.assigned_to = assignee
-                target_request.assigned_at = timezone.now() if assignee else None
-                updates.extend(["assigned_to", "assigned_at"])
-
             ops_note = post_form.cleaned_data.get("ops_note") or ""
             if action == "save_request":
                 desired_ops_status = post_form.cleaned_data.get("ops_status") or target_request.ops_status
@@ -2084,6 +2095,11 @@ def promo_dashboard(request, request_id: int | None = None):
                     return _promo_redirect_with_state(request, request_id=target_request.id)
 
                 target_request = reject_request(pr=target_request, reason=reject_reason, by_user=request.user)
+
+            if assigned_to_id != target_request.assigned_to_id:
+                target_request.assigned_to = assignee
+                target_request.assigned_at = timezone.now() if assignee else None
+                updates.extend(["assigned_to", "assigned_at"])
 
             if updates:
                 updates.append("updated_at")

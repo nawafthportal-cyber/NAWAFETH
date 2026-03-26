@@ -34,7 +34,17 @@
           <div class="title-row">
             <h2>إدارة الصلاحيات</h2>
             <div class="actions">
-              <a href="?section=access" class="primary-btn">جديد</a>
+              <a
+                href="?section=access&new=1"
+                class="primary-btn access-new-btn"
+                id="openAccessFormBtn"
+                aria-controls="accessFormShell"
+                aria-expanded="{{ access_form_open|yesno:'true,false' }}"
+                title="إضافة حساب تشغيل جديد"
+              >
+                <span aria-hidden="true">+</span>
+                <span>جديد</span>
+              </a>
             </div>
           </div>
 
@@ -147,8 +157,15 @@
             </table>
           </div>
 
-          <div class="form-shell">
-            <h3>{% if edit_profile %}تعديل حساب تشغيل{% else %}إضافة حساب تشغيل جديد{% endif %}</h3>
+          <div class="form-shell {% if not access_form_open %}hidden{% endif %}" id="accessFormShell">
+            <div class="title-row form-shell-title">
+              <h3>{% if edit_profile %}تعديل حساب تشغيل{% else %}إضافة حساب تشغيل جديد{% endif %}</h3>
+              <div class="actions">
+                <button type="button" class="icon-btn" id="closeAccessFormBtn" title="إغلاق النموذج" aria-label="إغلاق النموذج">
+                  <span aria-hidden="true">×</span>
+                </button>
+              </div>
+            </div>
             <form method="post" id="accessForm">
               {% csrf_token %}
               <input type="hidden" name="action" value="save_user">
@@ -194,7 +211,7 @@
               </div>
               <div class="actions">
                 <button type="submit" class="primary-btn">حفظ</button>
-                <a href="?section=access" class="ghost-btn">إلغاء</a>
+                <a href="?section=access" class="ghost-btn" id="cancelAccessFormBtn">إلغاء</a>
               </div>
             </form>
           </div>
@@ -205,6 +222,22 @@
             <h2>إحصاءات وتقارير المنصة</h2>
             <p class="subtitle">الفترة الحالية: من {{ reports.start }} إلى {{ reports.end }}</p>
           </div>
+
+          <form method="get" class="reports-period-toolbar">
+            <input type="hidden" name="section" value="reports">
+            <div class="field">
+              <label for="reportsStartDate">من تاريخ</label>
+              <input id="reportsStartDate" type="date" class="input-control" name="start" value="{{ reports.start }}">
+            </div>
+            <div class="field">
+              <label for="reportsEndDate">إلى تاريخ</label>
+              <input id="reportsEndDate" type="date" class="input-control" name="end" value="{{ reports.end }}">
+            </div>
+            <div class="actions">
+              <button type="submit" class="primary-btn light">تحديث الفترة</button>
+              <a class="ghost-btn" href="?section=reports">آخر 30 يوم</a>
+            </div>
+          </form>
 
           <div class="report-grid">
             <article class="kpi-card">
@@ -388,20 +421,6 @@
             <div class="quick-stat"><span>مستوى Client</span><strong>{{ access_summary.by_level.client|default:0 }}</strong></div>
           </div>
 
-          <div class="side-card">
-            <h4>لوحات التحكم المرتبطة</h4>
-            <div class="stack">
-              <div class="quick-stat"><span>1</span><strong>لوحة إدارة الصلاحيات وتقارير المنصة</strong></div>
-              <div class="quick-stat"><span>2</span><strong>فريق الدعم والمساعدة</strong></div>
-              <div class="quick-stat"><span>3</span><strong>فريق إدارة المحتوى</strong></div>
-              <div class="quick-stat"><span>4</span><strong>فريق إدارة الإعلانات والترويج</strong></div>
-              <div class="quick-stat"><span>5</span><strong>فريق التوثيق</strong></div>
-              <div class="quick-stat"><span>6</span><strong>فريق إدارة الترقية والاشتراكات</strong></div>
-              <div class="quick-stat"><span>7</span><strong>فريق إدارة الخدمات الإضافية</strong></div>
-              <div class="quick-stat"><span>8</span><strong>لوحة تحكم العملاء للخدمات الإضافية</strong></div>
-            </div>
-          </div>
-
           <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsFiltersCard">
             <h4>إعدادات التقارير</h4>
             <form method="get" class="stack">
@@ -434,6 +453,9 @@
   <script>
     window.dashboardPageState = {
       section: "{{ section }}",
+      editingAccessProfile: {% if edit_profile %}true{% else %}false{% endif %},
+      accessFormHasErrors: {% if access_form_has_errors %}true{% else %}false{% endif %},
+      accessFormOpen: {% if access_form_open %}true{% else %}false{% endif %},
     };
   </script>
   <script src="{% static 'dashboard/js/admin.js' %}"></script>
