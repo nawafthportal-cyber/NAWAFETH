@@ -18,6 +18,7 @@ class AuthService {
   static const String _faceIdEnabledKey = 'nw_faceid_enabled';
   static const String _faceIdPhoneKey = 'nw_faceid_phone';
   static const String _faceIdDeviceTokenKey = 'nw_faceid_device_token';
+  static const String _securityPinKey = 'nw_security_pin';
   static const String _lastLoginPhoneKey = 'last_login_phone';
   static final Set<AuthLogoutListener> _logoutListeners = <AuthLogoutListener>{};
 
@@ -155,6 +156,29 @@ class AuthService {
     await prefs.setBool(_faceIdEnabledKey, false);
     await prefs.remove(_faceIdPhoneKey);
     await prefs.remove(_faceIdDeviceTokenKey);
+  }
+
+  static Future<void> saveSecurityPin(String pin) async {
+    if (!RegExp(r'^\d{4,6}$').hasMatch(pin)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_securityPinKey, pin);
+  }
+
+  static Future<String?> getSecurityPin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pin = (prefs.getString(_securityPinKey) ?? '').trim();
+    if (RegExp(r'^\d{4,6}$').hasMatch(pin)) return pin;
+    return null;
+  }
+
+  static Future<bool> verifySecurityPin(String input) async {
+    final stored = await getSecurityPin();
+    return stored != null && stored == input;
+  }
+
+  static Future<void> clearSecurityPin() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_securityPinKey);
   }
 
   /// تسجيل الخروج — مسح جميع البيانات المحفوظة

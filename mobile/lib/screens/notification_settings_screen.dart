@@ -1,7 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
+import 'my_chats_screen.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -16,8 +20,10 @@ class _NotificationSettingsScreenState
   List<NotificationPreference> _preferences = [];
   String _activeMode = 'client';
   bool _isLoading = true;
+  int _chatUnread = 0;
   String? _errorMessage;
   final Set<String> _savingKeys = {};
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   // ─── Backend tier names ───
   static const _tierOrder = ['basic', 'pioneer', 'professional', 'extra'];
@@ -39,7 +45,28 @@ class _NotificationSettingsScreenState
   @override
   void initState() {
     super.initState();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _initModeAndLoad();
+  }
+
+  @override
+  void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
+    super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _chatUnread = badges.chats;
+    });
   }
 
   Future<void> _initModeAndLoad() async {
@@ -340,21 +367,25 @@ class _NotificationSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final bool canPop = Navigator.of(context).canPop();
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: Colors.deepPurple,
-          title: const Text(
-            "إعدادات الإشعارات",
-            style: TextStyle(
-              fontFamily: "Cairo",
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
+        appBar: PlatformTopBar(
+          pageLabel: 'إعدادات الإشعارات',
+          showBackButton: canPop,
+          showNotificationAction: false,
+          chatCount: _chatUnread,
+          onChatsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const MyChatsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
         ),
         body: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))

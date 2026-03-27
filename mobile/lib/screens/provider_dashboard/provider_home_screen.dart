@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:nawafeth/widgets/bottom_nav.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/account_mode_service.dart';
 import 'package:nawafeth/services/interactive_service.dart';
@@ -27,8 +28,6 @@ import 'package:nawafeth/screens/additional_services_screen.dart';
 import 'package:nawafeth/screens/my_qr_screen.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/screens/provider_dashboard/promotion_screen.dart';
-
-// ✅ شاشة إكمال الملف التعريفي (تكون موجودة عندك وتستدعي فيها القوالب)
 import 'package:nawafeth/screens/provider_dashboard/provider_profile_completion_screen.dart';
 
 class ProviderHomeScreen extends StatefulWidget {
@@ -44,13 +43,11 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   File? _profileImage;
   File? _coverImage;
 
-  // ────── حالات التحميل ──────
   bool _isLoading = true;
   bool _isUploadingProfileMedia = false;
   bool _isUploadingSpotlight = false;
   String? _errorMessage;
 
-  // ────── بيانات من الـ API ──────
   UserProfile? _userProfile;
   ProviderProfileModel? _providerProfile;
   String? _subscriptionPlanName;
@@ -67,7 +64,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   List<Map<String, dynamic>> _mySpotlights = <Map<String, dynamic>>[];
   final Set<int> _deletingSpotlightIds = <int>{};
 
-  // ────── بيانات محسوبة ──────
   String get _currentPlanName => _subscriptionPlanName ?? "الباقة المجانية";
   String? get _currentPlanStatusLabel => _subscriptionStatus == null
       ? null
@@ -478,71 +474,6 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     );
   }
 
-  Widget _headerActionButton({
-    required IconData icon,
-    required VoidCallback onTap,
-    String? semanticLabel,
-    int count = 0,
-  }) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Ink(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.45), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(icon, color: Colors.white, size: 21),
-              ),
-              if (count > 0)
-                Positioned(
-                  top: -4,
-                  right: -6,
-                  child: Container(
-                    constraints:
-                        const BoxConstraints(minWidth: 16, minHeight: 16),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      count > 99 ? '99+' : '$count',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   // أزرار التنقل الثلاثة
   Widget _dashboardButton(IconData icon, String label, VoidCallback onTap) {
     return Expanded(
@@ -804,38 +735,29 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           right: 16,
           child: SafeArea(
             bottom: false,
-            child: Row(
-              children: [
-                _headerActionButton(
-                  icon: Icons.notifications_none_rounded,
-                  semanticLabel: 'الإشعارات',
-                  count: _notificationUnread,
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    );
-                    _loadUnreadBadges();
-                  },
-                ),
-                const SizedBox(width: 10),
-                _headerActionButton(
-                  icon: Icons.chat_bubble_outline_rounded,
-                  semanticLabel: 'الرسائل',
-                  count: _chatUnread,
-                  onTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MyChatsScreen(),
-                      ),
-                    );
-                    _loadUnreadBadges();
-                  },
-                ),
-              ],
+              child: PlatformTopBar(
+                overlay: true,
+                height: 92,
+                notificationCount: _notificationUnread,
+                chatCount: _chatUnread,
+                onNotificationsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                  _loadUnreadBadges();
+                },
+                onChatsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyChatsScreen(),
+                    ),
+                  );
+                  _loadUnreadBadges();
+                },
             ),
           ),
         ),

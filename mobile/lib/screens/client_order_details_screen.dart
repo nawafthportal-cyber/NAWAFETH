@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
@@ -8,6 +9,9 @@ import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
 import '../services/marketplace_service.dart';
 import '../services/reviews_service.dart';
+import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
+import 'notifications_screen.dart';
 import 'provider_profile_screen.dart';
 
 class ClientOrderDetailsScreen extends StatefulWidget {
@@ -32,6 +36,9 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   bool _saving = false;
   bool _accountChecked = false;
   bool _isProviderMode = false;
+  int _notificationUnread = 0;
+  int _chatUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   late final TextEditingController _titleController;
   late final TextEditingController _detailsController;
@@ -59,6 +66,9 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     super.initState();
     _titleController = TextEditingController();
     _detailsController = TextEditingController();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _ensureClientAccount();
   }
 
@@ -83,12 +93,26 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
 
   @override
   void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _titleController.dispose();
     _detailsController.dispose();
     _reminderController.dispose();
     _rejectInputsReasonController.dispose();
     _ratingCommentController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   Future<void> _loadDetail() async {
@@ -488,18 +512,21 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: _mainColor,
-          title: const Text('تفاصيل الطلب',
-              style: TextStyle(fontFamily: 'Cairo', color: Colors.white)),
-          iconTheme: const IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(
-              onPressed: _openChat,
-              tooltip: 'فتح محادثة',
-              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-            ),
-          ],
+        appBar: PlatformTopBar(
+          pageLabel: 'تفاصيل الطلب',
+          showBackButton: Navigator.of(context).canPop(),
+          notificationCount: _notificationUnread,
+          chatCount: _chatUnread,
+          onNotificationsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
+          onChatsTap: _openChat,
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

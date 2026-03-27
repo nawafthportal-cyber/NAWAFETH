@@ -1,6 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
+import 'notifications_screen.dart';
 import 'service_request_form_screen.dart'; // ✅ نموذج طلب الخدمة
+import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
 import '../widgets/platform_report_dialog.dart';
 import '../widgets/verified_badge_view.dart';
 
@@ -52,6 +56,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   late final List<String> _safeImages;
   int _baseCommentsCount = 0;
   int _totalCommentsCount = 0;
+  int _notificationUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   // 🔹 الردود
   String? replyingTo; // لتخزين اسم المعلّق الجاري الرد عليه
@@ -65,6 +71,9 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     sectionName = widget.title;
     sectionLikes = widget.likes;
     _safeImages = _resolveImages();
@@ -74,8 +83,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   @override
   void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _commentController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+    });
   }
 
   void _submitComment() {
@@ -178,12 +200,30 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: mainColor,
-          title: Text(
-            widget.title,
-            style: const TextStyle(fontFamily: "Cairo"),
-          ),
+        appBar: PlatformTopBar(
+          pageLabel: widget.title,
+          showBackButton: Navigator.of(context).canPop(),
+          showChatAction: false,
+          notificationCount: _notificationUnread,
+          onNotificationsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
+          trailingActions: [
+            if (widget.providerId != null)
+              PlatformTopBarActionButton(
+                icon: Icons.chat_bubble_outline_rounded,
+                foreground: const Color(0xFF56316D),
+                background: Colors.white.withValues(alpha: 0.82),
+                borderColor: const Color(0xFFDACDED),
+                onTap: _openProviderChat,
+              ),
+          ],
         ),
         body: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(

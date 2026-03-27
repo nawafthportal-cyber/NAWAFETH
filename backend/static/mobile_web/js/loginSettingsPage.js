@@ -1,6 +1,7 @@
 "use strict";
 
 const LoginSettingsPage = (() => {
+  const SECURITY_PIN_KEY = "nw_security_pin";
   const FACE_ID_ENABLED_KEY = "nw_faceid_enabled";
   const FACE_ID_PHONE_KEY = "nw_faceid_phone";
   const FACE_ID_DEVICE_TOKEN_KEY = "nw_faceid_device_token";
@@ -9,19 +10,19 @@ const LoginSettingsPage = (() => {
   let _profile = null;
   let _mode = "client";
   let _toastTimer = null;
+  let _currentAction = null;
   let _biometricAvailable = false;
-  let _supportContent = { help: null, info: null };
 
   function init() {
     if (!Auth.isLoggedIn()) {
       window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
       return;
     }
+
     _mode = _resolveMode();
     _bindEvents();
-    _renderSupportContent();
-    _loadSupportContent();
     _loadProfile();
+    _initBiometric();
   }
 
   function _resolveMode() {
@@ -35,367 +36,303 @@ const LoginSettingsPage = (() => {
   }
 
   function _bindEvents() {
-    _on("ls-save", "click", _saveProfile);
-    _on("ls-retry", "click", _loadProfile);
+    _on("ls-action-username", "click", () => _openModal("username"));
+    _on("ls-action-password", "click", () => _openModal("password"));
+    _on("ls-action-email", "click", () => _openModal("email"));
+    _on("ls-action-phone", "click", () => _openModal("phone"));
+    _on("ls-action-pin", "click", () => _openModal("pin"));
+    _on("ls-action-faceid", "click", _handleFaceIdAction);
 
-    _on("ls-security-btn", "click", () => _openModal("ls-security-modal"));
-    _on("ls-pin-cancel", "click", () => _closeModal("ls-security-modal"));
-    _on("ls-pin-save", "click", _savePin);
+    _on("ls-modal-cancel", "click", _closeModal);
+    _on("ls-modal-save", "click", _saveCurrentAction);
 
-    _on("ls-faceid-btn", "click", _enrollFaceId);
-    _on("ls-faceid-disable", "click", _disableFaceId);
-
-    const securityModal = document.getElementById("ls-security-modal");
-    if (securityModal) {
-      securityModal.addEventListener("click", (event) => {
-        if (event.target === securityModal) _closeModal("ls-security-modal");
+    const modal = document.getElementById("ls-action-modal");
+    if (modal) {
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) _closeModal();
       });
     }
   }
 
-  async function _loadSupportContent() {
-    try {
-      const res = await ApiClient.get("/api/content/public/");
-      if (!res.ok || !res.data || typeof res.data !== "object") return;
-      const blocks = res.data.blocks && typeof res.data.blocks === "object" ? res.data.blocks : {};
-      _supportContent = {
-        help: _normalizeSupportBlock(blocks.settings_help),
-        info: _normalizeSupportBlock(blocks.settings_info),
-      };
-      _renderSupportContent();
-    } catch (_) {
-      // Optional content; ignore failures.
-    }
-  }
-
   async function _loadProfile() {
-    _setLoading(true);
-    _setError("");
-
     const res = await ApiClient.get(_withMode("/api/accounts/me/"));
     if (res.status === 401) {
       window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
       return;
     }
-    if (!res.ok || !res.data) {
-      _setLoading(false);
-      _setError(_extractError(res, "تعذر تحميل بيانات الحساب."));
-      return;
+    if (res.ok && res.data) {
+      _profile = res.data;
+    }
+  }
+
+  function _openModal(action) {
+    _currentAction = action;
+
+    const titleEl = document.getElementById("ls-modal-title");
+    const descEl = document.getElementById("ls-modal-desc");
+    const fieldsEl = document.getElementById("ls-modal-fields");
+
+    if (!titleEl || !descEl || !fieldsEl) return;
+
+    const config = _modalConfig(action);
+    titleEl.textContent = config.title;
+    descEl.textContent = config.desc;
+    fieldsEl.innerHTML = config.fields;
+
+    const modal = document.getElementById("ls-action-modal");
+    if (modal) modal.classList.remove("hidden");
+  }
+
+  function _closeModal() {
+    const modal = document.getElementById("ls-action-modal");
+    if (modal) modal.classList.add("hidden");
+    _currentAction = null;
+  }
+
+  function _modalConfig(action) {
+    if (action === "username") {
+      return {
+        title: "تغيير اسم العضوية",
+        desc: "أدخل اسم العضوية الجديد. يسمح فقط بالأحرف الإنجليزية والأرقام و (_) و (.)",
+        fields:
+          '<input id="ls-input-username" type="text" class="form-input" maxlength="50" placeholder="اسم العضوية الجديد" value="' + _escape(_norm(_profile && _profile.username)) + '" dir="ltr">',
+      };
+    }
+    if (action === "password") {
+      return {
+        title: "تغيير كلمة المرور",
+        desc: "أدخل كلمة المرور الحالية ثم الجديدة (8 أحرف على الأقل).",
+        fields:
+          '<input id="ls-input-current-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الحالية" dir="ltr">' +
+          '<input id="ls-input-new-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الجديدة" dir="ltr">' +
+          '<input id="ls-input-new-password-confirm" type="password" class="form-input" maxlength="128" placeholder="تأكيد كلمة المرور الجديدة" dir="ltr">',
+      };
+    }
+    if (action === "email") {
+      return {
+        title: "تغيير البريد الإلكتروني",
+        desc: "أدخل البريد الإلكتروني الجديد المرتبط بحسابك.",
+        fields:
+          '<input id="ls-input-email" type="email" class="form-input" maxlength="255" placeholder="example@mail.com" value="' + _escape(_norm(_profile && _profile.email)) + '" dir="ltr">',
+      };
+    }
+    if (action === "phone") {
+      return {
+        title: "تغيير رقم الجوال",
+        desc: "أدخل رقم الجوال بالصيغة 05XXXXXXXX.",
+        fields:
+          '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" value="' + _escape(_norm(_profile && _profile.phone)) + '" dir="ltr">',
+      };
     }
 
-    _profile = res.data;
-    _fillProfile(_profile);
-    _setLoading(false);
-    _setContentVisible(true);
-    _initFaceId();
-  }
-
-  function _fillProfile(profile) {
-    const firstName = _norm(profile.first_name);
-    const lastName = _norm(profile.last_name);
-    const displayName = (firstName + " " + lastName).trim() || _norm(profile.username) || "مستخدم";
-    const email = _norm(profile.email);
-    const phone = _norm(profile.phone);
-    const username = _norm(profile.username);
-
-    _setVal("ls-username", username);
-    _setVal("ls-first-name", firstName);
-    _setVal("ls-last-name", lastName);
-    _setVal("ls-phone", phone);
-    _setVal("ls-email", email);
-
-    _setText("ls-name", displayName);
-    _setText("ls-email-display", email || phone);
-    _renderAvatar(displayName, _norm(profile.profile_image));
-  }
-
-  function _renderAvatar(displayName, profileImage) {
-    const avatar = document.getElementById("ls-avatar");
-    if (!avatar) return;
-
-    avatar.innerHTML = "";
-    if (profileImage) {
-      const img = document.createElement("img");
-      img.src = ApiClient.mediaUrl(profileImage);
-      img.alt = displayName;
-      img.loading = "lazy";
-      img.addEventListener("error", () => {
-        img.remove();
-        avatar.textContent = (displayName || "م").charAt(0);
-      }, { once: true });
-      avatar.appendChild(img);
-      return;
-    }
-    avatar.textContent = (displayName || "م").charAt(0);
-  }
-
-  async function _saveProfile() {
-    if (!_profile) return;
-
-    const next = {
-      first_name: _norm(_val("ls-first-name")),
-      last_name: _norm(_val("ls-last-name")),
-      phone: _norm(_val("ls-phone")),
-      email: _norm(_val("ls-email")),
+    return {
+      title: "إضافة رمز دخول أمان",
+      desc: "احفظ الرمز في مكان آمن. يستخدم هذا الرمز للدخول السريع داخل الجهاز.",
+      fields:
+        '<input id="ls-input-pin" type="password" class="form-input" maxlength="6" placeholder="رمز الأمان (4-6 أرقام)" dir="ltr">' +
+        '<input id="ls-input-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="تأكيد الرمز" dir="ltr">',
     };
+  }
 
-    const data = {};
-    if (next.first_name !== _norm(_profile.first_name)) data.first_name = next.first_name;
-    if (next.last_name !== _norm(_profile.last_name)) data.last_name = next.last_name;
-    if (next.phone !== _norm(_profile.phone)) data.phone = next.phone;
-    if (next.email !== _norm(_profile.email)) data.email = next.email;
+  async function _saveCurrentAction() {
+    const action = _currentAction;
+    if (!action) return;
 
-    if (!Object.keys(data).length) {
-      _toast("لا يوجد تغييرات.");
+    if (action === "username") {
+      await _saveUsername();
+      return;
+    }
+    if (action === "password") {
+      await _savePassword();
+      return;
+    }
+    if (action === "email") {
+      await _saveEmail();
+      return;
+    }
+    if (action === "phone") {
+      await _savePhone();
+      return;
+    }
+    if (action === "pin") {
+      _savePin();
+    }
+  }
+
+  async function _saveUsername() {
+    const username = _norm(_val("ls-input-username"));
+    if (!username) {
+      _toast("اسم العضوية مطلوب", true);
       return;
     }
 
-    const btn = document.getElementById("ls-save");
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "جاري الحفظ...";
+    const res = await ApiClient.request("/api/accounts/change-username/", {
+      method: "POST",
+      body: { username: username },
+    });
+
+    if (!res.ok) {
+      _toast(_extractError(res, "تعذر تغيير اسم العضوية."), true);
+      return;
+    }
+
+    if (_profile) _profile.username = username;
+    _closeModal();
+    _toast("تم تغيير اسم العضوية بنجاح");
+  }
+
+  async function _savePassword() {
+    const currentPassword = _val("ls-input-current-password");
+    const newPassword = _val("ls-input-new-password");
+    const newPasswordConfirm = _val("ls-input-new-password-confirm");
+
+    if (!currentPassword || !newPassword || !newPasswordConfirm) {
+      _toast("يرجى تعبئة جميع الحقول.", true);
+      return;
+    }
+
+    const res = await ApiClient.request("/api/accounts/change-password/", {
+      method: "POST",
+      body: {
+        current_password: currentPassword,
+        new_password: newPassword,
+        new_password_confirm: newPasswordConfirm,
+      },
+    });
+
+    if (!res.ok) {
+      _toast(_extractError(res, "تعذر تغيير كلمة المرور."), true);
+      return;
+    }
+
+    _closeModal();
+    _toast("تم تغيير كلمة المرور بنجاح");
+  }
+
+  async function _saveEmail() {
+    const email = _norm(_val("ls-input-email"));
+    const res = await ApiClient.request(_withMode("/api/accounts/me/"), {
+      method: "PATCH",
+      body: { email: email },
+    });
+
+    if (!res.ok) {
+      _toast(_extractError(res, "تعذر تحديث البريد الإلكتروني."), true);
+      return;
+    }
+
+    if (_profile) _profile.email = email;
+    _closeModal();
+    _toast("تم تحديث البريد الإلكتروني بنجاح");
+  }
+
+  async function _savePhone() {
+    const phone = _normalizePhone05(_val("ls-input-phone"));
+    if (!phone) {
+      _toast("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX", true);
+      return;
     }
 
     const res = await ApiClient.request(_withMode("/api/accounts/me/"), {
       method: "PATCH",
-      body: data,
+      body: { phone: phone },
     });
 
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = "حفظ التغييرات";
-    }
-
-    if (!res.ok || !res.data) {
-      _toast(_extractError(res, "فشل حفظ التغييرات."), true);
+    if (!res.ok) {
+      _toast(_extractError(res, "تعذر تحديث رقم الجوال."), true);
       return;
     }
 
-    _profile = res.data;
-    _fillProfile(_profile);
-    _toast("تم حفظ التغييرات بنجاح.");
+    if (_profile) _profile.phone = phone;
+    _closeModal();
+    _toast("تم تحديث رقم الجوال بنجاح");
   }
 
   function _savePin() {
-    _setVal("ls-pin", "");
-    _setVal("ls-pin-confirm", "");
-    _closeModal("ls-security-modal");
-    _toast("تم حفظ رمز الأمان.");
-  }
+    const pin = _norm(_val("ls-input-pin"));
+    const pinConfirm = _norm(_val("ls-input-pin-confirm"));
 
-  function _normalizeSupportBlock(block) {
-    if (!block || typeof block !== "object") return null;
-    const title = _pickFirstText([block.title_ar, block.title, block.name]);
-    const body = _pickFirstText([block.body_ar, block.body, block.description]);
-    const mediaUrl = _pickFirstText([block.media_url, block.image_url, block.url]);
-    const mediaType = _pickFirstText([block.media_type, block.type]);
-    if (!title && !body && !mediaUrl) return null;
-    return { title, body, mediaUrl, mediaType };
-  }
-
-  function _renderSupportContent() {
-    _setSupportCard("ls-help-card", _supportContent.help, {
-      title: "مساعدة",
-      icon: "help",
-      className: "ls-support-help",
-    });
-    _setSupportCard("ls-info-card", _supportContent.info, {
-      title: "معلومات",
-      icon: "info",
-      className: "ls-support-info",
-    });
-  }
-
-  function _setSupportCard(id, block, options) {
-    const card = document.getElementById(id);
-    if (!card) return;
-    card.innerHTML = "";
-    if (!block) {
-      card.classList.add("hidden");
+    if (!/^\d{4,6}$/.test(pin)) {
+      _toast("رمز الأمان يجب أن يكون من 4 إلى 6 أرقام.", true);
+      return;
+    }
+    if (pin !== pinConfirm) {
+      _toast("تأكيد الرمز غير مطابق.", true);
       return;
     }
 
-    card.classList.remove("hidden");
-    card.classList.remove("ls-support-help", "ls-support-info");
-    if (options && options.className) card.classList.add(options.className);
-
-    const head = document.createElement("div");
-    head.className = "ls-support-head";
-    const iconWrap = document.createElement("span");
-    iconWrap.className = "ls-support-icon";
-    iconWrap.appendChild(_supportIcon(options && options.icon));
-    const heading = document.createElement("h3");
-    heading.className = "ls-support-title";
-    heading.textContent = block.title || (options && options.title) || "";
-    head.appendChild(iconWrap);
-    head.appendChild(heading);
-    card.appendChild(head);
-
-    const mediaUrl = block.mediaUrl ? ApiClient.mediaUrl(block.mediaUrl) : "";
-    if (mediaUrl) {
-      const media = _buildSupportMedia(mediaUrl, block.mediaType, heading.textContent || "media");
-      if (media) card.appendChild(media);
-    }
-
-    if (block.body) {
-      const body = document.createElement("p");
-      body.className = "ls-support-body";
-      body.textContent = block.body;
-      card.appendChild(body);
-    }
+    _storageSet(SECURITY_PIN_KEY, pin);
+    _closeModal();
+    _toast("تم حفظ رمز الأمان.");
   }
 
-  function _buildSupportMedia(url, mediaType, alt) {
-    const wrap = document.createElement("div");
-    wrap.className = "ls-support-media";
-    const type = _norm(mediaType).toLowerCase();
-    const isVideo = type.includes("video");
-    if (isVideo) {
-      const video = document.createElement("video");
-      video.className = "ls-support-media-video";
-      video.controls = true;
-      video.preload = "metadata";
-      video.src = url;
-      wrap.appendChild(video);
-      return wrap;
-    }
-    const img = document.createElement("img");
-    img.className = "ls-support-media-image";
-    img.src = url;
-    img.alt = alt || "media";
-    img.loading = "lazy";
-    img.addEventListener("error", () => {
-      if (wrap.parentNode) wrap.remove();
-    }, { once: true });
-    wrap.appendChild(img);
-    return wrap;
-  }
-
-  function _supportIcon(kind) {
-    const svgNS = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(svgNS, "svg");
-    svg.setAttribute("width", "18");
-    svg.setAttribute("height", "18");
-    svg.setAttribute("viewBox", "0 0 24 24");
-    svg.setAttribute("fill", "none");
-    svg.setAttribute("stroke", "currentColor");
-    svg.setAttribute("stroke-width", "2");
-    svg.setAttribute("stroke-linecap", "round");
-    svg.setAttribute("stroke-linejoin", "round");
-
-    if (kind === "help") {
-      const circle = document.createElementNS(svgNS, "circle");
-      circle.setAttribute("cx", "12");
-      circle.setAttribute("cy", "12");
-      circle.setAttribute("r", "10");
-      const p1 = document.createElementNS(svgNS, "path");
-      p1.setAttribute("d", "M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4");
-      const p2 = document.createElementNS(svgNS, "path");
-      p2.setAttribute("d", "M12 17h.01");
-      svg.appendChild(circle);
-      svg.appendChild(p1);
-      svg.appendChild(p2);
-      return svg;
-    }
-
-    const circle = document.createElementNS(svgNS, "circle");
-    circle.setAttribute("cx", "12");
-    circle.setAttribute("cy", "12");
-    circle.setAttribute("r", "10");
-    const p1 = document.createElementNS(svgNS, "path");
-    p1.setAttribute("d", "M12 16v-4");
-    const p2 = document.createElementNS(svgNS, "path");
-    p2.setAttribute("d", "M12 8h.01");
-    svg.appendChild(circle);
-    svg.appendChild(p1);
-    svg.appendChild(p2);
-    return svg;
-  }
-
-  function _saveFaceIdCode() {
-    // Legacy — replaced by WebAuthn enrollment
-  }
-
-  /* ── Face ID: WebAuthn Biometric Enrollment ── */
-
-  function _initFaceId() {
-    var btn = document.getElementById("ls-faceid-btn");
-    var hint = document.getElementById("ls-faceid-hint");
-    var unavailable = document.getElementById("ls-faceid-unavailable");
+  function _initBiometric() {
+    const btn = document.getElementById("ls-action-faceid");
+    if (!btn) return;
 
     if (!window.PublicKeyCredential) {
       _biometricAvailable = false;
-      if (hint) hint.textContent = "متصفحك لا يدعم التحقق البيومتري.";
-      if (unavailable) unavailable.classList.remove("hidden");
-      if (btn) {
-        btn.disabled = true;
-        btn.style.opacity = "0.5";
-      }
-      _updateFaceIdStatus();
+      btn.disabled = true;
+      btn.textContent = "الدخول بمعرف الوجه (غير مدعوم على هذا الجهاز)";
       return;
     }
 
     PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-      .then(function (available) {
+      .then((available) => {
         _biometricAvailable = !!available;
-        if (!available) {
-          if (unavailable) unavailable.classList.remove("hidden");
-          if (hint) hint.textContent = "جهازك لا يدعم التحقق البيومتري (معرف الوجه / البصمة).";
-          if (btn) {
-            btn.disabled = true;
-            btn.style.opacity = "0.5";
-          }
-        } else if (btn) {
-          if (unavailable) unavailable.classList.add("hidden");
-          btn.disabled = false;
-          btn.style.opacity = "";
-          if (hint) hint.textContent = "";
-        }
-        _updateFaceIdStatus();
+        _updateFaceButton();
       })
-      .catch(function () {
+      .catch(() => {
         _biometricAvailable = false;
-        if (unavailable) unavailable.classList.remove("hidden");
-        _updateFaceIdStatus();
+        _updateFaceButton();
       });
   }
 
-  function _updateFaceIdStatus() {
-    var hasStoredData = !!_getStoredBiometricData();
-    var isEnabled = _biometricAvailable && hasStoredData;
-    var status = document.getElementById("ls-faceid-status");
-    var btn = document.getElementById("ls-faceid-btn");
-    var unavailable = document.getElementById("ls-faceid-unavailable");
-    var hideEnrollBtn = isEnabled || !_biometricAvailable;
+  function _updateFaceButton() {
+    const btn = document.getElementById("ls-action-faceid");
+    if (!btn) return;
 
-    if (status) status.classList.toggle("hidden", !isEnabled);
-    if (btn) btn.classList.toggle("hidden", hideEnrollBtn);
-    if (unavailable) unavailable.classList.toggle("hidden", _biometricAvailable);
-  }
-
-  async function _enrollFaceId() {
-    var phone = _normalizePhone05(_norm(_val("ls-phone")) || (_profile && _norm(_profile.phone)));
-    if (!phone) {
-      _toast("تعذر تحديد رقم الجوال المرتبط بالحساب.", true);
+    if (!_biometricAvailable) {
+      btn.disabled = true;
+      btn.textContent = "الدخول بمعرف الوجه (غير مدعوم على هذا الجهاز)";
       return;
     }
 
-    var displayName = (
-      (_norm(_val("ls-first-name")) + " " + _norm(_val("ls-last-name"))).trim()
-      || _norm(_profile && _profile.username)
-      || "مستخدم"
-    );
+    btn.disabled = false;
+    btn.textContent = _getStoredBiometricData() ? "إلغاء الدخول بمعرف الوجه" : "الدخول بمعرف الوجه";
+  }
 
-    var btn = document.getElementById("ls-faceid-btn");
-    if (btn) { btn.disabled = true; btn.style.opacity = "0.65"; }
+  async function _handleFaceIdAction() {
+    if (!_biometricAvailable) {
+      _toast("الجهاز لا يدعم البصمة/الوجه", true);
+      return;
+    }
+
+    if (_getStoredBiometricData()) {
+      await _disableFaceId();
+      return;
+    }
+
+    await _enrollFaceId();
+  }
+
+  async function _enrollFaceId() {
+    const phone = _normalizePhone05(_norm(_profile && _profile.phone));
+    if (!phone) {
+      _toast("يرجى تحديث رقم الجوال أولاً", true);
+      return;
+    }
+
+    const displayName = _norm(_profile && _profile.username) || "مستخدم";
+    const btn = document.getElementById("ls-action-faceid");
+    if (btn) btn.disabled = true;
 
     try {
-      var challenge = new Uint8Array(32);
+      const challenge = new Uint8Array(32);
       crypto.getRandomValues(challenge);
+      const userId = new TextEncoder().encode(phone);
 
-      var userId = new TextEncoder().encode(phone);
-
-      var credential = await navigator.credentials.create({
+      const credential = await navigator.credentials.create({
         publicKey: {
           challenge: challenge,
           rp: { name: "نوافذ" },
@@ -405,7 +342,7 @@ const LoginSettingsPage = (() => {
             displayName: displayName,
           },
           pubKeyCredParams: [
-            { alg: -7,   type: "public-key" },
+            { alg: -7, type: "public-key" },
             { alg: -257, type: "public-key" },
           ],
           authenticatorSelection: {
@@ -417,111 +354,54 @@ const LoginSettingsPage = (() => {
         },
       });
 
-      var enrollRes = await ApiClient.request("/api/accounts/biometric/enroll/", {
+      const enrollRes = await ApiClient.request("/api/accounts/biometric/enroll/", {
         method: "POST",
         body: {},
       });
 
-      var deviceToken = _extractDeviceToken(enrollRes);
-      if (!enrollRes.ok || !deviceToken) {
-        _toast(_extractError(enrollRes, "فشل تسجيل المصادقة البيومترية."), true);
+      const token = _extractDeviceToken(enrollRes);
+      if (!enrollRes.ok || !token) {
+        _toast(_extractError(enrollRes, "فشل تفعيل معرف الوجه."), true);
         return;
       }
 
-      var credIdArray = Array.from(new Uint8Array(credential.rawId || []));
+      const credIdArray = Array.from(new Uint8Array(credential.rawId || []));
       _storageSet(FACE_ID_CRED_ID_KEY, JSON.stringify(credIdArray));
       _storageSet(FACE_ID_PHONE_KEY, phone);
-      _storageSet(FACE_ID_DEVICE_TOKEN_KEY, deviceToken);
+      _storageSet(FACE_ID_DEVICE_TOKEN_KEY, token);
       _storageSet(FACE_ID_ENABLED_KEY, "1");
 
-      _updateFaceIdStatus();
-      _toast("تم تفعيل الدخول بمعرف الوجه بنجاح ✓");
+      _updateFaceButton();
+      _toast("تم تفعيل الدخول بمعرف الوجه بنجاح");
     } catch (err) {
-      if (err.name === "NotAllowedError") {
-        _toast("تم إلغاء عملية التحقق البيومتري.", true);
+      if (err && err.name === "NotAllowedError") {
+        _toast("تم إلغاء عملية التحقق.", true);
       } else {
-        _toast("فشل تسجيل معرف الوجه.", true);
+        _toast("فشل تفعيل معرف الوجه.", true);
       }
     } finally {
-      if (btn) { btn.disabled = false; btn.style.opacity = ""; }
+      if (btn) btn.disabled = false;
+      _updateFaceButton();
     }
   }
 
   async function _disableFaceId() {
-    if (!window.confirm("هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟")) return;
+    const confirmed = window.confirm("هل تريد إلغاء تفعيل الدخول بمعرف الوجه؟");
+    if (!confirmed) return;
 
-    var revokeRes = await ApiClient.request("/api/accounts/biometric/revoke/", {
+    const res = await ApiClient.request("/api/accounts/biometric/revoke/", {
       method: "POST",
       body: {},
     });
-    if (!revokeRes.ok) {
-      _toast(_extractError(revokeRes, "تعذر إلغاء التفعيل من الخادم."), true);
-    }
 
-    _clearStoredBiometricData();
-    _updateFaceIdStatus();
-    _toast("تم إلغاء تفعيل معرف الوجه.");
-  }
-
-  async function _logout() {
-    const confirmed = window.confirm("هل تريد تسجيل الخروج الآن؟");
-    if (!confirmed) return;
-
-    const refresh = Auth.getRefreshToken();
-    if (refresh) {
-      await ApiClient.request("/api/accounts/logout/", {
-        method: "POST",
-        body: { refresh: refresh },
-      });
-    }
-    Auth.logout();
-    window.location.href = "/login/";
-  }
-
-  async function _deleteAccount() {
-    const first = window.confirm("سيتم حذف حسابك نهائيًا. هل أنت متأكد؟");
-    if (!first) return;
-    const second = window.confirm("هذا الإجراء غير قابل للتراجع. متابعة؟");
-    if (!second) return;
-
-    const res = await ApiClient.request(_withMode("/api/accounts/me/"), { method: "DELETE" });
     if (!res.ok) {
-      _toast(_extractError(res, "فشل حذف الحساب."), true);
+      _toast(_extractError(res, "تعذر إلغاء التفعيل من الخادم."), true);
       return;
     }
-    Auth.logout();
+
     _clearStoredBiometricData();
-    window.location.href = "/";
-  }
-
-  function _openModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) modal.classList.remove("hidden");
-  }
-
-  function _closeModal(id) {
-    const modal = document.getElementById(id);
-    if (modal) modal.classList.add("hidden");
-  }
-
-  function _setLoading(isLoading) {
-    const loading = document.getElementById("ls-loading");
-    if (loading) loading.classList.toggle("hidden", !isLoading);
-    if (isLoading) _setContentVisible(false);
-  }
-
-  function _setError(message) {
-    const errorCard = document.getElementById("ls-error");
-    const text = document.getElementById("ls-error-text");
-    if (!errorCard) return;
-    const hasError = !!_norm(message);
-    errorCard.classList.toggle("hidden", !hasError);
-    if (text) text.textContent = message || "";
-  }
-
-  function _setContentVisible(visible) {
-    const content = document.getElementById("ls-content");
-    if (content) content.classList.toggle("hidden", !visible);
+    _updateFaceButton();
+    _toast("تم إلغاء تفعيل معرف الوجه");
   }
 
   function _extractError(res, fallback) {
@@ -538,6 +418,36 @@ const LoginSettingsPage = (() => {
     return fallback;
   }
 
+  function _extractDeviceToken(res) {
+    const data = res && res.data;
+    if (!data || typeof data !== "object") return "";
+    return String(data.device_token || "").trim();
+  }
+
+  function _normalizePhone05(value) {
+    const digits = String(value || "").replace(/[^\d]/g, "");
+    if (/^05\d{8}$/.test(digits)) return digits;
+    if (/^5\d{8}$/.test(digits)) return "0" + digits;
+    if (/^9665\d{8}$/.test(digits)) return "0" + digits.slice(3);
+    if (/^009665\d{8}$/.test(digits)) return "0" + digits.slice(5);
+    return "";
+  }
+
+  function _getStoredBiometricData() {
+    const enabled = _storageGet(FACE_ID_ENABLED_KEY) === "1";
+    const phone = _normalizePhone05(_storageGet(FACE_ID_PHONE_KEY) || "");
+    const deviceToken = _norm(_storageGet(FACE_ID_DEVICE_TOKEN_KEY));
+    if (!enabled || !phone || !deviceToken) return null;
+    return { phone: phone, deviceToken: deviceToken };
+  }
+
+  function _clearStoredBiometricData() {
+    _storageRemove(FACE_ID_ENABLED_KEY);
+    _storageRemove(FACE_ID_PHONE_KEY);
+    _storageRemove(FACE_ID_DEVICE_TOKEN_KEY);
+    _storageRemove(FACE_ID_CRED_ID_KEY);
+  }
+
   function _toast(message, isError) {
     const toast = document.getElementById("ls-toast");
     if (!toast) {
@@ -551,48 +461,6 @@ const LoginSettingsPage = (() => {
     _toastTimer = window.setTimeout(() => {
       toast.classList.remove("show");
     }, 2400);
-  }
-
-  function _on(id, eventName, handler) {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener(eventName, handler);
-  }
-
-  function _setText(id, text) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = text || "";
-  }
-
-  function _setVal(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.value = value || "";
-  }
-
-  function _val(id) {
-    const el = document.getElementById(id);
-    return el ? el.value : "";
-  }
-
-  function _norm(value) {
-    return (value == null ? "" : String(value)).trim();
-  }
-
-  function _pickFirstText(values) {
-    if (!Array.isArray(values)) return "";
-    for (let i = 0; i < values.length; i += 1) {
-      const text = _norm(values[i]);
-      if (text) return text;
-    }
-    return "";
-  }
-
-  function _normalizePhone05(value) {
-    var digits = String(value || "").replace(/[^\d]/g, "");
-    if (/^05\d{8}$/.test(digits)) return digits;
-    if (/^5\d{8}$/.test(digits)) return "0" + digits;
-    if (/^9665\d{8}$/.test(digits)) return "0" + digits.slice(3);
-    if (/^009665\d{8}$/.test(digits)) return "0" + digits.slice(5);
-    return "";
   }
 
   function _storageGet(key) {
@@ -615,33 +483,27 @@ const LoginSettingsPage = (() => {
     } catch (_) {}
   }
 
-  function _extractDeviceToken(res) {
-    var data = res && res.data;
-    if (!data || typeof data !== "object") return "";
-    var token = String(data.device_token || "").trim();
-    return token;
+  function _on(id, eventName, handler) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener(eventName, handler);
   }
 
-  function _getStoredBiometricData() {
-    var enabled = _storageGet(FACE_ID_ENABLED_KEY) === "1";
-    var phone = _normalizePhone05(_storageGet(FACE_ID_PHONE_KEY) || "");
-    var deviceToken = _norm(_storageGet(FACE_ID_DEVICE_TOKEN_KEY));
-    if (!enabled || !phone || !deviceToken) return null;
-    return {
-      phone: phone,
-      deviceToken: deviceToken,
-      credJson: _norm(_storageGet(FACE_ID_CRED_ID_KEY)),
-    };
+  function _val(id) {
+    const el = document.getElementById(id);
+    return el ? el.value : "";
   }
 
-  function _clearStoredBiometricData() {
-    _storageRemove(FACE_ID_ENABLED_KEY);
-    _storageRemove(FACE_ID_PHONE_KEY);
-    _storageRemove(FACE_ID_DEVICE_TOKEN_KEY);
-    _storageRemove(FACE_ID_CRED_ID_KEY);
-    // legacy keys
-    _storageRemove("nw_faceid_cred_id");
-    _storageRemove("nw_faceid_phone");
+  function _norm(value) {
+    return (value == null ? "" : String(value)).trim();
+  }
+
+  function _escape(value) {
+    return String(value || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   document.addEventListener("DOMContentLoaded", init);

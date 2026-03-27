@@ -1,14 +1,18 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:nawafeth/services/unread_badge_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/service_request_model.dart';
 import '../../services/api_client.dart';
 import '../../services/marketplace_service.dart';
+import '../../widgets/platform_top_bar.dart';
+import '../notifications_screen.dart';
 
 class ProviderOrderDetailsScreen extends StatefulWidget {
   final int requestId;
@@ -58,10 +62,16 @@ class _ProviderOrderDetailsScreenState
 
   bool _accountChecked = false;
   bool _isProviderAccount = false;
+  int _notificationUnread = 0;
+  int _chatUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   @override
   void initState() {
     super.initState();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _ensureProviderAccount();
   }
 
@@ -83,6 +93,11 @@ class _ProviderOrderDetailsScreenState
 
   @override
   void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _estimatedAmountController.dispose();
     _receivedAmountController.dispose();
     _noteController.dispose();
@@ -92,6 +107,15 @@ class _ProviderOrderDetailsScreenState
     _offerDurationDaysController.dispose();
     _offerNoteController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   Future<void> _loadDetail() async {
@@ -570,17 +594,21 @@ class _ProviderOrderDetailsScreenState
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: _mainColor),
-          actions: [
-            IconButton(
-              onPressed: _openChat,
-              icon: const Icon(Icons.chat_bubble_outline, color: _mainColor),
-              tooltip: 'فتح محادثة',
-            ),
-          ],
+        appBar: PlatformTopBar(
+          pageLabel: 'تفاصيل الطلب',
+          showBackButton: Navigator.of(context).canPop(),
+          notificationCount: _notificationUnread,
+          chatCount: _chatUnread,
+          onNotificationsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
+          onChatsTap: _openChat,
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),

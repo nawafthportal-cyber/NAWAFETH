@@ -11,6 +11,10 @@
 .loading-center { display: flex; justify-content: center; align-items: center; min-height: 200px; }
 .text-muted { color: var(--color-text-secondary, #999); font-size: 13px; }
 
+body.mobile-web-parity #top-navbar.nw-global-topbar {
+  display: block !important;
+}
+
 /* Back button */
 .btn-back { background: none; border: none; cursor: pointer; padding: 8px; color: var(--color-text, #333); }
 .btn-back:hover { color: var(--color-primary, #663D90); }

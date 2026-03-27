@@ -165,6 +165,272 @@ ul, ol { list-style: none; }
   transition: background var(--transition-normal), box-shadow var(--transition-normal);
 }
 #top-navbar.scrolled { box-shadow: var(--shadow-md); }
+
+#top-navbar.nw-global-topbar {
+  z-index: 360;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.82)),
+    radial-gradient(circle at top right, rgba(103, 58, 183, 0.12), transparent 42%);
+  border-bottom: 1px solid rgba(103, 58, 183, 0.08);
+  box-shadow: 0 10px 30px rgba(18, 18, 36, 0.06);
+}
+
+.navbar-inner-global {
+  position: relative;
+  min-height: 72px;
+  height: auto;
+  padding: 12px 0;
+}
+
+.topbar-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 0;
+  min-width: 88px;
+}
+
+.topbar-section-right {
+  justify-content: flex-start;
+}
+
+.topbar-section-left {
+  justify-content: flex-end;
+}
+
+.nav-menu-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(103, 58, 183, 0.12), rgba(103, 58, 183, 0.04));
+  border: 1px solid rgba(103, 58, 183, 0.12);
+  color: var(--color-primary-dark);
+}
+
+.topbar-brand-wrap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: min(100%, 520px);
+  max-width: calc(100% - 132px);
+  min-height: 42px;
+}
+
+.topbar-brand-face {
+  grid-area: 1 / 1;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px) scale(0.98);
+  transition: opacity .26s ease, transform .26s ease;
+}
+
+.topbar-brand-face.is-active {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.topbar-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 7px 14px 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(103, 58, 183, 0.1);
+  box-shadow: 0 10px 22px rgba(29, 21, 55, 0.07);
+}
+
+.topbar-brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
+  color: #fff;
+  font-size: 19px;
+  font-weight: 900;
+  box-shadow: 0 10px 20px rgba(103, 58, 183, 0.22);
+}
+
+.topbar-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  align-items: center;
+}
+
+.topbar-brand-title {
+  color: var(--color-primary-dark);
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.topbar-brand-subtitle {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topbar-sponsor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+  border: 1px solid rgba(26, 26, 46, 0.08);
+  box-shadow: 0 8px 18px rgba(20, 16, 39, 0.05);
+  color: var(--color-text);
+}
+
+.topbar-sponsor.is-link {
+  cursor: pointer;
+}
+
+.topbar-sponsor-label {
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.topbar-sponsor-media {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(241, 165, 89, 0.16), rgba(103, 58, 183, 0.16));
+  color: var(--color-primary-dark);
+}
+
+.topbar-sponsor-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.topbar-sponsor-placeholder {
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.topbar-sponsor-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.topbar-sponsor.is-placeholder .topbar-sponsor-name {
+  color: var(--color-text-secondary);
+}
+
+.topbar-sponsor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 520;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+}
+
+.topbar-sponsor-modal.hidden {
+  display: none;
+}
+
+.topbar-sponsor-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  background: rgba(16, 13, 31, .5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.topbar-sponsor-modal-card {
+  position: relative;
+  width: min(100%, 420px);
+  border-radius: 18px;
+  border: 1px solid rgba(103, 58, 183, 0.22);
+  background: #fff;
+  box-shadow: 0 18px 42px rgba(19, 15, 38, 0.22);
+  padding: 18px 16px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.topbar-sponsor-modal-close {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 58, 183, 0.22);
+  background: #f7f2ff;
+  color: #4f2780;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.topbar-sponsor-modal-label {
+  margin: 0;
+  color: #7b6d88;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.topbar-sponsor-modal h3 {
+  margin: 0;
+  color: #2c1749;
+  font-size: 19px;
+  font-weight: 900;
+}
+
+.topbar-sponsor-modal-body {
+  margin: 0;
+  color: #463d54;
+  font-size: 14px;
+  line-height: 1.8;
+  min-height: 42px;
+}
+
+.topbar-sponsor-modal-link {
+  justify-self: start;
+  border-radius: 999px;
+  border: 1px solid rgba(60, 127, 34, 0.3);
+  background: #f4fff0;
+  color: #2f7d1e;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 8px 14px;
+}
+
+.topbar-sponsor-modal-link.hidden {
+  display: none;
+}
 .navbar-inner {
   display: flex;
   align-items: center;
@@ -260,6 +526,50 @@ ul, ol { list-style: none; }
 .nav-avatar:hover { border-color: var(--color-primary); transform: scale(1.08); }
 .nav-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .nav-avatar.hidden { display: none; }
+
+@media (max-width: 768px) {
+  .navbar-inner-global {
+    min-height: 68px;
+    padding: 10px 0;
+  }
+
+  .topbar-brand-wrap {
+    max-width: calc(100% - 116px);
+  }
+
+  .topbar-brand-link {
+    padding: 6px 12px 6px 8px;
+  }
+
+  .topbar-brand-mark {
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    font-size: 17px;
+  }
+
+  .topbar-brand-title {
+    font-size: 16px;
+  }
+
+  .topbar-brand-subtitle {
+    display: none;
+  }
+
+  .topbar-sponsor {
+    gap: 6px;
+    padding: 4px 8px;
+  }
+
+  .topbar-sponsor-name {
+    max-width: 118px;
+    font-size: 11px;
+  }
+
+  .topbar-sponsor-label {
+    font-size: 9px;
+  }
+}
 
 /* ====================================================================
    MOBILE SIDEBAR

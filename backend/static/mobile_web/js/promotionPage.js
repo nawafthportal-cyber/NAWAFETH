@@ -38,6 +38,35 @@ var PromotionPage = (function () {
     "sponsorship": "الرعاية"
   };
 
+  var PRICING_SERVICE_ORDER = [
+    "home_banner",
+    "featured_specialists",
+    "portfolio_showcase",
+    "snapshots",
+    "search_results",
+    "promo_messages",
+    "sponsorship"
+  ];
+
+  var PRICING_UNIT_LABELS = {
+    "day": "لكل يوم",
+    "campaign": "لكل حملة",
+    "month": "لكل شهر"
+  };
+
+  var AD_TYPE_LABELS = {
+    "bundle": "طلب ترويج متعدد الخدمات",
+    "banner_home": "بنر الصفحة الرئيسية",
+    "featured_top5": "شريط أبرز المختصين",
+    "featured_top10": "شريط أبرز المختصين",
+    "boost_profile": "شريط أبرز المختصين",
+    "push_notification": "الرسائل الدعائية",
+    "banner_category": "بنر صفحة القسم",
+    "banner_search": "بنر صفحة البحث",
+    "popup_home": "نافذة منبثقة رئيسية",
+    "popup_category": "نافذة منبثقة داخل قسم"
+  };
+
   var HOME_BANNER_REQUIRED_WIDTH = 1920;
   var HOME_BANNER_REQUIRED_HEIGHT = 840;
   var SERVICE_ALLOWED_EXTENSIONS = {
@@ -53,6 +82,7 @@ var PromotionPage = (function () {
   var liveQuoteTimer = null;
   var liveQuoteData = null;
   var pendingSummary = { preview: null, requestBody: null };
+  var pricingGuideState = { loaded: false, loading: false, payload: null };
   var pendingPayment = {
     requestId: null,
     requestCode: "",
@@ -83,6 +113,7 @@ var PromotionPage = (function () {
 
     if (hasComposerForm) {
       bindPromoComposerViewToggle();
+      bindPricingGuideActions();
       bindServicePicks();
       bindAttachmentPolicyHints();
       bindHomeBannerEditor();
@@ -92,6 +123,7 @@ var PromotionPage = (function () {
       bindSummaryActions();
       bindPaymentActions();
       hydrateProviderIdentity();
+      loadPricingGuide();
     }
   }
 
@@ -197,6 +229,9 @@ var PromotionPage = (function () {
       buttons.forEach(function (button) {
         button.classList.toggle("active", String(button.dataset.promoView) === view);
       });
+      if (view === "pricing") {
+        loadPricingGuide();
+      }
     }
 
     window.__promoSwitchComposerScreen = switchComposerScreen;
@@ -219,6 +254,205 @@ var PromotionPage = (function () {
     summaryView.hidden = view !== "summary";
     if (paymentView) paymentView.hidden = view !== "payment";
     if (topShell) topShell.hidden = view === "summary" || view === "payment";
+    if (view === "pricing") {
+      loadPricingGuide();
+    }
+  }
+
+  function bindPricingGuideActions() {
+    var pricingView = document.getElementById("promo-pricing-view");
+    if (!pricingView || pricingView.dataset.bindPricingActions === "1") return;
+    pricingView.dataset.bindPricingActions = "1";
+    pricingView.addEventListener("click", function (event) {
+      var reloadBtn = event.target.closest("[data-pricing-reload]");
+      if (!reloadBtn) return;
+      loadPricingGuide({ force: true });
+    });
+  }
+
+  async function loadPricingGuide(options) {
+    var force = !!(options && options.force);
+    var loadingEl = document.getElementById("promo-pricing-loading");
+    var errorEl = document.getElementById("promo-pricing-error");
+    var metaEl = document.getElementById("promo-pricing-guide-meta");
+    var gridEl = document.getElementById("promo-pricing-guide-grid");
+    if (!loadingEl || !errorEl || !metaEl || !gridEl) return;
+
+    if (pricingGuideState.loading) return;
+    if (pricingGuideState.loaded && !force) return;
+
+    pricingGuideState.loading = true;
+    loadingEl.hidden = false;
+    errorEl.hidden = true;
+    metaEl.hidden = true;
+    gridEl.hidden = true;
+
+    try {
+      var res = await ApiClient.get("/api/promo/pricing/guide/");
+      if (!res.ok || !res.data || typeof res.data !== "object") {
+        throw new Error("pricing_guide_load_failed");
+      }
+
+      pricingGuideState.payload = res.data;
+      pricingGuideState.loaded = true;
+      renderPricingGuide(res.data);
+
+      loadingEl.hidden = true;
+      errorEl.hidden = true;
+      metaEl.hidden = false;
+      gridEl.hidden = false;
+    } catch (_) {
+      pricingGuideState.loaded = false;
+      errorEl.innerHTML = '<span>تعذر تحميل الأسعار الفعلية الآن.</span>'
+        + '<button type="button" class="pricing-reload-btn" data-pricing-reload="1">إعادة المحاولة</button>';
+      loadingEl.hidden = true;
+      errorEl.hidden = false;
+      metaEl.hidden = true;
+      gridEl.hidden = true;
+    } finally {
+      pricingGuideState.loading = false;
+    }
+  }
+
+  function renderPricingGuide(data) {
+    var metaEl = document.getElementById("promo-pricing-guide-meta");
+    var gridEl = document.getElementById("promo-pricing-guide-grid");
+    if (!metaEl || !gridEl) return;
+
+    var minHours = parseInt(String((data && data.min_campaign_hours) || "24"), 10);
+    if (!Number.isFinite(minHours) || minHours <= 0) minHours = 24;
+
+    var generatedAt = formatDateTime((data && data.generated_at) || "");
+    var currencyLabel = String((data && data.currency_label) || "ريال سعودي").trim() || "ريال سعودي";
+    metaEl.innerHTML =
+      '<span class="pricing-meta-chip">المصدر: لوحة إدارة الترويج</span>'
+      + '<span class="pricing-meta-chip">أقل مدة للحملة: ' + minHours + ' ساعة</span>'
+      + '<span class="pricing-meta-chip">العملة: ' + escapeHtml(currencyLabel) + '</span>'
+      + '<span class="pricing-meta-chip">آخر تحديث: ' + escapeHtml(generatedAt || "—") + '</span>';
+
+    var services = Array.isArray(data && data.services) ? data.services : [];
+    var byService = {};
+    services.forEach(function (entry) {
+      if (!entry || typeof entry !== "object") return;
+      var serviceType = String(entry.service_type || "").trim();
+      if (!serviceType) return;
+      byService[serviceType] = entry;
+    });
+
+    var orderedServiceTypes = Array.isArray(data && data.service_order) && data.service_order.length
+      ? data.service_order.map(function (item) { return String(item || "").trim(); })
+      : PRICING_SERVICE_ORDER.slice();
+    PRICING_SERVICE_ORDER.forEach(function (serviceType) {
+      if (orderedServiceTypes.indexOf(serviceType) < 0) {
+        orderedServiceTypes.push(serviceType);
+      }
+    });
+
+    gridEl.innerHTML = orderedServiceTypes.map(function (serviceType) {
+      var serviceEntry = byService[serviceType] || { service_type: serviceType, service_label: SERVICE_LABELS[serviceType] || serviceType, rules: [] };
+      return renderPricingServiceCard(serviceEntry, minHours);
+    }).join("");
+  }
+
+  function renderPricingServiceCard(serviceEntry, minHours) {
+    var serviceType = String((serviceEntry && serviceEntry.service_type) || "").trim();
+    var serviceLabel = String((serviceEntry && serviceEntry.service_label) || SERVICE_LABELS[serviceType] || serviceType).trim();
+    var rules = Array.isArray(serviceEntry && serviceEntry.rules) ? serviceEntry.rules : [];
+    var hints = pricingServiceHints(serviceType, minHours);
+    var hintsHtml = hints.map(function (hint) {
+      return "<li>" + escapeHtml(hint) + "</li>";
+    }).join("");
+
+    var tableHtml = "";
+    if (!rules.length) {
+      tableHtml = '<p class="pricing-empty">لا توجد قواعد تسعير مفعلة لهذا البند حاليًا.</p>';
+    } else {
+      tableHtml = '<div class="pricing-table-wrap"><table class="pricing-table"><thead><tr>'
+        + '<th>التفصيل</th><th>التكلفة</th><th>وحدة الاحتساب</th>'
+        + '</tr></thead><tbody>'
+        + rules.map(function (rule) {
+          var rowLabel = resolvePricingRuleLabel(rule);
+          var amount = moneyHuman((rule && rule.amount) || 0);
+          var unitLabel = resolvePricingRuleUnitLabel(rule);
+          return '<tr>'
+            + '<td>' + escapeHtml(rowLabel || "—") + '</td>'
+            + '<td><span class="pricing-price-value">' + escapeHtml(amount) + ' ريال</span></td>'
+            + '<td>' + escapeHtml(unitLabel || "—") + '</td>'
+            + '</tr>';
+        }).join("")
+        + '</tbody></table></div>';
+    }
+
+    return '<article class="pricing-card">'
+      + '<div class="pricing-card-head">'
+      + '<h4>' + escapeHtml(serviceLabel || "—") + '</h4>'
+      + '<span class="pricing-rule-count">عدد قواعد التسعير: ' + rules.length + '</span>'
+      + '</div>'
+      + '<ul class="pricing-hints">' + hintsHtml + '</ul>'
+      + tableHtml
+      + '</article>';
+  }
+
+  function pricingServiceHints(serviceType, minHours) {
+    if (serviceType === "home_banner") {
+      return [
+        "أقل مدة للحملة " + minHours + " ساعة.",
+        "يتم احتساب التكلفة لكل 24 ساعة."
+      ];
+    }
+    if (serviceType === "featured_specialists" || serviceType === "portfolio_showcase" || serviceType === "snapshots") {
+      return [
+        "أقل مدة للحملة " + minHours + " ساعة.",
+        "التكلفة اليومية تعتمد على معدل الظهور المختار."
+      ];
+    }
+    if (serviceType === "search_results") {
+      return [
+        "أقل مدة للحملة " + minHours + " ساعة.",
+        "التكلفة اليومية تعتمد على ترتيب الظهور في النتائج."
+      ];
+    }
+    if (serviceType === "promo_messages") {
+      return [
+        "يتم التسعير لكل حملة بحسب قناة الإرسال.",
+        "يمكن اختيار التنبيهات أو المحادثات أو كلاهما."
+      ];
+    }
+    if (serviceType === "sponsorship") {
+      return [
+        "يتم التسعير لكل شهر رعاية.",
+        "يتم تحديد المحتوى وجدول الإظهار أثناء إعداد الطلب."
+      ];
+    }
+    return ["الأسعار معتمدة مباشرة من لوحة إدارة الترويج."];
+  }
+
+  function resolvePricingRuleLabel(rule) {
+    if (!rule || typeof rule !== "object") return "";
+    var displayKey = String(rule.display_key || "").trim();
+    if (displayKey) return displayKey;
+    var frequencyLabel = String(rule.frequency_label || "").trim();
+    if (frequencyLabel) return frequencyLabel;
+    var positionLabel = String(rule.search_position_label || "").trim();
+    if (positionLabel) return positionLabel;
+    var channelLabel = String(rule.message_channel_label || "").trim();
+    if (channelLabel) return channelLabel;
+    return String(rule.title || rule.code || "").trim();
+  }
+
+  function resolvePricingRuleUnitLabel(rule) {
+    if (!rule || typeof rule !== "object") return "";
+    var fromApi = String(rule.unit_label || "").trim();
+    if (fromApi) return fromApi;
+    var unit = String(rule.unit || "").trim();
+    if (!unit) return "";
+    return PRICING_UNIT_LABELS[unit] || unit;
+  }
+
+  function moneyHuman(value) {
+    var parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "0.00";
+    return parsed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   async function hydrateProviderIdentity() {
@@ -238,9 +472,11 @@ var PromotionPage = (function () {
         username = "@" + username;
       }
       var providerName = String(profile.provider_display_name || "").trim();
-      var displayName = String(profile.display_name || "").trim();
+      var firstName = String(profile.first_name || "").trim();
+      var lastName = String(profile.last_name || "").trim();
+      var fullName = (firstName + (lastName ? " " + lastName : "")).trim();
       var phone = String(profile.phone || "").trim();
-      var chosen = providerName || displayName || username || phone || fallback;
+      var chosen = providerName || fullName || username || phone || fallback;
       input.value = chosen;
     } catch (err) {
       input.value = fallback;
@@ -632,12 +868,9 @@ var PromotionPage = (function () {
       '<table class="promo-requests-table">' +
       '<thead><tr>' +
         '<th>رقم الطلب</th>' +
-        '<th>اسم العميل</th>' +
-        '<th>الأولوية</th>' +
+        '<th>نوع الطلب</th>' +
         '<th>تاريخ ووقت اعتماد الطلب</th>' +
         '<th>حالة الطلب</th>' +
-        '<th>المكلف بالطلب</th>' +
-        '<th>تاريخ ووقت التكليف</th>' +
       '</tr></thead><tbody>';
 
     rows.forEach(function (row) {
@@ -650,22 +883,50 @@ var PromotionPage = (function () {
 
   function renderRequestRow(row) {
     var code = escapeHtml(row.code || "");
-    var title = escapeHtml(row.title || "");
-    var priority = row.priority != null ? escapeHtml(String(row.priority)) : "—";
-    var createdAt = formatDateTime(row.created_at || row.quoted_at || "");
+    var requestType = escapeHtml(resolveRequestTypeLabel(row));
+    var approvedAt = formatDateTime(
+      row.reviewed_at
+      || row.activated_at
+      || row.quoted_at
+      || row.created_at
+      || ""
+    );
     var status = escapeHtml(STATUS_LABELS[row.status] || row.status || "");
-    var assignee = escapeHtml(row.assigned_to_name || row.assigned_to || "—");
-    var assignedAt = formatDateTime(row.assigned_at || "");
 
     return '<tr data-request-id="' + row.id + '">' +
       '<td style="color:#663d90;font-weight:600">' + code + '</td>' +
-      '<td>' + (title || "—") + '</td>' +
-      '<td>' + priority + '</td>' +
-      '<td>' + createdAt + '</td>' +
+      '<td>' + (requestType || "—") + '</td>' +
+      '<td>' + approvedAt + '</td>' +
       '<td>' + status + '</td>' +
-      '<td>' + assignee + '</td>' +
-      '<td>' + assignedAt + '</td>' +
       '</tr>';
+  }
+
+  function resolveRequestTypeLabel(row) {
+    var items = Array.isArray(row && row.items) ? row.items : [];
+    var labels = [];
+
+    items.forEach(function (item) {
+      if (!item || typeof item !== "object") return;
+      var serviceType = String(item.service_type || "").trim();
+      var label = String(item.service_type_label || "").trim();
+      if (!label && serviceType) {
+        label = SERVICE_LABELS[serviceType] || serviceType;
+      }
+      if (label && labels.indexOf(label) < 0) {
+        labels.push(label);
+      }
+    });
+
+    if (labels.length) {
+      return labels.join(" + ");
+    }
+
+    var adType = String((row && row.ad_type) || "").trim();
+    if (adType) {
+      return AD_TYPE_LABELS[adType] || adType;
+    }
+
+    return String((row && row.title) || "").trim() || "—";
   }
 
   function formatDateTime(isoStr) {

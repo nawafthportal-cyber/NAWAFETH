@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
 import '../models/service_request_model.dart';
 import '../services/account_mode_service.dart';
 import '../services/marketplace_service.dart';
+import '../services/unread_badge_service.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/platform_top_bar.dart';
 import 'client_order_details_screen.dart';
+import 'my_chats_screen.dart';
+import 'notifications_screen.dart';
 import 'provider_dashboard/provider_orders_screen.dart';
 
 class ClientOrdersScreen extends StatefulWidget {
@@ -28,10 +33,16 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   String? _error;
   bool _accountChecked = false;
   bool _isProviderMode = false;
+  int _notificationUnread = 0;
+  int _chatUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   @override
   void initState() {
     super.initState();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _ensureClientAccount();
     _searchController.addListener(() {
       if (mounted) setState(() {});
@@ -63,8 +74,22 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
 
   @override
   void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   /// ─── تحميل الطلبات من API ───
@@ -205,13 +230,29 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: _mainColor,
-          title: const Text(
-            'طلباتي',
-            style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
+        appBar: PlatformTopBar(
+          pageLabel: 'طلباتي',
+          showBackButton: Navigator.of(context).canPop(),
+          notificationCount: _notificationUnread,
+          chatCount: _chatUnread,
+          onNotificationsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const NotificationsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
+          onChatsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const MyChatsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
         ),
         bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
         body: _buildBody(isDark: isDark),

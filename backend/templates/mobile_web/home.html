@@ -9,13 +9,6 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}">
-<style>
-  @media (max-width: 1023px) {
-    body.home-mobile-layout #top-navbar {
-      display: none;
-    }
-  }
-</style>
 {% endblock %}
 
 {% block content %}
@@ -36,31 +29,44 @@
   <div class="hero-bg"></div>
   <div class="hero-overlay"></div>
 
-  <!-- Hero top bar (mirrors Flutter: menu | logo | notifications + chat) -->
-  <div class="hero-top-bar container" id="hero-top-bar">
-    <button class="hero-icon-btn" id="hero-menu-btn" aria-label="القائمة">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-    </button>
-    <span class="hero-logo">نوافــذ</span>
-    <div class="hero-actions">
-      <a href="/notifications/" class="hero-icon-btn" aria-label="الإشعارات">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-      </a>
-      <a href="/chats/" class="hero-icon-btn" aria-label="المحادثات">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-      </a>
-    </div>
-  </div>
-
   <div class="hero-content container">
-    <div class="hero-text">
-      <h1 class="hero-tagline" id="hero-title">...</h1>
-      <p class="hero-subtitle" id="hero-subtitle">...</p>
+    <div class="hero-layout">
+      <div class="hero-copy">
+        <div class="hero-text">
+          <h1 class="hero-tagline" id="hero-title">...</h1>
+          <p class="hero-subtitle" id="hero-subtitle">...</p>
+        </div>
+        <div class="hero-desktop-actions">
+          <a href="/search/" class="btn btn-primary btn-lg">ابدأ البحث</a>
+          <a href="/add-service/" class="btn btn-secondary btn-lg">أضف خدمتك</a>
+        </div>
+        <div class="hero-trust-pills" aria-label="مزايا المنصة">
+          <span class="hero-trust-pill">مزودون موثّقون</span>
+          <span class="hero-trust-pill">عروض مميزة</span>
+          <span class="hero-trust-pill">تنقل أسرع</span>
+        </div>
+      </div>
+      <div class="hero-search-panel">
+        <a href="/search/" class="search-bar" role="button" tabindex="0" aria-label="بحث">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span id="home-search-placeholder">...</span>
+        </a>
+        <div class="hero-quick-links" aria-label="روابط سريعة">
+          <a href="/interactive/" class="hero-quick-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+            <span>تفاعلي</span>
+          </a>
+          <a href="/orders/" class="hero-quick-link" data-mode-orders-link="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+            <span>طلباتي</span>
+          </a>
+          <a href="/plans/" class="hero-quick-link">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.39 4.84L20 7.64l-4 3.9.94 5.46L12 14.77 7.06 17l.94-5.46-4-3.9 5.61-.8L12 2z"/></svg>
+            <span>الباقات</span>
+          </a>
+        </div>
+      </div>
     </div>
-    <a href="/search/" class="search-bar" role="button" tabindex="0" aria-label="بحث">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <span id="home-search-placeholder">...</span>
-    </a>
   </div>
 </section>
 
@@ -141,6 +147,30 @@
   </section>
 
 </main>
+
+<footer id="site-footer" class="home-desktop-footer">
+  <div class="container footer-inner">
+    <div>
+      <span class="footer-logo">نوافــذ</span>
+      <p class="footer-desc">منصة تجمعك بالمختصين والعروض والخدمات في تجربة أوضح وأسرع على الويب.</p>
+    </div>
+    <div class="footer-links">
+      <h4>المنصة</h4>
+      <a href="/">الرئيسية</a>
+      <a href="/search/">البحث</a>
+      <a href="/plans/">الباقات</a>
+      <a href="/about/">من نحن</a>
+    </div>
+    <div class="footer-links">
+      <h4>الدعم</h4>
+      <a href="/contact/">تواصل معنا</a>
+      <a href="/terms/">الشروط والأحكام</a>
+      <a href="/language/">اللغة</a>
+      <a href="/login/">تسجيل الدخول</a>
+    </div>
+  </div>
+  <div class="footer-bottom">جميع الحقوق محفوظة لمنصة نوافــذ</div>
+</footer>
 {% endblock %}
 
 {% block extra_js %}

@@ -1,11 +1,16 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:nawafeth/services/account_mode_service.dart';
+import 'package:nawafeth/services/unread_badge_service.dart';
 
 import '../../models/service_request_model.dart';
 import '../../services/marketplace_service.dart';
 import '../../widgets/bottom_nav.dart';
+import '../../widgets/platform_top_bar.dart';
 import '../client_orders_screen.dart';
+import '../my_chats_screen.dart';
+import '../notifications_screen.dart';
 import 'provider_order_details_screen.dart';
 
 enum _ProviderOrdersTab {
@@ -39,10 +44,16 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
 
   bool _accountChecked = false;
   bool _isProviderAccount = false;
+  int _notificationUnread = 0;
+  int _chatUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
 
   @override
   void initState() {
     super.initState();
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _ensureProviderAccount();
     _searchController.addListener(() {
       if (mounted) {
@@ -74,8 +85,22 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
 
   @override
   void dispose() {
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+      _chatUnread = badges.chats;
+    });
   }
 
   Future<void> _loadOrders() async {
@@ -531,13 +556,29 @@ class _ProviderOrdersScreenState extends State<ProviderOrdersScreen> {
             textDirection: TextDirection.rtl,
             child: Scaffold(
               backgroundColor: Colors.grey[100],
-              appBar: AppBar(
-                backgroundColor: _mainColor,
-                title: const Text(
-                  'إدارة الطلبات',
-                  style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-                ),
-                iconTheme: const IconThemeData(color: Colors.white),
+              appBar: PlatformTopBar(
+                pageLabel: 'إدارة الطلبات',
+                showBackButton: Navigator.of(context).canPop(),
+                notificationCount: _notificationUnread,
+                chatCount: _chatUnread,
+                onNotificationsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                  await UnreadBadgeService.refresh(force: true);
+                },
+                onChatsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyChatsScreen(),
+                    ),
+                  );
+                  await UnreadBadgeService.refresh(force: true);
+                },
               ),
               bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
               body: Padding(

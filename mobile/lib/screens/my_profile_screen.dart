@@ -10,6 +10,7 @@ import '../services/account_mode_service.dart';
 import '../services/profile_service.dart';
 import '../services/api_client.dart';
 import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
 import '../models/user_profile.dart';
 import 'registration/register_service_provider.dart';
 import 'provider_dashboard/provider_home_screen.dart';
@@ -28,6 +29,7 @@ class MyProfileScreen extends StatefulWidget {
 }
 
 class _MyProfileScreenState extends State<MyProfileScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   File? _profileImage;
   File? _coverImage;
 
@@ -189,6 +191,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   Widget _buildShell(ThemeData theme, {required Widget child}) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: theme.scaffoldBackgroundColor,
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 3),
@@ -206,6 +209,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     const purple = Colors.deepPurple;
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor:
           isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
       drawer: const CustomDrawer(),
@@ -307,46 +311,42 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             child: SafeArea(
               bottom: false,
               child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: Column(
                   children: [
-                    // Left: Camera + Message + Notifications
-                    Row(
-                      children: [
-                        _miniIconBtn(
-                          icon: Icons.camera_alt_outlined,
-                          onTap: () => _pickImage(isCover: true),
-                        ),
-                        const SizedBox(width: 8),
-                        _miniIconBtn(
-                          icon: Icons.chat_bubble_outline_rounded,
-                          count: _chatUnread,
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const MyChatsScreen()),
-                            );
-                            _loadUnreadBadges();
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _miniIconBtn(
-                          icon: Icons.notifications_none_rounded,
-                          count: _notificationUnread,
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const NotificationsScreen()),
-                            );
-                            _loadUnreadBadges();
-                          },
-                        ),
-                      ],
+                    PlatformTopBar(
+                      overlay: true,
+                      height: 92,
+                      showMenuButton: true,
+                      notificationCount: _notificationUnread,
+                      chatCount: _chatUnread,
+                      onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                      onNotificationsTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
+                          ),
+                        );
+                        _loadUnreadBadges();
+                      },
+                      onChatsTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const MyChatsScreen(),
+                          ),
+                        );
+                        _loadUnreadBadges();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _miniIconBtn(
+                        icon: Icons.camera_alt_outlined,
+                        onTap: () => _pickImage(isCover: true),
+                      ),
                     ),
                   ],
                 ),

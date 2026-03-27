@@ -7,6 +7,8 @@ import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
+import 'my_chats_screen.dart';
 import 'notification_settings_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _totalCount = 0;
+  int _chatUnread = 0;
   String? _errorMessage;
   final ScrollController _scrollController = ScrollController();
   ValueListenable<UnreadBadges>? _badgeHandle;
@@ -33,8 +36,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
     _realtimeSubscription =
         NotificationService.realtimeEvents.listen(_handleRealtimeNotification);
+    _handleBadgeChange();
     _initModeAndLoad();
   }
 
@@ -49,11 +54,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void dispose() {
     _realtimeSubscription?.cancel();
     if (_badgeHandle != null) {
+      _badgeHandle?.removeListener(_handleBadgeChange);
       UnreadBadgeService.release();
       _badgeHandle = null;
     }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _chatUnread = badges.chats;
+    });
   }
 
   bool _matchesActiveMode(NotificationModel notification) {
@@ -417,43 +431,68 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final bool canPop = Navigator.of(context).canPop();
+    final foreground = theme.brightness == Brightness.dark
+        ? Colors.white
+        : const Color(0xFF56316D);
+    final chromeBackground = theme.brightness == Brightness.dark
+        ? Colors.white.withValues(alpha: 0.08)
+        : Colors.white.withValues(alpha: 0.82);
+    final chromeBorder = theme.brightness == Brightness.dark
+        ? Colors.white.withValues(alpha: 0.14)
+        : const Color(0xFFDACDED);
 
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
-        appBar: AppBar(
-          backgroundColor:
-              theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
-          title: const Text(
-            "الإشعارات",
-            style: TextStyle(
-              fontFamily: "Cairo",
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          actions: [
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_horiz, color: Colors.white),
+        appBar: PlatformTopBar(
+          pageLabel: 'الإشعارات',
+          showBackButton: canPop,
+          showNotificationAction: false,
+          chatCount: _chatUnread,
+          onChatsTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const MyChatsScreen(),
+              ),
+            );
+            await UnreadBadgeService.refresh(force: true);
+          },
+          trailingActions: [
+            PlatformTopBarMenuButton<String>(
+              icon: Icons.more_horiz_rounded,
+              foreground: foreground,
+              background: chromeBackground,
+              borderColor: chromeBorder,
               onSelected: (value) {
                 if (value == 'mark_all') _markAllRead();
                 if (value == 'delete_old') _deleteOld();
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(
-                    value: 'mark_all', child: Text("✓ تمييز الكل كمقروء")),
+                  value: 'mark_all',
+                  child: Text('✓ تمييز الكل كمقروء'),
+                ),
                 PopupMenuItem(
-                    value: 'delete_old', child: Text("🗑 حذف القديمة")),
+                  value: 'delete_old',
+                  child: Text('🗑 حذف القديمة'),
+                ),
               ],
             ),
-            IconButton(
-              icon: const Icon(Icons.settings, color: Colors.white),
-              onPressed: () {
+            const SizedBox(width: 6),
+            PlatformTopBarActionButton(
+              icon: Icons.settings_outlined,
+              foreground: foreground,
+              background: chromeBackground,
+              borderColor: chromeBorder,
+              onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const NotificationSettingsScreen()),
+                    builder: (_) => const NotificationSettingsScreen(),
+                  ),
                 );
               },
             ),

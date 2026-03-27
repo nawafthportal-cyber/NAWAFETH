@@ -1,5 +1,7 @@
 from django.urls import path
 from .views import (
+    change_password_view,
+    change_username_view,
     ThrottledTokenObtainPairView,
     ThrottledTokenRefreshView,
     biometric_enroll,
@@ -26,6 +28,8 @@ urlpatterns = [
     path("username-availability/", username_availability, name="username_availability"),
     path("complete/", complete_registration, name="complete"),
     path("wallet/", wallet_view, name="wallet"),
+    path("change-username/", change_username_view, name="change_username"),
+    path("change-password/", change_password_view, name="change_password"),
     path("token/", ThrottledTokenObtainPairView.as_view(), name="token"),
     path("token/refresh/", ThrottledTokenRefreshView.as_view(), name="token_refresh"),
     path("me/", me_view, name="me"),

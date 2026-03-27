@@ -14,21 +14,42 @@ const Nav = (() => {
   let _badgeSocketBackoffMs = 1000;
   let _badgeOwnsLeadership = false;
   let _badgeEventsBound = false;
+  let _topbarSponsorLoaded = false;
+  let _topbarSponsorRotateTimer = 0;
+  let _topbarSponsorFace = 'brand';
+  let _topbarSponsorPayload = null;
+  let _topbarSponsorDialogBound = false;
   const _badgePollIntervalMs = 45000;
   const _badgeLeaderTtlMs = 70000;
   const _badgeSocketBackoffMaxMs = 30000;
   const _badgeLeaderKey = 'nw_badge_poll_leader_v2';
   const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
   const _badgeTabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const _topbarSponsorKey = 'nw_topbar_sponsor_v1';
+  const _topbarSponsorTtlMs = 5 * 60 * 1000;
 
   function init() {
     _ensureSingleBottomNav();
+    _initTopNavbar();
     _initModeAwareProfileNav();
     _initSidebarController();
     _initQuickNavButtons();
     _initAuthUI();
     _initLogout();
     _initUnreadBadges();
+    _initTopbarSponsor();
+  }
+
+  function _initTopNavbar() {
+    const topbar = document.getElementById('top-navbar');
+    if (!topbar) return;
+
+    const syncScrolled = () => {
+      topbar.classList.toggle('scrolled', window.scrollY > 8);
+    };
+
+    syncScrolled();
+    window.addEventListener('scroll', syncScrolled, { passive: true });
   }
 
   function _setProfileNavHref(mode) {
@@ -43,10 +64,18 @@ const Nav = (() => {
     ordersNav.classList.toggle('hidden', mode === 'provider');
   }
 
+  function _setModeAwareOrdersHref(mode) {
+    const href = mode === 'provider' ? '/provider-orders/' : '/orders/';
+    document.querySelectorAll('[data-mode-orders-link="true"]').forEach((link) => {
+      link.setAttribute('href', href);
+    });
+  }
+
   function _initModeAwareProfileNav() {
     const mode = _activeMode();
     _setProfileNavHref(mode);
     _setOrdersNavVisibility(mode);
+    _setModeAwareOrdersHref(mode);
   }
 
   function _ensureSingleBottomNav() {
@@ -132,9 +161,244 @@ const Nav = (() => {
     }
   }
 
+  function _parsePromoRows(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.results)) return data.results;
+    if (Array.isArray(data?.items)) return data.items;
+    return [];
+  }
+
+  function _normalizeTopbarSponsor(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+    const assets = Array.isArray(raw.assets) ? raw.assets : [];
+    const primaryAsset =
+      assets.find((asset) => {
+        if (!asset || typeof asset !== 'object') return false;
+        const assetType = String(asset.asset_type || '').trim().toLowerCase();
+        return assetType === 'image' && (asset.file || asset.file_url);
+      })
+      || assets.find((asset) => asset && (asset.file || asset.file_url))
+      || null;
+    const targetProviderId = Number(raw.target_provider_id || 0);
+    const redirectUrl = String(raw.redirect_url || raw.sponsor_url || '').trim();
+    const message = String(raw.message_body || raw.message_title || '').trim();
+    return {
+      name: String(raw.sponsor_name || raw.target_provider_display_name || '').trim(),
+      assetUrl: primaryAsset ? ApiClient.mediaUrl(primaryAsset.file || primaryAsset.file_url) : '',
+      href: redirectUrl || (targetProviderId > 0 ? '/provider/' + encodeURIComponent(String(targetProviderId)) + '/' : ''),
+      message,
+    };
+  }
+
+  function _readCachedTopbarSponsor() {
+    const cached = _readStorageJson(_topbarSponsorKey);
+    if (!cached) return null;
+    if (Number(cached.expiresAt || 0) < Date.now()) return null;
+    return cached.payload || null;
+  }
+
+  function _writeCachedTopbarSponsor(payload) {
+    _writeStorageJson(_topbarSponsorKey, {
+      expiresAt: Date.now() + _topbarSponsorTtlMs,
+      payload,
+    });
+  }
+
+  function _setTopbarFace(face) {
+    const brandFace = document.getElementById('topbar-brand-face');
+    const sponsorFace = document.getElementById('topbar-sponsor');
+    if (!brandFace || !sponsorFace) return;
+
+    const nextFace = face === 'sponsor' ? 'sponsor' : 'brand';
+    _topbarSponsorFace = nextFace;
+    brandFace.classList.toggle('is-active', nextFace === 'brand');
+    sponsorFace.classList.toggle('is-active', nextFace === 'sponsor');
+  }
+
+  function _stopTopbarSponsorRotation() {
+    if (_topbarSponsorRotateTimer) {
+      window.clearInterval(_topbarSponsorRotateTimer);
+      _topbarSponsorRotateTimer = 0;
+    }
+    _setTopbarFace('brand');
+  }
+
+  function _startTopbarSponsorRotation() {
+    const payload = _topbarSponsorPayload;
+    const hasSponsor = !!payload && (
+      String(payload.name || '').trim()
+      || String(payload.assetUrl || '').trim()
+      || String(payload.href || '').trim()
+    );
+    if (!hasSponsor) {
+      _stopTopbarSponsorRotation();
+      return;
+    }
+
+    _stopTopbarSponsorRotation();
+    _setTopbarFace('brand');
+    _topbarSponsorRotateTimer = window.setInterval(() => {
+      _setTopbarFace(_topbarSponsorFace === 'brand' ? 'sponsor' : 'brand');
+    }, 2000);
+  }
+
+  function _openTopbarSponsorDialog(payload) {
+    const modal = document.getElementById('topbar-sponsor-modal');
+    const title = document.getElementById('topbar-sponsor-modal-title');
+    const body = document.getElementById('topbar-sponsor-modal-body');
+    const link = document.getElementById('topbar-sponsor-modal-link');
+    if (!modal || !title || !body || !link) return;
+
+    const safePayload = payload && typeof payload === 'object' ? payload : {};
+    const sponsorName = String(safePayload.name || '').trim() || 'الراعي الرسمي';
+    const sponsorMessage = String(safePayload.message || '').trim() || 'لم يتم إضافة رسالة للرعاية بعد.';
+    const sponsorHref = String(safePayload.href || '').trim();
+
+    title.textContent = sponsorName;
+    body.textContent = sponsorMessage;
+    if (sponsorHref) {
+      link.classList.remove('hidden');
+      link.setAttribute('href', sponsorHref);
+      const isExternal = /^https?:\/\//i.test(sponsorHref);
+      if (isExternal) {
+        link.setAttribute('target', '_blank');
+        link.setAttribute('rel', 'noopener');
+      } else {
+        link.removeAttribute('target');
+        link.removeAttribute('rel');
+      }
+    } else {
+      link.classList.add('hidden');
+      link.removeAttribute('href');
+      link.removeAttribute('target');
+      link.removeAttribute('rel');
+    }
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function _closeTopbarSponsorDialog() {
+    const modal = document.getElementById('topbar-sponsor-modal');
+    if (!modal || modal.classList.contains('hidden')) return;
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  function _bindTopbarSponsorDialog() {
+    if (_topbarSponsorDialogBound) return;
+    _topbarSponsorDialogBound = true;
+
+    const sponsor = document.getElementById('topbar-sponsor');
+    const closeBtn = document.getElementById('topbar-sponsor-modal-close');
+    const backdrop = document.getElementById('topbar-sponsor-modal-backdrop');
+    if (sponsor) {
+      sponsor.addEventListener('click', (event) => {
+        const payload = _topbarSponsorPayload;
+        if (!payload || (!payload.message && !payload.href)) {
+          return;
+        }
+        event.preventDefault();
+        _openTopbarSponsorDialog(payload);
+      });
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', _closeTopbarSponsorDialog);
+    }
+    if (backdrop) {
+      backdrop.addEventListener('click', _closeTopbarSponsorDialog);
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        _closeTopbarSponsorDialog();
+      }
+    });
+  }
+
+  function _applyTopbarSponsor(payload) {
+    const sponsor = document.getElementById('topbar-sponsor');
+    const sponsorName = document.getElementById('topbar-sponsor-name');
+    const sponsorMedia = document.getElementById('topbar-sponsor-media');
+    if (!sponsor || !sponsorName || !sponsorMedia) return;
+
+    const safePayload = payload && typeof payload === 'object' ? payload : null;
+    _topbarSponsorPayload = safePayload;
+    const name = (safePayload?.name || '').trim() || 'مساحة الرعاية';
+    const href = (safePayload?.href || '').trim();
+    const assetUrl = (safePayload?.assetUrl || '').trim();
+    const message = (safePayload?.message || '').trim();
+
+    sponsorName.textContent = name;
+    sponsor.classList.toggle('is-placeholder', !safePayload || (!href && !assetUrl && name === 'مساحة الرعاية'));
+    sponsor.classList.toggle('is-link', !!href);
+    sponsor.setAttribute('data-sponsor-name', name);
+    sponsor.setAttribute('data-sponsor-message', message);
+    sponsor.setAttribute('data-sponsor-href', href);
+
+    if (href) {
+      sponsor.setAttribute('href', href);
+      const isExternal = /^https?:\/\//i.test(href);
+      if (isExternal) {
+        sponsor.setAttribute('target', '_blank');
+        sponsor.setAttribute('rel', 'noopener');
+      } else {
+        sponsor.removeAttribute('target');
+        sponsor.removeAttribute('rel');
+      }
+    } else {
+      sponsor.removeAttribute('href');
+      sponsor.removeAttribute('target');
+      sponsor.removeAttribute('rel');
+    }
+
+    sponsorMedia.innerHTML = '';
+    if (assetUrl) {
+      const img = document.createElement('img');
+      img.src = assetUrl;
+      img.alt = name;
+      sponsorMedia.appendChild(img);
+    } else {
+      const fallback = document.createElement('span');
+      fallback.className = 'topbar-sponsor-placeholder';
+      fallback.textContent = name.charAt(0) || 'ر';
+      sponsorMedia.appendChild(fallback);
+    }
+    _startTopbarSponsorRotation();
+  }
+
+  async function _initTopbarSponsor() {
+    if (_topbarSponsorLoaded) return;
+    _topbarSponsorLoaded = true;
+
+    const sponsor = document.getElementById('topbar-sponsor');
+    if (!sponsor) return;
+    _bindTopbarSponsorDialog();
+
+    const cached = _readCachedTopbarSponsor();
+    if (cached) {
+      _applyTopbarSponsor(cached);
+    } else {
+      _applyTopbarSponsor(null);
+    }
+
+    const res = await ApiClient.get('/api/promo/active/?service_type=sponsorship&limit=6');
+    if (!res?.ok) return;
+
+    const rows = _parsePromoRows(res.data);
+    const firstMatch = rows.find((row) => {
+      const normalized = _normalizeTopbarSponsor(row);
+      return normalized && (normalized.name || normalized.assetUrl || normalized.href);
+    });
+    const sponsorPayload = _normalizeTopbarSponsor(firstMatch);
+
+    _writeCachedTopbarSponsor(sponsorPayload);
+    _applyTopbarSponsor(sponsorPayload);
+  }
+
   /* ---------- Auth-aware UI ---------- */
   async function _initAuthUI() {
     const loginLink = document.getElementById('sidebar-login-link');
+    const desktopLoginLink = document.getElementById('home-desktop-login');
     const logoutBtn = document.getElementById('sidebar-logout');
     const nameEl = document.getElementById('sidebar-name');
     const roleEl = document.getElementById('sidebar-role');
@@ -144,12 +408,17 @@ const Nav = (() => {
     if (loginLink) {
       const returnPath = window.location.pathname === '/login/' ? '/' : window.location.pathname;
       loginLink.href = '/login/?next=' + encodeURIComponent(returnPath);
+      if (desktopLoginLink) {
+        desktopLoginLink.href = loginLink.href;
+      }
     }
 
     if (!Auth.isLoggedIn()) {
       _setProfileNavHref('client');
       _setOrdersNavVisibility('client');
+      _setModeAwareOrdersHref('client');
       if (loginLink) loginLink.classList.remove('hidden');
+      if (desktopLoginLink) desktopLoginLink.classList.remove('hidden');
       if (logoutBtn) logoutBtn.classList.add('hidden');
       if (nameEl) nameEl.textContent = 'زائر';
       if (roleEl) roleEl.textContent = 'تصفح كضيف';
@@ -159,6 +428,7 @@ const Nav = (() => {
     }
 
     if (loginLink) loginLink.classList.add('hidden');
+    if (desktopLoginLink) desktopLoginLink.classList.add('hidden');
     if (logoutBtn) logoutBtn.classList.remove('hidden');
 
     const profile = await Auth.getProfile();
@@ -182,6 +452,7 @@ const Nav = (() => {
     } catch (_) {}
     _setProfileNavHref(effectiveMode);
     _setOrdersNavVisibility(effectiveMode);
+    _setModeAwareOrdersHref(effectiveMode);
 
     const display = profile.display_name || profile.first_name || profile.username || 'مستخدم';
     const role = profile.role_state === 'provider'

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/content_service.dart';
 import '../services/api_client.dart';
+import '../widgets/platform_top_bar.dart';
 
 class TermsScreen extends StatefulWidget {
   const TermsScreen({super.key});
@@ -140,11 +141,11 @@ class _TermsScreenState extends State<TermsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_pageTitle),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 2,
+      appBar: PlatformTopBar(
+        pageLabel: _pageTitle,
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))

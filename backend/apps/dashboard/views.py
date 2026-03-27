@@ -2152,8 +2152,26 @@ def promo_dashboard(request, request_id: int | None = None):
 
 def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
     rows: list[dict] = []
+    now = timezone.now()
     for item in items:
         promo_request = item.request
+        channels: list[str] = []
+        if item.use_notification_channel:
+            channels.append("تنبيه")
+        if item.use_chat_channel:
+            channels.append("محادثات")
+
+        if item.message_dispatch_error:
+            dispatch_status = f"تعذر الإرسال: {item.message_dispatch_error}"
+        elif item.message_sent_at:
+            dispatch_status = f"تم الإرسال ({int(item.message_recipients_count or 0)} مستلم)"
+        elif item.send_at and item.send_at > now:
+            dispatch_status = "مجدول"
+        elif item.send_at:
+            dispatch_status = "بانتظار التنفيذ"
+        else:
+            dispatch_status = "-"
+
         rows.append(
             {
                 "id": item.id,
@@ -2169,6 +2187,8 @@ def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
                 "frequency": item.get_frequency_display() if item.frequency else "-",
                 "search_scope": item.get_search_scope_display() if item.search_scope else "-",
                 "search_position": item.get_search_position_display() if item.search_position else "-",
+                "channels": " + ".join(channels) if channels else "-",
+                "dispatch_status": dispatch_status,
             }
         )
     return rows
@@ -2380,6 +2400,48 @@ def _promo_module_assets_for_selected_request(
         return unassigned_assets
     return []
 
+
+def _promo_module_request_preview_payload(
+    *,
+    selected_request: PromoRequest | None,
+    service_type: str,
+) -> dict:
+    if selected_request is None:
+        return {
+            "request": {"id": "", "code": "", "requester_label": ""},
+            "asset": {"url": "", "type": "", "name": ""},
+        }
+
+    assets = _promo_module_assets_for_selected_request(
+        selected_request=selected_request,
+        service_type=service_type,
+    )
+    asset = assets[0] if assets else None
+    asset_url = ""
+    asset_type = ""
+    asset_name = ""
+    if asset is not None:
+        asset_type = str(getattr(asset, "asset_type", "") or "")
+        asset_name = str(getattr(getattr(asset, "file", None), "name", "") or "")
+        try:
+            asset_url = asset.file.url if getattr(asset, "file", None) else ""
+        except Exception:
+            asset_url = ""
+
+    return {
+        "request": {
+            "id": str(selected_request.id or ""),
+            "code": selected_request.code or f"MD{selected_request.id:06d}",
+            "requester_label": _promo_requester_label(selected_request.requester),
+        },
+        "asset": {
+            "url": asset_url,
+            "type": asset_type,
+            "name": asset_name,
+        },
+    }
+
+
 def _promo_module_action(request) -> str:
     raw = (request.POST.get("workflow_action") or request.POST.get("action") or "").strip().lower()
     if raw in {"preview_item", "approve_item", "save_item"}:
@@ -2458,6 +2520,16 @@ def promo_module(request, module_key: str):
         if service_type == PromoServiceType.HOME_BANNER and selected_request_module_assets
         else None
     )
+    selected_message_asset = (
+        selected_request_module_assets[0]
+        if service_type == PromoServiceType.PROMO_MESSAGES and selected_request_module_assets
+        else None
+    )
+    selected_sponsorship_asset = (
+        selected_request_module_assets[0]
+        if service_type == PromoServiceType.SPONSORSHIP and selected_request_module_assets
+        else None
+    )
 
     module_items_qs = (
         PromoRequestItem.objects.select_related("request", "request__requester")
@@ -2506,6 +2578,16 @@ def promo_module(request, module_key: str):
             selected_home_banner_asset = (
                 selected_request_module_assets[0]
                 if service_type == PromoServiceType.HOME_BANNER and selected_request_module_assets
+                else None
+            )
+            selected_message_asset = (
+                selected_request_module_assets[0]
+                if service_type == PromoServiceType.PROMO_MESSAGES and selected_request_module_assets
+                else None
+            )
+            selected_sponsorship_asset = (
+                selected_request_module_assets[0]
+                if service_type == PromoServiceType.SPONSORSHIP and selected_request_module_assets
                 else None
             )
 
@@ -2719,6 +2801,8 @@ def promo_module(request, module_key: str):
             "selected_portfolio_item_data": selected_portfolio_item_data,
             "selected_request_module_assets": selected_request_module_assets,
             "selected_home_banner_asset": selected_home_banner_asset,
+            "selected_message_asset": selected_message_asset,
+            "selected_sponsorship_asset": selected_sponsorship_asset,
             "selected_request_quote": _promo_quote_snapshot(selected_request) if selected_request else None,
             "preview_payload": preview_payload,
             "is_featured_module": service_type == PromoServiceType.FEATURED_SPECIALISTS,
@@ -2727,6 +2811,11 @@ def promo_module(request, module_key: str):
             "is_search_module": service_type == PromoServiceType.SEARCH_RESULTS,
             "is_messages_module": service_type == PromoServiceType.PROMO_MESSAGES,
             "is_sponsorship_module": service_type == PromoServiceType.SPONSORSHIP,
+            "is_live_preview_action_module": service_type in {
+                PromoServiceType.HOME_BANNER,
+                PromoServiceType.PROMO_MESSAGES,
+                PromoServiceType.SPONSORSHIP,
+            },
             "is_module_review_flow": service_type in {PromoServiceType.PROMO_MESSAGES, PromoServiceType.SPONSORSHIP},
             "provider_portfolio_api_template": provider_portfolio_api_template,
             "provider_detail_api_template": reverse("providers:provider_detail", kwargs={"pk": 0}).replace(
@@ -2737,9 +2826,47 @@ def promo_module(request, module_key: str):
                 "/0/spotlights/",
                 "/__provider_id__/spotlights/",
             ),
+            "module_preview_api_url": reverse(
+                "dashboard:promo_module_request_preview_api",
+                kwargs={"module_key": module_key},
+            ),
         }
     )
     return render(request, "dashboard/promo_module.html", context)
+
+
+@dashboard_staff_required
+@require_dashboard_access("promo")
+def promo_module_request_preview_api(request, module_key: str):
+    module_meta = PROMO_MODULE_META_BY_KEY.get((module_key or "").strip())
+    if not module_meta:
+        raise Http404("وحدة الترويج غير موجودة.")
+
+    request_id_raw = (request.GET.get("request_id") or "").strip()
+    if not request_id_raw.isdigit():
+        return JsonResponse(
+            {"ok": False, "error": "رقم الطلب غير صالح."},
+            status=400,
+            json_dumps_params={"ensure_ascii": False},
+        )
+
+    requests_base_qs = _promo_requests_queryset_for_user(request.user)
+    selected_request = requests_base_qs.filter(id=int(request_id_raw)).first()
+    if selected_request is None:
+        return JsonResponse(
+            {"ok": False, "error": "طلب الترويج المحدد غير متاح."},
+            status=404,
+            json_dumps_params={"ensure_ascii": False},
+        )
+
+    payload = _promo_module_request_preview_payload(
+        selected_request=selected_request,
+        service_type=module_meta["service_type"],
+    )
+    return JsonResponse(
+        {"ok": True, **payload},
+        json_dumps_params={"ensure_ascii": False},
+    )
 
 
 @dashboard_staff_required

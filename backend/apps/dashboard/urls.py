@@ -17,6 +17,11 @@ urlpatterns = [
     path("promo/", views.promo_dashboard, name="promo_dashboard"),
     path("promo/<int:request_id>/", views.promo_dashboard, name="promo_request_detail"),
     path("promo/modules/<slug:module_key>/", views.promo_module, name="promo_module"),
+    path(
+        "promo/modules/<slug:module_key>/preview-context/",
+        views.promo_module_request_preview_api,
+        name="promo_module_request_preview_api",
+    ),
     path("promo/pricing/", views.promo_pricing, name="promo_pricing"),
     path("content/", views.content_dashboard_home, name="content_dashboard_home"),
     path("content/first-time/", views.content_first_time, name="content_first_time"),

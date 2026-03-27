@@ -7,6 +7,7 @@ import '../models/provider_profile_model.dart';
 import '../models/user_profile.dart';
 import '../services/api_client.dart';
 import '../services/profile_service.dart';
+import '../widgets/platform_top_bar.dart';
 
 class MyQrScreen extends StatefulWidget {
   const MyQrScreen({super.key});
@@ -122,18 +123,11 @@ class _MyQrScreenState extends State<MyQrScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7FB),
-      appBar: AppBar(
-        title: const Text(
-          'QR نافذتي',
-          style: TextStyle(
-            fontFamily: 'Cairo',
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 0,
+      appBar: PlatformTopBar(
+        pageLabel: 'QR نافذتي',
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: Directionality(
         textDirection: TextDirection.rtl,

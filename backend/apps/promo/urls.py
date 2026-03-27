@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     PromoRequestCreateView,
     PromoRequestPreviewView,
+    PromoPricingGuideView,
     MyPromoRequestsListView,
     PromoRequestDetailView,
     PromoAddAssetView,
@@ -20,6 +21,7 @@ from .views import (
 
 urlpatterns = [
     # client
+    path("pricing/guide/", PromoPricingGuideView.as_view(), name="pricing_guide"),
     path("requests/preview/", PromoRequestPreviewView.as_view(), name="preview"),
     path("requests/create/", PromoRequestCreateView.as_view(), name="create"),
     path("requests/my/", MyPromoRequestsListView.as_view(), name="my"),

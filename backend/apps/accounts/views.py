@@ -16,6 +16,8 @@ from .models import OTP, BiometricToken, User, UserRole, Wallet
 from .serializers import (
     BiometricEnrollSerializer,
     BiometricLoginSerializer,
+    ChangePasswordSerializer,
+    ChangeUsernameSerializer,
     CompleteRegistrationSerializer,
     MeUpdateSerializer,
     OTPSendSerializer,
@@ -379,6 +381,36 @@ def me_view(request):
             raise
 
     return Response(_me_payload(user, request=request))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_username_view(request):
+    serializer = ChangeUsernameSerializer(data=request.data, context={"request": request})
+    serializer.is_valid(raise_exception=True)
+
+    user = request.user
+    user.username = serializer.validated_data["username"]
+    user.save(update_fields=["username"])
+    return Response({"ok": True, "username": user.username}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def change_password_view(request):
+    serializer = ChangePasswordSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    user = request.user
+    current_password = serializer.validated_data["current_password"]
+    new_password = serializer.validated_data["new_password"]
+
+    if not user.check_password(current_password):
+        return Response({"current_password": ["كلمة المرور الحالية غير صحيحة"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save(update_fields=["password"])
+    return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])

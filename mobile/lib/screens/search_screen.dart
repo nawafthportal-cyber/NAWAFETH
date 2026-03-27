@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
+import '../widgets/platform_top_bar.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -60,12 +61,11 @@ class _SearchScreenState extends State<SearchScreen> {
     
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          "طلبات الخدمة التنافسية",
-          style: TextStyle(fontFamily: "Cairo", fontSize: 18),
-        ),
-        backgroundColor: AppColors.deepPurple,
+      appBar: PlatformTopBar(
+        pageLabel: 'طلبات الخدمة التنافسية',
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

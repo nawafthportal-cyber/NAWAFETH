@@ -207,3 +207,37 @@ class WalletSerializer(serializers.Serializer):
     id = serializers.IntegerField(read_only=True)
     balance = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
+
+
+class ChangeUsernameSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=50)
+
+    def validate_username(self, value: str) -> str:
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("اسم المستخدم مطلوب")
+        if len(value) < 3:
+            raise serializers.ValidationError("اسم المستخدم يجب أن يكون 3 أحرف على الأقل")
+        if not re.match(r"^[A-Za-z0-9_.]+$", value):
+            raise serializers.ValidationError("اسم المستخدم يقبل الحروف الإنجليزية والأرقام و (_) و (.) فقط")
+
+        request = self.context.get("request")
+        qs = User.objects.filter(username__iexact=value)
+        if request is not None and getattr(request, "user", None) and request.user.is_authenticated:
+            qs = qs.exclude(pk=request.user.pk)
+        if qs.exists():
+            raise serializers.ValidationError("اسم المستخدم محجوز، اختر اسماً آخر")
+        return value
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True, write_only=True)
+    new_password = serializers.CharField(required=True, min_length=8, max_length=128, write_only=True)
+    new_password_confirm = serializers.CharField(required=True, min_length=8, max_length=128, write_only=True)
+
+    def validate(self, attrs):
+        new_password = (attrs.get("new_password") or "").strip()
+        new_password_confirm = (attrs.get("new_password_confirm") or "").strip()
+        if new_password != new_password_confirm:
+            raise serializers.ValidationError({"new_password_confirm": "كلمة المرور وتأكيدها غير متطابقين"})
+        return attrs

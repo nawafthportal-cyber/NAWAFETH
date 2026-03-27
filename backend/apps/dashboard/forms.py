@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from django import forms
+from django.utils import timezone
 
 from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard
 from apps.content.models import (
@@ -953,6 +956,64 @@ class PromoModuleItemForm(forms.Form):
             if initial_scope and not initial_scopes:
                 self.initial["search_scopes"] = [initial_scope]
 
+        if self.service_type == PromoServiceType.PROMO_MESSAGES:
+            self.fields["media_file"].widget.attrs.update(
+                {
+                    "accept": ".jpg,.jpeg,.png,.gif,.mp4,image/*,video/mp4",
+                    "data-promo-message-media": "true",
+                }
+            )
+            self.fields["attachment_specs"].widget.attrs.update(
+                {
+                    "readonly": "readonly",
+                    "tabindex": "-1",
+                    "placeholder": "يتم تعبئته تلقائيًا بعد اختيار المرفق",
+                }
+            )
+            self.fields["message_body"].widget.attrs.update(
+                {
+                    "rows": 8,
+                    "placeholder": "اكتب الرسالة الدعائية هنا، أو اترك النص فارغًا وارفع مرفقًا واحدًا.",
+                }
+            )
+            self.fields["send_at"].widget.attrs["min"] = timezone.localtime(timezone.now()).strftime("%Y-%m-%dT%H:%M")
+
+        if self.service_type == PromoServiceType.HOME_BANNER:
+            self.fields["media_file"].widget.attrs.update(
+                {
+                    "accept": ".jpg,.jpeg,.png,.mp4,image/*,video/mp4",
+                    "data-home-banner-media": "true",
+                }
+            )
+            self.fields["attachment_specs"].widget.attrs.update(
+                {
+                    "readonly": "readonly",
+                    "tabindex": "-1",
+                    "placeholder": "يتم تعبئته تلقائيًا بعد اختيار التصميم",
+                }
+            )
+
+        if self.service_type == PromoServiceType.SPONSORSHIP:
+            self.fields["media_file"].widget.attrs.update(
+                {
+                    "accept": ".jpg,.jpeg,.png,.mp4,image/*,video/mp4",
+                    "data-sponsorship-media": "true",
+                }
+            )
+            self.fields["attachment_specs"].widget.attrs.update(
+                {
+                    "readonly": "readonly",
+                    "tabindex": "-1",
+                    "placeholder": "يتم تعبئته تلقائيًا بعد اختيار شعار أو ملف الرعاية",
+                }
+            )
+            self.fields["message_body"].widget.attrs.update(
+                {
+                    "rows": 5,
+                    "placeholder": "نبذة قصيرة عن الراعي أو العرض المرافق.",
+                }
+            )
+
     def clean(self):
         cleaned = super().clean()
         service_type = str(self.service_type or "").strip()
@@ -1005,6 +1066,8 @@ class PromoModuleItemForm(forms.Form):
         if service_type == PromoServiceType.PROMO_MESSAGES:
             if not send_at:
                 self.add_error("send_at", "وقت الإرسال مطلوب.")
+            elif send_at < timezone.now():
+                self.add_error("send_at", "لا يمكن جدولة رسالة دعائية في الماضي.")
             if not cleaned.get("use_notification_channel") and not cleaned.get("use_chat_channel"):
                 self.add_error("use_notification_channel", "اختر قناة إرسال واحدة على الأقل.")
             if not (cleaned.get("message_body") or "").strip() and cleaned.get("media_file") is None:
@@ -1040,3 +1103,19 @@ class PromoModuleItemForm(forms.Form):
 
     def clean_operator_note(self):
         return (self.cleaned_data.get("operator_note") or "").strip()[:300]
+
+    def clean_media_file(self):
+        uploaded = self.cleaned_data.get("media_file")
+        if uploaded is None or str(self.service_type or "").strip() != PromoServiceType.PROMO_MESSAGES:
+            return uploaded
+
+        ext = Path(str(getattr(uploaded, "name", "") or "")).suffix.lower()
+        content_type = str(getattr(uploaded, "content_type", "") or "").strip().lower()
+        allowed_ext = {".jpg", ".jpeg", ".png", ".gif", ".mp4"}
+        is_image = content_type.startswith("image/") or ext in {".jpg", ".jpeg", ".png", ".gif"}
+        is_mp4 = content_type == "video/mp4" or ext == ".mp4"
+        if ext and ext not in allowed_ext:
+            raise forms.ValidationError("المرفق يجب أن يكون صورة ثابتة أو متحركة أو فيديو MP4 واحدًا.")
+        if not is_image and not is_mp4:
+            raise forms.ValidationError("المرفق يجب أن يكون صورة ثابتة أو متحركة أو فيديو MP4 واحدًا.")
+        return uploaded

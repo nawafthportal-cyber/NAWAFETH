@@ -17,6 +17,7 @@ import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
 import '../widgets/promo_banner_widget.dart';
 import '../widgets/promo_media_tile.dart';
+import '../widgets/platform_top_bar.dart';
 import '../widgets/spotlight_viewer.dart';
 import '../widgets/verified_badge_view.dart';
 import '../services/content_service.dart';
@@ -860,65 +861,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 8),
-                  // Top bar
-                  Row(
-                    children: [
-                      // Menu
-                      GestureDetector(
-                        onTap: () => _scaffoldKey.currentState?.openDrawer(),
-                        child: Container(
-                          padding: const EdgeInsets.all(7),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.menu_rounded,
-                              color: Colors.white, size: 20),
+                  PlatformTopBar(
+                    overlay: true,
+                    height: 92,
+                    showMenuButton: true,
+                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                    notificationCount: _notificationUnread,
+                    chatCount: _chatUnread,
+                    onNotificationsTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
                         ),
-                      ),
-                      const Spacer(),
-                      // Logo text
-                      const Text(
-                        'نوافــذ',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Cairo',
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(color: Colors.black38, blurRadius: 8)
-                          ],
+                      );
+                      _loadUnreadBadges();
+                    },
+                    onChatsTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MyChatsScreen(),
                         ),
-                      ),
-                      const Spacer(),
-                      // Notifications
-                      _heroIconBtn(
-                        icon: Icons.notifications_none_rounded,
-                        count: _notificationUnread,
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const NotificationsScreen()),
-                          );
-                          _loadUnreadBadges();
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      // Chat
-                      _heroIconBtn(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        count: _chatUnread,
-                        onTap: () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) => const MyChatsScreen()),
-                          );
-                          _loadUnreadBadges();
-                        },
-                      ),
-                    ],
+                      );
+                      _loadUnreadBadges();
+                    },
                   ),
 
                   const Spacer(),
@@ -1151,51 +1118,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _heroIconBtn({
-    required IconData icon,
-    required VoidCallback onTap,
-    required int count,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: Colors.white, size: 18),
-          ),
-          if (count > 0)
-            Positioned(
-              top: -4,
-              right: -6,
-              child: Container(
-                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  count > 99 ? '99+' : '$count',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
@@ -1864,6 +1786,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final opened = await _openExternalPromoUrl(externalUrl);
           if (opened) return;
         }
+        if (!mounted) return;
         await Navigator.push(
           context,
           MaterialPageRoute(
@@ -1877,6 +1800,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         );
+        if (!mounted) return;
         _syncSpotlightInteractionState();
       },
       child: Container(

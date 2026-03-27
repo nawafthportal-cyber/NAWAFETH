@@ -2883,6 +2883,43 @@ def test_promo_pricing_dashboard_renders_unlocalized_number_values(client, promo
     assert match.group(1) == f"{target_rule.amount:.2f}"
 
 
+def test_pricing_guide_api_reflects_active_dashboard_pricing_rules(api):
+    ensure_default_pricing_rules()
+    target_rule = PromoPricingRule.objects.get(code="home_banner_daily")
+    target_rule.amount = Decimal("4321.55")
+    target_rule.save(update_fields=["amount", "updated_at"])
+
+    disabled_rule = PromoPricingRule.objects.get(code="messages_chat")
+    disabled_rule.is_active = False
+    disabled_rule.save(update_fields=["is_active", "updated_at"])
+
+    response = api.get("/api/promo/pricing/guide/")
+    assert response.status_code == 200
+
+    payload = response.data
+    assert int(payload.get("min_campaign_hours") or 0) >= 1
+
+    services = {
+        str(row.get("service_type") or ""): row
+        for row in (payload.get("services") or [])
+        if isinstance(row, dict)
+    }
+
+    home_rows = (services.get(PromoServiceType.HOME_BANNER) or {}).get("rules") or []
+    assert any(
+        isinstance(row, dict)
+        and row.get("code") == "home_banner_daily"
+        and row.get("amount") == "4321.55"
+        for row in home_rows
+    )
+
+    message_rows = (services.get(PromoServiceType.PROMO_MESSAGES) or {}).get("rules") or []
+    assert all(
+        not isinstance(row, dict) or row.get("code") != "messages_chat"
+        for row in message_rows
+    )
+
+
 def test_promo_module_home_banner_prefills_selected_request_and_shows_assets(client, promo_operator_user, user):
     start_at = timezone.now() + timedelta(days=2)
     end_at = start_at + timedelta(days=3)

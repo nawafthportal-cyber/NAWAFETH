@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -13,6 +14,8 @@ import '../services/account_mode_service.dart';
 import '../services/api_client.dart';
 import '../services/marketplace_service.dart';
 import '../services/unread_badge_service.dart';
+import '../widgets/platform_top_bar.dart';
+import 'notifications_screen.dart';
 import 'provider_dashboard/provider_order_details_screen.dart';
 import 'service_request_form_screen.dart';
 
@@ -71,6 +74,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isReconnecting = false;
   bool _isProviderAccount = false;
   int? _myProviderProfileId;
+  int _notificationUnread = 0;
+  ValueListenable<UnreadBadges>? _badgeHandle;
   static final RegExp _serviceRequestUrlRegex = RegExp(
     r'(https?:\/\/[^\s]+|\/service-request\/[^\s]*)',
     caseSensitive: false,
@@ -80,12 +85,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (_isChatConnected) return 'متصل';
     if (_isReconnecting) return 'جاري إعادة الاتصال...';
     return 'غير متصل';
-  }
-
-  Color _connectionStatusColor(BuildContext context) {
-    if (_isChatConnected) return Colors.green.shade100;
-    if (_isReconnecting) return Colors.amber.shade100;
-    return Colors.red.shade100;
   }
 
   bool get _isChatWithClient => widget.peerProviderId == null;
@@ -112,9 +111,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _badgeHandle = UnreadBadgeService.acquire();
+    _badgeHandle?.addListener(_handleBadgeChange);
+    _handleBadgeChange();
     _resolvedThreadId = widget.threadId;
     _initAccountContext();
     _initChat();
+  }
+
+  void _handleBadgeChange() {
+    final badges = _badgeHandle?.value ?? UnreadBadges.empty;
+    if (!mounted) return;
+    setState(() {
+      _notificationUnread = badges.notifications;
+    });
   }
 
   int? _toIntOrNull(dynamic value) {
@@ -1792,6 +1802,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void dispose() {
     _timer?.cancel();
     _liveSyncTimer?.cancel();
+    _badgeHandle?.removeListener(_handleBadgeChange);
+    if (_badgeHandle != null) {
+      UnreadBadgeService.release();
+      _badgeHandle = null;
+    }
     if (_playerInitialized) {
       _player.closePlayer();
     }
@@ -1809,47 +1824,45 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.appBarTheme.backgroundColor ?? Colors.deepPurple,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _memberName,
-              style: const TextStyle(
-                  fontFamily: "Cairo",
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold),
+      appBar: PlatformTopBar(
+        pageLabel: '$_memberName • $_connectionStatusText',
+        showBackButton: Navigator.of(context).canPop(),
+        showChatAction: false,
+        notificationCount: _notificationUnread,
+        onNotificationsTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const NotificationsScreen(),
             ),
-            Text(
-              _connectionStatusText,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 11,
-                color: _connectionStatusColor(context),
-              ),
-            ),
-          ],
-        ),
-        actions: [
+          );
+          await UnreadBadgeService.refresh(force: true);
+        },
+        trailingActions: [
           if (_canShowProviderClientActions)
-            IconButton(
-              icon: const Icon(Icons.assignment_ind_outlined,
-                  color: Colors.white, size: 22),
-              onPressed: _showClientRequestsSheet,
-              tooltip: "طلبات العميل",
+            PlatformTopBarActionButton(
+              icon: Icons.assignment_ind_outlined,
+              foreground: const Color(0xFF56316D),
+              background: Colors.white.withValues(alpha: 0.82),
+              borderColor: const Color(0xFFDACDED),
+              onTap: _showClientRequestsSheet,
             ),
+          if (_canShowProviderClientActions) const SizedBox(width: 6),
           if (_canShowProviderClientActions)
-            IconButton(
-              icon: const Icon(Icons.send_outlined,
-                  color: Colors.white, size: 22),
-              onPressed: _sendServiceRequestLink,
-              tooltip: "إرسال رابط طلب خدمة",
+            PlatformTopBarActionButton(
+              icon: Icons.send_outlined,
+              foreground: const Color(0xFF56316D),
+              background: Colors.white.withValues(alpha: 0.82),
+              borderColor: const Color(0xFFDACDED),
+              onTap: _sendServiceRequestLink,
             ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () => _showChatOptions(),
+          if (_canShowProviderClientActions) const SizedBox(width: 6),
+          PlatformTopBarActionButton(
+            icon: Icons.more_vert,
+            foreground: const Color(0xFF56316D),
+            background: Colors.white.withValues(alpha: 0.82),
+            borderColor: const Color(0xFFDACDED),
+            onTap: _showChatOptions,
           ),
         ],
       ),

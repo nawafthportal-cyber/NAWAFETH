@@ -82,17 +82,36 @@
                   <h4>بنر الصفحة الرئيسية</h4>
                   <div class="home-banner-requester-row">
                     <span>اسم العميل</span>
-                    <strong>{{ selected_requester_label|default:"-" }}</strong>
+                    <strong id="homeBannerRequesterLabel">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
-                  <div class="home-banner-editor-layout">
-                    <div class="home-banner-phone-panel">
+                  <div
+                    class="home-banner-editor-layout"
+                    id="homeBannerModule"
+                    data-preview-api-url="{{ module_preview_api_url }}"
+                    data-request-id="{% if selected_request %}{{ selected_request.id }}{% endif %}"
+                    data-request-code="{% if selected_request %}{{ selected_request.code|default:selected_request.id }}{% endif %}"
+                    data-requester-label="{{ selected_requester_label|default:'' }}"
+                    data-existing-src="{% if selected_home_banner_asset and selected_home_banner_asset.file %}{{ selected_home_banner_asset.file.url }}{% endif %}"
+                    data-existing-type="{% if selected_home_banner_asset %}{{ selected_home_banner_asset.asset_type }}{% endif %}"
+                    data-existing-name="{% if selected_home_banner_asset and selected_home_banner_asset.file %}{{ selected_home_banner_asset.file.name }}{% endif %}"
+                  >
+                    <div class="home-banner-phone-panel" id="homeBannerPreviewPanel">
+                      <div class="home-banner-preview-toolbar">
+                        <div class="messages-preview-badges">
+                          <span class="pill accent" id="homeBannerPreviewRequestBadge">
+                            {% if selected_request %}الطلب: {{ selected_request.code|default:selected_request.id }}{% else %}اختر الطلب{% endif %}
+                          </span>
+                          <span class="pill brand" id="homeBannerPreviewPeriodBadge">حدد فترة الحملة</span>
+                        </div>
+                        <p class="home-banner-preview-summary" id="homeBannerPreviewSummary">
+                          المعاينة الحية تعرض التصميم المحلي مباشرة، وتسترجع آخر مرفق محفوظ عند تغيير طلب الترويج.
+                        </p>
+                      </div>
                       <div class="home-banner-phone-shell">
                         <div class="home-banner-phone-notch"></div>
                         <div
                           class="home-banner-phone-screen"
                           id="homeBannerPhonePreviewMedia"
-                          data-existing-src="{% if selected_home_banner_asset and selected_home_banner_asset.file %}{{ selected_home_banner_asset.file.url }}{% endif %}"
-                          data-existing-type="{% if selected_home_banner_asset %}{{ selected_home_banner_asset.asset_type }}{% endif %}"
                         >
                           <div class="home-banner-preview-empty" id="homeBannerPhonePreviewEmpty" {% if selected_home_banner_asset %}hidden{% endif %}>
                             اختر التصميم لعرضه داخل شاشة الجوال.
@@ -540,98 +559,272 @@
               {% elif is_messages_module %}
                 <section class="module-block module-block-messages">
                   <h4>إعدادات الرسائل الدعائية</h4>
-                  <div class="form-grid">
-                    <div class="field full">
-                      <label for="{{ module_form.message_title.id_for_label }}">عنوان الرسالة</label>
-                      {{ module_form.message_title }}
-                      {% for err in module_form.message_title.errors %}<small>{{ err }}</small>{% endfor %}
+                  <div class="messages-module-requester-row">
+                    <div class="messages-module-requester-copy">
+                      <span>الحساب المرتبط بالرسالة</span>
+                      <small>يمكن اختيار قناة واحدة أو أكثر، وسيتم إرسال المادة لجميع الحسابات في الموعد المحدد.</small>
                     </div>
-                    <div class="field full">
-                      <label for="{{ module_form.message_body.id_for_label }}">نص الرسالة الدعائية</label>
-                      {{ module_form.message_body }}
-                      {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.send_at.id_for_label }}">توقيت الإرسال</label>
-                      {{ module_form.send_at }}
-                      {% for err in module_form.send_at.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label>قنوات الرسائل</label>
-                      <div class="checks">
-                        <ul>
-                          <li><label>{{ module_form.use_notification_channel }} <span>رسائل التنبيه الدعائية</span></label></li>
-                          <li><label>{{ module_form.use_chat_channel }} <span>رسائل المحادثات الدعائية</span></label></li>
-                        </ul>
+                    <strong id="promoMessageRequesterLabel">{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div
+                    class="messages-module-layout"
+                    id="promoMessageModule"
+                    data-preview-api-url="{{ module_preview_api_url }}"
+                    data-request-id="{% if selected_request %}{{ selected_request.id }}{% endif %}"
+                    data-request-code="{% if selected_request %}{{ selected_request.code|default:selected_request.id }}{% endif %}"
+                    data-existing-src="{% if selected_message_asset and selected_message_asset.file %}{{ selected_message_asset.file.url }}{% endif %}"
+                    data-existing-type="{% if selected_message_asset %}{{ selected_message_asset.asset_type }}{% endif %}"
+                    data-existing-name="{% if selected_message_asset and selected_message_asset.file %}{{ selected_message_asset.file.name }}{% endif %}"
+                    data-sender-label="{{ selected_requester_label|default:'مرسل الحملة' }}"
+                  >
+                    <div class="messages-module-form-panel">
+                      {{ module_form.message_title.as_hidden }}
+                      <div class="form-grid messages-module-form-grid">
+                        <div class="field full">
+                          <small>النص غير إلزامي، والمرفق اختياري، لكن لا يمكن اعتماد رسالة فارغة بدون نص وبدون مرفق.</small>
+                        </div>
+                        <div class="field full">
+                          <label>قنوات الترويج</label>
+                          <div class="messages-channel-grid" id="promoMessageChannelGrid">
+                            <label class="messages-channel-card" data-channel-card="notification">
+                              {{ module_form.use_notification_channel }}
+                              <span class="messages-channel-card-copy">
+                                <strong>رسائل التنبيه الدعائية</strong>
+                                <small>تظهر داخل تصميم جوال الإشعارات مع قائمة التنبيهات.</small>
+                              </span>
+                            </label>
+                            <label class="messages-channel-card" data-channel-card="chat">
+                              {{ module_form.use_chat_channel }}
+                              <span class="messages-channel-card-copy">
+                                <strong>رسائل المحادثات الدعائية</strong>
+                                <small>تظهر داخل شاشة المحادثة كرسالة دعائية ترسل لجميع المستخدمين.</small>
+                              </span>
+                            </label>
+                          </div>
+                          <small>يمكن اختيار واحد أو أكثر من قنوات الترويج.</small>
+                          {% for err in module_form.use_notification_channel.errors %}<small>{{ err }}</small>{% endfor %}
+                          {% for err in module_form.use_chat_channel.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.message_body.id_for_label }}">نص الرسالة الترويجية</label>
+                          {{ module_form.message_body }}
+                          {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.media_file.id_for_label }}">رفع المرفق</label>
+                          <div class="messages-module-upload-shell">
+                            <div class="messages-module-upload-head">
+                              <strong>مرفق دعائي واحد</strong>
+                              <span>صورة ثابتة أو متحركة GIF أو فيديو MP4</span>
+                            </div>
+                            {{ module_form.media_file }}
+                            <small>يسمح برفع مرفق واحد فقط. إذا كان النص فارغًا يصبح المرفق هو محتوى الرسالة الأساسي.</small>
+                            {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                          </div>
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                          {{ module_form.attachment_specs }}
+                          {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.send_at.id_for_label }}">توقيت الإرسال</label>
+                          {{ module_form.send_at }}
+                          {% for err in module_form.send_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.redirect_url.id_for_label }}">رابط الوجهة (اختياري)</label>
+                          {{ module_form.redirect_url }}
+                          <small>يفتح عند الضغط على الرسالة أو الإشعار من الجوال.</small>
+                          {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
                       </div>
-                      {% for err in module_form.use_notification_channel.errors %}<small>{{ err }}</small>{% endfor %}
-                      {% for err in module_form.use_chat_channel.errors %}<small>{{ err }}</small>{% endfor %}
                     </div>
-                    <div class="field">
-                      <label for="{{ module_form.media_file.id_for_label }}">رفع ملف الرسالة</label>
-                      {{ module_form.media_file }}
-                      {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
-                      {{ module_form.attachment_specs }}
-                      {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field full">
-                      <label for="{{ module_form.redirect_url.id_for_label }}">رابط الوجهة (اختياري)</label>
-                      {{ module_form.redirect_url }}
-                      {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+
+                    <div class="messages-module-preview-panel" id="promoMessagePreviewPanel" aria-live="polite">
+                      <div class="messages-preview-toolbar">
+                        <div class="messages-preview-badges">
+                          <span class="pill mint" id="promoMessageRequestBadge">
+                            {% if selected_request %}الطلب: {{ selected_request.code|default:selected_request.id }}{% else %}اختر الطلب{% endif %}
+                          </span>
+                          <span class="pill accent" id="promoMessageChannelsBadge">لم يتم اختيار قناة بعد</span>
+                          <span class="pill brand" id="promoMessageScheduleBadge">حدد وقت الإرسال</span>
+                        </div>
+                        <p class="messages-preview-summary" id="promoMessagePreviewSummary">
+                          المعاينة الحية تتحدث مباشرة حسب القنوات والنص والمرفق وتوقيت الإرسال.
+                        </p>
+                      </div>
+
+                      <div class="messages-preview-empty" id="promoMessagePreviewEmpty">
+                        اختر قناة واحدة على الأقل لعرض شكل الرسالة داخل الجوال.
+                      </div>
+
+                      <div class="messages-preview-cards" id="promoMessagePreviewCards">
+                        <article class="messages-phone-card" data-channel-preview="notification">
+                          <div class="messages-phone-card-head">
+                            <strong>معاينة الإشعار</strong>
+                            <span>قائمة الإشعارات</span>
+                          </div>
+                          <div class="messages-phone-shell messages-phone-shell-notification">
+                            <div class="messages-phone-notch"></div>
+                            <div class="messages-phone-screen messages-notification-screen">
+                              <div class="messages-phone-statusbar">
+                                <span>9:41</span>
+                                <span>4G 100%</span>
+                              </div>
+                              <div class="messages-notification-banner" id="promoMessageNotificationBanner"></div>
+                              <div class="messages-notification-list">
+                                <div class="messages-notification-list-head">
+                                  <strong>الإشعارات</strong>
+                                  <span>الآن</span>
+                                </div>
+                                <div class="messages-notification-items" id="promoMessageNotificationList"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+
+                        <article class="messages-phone-card" data-channel-preview="chat">
+                          <div class="messages-phone-card-head">
+                            <strong>معاينة المحادثة</strong>
+                            <span>واجهة الرسائل</span>
+                          </div>
+                          <div class="messages-phone-shell messages-phone-shell-chat">
+                            <div class="messages-phone-notch"></div>
+                            <div class="messages-phone-screen messages-chat-screen">
+                              <div class="messages-chat-topbar">
+                                <div class="messages-chat-avatar">ت</div>
+                                <div class="messages-chat-topbar-copy">
+                                  <strong>الرسائل الدعائية</strong>
+                                  <span id="promoMessageChatTopbarMeta">معاينة مباشرة للرسالة</span>
+                                </div>
+                              </div>
+                              <div class="messages-chat-thread" id="promoMessageChatThread"></div>
+                              <div class="messages-chat-composer">اكتب ردًا...</div>
+                            </div>
+                          </div>
+                        </article>
+                      </div>
                     </div>
                   </div>
                 </section>
               {% elif is_sponsorship_module %}
                 <section class="module-block module-block-sponsorship">
                   <h4>إعدادات الرعاية</h4>
-                  <div class="form-grid">
-                    <div class="field">
-                      <label for="{{ module_form.sponsor_name.id_for_label }}">اسم الراعي</label>
-                      {{ module_form.sponsor_name }}
-                      {% for err in module_form.sponsor_name.errors %}<small>{{ err }}</small>{% endfor %}
+                  <div
+                    class="sponsorship-editor-layout"
+                    id="sponsorshipModule"
+                    data-existing-src="{% if selected_sponsorship_asset and selected_sponsorship_asset.file %}{{ selected_sponsorship_asset.file.url }}{% endif %}"
+                    data-existing-type="{% if selected_sponsorship_asset %}{{ selected_sponsorship_asset.asset_type }}{% endif %}"
+                    data-existing-name="{% if selected_sponsorship_asset and selected_sponsorship_asset.file %}{{ selected_sponsorship_asset.file.name }}{% endif %}"
+                  >
+                    <div class="sponsorship-form-panel">
+                      <div class="form-grid sponsorship-form-grid">
+                        <div class="field full">
+                          <small>المعاينة الحية تعكس شكل بطاقة الراعي داخل قسم الرعاة في الصفحة الرئيسية، وتتحدث مباشرة أثناء الكتابة أو رفع الشعار.</small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.sponsor_name.id_for_label }}">اسم الراعي</label>
+                          {{ module_form.sponsor_name }}
+                          {% for err in module_form.sponsor_name.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.sponsor_url.id_for_label }}">رابط موقع الراعي</label>
+                          {{ module_form.sponsor_url }}
+                          {% for err in module_form.sponsor_url.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.sponsorship_months.id_for_label }}">مدة الرعاية (بالأشهر)</label>
+                          {{ module_form.sponsorship_months }}
+                          {% for err in module_form.sponsorship_months.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الرعاية</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الرعاية</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.message_body.id_for_label }}">نص رسالة الرعاية</label>
+                          {{ module_form.message_body }}
+                          {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.media_file.id_for_label }}">رفع شعار الراعي</label>
+                          {{ module_form.media_file }}
+                          <small>يمكن رفع صورة أو فيديو قصير لعرضه داخل بطاقة الراعي أثناء المعاينة.</small>
+                          {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                          {{ module_form.attachment_specs }}
+                          {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.redirect_url.id_for_label }}">رابط التوجيه عند الضغط</label>
+                          {{ module_form.redirect_url }}
+                          {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                      </div>
                     </div>
-                    <div class="field">
-                      <label for="{{ module_form.sponsor_url.id_for_label }}">رابط موقع الراعي</label>
-                      {{ module_form.sponsor_url }}
-                      {% for err in module_form.sponsor_url.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.sponsorship_months.id_for_label }}">مدة الرعاية (بالأشهر)</label>
-                      {{ module_form.sponsorship_months }}
-                      {% for err in module_form.sponsorship_months.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.start_at.id_for_label }}">بداية الرعاية</label>
-                      {{ module_form.start_at }}
-                      {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.end_at.id_for_label }}">نهاية الرعاية</label>
-                      {{ module_form.end_at }}
-                      {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field full">
-                      <label for="{{ module_form.message_body.id_for_label }}">نص رسالة الرعاية</label>
-                      {{ module_form.message_body }}
-                      {% for err in module_form.message_body.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.media_file.id_for_label }}">رفع شعار الراعي</label>
-                      {{ module_form.media_file }}
-                      {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
-                      {{ module_form.attachment_specs }}
-                      {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field full">
-                      <label for="{{ module_form.redirect_url.id_for_label }}">رابط التوجيه عند الضغط</label>
-                      {{ module_form.redirect_url }}
-                      {% for err in module_form.redirect_url.errors %}<small>{{ err }}</small>{% endfor %}
+
+                    <div class="sponsorship-preview-panel" id="sponsorshipPreviewPanel" aria-live="polite">
+                      <div class="sponsorship-preview-toolbar">
+                        <div class="messages-preview-badges">
+                          <span class="pill accent" id="sponsorshipPreviewMonthsBadge">حدد مدة الرعاية</span>
+                          <span class="pill brand" id="sponsorshipPreviewPeriodBadge">حدد فترة الرعاية</span>
+                        </div>
+                        <p class="messages-preview-summary" id="sponsorshipPreviewSummary">
+                          المعاينة الحية تحاكي موضع شعار التطبيق: يتم التبديل بين شعار المنصة وشعار الراعي كل ثانيتين.
+                        </p>
+                      </div>
+
+                      <div class="sponsorship-preview-phone-panel">
+                        <div class="messages-phone-shell sponsorship-phone-shell">
+                          <div class="messages-phone-notch"></div>
+                          <div class="messages-phone-screen sponsorship-phone-screen">
+                            <div class="messages-phone-statusbar">
+                              <span>9:41</span>
+                              <span>5G 100%</span>
+                            </div>
+                            <div class="sponsorship-preview-section-head sponsorship-preview-topbar" id="sponsorshipPreviewTopbar">
+                              <div class="sponsorship-logo-rotator">
+                                <div class="sponsorship-logo-slot is-active" id="sponsorshipPreviewAppLogo" aria-hidden="true">ن</div>
+                                <button type="button" class="sponsorship-logo-slot sponsorship-logo-slot-sponsor" id="sponsorshipPreviewSponsorTap" aria-label="عرض رسالة الراعي">
+                                  <span class="sponsorship-preview-media" id="sponsorshipPreviewMedia">
+                                    <div class="sponsorship-preview-media-placeholder" id="sponsorshipPreviewMediaPlaceholder">
+                                      شعار الراعي
+                                    </div>
+                                  </span>
+                                </button>
+                              </div>
+                              <span id="sponsorshipPreviewSectionMeta">يتم التبديل بين الشعارات تلقائيًا</span>
+                            </div>
+                            <div class="sponsorship-preview-strip">
+                              <article class="sponsorship-preview-card" id="sponsorshipPreviewCard">
+                                <span class="sponsorship-preview-chip" id="sponsorshipPreviewChip">رعاية</span>
+                                <strong class="sponsorship-preview-title" id="sponsorshipPreviewTitle">اسم الراعي</strong>
+                                <p class="sponsorship-preview-body" id="sponsorshipPreviewBody">النبذة التعريفية ستظهر هنا عند كتابة رسالة الرعاية.</p>
+                              </article>
+                            </div>
+                            <div class="sponsorship-preview-overlay" id="sponsorshipPreviewOverlay" hidden>
+                              <button type="button" class="sponsorship-preview-overlay-close" id="sponsorshipPreviewOverlayClose" aria-label="إغلاق">×</button>
+                              <strong id="sponsorshipPreviewOverlayTitle">رسالة الراعي</strong>
+                              <p id="sponsorshipPreviewOverlayBody">سيظهر نص رسالة الرعاية هنا عند الضغط على شعار الراعي.</p>
+                              <a id="sponsorshipPreviewOverlayLink" href="#" target="_blank" rel="noopener" hidden>فتح رابط الراعي</a>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="sponsorship-preview-notes">
+                          <div class="quick-stat"><span>وجهة الضغط</span><strong id="sponsorshipPreviewLink">لا يوجد رابط بعد</strong></div>
+                          <div class="quick-stat"><span>الملف الحالي</span><strong id="sponsorshipPreviewAssetName">لا يوجد ملف مرفوع</strong></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -707,7 +900,16 @@
 
             <div class="actions {% if module_meta.key == 'home_banner' or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}home-banner-actions{% endif %}">
               {% if can_write %}
-                {% if not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
+                {% if is_live_preview_action_module %}
+                  <button
+                    class="ghost-btn"
+                    type="button"
+                    data-live-preview-focus="true"
+                    aria-label="ينتقل إلى المعاينة الحية داخل الصفحة"
+                  >
+                    الانتقال إلى المعاينة
+                  </button>
+                {% elif not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
                   <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
                 {% endif %}
                 <button
@@ -801,7 +1003,7 @@
         {% endif %}
 
         {% if preview_payload and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
-          <section class="section-panel slide-up">
+          <section class="section-panel slide-up" data-legacy-preview-summary="true">
             <div class="title-row">
               <h2>معاينة قبل الاعتماد</h2>
               <span class="pill accent">هذه المعاينة لا تحفظ البند</span>
@@ -870,6 +1072,8 @@
                     <th>الترتيب</th>
                   {% elif is_messages_module %}
                     <th>وقت الإرسال</th>
+                    <th>القنوات</th>
+                    <th>حالة الإرسال</th>
                   {% elif is_sponsorship_module %}
                     <th>بداية/نهاية</th>
                   {% else %}
@@ -896,6 +1100,8 @@
                       <td>{{ row.search_position }}</td>
                     {% elif is_messages_module %}
                       <td>{{ row.send_at }}</td>
+                      <td>{{ row.channels }}</td>
+                      <td>{{ row.dispatch_status }}</td>
                     {% elif is_sponsorship_module %}
                       <td>{{ row.start_at }}<br>{{ row.end_at }}</td>
                     {% else %}
@@ -904,7 +1110,7 @@
                     <td>{{ row.status }}</td>
                   </tr>
                 {% empty %}
-                  <tr><td colspan="{% if is_search_module or is_featured_module or is_portfolio_module or is_snapshots_module %}6{% else %}5{% endif %}">لا توجد بنود لهذه الوحدة حالياً.</td></tr>
+                  <tr><td colspan="{% if is_messages_module %}7{% elif is_search_module or is_featured_module or is_portfolio_module or is_snapshots_module %}6{% else %}5{% endif %}">لا توجد بنود لهذه الوحدة حالياً.</td></tr>
                 {% endfor %}
               </tbody>
             </table>

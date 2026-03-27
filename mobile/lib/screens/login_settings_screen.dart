@@ -60,6 +60,13 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   bool _faceIdEnabled = false;
   bool _faceIdLoading = false;
 
+  // قفل الدخول المحلي للشاشة
+  bool _requiresUnlock = false;
+  bool _isUnlocked = true;
+  String _enteredPin = '';
+  String? _storedPin;
+  String? _unlockError;
+
   // محتوى المساعدة من API (settings_help / settings_info)
   String? _helpTitle;
   String? _helpBody;
@@ -73,9 +80,29 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadProfile();
-    _loadHelpContent();
-    _checkBiometrics();
+    _initializeAccessFlow();
+  }
+
+  Future<void> _initializeAccessFlow() async {
+    await _checkBiometrics();
+    final pin = await AuthService.getSecurityPin();
+    if (!mounted) return;
+
+    if (pin == null) {
+      _requiresUnlock = false;
+      _isUnlocked = true;
+      _loadProfile();
+      _loadHelpContent();
+      return;
+    }
+
+    setState(() {
+      _storedPin = pin;
+      _requiresUnlock = true;
+      _isUnlocked = false;
+      _loading = false;
+      _error = null;
+    });
   }
 
   @override
@@ -199,6 +226,10 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    if (_requiresUnlock && !_isUnlocked) {
+      return _buildUnlockScreen();
+    }
+
     if (_loading) {
       return Scaffold(
         appBar: AppBar(
@@ -305,7 +336,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
             const SizedBox(height: 12),
             _buildPurpleButton(
               icon: Icons.key,
-              label: 'إضافة رمز دخول آمان',
+              label: 'إضافة رمز دخول أمان',
               onPressed: _showSecurityDialog,
             ),
           ]),
@@ -450,7 +481,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
                     child: IconButton(
                         icon: const Icon(Icons.close, color: _mainColor),
                         onPressed: () => Navigator.pop(context))),
-                const Text('إضافة رمز دخول آمان',
+                const Text('إضافة رمز دخول أمان',
                     style: TextStyle(
                         fontFamily: 'Cairo',
                         fontWeight: FontWeight.bold,
@@ -464,18 +495,40 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
                 const SizedBox(height: 16),
                 TextField(
                     controller: _securityCodeCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
                     decoration:
-                        const InputDecoration(labelText: 'رمز الآمان')),
+                        const InputDecoration(labelText: 'رمز الأمان (4-6 أرقام)')),
                 const SizedBox(height: 10),
                 TextField(
                     controller: _confirmSecurityCodeCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
                     decoration:
-                        const InputDecoration(labelText: 'تأكيد رمز الآمان')),
+                        const InputDecoration(labelText: 'تأكيد رمز الأمان')),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    final pin = _securityCodeCtrl.text.trim();
+                    final confirm = _confirmSecurityCodeCtrl.text.trim();
+                    final isValid = RegExp(r'^\d{4,6}$').hasMatch(pin);
+
+                    if (!isValid) {
+                      _snack('رمز الأمان يجب أن يكون من 4 إلى 6 أرقام');
+                      return;
+                    }
+                    if (pin != confirm) {
+                      _snack('تأكيد الرمز غير مطابق');
+                      return;
+                    }
+
+                    await AuthService.saveSecurityPin(pin);
+                    if (!mounted) return;
+
+                    _securityCodeCtrl.clear();
+                    _confirmSecurityCodeCtrl.clear();
                     Navigator.pop(context);
-                    _snack('تم حفظ رمز الآمان');
+                    _snack('تم حفظ رمز الأمان');
                   },
                   style: ElevatedButton.styleFrom(
                       backgroundColor: _mainColor,
@@ -600,6 +653,184 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     if (!mounted) return;
     setState(() => _faceIdEnabled = false);
     _snack('تم إلغاء تفعيل معرف الوجه');
+  }
+
+  void _appendUnlockDigit(String digit) {
+    if (_storedPin == null) return;
+    if (_enteredPin.length >= _storedPin!.length) return;
+    setState(() {
+      _enteredPin += digit;
+      _unlockError = null;
+    });
+    if (_enteredPin.length == _storedPin!.length) {
+      _validateUnlockPin();
+    }
+  }
+
+  void _removeUnlockDigit() {
+    if (_enteredPin.isEmpty) return;
+    setState(() {
+      _enteredPin = _enteredPin.substring(0, _enteredPin.length - 1);
+      _unlockError = null;
+    });
+  }
+
+  void _validateUnlockPin() {
+    if (_storedPin == null) {
+      _completeUnlock();
+      return;
+    }
+    if (_enteredPin == _storedPin) {
+      _completeUnlock();
+      return;
+    }
+    setState(() {
+      _enteredPin = '';
+      _unlockError = 'رمز الأمان غير صحيح';
+    });
+  }
+
+  Future<void> _unlockWithBiometric() async {
+    if (!_biometricAvailable || !_faceIdEnabled) return;
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'التحقق من هويتك للدخول إلى إعدادات الدخول',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: true,
+        ),
+      );
+      if (!mounted) return;
+      if (authenticated) {
+        _completeUnlock();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _unlockError = 'تعذر التحقق بالبصمة/الوجه');
+    }
+  }
+
+  void _completeUnlock() {
+    setState(() {
+      _isUnlocked = true;
+      _enteredPin = '';
+      _unlockError = null;
+    });
+    _loadProfile();
+    _loadHelpContent();
+  }
+
+  Widget _buildUnlockScreen() {
+    final dotsCount = (_storedPin ?? '').isNotEmpty ? _storedPin!.length : 6;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('إعدادات الدخول'),
+        backgroundColor: _mainColor,
+        foregroundColor: Colors.white,
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),
+          child: Column(
+            children: [
+              const Text(
+                'أدخل رمز حسابك',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: _mainColor,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(dotsCount, (index) {
+                  final filled = index < _enteredPin.length;
+                  return Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: filled ? _mainColor : const Color(0xFFD9C4DD),
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 10),
+              if (_unlockError != null)
+                Text(
+                  _unlockError!,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                )
+              else
+                const SizedBox(height: 22),
+              const SizedBox(height: 14),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 14,
+                  crossAxisSpacing: 14,
+                  childAspectRatio: 1.6,
+                  physics: const NeverScrollableScrollPhysics(),
+                  children: [
+                    ...List.generate(9, (i) => _buildPinKey('${i + 1}', onTap: () => _appendUnlockDigit('${i + 1}'))),
+                    const SizedBox.shrink(),
+                    _buildPinKey('0', onTap: () => _appendUnlockDigit('0')),
+                    _buildPinKey('⌫', onTap: _removeUnlockDigit),
+                  ],
+                ),
+              ),
+              if (_biometricAvailable && _faceIdEnabled)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _unlockWithBiometric,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE5CEE8),
+                      foregroundColor: _mainColor,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.fingerprint, color: _mainColor),
+                    label: const Text(
+                      'الدخول عن طريق البصمة / الوجه',
+                      style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPinKey(String label, {required VoidCallback onTap}) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: _mainColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 36,
+          fontWeight: FontWeight.bold,
+          color: _mainColor,
+        ),
+      ),
+    );
   }
 
   // ─── مكونات UI ───

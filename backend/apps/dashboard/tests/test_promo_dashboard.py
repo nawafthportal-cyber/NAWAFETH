@@ -702,3 +702,256 @@ def test_promo_module_home_banner_post_uses_selected_request_preview_asset():
     assert response.status_code == 200
     assert response.context["selected_request"].id == request_b.id
     assert response.context["selected_home_banner_asset"].id == asset_b.id
+
+
+def test_home_banner_module_renders_live_preview_toolbar_and_preview_api_url():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر محفوظ",
+        start_at=timezone.now(),
+        end_at=timezone.now() + timezone.timedelta(days=3),
+        sort_order=15,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="banner-live",
+        file=SimpleUploadedFile(
+            "banner-live.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=pr.requester,
+    )
+
+    response = client.get(reverse("dashboard:promo_module", kwargs={"module_key": "home_banner"}), {"request_id": str(pr.id)})
+
+    assert response.status_code == 200
+    html = response.content.decode("utf-8", errors="ignore")
+    assert 'id="homeBannerModule"' in html
+    assert 'id="homeBannerPreviewRequestBadge"' in html
+    assert 'id="homeBannerPreviewSummary"' in html
+    assert 'data-preview-api-url="' in html
+    assert 'data-live-preview-focus="true"' in html
+    assert 'name="workflow_action" value="preview_item"' not in html
+
+
+def test_promo_module_request_preview_api_returns_selected_home_banner_asset():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    asset = PromoAsset.objects.create(
+        request=pr,
+        asset_type="image",
+        title="banner-preview",
+        file=SimpleUploadedFile(
+            "banner-preview.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=pr.requester,
+    )
+
+    response = client.get(
+        reverse("dashboard:promo_module_request_preview_api", kwargs={"module_key": "home_banner"}),
+        {"request_id": str(pr.id)},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["request"]["id"] == str(pr.id)
+    assert payload["request"]["requester_label"]
+    assert payload["asset"]["type"] == "image"
+    assert payload["asset"]["name"].endswith("banner-preview.png")
+    assert payload["asset"]["url"].endswith(asset.file.name)
+
+
+def test_promo_messages_module_renders_mobile_notification_and_chat_previews():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.PROMO_MESSAGES,
+        title="رسالة محفوظة",
+        send_at=timezone.now() + timezone.timedelta(days=1),
+        message_body="رسالة ترويجية محفوظة",
+        use_notification_channel=True,
+        use_chat_channel=True,
+        sort_order=20,
+    )
+
+    response = client.get(reverse("dashboard:promo_module", kwargs={"module_key": "promo_messages"}))
+
+    assert response.status_code == 200
+    html = response.content.decode("utf-8", errors="ignore")
+    assert 'id="promoMessagePreviewPanel"' in html
+    assert 'id="promoMessageNotificationList"' in html
+    assert 'id="promoMessageChatThread"' in html
+    assert 'id="promoMessageRequestBadge"' in html
+    assert 'data-preview-api-url="' in html
+    assert 'data-live-preview-focus="true"' in html
+    assert 'name="workflow_action" value="preview_item"' not in html
+
+
+def test_promo_module_request_preview_api_returns_selected_promo_message_asset():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.PROMO_MESSAGES,
+        title="رسالة محفوظة",
+        send_at=timezone.now() + timezone.timedelta(days=1),
+        message_body="نص محفوظ",
+        use_notification_channel=True,
+        sort_order=18,
+    )
+    asset = PromoAsset.objects.create(
+        request=pr,
+        item=item,
+        asset_type="image",
+        title="message-asset",
+        file=SimpleUploadedFile(
+            "message-asset.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=pr.requester,
+    )
+
+    response = client.get(
+        reverse("dashboard:promo_module_request_preview_api", kwargs={"module_key": "promo_messages"}),
+        {"request_id": str(pr.id)},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["ok"] is True
+    assert payload["request"]["id"] == str(pr.id)
+    assert payload["request"]["requester_label"]
+    assert payload["asset"]["type"] == "image"
+    assert payload["asset"]["name"].endswith("message-asset.png")
+    assert payload["asset"]["url"].endswith(asset.file.name)
+
+
+def test_sponsorship_module_renders_live_sponsor_preview_with_selected_asset():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SPONSORSHIP,
+        title="رعاية محفوظة",
+        sponsor_name="الراعي الرسمي",
+        sponsor_url="https://example.com/sponsor",
+        sponsorship_months=3,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timezone.timedelta(days=95),
+        message_body="بطاقة الرعاية يجب أن تظهر مباشرة.",
+        sort_order=30,
+    )
+    asset = PromoAsset.objects.create(
+        request=pr,
+        item=item,
+        asset_type="image",
+        title="sponsor-logo",
+        file=SimpleUploadedFile(
+            "sponsor-logo.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=pr.requester,
+    )
+
+    response = client.get(reverse("dashboard:promo_module", kwargs={"module_key": "sponsorship"}))
+
+    assert response.status_code == 200
+    assert response.context["selected_sponsorship_asset"].id == asset.id
+    html = response.content.decode("utf-8", errors="ignore")
+    assert 'id="sponsorshipPreviewPanel"' in html
+    assert 'id="sponsorshipPreviewMedia"' in html
+    assert 'id="sponsorshipPreviewTitle"' in html
+    assert 'id="sponsorshipPreviewLink"' in html
+    assert 'data-live-preview-focus="true"' in html
+    assert 'name="workflow_action" value="preview_item"' not in html
+
+
+def test_promo_messages_module_blocks_empty_message_without_attachment():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    before_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+
+    response = client.post(
+        reverse("dashboard:promo_module", kwargs={"module_key": "promo_messages"}),
+        data={
+            "workflow_action": "approve_item",
+            "request_id": str(pr.id),
+            "message_body": "",
+            "send_at": (timezone.now() + timezone.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"),
+            "use_notification_channel": "on",
+        },
+    )
+
+    assert response.status_code == 200
+    form = response.context["module_form"]
+    assert "message_body" in form.errors
+    after_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    assert after_count == before_count
+
+
+def test_promo_messages_module_blocks_scheduling_in_the_past():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    before_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+
+    response = client.post(
+        reverse("dashboard:promo_module", kwargs={"module_key": "promo_messages"}),
+        data={
+            "workflow_action": "approve_item",
+            "request_id": str(pr.id),
+            "message_body": "محتوى دعائي صالح",
+            "send_at": (timezone.now() - timezone.timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M"),
+            "use_notification_channel": "on",
+        },
+    )
+
+    assert response.status_code == 200
+    form = response.context["module_form"]
+    assert "send_at" in form.errors
+    after_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    assert after_count == before_count
+
+
+def test_promo_messages_module_allows_single_gif_attachment_without_text():
+    client = _dashboard_client()
+    pr = _create_promo_request()
+    before_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    gif_file = SimpleUploadedFile(
+        "promo-message.gif",
+        (
+            b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!"
+            b"\xf9\x04\x01\n\x00\x01\x00,\x00\x00\x00\x00\x01\x00\x01\x00"
+            b"\x00\x02\x02D\x01\x00;"
+        ),
+        content_type="image/gif",
+    )
+
+    response = client.post(
+        reverse("dashboard:promo_module", kwargs={"module_key": "promo_messages"}),
+        data={
+            "workflow_action": "approve_item",
+            "request_id": str(pr.id),
+            "message_body": "",
+            "send_at": (timezone.now() + timezone.timedelta(days=1)).strftime("%Y-%m-%dT%H:%M"),
+            "use_chat_channel": "on",
+            "media_file": gif_file,
+        },
+    )
+
+    assert response.status_code == 302
+    after_count = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).count()
+    assert after_count == before_count + 1
+    item = PromoRequestItem.objects.filter(request=pr, service_type=PromoServiceType.PROMO_MESSAGES).latest("id")
+    asset = PromoAsset.objects.filter(item=item).latest("id")
+    assert asset.asset_type == "image"

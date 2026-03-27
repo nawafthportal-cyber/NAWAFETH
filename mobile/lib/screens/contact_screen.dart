@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import '../models/ticket_model.dart';
 import '../services/support_service.dart';
+import '../widgets/platform_top_bar.dart';
 
 class ContactScreen extends StatefulWidget {
   final bool startNewTicketForm;
@@ -330,14 +331,11 @@ class _ContactScreenState extends State<ContactScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text(
-          "تواصل مع منصة نوافذ",
-          style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: theme.appBarTheme.backgroundColor,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      appBar: PlatformTopBar(
+        pageLabel: 'تواصل مع منصة نوافذ',
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),

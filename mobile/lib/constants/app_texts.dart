@@ -5,11 +5,11 @@ class AppTexts {
   static Map<String, Map<String, String>> translations = {
     "ar": {
       "home": "الرئيسية",
-      "settings": "إعدادات الدخول للمنصة",
+      "settings": "إعدادات الدخول الى المنصة",
       "language": "اللغة",
       "qr": "QR نافذتي",
       "terms": "الشروط والأحكام",
-      "support": "تواصل مع منصة نوافذ",
+      "support": "تواصل مع نوافذ",
       "about": "حول منصة نوافذ",
       "logout": "تسجيل الخروج",
       "delete": "حذف الحساب",

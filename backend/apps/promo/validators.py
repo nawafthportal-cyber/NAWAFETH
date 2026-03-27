@@ -20,9 +20,9 @@ from apps.uploads.validators import (
 MAX_FILE_SIZE_MB = 100
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
-ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".mp4", ".pdf"}
+ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".gif", ".mp4", ".pdf"}
 
-_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 _VIDEO_EXTENSIONS = {".mp4"}
 
 
@@ -195,4 +195,4 @@ def validate_extension(file_obj):
     name = (getattr(file_obj, "name", "") or "").lower()
     ext = "." + name.split(".")[-1] if "." in name else ""
     if ext and ext not in ALLOWED_EXT:
-        raise ValidationError("امتداد الملف غير مسموح. المسموح: jpg, png, mp4, pdf")
+        raise ValidationError("امتداد الملف غير مسموح. المسموح: jpg, png, gif, mp4, pdf")

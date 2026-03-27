@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/content_service.dart';
+import '../widgets/platform_top_bar.dart';
 
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
@@ -306,14 +307,11 @@ class _AboutScreenState extends State<AboutScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text(
-          "حول منصة نوافذ",
-          style: TextStyle(fontFamily: 'Cairo'),
-        ),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        elevation: 0,
+      appBar: PlatformTopBar(
+        pageLabel: 'حول منصة نوافذ',
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.deepPurple))

@@ -178,6 +178,11 @@ class PromoService {
     );
   }
 
+  /// دليل الأسعار الفعلي من قواعد لوحة إدارة الترويج.
+  static Future<ApiResponse> fetchPricingGuide() {
+    return ApiClient.get('/api/promo/pricing/guide/');
+  }
+
   /// جلب طلبات الترويج الخاصة بي
   static Future<ApiResponse> fetchMyRequests() {
     return ApiClient.get('/api/promo/requests/my/');

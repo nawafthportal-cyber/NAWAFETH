@@ -25,59 +25,28 @@
   </section>
 
   <section id="promo-pricing-view" class="detail-card promo-pricing-view" hidden>
-    <h3>دليل الأسعار</h3>
-    <p class="text-muted">هذا الدليل مرجعي. التكلفة النهائية يتم احتسابها ديناميكيًا حسب الخيارات والتواريخ التي تحددها.</p>
-    <div class="pricing-grid">
-      <article class="pricing-card">
-        <h4>بنر الصفحة الرئيسية</h4>
-        <p>اقل مدة للحملة 24 ساعة</p>
-        <p>1000 ريال سعودي لكل (24) ساعة</p>
-      </article>
-      <article class="pricing-card">
-        <h4>شريط أبرز المختصين</h4>
-        <p>اقل مدة للحملة 24 ساعة</p>
-        <p>التكلفة لكل (24) ساعة</p>
-      </article>
-      <article class="pricing-card">
-        <h4>شريط البنرات والمشاريع / شريط اللمحات</h4>
-        <table class="pricing-table">
-          <thead>
-            <tr><th>معدل الظهور</th><th>التكلفة (ريال سعودي)</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>مرة كل 10 ثواني</td><td>2000</td></tr>
-            <tr><td>مرة كل 30 ثانية</td><td>1500</td></tr>
-            <tr><td>مرة كل دقيقة</td><td>1000</td></tr>
-            <tr><td>مرة كل خمس دقائق</td><td>500</td></tr>
-            <tr><td>مرة كل ربع ساعة</td><td>250</td></tr>
-            <tr><td>مرة كل نصف ساعة</td><td>200</td></tr>
-            <tr><td>مرة كل ساعة</td><td>100</td></tr>
-          </tbody>
-        </table>
-      </article>
-      <article class="pricing-card">
-        <h4>الظهور في قوائم البحث</h4>
-        <table class="pricing-table">
-          <thead>
-            <tr><th>ترتيب الظهور</th><th>التكلفة (ريال سعودي)</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>الأول في القائمة</td><td>10000</td></tr>
-            <tr><td>الثاني في القائمة</td><td>5000</td></tr>
-            <tr><td>من أول خمسة أسماء</td><td>2500</td></tr>
-            <tr><td>من أول عشرة أسماء</td><td>1200</td></tr>
-          </tbody>
-        </table>
-      </article>
-      <article class="pricing-card">
-        <h4>الرسائل الدعائية</h4>
-        <p>سيتم التواصل معكم للاتفاق على عدد الرسائل، جدولتها، والتكلفة.</p>
-      </article>
-      <article class="pricing-card">
-        <h4>الرعاية</h4>
-        <p>سيتم التواصل معكم للاتفاق على مدة الرعاية، مساحات الظهور، والتكلفة.</p>
-      </article>
+    <div class="pricing-guide-head">
+      <h3>دليل الأسعار الفعلي</h3>
+      <p class="text-muted">الأسعار هنا متزامنة مباشرةً مع صفحة الأسعار داخل لوحة إدارة الترويج.</p>
     </div>
+    <div class="pricing-guide-instructions">
+      <div class="pricing-instruction-item">
+        <strong>تسعير مباشر</strong>
+        <span>أي تعديل في لوحة الإدارة يظهر هنا تلقائيًا بعد التحديث.</span>
+      </div>
+      <div class="pricing-instruction-item">
+        <strong>طريقة الاحتساب</strong>
+        <span>التكلفة النهائية تعتمد على سعر كل بند + مدة الحملة + ضريبة القيمة المضافة.</span>
+      </div>
+      <div class="pricing-instruction-item">
+        <strong>مطابقة الفاتورة</strong>
+        <span>المبلغ المعتمد عند الدفع هو الناتج من المعاينة الحية قبل الإرسال النهائي.</span>
+      </div>
+    </div>
+    <div id="promo-pricing-loading" class="pricing-state">جاري تحميل الأسعار الفعلية...</div>
+    <div id="promo-pricing-error" class="pricing-state pricing-state-error" hidden></div>
+    <div id="promo-pricing-guide-meta" class="pricing-guide-meta" hidden></div>
+    <div id="promo-pricing-guide-grid" class="pricing-grid" hidden></div>
   </section>
 
   <section id="promo-composer-view">
@@ -482,31 +451,46 @@
 </div>
 
 <style>
-  .promo-top-shell{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;gap:12px;align-items:center;margin-bottom:12px}
-  .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .promo-top-shell{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
+  .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
   .promo-nav-pill{border:1px solid #2f7d1e;background:#fff;color:#2f7d1e;border-radius:999px;padding:8px 18px;font:inherit;font-weight:700;cursor:pointer}
   .promo-nav-pill.active{background:#2f7d1e;color:#fff}
-  .promo-top-meta{display:flex;align-items:center;gap:8px}
+  .promo-top-meta{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0}
+  .promo-top-meta .form-input{min-width:0;flex:1}
   .promo-meta-label{font-size:13px;color:#4b5563;font-weight:700;white-space:nowrap}
-  .promo-page-badge{background:#2f7d1e;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;text-align:center;white-space:nowrap}
+  .promo-page-badge{background:#2f7d1e;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;text-align:center;white-space:nowrap;flex-shrink:0}
 
-  .promo-pricing-view h3{margin:0 0 6px;color:#2f7d1e}
+  .promo-pricing-view{background:linear-gradient(180deg,#fff 0,#fbf8ff 100%)}
+  .pricing-guide-head h3{margin:0 0 6px;color:#2f7d1e}
+  .pricing-guide-head .text-muted{margin:0;color:#4b5563;line-height:1.8}
+  .pricing-guide-instructions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+  .pricing-instruction-item{border:1px solid #e7d7f4;background:#fff;border-radius:12px;padding:10px}
+  .pricing-instruction-item strong{display:block;color:#5b2f91;font-size:13px;margin-bottom:4px}
+  .pricing-instruction-item span{display:block;color:#475569;font-size:12px;line-height:1.7}
+  .pricing-guide-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .pricing-meta-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid #d8c9ea;background:#fff;color:#4b5563;font-size:12px}
+  .pricing-state{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;color:#334155;font-size:13px}
+  .pricing-state-error{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff1f2;border-color:#fecdd3;color:#9f1239}
+  .pricing-reload-btn{border:1px solid #d8c9ea;background:#fff;color:#5b2f91;border-radius:999px;padding:6px 12px;font:inherit;font-size:12px;cursor:pointer}
   .pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
-  .pricing-card{border:1px solid #d9c4eb;border-radius:12px;padding:12px;background:#fff}
-  .pricing-card h4{margin:0 0 8px;color:#663d90;font-size:15px}
-  .pricing-card p{margin:0 0 6px;color:#374151;line-height:1.7}
+  .pricing-card{border:1px solid #d9c4eb;border-radius:14px;padding:12px;background:#fff;box-shadow:0 10px 26px rgba(80,47,130,.06)}
+  .pricing-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .pricing-card h4{margin:0;color:#663d90;font-size:15px}
+  .pricing-rule-count{font-size:11px;color:#64748b;background:#f8fafc;border:1px solid #e2e8f0;border-radius:999px;padding:2px 8px;white-space:nowrap}
+  .pricing-hints{margin:0 0 10px;padding-inline-start:16px;color:#475569;font-size:12px;line-height:1.7}
+  .pricing-hints li{margin:0}
+  .pricing-table-wrap{overflow:auto}
   .pricing-table{width:100%;border-collapse:collapse;font-size:12px}
-  .pricing-table th,.pricing-table td{border:1px solid #eadcf6;padding:6px 8px;text-align:right}
+  .pricing-table th,.pricing-table td{border:1px solid #eadcf6;padding:7px 8px;text-align:right;vertical-align:top}
   .pricing-table th{background:#f5ecfd;color:#5b2f91}
+  .pricing-price-value{font-weight:800;color:#2f7d1e}
+  .pricing-empty{margin:0;padding:10px;border:1px dashed #d8c9ea;border-radius:10px;background:#faf7ff;color:#64748b;font-size:12px}
 
   .attachment-guide{border:1px solid #ece6f8;background:#faf7ff;border-radius:12px;padding:10px 12px;color:#4b2d73;font-size:13px;line-height:1.7;margin:0 0 10px}
   .attachment-guide strong{display:block;font-weight:700}
 
-  .promo-services-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
-  .promo-service-block{border:1px solid #d8c9ea;border-radius:14px;padding:12px;background:#fff;grid-column:span 3}
-  .promo-service-block[data-service-block="sponsorship"],
-  .promo-service-block[data-service-block="promo_messages"],
-  .promo-service-block[data-service-block="search_results"]{grid-column:span 4}
+  .promo-services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .promo-service-block{border:1px solid #d8c9ea;border-radius:14px;padding:12px;background:#fff}
   .promo-service-block.is-active{border-color:#9b6cc5;box-shadow:0 0 0 2px rgba(155,108,197,.15)}
   .service-block-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
   .service-block-header h4{margin:0;color:#663d90;font-size:18px}
@@ -609,20 +593,12 @@
   .success-message-box p{margin:0;color:#6b7280}
 
   @media (max-width:1024px){
-    .promo-top-shell{grid-template-columns:1fr;gap:10px}
     .promo-page-badge{justify-self:start}
-    .promo-service-block{grid-column:span 6}
-    .promo-service-block[data-service-block="sponsorship"],
-    .promo-service-block[data-service-block="promo_messages"],
-    .promo-service-block[data-service-block="search_results"]{grid-column:span 6}
+    .pricing-guide-instructions{grid-template-columns:1fr}
     .pricing-grid{grid-template-columns:1fr}
   }
 
   @media (max-width:640px){
-    .promo-service-block{grid-column:span 12}
-    .promo-service-block[data-service-block="sponsorship"],
-    .promo-service-block[data-service-block="promo_messages"],
-    .promo-service-block[data-service-block="search_results"]{grid-column:span 12}
     .promo-submit-actions .btn{width:100%}
     .promo-summary-head-badge{font-size:18px;padding:10px 14px}
     .promo-summary-note{font-size:16px}

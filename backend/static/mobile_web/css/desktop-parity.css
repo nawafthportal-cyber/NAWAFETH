@@ -10,8 +10,54 @@
     display: block !important;
   }
 
+  #top-navbar.nw-global-topbar {
+    display: block !important;
+  }
+
   .navbar-inner {
     height: 72px;
+  }
+
+  .navbar-inner-global {
+    min-height: 84px;
+    height: auto;
+    padding: 14px 0;
+  }
+
+  .nav-menu-btn {
+    width: 48px;
+    height: 48px;
+  }
+
+  .topbar-brand-wrap {
+    max-width: calc(100% - 168px);
+  }
+
+  .topbar-brand-link {
+    padding: 9px 18px 9px 12px;
+  }
+
+  .topbar-brand-mark {
+    width: 38px;
+    height: 38px;
+    font-size: 21px;
+  }
+
+  .topbar-brand-title {
+    font-size: 20px;
+  }
+
+  .topbar-brand-subtitle {
+    font-size: 11px;
+  }
+
+  .topbar-sponsor {
+    min-height: 38px;
+    padding: 5px 12px;
+  }
+
+  .topbar-sponsor-name {
+    max-width: 220px;
   }
 
   .navbar-brand {

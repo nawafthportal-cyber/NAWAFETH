@@ -90,6 +90,7 @@ const HomePage = (() => {
     _bindReelsInteraction();
     _bindProvidersInteraction();
     _applyHomeContent();
+    window.addEventListener('resize', _syncDesktopHomeBehaviors);
 
     // Network listener
     window.addEventListener('online',  () => _setOffline(false));
@@ -109,6 +110,7 @@ const HomePage = (() => {
         window.clearInterval(_bannerSyncTimer);
         _bannerSyncTimer = null;
       }
+      window.removeEventListener('resize', _syncDesktopHomeBehaviors);
     }, { once: true });
   }
 
@@ -811,6 +813,20 @@ const HomePage = (() => {
     $providersList.addEventListener('mouseleave', resumeLater, { passive: true });
   }
 
+  function _isDesktopHomeGrid() {
+    return !!(window.matchMedia && window.matchMedia('(min-width: 1024px)').matches);
+  }
+
+  function _syncDesktopHomeBehaviors() {
+    if (_isDesktopHomeGrid()) {
+      _stopProvidersAutoRotate();
+      return;
+    }
+    if ($providersList && $providersList.querySelectorAll('.featured-specialist-card').length > 1 && !_providersAutoTimer) {
+      _startProvidersAutoRotate();
+    }
+  }
+
   function _pauseProvidersAutoRotate(options = {}) {
     const resumeLater = !!options.resumeLater;
     _providersPaused = true;
@@ -828,6 +844,7 @@ const HomePage = (() => {
   function _startProvidersAutoRotate() {
     _stopProvidersAutoRotate();
     if (!$providersList) return;
+    if (_isDesktopHomeGrid()) return;
     const cards = $providersList.querySelectorAll('.featured-specialist-card');
     if (cards.length <= 1) return;
 

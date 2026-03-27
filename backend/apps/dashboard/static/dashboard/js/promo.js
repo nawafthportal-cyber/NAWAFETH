@@ -202,6 +202,15 @@
     }
   }
 
+  function hideLegacyPreviewSummary() {
+    const section = document.querySelector("[data-legacy-preview-summary='true']");
+    if (!section) {
+      return;
+    }
+    section.hidden = true;
+    section.setAttribute("aria-hidden", "true");
+  }
+
   function setupModuleWorkflow() {
     const moduleForm = document.getElementById("promoModuleForm");
     if (!moduleForm) {
@@ -258,16 +267,74 @@
       return;
     }
 
+    const root = document.getElementById("homeBannerModule");
+    const requestInput = moduleForm.querySelector("input[name='request_id']");
+    const titleInput = moduleForm.querySelector("input[name='title']");
+    const startAtInput = moduleForm.querySelector("input[name='start_at']");
+    const endAtInput = moduleForm.querySelector("input[name='end_at']");
     const mediaInput = moduleForm.querySelector("input[name='media_file']");
     const previewScreen = document.getElementById("homeBannerPhonePreviewMedia");
     const emptyState = document.getElementById("homeBannerPhonePreviewEmpty");
     const metaText = document.getElementById("homeBannerPreviewMeta");
+    const summaryText = document.getElementById("homeBannerPreviewSummary");
+    const requesterLabel = document.getElementById("homeBannerRequesterLabel");
+    const requestBadge = document.getElementById("homeBannerPreviewRequestBadge");
+    const periodBadge = document.getElementById("homeBannerPreviewPeriodBadge");
     const specsInput = moduleForm.querySelector("input[name='attachment_specs']");
-    if (!mediaInput || !previewScreen || !emptyState) {
+    const previewButton = moduleForm.querySelector("[data-live-preview-focus='true']");
+    if (
+      !root ||
+      !requestInput ||
+      !titleInput ||
+      !startAtInput ||
+      !endAtInput ||
+      !mediaInput ||
+      !previewScreen ||
+      !emptyState ||
+      !summaryText ||
+      !requesterLabel ||
+      !requestBadge ||
+      !periodBadge
+    ) {
       return;
     }
+    hideLegacyPreviewSummary();
 
     let previewObjectUrl = "";
+    let requestFetchTimer = 0;
+    let requestFetchToken = 0;
+    const previewApiUrl = String(root.dataset.previewApiUrl || "").trim();
+    const requestState = {
+      id: String(root.dataset.requestId || "").trim(),
+      code: String(root.dataset.requestCode || "").trim(),
+      requesterLabel: String(root.dataset.requesterLabel || "").trim(),
+      assetUrl: String(root.dataset.existingSrc || "").trim(),
+      assetType: String(root.dataset.existingType || "").trim(),
+      assetName: String(root.dataset.existingName || "").trim(),
+    };
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function basename(value) {
+      return String(value || "")
+        .split(/[\\/]/)
+        .filter(Boolean)
+        .pop() || "";
+    }
+
+    function formatDateTimeLabel(value) {
+      const raw = cleanText(value);
+      if (!raw) {
+        return "";
+      }
+      const parts = raw.split("T");
+      if (parts.length !== 2) {
+        return raw;
+      }
+      return parts[0] + " - " + parts[1];
+    }
 
     function revokePreviewUrl() {
       if (!previewObjectUrl) {
@@ -314,34 +381,62 @@
       return video;
     }
 
+    function updateToolbarState(fromPreviewAction, statusMessage) {
+      const requestId = cleanText(requestInput.value);
+      const startLabel = formatDateTimeLabel(startAtInput.value);
+      const endLabel = formatDateTimeLabel(endAtInput.value);
+      const title = cleanText(titleInput.value) || "بنر الصفحة الرئيسية";
+      requesterLabel.textContent = requestState.requesterLabel || "-";
+      requestBadge.textContent = requestState.code
+        ? "الطلب: " + requestState.code
+        : (requestId ? "الطلب: " + requestId : "اختر الطلب");
+      periodBadge.textContent =
+        startLabel && endLabel
+          ? ("من " + startLabel + " إلى " + endLabel)
+          : "حدد فترة الحملة";
+      if (statusMessage) {
+        summaryText.textContent = statusMessage;
+        return;
+      }
+      summaryText.textContent = fromPreviewAction
+        ? ("تم تحديث معاينة " + title + " مباشرة داخل شاشة الجوال.")
+        : ("المعاينة الحية لــ " + title + " تتحدث مباشرة مع تغيير الطلب أو الملف أو فترة الحملة.");
+    }
+
+    function updateAttachmentSpecs(file) {
+      if (!specsInput) {
+        return;
+      }
+      if (file) {
+        const sizeMb = (file.size || 0) / (1024 * 1024);
+        specsInput.value = (file.name || "asset") + " - " + sizeMb.toFixed(2) + " MB";
+        return;
+      }
+      specsInput.value = basename(requestState.assetName);
+    }
+
     function renderExistingAsset() {
-      const existingSrc = previewScreen.dataset.existingSrc || "";
-      const existingType = String(previewScreen.dataset.existingType || "").toLowerCase();
+      const existingSrc = requestState.assetUrl;
+      const existingType = String(requestState.assetType || "").toLowerCase();
       if (!existingSrc) {
-        renderEmptyState("اختر التصميم لعرضه داخل شاشة الجوال.");
+        updateAttachmentSpecs(null);
+        renderEmptyState("لا يوجد تصميم محفوظ لهذا الطلب بعد.");
         if (metaText) {
-          metaText.textContent = "المعاينة الفورية تظهر هنا قبل الحفظ.";
+          metaText.textContent = "يمكنك رفع تصميم جديد أو اختيار طلب مرتبط بمرفق محفوظ.";
         }
         return;
       }
 
+      updateAttachmentSpecs(null);
       clearPreviewScreen();
       const mediaNode =
         existingType === "video"
-          ? buildVideo(existingSrc, "معاينة فيديو محفوظ")
-          : buildImage(existingSrc, "معاينة تصميم محفوظ");
+          ? buildVideo(existingSrc, basename(requestState.assetName) || "معاينة فيديو محفوظ")
+          : buildImage(existingSrc, basename(requestState.assetName) || "معاينة تصميم محفوظ");
       previewScreen.appendChild(mediaNode);
       if (metaText) {
-        metaText.textContent = "هذا هو آخر تصميم محفوظ وسيتم عرضه تلقائيًا وقت الحملة.";
+        metaText.textContent = "هذا هو آخر تصميم محفوظ للطلب المحدد وسيتم استخدامه ما لم ترفع ملفًا جديدًا.";
       }
-    }
-
-    function updateAttachmentSpecs(file) {
-      if (!specsInput || !file) {
-        return;
-      }
-      const sizeMb = (file.size || 0) / (1024 * 1024);
-      specsInput.value = (file.name || "asset") + " - " + sizeMb.toFixed(2) + " MB";
     }
 
     function renderSelectedAsset(file) {
@@ -408,11 +503,168 @@
       }
     }
 
+    function currentDraftHasAsset() {
+      const currentFile = mediaInput.files && mediaInput.files[0] ? mediaInput.files[0] : null;
+      return Boolean(currentFile || requestState.assetUrl);
+    }
+
+    function focusFirstError() {
+      if (!cleanText(requestInput.value)) {
+        requestInput.focus();
+        return;
+      }
+      if (!cleanText(startAtInput.value)) {
+        startAtInput.focus();
+        return;
+      }
+      if (!cleanText(endAtInput.value)) {
+        endAtInput.focus();
+        return;
+      }
+      if (!currentDraftHasAsset()) {
+        mediaInput.focus();
+      }
+    }
+
+    function validateWindow() {
+      const startValue = cleanText(startAtInput.value);
+      const endValue = cleanText(endAtInput.value);
+      if (!startValue || !endValue) {
+        return "";
+      }
+      const startMs = Date.parse(startValue);
+      const endMs = Date.parse(endValue);
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs <= startMs) {
+        return "نهاية الحملة يجب أن تكون بعد البداية.";
+      }
+      return "";
+    }
+
+    function applyRequestPreviewPayload(payload) {
+      const requestPayload = payload && payload.request ? payload.request : {};
+      const assetPayload = payload && payload.asset ? payload.asset : {};
+      requestState.id = cleanText(requestPayload.id);
+      requestState.code = cleanText(requestPayload.code);
+      requestState.requesterLabel = cleanText(requestPayload.requester_label);
+      requestState.assetUrl = cleanText(assetPayload.url);
+      requestState.assetType = cleanText(assetPayload.type);
+      requestState.assetName = cleanText(assetPayload.name);
+      updateToolbarState(
+        false,
+        requestState.assetUrl
+          ? "تم تحميل آخر تصميم محفوظ لهذا الطلب داخل المعاينة."
+          : "لا يوجد تصميم محفوظ لهذا الطلب حاليًا. يمكنك رفع ملف جديد للمعاينة."
+      );
+      if (!(mediaInput.files && mediaInput.files[0])) {
+        renderExistingAsset();
+      }
+    }
+
+    function handleRequestPreviewFailure(message) {
+      requestState.id = cleanText(requestInput.value);
+      requestState.code = cleanText(requestInput.value);
+      requestState.requesterLabel = "";
+      requestState.assetUrl = "";
+      requestState.assetType = "";
+      requestState.assetName = "";
+      updateToolbarState(false, message || "تعذر جلب بيانات الطلب الآن.");
+      if (!(mediaInput.files && mediaInput.files[0])) {
+        renderExistingAsset();
+      }
+    }
+
+    function loadRequestPreview() {
+      const requestId = cleanText(requestInput.value);
+      if (!requestId) {
+        handleRequestPreviewFailure("اختر رقم طلب الترويج ليتم تحميل معاينته.");
+        return;
+      }
+      if (!previewApiUrl) {
+        updateToolbarState(false, "المعاينة الحية تعمل على الملف المحلي فقط في هذه الصفحة.");
+        return;
+      }
+
+      const token = ++requestFetchToken;
+      updateToolbarState(false, "جارٍ تحميل بيانات الطلب المختار...");
+      fetch(previewApiUrl + "?request_id=" + encodeURIComponent(requestId), {
+        method: "GET",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+      })
+        .then((response) =>
+          response
+            .json()
+            .catch(() => ({}))
+            .then((payload) => ({ response, payload }))
+        )
+        .then(({ response, payload }) => {
+          if (token !== requestFetchToken) {
+            return;
+          }
+          if (!response.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) || "تعذر جلب بيانات الطلب.");
+          }
+          applyRequestPreviewPayload(payload);
+        })
+        .catch((error) => {
+          if (token !== requestFetchToken) {
+            return;
+          }
+          handleRequestPreviewFailure(error && error.message ? error.message : "تعذر جلب بيانات الطلب.");
+        });
+    }
+
+    function scheduleRequestPreviewLoad() {
+      if (requestFetchTimer) {
+        window.clearTimeout(requestFetchTimer);
+      }
+      requestFetchTimer = window.setTimeout(loadRequestPreview, 240);
+    }
+
     mediaInput.addEventListener("change", () => {
       const file = mediaInput.files && mediaInput.files[0] ? mediaInput.files[0] : null;
       renderSelectedAsset(file);
+      updateToolbarState(false, file ? "يعرض الآن الملف المحلي الذي اخترته قبل الحفظ." : "");
     });
+    requestInput.addEventListener("input", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("change", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("blur", scheduleRequestPreviewLoad);
+    titleInput.addEventListener("input", () => updateToolbarState(false));
+    startAtInput.addEventListener("input", () => updateToolbarState(false));
+    startAtInput.addEventListener("change", () => updateToolbarState(false));
+    endAtInput.addEventListener("input", () => updateToolbarState(false));
+    endAtInput.addEventListener("change", () => updateToolbarState(false));
 
+    if (previewButton) {
+      previewButton.addEventListener("click", () => {
+        const errors = [];
+        if (!cleanText(requestInput.value)) {
+          errors.push("اختر رقم طلب الترويج أولاً.");
+        }
+        if (!cleanText(startAtInput.value) || !cleanText(endAtInput.value)) {
+          errors.push("حدد بداية ونهاية الحملة.");
+        }
+        const windowError = validateWindow();
+        if (windowError) {
+          errors.push(windowError);
+        }
+        if (!currentDraftHasAsset()) {
+          errors.push("ارفع تصميم البنر أو اختر طلبًا مرتبطًا بتصميم محفوظ.");
+        }
+        if (errors.length) {
+          focusFirstError();
+          window.alert(errors.join("\n"));
+          return;
+        }
+        const file = mediaInput.files && mediaInput.files[0] ? mediaInput.files[0] : null;
+        renderSelectedAsset(file);
+        updateToolbarState(true);
+        const focusTarget = document.getElementById("homeBannerPreviewPanel") || previewScreen;
+        focusTarget.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+
+    updateToolbarState(false);
     renderExistingAsset();
     window.addEventListener("beforeunload", revokePreviewUrl);
   }
@@ -1360,6 +1612,1032 @@
     }
   }
 
+  function setupSponsorshipModule() {
+    const moduleForm = document.getElementById("promoModuleForm");
+    if (!moduleForm) {
+      return;
+    }
+    const moduleKey = String(moduleForm.dataset.moduleKey || "").toLowerCase();
+    if (moduleKey !== "sponsorship") {
+      return;
+    }
+
+    const root = document.getElementById("sponsorshipModule");
+    const requestIdInput = moduleForm.querySelector("input[name='request_id']");
+    const sponsorNameInput = moduleForm.querySelector("input[name='sponsor_name']");
+    const sponsorUrlInput = moduleForm.querySelector("input[name='sponsor_url']");
+    const monthsInput = moduleForm.querySelector("input[name='sponsorship_months']");
+    const startAtInput = moduleForm.querySelector("input[name='start_at']");
+    const endAtInput = moduleForm.querySelector("input[name='end_at']");
+    const bodyInput = moduleForm.querySelector("textarea[name='message_body']");
+    const redirectUrlInput = moduleForm.querySelector("input[name='redirect_url']");
+    const fileInput = moduleForm.querySelector("input[name='media_file']");
+    const specsInput = moduleForm.querySelector("input[name='attachment_specs']");
+    const previewPanel = document.getElementById("sponsorshipPreviewPanel");
+    const monthsBadge = document.getElementById("sponsorshipPreviewMonthsBadge");
+    const periodBadge = document.getElementById("sponsorshipPreviewPeriodBadge");
+    const sectionMeta = document.getElementById("sponsorshipPreviewSectionMeta");
+    const appLogoSlot = document.getElementById("sponsorshipPreviewAppLogo");
+    const sponsorTap = document.getElementById("sponsorshipPreviewSponsorTap");
+    const mediaBox = document.getElementById("sponsorshipPreviewMedia");
+    const titleNode = document.getElementById("sponsorshipPreviewTitle");
+    const bodyNode = document.getElementById("sponsorshipPreviewBody");
+    const chipNode = document.getElementById("sponsorshipPreviewChip");
+    const linkNode = document.getElementById("sponsorshipPreviewLink");
+    const assetNameNode = document.getElementById("sponsorshipPreviewAssetName");
+    const overlay = document.getElementById("sponsorshipPreviewOverlay");
+    const overlayTitle = document.getElementById("sponsorshipPreviewOverlayTitle");
+    const overlayBody = document.getElementById("sponsorshipPreviewOverlayBody");
+    const overlayLink = document.getElementById("sponsorshipPreviewOverlayLink");
+    const overlayClose = document.getElementById("sponsorshipPreviewOverlayClose");
+    const previewButton = moduleForm.querySelector("[data-live-preview-focus='true']");
+    if (
+      !root ||
+      !sponsorNameInput ||
+      !sponsorUrlInput ||
+      !monthsInput ||
+      !startAtInput ||
+      !endAtInput ||
+      !bodyInput ||
+      !redirectUrlInput ||
+      !fileInput ||
+      !specsInput ||
+      !previewPanel ||
+      !monthsBadge ||
+      !periodBadge ||
+      !sectionMeta ||
+      !appLogoSlot ||
+      !sponsorTap ||
+      !mediaBox ||
+      !titleNode ||
+      !bodyNode ||
+      !chipNode ||
+      !linkNode ||
+      !assetNameNode ||
+      !overlay ||
+      !overlayTitle ||
+      !overlayBody ||
+      !overlayLink ||
+      !overlayClose
+    ) {
+      return;
+    }
+    hideLegacyPreviewSummary();
+
+    let previewObjectUrl = "";
+    let renderedMediaKey = "";
+    let rotateTimer = 0;
+    let showingSponsorLogo = false;
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function basename(value) {
+      return String(value || "")
+        .split(/[\\/]/)
+        .filter(Boolean)
+        .pop() || "";
+    }
+
+    function parsePositiveInt(value) {
+      const parsed = Number.parseInt(String(value || "").trim(), 10);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+    }
+
+    function hasActiveSponsorData() {
+      return !!(
+        cleanText(sponsorNameInput.value)
+        || (fileInput.files && fileInput.files[0])
+        || cleanText(root.dataset.existingSrc)
+      );
+    }
+
+    function formatSize(bytes) {
+      const size = Number(bytes || 0);
+      if (!Number.isFinite(size) || size <= 0) {
+        return "0 MB";
+      }
+      return (size / (1024 * 1024)).toFixed(2) + " MB";
+    }
+
+    function formatDateTimeLabel(value) {
+      const raw = cleanText(value);
+      if (!raw) {
+        return "";
+      }
+      const parts = raw.split("T");
+      if (parts.length !== 2) {
+        return raw;
+      }
+      return parts[0] + " - " + parts[1];
+    }
+
+    function revokePreviewUrl() {
+      if (!previewObjectUrl) {
+        return;
+      }
+      try {
+        URL.revokeObjectURL(previewObjectUrl);
+      } catch (_) {
+        // Ignore URL revocation errors.
+      }
+      previewObjectUrl = "";
+    }
+
+    function setLogoFace(showSponsor) {
+      showingSponsorLogo = !!showSponsor;
+      appLogoSlot.classList.toggle("is-active", !showingSponsorLogo);
+      sponsorTap.classList.toggle("is-active", showingSponsorLogo);
+    }
+
+    function stopLogoRotation() {
+      if (rotateTimer) {
+        window.clearInterval(rotateTimer);
+        rotateTimer = 0;
+      }
+      setLogoFace(false);
+    }
+
+    function startLogoRotation() {
+      if (!hasActiveSponsorData()) {
+        stopLogoRotation();
+        sectionMeta.textContent = "لا توجد رعاية مكتملة بعد";
+        return;
+      }
+      stopLogoRotation();
+      sectionMeta.textContent = "يتم التبديل بين الشعارات تلقائيًا";
+      rotateTimer = window.setInterval(() => {
+        setLogoFace(!showingSponsorLogo);
+      }, 2000);
+    }
+
+    function detectExistingMediaType() {
+      const storedType = cleanText(root.dataset.existingType).toLowerCase();
+      if (storedType === "video" || storedType === "image") {
+        return storedType;
+      }
+      const storedName = basename(root.dataset.existingName).toLowerCase();
+      return storedName.endsWith(".mp4") ? "video" : "image";
+    }
+
+    function buildMediaNode(src, mediaType, label) {
+      if (mediaType === "video") {
+        const video = document.createElement("video");
+        video.src = src;
+        video.controls = true;
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.preload = "metadata";
+        video.setAttribute("aria-label", label || "ملف رعاية");
+        return video;
+      }
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = label || "شعار الراعي";
+      img.loading = "lazy";
+      return img;
+    }
+
+    function renderMedia(forceRender) {
+      const currentFile = fileInput.files && fileInput.files[0];
+      const existingSrc = cleanText(root.dataset.existingSrc);
+      const mediaKey = currentFile
+        ? "file:" + currentFile.name + ":" + currentFile.size + ":" + currentFile.lastModified
+        : (existingSrc ? "existing:" + existingSrc : "empty");
+      if (!forceRender && mediaKey === renderedMediaKey) {
+        return;
+      }
+      renderedMediaKey = mediaKey;
+      revokePreviewUrl();
+      mediaBox.textContent = "";
+
+      if (currentFile) {
+        previewObjectUrl = URL.createObjectURL(currentFile);
+        const mediaType = String(currentFile.type || "").toLowerCase().startsWith("video/") ? "video" : "image";
+        mediaBox.appendChild(buildMediaNode(previewObjectUrl, mediaType, basename(currentFile.name)));
+        assetNameNode.textContent = basename(currentFile.name);
+        specsInput.value = basename(currentFile.name) + " - " + formatSize(currentFile.size);
+        return;
+      }
+
+      if (existingSrc) {
+        mediaBox.appendChild(
+          buildMediaNode(existingSrc, detectExistingMediaType(), basename(root.dataset.existingName) || "ملف الرعاية")
+        );
+        assetNameNode.textContent = basename(root.dataset.existingName) || "ملف محفوظ";
+        if (!cleanText(specsInput.value) && cleanText(root.dataset.existingName)) {
+          specsInput.value = basename(root.dataset.existingName);
+        }
+        return;
+      }
+
+      const placeholder = document.createElement("div");
+      placeholder.className = "sponsorship-preview-media-placeholder";
+      placeholder.textContent = "شعار أو ملف الرعاية يظهر هنا";
+      mediaBox.appendChild(placeholder);
+      assetNameNode.textContent = "لا يوجد ملف مرفوع";
+      if (!cleanText(fileInput.value)) {
+        specsInput.value = "";
+      }
+    }
+
+    function renderState(fromPreviewAction) {
+      const sponsorName = cleanText(sponsorNameInput.value) || "راعٍ رسمي";
+      const messageBody = cleanText(bodyInput.value);
+      const months = parsePositiveInt(monthsInput.value);
+      const startLabel = formatDateTimeLabel(startAtInput.value);
+      const endLabel = formatDateTimeLabel(endAtInput.value);
+      const redirectUrl = cleanText(redirectUrlInput.value);
+      const sponsorUrl = cleanText(sponsorUrlInput.value);
+
+      chipNode.textContent = months > 0 ? "رعاية " + months + "ش" : "رعاية";
+      titleNode.textContent = sponsorName;
+      bodyNode.textContent = messageBody || "النبذة التعريفية ستظهر هنا عند كتابة رسالة الرعاية.";
+      monthsBadge.textContent = months > 0 ? "مدة الرعاية: " + months + " شهر" : "حدد مدة الرعاية";
+      periodBadge.textContent =
+        startLabel && endLabel
+          ? ("من " + startLabel + " إلى " + endLabel)
+          : "حدد فترة الرعاية";
+      linkNode.textContent = redirectUrl || sponsorUrl || "لا يوجد رابط بعد";
+      sectionMeta.textContent = fromPreviewAction
+        ? "تم تحديث المعاينة مباشرة"
+        : "المعاينة تتحدث مع كل تغيير";
+      overlayTitle.textContent = sponsorName;
+      overlayBody.textContent = messageBody || "سيظهر نص رسالة الرعاية هنا عند الضغط على شعار الراعي.";
+      if (redirectUrl || sponsorUrl) {
+        overlayLink.hidden = false;
+        overlayLink.href = redirectUrl || sponsorUrl;
+      } else {
+        overlayLink.hidden = true;
+        overlayLink.removeAttribute("href");
+      }
+      renderMedia(false);
+      startLogoRotation();
+    }
+
+    function focusFirstError() {
+      if (requestIdInput && !cleanText(requestIdInput.value)) {
+        requestIdInput.focus();
+        return;
+      }
+      if (!parsePositiveInt(monthsInput.value)) {
+        monthsInput.focus();
+        return;
+      }
+      if (!cleanText(startAtInput.value)) {
+        startAtInput.focus();
+        return;
+      }
+      if (!cleanText(endAtInput.value)) {
+        endAtInput.focus();
+      }
+    }
+
+    if (previewButton) {
+      previewButton.addEventListener("click", () => {
+        renderMedia(true);
+        renderState(true);
+
+        const errors = [];
+        if (requestIdInput && !cleanText(requestIdInput.value)) {
+          errors.push("اختر رقم طلب الترويج أولاً.");
+        }
+        if (!parsePositiveInt(monthsInput.value)) {
+          errors.push("أدخل مدة الرعاية بالأشهر.");
+        }
+        if (!cleanText(startAtInput.value) || !cleanText(endAtInput.value)) {
+          errors.push("حدد بداية ونهاية الرعاية.");
+        }
+        if (errors.length) {
+          focusFirstError();
+          window.alert(errors.join("\n"));
+          return;
+        }
+
+        previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    sponsorTap.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (!hasActiveSponsorData()) {
+        return;
+      }
+      overlay.hidden = false;
+    });
+
+    overlayClose.addEventListener("click", () => {
+      overlay.hidden = true;
+    });
+
+    sponsorNameInput.addEventListener("input", () => renderState(false));
+    sponsorUrlInput.addEventListener("input", () => renderState(false));
+    monthsInput.addEventListener("input", () => renderState(false));
+    startAtInput.addEventListener("input", () => renderState(false));
+    startAtInput.addEventListener("change", () => renderState(false));
+    endAtInput.addEventListener("input", () => renderState(false));
+    endAtInput.addEventListener("change", () => renderState(false));
+    bodyInput.addEventListener("input", () => renderState(false));
+    redirectUrlInput.addEventListener("input", () => renderState(false));
+    fileInput.addEventListener("change", () => {
+      renderedMediaKey = "";
+      renderMedia(true);
+      renderState(false);
+    });
+
+    renderMedia(true);
+    renderState(false);
+    window.addEventListener("beforeunload", () => {
+      revokePreviewUrl();
+      stopLogoRotation();
+    });
+  }
+
+  function setupPromoMessagesModule() {
+    const moduleForm = document.getElementById("promoModuleForm");
+    if (!moduleForm) {
+      return;
+    }
+    const moduleKey = String(moduleForm.dataset.moduleKey || "").toLowerCase();
+    if (moduleKey !== "promo_messages") {
+      return;
+    }
+
+    const root = document.getElementById("promoMessageModule");
+    const requestIdInput = moduleForm.querySelector("input[name='request_id']");
+    const bodyInput = moduleForm.querySelector("textarea[name='message_body']");
+    const titleInput = moduleForm.querySelector("input[name='message_title']");
+    const notificationInput = moduleForm.querySelector("input[name='use_notification_channel']");
+    const chatInput = moduleForm.querySelector("input[name='use_chat_channel']");
+    const fileInput = moduleForm.querySelector("input[name='media_file']");
+    const specsInput = moduleForm.querySelector("input[name='attachment_specs']");
+    const sendAtInput = moduleForm.querySelector("input[name='send_at']");
+    const requesterLabelNode = document.getElementById("promoMessageRequesterLabel");
+    const requestBadge = document.getElementById("promoMessageRequestBadge");
+    const channelsBadge = document.getElementById("promoMessageChannelsBadge");
+    const scheduleBadge = document.getElementById("promoMessageScheduleBadge");
+    const summary = document.getElementById("promoMessagePreviewSummary");
+    const previewEmpty = document.getElementById("promoMessagePreviewEmpty");
+    const previewPanel = document.getElementById("promoMessagePreviewPanel");
+    const notificationCard = root ? root.querySelector("[data-channel-preview='notification']") : null;
+    const chatCard = root ? root.querySelector("[data-channel-preview='chat']") : null;
+    const notificationBanner = document.getElementById("promoMessageNotificationBanner");
+    const notificationList = document.getElementById("promoMessageNotificationList");
+    const chatThread = document.getElementById("promoMessageChatThread");
+    const chatTopbarMeta = document.getElementById("promoMessageChatTopbarMeta");
+    const previewButton = moduleForm.querySelector("[data-live-preview-focus='true']");
+    if (
+      !root ||
+      !requestIdInput ||
+      !bodyInput ||
+      !notificationInput ||
+      !chatInput ||
+      !fileInput ||
+      !specsInput ||
+      !sendAtInput ||
+      !requesterLabelNode ||
+      !requestBadge ||
+      !channelsBadge ||
+      !scheduleBadge ||
+      !summary ||
+      !previewEmpty ||
+      !previewPanel ||
+      !notificationCard ||
+      !chatCard ||
+      !notificationBanner ||
+      !notificationList ||
+      !chatThread ||
+      !chatTopbarMeta
+    ) {
+      return;
+    }
+    hideLegacyPreviewSummary();
+
+    const previewApiUrl = String(root.dataset.previewApiUrl || "").trim();
+    const requestContext = {
+      id: String(root.dataset.requestId || "").trim(),
+      code: String(root.dataset.requestCode || "").trim(),
+      senderLabel: String(root.dataset.senderLabel || "مرسل الحملة").trim() || "مرسل الحملة",
+      existingName: String(root.dataset.existingName || "").trim(),
+    };
+    const channelCards = Array.from(root.querySelectorAll("[data-channel-card]"));
+    let previewObjectUrl = "";
+    let selectedFileMeta = null;
+    let fileToken = 0;
+    let requestFetchTimer = 0;
+    let requestFetchToken = 0;
+    let referenceAttachmentLabel = String(specsInput.value || requestContext.existingName || "").trim();
+
+    function clearNode(node) {
+      while (node.firstChild) {
+        node.removeChild(node.firstChild);
+      }
+    }
+
+    function basename(value) {
+      const text = String(value || "").trim();
+      if (!text) {
+        return "";
+      }
+      return text.split("/").pop().split("\\").pop();
+    }
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function revokePreviewUrl() {
+      if (!previewObjectUrl) {
+        return;
+      }
+      try {
+        URL.revokeObjectURL(previewObjectUrl);
+      } catch (_) {
+        // Ignore URL revocation failures.
+      }
+      previewObjectUrl = "";
+    }
+
+    function readSelectedFile() {
+      return fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+    }
+
+    function detectMediaKind(file) {
+      if (!file) {
+        return "";
+      }
+      const type = String(file.type || "").toLowerCase();
+      const name = String(file.name || "").toLowerCase();
+      if (type.startsWith("image/") || /\.(jpg|jpeg|png|gif)$/i.test(name)) {
+        return "image";
+      }
+      if (type === "video/mp4" || /\.mp4$/i.test(name)) {
+        return "video";
+      }
+      return "";
+    }
+
+    function formatSize(bytes) {
+      const sizeMb = Number(bytes || 0) / (1024 * 1024);
+      return sizeMb.toFixed(2) + " MB";
+    }
+
+    function formatDuration(seconds) {
+      const total = Math.max(0, Math.round(Number(seconds) || 0));
+      const minutes = Math.floor(total / 60);
+      const remain = total % 60;
+      if (minutes <= 0) {
+        return remain + "ث";
+      }
+      return minutes + "د " + remain + "ث";
+    }
+
+    function formatDateTime(value) {
+      const raw = String(value || "").trim();
+      if (!raw) {
+        return "غير محدد";
+      }
+      const candidate = new Date(raw);
+      if (Number.isNaN(candidate.getTime())) {
+        return raw.replace("T", " - ");
+      }
+      try {
+        return new Intl.DateTimeFormat("ar-SA", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(candidate);
+      } catch (_) {
+        return raw.replace("T", " - ");
+      }
+    }
+
+    function buildSpecsText(file, meta) {
+      if (!file) {
+        return referenceAttachmentLabel;
+      }
+      const kind = meta && meta.kind === "video" ? "MP4" : "IMAGE";
+      const parts = [basename(file.name), kind, formatSize(file.size)];
+      if (meta && meta.kind === "image" && meta.width && meta.height) {
+        parts.push(meta.width + "x" + meta.height);
+      }
+      if (meta && meta.kind === "video") {
+        if (meta.width && meta.height) {
+          parts.push(meta.width + "x" + meta.height);
+        }
+        if (meta.duration) {
+          parts.push(formatDuration(meta.duration));
+        }
+      }
+      return parts.filter(Boolean).join(" - ");
+    }
+
+    function syncChannelCards() {
+      channelCards.forEach((card) => {
+        const key = card.getAttribute("data-channel-card") || "";
+        const active =
+          (key === "notification" && notificationInput.checked) ||
+          (key === "chat" && chatInput.checked);
+        card.classList.toggle("is-active", active);
+      });
+    }
+
+    function selectedChannels() {
+      const labels = [];
+      if (notificationInput.checked) {
+        labels.push("التنبيه الدعائي");
+      }
+      if (chatInput.checked) {
+        labels.push("المحادثة الدعائية");
+      }
+      return labels;
+    }
+
+    function notificationTitle() {
+      const raw = titleInput ? String(titleInput.value || "").trim() : "";
+      return raw || "رسالة دعائية جديدة";
+    }
+
+    function messageBodyText() {
+      return String(bodyInput.value || "").trim();
+    }
+
+    function currentDraftHasContent() {
+      return Boolean(messageBodyText() || readSelectedFile());
+    }
+
+    function updateRequestMeta(statusMessage) {
+      const requestId = cleanText(requestIdInput.value);
+      requesterLabelNode.textContent = requestContext.senderLabel || "-";
+      requestBadge.textContent = requestContext.code
+        ? "الطلب: " + requestContext.code
+        : (requestId ? "الطلب: " + requestId : "اختر الطلب");
+      if (statusMessage) {
+        summary.textContent = statusMessage;
+      }
+    }
+
+    function createMediaNode(media, compact) {
+      if (!media || !media.url) {
+        return null;
+      }
+      if (media.kind === "video") {
+        const video = document.createElement("video");
+        video.src = media.url;
+        video.muted = true;
+        video.loop = true;
+        video.autoplay = true;
+        video.playsInline = true;
+        if (!compact) {
+          video.controls = true;
+        }
+        return video;
+      }
+      const image = document.createElement("img");
+      image.src = media.url;
+      image.alt = media.name || "معاينة المرفق";
+      image.loading = "lazy";
+      return image;
+    }
+
+    function buildMediaSummary(media) {
+      if (!media) {
+        return null;
+      }
+      const wrap = document.createElement("div");
+      wrap.className = "messages-notification-media";
+      const node = createMediaNode(media, true);
+      if (node) {
+        wrap.appendChild(node);
+      }
+      const tag = document.createElement("span");
+      tag.className = "messages-notification-tag";
+      tag.textContent = media.kind === "video" ? "فيديو MP4" : "مرفق مرئي";
+      wrap.appendChild(tag);
+      return wrap;
+    }
+
+    function buildNotificationItem(config) {
+      const item = document.createElement("div");
+      item.className = "messages-notification-item";
+
+      const badge = document.createElement("div");
+      badge.className = "messages-notification-badge";
+      badge.textContent = "ت";
+
+      const copy = document.createElement("div");
+      copy.className = "messages-notification-copy";
+      const title = document.createElement("strong");
+      title.textContent = config.title;
+      const body = document.createElement("p");
+      body.textContent = config.body;
+      copy.appendChild(title);
+      copy.appendChild(body);
+      if (config.media) {
+        copy.appendChild(buildMediaSummary(config.media));
+      }
+
+      const time = document.createElement("span");
+      time.className = "messages-notification-time";
+      time.textContent = config.time;
+
+      item.appendChild(badge);
+      item.appendChild(copy);
+      item.appendChild(time);
+      return item;
+    }
+
+    function buildPlaceholder(text) {
+      const empty = document.createElement("div");
+      empty.className = "messages-preview-placeholder";
+      empty.textContent = text;
+      return empty;
+    }
+
+    function renderNotificationPreview(state) {
+      clearNode(notificationBanner);
+      clearNode(notificationList);
+      if (!notificationInput.checked) {
+        return;
+      }
+
+      const bannerHead = document.createElement("div");
+      bannerHead.className = "messages-notification-list-head";
+      const bannerTitle = document.createElement("strong");
+      bannerTitle.textContent = "تنبيه دعائي";
+      const bannerTime = document.createElement("span");
+      bannerTime.textContent = "الآن";
+      bannerHead.appendChild(bannerTitle);
+      bannerHead.appendChild(bannerTime);
+      notificationBanner.appendChild(bannerHead);
+
+      if (!state.body && !state.media) {
+        notificationBanner.appendChild(buildPlaceholder("اكتب نص الرسالة أو ارفع مرفقًا واحدًا لعرض شكل الإشعار."));
+      } else {
+        const copy = document.createElement("div");
+        copy.className = "messages-notification-copy";
+        const title = document.createElement("strong");
+        title.textContent = state.title;
+        const body = document.createElement("p");
+        body.textContent = state.body || "تم إرفاق مادة دعائية بدون نص مكتوب.";
+        copy.appendChild(title);
+        copy.appendChild(body);
+        if (state.media) {
+          copy.appendChild(buildMediaSummary(state.media));
+        }
+        notificationBanner.appendChild(copy);
+      }
+
+      notificationList.appendChild(
+        buildNotificationItem({
+          title: state.title,
+          body: state.body || "تم إرفاق مادة دعائية بدون نص مكتوب.",
+          time: "الآن",
+          media: state.media,
+        })
+      );
+      notificationList.appendChild(
+        buildNotificationItem({
+          title: "تحديثات المنصة",
+          body: "تم تحديث واجهة الاستخدام وتحسين مركز الإشعارات.",
+          time: "08:10",
+          media: null,
+        })
+      );
+      notificationList.appendChild(
+        buildNotificationItem({
+          title: "طلب جديد",
+          body: "لديك نشاط جديد على حسابك داخل المنصة.",
+          time: "أمس",
+          media: null,
+        })
+      );
+    }
+
+    function renderChatPreview(state) {
+      clearNode(chatThread);
+      if (!chatInput.checked) {
+        return;
+      }
+
+      const datePill = document.createElement("div");
+      datePill.className = "messages-chat-date";
+      datePill.textContent = "اليوم";
+      chatThread.appendChild(datePill);
+
+      const systemBubble = document.createElement("div");
+      systemBubble.className = "messages-chat-bubble is-system";
+      systemBubble.textContent = "هذه معاينة لطريقة ظهور الرسالة الدعائية داخل المحادثة.";
+      chatThread.appendChild(systemBubble);
+
+      if (!state.body && !state.media) {
+        chatThread.appendChild(buildPlaceholder("أضف نصًا أو مرفقًا ليظهر شكل الرسالة داخل المحادثة."));
+        return;
+      }
+
+      const bubble = document.createElement("div");
+      bubble.className = "messages-chat-bubble is-outgoing";
+      if (state.body) {
+        const text = document.createElement("div");
+        text.textContent = state.body;
+        bubble.appendChild(text);
+      }
+      if (state.media) {
+        const mediaWrap = document.createElement("div");
+        mediaWrap.className = "messages-chat-bubble-media";
+        const mediaNode = createMediaNode(state.media, false);
+        if (mediaNode) {
+          mediaWrap.appendChild(mediaNode);
+        }
+        const label = document.createElement("strong");
+        label.textContent = state.media.name || "مرفق دعائي";
+        mediaWrap.appendChild(label);
+        bubble.appendChild(mediaWrap);
+      }
+      const meta = document.createElement("span");
+      meta.className = "messages-chat-bubble-meta";
+      meta.textContent = "الآن • رسالة دعائية";
+      bubble.appendChild(meta);
+      chatThread.appendChild(bubble);
+    }
+
+    function currentMediaState() {
+      const file = readSelectedFile();
+      if (!file || !previewObjectUrl) {
+        return null;
+      }
+      return {
+        name: basename(file.name),
+        kind: (selectedFileMeta && selectedFileMeta.kind) || detectMediaKind(file),
+        url: previewObjectUrl,
+      };
+    }
+
+    function updateSummary(state, forcedPreview) {
+      const channels = selectedChannels();
+      updateRequestMeta("");
+      channelsBadge.textContent = channels.length ? channels.join(" + ") : "لم يتم اختيار قناة بعد";
+      scheduleBadge.textContent = sendAtInput.value ? formatDateTime(sendAtInput.value) : "حدد وقت الإرسال";
+      chatTopbarMeta.textContent = sendAtInput.value
+        ? (requestContext.senderLabel + " • " + formatDateTime(sendAtInput.value))
+        : (requestContext.senderLabel + " • حدد وقت الإرسال لإكمال الجدولة");
+
+      if (!channels.length) {
+        summary.textContent = "اختر قناة واحدة على الأقل لعرض شكل الرسالة الدعائية في الجوال.";
+        return;
+      }
+      if (!state.body && !state.media) {
+        summary.textContent =
+          "المعاينة نشطة، لكن المسودة الحالية لا تحتوي على نص أو مرفق بعد. أضف واحدًا على الأقل قبل الاعتماد.";
+        if (referenceAttachmentLabel) {
+          summary.textContent += " المرفق السابق ظاهر كمرجع فقط، ولن يرسل ما لم يتم رفعه من جديد.";
+        }
+        return;
+      }
+
+      let nextText =
+        "سترسل الرسالة المرتبطة بـ " +
+        (requestContext.code || (cleanText(requestIdInput.value) || "الطلب المحدد")) +
+        " عبر " +
+        channels.join(" + ") +
+        (sendAtInput.value ? " بتاريخ " + formatDateTime(sendAtInput.value) : " بعد تحديد وقت الإرسال");
+      if (!state.body && state.media) {
+        nextText += " اعتمادًا على المرفق فقط بدون نص مكتوب.";
+      } else if (state.body && !state.media) {
+        nextText += " كنص دعائي فقط بدون مرفقات.";
+      } else if (state.body && state.media) {
+        nextText += " مع نص ومرفق دعائي.";
+      }
+      if (forcedPreview) {
+        nextText += " تمت مزامنة المعاينة الحية ويمكنك الآن الاعتماد.";
+      }
+      summary.textContent = nextText;
+    }
+
+    function renderState(forcedPreview) {
+      const state = {
+        title: notificationTitle(),
+        body: messageBodyText(),
+        media: currentMediaState(),
+      };
+      const showNotification = notificationInput.checked;
+      const showChat = chatInput.checked;
+      notificationCard.hidden = !showNotification;
+      chatCard.hidden = !showChat;
+      previewEmpty.hidden = showNotification || showChat;
+      renderNotificationPreview(state);
+      renderChatPreview(state);
+      updateSummary(state, forcedPreview);
+      syncChannelCards();
+    }
+
+    function readImageMeta(url) {
+      return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve({ width: image.naturalWidth || 0, height: image.naturalHeight || 0 });
+        image.onerror = reject;
+        image.src = url;
+      });
+    }
+
+    function readVideoMeta(url) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () =>
+          resolve({
+            width: video.videoWidth || 0,
+            height: video.videoHeight || 0,
+            duration: Number(video.duration || 0),
+          });
+        video.onerror = reject;
+        video.src = url;
+      });
+    }
+
+    function handleFileChange() {
+      const file = readSelectedFile();
+      revokePreviewUrl();
+      selectedFileMeta = null;
+      if (!file) {
+        specsInput.value = referenceAttachmentLabel;
+        renderState(false);
+        return;
+      }
+
+      const kind = detectMediaKind(file);
+      previewObjectUrl = URL.createObjectURL(file);
+      selectedFileMeta = {
+        kind: kind || "other",
+        name: basename(file.name),
+      };
+      specsInput.value = buildSpecsText(file, selectedFileMeta);
+      renderState(false);
+
+      const currentToken = fileToken + 1;
+      fileToken = currentToken;
+      const loader = kind === "video" ? readVideoMeta(previewObjectUrl) : readImageMeta(previewObjectUrl);
+      loader
+        .then((meta) => {
+          if (currentToken !== fileToken) {
+            return;
+          }
+          selectedFileMeta = Object.assign({}, selectedFileMeta, meta);
+          specsInput.value = buildSpecsText(file, selectedFileMeta);
+          renderState(false);
+        })
+        .catch(() => {
+          if (currentToken !== fileToken) {
+            return;
+          }
+          specsInput.value = basename(file.name) + " - " + formatSize(file.size);
+          renderState(false);
+        });
+    }
+
+    function focusFirstError() {
+      if (!cleanText(requestIdInput.value)) {
+        requestIdInput.focus();
+        return;
+      }
+      if (!notificationInput.checked && !chatInput.checked) {
+        notificationInput.focus();
+        return;
+      }
+      if (!String(sendAtInput.value || "").trim()) {
+        sendAtInput.focus();
+        return;
+      }
+      if (!currentDraftHasContent()) {
+        bodyInput.focus();
+      }
+    }
+
+    function applyRequestPreviewPayload(payload) {
+      const requestPayload = payload && payload.request ? payload.request : {};
+      const assetPayload = payload && payload.asset ? payload.asset : {};
+      requestContext.id = cleanText(requestPayload.id);
+      requestContext.code = cleanText(requestPayload.code);
+      requestContext.senderLabel = cleanText(requestPayload.requester_label) || "مرسل الحملة";
+      requestContext.existingName = cleanText(assetPayload.name);
+      referenceAttachmentLabel = basename(requestContext.existingName);
+      if (!readSelectedFile()) {
+        specsInput.value = referenceAttachmentLabel;
+      }
+      renderState(false);
+      if (referenceAttachmentLabel) {
+        updateRequestMeta("تم تحديث بيانات الطلب ومرجع المرفق السابق داخل المعاينة.");
+      } else {
+        updateRequestMeta("تم تحديث بيانات الطلب. لا يوجد مرفق مرجعي محفوظ لهذا الطلب.");
+      }
+    }
+
+    function handleRequestPreviewFailure(message) {
+      requestContext.id = cleanText(requestIdInput.value);
+      requestContext.code = cleanText(requestIdInput.value);
+      requestContext.senderLabel = "-";
+      requestContext.existingName = "";
+      referenceAttachmentLabel = "";
+      if (!readSelectedFile()) {
+        specsInput.value = "";
+      }
+      renderState(false);
+      updateRequestMeta(message || "تعذر جلب بيانات الطلب الآن.");
+    }
+
+    function loadRequestPreview() {
+      const requestId = cleanText(requestIdInput.value);
+      if (!requestId) {
+        handleRequestPreviewFailure("اختر رقم طلب الترويج أولاً ليتم تحديث الحساب المرجعي.");
+        return;
+      }
+      if (!previewApiUrl) {
+        updateRequestMeta("المعاينة الحية تعمل بالبيانات الحالية فقط في هذه الصفحة.");
+        return;
+      }
+      const token = ++requestFetchToken;
+      updateRequestMeta("جارٍ تحميل بيانات الطلب المختار...");
+      fetch(previewApiUrl + "?request_id=" + encodeURIComponent(requestId), {
+        method: "GET",
+        headers: { "X-Requested-With": "XMLHttpRequest" },
+        credentials: "same-origin",
+      })
+        .then((response) =>
+          response
+            .json()
+            .catch(() => ({}))
+            .then((payload) => ({ response, payload }))
+        )
+        .then(({ response, payload }) => {
+          if (token !== requestFetchToken) {
+            return;
+          }
+          if (!response.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) || "تعذر جلب بيانات الطلب.");
+          }
+          applyRequestPreviewPayload(payload);
+        })
+        .catch((error) => {
+          if (token !== requestFetchToken) {
+            return;
+          }
+          handleRequestPreviewFailure(error && error.message ? error.message : "تعذر جلب بيانات الطلب.");
+        });
+    }
+
+    function scheduleRequestPreviewLoad() {
+      if (requestFetchTimer) {
+        window.clearTimeout(requestFetchTimer);
+      }
+      requestFetchTimer = window.setTimeout(loadRequestPreview, 240);
+    }
+
+    if (previewButton) {
+      previewButton.addEventListener("click", () => {
+        renderState(true);
+
+        const errors = [];
+        if (!cleanText(requestIdInput.value)) {
+          errors.push("يرجى اختيار طلب الترويج أولاً.");
+        }
+        if (!notificationInput.checked && !chatInput.checked) {
+          errors.push("يرجى اختيار قناة ترويج واحدة على الأقل.");
+        }
+        if (!String(sendAtInput.value || "").trim()) {
+          errors.push("يرجى تحديد تاريخ ووقت الإرسال.");
+        }
+        if (!currentDraftHasContent()) {
+          errors.push("لا يمكن معاينة رسالة فارغة. أضف نصًا أو ارفع مرفقًا واحدًا.");
+        }
+        if (errors.length) {
+          focusFirstError();
+          window.alert(errors.join("\n"));
+          return;
+        }
+
+        previewPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+    notificationInput.addEventListener("change", () => renderState(false));
+    chatInput.addEventListener("change", () => renderState(false));
+    bodyInput.addEventListener("input", () => renderState(false));
+    sendAtInput.addEventListener("input", () => renderState(false));
+    sendAtInput.addEventListener("change", () => renderState(false));
+    requestIdInput.addEventListener("input", scheduleRequestPreviewLoad);
+    requestIdInput.addEventListener("change", scheduleRequestPreviewLoad);
+    requestIdInput.addEventListener("blur", scheduleRequestPreviewLoad);
+    fileInput.addEventListener("change", handleFileChange);
+
+    updateRequestMeta("");
+    renderState(false);
+    window.addEventListener("beforeunload", revokePreviewUrl);
+  }
+
   function setupTeamPanels() {
     const storageKey = "dashboard.promo.selectedTeamPanel";
     const menu = document.getElementById("teamFixedMenu");
@@ -1426,6 +2704,8 @@
     setupPortfolioShowcaseModule();
     setupSnapshotsModule();
     setupSearchResultsModule();
+    setupSponsorshipModule();
+    setupPromoMessagesModule();
     scrollActiveRow();
     setupTeamPanels();
   });

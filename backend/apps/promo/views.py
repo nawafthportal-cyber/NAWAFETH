@@ -27,6 +27,7 @@ from .models import (
     PromoAdType,
     PromoAsset,
     PromoPosition,
+    PromoPricingRule,
     PromoRequest,
     PromoRequestItem,
     PromoRequestStatus,
@@ -44,7 +45,14 @@ from .serializers import (
     HomeBannerSerializer,
 )
 from .permissions import IsOwnerOrBackofficePromo
-from .services import preview_promo_request, quote_and_create_invoice, reject_request, _sync_promo_to_unified
+from .services import (
+    preview_promo_request,
+    quote_and_create_invoice,
+    reject_request,
+    ensure_default_pricing_rules,
+    promo_min_campaign_hours,
+    _sync_promo_to_unified,
+)
 from .validators import validate_home_banner_media_dimensions
 
 
@@ -241,6 +249,16 @@ _PUBLIC_ITEM_DEFERRED_FIELDS = (
 _PUBLIC_VISIBLE_REQUEST_STATUSES = (
     PromoRequestStatus.ACTIVE,
     PromoRequestStatus.COMPLETED,
+)
+
+_PRICING_SERVICE_ORDER = (
+    PromoServiceType.HOME_BANNER,
+    PromoServiceType.FEATURED_SPECIALISTS,
+    PromoServiceType.PORTFOLIO_SHOWCASE,
+    PromoServiceType.SNAPSHOTS,
+    PromoServiceType.SEARCH_RESULTS,
+    PromoServiceType.PROMO_MESSAGES,
+    PromoServiceType.SPONSORSHIP,
 )
 
 
@@ -618,6 +636,70 @@ class PromoRequestPreviewView(APIView):
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(payload, status=status.HTTP_200_OK)
+
+
+class PromoPricingGuideView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        ensure_default_pricing_rules()
+        service_labels = dict(PromoServiceType.choices)
+        grouped: dict[str, list[dict]] = {}
+
+        rules = (
+            PromoPricingRule.objects.filter(is_active=True)
+            .order_by("sort_order", "id")
+        )
+        for rule in rules:
+            display_key = (
+                (rule.get_frequency_display() if rule.frequency else "")
+                or (rule.get_search_position_display() if rule.search_position else "")
+                or (rule.get_message_channel_display() if rule.message_channel else "")
+                or rule.title
+            )
+            grouped.setdefault(rule.service_type, []).append(
+                {
+                    "id": rule.id,
+                    "code": rule.code,
+                    "title": rule.title,
+                    "display_key": display_key,
+                    "amount": f"{rule.amount:.2f}",
+                    "unit": rule.unit,
+                    "unit_label": rule.get_unit_display(),
+                    "frequency": rule.frequency or "",
+                    "frequency_label": rule.get_frequency_display() if rule.frequency else "",
+                    "search_position": rule.search_position or "",
+                    "search_position_label": rule.get_search_position_display() if rule.search_position else "",
+                    "message_channel": rule.message_channel or "",
+                    "message_channel_label": rule.get_message_channel_display() if rule.message_channel else "",
+                }
+            )
+
+        ordered_service_types: list[str] = list(_PRICING_SERVICE_ORDER)
+        for service_type in grouped.keys():
+            if service_type not in ordered_service_types:
+                ordered_service_types.append(service_type)
+
+        services_payload = [
+            {
+                "service_type": service_type,
+                "service_label": service_labels.get(service_type, service_type),
+                "rules": grouped.get(service_type, []),
+            }
+            for service_type in ordered_service_types
+        ]
+
+        return Response(
+            {
+                "generated_at": timezone.now().isoformat(),
+                "currency": "SAR",
+                "currency_label": "ريال سعودي",
+                "min_campaign_hours": promo_min_campaign_hours(),
+                "service_order": ordered_service_types,
+                "services": services_payload,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class MyPromoRequestsListView(generics.ListAPIView):
