@@ -6,6 +6,7 @@ from .views import (
     MyPromoRequestsListView,
     PromoRequestDetailView,
     PromoAddAssetView,
+    PromoPreparePaymentView,
 
     PublicHomeBannersView,
     PublicActivePromosView,
@@ -24,6 +25,7 @@ urlpatterns = [
     path("requests/my/", MyPromoRequestsListView.as_view(), name="my"),
     path("requests/<int:pk>/", PromoRequestDetailView.as_view(), name="detail"),
     path("requests/<int:pk>/assets/", PromoAddAssetView.as_view(), name="add_asset"),
+    path("requests/<int:pk>/prepare-payment/", PromoPreparePaymentView.as_view(), name="prepare_payment"),
 
     # public ads
     path("banners/home/", PublicHomeBannersView.as_view(), name="public_home_banners"),

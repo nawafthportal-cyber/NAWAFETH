@@ -72,7 +72,7 @@
                     <td>
                       <a
                         class="ticket-link"
-                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_request %}&request={{ selected_request.id }}{% endif %}{% if not selected_inquiry or selected_inquiry.id != row.id %}&inquiry={{ row.id }}{% endif %}"
+                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_request %}&request={{ selected_request.id }}{% endif %}{% if not selected_inquiry or selected_inquiry.id != row.id %}&inquiry={{ row.id }}#promoInquiryForm{% endif %}"
                       >
                         {{ row.code }}
                       </a>
@@ -138,7 +138,7 @@
                     <td>
                       <a
                         class="ticket-link"
-                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_inquiry %}&inquiry={{ selected_inquiry.id }}{% endif %}{% if not selected_request or selected_request.id != row.id %}&request={{ row.id }}{% endif %}"
+                        href="{% url 'dashboard:promo_dashboard' %}?inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&ops={{ filters.ops }}{% if selected_inquiry %}&inquiry={{ selected_inquiry.id }}{% endif %}{% if not selected_request or selected_request.id != row.id %}&request={{ row.id }}#promoRequestActionForm{% endif %}"
                       >
                         {{ row.code }}
                       </a>
@@ -198,8 +198,20 @@
                   {{ inquiry_form.description }}
                 </div>
                 <div class="field full">
-                  <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف</label>
+                  <label class="field-label-with-action" for="{{ inquiry_form.operator_comment.id_for_label }}">
+                    <span>تعليق المكلف</span>
+                    <button
+                      type="button"
+                      class="inline-icon-btn"
+                      id="insertPromoDetailLinkBtn"
+                      title="إدراج رابط الصفحة التفصيلية داخل التعليق"
+                      aria-label="إدراج رابط الصفحة التفصيلية داخل التعليق"
+                    >
+                      <span aria-hidden="true">🔗</span>
+                    </button>
+                  </label>
                   {{ inquiry_form.operator_comment }}
+                  <p class="field-hint">أدخل رابط صفحة الطلب التفصيلي ثم اضغط الأيقونة لإدراجه داخل التعليق.</p>
                 </div>
                 <div class="field">
                   <label for="{{ inquiry_form.linked_request_id.id_for_label }}">ربط بطلب ترويج</label>
@@ -293,27 +305,18 @@
                   {{ request_form.ops_status }}
                 </div>
                 <div class="field full">
-                  <label for="{{ request_form.ops_note.id_for_label }}">ملاحظة تنفيذ</label>
+                  <label for="{{ request_form.ops_note.id_for_label }}">تعليق المكلف بالطلب</label>
                   {{ request_form.ops_note }}
-                </div>
-                <div class="field full">
-                  <label for="{{ request_form.quote_note.id_for_label }}">ملاحظة التسعير</label>
-                  {{ request_form.quote_note }}
                 </div>
               </div>
 
               <div class="actions">
                 {% if can_write %}
                   <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
-                  <button type="submit" name="action" value="quote_request" class="ghost-btn">اعتماد التسعير</button>
-                  {% if can_reject_selected_request %}
-                    <button type="submit" name="action" value="reject_request" class="ghost-btn">رفض وإعادة للعميل</button>
-                  {% endif %}
-                  <button type="submit" name="action" value="activate_request" class="ghost-btn">تفعيل</button>
-                  <button type="submit" name="action" value="complete_request" class="ghost-btn">إكمال</button>
                 {% else %}
                   <span class="pill danger">قراءة فقط</span>
                 {% endif %}
+                <a href="{{ close_request_url }}" class="ghost-btn">إغلاق</a>
               </div>
             </form>
 
@@ -484,6 +487,15 @@
           {% include 'dashboard/_sidebar_main_nav.html' %}
 
           <div class="side-card">
+            <h4>القائمة الفرعية</h4>
+            <div class="stack sidebar-menu-stack">
+              {% for item in nav_items %}
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="side-card">
             <h4>حالة التنفيذ</h4>
             <div class="quick-stat"><span>جديد</span><strong>{{ request_summary.new }}</strong></div>
             <div class="quick-stat"><span>تحت المعالجة</span><strong>{{ request_summary.in_progress }}</strong></div>
@@ -500,39 +512,5 @@
       <p id="promoLightboxTitle"></p>
     </div>
   </div>
-  <script>
-    (function () {
-      const lightbox = document.getElementById('promoLightbox');
-      const closeBtn = document.getElementById('promoLightboxClose');
-      const image = document.getElementById('promoLightboxImage');
-      const title = document.getElementById('promoLightboxTitle');
-      if (!lightbox || !closeBtn || !image || !title) return;
-
-      const closeLightbox = () => {
-        lightbox.hidden = true;
-        image.src = '';
-        title.textContent = '';
-      };
-
-      document.querySelectorAll('.promo-asset-lightbox-trigger').forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const src = btn.getAttribute('data-lightbox-src') || '';
-          const label = btn.getAttribute('data-lightbox-title') || 'مرفق ترويجي';
-          if (!src) return;
-          image.src = src;
-          title.textContent = label;
-          lightbox.hidden = false;
-        });
-      });
-
-      closeBtn.addEventListener('click', closeLightbox);
-      lightbox.addEventListener('click', (event) => {
-        if (event.target === lightbox) closeLightbox();
-      });
-      document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !lightbox.hidden) closeLightbox();
-      });
-    })();
-  </script>
   <script src="{% static 'dashboard/js/promo.js' %}"></script>
 {% endblock %}

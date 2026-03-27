@@ -707,7 +707,7 @@ class PromoRequestActionForm(forms.Form):
         widget=forms.Select(attrs={"class": "input-control"}),
     )
     ops_note = forms.CharField(
-        label="ملاحظة تنفيذ",
+        label="تعليق المكلف بالطلب",
         max_length=300,
         required=False,
         widget=forms.Textarea(
@@ -715,36 +715,23 @@ class PromoRequestActionForm(forms.Form):
                 "class": "input-control",
                 "rows": 3,
                 "maxlength": 300,
-                "placeholder": "ملاحظة تنفيذية داخلية.",
-            }
-        ),
-    )
-    quote_note = forms.CharField(
-        label="ملاحظة التسعير",
-        max_length=300,
-        required=False,
-        widget=forms.Textarea(
-            attrs={
-                "class": "input-control",
-                "rows": 3,
-                "maxlength": 300,
-                "placeholder": "ملاحظة للعميل عند اعتماد التسعير.",
+                "placeholder": "تعليق المكلف بالطلب (300 حرف).",
             }
         ),
     )
 
     def __init__(self, *args, **kwargs):
         assignee_choices = kwargs.pop("assignee_choices", None)
+        ops_choices = kwargs.pop("ops_choices", None)
         super().__init__(*args, **kwargs)
         if assignee_choices is None:
             assignee_choices = []
         self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices)
+        if ops_choices is not None:
+            self.fields["ops_status"].choices = list(ops_choices)
 
     def clean_ops_note(self):
         return (self.cleaned_data.get("ops_note") or "").strip()[:300]
-
-    def clean_quote_note(self):
-        return (self.cleaned_data.get("quote_note") or "").strip()[:300]
 
 
 class PromoModuleItemForm(forms.Form):

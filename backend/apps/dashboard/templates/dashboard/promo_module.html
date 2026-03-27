@@ -51,31 +51,109 @@
             </ul>
           {% endif %}
 
-          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm">
+          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}">
             {% csrf_token %}
             <h3>إضافة بند ترويجي على طلب قائم</h3>
 
             <div class="module-form-layout">
-              <section class="module-block">
-                <h4>بيانات الربط</h4>
-                <div class="form-grid">
-                  <div class="field full">
-                    <small>التشغيل الموحد: لا يتم إنشاء طلب جديد من هذه الشاشة. اختر طلبًا قائمًا ثم أضف البند المطلوب.</small>
+              {% if module_meta.key != "home_banner" %}
+                <section class="module-block">
+                  <h4>بيانات الربط</h4>
+                  <div class="form-grid">
+                    <div class="field full">
+                      <small>التشغيل الموحد: لا يتم إنشاء طلب جديد من هذه الشاشة. اختر طلبًا قائمًا ثم أضف البند المطلوب.</small>
+                    </div>
+                    <div class="field">
+                      <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                      {{ module_form.request_id }}
+                      {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
+                    <div class="field full">
+                      <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                      {{ module_form.title }}
+                      {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
                   </div>
-                  <div class="field">
-                    <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
-                    {{ module_form.request_id }}
-                    {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
-                  </div>
-                  <div class="field full">
-                    <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
-                    {{ module_form.title }}
-                    {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
-                  </div>
-                </div>
-              </section>
+                </section>
+              {% endif %}
 
-              {% if is_search_module %}
+              {% if module_meta.key == "home_banner" %}
+                <section class="module-block module-block-home-banner">
+                  <h4>بنر الصفحة الرئيسية</h4>
+                  <div class="home-banner-requester-row">
+                    <span>اسم العميل</span>
+                    <strong>{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div class="home-banner-editor-layout">
+                    <div class="home-banner-phone-panel">
+                      <div class="home-banner-phone-shell">
+                        <div class="home-banner-phone-notch"></div>
+                        <div
+                          class="home-banner-phone-screen"
+                          id="homeBannerPhonePreviewMedia"
+                          data-existing-src="{% if selected_home_banner_asset and selected_home_banner_asset.file %}{{ selected_home_banner_asset.file.url }}{% endif %}"
+                          data-existing-type="{% if selected_home_banner_asset %}{{ selected_home_banner_asset.asset_type }}{% endif %}"
+                        >
+                          <div class="home-banner-preview-empty" id="homeBannerPhonePreviewEmpty" {% if selected_home_banner_asset %}hidden{% endif %}>
+                            اختر التصميم لعرضه داخل شاشة الجوال.
+                          </div>
+                          {% if selected_home_banner_asset and selected_home_banner_asset.asset_type == 'video' and selected_home_banner_asset.file %}
+                            <video src="{{ selected_home_banner_asset.file.url }}" controls preload="metadata" muted playsinline></video>
+                          {% elif selected_home_banner_asset and selected_home_banner_asset.file %}
+                            <img src="{{ selected_home_banner_asset.file.url }}" alt="{{ selected_home_banner_asset.title|default:'معاينة البنر' }}">
+                          {% endif %}
+                        </div>
+                      </div>
+                      <p class="home-banner-preview-meta" id="homeBannerPreviewMeta">
+                        {% if selected_home_banner_asset %}
+                          معاينة آخر تصميم محفوظ.
+                        {% else %}
+                          المعاينة الفورية تظهر هنا قبل الحفظ.
+                        {% endif %}
+                      </p>
+                    </div>
+
+                    <div class="home-banner-form-panel">
+                      <div class="form-grid home-banner-form-grid">
+                        <div class="field full">
+                          <small>اختر طلب ترويج قائمًا ثم ارفع التصميم وحدد بداية ونهاية الحملة.</small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                          {{ module_form.request_id }}
+                          {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                          {{ module_form.title }}
+                          {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.media_file.id_for_label }}">رفع التصميم</label>
+                          {{ module_form.media_file }}
+                          <small>المقاس المعتمد: 1920x840 (نسبة 16:7) للصور أو فيديو MP4.</small>
+                          {% for err in module_form.media_file.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.attachment_specs.id_for_label }}">مواصفات الملف المرفوع</label>
+                          {{ module_form.attachment_specs }}
+                          {% for err in module_form.attachment_specs.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              {% elif is_search_module %}
                 <section class="module-block module-block-search">
                   <h4>إعدادات الظهور في قوائم البحث</h4>
                   <div class="form-grid">
@@ -267,24 +345,29 @@
                 </section>
               {% endif %}
 
-              <section class="module-block">
-                <h4>ملاحظات تشغيلية</h4>
-                <div class="form-grid">
-                  <div class="field full">
-                    <label for="{{ module_form.operator_note.id_for_label }}">ملاحظة داخلية لفريق الترويج</label>
-                    {{ module_form.operator_note }}
-                    {% for err in module_form.operator_note.errors %}<small>{{ err }}</small>{% endfor %}
+              {% if module_meta.key != "home_banner" %}
+                <section class="module-block">
+                  <h4>ملاحظات تشغيلية</h4>
+                  <div class="form-grid">
+                    <div class="field full">
+                      <label for="{{ module_form.operator_note.id_for_label }}">ملاحظة داخلية لفريق الترويج</label>
+                      {{ module_form.operator_note }}
+                      {% for err in module_form.operator_note.errors %}<small>{{ err }}</small>{% endfor %}
+                    </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              {% endif %}
             </div>
 
-            <div class="actions">
+            <div class="actions {% if module_meta.key == 'home_banner' %}home-banner-actions{% endif %}">
               {% if can_write %}
                 <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
                 <button class="primary-btn" type="submit" name="workflow_action" value="approve_item" data-require-confirm="اعتماد هذا البند بشكل نهائي؟">
-                  {% if is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
+                  {% if module_meta.key == "home_banner" %}حفظ{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
                 </button>
+                {% if module_meta.key == "home_banner" %}
+                  <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}">إلغاء</a>
+                {% endif %}
               {% else %}
                 <span class="pill danger">وضع قراءة فقط</span>
               {% endif %}

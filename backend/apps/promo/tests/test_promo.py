@@ -443,6 +443,64 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
     assert payload.get("desktop_scale") == 112
 
 
+def test_public_home_banners_bundle_item_respects_start_and_end_window(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود نافذة الجدولة",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    promo_request = PromoRequest.objects.create(
+        requester=user,
+        title="bundle scheduled banner",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=3),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+    )
+    banner_item = PromoRequestItem.objects.create(
+        request=promo_request,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر مجدول",
+        start_at=now + timedelta(hours=2),
+        end_at=now + timedelta(days=1),
+    )
+    asset = PromoAsset.objects.create(
+        request=promo_request,
+        item=banner_item,
+        asset_type="image",
+        title="scheduled banner",
+        file=SimpleUploadedFile(
+            "scheduled-banner.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    before_start = api.get("/api/promo/banners/home/?limit=10")
+    assert before_start.status_code == 200
+    assert all(int(row.get("id") or 0) != asset.id for row in before_start.data)
+
+    banner_item.start_at = now - timedelta(minutes=30)
+    banner_item.save(update_fields=["start_at", "updated_at"])
+    during_window = api.get("/api/promo/banners/home/?limit=10")
+    assert during_window.status_code == 200
+    assert any(int(row.get("id") or 0) == asset.id for row in during_window.data)
+
+    banner_item.end_at = now - timedelta(minutes=1)
+    banner_item.save(update_fields=["end_at", "updated_at"])
+    after_end = api.get("/api/promo/banners/home/?limit=10")
+    assert after_end.status_code == 200
+    assert all(int(row.get("id") or 0) != asset.id for row in after_end.data)
+
+
 def test_public_home_banners_without_limit_returns_all_active_assets(api, user):
     ProviderProfile.objects.create(
         user=user,
@@ -846,6 +904,88 @@ def test_reject_and_activate_send_promo_status_notifications(user):
     assert activate_event.meta.get("payload", {}).get("status") == PromoRequestStatus.ACTIVE
 
 
+def test_set_promo_ops_status_allows_only_forward_transitions(user):
+    _ensure_provider_requester(user)
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="ops transitions",
+        ad_type="banner_home",
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.NEW,
+        activated_at=now - timedelta(hours=1),
+    )
+
+    with pytest.raises(ValueError):
+        set_promo_ops_status(
+            pr=pr,
+            new_status=PromoOpsStatus.COMPLETED,
+            by_user=user,
+            note="skip in_progress",
+        )
+
+    pr = set_promo_ops_status(
+        pr=pr,
+        new_status=PromoOpsStatus.IN_PROGRESS,
+        by_user=user,
+        note="start work",
+    )
+    assert pr.ops_status == PromoOpsStatus.IN_PROGRESS
+
+    pr = set_promo_ops_status(
+        pr=pr,
+        new_status=PromoOpsStatus.COMPLETED,
+        by_user=user,
+        note="done",
+    )
+    assert pr.ops_status == PromoOpsStatus.COMPLETED
+
+    with pytest.raises(ValueError):
+        set_promo_ops_status(
+            pr=pr,
+            new_status=PromoOpsStatus.IN_PROGRESS,
+            by_user=user,
+            note="reopen",
+        )
+
+
+def test_ops_completion_sends_provider_completion_notification(user):
+    _ensure_provider_requester(user)
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="ops completion notification",
+        ad_type="banner_home",
+        start_at=now - timedelta(hours=1),
+        end_at=now + timedelta(days=2),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+        activated_at=now - timedelta(hours=1),
+    )
+
+    pr = set_promo_ops_status(
+        pr=pr,
+        new_status=PromoOpsStatus.COMPLETED,
+        by_user=user,
+        note="done",
+    )
+    assert pr.ops_status == PromoOpsStatus.COMPLETED
+
+    completion_notif = Notification.objects.filter(
+        user=user,
+        kind="promo_status_change",
+        title="اكتمل طلب الترويج",
+    ).order_by("-id").first()
+    assert completion_notif is not None
+    assert (pr.code or f"MD{pr.id:06d}") in completion_notif.body
+
+
 def test_ops_completion_does_not_end_active_home_banner_campaign(api, user):
     ProviderProfile.objects.create(
         user=user,
@@ -1226,6 +1366,70 @@ def test_quote_requires_uploaded_assets_for_required_service_types(user):
         quote_and_create_invoice(pr=pr, by_user=user, quote_note="requires-assets")
 
 
+def test_owner_prepare_payment_endpoint_creates_invoice(api, user):
+    _ensure_provider_requester(user)
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=2)
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="طلب تجهيز الدفع",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=start_at,
+        end_at=end_at,
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+    )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.HOME_BANNER,
+        title="بنر رئيسي",
+        start_at=start_at,
+        end_at=end_at,
+        sort_order=0,
+    )
+    PromoAsset.objects.create(
+        request=pr,
+        item=item,
+        asset_type="image",
+        title="asset",
+        file=_png_upload(),
+        uploaded_by=user,
+    )
+
+    api.force_authenticate(user=user)
+    response = api.post(f"/api/promo/requests/{pr.id}/prepare-payment/", data={}, format="json")
+
+    assert response.status_code == 200
+    pr.refresh_from_db()
+    assert pr.status == PromoRequestStatus.PENDING_PAYMENT
+    assert pr.invoice_id is not None
+    assert response.data["invoice"] == pr.invoice_id
+    assert response.data["status"] == PromoRequestStatus.PENDING_PAYMENT
+    assert Decimal(str(response.data["invoice_total"])) > Decimal("0.00")
+
+
+def test_prepare_payment_endpoint_forbidden_for_non_owner(api, user):
+    _ensure_provider_requester(user)
+    other = User.objects.create_user(phone="0551111222", password="Pass12345!")
+    _ensure_provider_requester(other)
+
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="طلب خاص",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=timezone.now() + timedelta(days=1),
+        end_at=timezone.now() + timedelta(days=3),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+    )
+
+    api.force_authenticate(user=other)
+    response = api.post(f"/api/promo/requests/{pr.id}/prepare-payment/", data={}, format="json")
+    assert response.status_code == 403
+
+
 def test_public_active_promos_returns_targeting_and_assets(api, user):
     pp = ProviderProfile.objects.create(
         user=user,
@@ -1280,6 +1484,17 @@ def test_public_active_promos_returns_item_based_featured_placements(api, user):
         bio="bio",
         city="الرياض",
         years_experience=0,
+        is_verified_blue=True,
+        rating_avg=Decimal("4.80"),
+        rating_count=18,
+        excellence_badges_cache=[
+            {
+                "code": "featured_service",
+                "name": "خدمة مميزة",
+                "icon": "sparkles",
+                "color": "#F59E0B",
+            }
+        ],
     )
     now = timezone.now()
     pr = PromoRequest.objects.create(
@@ -1307,6 +1522,18 @@ def test_public_active_promos_returns_item_based_featured_placements(api, user):
     service_item = next(row for row in service_r.data if row.get("item_id") == item.id)
     assert service_item.get("target_provider_id") == pp.id
     assert service_item.get("service_type") == PromoServiceType.FEATURED_SPECIALISTS
+    assert service_item.get("target_provider_is_verified_blue") is True
+    assert service_item.get("target_provider_is_verified_green") is False
+    assert Decimal(str(service_item.get("target_provider_rating_avg"))) == Decimal("4.80")
+    assert service_item.get("target_provider_rating_count") == 18
+    assert service_item.get("target_provider_excellence_badges") == [
+        {
+            "code": "featured_service",
+            "name": "خدمة مميزة",
+            "icon": "sparkles",
+            "color": "#F59E0B",
+        }
+    ]
 
     legacy_r = api.get("/api/promo/active/?ad_type=featured_top5&limit=10")
     assert legacy_r.status_code == 200
@@ -2615,6 +2842,12 @@ def test_promo_module_home_banner_prefills_selected_request_and_shows_assets(cli
     module_assets = response.context["selected_request_module_assets"]
     assert len(module_assets) == 1
     assert module_assets[0].id == asset.id
+
+    html = response.content.decode("utf-8", errors="ignore")
+    assert 'id="homeBannerPhonePreviewMedia"' in html
+    assert 'id="homeBannerPhonePreviewEmpty"' in html
+    assert "إلغاء" in html
+    assert user.phone in html
 
 
 def test_promo_module_search_results_creates_one_item_per_scope(client, promo_operator_user, user):

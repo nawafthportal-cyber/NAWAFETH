@@ -247,6 +247,7 @@
       url.searchParams.set("section", "access");
       if (isOpen) {
         url.searchParams.set("new", "1");
+        url.searchParams.delete("edit");
       } else {
         url.searchParams.delete("new");
         url.searchParams.delete("edit");

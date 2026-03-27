@@ -653,10 +653,44 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     target_provider_profile_image = serializers.FileField(source="target_provider.profile_image", read_only=True)
     target_provider_city = serializers.CharField(source="target_provider.city", read_only=True)
     target_provider_type = serializers.CharField(source="target_provider.provider_type", read_only=True)
+    target_provider_is_verified_blue = serializers.SerializerMethodField()
+    target_provider_is_verified_green = serializers.SerializerMethodField()
+    target_provider_rating_avg = serializers.SerializerMethodField()
+    target_provider_rating_count = serializers.SerializerMethodField()
+    target_provider_excellence_badges = serializers.SerializerMethodField()
     target_portfolio_item_id = serializers.IntegerField(source="target_portfolio_item.id", read_only=True)
     target_portfolio_item_file = serializers.FileField(source="target_portfolio_item.file", read_only=True)
     target_portfolio_item_file_type = serializers.CharField(source="target_portfolio_item.file_type", read_only=True)
     portfolio_item = serializers.SerializerMethodField()
+
+    def _target_provider(self, obj):
+        if isinstance(obj, dict):
+            return obj.get("target_provider")
+        return getattr(obj, "target_provider", None)
+
+    def get_target_provider_is_verified_blue(self, obj):
+        provider = self._target_provider(obj)
+        return bool(getattr(provider, "is_verified_blue", False))
+
+    def get_target_provider_is_verified_green(self, obj):
+        provider = self._target_provider(obj)
+        return bool(getattr(provider, "is_verified_green", False))
+
+    def get_target_provider_rating_avg(self, obj):
+        provider = self._target_provider(obj)
+        return getattr(provider, "rating_avg", 0) or 0
+
+    def get_target_provider_rating_count(self, obj):
+        provider = self._target_provider(obj)
+        try:
+            return int(getattr(provider, "rating_count", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def get_target_provider_excellence_badges(self, obj):
+        provider = self._target_provider(obj)
+        value = getattr(provider, "excellence_badges_cache", None)
+        return value if isinstance(value, list) else []
 
     def get_portfolio_item(self, obj):
         if not isinstance(obj, dict):

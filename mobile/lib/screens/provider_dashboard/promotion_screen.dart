@@ -5,7 +5,9 @@ import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/billing_service.dart';
+import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/services/promo_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -180,6 +182,7 @@ class PromotionScreen extends StatefulWidget {
 class _PromotionScreenState extends State<PromotionScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  bool _isOpeningNewRequest = false;
   bool _isLoading = true;
   String? _error;
   List<Map<String, dynamic>> _requests = [];
@@ -237,6 +240,20 @@ class _PromotionScreenState extends State<PromotionScreen>
     setState(() => _isLoading = false);
   }
 
+  Future<void> _openNewRequestPage() async {
+    if (_isOpeningNewRequest) return;
+    _isOpeningNewRequest = true;
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const PromotionNewRequestScreen()),
+    );
+    if (!mounted) return;
+    _tabController.animateTo(0);
+    if (created == true) {
+      _loadRequests(silent: true);
+    }
+    _isOpeningNewRequest = false;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Directionality(
@@ -260,20 +277,67 @@ class _PromotionScreenState extends State<PromotionScreen>
             indicatorColor: Colors.white,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
+            onTap: (index) {
+              if (index == 1) {
+                Future<void>.microtask(_openNewRequestPage);
+              }
+            },
             tabs: const [Tab(text: 'طلباتي'), Tab(text: 'طلب جديد')],
           ),
         ),
         body: TabBarView(
           controller: _tabController,
+          physics: const NeverScrollableScrollPhysics(),
           children: [
             _buildRequestsTab(),
-            _PromoComposer(
-              onCreated: () {
-                _tabController.animateTo(0);
-                _loadRequests(silent: true);
-              },
-            ),
+            _buildNewRequestTab(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNewRequestTab() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Card(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.campaign_rounded, size: 34, color: _brandColor),
+                const SizedBox(height: 12),
+                const Text(
+                  'طلب جديد',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    color: _brandColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'الانتقال إلى الصفحة التفصيلية لخيارات الترويج',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontFamily: 'Cairo', color: Colors.black54),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: _openNewRequestPage,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _brandColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: const Icon(Icons.open_in_new_rounded),
+                  label: const Text('فتح الطلب الجديد', style: TextStyle(fontFamily: 'Cairo')),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -553,6 +617,7 @@ class _PromotionScreenState extends State<PromotionScreen>
           if ((item['redirect_url'] as String? ?? '').isNotEmpty) _line('رابط التحويل', item['redirect_url'] as String),
           if ((item['message_title'] as String? ?? '').isNotEmpty) _line('عنوان الرسالة', item['message_title'] as String),
           if ((item['message_body'] as String? ?? '').isNotEmpty) _line('نص الرسالة', item['message_body'] as String),
+          if ((item['operator_note'] as String? ?? '').isNotEmpty) _line('تعليق المكلف', item['operator_note'] as String),
           if (item['use_notification_channel'] == true)
             const Padding(padding: EdgeInsets.only(top: 2), child: Text('📲 إشعار', style: TextStyle(fontFamily: 'Cairo', fontSize: 12, color: Color(0xFF2E7D32)))),
           if (item['use_chat_channel'] == true)
@@ -752,6 +817,38 @@ class _PromotionScreenState extends State<PromotionScreen>
   }
 }
 
+class PromotionNewRequestScreen extends StatelessWidget {
+  const PromotionNewRequestScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4FC),
+        appBar: AppBar(
+          backgroundColor: _brandColor,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'طلب ترويج جديد',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: _PromoComposer(
+          onCreated: () {
+            Navigator.of(context).pop(true);
+          },
+        ),
+      ),
+    );
+  }
+}
+
 class _PromoComposer extends StatefulWidget {
   final VoidCallback onCreated;
 
@@ -769,6 +866,8 @@ class _PromoComposerState extends State<_PromoComposer> {
   bool _sending = false;
   Timer? _quoteDebounce;
   bool _quoteLoading = false;
+  String _providerName = 'مزود الخدمة';
+  List<Map<String, dynamic>> _liveItems = const [];
   String _liveSubtotal = '0.00';
   String _liveVat = '0.00';
   String _liveTotal = '0.00';
@@ -786,6 +885,7 @@ class _PromoComposerState extends State<_PromoComposer> {
     _drafts = {
       for (final service in _promoServices) service.type: _PromoDraft.withDefaults(service),
     };
+    _loadProviderIdentity();
   }
 
   @override
@@ -803,12 +903,28 @@ class _PromoComposerState extends State<_PromoComposer> {
     _quoteDebounce = Timer(const Duration(milliseconds: 550), _calculateLiveQuote);
   }
 
+  Future<void> _loadProviderIdentity() async {
+    final res = await ProfileService.fetchMyProfile();
+    if (!mounted || !res.isSuccess || res.data == null) return;
+    final UserProfile me = res.data!;
+    final providerDisplay = (me.providerDisplayName ?? '').trim();
+    final displayName = me.displayName.trim();
+    final username = me.usernameDisplay.trim();
+    final chosen = providerDisplay.isNotEmpty
+        ? providerDisplay
+        : (displayName.isNotEmpty
+            ? displayName
+            : (username.isNotEmpty ? username : 'مزود الخدمة'));
+    setState(() => _providerName = chosen);
+  }
+
   Future<void> _calculateLiveQuote() async {
     if (!mounted || _showPricing) return;
     if (_title.text.trim().isEmpty || _selected.isEmpty) {
       if (!mounted) return;
       setState(() {
         _quoteLoading = false;
+        _liveItems = const [];
         _liveSubtotal = '0.00';
         _liveVat = '0.00';
         _liveTotal = '0.00';
@@ -823,6 +939,7 @@ class _PromoComposerState extends State<_PromoComposer> {
         if (!mounted) return;
         setState(() {
           _quoteLoading = false;
+          _liveItems = const [];
           _liveSubtotal = '0.00';
           _liveVat = '0.00';
           _liveTotal = '0.00';
@@ -844,6 +961,7 @@ class _PromoComposerState extends State<_PromoComposer> {
     if (!previewRes.isSuccess) {
       setState(() {
         _quoteLoading = false;
+        _liveItems = const [];
         _liveSubtotal = '0.00';
         _liveVat = '0.00';
         _liveTotal = '0.00';
@@ -854,6 +972,7 @@ class _PromoComposerState extends State<_PromoComposer> {
     final data = Map<String, dynamic>.from(previewRes.dataAsMap ?? const {});
     setState(() {
       _quoteLoading = false;
+      _liveItems = _asMapList(data['items']);
       _liveSubtotal = _money(data['subtotal']);
       _liveVat = _money(data['vat_amount']);
       _liveTotal = _money(data['total']);
@@ -861,6 +980,7 @@ class _PromoComposerState extends State<_PromoComposer> {
   }
 
   Widget _buildLiveTotalCard() {
+    final hasLiveItems = _liveItems.isNotEmpty;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -905,6 +1025,38 @@ class _PromoComposerState extends State<_PromoComposer> {
               color: Colors.black54,
             ),
           ),
+          if (hasLiveItems) ...[
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            for (final item in _liveItems)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        (item['title'] as String? ?? _serviceLabel(item['service_type'] as String?)).trim(),
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _brandColor,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${_money(item['subtotal'])} ريال${item['duration_days'] != null ? ' • ${item['duration_days']} يوم' : ''}',
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -912,7 +1064,7 @@ class _PromoComposerState extends State<_PromoComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final providerLabel = _title.text.trim().isEmpty ? 'مزود الخدمة' : _title.text.trim();
+    final providerLabel = _providerName.trim().isEmpty ? 'مزود الخدمة' : _providerName.trim();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -974,31 +1126,7 @@ class _PromoComposerState extends State<_PromoComposer> {
             decoration: _decoration('عنوان الطلب', Icons.title_rounded),
           ),
           const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final service in _promoServices)
-                FilterChip(
-                  selected: _selected.contains(service.type),
-                  selectedColor: const Color(0xFFE9E0FA),
-                  label: Text(
-                    service.label,
-                    style: const TextStyle(fontFamily: 'Cairo'),
-                  ),
-                  onSelected: (_) {
-                    setState(() {
-                      if (_selected.contains(service.type)) {
-                        _selected.remove(service.type);
-                      } else {
-                        _selected.add(service.type);
-                      }
-                    });
-                    _scheduleLiveQuote();
-                  },
-                ),
-            ],
-          ),
+          _buildServiceSelectionCard(),
           const SizedBox(height: 16),
           for (int i = 0; i < _selected.length; i++) ...[
             _buildDraftCard(i, _drafts[_selected[i]]!),
@@ -1015,7 +1143,7 @@ class _PromoComposerState extends State<_PromoComposer> {
               child: _sending
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text(
-                      'معاينة التسعير ثم الإرسال',
+                      'استمرار',
                       style: TextStyle(
                         fontFamily: 'Cairo',
                         color: Colors.white,
@@ -1026,6 +1154,92 @@ class _PromoComposerState extends State<_PromoComposer> {
           ),
           const SizedBox(height: 24),
           ],
+        ],
+      ),
+    );
+  }
+
+  void _toggleServiceSelection(String serviceType, bool enabled) {
+    setState(() {
+      if (enabled) {
+        if (!_selected.contains(serviceType)) {
+          _selected.add(serviceType);
+        }
+        _selected.sort((a, b) {
+          final aIndex = _promoServices.indexWhere((service) => service.type == a);
+          final bIndex = _promoServices.indexWhere((service) => service.type == b);
+          return aIndex.compareTo(bIndex);
+        });
+      } else {
+        _selected.remove(serviceType);
+      }
+    });
+    _scheduleLiveQuote();
+  }
+
+  Widget _buildServiceSelectionCard() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD7C9EB)),
+      ),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: Row(
+              children: [
+                Icon(Icons.tune_rounded, color: _brandColor, size: 18),
+                SizedBox(width: 8),
+                Text(
+                  'خيارات الترويج',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: _brandColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (int i = 0; i < _promoServices.length; i++)
+            Container(
+              decoration: BoxDecoration(
+                border: i == _promoServices.length - 1
+                    ? null
+                    : Border(
+                        top: BorderSide(color: Colors.grey.shade100),
+                      ),
+              ),
+              child: CheckboxListTile(
+                value: _selected.contains(_promoServices[i].type),
+                dense: true,
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: _brandColor,
+                title: Text(
+                  _promoServices[i].label,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+                subtitle: Text(
+                  _selected.contains(_promoServices[i].type)
+                      ? 'الخدمة مفعلة ويمكنك إدخال التفاصيل بالأسفل'
+                      : 'فعّل الخدمة لإدخال التفاصيل',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    color: Colors.black54,
+                  ),
+                ),
+                onChanged: (value) =>
+                    _toggleServiceSelection(_promoServices[i].type, value ?? false),
+              ),
+            ),
         ],
       ),
     );
@@ -1940,16 +2154,17 @@ class _PromoComposerState extends State<_PromoComposer> {
     return completer.future;
   }
 
-  Future<_PaymentSelectionResult?> _openSummaryAndPayment(Map<String, dynamic> preview) async {
-    if (!mounted) return null;
-    return Navigator.of(context).push<_PaymentSelectionResult>(
-      MaterialPageRoute(
-        builder: (_) => _PromoSummaryScreen(
-          preview: preview,
-          providerName: (_title.text.trim().isEmpty ? 'مزود الخدمة' : _title.text.trim()),
-        ),
-      ),
-    );
+  Future<bool> _confirmPreviewSubmission(Map<String, dynamic> preview) async {
+    final confirmed = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => _PromoSummaryScreen(
+              preview: preview,
+              providerName: _providerName,
+            ),
+          ),
+        ) ??
+        false;
+    return confirmed;
   }
 
   Future<void> _submit() async {
@@ -1989,9 +2204,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
 
     final previewPayload = Map<String, dynamic>.from(previewRes.dataAsMap ?? const {});
-    final paymentSelection = await _openSummaryAndPayment(previewPayload);
+    final confirmed = await _confirmPreviewSubmission(previewPayload);
     if (!mounted) return;
-    if (paymentSelection == null) {
+    if (!confirmed) {
       setState(() => _sending = false);
       return;
     }
@@ -2011,11 +2226,11 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
 
     final requestId = createRes.dataAsMap?['id'] as int?;
-    final detailRes = requestId == null
-        ? null
-        : await PromoService.fetchRequestDetail(requestId);
-    final createdItems =
-        _asMapList(detailRes?.dataAsMap?['items'] ?? createRes.dataAsMap?['items']);
+    final detailRes =
+        requestId == null ? null : await PromoService.fetchRequestDetail(requestId);
+    final createdItems = _asMapList(
+      detailRes?.dataAsMap?['items'] ?? createRes.dataAsMap?['items'],
+    );
     final ids = <String, int>{};
     for (final item in createdItems) {
       final id = item['id'] as int?;
@@ -2045,39 +2260,71 @@ class _PromoComposerState extends State<_PromoComposer> {
       }
     }
 
-    final requestCode = (detailRes?.dataAsMap?['code'] ?? createRes.dataAsMap?['code'] ?? '') as String;
+    final requestCode = (detailRes?.dataAsMap?['code'] ??
+            createRes.dataAsMap?['code'] ??
+            '') as String;
 
-    if (uploadFailures.isNotEmpty) {
-      final sample = uploadFailures.first;
+    if (requestId == null) {
       setState(() => _sending = false);
+      _snack('تم إنشاء الطلب لكن تعذر قراءة رقمه. حاول من تبويب طلباتي.', true);
       widget.onCreated();
-      _snack(
-        'تم إنشاء الطلب ولكن فشل رفع ${uploadFailures.length} ملف. $sample',
-        true,
-      );
       return;
     }
 
-    final invoiceId = int.tryParse('${detailRes?.dataAsMap?['invoice'] ?? createRes.dataAsMap?['invoice'] ?? ''}');
-    if (paymentSelection.confirmed && invoiceId != null) {
-      final idempotencyKey = 'promo-$invoiceId-${DateTime.now().millisecondsSinceEpoch}';
-      final initRes = await BillingService.initPayment(
-        invoiceId: invoiceId,
-        provider: 'mock',
-        idempotencyKey: idempotencyKey,
+    final prepareRes = await PromoService.preparePayment(requestId: requestId);
+    if (!mounted) return;
+    if (!prepareRes.isSuccess) {
+      final uploadNote = uploadFailures.isNotEmpty
+          ? ' (فشل رفع ${uploadFailures.length} ملف).'
+          : '';
+      setState(() => _sending = false);
+      _snack(
+        '${prepareRes.error ?? "تعذر تجهيز الدفع لهذا الطلب"}$uploadNote',
+        true,
       );
-      if (initRes.isSuccess) {
-        final payRes = await BillingService.completeMockPayment(
-          invoiceId: invoiceId,
-          idempotencyKey: idempotencyKey,
-        );
-        if (!payRes.isSuccess) {
-          _snack(payRes.error ?? 'تم إنشاء الطلب وتعذر إكمال الدفع الآن.', true);
-        }
-      } else {
-        _snack(initRes.error ?? 'تم إنشاء الطلب وتعذر تهيئة الدفع الآن.', true);
-      }
+      widget.onCreated();
+      return;
     }
+
+    final prepared = Map<String, dynamic>.from(prepareRes.dataAsMap ?? const {});
+    final invoiceId = int.tryParse('${prepared['invoice'] ?? ''}');
+    if (invoiceId == null) {
+      setState(() => _sending = false);
+      _snack('تم تجهيز الطلب لكن لم يتم العثور على فاتورة صالحة للدفع.', true);
+      widget.onCreated();
+      return;
+    }
+
+    if (_sending) {
+      setState(() => _sending = false);
+    }
+
+    final paid = await Navigator.of(context).push<bool>(
+          MaterialPageRoute(
+            builder: (_) => _PromoPaymentScreen(
+              requestId: requestId,
+              requestCode: (prepared['code'] as String? ?? requestCode).trim(),
+              invoiceId: invoiceId,
+              invoiceCode: (prepared['invoice_code'] as String? ?? '').trim(),
+              invoiceTotal: _money(prepared['invoice_total']),
+              invoiceVat: _money(prepared['invoice_vat']),
+            ),
+          ),
+        ) ??
+        false;
+    if (!mounted) return;
+
+    if (!paid) {
+      _snack('تم إنشاء الطلب ويمكنك إكمال الدفع لاحقًا من تبويب طلباتي.', false);
+      widget.onCreated();
+      return;
+    }
+
+    final paidRequestCode =
+        (prepared['code'] as String? ?? requestCode).trim();
+    final warningText = uploadFailures.isNotEmpty
+        ? 'تمت عملية الدفع، لكن فشل رفع ${uploadFailures.length} ملف.'
+        : 'تمت عملية الدفع بنجاح\nسيتم التواصل معكم لتنفيذ طلبكم';
 
     _title.clear();
     for (final draft in _drafts.values) {
@@ -2085,11 +2332,12 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
     setState(() {
       _selected.clear();
-      _sending = false;
+      _liveItems = const [];
+      _liveSubtotal = '0.00';
+      _liveVat = '0.00';
+      _liveTotal = '0.00';
     });
-    widget.onCreated();
 
-    if (!mounted) return;
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -2101,14 +2349,22 @@ class _PromoComposerState extends State<_PromoComposer> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                width: double.infinity,
+                alignment: Alignment.center,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF2F7D1E)),
+                  color: const Color(0xFF2F7D1E),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'رقم الطلب: ${requestCode.isNotEmpty ? requestCode : "—"}',
-                  style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700, color: Color(0xFF2F7D1E)),
+                  'رقم الطلب: ${paidRequestCode.isNotEmpty ? paidRequestCode : "—"}',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    fontSize: 18,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -2119,12 +2375,14 @@ class _PromoComposerState extends State<_PromoComposer> {
                   border: Border.all(color: const Color(0xFF2F7D1E)),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Column(
-                  children: [
-                    Text('تمت عملية الدفع بنجاح', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700, fontSize: 16)),
-                    SizedBox(height: 4),
-                    Text('سيتم التواصل معكم لتنفيذ طلبكم', style: TextStyle(fontFamily: 'Cairo', color: Colors.black54)),
-                  ],
+                child: Text(
+                  warningText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    color: Colors.black87,
+                    height: 1.6,
+                  ),
                 ),
               ),
             ],
@@ -2134,14 +2392,21 @@ class _PromoComposerState extends State<_PromoComposer> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: () => Navigator.pop(context),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2F7D1E)),
-                child: const Text('إغلاق', style: TextStyle(fontFamily: 'Cairo')),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2F7D1E),
+                ),
+                child: const Text(
+                  'إغلاق',
+                  style: TextStyle(fontFamily: 'Cairo'),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+    if (!mounted) return;
+    widget.onCreated();
   }
 
   void _snack(String message, bool error) {
@@ -2149,6 +2414,683 @@ class _PromoComposerState extends State<_PromoComposer> {
       SnackBar(
         backgroundColor: error ? Colors.red : Colors.green,
         content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
+      ),
+    );
+  }
+}
+
+class _PromoSummaryScreen extends StatelessWidget {
+  final Map<String, dynamic> preview;
+  final String providerName;
+
+  const _PromoSummaryScreen({
+    required this.preview,
+    required this.providerName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _asMapList(preview['items']);
+    final normalizedProviderName =
+        providerName.trim().isEmpty ? 'مزود الخدمة' : providerName.trim();
+
+    DataRow _itemRow(Map<String, dynamic> item) {
+      final title = (item['title'] as String? ??
+              _serviceLabel(item['service_type'] as String?))
+          .trim();
+      return DataRow(
+        cells: [
+          DataCell(
+            Text(
+              title.isEmpty ? 'خدمة' : title,
+              style: const TextStyle(fontFamily: 'Cairo'),
+            ),
+          ),
+          DataCell(
+            Text(
+              '${_money(item['subtotal'])} ريال',
+              style: const TextStyle(fontFamily: 'Cairo'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    Widget _totalsRow(String label, String amount) {
+      return Container(
+        decoration: BoxDecoration(
+          border: Border(
+            left: BorderSide(color: const Color(0xFFA12D9D).withValues(alpha: 0.45)),
+            right: BorderSide(color: const Color(0xFFA12D9D).withValues(alpha: 0.45)),
+            bottom: BorderSide(color: const Color(0xFFA12D9D).withValues(alpha: 0.45)),
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6EDF9),
+                  border: Border(
+                    left: BorderSide(
+                      color: const Color(0xFFA12D9D).withValues(alpha: 0.45),
+                    ),
+                  ),
+                ),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                color: Colors.white,
+                child: Text(
+                  amount,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4FC),
+        appBar: AppBar(
+          backgroundColor: _brandColor,
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'ملخص طلب الترويج والتكلفة',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFA12D9D)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2F7D1E),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'ملخص طلب الترويج والتكلفة',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'اسم المختص',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFFA12D9D),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFFA12D9D)),
+                        ),
+                        child: Text(
+                          normalizedProviderName,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFFA12D9D)),
+                    ),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
+                        headingRowColor:
+                            WidgetStateProperty.all(const Color(0xFFA12D9D)),
+                        headingTextStyle: const TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        dataTextStyle: const TextStyle(
+                          fontFamily: 'Cairo',
+                          color: Colors.black87,
+                        ),
+                        border:
+                            TableBorder.all(color: const Color(0xFFA12D9D)),
+                        columns: const [
+                          DataColumn(label: Text('البند')),
+                          DataColumn(label: Text('التكلفة')),
+                        ],
+                        rows: items.isEmpty
+                            ? [
+                                const DataRow(
+                                  cells: [
+                                    DataCell(Text('لا توجد بنود')),
+                                    DataCell(Text('—')),
+                                  ],
+                                ),
+                              ]
+                            : items.map(_itemRow).toList(),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _totalsRow('المجموع', '${_money(preview['subtotal'])} ريال'),
+                  _totalsRow('VAT', '${_money(preview['vat_amount'])} ريال'),
+                  _totalsRow('التكلفة الكلية', '${_money(preview['total'])} ريال'),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF2F7D1E)),
+                            foregroundColor: const Color(0xFF2F7D1E),
+                          ),
+                          child: const Text(
+                            'إلغاء',
+                            style: TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF2F7D1E),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text(
+                            'استمرار',
+                            style: TextStyle(fontFamily: 'Cairo'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PromoPaymentScreen extends StatefulWidget {
+  final int requestId;
+  final String requestCode;
+  final int invoiceId;
+  final String invoiceCode;
+  final String invoiceTotal;
+  final String invoiceVat;
+
+  const _PromoPaymentScreen({
+    required this.requestId,
+    required this.requestCode,
+    required this.invoiceId,
+    required this.invoiceCode,
+    required this.invoiceTotal,
+    required this.invoiceVat,
+  });
+
+  @override
+  State<_PromoPaymentScreen> createState() => _PromoPaymentScreenState();
+}
+
+class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
+  final _cardName = TextEditingController();
+  final _cardNumber = TextEditingController();
+  final _cardExpiry = TextEditingController();
+  final _cardCvv = TextEditingController();
+
+  bool _paying = false;
+  String _method = 'mada';
+
+  @override
+  void dispose() {
+    _cardName.dispose();
+    _cardNumber.dispose();
+    _cardExpiry.dispose();
+    _cardCvv.dispose();
+    super.dispose();
+  }
+
+  String _digitsOnly(String value) => value.replaceAll(RegExp(r'\D+'), '');
+
+  String _formatCardNumber(String value) {
+    final digits = _digitsOnly(value);
+    final parts = <String>[];
+    for (int i = 0; i < digits.length; i += 4) {
+      final end = (i + 4 <= digits.length) ? i + 4 : digits.length;
+      parts.add(digits.substring(i, end));
+    }
+    return parts.join(' ');
+  }
+
+  String _formatExpiry(String value) {
+    final digits = _digitsOnly(value);
+    if (digits.length <= 2) return digits;
+    return '${digits.substring(0, 2)}/${digits.substring(2)}';
+  }
+
+  bool _isLuhnValid(String digits) {
+    int sum = 0;
+    bool alternate = false;
+    for (int i = digits.length - 1; i >= 0; i--) {
+      int n = int.tryParse(digits[i]) ?? -1;
+      if (n < 0) return false;
+      if (alternate) {
+        n *= 2;
+        if (n > 9) {
+          n -= 9;
+        }
+      }
+      sum += n;
+      alternate = !alternate;
+    }
+    return sum % 10 == 0;
+  }
+
+  String? _validateCardForm() {
+    if (_cardName.text.trim().length < 3) {
+      return 'أدخل اسم حامل البطاقة بشكل صحيح.';
+    }
+
+    final cardDigits = _digitsOnly(_cardNumber.text.trim());
+    if (cardDigits.length < 12 || cardDigits.length > 19 || !_isLuhnValid(cardDigits)) {
+      return 'رقم البطاقة غير صالح.';
+    }
+
+    final expiry = _cardExpiry.text.trim();
+    final expiryMatch = RegExp(r'^(\d{2})/(\d{2})$').firstMatch(expiry);
+    if (expiryMatch == null) {
+      return 'أدخل تاريخ الانتهاء بصيغة MM/YY.';
+    }
+    final month = int.tryParse(expiryMatch.group(1) ?? '') ?? 0;
+    final year = 2000 + (int.tryParse(expiryMatch.group(2) ?? '') ?? 0);
+    if (month < 1 || month > 12) {
+      return 'شهر انتهاء البطاقة غير صحيح.';
+    }
+    final expiryDate = DateTime(year, month + 1, 0, 23, 59, 59);
+    if (expiryDate.isBefore(DateTime.now())) {
+      return 'البطاقة منتهية الصلاحية.';
+    }
+
+    final cvv = _digitsOnly(_cardCvv.text.trim());
+    if (cvv.length < 3 || cvv.length > 4) {
+      return 'رمز CVV غير صالح.';
+    }
+    return null;
+  }
+
+  void _snack(String message, bool error) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: error ? Colors.red : Colors.green,
+        content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
+      ),
+    );
+  }
+
+  Future<void> _submitPayment() async {
+    final validationError = _validateCardForm();
+    if (validationError != null) {
+      _snack(validationError, true);
+      return;
+    }
+
+    setState(() => _paying = true);
+    final idempotencyKey =
+        'promo-checkout-${widget.requestId}-${widget.invoiceId}';
+
+    final initRes = await BillingService.initPayment(
+      invoiceId: widget.invoiceId,
+      idempotencyKey: idempotencyKey,
+    );
+    if (!mounted) return;
+    if (!initRes.isSuccess) {
+      setState(() => _paying = false);
+      _snack(initRes.error ?? 'تعذر تهيئة الدفع', true);
+      return;
+    }
+
+    final payRes = await BillingService.completeMockPayment(
+      invoiceId: widget.invoiceId,
+      idempotencyKey: idempotencyKey,
+    );
+    if (!mounted) return;
+    if (!payRes.isSuccess) {
+      setState(() => _paying = false);
+      _snack(payRes.error ?? 'تعذر إتمام عملية الدفع', true);
+      return;
+    }
+
+    _cardName.clear();
+    _cardNumber.clear();
+    _cardExpiry.clear();
+    _cardCvv.clear();
+    Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    Widget paymentMethodChip({
+      required String value,
+      required String label,
+    }) {
+      final selected = _method == value;
+      return Expanded(
+        child: InkWell(
+          onTap: _paying
+              ? null
+              : () {
+                  setState(() => _method = value);
+                },
+          borderRadius: BorderRadius.circular(999),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: selected ? const Color(0xFF2F7D1E) : const Color(0xFFD9C4EB),
+              ),
+              color: selected ? const Color(0xFFF3FCEF) : Colors.white,
+            ),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                color: selected ? const Color(0xFF2F7D1E) : const Color(0xFF4B2D73),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF3F4FC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF2F7D1E),
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: const Text(
+            'شاشة الدفع',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0xFFA12D9D)),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2F7D1E),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'شاشة الدفع',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (widget.requestCode.trim().isNotEmpty) ...[
+                    _line('رقم الطلب', widget.requestCode.trim()),
+                  ],
+                  if (widget.invoiceCode.trim().isNotEmpty) ...[
+                    _line('رقم الفاتورة', widget.invoiceCode.trim()),
+                  ],
+                  _line('الإجمالي', '${widget.invoiceTotal} ريال'),
+                  _line('VAT', '${widget.invoiceVat} ريال'),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFD9C4EB), width: 1.2),
+                    ),
+                    child: const Text(
+                      'Apple Pay',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 42,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      paymentMethodChip(value: 'mada', label: 'مدى'),
+                      const SizedBox(width: 8),
+                      paymentMethodChip(value: 'visa', label: 'فيزا'),
+                      const SizedBox(width: 8),
+                      paymentMethodChip(value: 'mastercard', label: 'ماستر كارد'),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _cardName,
+                    enabled: !_paying,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'اسم حامل البطاقة',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: _cardNumber,
+                    enabled: !_paying,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم البطاقة',
+                      hintText: '0000 0000 0000 0000',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) {
+                      final formatted = _formatCardNumber(value).trim();
+                      if (formatted == _cardNumber.text) return;
+                      _cardNumber.value = TextEditingValue(
+                        text: formatted,
+                        selection:
+                            TextSelection.collapsed(offset: formatted.length),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _cardExpiry,
+                          enabled: !_paying,
+                          keyboardType: TextInputType.number,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            labelText: 'تاريخ الانتهاء MM/YY',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            final formatted = _formatExpiry(value).trim();
+                            if (formatted == _cardExpiry.text) return;
+                            _cardExpiry.value = TextEditingValue(
+                              text: formatted,
+                              selection: TextSelection.collapsed(
+                                offset: formatted.length,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: _cardCvv,
+                          enabled: !_paying,
+                          keyboardType: TextInputType.number,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'CVV',
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (value) {
+                            final digits = _digitsOnly(value);
+                            final clipped =
+                                digits.length > 4 ? digits.substring(0, 4) : digits;
+                            if (clipped == _cardCvv.text) return;
+                            _cardCvv.value = TextEditingValue(
+                              text: clipped,
+                              selection:
+                                  TextSelection.collapsed(offset: clipped.length),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5FFF2),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFDCEFD7)),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'حماية الدفع',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF2F7D1E),
+                          ),
+                        ),
+                        SizedBox(height: 6),
+                        Text(
+                          'اتصال مشفر، تحقق idempotency لمنع التكرار، وعدم الاحتفاظ ببيانات البطاقة بعد إتمام العملية.',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            color: Colors.black54,
+                            height: 1.6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  FilledButton(
+                    onPressed: _paying ? null : _submitPayment,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF2F7D1E),
+                      foregroundColor: Colors.white,
+                    ),
+                    child: _paying
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text(
+                            'دفع',
+                            style: TextStyle(fontFamily: 'Cairo'),
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2513,333 +3455,4 @@ class _AttachmentPreviewDialogState extends State<_AttachmentPreviewDialog> {
       ),
     );
   }
-}
-
-class _PaymentSelectionResult {
-  final bool confirmed;
-  final String method;
-
-  const _PaymentSelectionResult({required this.confirmed, required this.method});
-}
-
-class _PromoSummaryScreen extends StatelessWidget {
-  final Map<String, dynamic> preview;
-  final String providerName;
-
-  const _PromoSummaryScreen({required this.preview, required this.providerName});
-
-  @override
-  Widget build(BuildContext context) {
-    final items = _asMapList(preview['items']);
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _brandColor,
-          title: const Text('ملخص طلب الترويج والتكلفة', style: TextStyle(fontFamily: 'Cairo')),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('اسم المختص: $providerName', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند',
-                    style: TextStyle(fontFamily: 'Cairo'),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Table(
-                        border: TableBorder.all(color: const Color(0xFFB241A1)),
-                        children: [
-                          const TableRow(
-                            decoration: BoxDecoration(color: Color(0xFFA12D9D)),
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.all(10),
-                                child: Text('البند', style: TextStyle(fontFamily: 'Cairo', color: Colors.white, fontWeight: FontWeight.bold)),
-                              ),
-                              Padding(
-                                padding: EdgeInsets.all(10),
-                                child: Text('التكلفة', style: TextStyle(fontFamily: 'Cairo', color: Colors.white, fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                          ),
-                          for (final item in items)
-                            TableRow(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Text(
-                                    (item['title'] as String? ?? _serviceLabel(item['service_type'] as String?)).trim(),
-                                    style: const TextStyle(fontFamily: 'Cairo'),
-                                  ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.all(10),
-                                  child: Text(
-                                    '${_money(item['subtotal'])} ريال${item['duration_days'] != null ? ' • ${item['duration_days']} يوم' : ''}',
-                                    style: const TextStyle(fontFamily: 'Cairo'),
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Table(
-                    border: TableBorder.all(color: const Color(0xFFB241A1)),
-                    children: [
-                      TableRow(
-                        children: [
-                          const Padding(padding: EdgeInsets.all(10), child: Text('المجموع', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
-                          Padding(padding: const EdgeInsets.all(10), child: Text('${_money(preview['subtotal'])} ريال', style: const TextStyle(fontFamily: 'Cairo'))),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          const Padding(padding: EdgeInsets.all(10), child: Text('VAT', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
-                          Padding(padding: const EdgeInsets.all(10), child: Text('${_money(preview['vat_amount'])} ريال', style: const TextStyle(fontFamily: 'Cairo'))),
-                        ],
-                      ),
-                      TableRow(
-                        children: [
-                          const Padding(padding: EdgeInsets.all(10), child: Text('التكلفة الكلية', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold))),
-                          Padding(padding: const EdgeInsets.all(10), child: Text('${_money(preview['total'])} ريال', style: const TextStyle(fontFamily: 'Cairo'))),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('إلغاء', style: TextStyle(fontFamily: 'Cairo')),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () async {
-                            final paymentResult = await Navigator.of(context).push<_PaymentSelectionResult>(
-                              MaterialPageRoute(
-                                builder: (_) => _PromoPaymentScreen(totalAmount: _money(preview['total'])),
-                              ),
-                            );
-                            if (!context.mounted || paymentResult == null) return;
-                            Navigator.pop(context, paymentResult);
-                          },
-                          style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2F7D1E)),
-                          child: const Text('استمرار', style: TextStyle(fontFamily: 'Cairo')),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PromoPaymentScreen extends StatefulWidget {
-  final String totalAmount;
-
-  const _PromoPaymentScreen({required this.totalAmount});
-
-  @override
-  State<_PromoPaymentScreen> createState() => _PromoPaymentScreenState();
-}
-
-class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
-  String _method = 'apple_pay';
-  final _cardNumber = TextEditingController();
-  final _expiry = TextEditingController();
-  final _cvv = TextEditingController();
-  final _name = TextEditingController();
-
-  @override
-  void dispose() {
-    _cardNumber.dispose();
-    _expiry.dispose();
-    _cvv.dispose();
-    _name.dispose();
-    super.dispose();
-  }
-
-  void _continuePay() {
-    if (_method == 'card') {
-      final cardNo = _cardNumber.text.replaceAll(' ', '');
-      if (!_isValidCardNumber(cardNo)) {
-        _showError('رقم البطاقة غير صالح.');
-        return;
-      }
-      if (!_isValidExpiry(_expiry.text)) {
-        _showError('تاريخ الانتهاء غير صالح.');
-        return;
-      }
-      if (!_isValidCvv(_cvv.text)) {
-        _showError('CVV غير صالح.');
-        return;
-      }
-      if (_name.text.trim().isEmpty) {
-        _showError('أدخل اسم حامل البطاقة.');
-        return;
-      }
-    }
-    Navigator.pop(context, _PaymentSelectionResult(confirmed: true, method: _method));
-  }
-
-  void _showError(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(backgroundColor: Colors.red, content: Text(text, style: const TextStyle(fontFamily: 'Cairo'))),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _brandColor,
-          title: const Text('شاشة الدفع', style: TextStyle(fontFamily: 'Cairo')),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: ListView(
-                children: [
-                  Text('المبلغ المطلوب: ${widget.totalAmount} ريال', style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 12),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'apple_pay', label: Text('Apple Pay', style: TextStyle(fontFamily: 'Cairo')), icon: Icon(Icons.phone_iphone_rounded)),
-                      ButtonSegment(value: 'card', label: Text('بطاقة بنكية', style: TextStyle(fontFamily: 'Cairo')), icon: Icon(Icons.credit_card_rounded)),
-                    ],
-                    selected: {_method},
-                    onSelectionChanged: (set) => setState(() => _method = set.first),
-                  ),
-                  const SizedBox(height: 14),
-                  if (_method == 'apple_pay')
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Center(
-                        child: Text('Pay with Apple Pay', style: TextStyle(fontFamily: 'Cairo', color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-                      ),
-                    )
-                  else ...[
-                    TextField(
-                      controller: _name,
-                      textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(labelText: 'اسم حامل البطاقة', border: OutlineInputBorder()),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _cardNumber,
-                      keyboardType: TextInputType.number,
-                      textInputAction: TextInputAction.next,
-                      maxLength: 19,
-                      decoration: const InputDecoration(labelText: 'رقم البطاقة', border: OutlineInputBorder(), counterText: ''),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _expiry,
-                            keyboardType: TextInputType.number,
-                            textInputAction: TextInputAction.next,
-                            maxLength: 5,
-                            decoration: const InputDecoration(labelText: 'MM/YY', border: OutlineInputBorder(), counterText: ''),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: TextField(
-                            controller: _cvv,
-                            keyboardType: TextInputType.number,
-                            obscureText: true,
-                            maxLength: 4,
-                            decoration: const InputDecoration(labelText: 'CVV', border: OutlineInputBorder(), counterText: ''),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  const Text(
-                    'أفضل الممارسات: لا يتم تخزين بيانات البطاقة داخل التطبيق ويتم إرسالها عبر قناة مشفرة فقط.',
-                    style: TextStyle(fontFamily: 'Cairo', color: Colors.black54, height: 1.6),
-                  ),
-                  const SizedBox(height: 14),
-                  FilledButton(
-                    onPressed: _continuePay,
-                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFF2F7D1E)),
-                    child: const Text('دفع', style: TextStyle(fontFamily: 'Cairo')),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-bool _isValidCardNumber(String value) {
-  if (value.length < 12 || value.length > 19 || int.tryParse(value) == null) return false;
-  int sum = 0;
-  bool alternate = false;
-  for (int i = value.length - 1; i >= 0; i--) {
-    int n = int.parse(value[i]);
-    if (alternate) {
-      n *= 2;
-      if (n > 9) n -= 9;
-    }
-    sum += n;
-    alternate = !alternate;
-  }
-  return sum % 10 == 0;
-}
-
-bool _isValidExpiry(String value) {
-  final normalized = value.trim();
-  if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(normalized)) return false;
-  final parts = normalized.split('/');
-  final month = int.tryParse(parts[0]);
-  final year = int.tryParse(parts[1]);
-  if (month == null || year == null || month < 1 || month > 12) return false;
-  final now = DateTime.now();
-  final fullYear = 2000 + year;
-  final expiry = DateTime(fullYear, month + 1, 0, 23, 59, 59);
-  return expiry.isAfter(now);
-}
-
-bool _isValidCvv(String value) {
-  return RegExp(r'^\d{3,4}$').hasMatch(value.trim());
 }

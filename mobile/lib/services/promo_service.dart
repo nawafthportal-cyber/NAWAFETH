@@ -188,6 +188,21 @@ class PromoService {
     return ApiClient.get('/api/promo/requests/$requestId/');
   }
 
+  /// تجهيز فاتورة الدفع لطلب الترويج (للمالك)
+  static Future<ApiResponse> preparePayment({
+    required int requestId,
+    String quoteNote = '',
+  }) {
+    final body = <String, dynamic>{};
+    if (quoteNote.trim().isNotEmpty) {
+      body['quote_note'] = quoteNote.trim();
+    }
+    return ApiClient.post(
+      '/api/promo/requests/$requestId/prepare-payment/',
+      body: body,
+    );
+  }
+
   /// رفع ملف (صورة/فيديو) لطلب ترويج (multipart)
   static Future<ApiResponse> uploadAsset({
     required int requestId,

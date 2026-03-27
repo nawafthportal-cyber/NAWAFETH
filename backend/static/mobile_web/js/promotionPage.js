@@ -52,8 +52,16 @@ var PromotionPage = (function () {
   var modalElements = null;
   var liveQuoteTimer = null;
   var liveQuoteData = null;
-  var pendingPreviewData = null;
-  var pendingRequestBody = null;
+  var pendingSummary = { preview: null, requestBody: null };
+  var pendingPayment = {
+    requestId: null,
+    requestCode: "",
+    invoiceId: null,
+    invoiceCode: "",
+    invoiceTotal: 0,
+    invoiceVat: 0,
+    paymentMethod: "mada"
+  };
   var homeBannerEditor = {
     activeDevice: "mobile",
     scales: { mobile: 100, tablet: 100, desktop: 100 },
@@ -62,17 +70,51 @@ var PromotionPage = (function () {
 
   function init() {
     bindTabs();
-    bindServicePicks();
-    bindAttachmentPolicyHints();
-    bindHomeBannerEditor();
-    bindForm();
-    bindRequestActions();
     bindModal();
-    bindLiveQuote();
-    bindPreviewButtons();
-    bindSummaryScreen();
-    bindPaymentScreen();
-    loadRequests();
+
+    var hasRequestsPanel = !!document.getElementById("promo-list");
+    var hasComposerForm = !!document.getElementById("promo-form");
+
+    if (hasRequestsPanel) {
+      bindRequestActions();
+      bindTableRowClicks();
+      loadRequests();
+    }
+
+    if (hasComposerForm) {
+      bindPromoComposerViewToggle();
+      bindServicePicks();
+      bindAttachmentPolicyHints();
+      bindHomeBannerEditor();
+      bindForm();
+      bindLiveQuote();
+      bindPreviewButtons();
+      bindSummaryActions();
+      bindPaymentActions();
+      hydrateProviderIdentity();
+    }
+  }
+
+  function getMainShell() {
+    return document.querySelector(".page-shell[data-promo-requests-url], .page-shell[data-promo-new-request-url]");
+  }
+
+  function getRequestsUrl() {
+    var shell = getMainShell();
+    return (shell && shell.dataset && shell.dataset.promoRequestsUrl) || "/promotion/";
+  }
+
+  function getNewRequestUrl() {
+    var shell = getMainShell();
+    return (shell && shell.dataset && shell.dataset.promoNewRequestUrl) || "/promotion/new/";
+  }
+
+  function goToRequestsPage() {
+    window.location.href = getRequestsUrl();
+  }
+
+  function goToNewRequestPage() {
+    window.location.href = getNewRequestUrl();
   }
 
   function bindAttachmentPolicyHints() {
@@ -107,10 +149,15 @@ var PromotionPage = (function () {
 
   function bindTabs() {
     var tabs = document.getElementById("promo-tabs");
+    if (!tabs) return;
     tabs.addEventListener("click", function (e) {
       var tab = e.target.closest(".tab");
       if (!tab) return;
       var name = tab.dataset.tab;
+      if (name === "new") {
+        goToNewRequestPage();
+        return;
+      }
       tabs.querySelectorAll(".tab").forEach(function (item) {
         item.classList.toggle("active", item === tab);
       });
@@ -118,27 +165,118 @@ var PromotionPage = (function () {
         panel.classList.toggle("active", panel.dataset.panel === name);
       });
     });
-    document.getElementById("btn-go-new").addEventListener("click", function () {
-      document.querySelector('[data-tab="new"]').click();
+    var btnGoNew = document.getElementById("btn-go-new");
+    if (btnGoNew) {
+      btnGoNew.addEventListener("click", function () {
+        goToNewRequestPage();
+      });
+    }
+  }
+
+  function bindPromoComposerViewToggle() {
+    var buttons = Array.from(document.querySelectorAll("[data-promo-view]"));
+    var composerView = document.getElementById("promo-composer-view");
+    var pricingView = document.getElementById("promo-pricing-view");
+    var summaryView = document.getElementById("promo-summary-view");
+    var paymentView = document.getElementById("promo-payment-view");
+    var topShell = document.querySelector(".promo-top-shell");
+    if (!buttons.length || !composerView || !pricingView || !summaryView) return;
+
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        switchComposerScreen(String(button.dataset.promoView || "composer"));
+      });
     });
+
+    function switchComposerScreen(view) {
+      composerView.hidden = view !== "composer";
+      pricingView.hidden = view !== "pricing";
+      summaryView.hidden = view !== "summary";
+      if (paymentView) paymentView.hidden = view !== "payment";
+      if (topShell) topShell.hidden = view === "summary" || view === "payment";
+      buttons.forEach(function (button) {
+        button.classList.toggle("active", String(button.dataset.promoView) === view);
+      });
+    }
+
+    window.__promoSwitchComposerScreen = switchComposerScreen;
+    switchComposerScreen("composer");
+  }
+
+  function switchComposerScreen(view) {
+    if (typeof window.__promoSwitchComposerScreen === "function") {
+      window.__promoSwitchComposerScreen(view);
+      return;
+    }
+    var composerView = document.getElementById("promo-composer-view");
+    var pricingView = document.getElementById("promo-pricing-view");
+    var summaryView = document.getElementById("promo-summary-view");
+    var paymentView = document.getElementById("promo-payment-view");
+    var topShell = document.querySelector(".promo-top-shell");
+    if (!composerView || !pricingView || !summaryView) return;
+    composerView.hidden = view !== "composer";
+    pricingView.hidden = view !== "pricing";
+    summaryView.hidden = view !== "summary";
+    if (paymentView) paymentView.hidden = view !== "payment";
+    if (topShell) topShell.hidden = view === "summary" || view === "payment";
+  }
+
+  async function hydrateProviderIdentity() {
+    var input = document.getElementById("promo-provider-name");
+    if (!input) return;
+
+    var fallback = "مزود الخدمة";
+    input.value = fallback;
+
+    try {
+      if (!window.Auth || typeof window.Auth.getProfile !== "function") return;
+      var profile = await window.Auth.getProfile();
+      if (!profile || typeof profile !== "object") return;
+
+      var username = String(profile.username || "").trim();
+      if (username && username.charAt(0) !== "@") {
+        username = "@" + username;
+      }
+      var providerName = String(profile.provider_display_name || "").trim();
+      var displayName = String(profile.display_name || "").trim();
+      var phone = String(profile.phone || "").trim();
+      var chosen = providerName || displayName || username || phone || fallback;
+      input.value = chosen;
+    } catch (err) {
+      input.value = fallback;
+    }
   }
 
   function bindServicePicks() {
-    document.querySelectorAll(".chip-btn").forEach(function (button) {
-      button.addEventListener("click", function () {
-        var service = button.dataset.service;
-        var idx = selectedServices.indexOf(service);
-        if (idx >= 0) {
-          selectedServices.splice(idx, 1);
-          button.classList.remove("active");
-          toggleServiceBlock(service, false);
-        } else {
-          selectedServices.push(service);
-          button.classList.add("active");
+    var toggles = Array.from(document.querySelectorAll("[data-service-toggle]"));
+    if (!toggles.length) return;
+    toggles.forEach(function (input) {
+      var service = String(input.dataset.serviceToggle || "").trim();
+      if (!service) return;
+      input.addEventListener("change", function () {
+        if (input.checked) {
+          if (selectedServices.indexOf(service) < 0) {
+            selectedServices.push(service);
+          }
           toggleServiceBlock(service, true);
+        } else {
+          selectedServices = selectedServices.filter(function (item) {
+            return item !== service;
+          });
+          toggleServiceBlock(service, false);
         }
         scheduleLiveQuote();
       });
+    });
+
+    selectedServices = [];
+    toggles.forEach(function (input) {
+      var service = String(input.dataset.serviceToggle || "").trim();
+      if (!service) return;
+      if (input.checked && selectedServices.indexOf(service) < 0) {
+        selectedServices.push(service);
+      }
+      toggleServiceBlock(service, !!input.checked);
     });
   }
 
@@ -349,7 +487,9 @@ var PromotionPage = (function () {
   }
 
   function bindRequestActions() {
-    document.getElementById("promo-list").addEventListener("click", async function (e) {
+    var listRoot = document.getElementById("promo-list");
+    if (!listRoot) return;
+    listRoot.addEventListener("click", async function (e) {
       var button = e.target.closest("[data-request-action]");
       if (!button) return;
       var requestId = parseInt(button.dataset.requestId || "0", 10);
@@ -372,6 +512,10 @@ var PromotionPage = (function () {
       cancel: document.getElementById("promo-modal-cancel"),
       confirm: document.getElementById("promo-modal-confirm")
     };
+    if (!modalElements.root || !modalElements.title || !modalElements.body || !modalElements.cancel || !modalElements.confirm) {
+      modalElements = null;
+      return;
+    }
     modalElements.root.addEventListener("click", function (e) {
       if (e.target && e.target.dataset && e.target.dataset.closeModal === "1") {
         closeModal(false);
@@ -387,6 +531,13 @@ var PromotionPage = (function () {
 
   function openModal(options) {
     if (!modalElements) bindModal();
+    if (!modalElements) {
+      if (options && options.confirmText === null) {
+        alert(options.title || "تفاصيل الترويج");
+        return Promise.resolve(false);
+      }
+      return Promise.resolve(window.confirm(options && options.title ? options.title : "متابعة"));
+    }
     if (modalState.resolve) closeModal(false);
     modalElements.title.textContent = options.title || "تفاصيل الترويج";
     modalElements.body.innerHTML = options.bodyHtml || "";
@@ -424,13 +575,27 @@ var PromotionPage = (function () {
 
   function toggleServiceBlock(service, show) {
     var block = document.querySelector('[data-service-block="' + service + '"]');
-    if (block) block.hidden = !show;
+    if (!block) return;
+
+    block.classList.toggle("is-active", !!show);
+    var body = block.querySelector(".service-body");
+    if (body) {
+      body.hidden = !show;
+    } else {
+      block.hidden = !show;
+    }
+
+    var previewBtn = block.querySelector(".btn-preview-service");
+    if (previewBtn) {
+      previewBtn.hidden = !show;
+    }
   }
 
   async function loadRequests() {
     var loading = document.getElementById("promo-loading");
     var empty = document.getElementById("promo-empty");
     var listEl = document.getElementById("promo-list");
+    if (!loading || !empty || !listEl) return;
     loading.style.display = "";
     empty.style.display = "none";
     listEl.innerHTML = "";
@@ -452,7 +617,6 @@ var PromotionPage = (function () {
         if (row && row.id) requestsCache[row.id] = row;
       });
       listEl.innerHTML = renderRequestsTable(rows);
-      bindTableRowClicks();
     } catch (err) {
       loading.style.display = "none";
       listEl.innerHTML = '<p class="text-muted">تعذر تحميل الطلبات</p>';
@@ -522,6 +686,8 @@ var PromotionPage = (function () {
 
   function bindTableRowClicks() {
     var listEl = document.getElementById("promo-list");
+    if (!listEl || listEl.dataset.rowClicksBound === "1") return;
+    listEl.dataset.rowClicksBound = "1";
     listEl.addEventListener("click", async function (e) {
       var tr = e.target.closest("tr[data-request-id]");
       if (!tr) return;
@@ -542,7 +708,7 @@ var PromotionPage = (function () {
     var detailRow = row;
     try {
       var res = await ApiClient.get("/api/promo/requests/" + row.id + "/");
-      if (res && res.id) detailRow = res;
+      if (res && res.ok && res.data && res.data.id) detailRow = res.data;
     } catch (_) {}
     var confirmed = await openModal({
       title: detailRow.title || "طلب ترويج",
@@ -619,6 +785,7 @@ var PromotionPage = (function () {
     if (item.redirect_url) h += lineHtml("رابط التحويل", '<a href="' + escapeHtml(item.redirect_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.redirect_url) + '</a>');
     if (item.message_title) h += lineHtml("عنوان الرسالة", item.message_title);
     if (item.message_body) h += lineHtml("نص الرسالة", item.message_body);
+    if (item.operator_note) h += lineHtml("تعليق المكلف", item.operator_note);
     if (item.use_notification_channel) h += '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:.8rem;margin-inline-end:4px">إشعار</span>';
     if (item.use_chat_channel) h += '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:.8rem">محادثة</span>';
     if (item.sponsor_name) h += lineHtml("اسم الراعي", item.sponsor_name);
@@ -667,8 +834,258 @@ var PromotionPage = (function () {
     );
   }
 
+  function bindSummaryActions() {
+    var cancelBtn = document.getElementById("promo-summary-cancel");
+    var confirmBtn = document.getElementById("promo-summary-confirm");
+    if (!cancelBtn || !confirmBtn) return;
+
+    cancelBtn.addEventListener("click", function () {
+      switchComposerScreen("composer");
+    });
+
+    confirmBtn.addEventListener("click", async function () {
+      if (!pendingSummary.requestBody) {
+        switchComposerScreen("composer");
+        return;
+      }
+      if (pendingPayment.requestId && pendingPayment.invoiceId) {
+        renderPaymentView();
+        switchComposerScreen("payment");
+        return;
+      }
+      var defaultText = confirmBtn.textContent || "استمرار";
+      confirmBtn.disabled = true;
+      cancelBtn.disabled = true;
+      try {
+        confirmBtn.textContent = "جاري تجهيز الدفع...";
+        await submitRequestFlow(pendingSummary.requestBody, confirmBtn);
+      } finally {
+        confirmBtn.disabled = false;
+        cancelBtn.disabled = false;
+        confirmBtn.textContent = defaultText;
+      }
+    });
+  }
+
+  function bindPaymentActions() {
+    var backBtn = document.getElementById("promo-payment-back");
+    var payBtn = document.getElementById("promo-payment-submit");
+    if (!backBtn || !payBtn) return;
+
+    var numberInput = document.getElementById("promo-card-number");
+    var expiryInput = document.getElementById("promo-card-expiry");
+    var cvvInput = document.getElementById("promo-card-cvv");
+    var methodInputs = Array.from(document.querySelectorAll('input[name="promo-payment-method"]'));
+
+    if (numberInput) {
+      numberInput.addEventListener("input", function () {
+        var digits = normalizeCardDigits(numberInput.value).slice(0, 19);
+        numberInput.value = formatCardNumberDisplay(digits);
+      });
+    }
+    if (expiryInput) {
+      expiryInput.addEventListener("input", function () {
+        expiryInput.value = formatExpiryValue(expiryInput.value);
+      });
+    }
+    if (cvvInput) {
+      cvvInput.addEventListener("input", function () {
+        cvvInput.value = normalizeCardDigits(cvvInput.value).slice(0, 4);
+      });
+    }
+
+    methodInputs.forEach(function (input) {
+      input.addEventListener("change", function () {
+        if (input.checked) {
+          pendingPayment.paymentMethod = String(input.value || "mada").trim() || "mada";
+          updatePaymentMethodSelectionUi();
+        }
+      });
+    });
+    updatePaymentMethodSelectionUi();
+
+    backBtn.addEventListener("click", function () {
+      clearPaymentCardFields();
+      switchComposerScreen("summary");
+    });
+
+    payBtn.addEventListener("click", async function () {
+      if (!pendingPayment.invoiceId) {
+        switchComposerScreen("summary");
+        return;
+      }
+      var validation = validatePaymentFields();
+      if (!validation.ok) {
+        alert(validation.message || "يرجى استكمال بيانات البطاقة");
+        return;
+      }
+      pendingPayment.paymentMethod = validation.method || pendingPayment.paymentMethod || "mada";
+      updatePaymentMethodSelectionUi();
+
+      var defaultText = payBtn.textContent || "دفع";
+      payBtn.disabled = true;
+      backBtn.disabled = true;
+      try {
+        payBtn.textContent = "جاري تنفيذ الدفع...";
+        var paid = await payPreparedInvoice();
+        if (!paid) return;
+        var requestCode = pendingPayment.requestCode || "—";
+        clearPaymentCardFields();
+        resetForm();
+        showSuccessDialog(requestCode, {
+          title: "تمت عملية الدفع بنجاح",
+          message: "سيتم التواصل معكم لتنفيذ طلبكم",
+          onClose: goToRequestsPage
+        });
+      } finally {
+        payBtn.disabled = false;
+        backBtn.disabled = false;
+        payBtn.textContent = defaultText;
+      }
+    });
+  }
+
+  function renderPaymentView() {
+    var requestCodeEl = document.getElementById("promo-payment-request-code");
+    var totalEl = document.getElementById("promo-payment-total");
+
+    if (requestCodeEl) {
+      requestCodeEl.textContent = pendingPayment.requestCode || "—";
+    }
+    var invoiceTotal = Number(pendingPayment.invoiceTotal);
+    if (!Number.isFinite(invoiceTotal)) {
+      invoiceTotal = Number(pendingSummary.preview && pendingSummary.preview.total);
+    }
+    if (totalEl) {
+      totalEl.textContent = money(invoiceTotal) + " ريال";
+    }
+
+    var method = pendingPayment.paymentMethod || "mada";
+    var selectedInput = document.querySelector('input[name="promo-payment-method"][value="' + method + '"]');
+    if (selectedInput) selectedInput.checked = true;
+    updatePaymentMethodSelectionUi();
+  }
+
+  function updatePaymentMethodSelectionUi() {
+    document.querySelectorAll(".promo-payment-method-option").forEach(function (label) {
+      var input = label.querySelector('input[name="promo-payment-method"]');
+      label.classList.toggle("is-selected", !!(input && input.checked));
+    });
+  }
+
+  function normalizeCardDigits(value) {
+    return String(value || "").replace(/\D+/g, "");
+  }
+
+  function formatCardNumberDisplay(digits) {
+    return String(digits || "").replace(/(.{4})/g, "$1 ").trim();
+  }
+
+  function formatExpiryValue(value) {
+    var digits = normalizeCardDigits(value).slice(0, 4);
+    if (digits.length <= 2) return digits;
+    return digits.slice(0, 2) + "/" + digits.slice(2);
+  }
+
+  function luhnCheck(numberDigits) {
+    var sum = 0;
+    var alt = false;
+    for (var i = numberDigits.length - 1; i >= 0; i -= 1) {
+      var n = parseInt(numberDigits.charAt(i), 10);
+      if (!Number.isFinite(n)) return false;
+      if (alt) {
+        n *= 2;
+        if (n > 9) n -= 9;
+      }
+      sum += n;
+      alt = !alt;
+    }
+    return sum % 10 === 0;
+  }
+
+  function validatePaymentFields() {
+    var methodInput = document.querySelector('input[name="promo-payment-method"]:checked');
+    var method = methodInput ? String(methodInput.value || "").trim() : "";
+    if (!method) {
+      return { ok: false, message: "اختر وسيلة الدفع أولاً." };
+    }
+
+    var cardName = valueOf(document.getElementById("promo-card-name"));
+    if (cardName.length < 3) {
+      return { ok: false, message: "أدخل اسم حامل البطاقة بشكل صحيح." };
+    }
+
+    var cardNumber = normalizeCardDigits(valueOf(document.getElementById("promo-card-number")));
+    if (cardNumber.length < 12 || cardNumber.length > 19 || !luhnCheck(cardNumber)) {
+      return { ok: false, message: "رقم البطاقة غير صالح." };
+    }
+
+    var expiryRaw = valueOf(document.getElementById("promo-card-expiry"));
+    var expiryMatch = /^(\d{2})\/(\d{2})$/.exec(expiryRaw);
+    if (!expiryMatch) {
+      return { ok: false, message: "أدخل تاريخ الانتهاء بصيغة MM/YY." };
+    }
+    var expMonth = parseInt(expiryMatch[1], 10);
+    var expYear = 2000 + parseInt(expiryMatch[2], 10);
+    if (!Number.isFinite(expMonth) || expMonth < 1 || expMonth > 12) {
+      return { ok: false, message: "شهر انتهاء البطاقة غير صحيح." };
+    }
+    var expiryDate = new Date(expYear, expMonth, 0, 23, 59, 59, 999);
+    if (expiryDate.getTime() < Date.now()) {
+      return { ok: false, message: "البطاقة منتهية الصلاحية." };
+    }
+
+    var cvv = normalizeCardDigits(valueOf(document.getElementById("promo-card-cvv")));
+    if (cvv.length < 3 || cvv.length > 4) {
+      return { ok: false, message: "رمز CVV غير صحيح." };
+    }
+
+    return { ok: true, method: method };
+  }
+
+  function clearPaymentCardFields() {
+    var nameInput = document.getElementById("promo-card-name");
+    var numberInput = document.getElementById("promo-card-number");
+    var expiryInput = document.getElementById("promo-card-expiry");
+    var cvvInput = document.getElementById("promo-card-cvv");
+    if (nameInput) nameInput.value = "";
+    if (numberInput) numberInput.value = "";
+    if (expiryInput) expiryInput.value = "";
+    if (cvvInput) cvvInput.value = "";
+  }
+
+  function renderSummaryView(preview) {
+    var providerEl = document.getElementById("promo-summary-provider");
+    var itemsEl = document.getElementById("promo-summary-items");
+    var subtotalEl = document.getElementById("promo-summary-subtotal");
+    var vatEl = document.getElementById("promo-summary-vat");
+    var totalEl = document.getElementById("promo-summary-total");
+    if (!providerEl || !itemsEl || !subtotalEl || !vatEl || !totalEl) return;
+
+    var providerInput = document.getElementById("promo-provider-name");
+    var providerName = valueOf(providerInput) || "مزود الخدمة";
+    providerEl.textContent = providerName;
+
+    var items = Array.isArray(preview && preview.items) ? preview.items : [];
+    if (!items.length) {
+      itemsEl.innerHTML = '<tr><td colspan="2">لا توجد بنود لعرضها</td></tr>';
+    } else {
+      itemsEl.innerHTML = items.map(function (item) {
+        var title = escapeHtml(item.title || SERVICE_LABELS[item.service_type] || item.service_type || "خدمة");
+        var price = money(item.subtotal) + " ريال";
+        return "<tr><td>" + title + "</td><td>" + price + "</td></tr>";
+      }).join("");
+    }
+
+    subtotalEl.textContent = money(preview && preview.subtotal) + " ريال";
+    vatEl.textContent = money(preview && preview.vat_amount) + " ريال";
+    totalEl.textContent = money(preview && preview.total) + " ريال";
+  }
+
   function bindForm() {
-    document.getElementById("promo-form").addEventListener("submit", async function (e) {
+    var form = document.getElementById("promo-form");
+    if (!form) return;
+    form.addEventListener("submit", async function (e) {
       e.preventDefault();
       if (!selectedServices.length) {
         alert("اختر خدمة واحدة على الأقل");
@@ -700,9 +1117,21 @@ var PromotionPage = (function () {
       }
 
       var button = document.getElementById("promo-submit");
+      var defaultLabel = button ? button.textContent : "استمرار";
       button.disabled = true;
       try {
         button.textContent = "جاري احتساب التسعير...";
+        pendingPayment.requestId = null;
+        pendingPayment.requestCode = "";
+        pendingPayment.invoiceId = null;
+        pendingPayment.invoiceCode = "";
+        pendingPayment.invoiceTotal = 0;
+        pendingPayment.invoiceVat = 0;
+        pendingPayment.paymentMethod = "mada";
+        clearPaymentCardFields();
+        var defaultPaymentMethod = document.querySelector('input[name="promo-payment-method"][value="mada"]');
+        if (defaultPaymentMethod) defaultPaymentMethod.checked = true;
+        updatePaymentMethodSelectionUi();
         var requestBody = Object.assign({ title: title, items: items }, collectHomeBannerScalePayload());
 
         var previewRes = await ApiClient.request("/api/promo/requests/preview/", {
@@ -714,25 +1143,168 @@ var PromotionPage = (function () {
           return;
         }
 
-        var confirmed = await openModal({
-          title: "مراجعة التسعيرة قبل الإرسال",
-          bodyHtml: buildQuotePreviewHtml(previewRes.data || {}),
-          confirmText: "إرسال الطلب",
-          cancelText: "إلغاء"
-        });
-        if (!confirmed) return;
-
-        pendingPreviewData = previewRes.data || {};
-        pendingRequestBody = requestBody;
-        showSummaryScreen(pendingPreviewData);
+        pendingSummary.preview = previewRes.data || {};
+        pendingSummary.requestBody = requestBody;
+        renderSummaryView(pendingSummary.preview);
+        switchComposerScreen("summary");
       } catch (err) {
         console.error("Promo submit failed", err);
         alert("تعذر إكمال عملية الترويج. حاول مرة أخرى.");
       } finally {
         button.disabled = false;
-        button.textContent = "معاينة التسعير ثم الإرسال";
+        button.textContent = defaultLabel;
       }
     });
+  }
+
+  async function submitRequestFlow(requestBody, submitButton) {
+    if (!submitButton) return false;
+    try {
+      submitButton.textContent = "جاري إنشاء الطلب...";
+      var createResult = await createRequestWithAssets(requestBody, submitButton);
+      if (!createResult) {
+        return false;
+      }
+
+      if (createResult.uploadFailures.length) {
+        alert("تم إنشاء الطلب، لكن فشل رفع " + createResult.uploadFailures.length + " مرفق/مرفقات.\n" + createResult.uploadFailures[0]);
+      }
+
+      submitButton.textContent = "جاري تجهيز الفاتورة...";
+      var prepared = await preparePromoRequestPayment(createResult.requestId);
+      if (!prepared) {
+        return false;
+      }
+      var invoiceId = parseInt(String(prepared.invoice || ""), 10);
+      if (!invoiceId) {
+        alert("تعذر تجهيز الفاتورة لهذا الطلب. حاول مرة أخرى.");
+        return false;
+      }
+
+      pendingPayment.requestId = createResult.requestId;
+      pendingPayment.requestCode = String(prepared.code || createResult.requestCode || "").trim();
+      pendingPayment.invoiceId = invoiceId;
+      pendingPayment.invoiceCode = String(prepared.invoice_code || "").trim();
+      pendingPayment.invoiceTotal = Number(prepared.invoice_total != null ? prepared.invoice_total : (pendingSummary.preview && pendingSummary.preview.total));
+      pendingPayment.invoiceVat = Number(prepared.invoice_vat != null ? prepared.invoice_vat : 0);
+      pendingPayment.paymentMethod = pendingPayment.paymentMethod || "mada";
+      renderPaymentView();
+      switchComposerScreen("payment");
+      return true;
+    } catch (err) {
+      console.error("Submit flow failed", err);
+      alert("تعذر إكمال تجهيز الطلب للدفع. حاول مرة أخرى.");
+      return false;
+    }
+  }
+
+  async function createRequestWithAssets(requestBody, submitButton) {
+    var createRes = await ApiClient.request("/api/promo/requests/create/", {
+      method: "POST",
+      body: requestBody
+    });
+    if (!createRes.ok) {
+      alert(extractError(createRes, "فشل إنشاء الطلب"));
+      return null;
+    }
+
+    var requestId = createRes.data && createRes.data.id;
+    if (!requestId) {
+      alert("تم إنشاء الطلب لكن تعذر قراءة معرف الطلب.");
+      return null;
+    }
+
+    var detailRes = await ApiClient.get("/api/promo/requests/" + requestId + "/");
+    var detailItems = detailRes && detailRes.ok && detailRes.data && Array.isArray(detailRes.data.items)
+      ? detailRes.data.items : ((createRes.data && createRes.data.items) || []);
+    var ids = {};
+    detailItems.forEach(function (item) {
+      if (item && item.id) ids[(item.service_type || "") + ":" + (item.sort_order || 0)] = item.id;
+    });
+
+    var uploadFailures = [];
+    submitButton.textContent = "جاري رفع المرفقات...";
+    for (var x = 0; x < selectedServices.length; x += 1) {
+      var s = selectedServices[x];
+      var sBlock = document.querySelector('[data-service-block="' + s + '"]');
+      var fileInput = sBlock ? sBlock.querySelector('[data-field="files"]') : null;
+      var files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
+      for (var y = 0; y < files.length; y += 1) {
+        var sourceFile = files[y];
+        var uploadFile = sourceFile;
+        var uploadType = detectAssetType(sourceFile.name);
+        if (s === "home_banner" && uploadType === "image" && homeBannerAutoFitEnabled()) {
+          try {
+            uploadFile = await normalizeHomeBannerImage(sourceFile);
+            uploadType = "image";
+          } catch (normalizeErr) {
+            uploadFailures.push((sourceFile.name || "ملف") + ": تعذر ضبط الصورة تلقائياً قبل الرفع.");
+            continue;
+          }
+        }
+        var fd = new FormData();
+        fd.append("file", uploadFile, uploadFile.name);
+        fd.append("asset_type", uploadType);
+        if (ids[s + ":" + x]) fd.append("item_id", String(ids[s + ":" + x]));
+        var uploadRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
+          method: "POST",
+          body: fd,
+          formData: true
+        });
+        if (!uploadRes.ok) {
+          uploadFailures.push((uploadFile.name || "ملف") + ": " + extractError(uploadRes, "تعذر رفع المرفق"));
+        }
+      }
+    }
+
+    var requestCode = (createRes.data && createRes.data.code) || "";
+    var detailCode = detailRes && detailRes.ok && detailRes.data && detailRes.data.code;
+    if (detailCode) requestCode = detailCode;
+
+    return {
+      requestId: requestId,
+      requestCode: String(requestCode || "").trim(),
+      uploadFailures: uploadFailures
+    };
+  }
+
+  async function preparePromoRequestPayment(requestId) {
+    var prepareRes = await ApiClient.request("/api/promo/requests/" + requestId + "/prepare-payment/", {
+      method: "POST",
+      body: {}
+    });
+    if (!prepareRes.ok) {
+      alert(extractError(prepareRes, "تعذر تجهيز الفاتورة"));
+      return null;
+    }
+    return prepareRes.data || {};
+  }
+
+  async function payPreparedInvoice() {
+    var invoiceId = parseInt(String(pendingPayment.invoiceId || ""), 10);
+    if (!invoiceId) {
+      alert("لا توجد فاتورة صالحة لإتمام الدفع.");
+      return false;
+    }
+    var requestId = parseInt(String(pendingPayment.requestId || ""), 10) || 0;
+    var idempotencyKey = "promo-checkout-" + requestId + "-" + invoiceId;
+    var initRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/init-payment/", {
+      method: "POST",
+      body: { provider: "mock", idempotency_key: idempotencyKey }
+    });
+    if (!initRes.ok) {
+      alert(extractError(initRes, "تعذر فتح صفحة الدفع"));
+      return false;
+    }
+    var payRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/complete-mock-payment/", {
+      method: "POST",
+      body: { idempotency_key: idempotencyKey }
+    });
+    if (!payRes.ok) {
+      alert(extractError(payRes, "تعذر إتمام الدفع"));
+      return false;
+    }
+    return true;
   }
 
   async function validateSelectedServiceFiles() {
@@ -925,7 +1497,7 @@ var PromotionPage = (function () {
           '<div class="promo-modal-item"><strong>مدة الحملة</strong><div>' + escapeHtml(String(preview.total_days || 0)) + ' يوم</div></div>' +
         '</div>' +
       '</div>' +
-      '<p class="promo-note">سيتم إنشاء الطلب بهذه التسعيرة الحالية، ثم ينتقل إلى الاعتماد قبل فتح صفحة الدفع لمزود الخدمة.</p>'
+      '<p class="promo-note">عند المتابعة سيتم إنشاء الطلب ثم الانتقال مباشرة إلى صفحة الدفع.</p>'
     );
     return parts.join("");
   }
@@ -991,8 +1563,35 @@ var PromotionPage = (function () {
 
     document.getElementById("promo-form").reset();
     selectedServices = [];
-    document.querySelectorAll(".chip-btn").forEach(function (btn) { btn.classList.remove("active"); });
-    document.querySelectorAll(".promo-service-block").forEach(function (block) { block.hidden = true; });
+    liveQuoteData = null;
+    pendingSummary.preview = null;
+    pendingSummary.requestBody = null;
+    pendingPayment.requestId = null;
+    pendingPayment.requestCode = "";
+    pendingPayment.invoiceId = null;
+    pendingPayment.invoiceCode = "";
+    pendingPayment.invoiceTotal = 0;
+    pendingPayment.invoiceVat = 0;
+    pendingPayment.paymentMethod = "mada";
+    clearPaymentCardFields();
+    var defaultMethod = document.querySelector('input[name="promo-payment-method"][value="mada"]');
+    if (defaultMethod) defaultMethod.checked = true;
+    updatePaymentMethodSelectionUi();
+    switchComposerScreen("composer");
+    document.querySelectorAll("[data-service-toggle]").forEach(function (input) {
+      input.checked = false;
+    });
+    Object.keys(SERVICE_LABELS).forEach(function (service) {
+      toggleServiceBlock(service, false);
+    });
+
+    var liveRoot = document.getElementById("promo-live-total");
+    var liveBreakdown = document.getElementById("promo-live-breakdown");
+    if (liveRoot) liveRoot.hidden = true;
+    if (liveBreakdown) {
+      liveBreakdown.innerHTML = "";
+      liveBreakdown.hidden = true;
+    }
 
     var editor = document.getElementById("home-banner-editor");
     var mediaWrap = document.getElementById("home-banner-preview-media-wrap");
@@ -1102,11 +1701,16 @@ var PromotionPage = (function () {
     var totalEl = document.getElementById("promo-live-total");
     var amountEl = document.getElementById("promo-live-amount");
     var detailEl = document.getElementById("promo-live-detail");
+    var breakdownEl = document.getElementById("promo-live-breakdown");
     var spinnerEl = document.getElementById("promo-live-spinner");
 
     var title = valueOf(document.getElementById("promo-title"));
     if (!title || !selectedServices.length) {
       if (totalEl) totalEl.hidden = true;
+      if (breakdownEl) {
+        breakdownEl.innerHTML = "";
+        breakdownEl.hidden = true;
+      }
       return;
     }
 
@@ -1117,6 +1721,10 @@ var PromotionPage = (function () {
       var payload = buildServicePayload(service, block, i);
       if (typeof payload === "string") {
         if (totalEl) totalEl.hidden = true;
+        if (breakdownEl) {
+          breakdownEl.innerHTML = "";
+          breakdownEl.hidden = true;
+        }
         return;
       }
       items.push(payload);
@@ -1132,14 +1740,48 @@ var PromotionPage = (function () {
         body: requestBody
       });
       if (spinnerEl) spinnerEl.hidden = true;
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (breakdownEl) {
+          breakdownEl.innerHTML = "";
+          breakdownEl.hidden = true;
+        }
+        return;
+      }
 
       liveQuoteData = res.data || {};
       if (amountEl) amountEl.textContent = money(liveQuoteData.total) + " ريال";
       if (detailEl) detailEl.textContent = "قبل الضريبة: " + money(liveQuoteData.subtotal) + " ريال • VAT: " + money(liveQuoteData.vat_amount) + " ريال";
+      renderLiveQuoteBreakdown(liveQuoteData, breakdownEl);
     } catch (err) {
       if (spinnerEl) spinnerEl.hidden = true;
+      if (breakdownEl) {
+        breakdownEl.innerHTML = "";
+        breakdownEl.hidden = true;
+      }
     }
+  }
+
+  function renderLiveQuoteBreakdown(preview, root) {
+    if (!root) return;
+    var items = Array.isArray(preview && preview.items) ? preview.items : [];
+    if (!items.length) {
+      root.innerHTML = "";
+      root.hidden = true;
+      return;
+    }
+    var html = items.map(function (item) {
+      var label = escapeHtml(item.title || SERVICE_LABELS[item.service_type] || item.service_type || "خدمة");
+      var subtotal = money(item.subtotal) + " ريال";
+      var duration = item.duration_days != null ? " • " + escapeHtml(String(item.duration_days)) + " يوم" : "";
+      return (
+        '<div class="promo-live-breakdown-item">' +
+          '<strong>' + label + '</strong>' +
+          '<span>' + subtotal + duration + '</span>' +
+        '</div>'
+      );
+    }).join("");
+    root.innerHTML = html;
+    root.hidden = false;
   }
 
   function bindLiveQuote() {
@@ -1165,7 +1807,9 @@ var PromotionPage = (function () {
      ==================================================================== */
 
   function bindPreviewButtons() {
-    document.getElementById("promo-service-blocks").addEventListener("click", async function (e) {
+    var blocksRoot = document.getElementById("promo-service-blocks");
+    if (!blocksRoot) return;
+    blocksRoot.addEventListener("click", async function (e) {
       var btn = e.target.closest(".btn-preview-service");
       if (!btn) return;
       var service = btn.dataset.previewService;
@@ -1225,238 +1869,26 @@ var PromotionPage = (function () {
   }
 
   /* ====================================================================
-     Screen Navigation (form → summary → payment)
-     ==================================================================== */
-
-  function navigateToScreen(screenId) {
-    document.querySelector(".page-shell:not(.promo-screen)").hidden = (screenId !== "main");
-    document.getElementById("promo-summary-screen").hidden = (screenId !== "summary");
-    document.getElementById("promo-payment-screen").hidden = (screenId !== "payment");
-    window.scrollTo(0, 0);
-  }
-
-  /* ====================================================================
-     Summary Screen
-     ==================================================================== */
-
-  function showSummaryScreen(preview) {
-    var items = Array.isArray(preview.items) ? preview.items : [];
-    var title = valueOf(document.getElementById("promo-title")) || "مزود الخدمة";
-
-    document.getElementById("summary-provider-name").textContent = "اسم المختص: " + escapeHtml(title);
-
-    var tbody = document.getElementById("summary-items-body");
-    tbody.innerHTML = items.map(function (item) {
-      var label = escapeHtml(item.title || SERVICE_LABELS[item.service_type] || item.service_type || "");
-      var cost = money(item.subtotal) + " ريال";
-      if (item.duration_days != null) cost += " • " + item.duration_days + " يوم";
-      return "<tr><td>" + label + "</td><td>" + escapeHtml(cost) + "</td></tr>";
-    }).join("");
-
-    document.getElementById("summary-subtotal").textContent = money(preview.subtotal) + " ريال";
-    document.getElementById("summary-vat").textContent = money(preview.vat_amount) + " ريال";
-    document.getElementById("summary-total").textContent = money(preview.total) + " ريال";
-
-    navigateToScreen("summary");
-  }
-
-  function bindSummaryScreen() {
-    document.getElementById("summary-back").addEventListener("click", function () {
-      navigateToScreen("main");
-    });
-    document.getElementById("summary-cancel").addEventListener("click", function () {
-      navigateToScreen("main");
-    });
-    document.getElementById("summary-continue").addEventListener("click", function () {
-      var total = pendingPreviewData ? money(pendingPreviewData.total) : "0.00";
-      document.getElementById("payment-amount-label").textContent = "المبلغ المطلوب: " + total + " ريال";
-      resetPaymentForm();
-      navigateToScreen("payment");
-    });
-  }
-
-  /* ====================================================================
-     Payment Screen
-     ==================================================================== */
-
-  var paymentMethod = "apple_pay";
-
-  function resetPaymentForm() {
-    paymentMethod = "apple_pay";
-    updatePaymentMethodUi();
-    var nameEl = document.getElementById("pay-card-name");
-    var numEl = document.getElementById("pay-card-number");
-    var expEl = document.getElementById("pay-card-expiry");
-    var cvvEl = document.getElementById("pay-card-cvv");
-    if (nameEl) nameEl.value = "";
-    if (numEl) numEl.value = "";
-    if (expEl) expEl.value = "";
-    if (cvvEl) cvvEl.value = "";
-  }
-
-  function updatePaymentMethodUi() {
-    var tabs = document.querySelectorAll("#payment-method-tabs .payment-tab");
-    tabs.forEach(function (tab) {
-      tab.classList.toggle("active", tab.dataset.method === paymentMethod);
-    });
-    document.getElementById("payment-apple-section").hidden = (paymentMethod !== "apple_pay");
-    document.getElementById("payment-card-section").hidden = (paymentMethod !== "card");
-  }
-
-  function bindPaymentScreen() {
-    document.getElementById("payment-back").addEventListener("click", function () {
-      navigateToScreen("summary");
-    });
-
-    document.getElementById("payment-method-tabs").addEventListener("click", function (e) {
-      var tab = e.target.closest(".payment-tab");
-      if (!tab || !tab.dataset.method) return;
-      paymentMethod = tab.dataset.method;
-      updatePaymentMethodUi();
-    });
-
-    document.getElementById("payment-pay-btn").addEventListener("click", async function () {
-      if (paymentMethod === "card") {
-        var cardNo = (valueOf(document.getElementById("pay-card-number")) || "").replace(/\s/g, "");
-        if (!isValidCardNumber(cardNo)) { alert("رقم البطاقة غير صالح."); return; }
-        if (!isValidExpiry(valueOf(document.getElementById("pay-card-expiry")))) { alert("تاريخ الانتهاء غير صالح."); return; }
-        if (!isValidCvv(valueOf(document.getElementById("pay-card-cvv")))) { alert("CVV غير صالح."); return; }
-        if (!valueOf(document.getElementById("pay-card-name"))) { alert("أدخل اسم حامل البطاقة."); return; }
-      }
-
-      await completeCheckoutFlow(paymentMethod);
-    });
-  }
-
-  /* ====================================================================
-     Full Checkout Flow: create → upload → init payment → complete
-     ==================================================================== */
-
-  async function completeCheckoutFlow(method) {
-    var payBtn = document.getElementById("payment-pay-btn");
-    payBtn.disabled = true;
-    payBtn.textContent = "جاري الإرسال...";
-
-    try {
-      // 1. Create promo request
-      var createRes = await ApiClient.request("/api/promo/requests/create/", {
-        method: "POST",
-        body: pendingRequestBody
-      });
-      if (!createRes.ok) {
-        alert(extractError(createRes, "فشل إرسال الطلب"));
-        return;
-      }
-
-      var requestId = createRes.data && createRes.data.id;
-
-      // 2. Get detail to map item IDs
-      var detailRes = requestId ? await ApiClient.get("/api/promo/requests/" + requestId + "/") : null;
-      var detailItems = detailRes && detailRes.ok && detailRes.data && Array.isArray(detailRes.data.items)
-        ? detailRes.data.items : ((createRes.data && createRes.data.items) || []);
-      var ids = {};
-      detailItems.forEach(function (item) {
-        if (item && item.id) ids[(item.service_type || "") + ":" + (item.sort_order || 0)] = item.id;
-      });
-
-      // 3. Upload assets
-      payBtn.textContent = "جاري رفع المرفقات...";
-      var uploadFailures = [];
-      for (var x = 0; x < selectedServices.length; x++) {
-        var s = selectedServices[x];
-        var sBlock = document.querySelector('[data-service-block="' + s + '"]');
-        var fileInput = sBlock ? sBlock.querySelector('[data-field="files"]') : null;
-        var files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
-        for (var y = 0; y < files.length; y++) {
-          var sourceFile = files[y];
-          var uploadFile = sourceFile;
-          var uploadType = detectAssetType(sourceFile.name);
-          if (s === "home_banner" && uploadType === "image" && homeBannerAutoFitEnabled()) {
-            try {
-              uploadFile = await normalizeHomeBannerImage(sourceFile);
-              uploadType = "image";
-            } catch (normalizeErr) {
-              uploadFailures.push(
-                (sourceFile.name || "ملف") + ": تعذر ضبط الصورة تلقائياً قبل الرفع."
-              );
-              continue;
-            }
-          }
-          var fd = new FormData();
-          fd.append("file", uploadFile, uploadFile.name);
-          fd.append("asset_type", uploadType);
-          if (ids[s + ":" + x]) fd.append("item_id", String(ids[s + ":" + x]));
-          var uploadRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
-            method: "POST",
-            body: fd,
-            formData: true
-          });
-          if (!uploadRes.ok) {
-            uploadFailures.push((uploadFile.name || "ملف") + ": " + extractError(uploadRes, "تعذر رفع المرفق"));
-          }
-        }
-      }
-
-      // 4. Init payment
-      payBtn.textContent = "جاري تهيئة الدفع...";
-      var invoiceId = createRes.data && createRes.data.invoice;
-      if (invoiceId) {
-        var idempotencyKey = "promo-" + invoiceId + "-" + Date.now();
-        var initRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/init-payment/", {
-          method: "POST",
-          body: { provider: "mock", idempotency_key: idempotencyKey }
-        });
-
-        if (initRes.ok) {
-          // 5. Complete payment
-          payBtn.textContent = "جاري إتمام الدفع...";
-          var payRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/complete-mock-payment/", {
-            method: "POST",
-            body: { idempotency_key: idempotencyKey }
-          });
-          if (!payRes.ok) {
-            alert(extractError(payRes, "تعذر إتمام الدفع. تم إنشاء الطلب ويمكنك الدفع لاحقاً من طلباتي."));
-          }
-        }
-      }
-
-      var requestCode = (createRes.data && createRes.data.code) || "";
-      var detailCode = detailRes && detailRes.ok && detailRes.data && detailRes.data.code;
-      if (detailCode) requestCode = detailCode;
-
-      // 6. Done — go back to requests list
-      navigateToScreen("main");
-      resetForm();
-      document.querySelector('[data-tab="requests"]').click();
-      await loadRequests();
-
-      if (uploadFailures.length) {
-        alert("تم إنشاء الطلب والدفع، لكن فشل رفع " + uploadFailures.length + " مرفق/مرفقات.\n" + uploadFailures[0]);
-      } else {
-        showSuccessDialog(requestCode);
-      }
-    } catch (err) {
-      console.error("Checkout flow failed", err);
-      alert("تعذر إكمال عملية الدفع. حاول مرة أخرى.");
-    } finally {
-      payBtn.disabled = false;
-      payBtn.textContent = "دفع";
-      pendingPreviewData = null;
-      pendingRequestBody = null;
-    }
-  }
-
-  /* ====================================================================
      Success Dialog
      ==================================================================== */
 
-  function showSuccessDialog(requestCode) {
+  function showSuccessDialog(requestCode, options) {
+    options = options || {};
     var modal = document.getElementById("promo-success-modal");
     var codeEl = document.getElementById("success-request-code");
+    var titleEl = document.getElementById("success-title");
+    var messageEl = document.getElementById("success-text");
     var closeBtn = document.getElementById("success-close-btn");
-    if (!modal) return;
+    if (!modal || !closeBtn || !codeEl) {
+      if (typeof options.onClose === "function") {
+        options.onClose();
+      }
+      return;
+    }
 
     codeEl.textContent = "رقم الطلب: " + (requestCode || "—");
+    if (titleEl && options.title) titleEl.textContent = options.title;
+    if (messageEl && options.message) messageEl.textContent = options.message;
     modal.hidden = false;
     document.body.style.overflow = "hidden";
 
@@ -1464,45 +1896,11 @@ var PromotionPage = (function () {
       modal.hidden = true;
       document.body.style.overflow = "";
       closeBtn.removeEventListener("click", close);
+      if (typeof options.onClose === "function") {
+        options.onClose();
+      }
     }
     closeBtn.addEventListener("click", close);
-  }
-
-  /* ====================================================================
-     Card Validation
-     ==================================================================== */
-
-  function isValidCardNumber(value) {
-    if (!value || value.length < 12 || value.length > 19 || !/^\d+$/.test(value)) return false;
-    var sum = 0;
-    var alternate = false;
-    for (var i = value.length - 1; i >= 0; i--) {
-      var n = parseInt(value[i], 10);
-      if (alternate) {
-        n *= 2;
-        if (n > 9) n -= 9;
-      }
-      sum += n;
-      alternate = !alternate;
-    }
-    return sum % 10 === 0;
-  }
-
-  function isValidExpiry(value) {
-    var normalized = (value || "").trim();
-    if (!/^\d{2}\/\d{2}$/.test(normalized)) return false;
-    var parts = normalized.split("/");
-    var month = parseInt(parts[0], 10);
-    var year = parseInt(parts[1], 10);
-    if (month < 1 || month > 12) return false;
-    var now = new Date();
-    var fullYear = 2000 + year;
-    var expiry = new Date(fullYear, month, 0, 23, 59, 59);
-    return expiry > now;
-  }
-
-  function isValidCvv(value) {
-    return /^\d{3,4}$/.test((value || "").trim());
   }
 
   document.addEventListener("DOMContentLoaded", init);

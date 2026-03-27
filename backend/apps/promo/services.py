@@ -416,6 +416,33 @@ def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) ->
         pass
 
 
+def _notify_promo_ops_completed(*, pr: PromoRequest, actor=None) -> None:
+    try:
+        code_or_id = (pr.code or str(pr.id)).strip()
+        create_notification(
+            user=pr.requester,
+            title="اكتمل طلب الترويج",
+            body=f"تم اكتمال تنفيذ طلب الترويج ({code_or_id}) بنجاح.",
+            kind="promo_status_change",
+            url=f"/promo/requests/{pr.id}/",
+            actor=actor,
+            event_type=EventType.STATUS_CHANGED,
+            request_id=pr.id,
+            meta={
+                "payload": {"status": pr.status, "ops_status": pr.ops_status},
+                "status": pr.status,
+                "ops_status": pr.ops_status,
+                "promo_request_id": pr.id,
+                "promo_code": code_or_id,
+                "ops_completed": True,
+            },
+            pref_key="promo_status_change",
+            audience_mode="provider",
+        )
+    except Exception:
+        pass
+
+
 def _promo_unified_status(pr: PromoRequest) -> str:
     if pr.status in {
         PromoRequestStatus.PENDING_PAYMENT,
@@ -1396,10 +1423,23 @@ def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
 
 
 @transaction.atomic
-def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: str = "") -> PromoRequest:
+def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: str | None = None) -> PromoRequest:
     if new_status not in PromoOpsStatus.values:
         raise ValueError("حالة التنفيذ غير صحيحة.")
     pr = PromoRequest.objects.select_for_update().get(pk=pr.pk)
+    current_status = pr.ops_status or PromoOpsStatus.NEW
+    if new_status == current_status:
+        return pr
+
+    allowed_transitions = {
+        PromoOpsStatus.NEW: {PromoOpsStatus.IN_PROGRESS},
+        PromoOpsStatus.IN_PROGRESS: {PromoOpsStatus.COMPLETED},
+        PromoOpsStatus.COMPLETED: set(),
+    }
+    allowed_next = allowed_transitions.get(current_status)
+    if allowed_next is not None and new_status not in allowed_next:
+        raise ValueError("تسلسل حالة التنفيذ غير صحيح. الانتقال المسموح: جديد ← تحت المعالجة ← مكتمل.")
+
     pr.ops_status = new_status
     now = timezone.now()
     update_fields = ["ops_status", "updated_at"]
@@ -1409,25 +1449,18 @@ def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: st
     if new_status == PromoOpsStatus.COMPLETED:
         pr.ops_completed_at = now
         update_fields.append("ops_completed_at")
+    if note is not None:
+        normalized_note = (note or "").strip()[:300]
+        if normalized_note != (pr.quote_note or ""):
+            pr.quote_note = normalized_note
+            update_fields.append("quote_note")
     pr.save(update_fields=update_fields)
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
     if new_status == PromoOpsStatus.COMPLETED:
-        _notify_promo_status_change(pr=pr, status=pr.status, actor=by_user)
+        _notify_promo_ops_completed(pr=pr, actor=by_user)
     return pr
 
 
 def auto_expire_promo_requests() -> int:
-    """Mark active requests as EXPIRED when their campaign end_at has passed."""
-    now = timezone.now()
-    expired_qs = PromoRequest.objects.filter(
-        status=PromoRequestStatus.ACTIVE,
-        end_at__lt=now,
-    )
-    count = 0
-    for pr in expired_qs:
-        pr.status = PromoRequestStatus.EXPIRED
-        pr.save(update_fields=["status", "updated_at"])
-        _sync_promo_to_unified(pr=pr, changed_by=None)
-        _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=None)
-        count += 1
-    return count
+    """Backward-compatible alias to the unified expiry workflow."""
+    return expire_due_promos(now=timezone.now())

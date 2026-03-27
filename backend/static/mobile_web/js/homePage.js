@@ -15,18 +15,18 @@ const HomePage = (() => {
   // Cache keys & TTL
   const CACHE_CATEGORIES = 'home_categories';
   const CACHE_PROVIDERS  = 'home_providers';
+  const CACHE_FEATURED_SPECIALISTS = 'home_featured_specialists';
   const CACHE_BANNERS    = 'home_banners';
   const CACHE_SPOTLIGHTS = 'home_spotlights';
   const TTL = 90; // seconds
   const CAROUSEL_IMAGE_ROTATE_MS = 3000;
   const CAROUSEL_VIDEO_FALLBACK_ROTATE_MS = 30000;
-  const CAROUSEL_VIDEO_MIN_ROTATE_MS = 6000;
-  const CAROUSEL_VIDEO_MAX_ROTATE_MS = 90000;
+  const BANNER_SYNC_INTERVAL_MS = 60000;
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
   let $portfolioShowcaseSection, $portfolioShowcaseList, $sponsorshipsSection, $sponsorshipsList;
-  let $snapshotsSection, $snapshotsList, $promoMessageSection, $promoMessageCard;
+  let $promoMessageSection, $promoMessageCard;
   let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
   let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
 
@@ -43,13 +43,13 @@ const HomePage = (() => {
   let _carouselPaused = false;   // pause on interaction
   let _carouselBound = false;    // bind carousel interaction handlers once
   let _carouselResizeBound = false;
+  let _bannerSyncTimer = null;
+  let _carouselActiveVideoEl = null;
+  let _carouselActiveVideoEndedHandler = null;
   let _providersAutoTimer = null;
   let _providersPaused = false;
   let _providersBound = false;
-  let _featuredProviderIds = new Set(); // IDs of featured (paid) providers
   let _popupShown = false;       // only show popup once per session
-  let _portfolioShowcaseData = [];
-  let _snapshotsData = [];
   let _homeContent = {
     heroTitle: '',
     heroSubtitle: '',
@@ -83,8 +83,6 @@ const HomePage = (() => {
     $portfolioShowcaseList = document.getElementById('portfolio-showcase-list');
     $sponsorshipsSection = document.getElementById('sponsorships');
     $sponsorshipsList = document.getElementById('sponsorships-list');
-    $snapshotsSection = document.getElementById('home-snapshots');
-    $snapshotsList = document.getElementById('home-snapshots-list');
     $promoMessageSection = document.getElementById('home-promo-message');
     $promoMessageCard = document.getElementById('home-promo-message-card');
     _bindReelsInteraction();
@@ -100,9 +98,16 @@ const HomePage = (() => {
 
     // Fetch fresh data
     _loadData(!seeded);
+    _startBannerSyncTimer();
 
     // Pull-to-refresh
     _initPullToRefresh();
+    window.addEventListener('beforeunload', () => {
+      if (_bannerSyncTimer) {
+        window.clearInterval(_bannerSyncTimer);
+        _bannerSyncTimer = null;
+      }
+    }, { once: true });
   }
 
   /* ----------------------------------------------------------
@@ -119,7 +124,13 @@ const HomePage = (() => {
 
     const provs = NwCache.get(CACHE_PROVIDERS);
     if (provs && provs.data && provs.data.length) {
-      _renderProviders(provs.data);
+      _updateSubtitle(provs.data.length);
+      any = true;
+    }
+
+    const featured = NwCache.get(CACHE_FEATURED_SPECIALISTS);
+    if (featured && featured.data && featured.data.length) {
+      _renderFeaturedSpecialists(featured.data);
       any = true;
     }
 
@@ -146,6 +157,11 @@ const HomePage = (() => {
 
   function _readBannerInt(value) {
     const parsed = Number.parseInt(String(value ?? ''), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function _readPromoFloat(value) {
+    const parsed = Number.parseFloat(String(value ?? ''));
     return Number.isFinite(parsed) ? parsed : 0;
   }
 
@@ -243,6 +259,65 @@ const HomePage = (() => {
     return safePrimary.concat(safeFallback.slice(0, remaining));
   }
 
+  function _bannerSignature(list) {
+    const rows = Array.isArray(list) ? list : [];
+    return rows.map((banner) => [
+      String(banner.id || 0),
+      String(banner.media_url || ''),
+      String(banner.media_type || ''),
+      String(banner.link_url || ''),
+      String(banner.display_order || 0),
+      String(banner.duration_seconds || 0),
+    ].join('|')).join('||');
+  }
+
+  function _startBannerSyncTimer() {
+    if (_bannerSyncTimer) {
+      window.clearInterval(_bannerSyncTimer);
+      _bannerSyncTimer = null;
+    }
+    _bannerSyncTimer = window.setInterval(() => {
+      if (document.hidden) {
+        return;
+      }
+      _refreshBannersOnly();
+    }, BANNER_SYNC_INTERVAL_MS);
+  }
+
+  async function _refreshBannersOnly() {
+    try {
+      const [promoRes, carouselRes] = await Promise.all([
+        ApiClient.get('/api/promo/banners/home/'),
+        ApiClient.get('/api/promo/home-carousel/?limit=10'),
+      ]);
+
+      const promoBanners = (promoRes && promoRes.ok && promoRes.data)
+        ? _parseBannerList(promoRes.data)
+        : [];
+      const carouselBanners = (carouselRes && carouselRes.ok && carouselRes.data)
+        ? _parseBannerList(carouselRes.data)
+        : [];
+      const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
+      const nextSignature = _bannerSignature(mergedBanners);
+      const currentSignature = _bannerSignature(_carouselItems);
+
+      if (!mergedBanners.length) {
+        if (_carouselItems.length) {
+          NwCache.set(CACHE_BANNERS, [], TTL);
+          _renderBanners([]);
+        }
+        return;
+      }
+
+      NwCache.set(CACHE_BANNERS, mergedBanners, TTL);
+      if (nextSignature !== currentSignature) {
+        _renderBanners(mergedBanners);
+      }
+    } catch (_) {
+      // Keep the current rendered banners on transient sync failures.
+    }
+  }
+
   function _classifyCarouselMediaRatio(width, height) {
     const safeWidth = Number(width) || 0;
     const safeHeight = Number(height) || 0;
@@ -305,6 +380,14 @@ const HomePage = (() => {
     });
   }
 
+  function _detachCarouselVideoEndedHook() {
+    if (_carouselActiveVideoEl && _carouselActiveVideoEndedHandler) {
+      _carouselActiveVideoEl.removeEventListener('ended', _carouselActiveVideoEndedHandler);
+    }
+    _carouselActiveVideoEl = null;
+    _carouselActiveVideoEndedHandler = null;
+  }
+
   function _buildCarouselMedia(banner, url, isVideo, isActive) {
     const frame = UI.el('div', {
       className: 'carousel-media-frame' + (isVideo ? ' is-video' : ' is-image'),
@@ -326,7 +409,7 @@ const HomePage = (() => {
         'aria-hidden': 'true',
       });
       backdropVid.muted = true;
-      backdropVid.loop = true;
+      backdropVid.loop = false;
       backdropVid.playsInline = true;
       backdropVid.setAttribute('playsinline', '');
       backdropVid.setAttribute('disablepictureinpicture', '');
@@ -361,7 +444,7 @@ const HomePage = (() => {
       });
       vid.autoplay = false;
       vid.muted = true;
-      vid.loop = true;
+      vid.loop = false;
       vid.playsInline = true;
       vid.setAttribute('playsinline', '');
       vid.setAttribute('disablepictureinpicture', '');
@@ -390,7 +473,7 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes, snapshotsRes, promoMessageRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes, promoMessageRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
@@ -401,7 +484,6 @@ const HomePage = (() => {
       ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
       ApiClient.get('/api/promo/active/?service_type=sponsorship&limit=10'),
-      ApiClient.get('/api/promo/active/?service_type=snapshots&limit=10'),
       ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
     ]);
 
@@ -412,7 +494,7 @@ const HomePage = (() => {
         heroSubtitle: _resolveBlockTitle(blocks.home_hero_subtitle, 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.'),
         searchPlaceholder: _resolveBlockTitle(blocks.home_search_placeholder, 'ابحث'),
         categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'التصنيفات'),
-        providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'مقدمو الخدمة'),
+        providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'أبرز المختصين'),
         bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'عروض ترويجية'),
       };
       _applyHomeContent();
@@ -431,27 +513,24 @@ const HomePage = (() => {
 
     // Featured providers (paid promotion)
     if (featuredRes.status === 'fulfilled' && featuredRes.value.ok && featuredRes.value.data) {
-      const list = Array.isArray(featuredRes.value.data)
+      const placements = Array.isArray(featuredRes.value.data)
         ? featuredRes.value.data
         : (featuredRes.value.data.results || []);
-      _featuredProviderIds = new Set();
-      list.forEach(promo => {
-        if (promo.target_provider_id) _featuredProviderIds.add(promo.target_provider_id);
-      });
-    } else {
-      _featuredProviderIds = new Set();
+      NwCache.set(CACHE_FEATURED_SPECIALISTS, placements, TTL);
+      _renderFeaturedSpecialists(placements);
+    } else if (!NwCache.get(CACHE_FEATURED_SPECIALISTS)) {
+      _renderFeaturedSpecialists([]);
     }
 
-    // Providers
+    // Providers count (kept for hero subtitle only)
     if (provsRes.status === 'fulfilled' && provsRes.value.ok && provsRes.value.data) {
       const list = Array.isArray(provsRes.value.data)
         ? provsRes.value.data
         : (provsRes.value.data.results || []);
       NwCache.set(CACHE_PROVIDERS, list, TTL);
-      _renderProviders(list);
       _updateSubtitle(list.length);
     } else if (!NwCache.get(CACHE_PROVIDERS)) {
-      _renderProvidersEmpty();
+      _updateSubtitle(0);
     }
 
     // Sponsored portfolio showcase
@@ -514,16 +593,6 @@ const HomePage = (() => {
       _renderSponsorships([]);
     }
 
-    // Promo snapshots strip
-    if (snapshotsRes.status === 'fulfilled' && snapshotsRes.value.ok && snapshotsRes.value.data) {
-      const placements = Array.isArray(snapshotsRes.value.data)
-        ? snapshotsRes.value.data
-        : (snapshotsRes.value.data.results || []);
-      _renderSnapshots(placements);
-    } else {
-      _renderSnapshots([]);
-    }
-
     // Promo messages card
     if (promoMessageRes.status === 'fulfilled' && promoMessageRes.value.ok && promoMessageRes.value.data) {
       const rows = Array.isArray(promoMessageRes.value.data)
@@ -578,102 +647,128 @@ const HomePage = (() => {
   }
 
   /* ----------------------------------------------------------
-     RENDER: PROVIDERS
-     Home cards: avatar-first compact layout (no cover background)
+     RENDER: FEATURED SPECIALISTS
+     Compact paid strip: avatar + verification + rating.
    ---------------------------------------------------------- */
-  function _renderProviders(providers) {
-    if (!$providersList) return;
-    if (!providers.length) { _renderProvidersEmpty(); return; }
+  function _normalizeFeaturedSpecialist(rawPromo) {
+    if (!rawPromo || typeof rawPromo !== 'object') return null;
+    const providerId = _readBannerInt(rawPromo.target_provider_id);
+    if (!providerId) return null;
+    const badges = Array.isArray(rawPromo.target_provider_excellence_badges)
+      ? rawPromo.target_provider_excellence_badges.filter(item => item && typeof item === 'object')
+      : [];
+    return {
+      id: _readBannerInt(rawPromo.item_id || rawPromo.id || providerId),
+      provider_id: providerId,
+      display_name: _readBannerString(rawPromo.target_provider_display_name) || 'مختص',
+      profile_image: _readBannerString(rawPromo.target_provider_profile_image),
+      city: _readBannerString(rawPromo.target_provider_city),
+      redirect_url: _readBannerString(rawPromo.redirect_url),
+      is_verified_blue: !!rawPromo.target_provider_is_verified_blue,
+      is_verified_green: !!rawPromo.target_provider_is_verified_green,
+      rating_avg: _readPromoFloat(rawPromo.target_provider_rating_avg),
+      rating_count: _readBannerInt(rawPromo.target_provider_rating_count),
+      excellence_badges: badges,
+    };
+  }
 
-    // Sort: featured (paid) providers first
-    const sorted = [...providers].sort((a, b) => {
-      const aFeat = _featuredProviderIds.has(a.id) ? 0 : 1;
-      const bFeat = _featuredProviderIds.has(b.id) ? 0 : 1;
-      return aFeat - bFeat;
-    });
+  function _renderFeaturedSpecialists(placements) {
+    if (!$providersList) return;
+    const seenProviderIds = new Set();
+    const specialists = (Array.isArray(placements) ? placements : [])
+      .map(_normalizeFeaturedSpecialist)
+      .filter(item => item && !seenProviderIds.has(item.provider_id) && seenProviderIds.add(item.provider_id));
+    if (!specialists.length) { _renderProvidersEmpty(); return; }
 
     const frag = document.createDocumentFragment();
-    sorted.forEach(p => {
-      const profileUrl = ApiClient.mediaUrl(p.profile_image);
-      const displayName = (p.display_name || '').trim() || 'مقدم خدمة';
+    specialists.forEach(item => {
+      const profileUrl = ApiClient.mediaUrl(item.profile_image);
+      const displayName = item.display_name;
       const initial = displayName.charAt(0) || '؟';
-      const providerHref = p.id ? '/provider/' + encodeURIComponent(String(p.id)) + '/' : '/search/';
-      const isFeatured = _featuredProviderIds.has(p.id);
+      const providerHref = item.provider_id
+        ? '/provider/' + encodeURIComponent(String(item.provider_id)) + '/'
+        : '/search/';
 
-      const card = UI.el('a', { className: 'provider-card no-cover' + (isFeatured ? ' promo-featured' : ''), href: providerHref });
-      card.addEventListener('click', () => {
-        if (typeof NwAnalytics === 'undefined') return;
-        NwAnalytics.track('search.result_click', {
-          surface: 'mobile_web.home.providers',
-          source_app: 'providers',
-          object_type: 'ProviderProfile',
-          object_id: String(p.id || ''),
-          payload: { featured: isFeatured },
-        });
+      const card = UI.el('div', {
+        className: 'featured-specialist-card',
+        role: 'button',
+        tabindex: '0',
+      });
+      const openTarget = () => {
+        if (typeof NwAnalytics !== 'undefined') {
+          NwAnalytics.track('promo.featured_specialist_click', {
+            surface: 'mobile_web.home.featured_specialists',
+            source_app: 'promo',
+            object_type: 'ProviderProfile',
+            object_id: String(item.provider_id || ''),
+            payload: {
+              rating_avg: item.rating_avg,
+              rating_count: item.rating_count,
+            },
+          });
+        }
+        const external = item.redirect_url && /^https?:\/\//i.test(item.redirect_url);
+        if (external) {
+          window.open(item.redirect_url, '_blank', 'noopener');
+          return;
+        }
+        window.location.href = providerHref;
+      };
+      card.addEventListener('click', openTarget);
+      card.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openTarget();
+        }
       });
 
-      // Info section: avatar + name + verification + rating
-      const info = UI.el('div', { className: 'provider-info' });
-      const head = UI.el('div', { className: 'provider-head' });
-
-      const avatarShell = UI.el('div', { className: 'provider-avatar-shell' });
-      const avatar = UI.el('div', { className: 'provider-avatar' });
+      const avatarShell = UI.el('div', { className: 'featured-specialist-avatar-shell' });
+      const avatarRing = UI.el('div', { className: 'featured-specialist-avatar-ring' });
+      const avatar = UI.el('div', { className: 'featured-specialist-avatar' });
       if (profileUrl) {
         avatar.appendChild(UI.lazyImg(profileUrl, initial));
       } else {
         avatar.appendChild(UI.text(initial));
       }
-      avatarShell.appendChild(avatar);
+      avatarRing.appendChild(avatar);
+      avatarShell.appendChild(avatarRing);
 
-      const topExcellenceItems = UI.normalizeExcellenceBadges(p.excellence_badges);
+      const topExcellenceItems = UI.normalizeExcellenceBadges(item.excellence_badges);
       if (topExcellenceItems.length) {
         avatarShell.appendChild(UI.el('span', {
-          className: 'provider-avatar-excellence-top',
-          textContent: topExcellenceItems[0].name || topExcellenceItems[0].code || 'تميز',
+          className: 'featured-specialist-badge',
+          textContent: 'تميز',
         }));
       }
 
-      head.appendChild(avatarShell);
-
-      const meta = UI.el('div', { className: 'provider-meta' });
-
-      const nameRow = UI.el('div', { className: 'provider-name-row' });
-      nameRow.appendChild(UI.el('span', { className: 'provider-name', textContent: displayName }));
-      if (isFeatured) {
-        nameRow.appendChild(UI.el('span', { className: 'promo-featured-badge', textContent: 'مميز' }));
+      const isVerified = !!(item.is_verified_blue || item.is_verified_green);
+      if (isVerified) {
+        const verified = UI.el('span', { className: 'featured-specialist-verified' });
+        verified.appendChild(
+          item.is_verified_blue
+            ? UI.icon('verified_blue', 16, '#2196F3')
+            : UI.icon('verified_green', 16, '#4CAF50')
+        );
+        avatarShell.appendChild(verified);
       }
 
-      const excellence = UI.buildExcellenceBadges(p.excellence_badges, {
-        className: 'excellence-badges compact provider-card-excellence',
-        compact: true,
-        iconSize: 10,
-      });
-      if (excellence) nameRow.appendChild(excellence);
-      meta.appendChild(nameRow);
+      card.appendChild(avatarShell);
+      card.appendChild(UI.el('div', {
+        className: 'featured-specialist-name',
+        textContent: displayName,
+      }));
 
-      const isVerified = !!(p.is_verified_blue || p.is_verified_green || p.is_verified);
+      const meta = UI.el('div', { className: 'featured-specialist-meta' });
+      meta.appendChild(UI.icon('star', 12, '#f59e0b'));
+      meta.appendChild(UI.text(_formatFeaturedRating(item.rating_avg)));
       if (isVerified) {
-        const badgeClass = p.is_verified_blue
-          ? 'provider-verified-badge is-blue'
-          : 'provider-verified-badge is-green';
-        const badge = UI.el('span', { className: badgeClass });
-        badge.appendChild(
-          p.is_verified_blue
+        meta.appendChild(
+          item.is_verified_blue
             ? UI.icon('verified_blue', 12, '#2196F3')
             : UI.icon('verified_green', 12, '#4CAF50')
         );
-        badge.appendChild(UI.text('موثّق'));
-        meta.appendChild(badge);
       }
-
-      head.appendChild(meta);
-      info.appendChild(head);
-
-      const stats = UI.el('div', { className: 'provider-stats' });
-      stats.appendChild(_ratingBadge(_ratingText(p)));
-      info.appendChild(stats);
-
-      card.appendChild(info);
+      card.appendChild(meta);
       frag.appendChild(card);
     });
     $providersList.textContent = '';
@@ -681,17 +776,10 @@ const HomePage = (() => {
     _startProvidersAutoRotate();
   }
 
-  function _ratingText(provider) {
-    const n = Number(provider?.rating_avg ?? provider?.rating ?? provider?.average_rating);
+  function _formatFeaturedRating(value) {
+    const n = Number(value);
     if (Number.isFinite(n) && n > 0) return n.toFixed(1);
-    return '0.0';
-  }
-
-  function _ratingBadge(value) {
-    return UI.el('span', { className: 'provider-stat rating' }, [
-      UI.icon('star', 12, '#FFC107'),
-      UI.text(' ' + value),
-    ]);
+    return 'جديد';
   }
 
   function _renderProvidersEmpty() {
@@ -701,7 +789,7 @@ const HomePage = (() => {
     $providersList.appendChild(
       UI.el('div', { className: 'providers-empty' }, [
         UI.icon('info', 20, '#ddd'),
-        UI.el('span', { textContent: 'لا يوجد مزودو خدمة حالياً' }),
+        UI.el('span', { textContent: 'لا يوجد مختصون مميزون حالياً' }),
       ])
     );
   }
@@ -723,7 +811,7 @@ const HomePage = (() => {
   function _startProvidersAutoRotate() {
     _stopProvidersAutoRotate();
     if (!$providersList) return;
-    const cards = $providersList.querySelectorAll('.provider-card');
+    const cards = $providersList.querySelectorAll('.featured-specialist-card');
     if (cards.length <= 1) return;
 
     _providersPaused = false;
@@ -732,10 +820,10 @@ const HomePage = (() => {
       const maxScroll = $providersList.scrollWidth - $providersList.clientWidth;
       if (maxScroll <= 0) return;
 
-      const firstCard = $providersList.querySelector('.provider-card');
+      const firstCard = $providersList.querySelector('.featured-specialist-card');
       const step = firstCard
         ? Math.round(firstCard.getBoundingClientRect().width + 12)
-        : Math.max(140, Math.round($providersList.clientWidth * 0.72));
+        : Math.max(96, Math.round($providersList.clientWidth * 0.42));
 
       const next = $providersList.scrollLeft + step;
       const target = next >= maxScroll - 2 ? 0 : next;
@@ -774,6 +862,7 @@ const HomePage = (() => {
       file_url: fileUrl,
       thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : ''),
       caption: _readBannerString(nested ? nested.caption : rawPromo.title) || 'مشروع ممول',
+      redirect_url: _readBannerString(rawPromo.redirect_url),
       likes_count: _readBannerInt(nested ? nested.likes_count : 0),
       saves_count: _readBannerInt(nested ? nested.saves_count : 0),
       is_liked: !!(nested && nested.is_liked),
@@ -787,7 +876,6 @@ const HomePage = (() => {
     const items = (Array.isArray(placements) ? placements : [])
       .map(_normalizePortfolioShowcaseItem)
       .filter(Boolean);
-    _portfolioShowcaseData = items;
     if (!items.length) {
       $portfolioShowcaseSection.style.display = 'none';
       $portfolioShowcaseList.textContent = '';
@@ -805,7 +893,7 @@ const HomePage = (() => {
         img.src = thumbUrl;
         media.appendChild(img);
       }
-      media.appendChild(UI.el('span', { className: 'showcase-chip', textContent: 'ممّول' }));
+      media.appendChild(UI.el('span', { className: 'showcase-chip', textContent: 'مختار' }));
       if ((item.file_type || '').toLowerCase() === 'video') {
         media.appendChild(UI.el('span', { className: 'showcase-video-badge', textContent: '▶' }));
       }
@@ -829,16 +917,35 @@ const HomePage = (() => {
       body.appendChild(copy);
       card.appendChild(body);
 
-      const openViewer = () => {
-        if (typeof SpotlightViewer !== 'undefined') {
-          SpotlightViewer.open(_portfolioShowcaseData, index, { label: 'مشروع ممول', source: 'portfolio' });
+      const openProvider = () => {
+        if (typeof NwAnalytics !== 'undefined') {
+          NwAnalytics.track('promo.portfolio_showcase_click', {
+            surface: 'mobile_web.home.portfolio_showcase',
+            source_app: 'promo',
+            object_type: 'ProviderProfile',
+            object_id: String(item.provider_id || ''),
+            payload: {
+              media_id: item.id || 0,
+              media_type: item.file_type || 'image',
+              redirect_url: item.redirect_url || '',
+            },
+          });
         }
+        if (item.redirect_url && /^https?:\/\//i.test(item.redirect_url)) {
+          window.open(item.redirect_url, '_blank', 'noopener');
+          return;
+        }
+        if (item.provider_id) {
+          window.location.href = '/provider/' + encodeURIComponent(String(item.provider_id)) + '/';
+          return;
+        }
+        window.location.href = '/search/';
       };
-      card.addEventListener('click', openViewer);
+      card.addEventListener('click', openProvider);
       card.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          openViewer();
+          openProvider();
         }
       });
       frag.appendChild(card);
@@ -905,91 +1012,6 @@ const HomePage = (() => {
 
     $sponsorshipsList.textContent = '';
     $sponsorshipsList.appendChild(frag);
-  }
-
-  function _normalizeSnapshotItem(rawPromo) {
-    if (!rawPromo || typeof rawPromo !== 'object') return null;
-    const assets = Array.isArray(rawPromo.assets) ? rawPromo.assets : [];
-    const first = assets.length ? assets[0] : null;
-    const fileUrl = _readBannerString(first && (first.file || first.file_url));
-    if (!fileUrl) return null;
-    const fileType = _readBannerString(first && first.file_type) || 'image';
-    return {
-      id: _readBannerInt(rawPromo.item_id || rawPromo.id),
-      provider_id: _readBannerInt(rawPromo.target_provider_id),
-      provider_display_name: _readBannerString(rawPromo.target_provider_display_name) || 'مقدم خدمة',
-      provider_profile_image: _readBannerString(rawPromo.target_provider_profile_image),
-      file_type: fileType,
-      file_url: fileUrl,
-      thumbnail_url: fileType === 'video' ? '' : fileUrl,
-      caption: _readBannerString(rawPromo.title) || 'لمحة ممولة',
-      redirect_url: _readBannerString(rawPromo.redirect_url),
-    };
-  }
-
-  function _renderSnapshots(placements) {
-    if (!$snapshotsSection || !$snapshotsList) return;
-    const items = (Array.isArray(placements) ? placements : [])
-      .map(_normalizeSnapshotItem)
-      .filter(Boolean);
-    _snapshotsData = items;
-    if (!items.length) {
-      $snapshotsSection.style.display = 'none';
-      $snapshotsList.textContent = '';
-      return;
-    }
-    $snapshotsSection.style.display = '';
-
-    const frag = document.createDocumentFragment();
-    items.forEach((item, index) => {
-      const card = UI.el('div', { className: 'showcase-card', role: 'button', tabindex: '0' });
-      const media = UI.el('div', { className: 'showcase-media' });
-      const thumbUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url);
-      if (thumbUrl) {
-        const img = UI.el('img', { alt: item.caption || 'لمحة ممولة', loading: 'lazy' });
-        img.src = thumbUrl;
-        media.appendChild(img);
-      }
-      media.appendChild(UI.el('span', { className: 'showcase-chip', textContent: 'ممّول' }));
-      if ((item.file_type || '').toLowerCase() === 'video') {
-        media.appendChild(UI.el('span', { className: 'showcase-video-badge', textContent: '▶' }));
-      }
-      card.appendChild(media);
-
-      const body = UI.el('div', { className: 'showcase-body' });
-      body.appendChild(UI.el('div', { className: 'showcase-copy' }, [
-        UI.el('div', { className: 'showcase-title', textContent: item.caption || 'لمحة ممولة' }),
-        UI.el('div', { className: 'showcase-provider', textContent: item.provider_display_name || 'مقدم خدمة' }),
-      ]));
-      card.appendChild(body);
-
-      const open = () => {
-        const redirect = _readBannerString(item.redirect_url);
-        if (redirect) {
-          window.open(redirect, '_blank', 'noopener');
-          return;
-        }
-        if (item.provider_id > 0) {
-          window.location.href = '/provider/' + encodeURIComponent(String(item.provider_id)) + '/';
-          return;
-        }
-        if (typeof SpotlightViewer !== 'undefined') {
-          SpotlightViewer.open(_snapshotsData, index, { label: 'لمحة ممولة', source: 'promo_snapshot' });
-        }
-      };
-
-      card.addEventListener('click', open);
-      card.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          open();
-        }
-      });
-      frag.appendChild(card);
-    });
-
-    $snapshotsList.textContent = '';
-    $snapshotsList.appendChild(frag);
   }
 
   function _renderPromoMessage(promo) {
@@ -1166,6 +1188,7 @@ const HomePage = (() => {
   function _goToSlide(idx, opts = {}) {
     if (!_carouselItems.length) return;
     const restartTimer = opts.restartTimer !== false;
+    _detachCarouselVideoEndedHook();
     const slides = $carouselTrack.querySelectorAll('.carousel-slide');
     const dots = $carouselDots ? $carouselDots.querySelectorAll('.carousel-dot') : [];
 
@@ -1225,30 +1248,60 @@ const HomePage = (() => {
     }
 
     const rawMs = Math.round(durationSeconds * 1000);
-    return Math.max(CAROUSEL_VIDEO_MIN_ROTATE_MS, Math.min(rawMs, CAROUSEL_VIDEO_MAX_ROTATE_MS));
+    return Math.max(1000, rawMs);
   }
 
-  function _resolveCarouselActiveDelayMs() {
-    const banner = _carouselItems[_carouselIdx];
-    return _resolveCarouselSlideDurationMs(banner);
+  function _advanceCarouselToNextSlide() {
+    if (_carouselItems.length <= 1) return;
+    _goToSlide((_carouselIdx + 1) % _carouselItems.length, { restartTimer: false });
+    _startCarouselAutoRotate();
   }
 
   function _startCarouselAutoRotate() {
     _stopCarouselAutoRotate();
-    if (_carouselItems.length <= 1) return;
-    const scheduleNext = () => {
-      if (_carouselItems.length <= 1) return;
-      const delayMs = _resolveCarouselActiveDelayMs();
+    if (_carouselItems.length <= 1 || !$carouselTrack) return;
+
+    const banner = _carouselItems[_carouselIdx];
+    const isVideo = String(banner && banner.media_type || '').toLowerCase() === 'video';
+    if (!isVideo) {
       _carouselTimer = setTimeout(() => {
         if (_carouselPaused) {
-          scheduleNext();
+          _startCarouselAutoRotate();
           return;
         }
-        _goToSlide((_carouselIdx + 1) % _carouselItems.length, { restartTimer: false });
-        scheduleNext();
+        _advanceCarouselToNextSlide();
+      }, CAROUSEL_IMAGE_ROTATE_MS);
+      return;
+    }
+
+    const activeSlide = $carouselTrack.querySelector('.carousel-slide.active');
+    const videoEl = activeSlide ? activeSlide.querySelector('video.carousel-media-video') : null;
+    if (!videoEl) {
+      const delayMs = _resolveCarouselSlideDurationMs(banner);
+      _carouselTimer = setTimeout(() => {
+        if (_carouselPaused) {
+          _startCarouselAutoRotate();
+          return;
+        }
+        _advanceCarouselToNextSlide();
       }, delayMs);
+      return;
+    }
+
+    const handleEnded = () => {
+      if (_carouselPaused) {
+        _carouselTimer = setTimeout(handleEnded, 350);
+        return;
+      }
+      _advanceCarouselToNextSlide();
     };
-    scheduleNext();
+    _carouselActiveVideoEl = videoEl;
+    _carouselActiveVideoEndedHandler = handleEnded;
+    videoEl.addEventListener('ended', handleEnded, { once: true });
+
+    // Safety fallback if a browser never emits "ended" for any transient reason.
+    const delayMs = _resolveCarouselSlideDurationMs(banner) + 1000;
+    _carouselTimer = setTimeout(handleEnded, delayMs);
   }
 
   function _stopCarouselAutoRotate() {
@@ -1256,6 +1309,7 @@ const HomePage = (() => {
       clearTimeout(_carouselTimer);
       _carouselTimer = null;
     }
+    _detachCarouselVideoEndedHook();
   }
 
   function _bindCarouselSwipe() {
@@ -1482,7 +1536,7 @@ const HomePage = (() => {
       $categoriesTitle.textContent = _homeContent.categoriesTitle || 'التصنيفات';
     }
     if ($providersTitle) {
-      $providersTitle.textContent = _homeContent.providersTitle || 'مقدمو الخدمة';
+      $providersTitle.textContent = _homeContent.providersTitle || 'أبرز المختصين';
     }
     if ($bannersTitle) {
       $bannersTitle.textContent = _homeContent.bannersTitle || 'عروض ترويجية';

@@ -12,9 +12,9 @@ import '../services/analytics_service.dart';
 import '../services/home_service.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
+import '../models/featured_specialist_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
-import '../widgets/excellence_badges_wrap.dart';
 import '../widgets/promo_banner_widget.dart';
 import '../widgets/promo_media_tile.dart';
 import '../widgets/spotlight_viewer.dart';
@@ -42,17 +42,17 @@ class _HomeScreenState extends State<HomeScreen> {
   // -- Data --
   List<CategoryModel> _categories = [];
   List<ProviderPublicModel> _providers = [];
+  List<FeaturedSpecialistModel> _featuredSpecialists = [];
   List<BannerModel> _banners = [];
   List<MediaItemModel> _spotlights = [];
   HomeScreenContent _content = HomeScreenContent.empty();
   bool _isLoading = true;
   int _notificationUnread = 0;
   int _chatUnread = 0;
-  Set<int> _featuredProviderIds = {};
   bool _promoPopupShown = false;
   List<MediaItemModel> _portfolioShowcase = [];
+  List<Map<String, dynamic>> _portfolioShowcasePlacements = [];
   List<Map<String, dynamic>> _sponsorships = [];
-  List<Map<String, dynamic>> _snapshotPlacements = [];
   Map<String, dynamic>? _promoMessagePlacement;
   bool _promoMessageDismissed = false;
   final Set<int> _seenBannerImpressions = <int>{};
@@ -60,15 +60,17 @@ class _HomeScreenState extends State<HomeScreen> {
   // -- Banner carousel --
   final PageController _bannerPageController = PageController();
   Timer? _bannerAutoTimer;
+  Timer? _bannersSyncTimer;
   int _bannerCurrentPage = 0;
   static const Duration _imageBannerRotateDelay = Duration(seconds: 3);
   static const Duration _videoBannerFallbackRotateDelay = Duration(seconds: 30);
-  static const Duration _videoBannerMinRotateDelay = Duration(seconds: 6);
-  static const Duration _videoBannerMaxRotateDelay = Duration(seconds: 90);
+  static const Duration _bannerSyncInterval = Duration(minutes: 1);
 
   // -- Reels auto scroll --
   final ScrollController _reelsScroll = ScrollController();
+  final ScrollController _featuredSpecialistsScroll = ScrollController();
   Timer? _reelsTimer;
+  Timer? _featuredSpecialistsTimer;
   ValueListenable<UnreadBadges>? _badgeListenable;
   double _reelsPos = 0;
 
@@ -85,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final seeded = _seedFromCachedData();
     _loadHomeContent();
     _loadData(showLoader: !seeded);
+    _startBannerSync();
     _startReelsScroll();
     _badgeListenable = UnreadBadgeService.acquire();
     _badgeListenable!.addListener(_handleBadgeChange);
@@ -146,11 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     // Fetch promo placements (non-blocking)
-    _loadPromoFeatured();
+    _loadPromoFeatured(forceRefresh: forceRefresh);
     if (!_promoPopupShown) _loadPromoPopup();
     _loadPromoPortfolioShowcase();
     _loadPromoSponsorships();
-    _loadPromoSnapshots();
     _loadPromoMessages();
 
     categoriesFuture.then((categories) {
@@ -178,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
     providersFuture.then((providers) {
       if (!mounted) return;
       setState(() {
-        _providers = _sortFeaturedProviders(providers);
+        _providers = providers;
         _isLoading = false;
       });
     });
@@ -192,28 +194,71 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _loadPromoFeatured() async {
-    try {
-      final results = await Future.wait([
-        ApiClient.get(
-            '/api/promo/active/?service_type=featured_specialists&limit=10'),
-        ApiClient.get('/api/promo/active/?ad_type=featured_top5&limit=10'),
-      ]);
-      if (!mounted) return;
-      final items = <dynamic>[
-        ..._promoItemsFromResponse(results[0]),
-        ..._promoItemsFromResponse(results[1]),
-      ];
-      final ids = <int>{};
-      for (final item in items) {
-        final pid = item['target_provider_id'];
-        if (pid != null) ids.add(pid is int ? pid : int.tryParse('$pid') ?? 0);
+  void _startBannerSync() {
+    _bannersSyncTimer?.cancel();
+    _bannersSyncTimer = Timer.periodic(_bannerSyncInterval, (_) {
+      _syncHomeBanners();
+    });
+  }
+
+  String _bannerSyncSignature(BannerModel banner) {
+    return [
+      banner.id,
+      banner.mediaUrl ?? '',
+      banner.mediaType,
+      banner.linkUrl ?? '',
+      banner.displayOrder,
+      banner.durationSeconds ?? 0,
+      banner.mobileScale,
+      banner.tabletScale,
+      banner.desktopScale,
+    ].join('|');
+  }
+
+  bool _bannerListChanged(List<BannerModel> current, List<BannerModel> next) {
+    if (current.length != next.length) return true;
+    for (var i = 0; i < current.length; i += 1) {
+      if (_bannerSyncSignature(current[i]) != _bannerSyncSignature(next[i])) {
+        return true;
       }
-      ids.remove(0);
+    }
+    return false;
+  }
+
+  Future<void> _syncHomeBanners() async {
+    try {
+      final latest = await HomeService.fetchHomeBanners(
+        limit: 10,
+        forceRefresh: true,
+      );
+      if (!mounted) return;
+      if (!_bannerListChanged(_banners, latest)) {
+        return;
+      }
+      setState(() => _banners = latest);
+      _startBannerAutoRotate();
+      if (latest.isNotEmpty) {
+        _trackBannerImpression(
+          latest.first,
+          surface: 'flutter.home.hero_auto_sync',
+        );
+      }
+    } catch (_) {
+      // Keep current banners on transient refresh failures.
+    }
+  }
+
+  Future<void> _loadPromoFeatured({bool forceRefresh = false}) async {
+    try {
+      final items = await HomeService.fetchFeaturedSpecialists(
+        limit: 10,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
       setState(() {
-        _featuredProviderIds = ids;
-        _providers = _sortFeaturedProviders(_providers);
+        _featuredSpecialists = items;
       });
+      _startFeaturedSpecialistsAutoRotate();
     } catch (_) {}
   }
 
@@ -277,12 +322,19 @@ class _HomeScreenState extends State<HomeScreen> {
       );
       if (!mounted || !res.isSuccess) return;
       final items = _promoMapItemsFromResponse(res);
-      final media = items
-          .map(_portfolioItemFromPromoPlacement)
-          .whereType<MediaItemModel>()
-          .toList();
+      final media = <MediaItemModel>[];
+      final placements = <Map<String, dynamic>>[];
+      for (final placement in items) {
+        final parsed = _portfolioItemFromPromoPlacement(placement);
+        if (parsed == null) continue;
+        media.add(parsed);
+        placements.add(placement);
+      }
       if (!mounted) return;
-      setState(() => _portfolioShowcase = media);
+      setState(() {
+        _portfolioShowcasePlacements = placements;
+        _portfolioShowcase = media;
+      });
     } catch (_) {}
   }
 
@@ -295,18 +347,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final items = _promoMapItemsFromResponse(res);
       if (!mounted) return;
       setState(() => _sponsorships = items);
-    } catch (_) {}
-  }
-
-  Future<void> _loadPromoSnapshots() async {
-    try {
-      final res = await ApiClient.get(
-        '/api/promo/active/?service_type=snapshots&limit=10',
-      );
-      if (!mounted || !res.isSuccess) return;
-      final items = _promoMapItemsFromResponse(res);
-      if (!mounted) return;
-      setState(() => _snapshotPlacements = items);
     } catch (_) {}
   }
 
@@ -356,16 +396,30 @@ class _HomeScreenState extends State<HomeScreen> {
         .toList();
   }
 
-  List<ProviderPublicModel> _sortFeaturedProviders(
-      List<ProviderPublicModel> providers) {
-    if (_featuredProviderIds.isEmpty || providers.isEmpty) {
-      return List<ProviderPublicModel>.from(providers);
-    }
-    final featured =
-        providers.where((p) => _featuredProviderIds.contains(p.id)).toList();
-    final rest =
-        providers.where((p) => !_featuredProviderIds.contains(p.id)).toList();
-    return [...featured, ...rest];
+  void _startFeaturedSpecialistsAutoRotate() {
+    _featuredSpecialistsTimer?.cancel();
+    if (_featuredSpecialists.length <= 1) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_featuredSpecialistsScroll.hasClients) return;
+      _featuredSpecialistsTimer?.cancel();
+      _featuredSpecialistsTimer = Timer.periodic(
+        const Duration(seconds: 3),
+        (_) {
+          if (!mounted || !_featuredSpecialistsScroll.hasClients) return;
+          final position = _featuredSpecialistsScroll.position;
+          final max = position.maxScrollExtent;
+          if (max <= 0) return;
+          const step = 110.0;
+          final next = position.pixels + step;
+          final target = next >= max - 4 ? 0.0 : next;
+          _featuredSpecialistsScroll.animateTo(
+            target,
+            duration: const Duration(milliseconds: 380),
+            curve: Curves.easeInOut,
+          );
+        },
+      );
+    });
   }
 
   MediaItemModel? _portfolioItemFromPromoPlacement(
@@ -621,11 +675,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _reelsTimer?.cancel();
+    _featuredSpecialistsTimer?.cancel();
+    _bannersSyncTimer?.cancel();
     _badgeListenable?.removeListener(_handleBadgeChange);
     UnreadBadgeService.release();
     _bannerAutoTimer?.cancel();
     _bannerPageController.dispose();
     _reelsScroll.dispose();
+    _featuredSpecialistsScroll.dispose();
     super.dispose();
   }
 
@@ -673,10 +730,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // -- Reels carousel --
             SliverToBoxAdapter(child: _buildReels(isDark)),
-
-            // -- Promo snapshots strip --
-            if (_snapshotPlacements.isNotEmpty)
-              SliverToBoxAdapter(child: _buildSnapshotsStrip(isDark, purple)),
 
             // -- Promo messages callout --
             if (_promoMessagePlacement != null && !_promoMessageDismissed)
@@ -1010,6 +1063,8 @@ class _HomeScreenState extends State<HomeScreen> {
             isVideo: true,
             isActive: isActive,
             autoplay: true,
+            loopVideo: false,
+            onVideoEnded: isActive ? () => _handleHeroBannerVideoEnded(banner.id) : null,
             borderRadius: 0,
             stretchToParent: true,
             mediaFit: BoxFit.contain,
@@ -1144,94 +1199,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildSnapshotsStrip(bool isDark, Color purple) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('لمحات ممولة', isDark),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 124,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: _snapshotPlacements.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                final placement = _snapshotPlacements[index];
-                final mediaUrl = _promoAssetUrl(placement);
-                final assets = placement['assets'];
-                final first = (assets is List && assets.isNotEmpty)
-                    ? assets.first
-                    : null;
-                final mediaType = (first is Map)
-                    ? ((first['file_type'] as String?) ?? 'image')
-                    : 'image';
-                return SizedBox(
-                  width: 180,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
-                    onTap: () async {
-                      await _openSponsorPlacement(placement);
-                    },
-                    child: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: PromoMediaTile(
-                              mediaUrl: mediaUrl,
-                              mediaType: mediaType,
-                              height: 124,
-                              borderRadius: 14,
-                              autoplay: true,
-                              isActive: true,
-                              showVideoBadge: mediaType == 'video',
-                              fallback: _gradientPlaceholder(),
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.5),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              (placement['title'] as String?)?.trim().isNotEmpty ==
-                                      true
-                                  ? (placement['title'] as String)
-                                  : 'لمحة ممولة',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                fontFamily: 'Cairo',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1530,36 +1497,24 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _buildProviders(bool isDark, Color purple) {
+    final title = (_content.providersTitle.trim().isEmpty ||
+            _content.providersTitle == '...' ||
+            _content.providersTitle == 'مقدمو الخدمة')
+        ? 'أبرز المختصين'
+        : _content.providersTitle;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _sectionTitle(_content.providersTitle, isDark),
-              const Spacer(),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const SearchProviderScreen())),
-                child: Text('عرض الكل',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w600,
-                        color: purple)),
-              ),
-            ],
-          ),
+          _sectionTitle(title, isDark),
           const SizedBox(height: 10),
           if (_isLoading)
             const SizedBox(
-                height: 160,
+                height: 132,
                 child: Center(
                     child: CircularProgressIndicator(color: Colors.deepPurple)))
-          else if (_providers.isEmpty)
+          else if (_featuredSpecialists.isEmpty)
             SizedBox(
               height: 80,
               child: Center(
@@ -1567,10 +1522,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.info_outline_rounded,
-                        size: 20,
-                        color: isDark ? Colors.white24 : Colors.grey.shade300),
-                    const SizedBox(height: 4),
-                    Text('لا يوجد مزودو خدمة حالياً',
+                         size: 20,
+                         color: isDark ? Colors.white24 : Colors.grey.shade300),
+                     const SizedBox(height: 4),
+                    Text('لا يوجد مختصون مميزون حالياً',
                         style: TextStyle(
                             fontSize: 10,
                             fontFamily: 'Cairo',
@@ -1583,12 +1538,13 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           else
             SizedBox(
-              height: 180,
+              height: 138,
               child: ListView.builder(
+                controller: _featuredSpecialistsScroll,
                 scrollDirection: Axis.horizontal,
-                itemCount: _providers.length,
+                itemCount: _featuredSpecialists.length,
                 itemBuilder: (context, index) =>
-                    _providerCard(_providers[index], isDark, purple),
+                    _providerCard(_featuredSpecialists[index], isDark, purple),
               ),
             ),
         ],
@@ -1602,7 +1558,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionTitle('مشاريع ممولة', isDark),
+          _sectionTitle('شريط البنرات والمشاريع', isDark),
           const SizedBox(height: 10),
           SizedBox(
             height: 206,
@@ -1632,7 +1588,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final profileUrl = ApiClient.buildMediaUrl(item.providerProfileImage);
 
     return GestureDetector(
-      onTap: () => _openPortfolioShowcaseViewer(index),
+      onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
         width: 182,
         margin: const EdgeInsets.only(left: 12),
@@ -1682,7 +1638,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: BorderRadius.circular(999),
                       ),
                       child: const Text(
-                        'ممّول',
+                        'مختار',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
@@ -1776,206 +1732,211 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Future<void> _openPortfolioShowcaseViewer(int index) async {
-    if (_portfolioShowcase.isEmpty) return;
-    _reelsTimer?.cancel();
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => SpotlightViewerPage(
-          items: _portfolioShowcase,
-          initialIndex: index,
-        ),
-      ),
+  Future<void> _openPortfolioShowcasePlacement(int index) async {
+    if (index < 0 || index >= _portfolioShowcase.length) return;
+    final item = _portfolioShowcase[index];
+    final placement = (index >= 0 && index < _portfolioShowcasePlacements.length)
+        ? _portfolioShowcasePlacements[index]
+        : const <String, dynamic>{};
+
+    AnalyticsService.trackFireAndForget(
+      eventName: 'promo.portfolio_showcase_click',
+      surface: 'flutter.home.portfolio_showcase',
+      sourceApp: 'promo',
+      objectType: 'ProviderProfile',
+      objectId: item.providerId.toString(),
+      payload: {
+        'media_id': item.id,
+        'media_type': item.fileType,
+        'redirect_url': (placement['redirect_url'] as String?) ?? '',
+      },
     );
-    if (mounted) {
-      _syncSpotlightInteractionState();
-      _startReelsScroll();
-    }
+
+    final providerIdRaw = placement['target_provider_id'];
+    final providerId = providerIdRaw is int
+        ? providerIdRaw
+        : int.tryParse('$providerIdRaw');
+    await _openPromoPlacement(
+      redirectUrl: placement['redirect_url'] as String?,
+      providerId: providerId ?? item.providerId,
+      providerName:
+          (placement['target_provider_display_name'] as String?) ??
+              item.providerDisplayName,
+    );
   }
 
-  Widget _providerCard(ProviderPublicModel p, bool isDark, Color purple) {
-    final profileUrl = ApiClient.buildMediaUrl(p.profileImage);
-    final coverUrl = ApiClient.buildMediaUrl(p.coverImage);
+  Widget _providerCard(
+    FeaturedSpecialistModel specialist,
+    bool isDark,
+    Color purple,
+  ) {
+    final profileUrl = ApiClient.buildMediaUrl(specialist.profileImage);
+    final cardWidth = specialist.excellenceBadges.isNotEmpty ? 108.0 : 102.0;
 
     return GestureDetector(
       onTap: () async {
+        final externalUrl = specialist.redirectUrl?.trim() ?? '';
+        if (externalUrl.isNotEmpty) {
+          final opened = await _openExternalPromoUrl(externalUrl);
+          if (opened) return;
+        }
         await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => ProviderProfileScreen(
-              providerId: p.id.toString(),
-              providerName: p.displayName,
-              providerImage: ApiClient.buildMediaUrl(p.profileImage),
-              providerRating: p.ratingAvg,
-              providerVerifiedBlue: p.isVerifiedBlue,
-              providerVerifiedGreen: p.isVerifiedGreen,
-              providerPhone: p.phone,
-              providerLat: p.lat,
-              providerLng: p.lng,
-              providerOperations: p.completedRequests,
+              providerId: specialist.providerId.toString(),
+              providerName: specialist.displayName,
+              providerImage: profileUrl,
+              providerRating: specialist.ratingAvg,
+              providerVerifiedBlue: specialist.isVerifiedBlue,
+              providerVerifiedGreen: specialist.isVerifiedGreen,
             ),
           ),
         );
         _syncSpotlightInteractionState();
       },
       child: Container(
-        width: 150,
+        width: cardWidth,
         margin: const EdgeInsets.only(left: 10),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: isDark
-              ? null
-              : [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2))
-                ],
-        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(14)),
-              child: SizedBox(
-                height: 70,
-                width: double.infinity,
-                child: coverUrl != null
-                    ? Image.network(coverUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _gradientPlaceholder())
-                    : _gradientPlaceholder(),
-              ),
-            ),
-
-            // Avatar + Info
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
-              child: Row(
+            SizedBox(
+              width: 82,
+              height: 82,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: purple.withValues(alpha: 0.1),
-                    backgroundImage:
-                        profileUrl != null ? NetworkImage(profileUrl) : null,
-                    child: profileUrl == null
-                        ? Text(
-                            p.displayName.isNotEmpty ? p.displayName[0] : '؟',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: purple))
-                        : null,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(p.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w700,
-                                      fontFamily: 'Cairo',
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87)),
-                            ),
-                            if (p.isVerified) ...[
-                              const SizedBox(width: 2),
-                              VerifiedBadgeView(
-                                isVerifiedBlue: p.isVerifiedBlue,
-                                isVerifiedGreen: p.isVerifiedGreen,
-                                iconSize: 11,
-                              ),
-                            ],
-                            if (_featuredProviderIds.contains(p.id)) ...[
-                              const SizedBox(width: 4),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 1),
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(colors: [
-                                    Color(0xFFF59E0B),
-                                    Color(0xFFD97706)
-                                  ]),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text('مميز',
-                                    style: TextStyle(
-                                        fontSize: 8,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white)),
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (p.hasExcellenceBadges)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 2),
-                            child: ExcellenceBadgesWrap(
-                              badges: p.excellenceBadges,
-                              compact: true,
-                            ),
-                          ),
-                        if (p.city != null)
-                          Text(p.city!,
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFF59E0B), Color(0xFFB13AC7)],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 38,
+                      backgroundColor:
+                          isDark ? const Color(0xFF221B31) : Colors.white,
+                      backgroundImage:
+                          profileUrl != null ? NetworkImage(profileUrl) : null,
+                      child: profileUrl == null
+                          ? Text(
+                              specialist.displayName.isNotEmpty
+                                  ? specialist.displayName[0]
+                                  : '؟',
                               style: TextStyle(
-                                  fontSize: 9,
-                                  fontFamily: 'Cairo',
-                                  color: isDark
-                                      ? Colors.grey.shade600
-                                      : Colors.grey.shade500)),
-                      ],
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                fontFamily: 'Cairo',
+                                color: purple,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
+                  if (specialist.excellenceBadges.isNotEmpty)
+                    Positioned(
+                      top: -2,
+                      left: -2,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color:
+                                const Color(0xFFF59E0B).withValues(alpha: 0.28),
+                          ),
+                        ),
+                        child: const Text(
+                          'تميز',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            fontFamily: 'Cairo',
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                      ),
+                    ),
+                  if (specialist.isVerified)
+                    Positioned(
+                      right: -2,
+                      bottom: 2,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: VerifiedBadgeView(
+                          isVerifiedBlue: specialist.isVerifiedBlue,
+                          isVerifiedGreen: specialist.isVerifiedGreen,
+                          iconSize: 16,
+                          enableTap: false,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
-
-            const Spacer(),
-
-            // Stats
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            const SizedBox(height: 10),
+            Text(
+              specialist.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                fontFamily: 'Cairo',
+                color: isDark ? Colors.white : const Color(0xFF24182F),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF8D2A7A).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(999),
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _miniProviderStat(
-                      Icons.star_rounded,
-                      p.ratingAvg > 0 ? p.ratingAvg.toStringAsFixed(1) : '-',
-                      Colors.amber),
-                  _miniProviderStat(Icons.people_outline, '${p.followersCount}',
-                      isDark ? Colors.grey.shade500 : Colors.grey.shade500),
-                  _miniProviderStat(Icons.favorite_outline, '${p.likesCount}',
-                      isDark ? Colors.grey.shade500 : Colors.grey.shade500),
+                  const Icon(
+                    Icons.star_rounded,
+                    size: 13,
+                    color: Color(0xFFF59E0B),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    specialist.ratingLabel,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Cairo',
+                      color: Color(0xFF7A2B74),
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _miniProviderStat(IconData icon, String val, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 2),
-        Text(val,
-            style: TextStyle(fontSize: 9.5, fontFamily: 'Cairo', color: color)),
-      ],
     );
   }
 
@@ -2003,10 +1964,35 @@ class _HomeScreenState extends State<HomeScreen> {
     if (seconds == null || seconds <= 0) {
       return _videoBannerFallbackRotateDelay;
     }
-    final raw = Duration(seconds: seconds);
-    if (raw < _videoBannerMinRotateDelay) return _videoBannerMinRotateDelay;
-    if (raw > _videoBannerMaxRotateDelay) return _videoBannerMaxRotateDelay;
-    return raw;
+    return Duration(seconds: seconds);
+  }
+
+  void _goToNextHeroBanner() {
+    if (!mounted || !_bannerPageController.hasClients || _banners.length <= 1) {
+      return;
+    }
+    final next = (_bannerCurrentPage + 1) % _banners.length;
+    _bannerPageController.animateToPage(
+      next,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _handleHeroBannerVideoEnded(int bannerId) {
+    if (!mounted || _banners.length <= 1 || !_bannerPageController.hasClients) {
+      return;
+    }
+    final safeIndex =
+        _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
+            ? _bannerCurrentPage
+            : 0;
+    final currentBanner = _banners[safeIndex];
+    if (currentBanner.id != bannerId || !currentBanner.isVideo) {
+      return;
+    }
+    _bannerAutoTimer?.cancel();
+    _goToNextHeroBanner();
   }
 
   void _scheduleNextBannerAutoRotate() {
@@ -2017,17 +2003,22 @@ class _HomeScreenState extends State<HomeScreen> {
     final safeIndex = _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
         ? _bannerCurrentPage
         : 0;
-    final delay = _resolveBannerRotateDelay(_banners[safeIndex]);
+    final currentBanner = _banners[safeIndex];
+    final expectedBannerId = currentBanner.id;
+    final delay =
+        currentBanner.isVideo ? _resolveBannerRotateDelay(currentBanner) : _imageBannerRotateDelay;
     _bannerAutoTimer = Timer(delay, () {
       if (!mounted || !_bannerPageController.hasClients || _banners.length <= 1) {
         return;
       }
-      final next = (_bannerCurrentPage + 1) % _banners.length;
-      _bannerPageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 400),
-        curve: Curves.easeInOut,
-      );
+      final activeIndex = _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
+          ? _bannerCurrentPage
+          : 0;
+      final activeBanner = _banners[activeIndex];
+      if (activeBanner.id != expectedBannerId) {
+        return;
+      }
+      _goToNextHeroBanner();
     });
   }
 
@@ -2374,7 +2365,7 @@ class HomeScreenContent {
       heroSubtitle: '...',
       searchPlaceholder: '...',
       categoriesTitle: '...',
-      providersTitle: '...',
+      providersTitle: 'أبرز المختصين',
       bannersTitle: '...',
     );
   }
@@ -2395,7 +2386,7 @@ class HomeScreenContent {
       ),
       searchPlaceholder: resolve('home_search_placeholder', 'ابحث'),
       categoriesTitle: resolve('home_categories_title', 'التصنيفات'),
-      providersTitle: resolve('home_providers_title', 'مقدمو الخدمة'),
+      providersTitle: resolve('home_providers_title', 'أبرز المختصين'),
       bannersTitle: resolve('home_banners_title', 'عروض ترويجية'),
     );
   }

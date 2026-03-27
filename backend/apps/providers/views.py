@@ -509,7 +509,7 @@ class ProviderSpotlightListView(generics.ListAPIView):
 
 
 class ProviderSpotlightFeedView(generics.ListAPIView):
-	"""Public spotlight feed for the home page (latest across providers)."""
+	"""Public home spotlight feed: active paid items plus items added today."""
 
 	serializer_class = ProviderSpotlightItemSerializer
 	permission_classes = [permissions.AllowAny]
@@ -539,6 +539,8 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 			)
 		)
 		qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
+		today = timezone.localdate(now)
+		qs = qs.filter(Q(_promo_snapshot=True) | Q(created_at__date=today))
 
 		# Annotate is_liked / is_saved for authenticated users
 		user = self.request.user

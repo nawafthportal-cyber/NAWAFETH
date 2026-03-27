@@ -1,16 +1,20 @@
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 
 from apps.backoffice.models import AccessLevel, Dashboard, UserAccessProfile
 from apps.accounts.models import User, UserRole
+from apps.billing.models import Invoice
+from apps.billing.services import complete_mock_payment
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.promo.models import (
     PromoAdType,
     PromoFrequency,
     PromoOpsStatus,
     PromoPosition,
+    PromoAsset,
     PromoRequest,
     PromoRequestItem,
     PromoRequestStatus,
@@ -356,3 +360,345 @@ def test_promo_save_request_persists_assignment_and_ops_status_and_reflects_in_t
     target = next(row for row in rows if row["id"] == promo_request.id)
     assert target["ops_status"] == promo_request.get_ops_status_display()
     assert target["assignee"] == (assignee.username or assignee.phone)
+
+
+def test_paid_promo_request_moves_to_top_of_dashboard_requests_list():
+    client = _dashboard_client()
+    paid_request = _create_promo_request(plan_tier="pro")
+
+    now = timezone.now()
+    paid_request.status = PromoRequestStatus.PENDING_PAYMENT
+    paid_request.ops_status = PromoOpsStatus.NEW
+    paid_request.start_at = now
+    paid_request.end_at = now + timezone.timedelta(days=3)
+    paid_request.save(update_fields=["status", "ops_status", "start_at", "end_at", "updated_at"])
+
+    newer_request = PromoRequest.objects.create(
+        requester=paid_request.requester,
+        title="طلب أحدث قبل الدفع",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now + timezone.timedelta(hours=1),
+        end_at=now + timezone.timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+        ops_status=PromoOpsStatus.NEW,
+    )
+    PromoRequestItem.objects.create(
+        request=newer_request,
+        service_type=PromoServiceType.FEATURED_SPECIALISTS,
+        title="خدمة أحدث",
+        start_at=newer_request.start_at,
+        end_at=newer_request.end_at,
+        frequency=PromoFrequency.S60,
+        sort_order=1,
+    )
+
+    invoice = Invoice.objects.create(
+        user=paid_request.requester,
+        title="فاتورة طلب ترويج",
+        subtotal="120.00",
+        reference_type="promo_request",
+        reference_id=paid_request.code or "",
+    )
+    paid_request.invoice = invoice
+    paid_request.save(update_fields=["invoice", "updated_at"])
+
+    complete_mock_payment(
+        invoice=invoice,
+        by_user=paid_request.requester,
+        idempotency_key=f"dashboard-paid-order-{invoice.id}",
+    )
+
+    paid_request.refresh_from_db()
+    assert paid_request.status == PromoRequestStatus.ACTIVE
+    assert paid_request.invoice is not None
+    assert paid_request.invoice.is_payment_effective() is True
+
+    response = client.get(reverse("dashboard:promo_dashboard"))
+    assert response.status_code == 200
+
+    rows = response.context["promo_requests"]
+    assert rows
+    assert rows[0]["id"] == paid_request.id
+    assert rows[0]["code"] == (paid_request.code or f"MD{paid_request.id:06d}")
+
+
+def test_promo_request_form_limits_ops_status_choices_by_current_state():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+    promo_request.ops_status = PromoOpsStatus.NEW
+    promo_request.save(update_fields=["ops_status", "updated_at"])
+
+    response = client.get(reverse("dashboard:promo_dashboard"), {"request": str(promo_request.id)})
+    assert response.status_code == 200
+
+    form = response.context["request_form"]
+    values = [value for value, _label in form.fields["ops_status"].choices]
+    assert values == [PromoOpsStatus.NEW, PromoOpsStatus.IN_PROGRESS]
+
+
+def test_promo_request_form_prefills_ops_note_from_saved_request_note():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+    promo_request.quote_note = "تعليق محفوظ سابقًا"
+    promo_request.save(update_fields=["quote_note", "updated_at"])
+
+    response = client.get(reverse("dashboard:promo_dashboard"), {"request": str(promo_request.id)})
+    assert response.status_code == 200
+
+    form = response.context["request_form"]
+    assert (form["ops_note"].value() or "") == "تعليق محفوظ سابقًا"
+
+
+def test_promo_request_close_button_url_removes_selected_request_param():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+
+    response = client.get(
+        reverse("dashboard:promo_dashboard"),
+        {
+            "request": str(promo_request.id),
+            "ops": PromoOpsStatus.IN_PROGRESS,
+            "request_q": "qa",
+        },
+    )
+    assert response.status_code == 200
+    close_url = response.context["close_request_url"]
+    assert "request=" not in close_url
+    assert f"ops={PromoOpsStatus.IN_PROGRESS}" in close_url
+    assert "request_q=qa" in close_url
+
+
+def test_promo_save_request_blocks_skipping_ops_status_sequence():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+    promo_request.ops_status = PromoOpsStatus.NEW
+    promo_request.save(update_fields=["ops_status", "updated_at"])
+
+    response = client.post(
+        reverse("dashboard:promo_dashboard"),
+        {
+            "action": "save_request",
+            "promo_request_id": str(promo_request.id),
+            "assigned_to": "",
+            "ops_status": PromoOpsStatus.COMPLETED,
+            "ops_note": "skip",
+            "quote_note": "",
+            "redirect_query": f"request={promo_request.id}",
+        },
+    )
+    assert response.status_code == 302
+    promo_request.refresh_from_db()
+    assert promo_request.ops_status == PromoOpsStatus.NEW
+
+
+def test_promo_dashboard_blocks_legacy_request_actions():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+    previous_ops_status = promo_request.ops_status
+
+    response = client.post(
+        reverse("dashboard:promo_dashboard"),
+        {
+            "action": "quote_request",
+            "promo_request_id": str(promo_request.id),
+            "assigned_to": "",
+            "ops_status": PromoOpsStatus.COMPLETED,
+            "ops_note": "legacy action should be blocked",
+            "redirect_query": f"request={promo_request.id}",
+        },
+    )
+    assert response.status_code == 302
+    promo_request.refresh_from_db()
+    assert promo_request.ops_status == previous_ops_status
+    assert promo_request.invoice_id is None
+
+
+def test_promo_inquiry_second_click_hides_details_and_keeps_selected_request():
+    client = _dashboard_client()
+    promo_request = _create_promo_request()
+
+    requester = User.objects.create_user(
+        phone="0554002030",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    ticket = SupportTicket.objects.create(
+        requester=requester,
+        ticket_type=SupportTicketType.ADS,
+        status=SupportTicketStatus.NEW,
+        priority=SupportPriority.NORMAL,
+        entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+        description="استفسار لتجربة إظهار/إخفاء التفاصيل",
+    )
+
+    base_url = reverse("dashboard:promo_dashboard")
+    open_response = client.get(
+        base_url,
+        {"inquiry": str(ticket.id), "request": str(promo_request.id)},
+    )
+    assert open_response.status_code == 200
+    assert open_response.context["selected_inquiry"].id == ticket.id
+    assert open_response.context["selected_request"].id == promo_request.id
+
+    close_response = client.get(base_url, {"request": str(promo_request.id)})
+    assert close_response.status_code == 200
+    assert close_response.context["selected_inquiry"] is None
+    assert close_response.context["selected_request"].id == promo_request.id
+
+
+def test_promo_save_inquiry_redirect_updates_existing_inquiry_and_request_params():
+    client = _dashboard_client()
+    request_a = _create_promo_request()
+    now = timezone.now()
+    request_b = PromoRequest.objects.create(
+        requester=request_a.requester,
+        title="طلب ترويج بديل للربط",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now,
+        end_at=now + timezone.timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.NEW,
+        ops_status=PromoOpsStatus.NEW,
+    )
+
+    requester = User.objects.create_user(
+        phone="0554002031",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    ticket = SupportTicket.objects.create(
+        requester=requester,
+        ticket_type=SupportTicketType.ADS,
+        status=SupportTicketStatus.NEW,
+        priority=SupportPriority.NORMAL,
+        entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+        description="استفسار لاختبار تحديث باراميترات رابط الرجوع",
+    )
+
+    response = client.post(
+        reverse("dashboard:promo_dashboard"),
+        {
+            "action": "save_inquiry",
+            "ticket_id": str(ticket.id),
+            "status": SupportTicketStatus.IN_PROGRESS,
+            "description": ticket.description,
+            "operator_comment": "تحديث البيانات وربط الطلب البديل",
+            "linked_request_id": str(request_b.id),
+            "redirect_query": f"inquiry=999999&request={request_a.id}&ops=in_progress",
+        },
+    )
+
+    assert response.status_code == 302
+    location = response["Location"]
+    assert f"inquiry={ticket.id}" in location
+    assert f"request={request_b.id}" in location
+    assert f"request={request_a.id}" not in location
+    assert "ops=in_progress" in location
+
+
+def test_promo_inquiry_form_renders_insert_detail_link_icon_button():
+    client = _dashboard_client()
+
+    requester = User.objects.create_user(
+        phone="0554002032",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    ticket = SupportTicket.objects.create(
+        requester=requester,
+        ticket_type=SupportTicketType.ADS,
+        status=SupportTicketStatus.NEW,
+        priority=SupportPriority.NORMAL,
+        entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+        description="استفسار لإظهار زر إدراج الرابط",
+    )
+
+    response = client.get(reverse("dashboard:promo_dashboard"), {"inquiry": str(ticket.id)})
+    assert response.status_code == 200
+
+    html = response.content.decode("utf-8", errors="ignore")
+    assert 'id="insertPromoDetailLinkBtn"' in html
+
+
+def test_promo_module_home_banner_post_uses_selected_request_preview_asset():
+    client = _dashboard_client()
+    now = timezone.now()
+    start_at = now + timezone.timedelta(days=2)
+    end_at = start_at + timezone.timedelta(days=2)
+
+    requester_a = User.objects.create_user(
+        phone="0554002040",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    requester_b = User.objects.create_user(
+        phone="0554002041",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+
+    request_a = PromoRequest.objects.create(
+        requester=requester_a,
+        title="بنر A",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=start_at,
+        end_at=end_at,
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+    )
+    request_b = PromoRequest.objects.create(
+        requester=requester_b,
+        title="بنر B",
+        ad_type=PromoAdType.BANNER_HOME,
+        start_at=start_at,
+        end_at=end_at,
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.ACTIVE,
+        ops_status=PromoOpsStatus.IN_PROGRESS,
+    )
+
+    PromoAsset.objects.create(
+        request=request_a,
+        asset_type="image",
+        title="asset-a",
+        file=SimpleUploadedFile(
+            "asset-a.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=requester_a,
+    )
+    asset_b = PromoAsset.objects.create(
+        request=request_b,
+        asset_type="image",
+        title="asset-b",
+        file=SimpleUploadedFile(
+            "asset-b.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=requester_b,
+    )
+
+    response = client.post(
+        reverse("dashboard:promo_module", kwargs={"module_key": "home_banner"}),
+        data={
+            "workflow_action": "preview_item",
+            "request_id": str(request_b.id),
+            "title": "معاينة بنر B",
+            "start_at": start_at.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end_at.strftime("%Y-%m-%dT%H:%M"),
+            "attachment_specs": "",
+            "operator_note": "",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.context["selected_request"].id == request_b.id
+    assert response.context["selected_home_banner_asset"].id == asset_b.id

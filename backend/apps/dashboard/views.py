@@ -11,7 +11,7 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Count, Q, Sum
-from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse
+from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -27,7 +27,6 @@ from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard, Use
 from apps.backoffice.policies import (
     ContentHideDeletePolicy,
     ContentManagePolicy,
-    PromoQuoteActivatePolicy,
     ReviewModerationPolicy,
 )
 from apps.marketplace.models import RequestStatus, ServiceRequest
@@ -83,12 +82,9 @@ from apps.promo.models import (
 )
 from apps.verification.models import VerificationRequest
 from apps.promo.services import (
-    activate_after_payment,
-    auto_expire_promo_requests,
     calc_promo_request_quote,
+    expire_due_promos,
     ensure_default_pricing_rules,
-    quote_and_create_invoice,
-    reject_request,
     set_promo_ops_status,
     _sync_promo_to_unified,
 )
@@ -889,7 +885,7 @@ def admin_control_home(request):
             _toggle_revoke_access_profile(request)
             return redirect(f"{request.path}?section=access")
 
-    edit_profile_id = request.GET.get("edit")
+    edit_profile_id = None if new_form_requested else request.GET.get("edit")
     edit_profile = None
     if edit_profile_id and str(edit_profile_id).isdigit():
         edit_profile = UserAccessProfile.objects.select_related("user").filter(id=int(edit_profile_id)).first()
@@ -1543,7 +1539,7 @@ def _promo_requests_queryset_for_user(user):
     qs = (
         PromoRequest.objects.select_related("requester", "assigned_to", "invoice")
         .prefetch_related("items", "assets", "assets__uploaded_by", "assets__item")
-        .order_by("-created_at", "-id")
+        .order_by("-updated_at", "-id")
     )
     access_profile = active_access_profile_for_user(user)
     if access_profile and access_profile.level == AccessLevel.USER:
@@ -1591,6 +1587,9 @@ def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
     rows: list[dict] = []
     for promo_request in requests:
         priority = support_priority(promo_request.requester)
+        ops_status_label = promo_request.get_ops_status_display()
+        if promo_request.status == PromoRequestStatus.EXPIRED:
+            ops_status_label = promo_request.get_status_display()
         rows.append(
             {
                 "id": promo_request.id,
@@ -1601,7 +1600,7 @@ def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
                 "created_at": _format_dt(promo_request.created_at),
                 "approved_at": _format_dt(promo_request.reviewed_at or promo_request.created_at),
                 "request_status": promo_request.get_status_display(),
-                "ops_status": promo_request.get_ops_status_display(),
+                "ops_status": ops_status_label,
                 "team": "إدارة الترويج",
                 "assignee": _promo_assignee_label(promo_request),
                 "assigned_at": _format_dt(promo_request.assigned_at),
@@ -1703,18 +1702,14 @@ def _promo_request_export_rows(requests: list[PromoRequest]) -> tuple[list[str],
 def _promo_redirect_with_state(request, *, request_id: int | None = None, inquiry_id: int | None = None):
     query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
     base = request.path
-    if not query:
-        params: list[str] = []
-        if inquiry_id is not None:
-            params.append(f"inquiry={inquiry_id}")
-        if request_id is not None:
-            params.append(f"request={request_id}")
-        return redirect(f"{base}?{'&'.join(params)}") if params else redirect(base)
-    if inquiry_id is not None and "inquiry=" not in query:
-        query = f"{query}&inquiry={inquiry_id}"
-    if request_id is not None and "request=" not in query:
-        query = f"{query}&request={request_id}"
-    return redirect(f"{base}?{query}")
+    params = QueryDict(query, mutable=True)
+    if inquiry_id is not None:
+        params["inquiry"] = str(inquiry_id)
+    if request_id is not None:
+        params["request"] = str(request_id)
+
+    normalized_query = params.urlencode()
+    return redirect(f"{base}?{normalized_query}") if normalized_query else redirect(base)
 
 
 def _promo_asset_type_for_upload(uploaded_file) -> str:
@@ -1782,10 +1777,27 @@ def _promo_items_missing_required_assets(selected_request: PromoRequest | None) 
             unique_labels.append(label)
     return unique_labels
 
+
+def _promo_ops_choices_for_request(selected_request: PromoRequest | None) -> list[tuple[str, str]]:
+    base_choices = list(PromoOpsStatus.choices)
+    if selected_request is None:
+        return base_choices
+
+    current_status = selected_request.ops_status or PromoOpsStatus.NEW
+    allowed_by_current = {
+        PromoOpsStatus.NEW: {PromoOpsStatus.NEW, PromoOpsStatus.IN_PROGRESS},
+        PromoOpsStatus.IN_PROGRESS: {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED},
+        PromoOpsStatus.COMPLETED: {PromoOpsStatus.COMPLETED},
+    }
+    allowed = allowed_by_current.get(current_status)
+    if not allowed:
+        return base_choices
+    return [choice for choice in base_choices if choice[0] in allowed]
+
 @dashboard_staff_required
 @require_dashboard_access("promo")
 def promo_dashboard(request, request_id: int | None = None):
-    auto_expire_promo_requests()
+    expire_due_promos()
     can_write = dashboard_allowed(request.user, "promo", write=True)
     access_profile = active_access_profile_for_user(request.user)
     assignee_choices = _dashboard_assignee_choices("promo")
@@ -1861,8 +1873,10 @@ def promo_dashboard(request, request_id: int | None = None):
         initial={
             "assigned_to": str(selected_request.assigned_to_id or "") if selected_request else "",
             "ops_status": selected_request.ops_status if selected_request else PromoOpsStatus.NEW,
+            "ops_note": (selected_request.quote_note or "") if selected_request else "",
         },
         assignee_choices=assignee_choices,
+        ops_choices=_promo_ops_choices_for_request(selected_request),
     )
 
     if request.method == "POST":
@@ -2004,7 +2018,19 @@ def promo_dashboard(request, request_id: int | None = None):
                 if target_request.assigned_to_id and target_request.assigned_to_id != request.user.id:
                     return HttpResponseForbidden("غير مصرح: الطلب ليس ضمن المهام المكلف بها.")
 
-            post_form = PromoRequestActionForm(request.POST, assignee_choices=assignee_choices)
+            legacy_actions = {"quote_request", "activate_request", "complete_request", "reject_request"}
+            if action in legacy_actions:
+                messages.error(
+                    request,
+                    "تم إيقاف الإجراء القديم. الإجراء المتاح الآن هو حفظ المكلف وحالة التنفيذ فقط.",
+                )
+                return _promo_redirect_with_state(request, request_id=target_request.id)
+
+            post_form = PromoRequestActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+                ops_choices=_promo_ops_choices_for_request(target_request),
+            )
             if not post_form.is_valid():
                 selected_request = target_request
                 request_form = post_form
@@ -2028,73 +2054,21 @@ def promo_dashboard(request, request_id: int | None = None):
             if action == "save_request":
                 desired_ops_status = post_form.cleaned_data.get("ops_status") or target_request.ops_status
                 if desired_ops_status != target_request.ops_status:
-                    target_request = set_promo_ops_status(
-                        pr=target_request,
-                        new_status=desired_ops_status,
-                        by_user=request.user,
-                        note=ops_note,
-                    )
-                if ops_note:
-                    target_request.quote_note = ops_note[:300]
+                    try:
+                        target_request = set_promo_ops_status(
+                            pr=target_request,
+                            new_status=desired_ops_status,
+                            by_user=request.user,
+                            note=ops_note,
+                        )
+                    except ValueError as exc:
+                        messages.error(request, str(exc))
+                        return _promo_redirect_with_state(request, request_id=target_request.id)
+
+                next_note = ops_note[:300]
+                if next_note != (target_request.quote_note or ""):
+                    target_request.quote_note = next_note
                     updates.append("quote_note")
-
-            elif action == "quote_request":
-                policy = PromoQuoteActivatePolicy.evaluate_and_log(
-                    request.user,
-                    request=request,
-                    reference_type="promo.request",
-                    reference_id=str(target_request.id),
-                    extra={"surface": "dashboard.promo.quote"},
-                )
-                if not policy.allowed:
-                    return HttpResponseForbidden("لا تملك صلاحية اعتماد التسعير.")
-                quote_note = post_form.cleaned_data.get("quote_note") or ""
-                try:
-                    target_request = quote_and_create_invoice(pr=target_request, by_user=request.user, quote_note=quote_note)
-                except ValueError as exc:
-                    messages.error(request, str(exc))
-                    return _promo_redirect_with_state(request, request_id=target_request.id)
-
-            elif action == "activate_request":
-                policy = PromoQuoteActivatePolicy.evaluate_and_log(
-                    request.user,
-                    request=request,
-                    reference_type="promo.request",
-                    reference_id=str(target_request.id),
-                    extra={"surface": "dashboard.promo.activate"},
-                )
-                if not policy.allowed:
-                    return HttpResponseForbidden("لا تملك صلاحية تفعيل الطلب.")
-                try:
-                    target_request = activate_after_payment(pr=target_request)
-                except ValueError as exc:
-                    messages.error(request, str(exc))
-                    return _promo_redirect_with_state(request, request_id=target_request.id)
-
-            elif action == "complete_request":
-                target_request = set_promo_ops_status(
-                    pr=target_request,
-                    new_status=PromoOpsStatus.COMPLETED,
-                    by_user=request.user,
-                    note=ops_note,
-                )
-
-            elif action == "reject_request":
-                rejectable_statuses = {
-                    PromoRequestStatus.NEW,
-                    PromoRequestStatus.IN_REVIEW,
-                    PromoRequestStatus.REJECTED,
-                }
-                if target_request.status not in rejectable_statuses:
-                    messages.error(request, "يمكن رفض الطلب قبل التسعير فقط.")
-                    return _promo_redirect_with_state(request, request_id=target_request.id)
-
-                reject_reason = (post_form.cleaned_data.get("quote_note") or post_form.cleaned_data.get("ops_note") or "").strip()
-                if not reject_reason:
-                    messages.error(request, "اكتب سبب الرفض لإعادة الطلب للعميل.")
-                    return _promo_redirect_with_state(request, request_id=target_request.id)
-
-                target_request = reject_request(pr=target_request, reason=reject_reason, by_user=request.user)
 
             if assigned_to_id != target_request.assigned_to_id:
                 target_request.assigned_to = assignee
@@ -2128,10 +2102,6 @@ def promo_dashboard(request, request_id: int | None = None):
             return pdf_response("promo_requests.pdf", "قائمة طلبات الترويج", headers, rows, landscape=True)
 
     selected_request_quote = _promo_quote_snapshot(selected_request) if selected_request else None
-    can_reject_selected_request = bool(
-        selected_request
-        and selected_request.status in {PromoRequestStatus.NEW, PromoRequestStatus.IN_REVIEW, PromoRequestStatus.REJECTED}
-    )
     selected_request_items = list(selected_request.items.order_by("sort_order", "id")) if selected_request else []
     selected_request_assets = (
         list(selected_request.assets.select_related("item", "uploaded_by").order_by("-uploaded_at", "-id"))
@@ -2142,6 +2112,10 @@ def promo_dashboard(request, request_id: int | None = None):
         list(selected_inquiry.attachments.order_by("-id")[:8]) if selected_inquiry else []
     )
     selected_inquiry_comments = list(selected_inquiry.comments.order_by("-id")[:8]) if selected_inquiry else []
+    close_request_params = request.GET.copy()
+    close_request_params.pop("request", None)
+    close_request_query = close_request_params.urlencode()
+    close_request_url = f"{request.path}?{close_request_query}" if close_request_query else request.path
 
     context = _promo_base_context("home")
     context.update(
@@ -2155,7 +2129,6 @@ def promo_dashboard(request, request_id: int | None = None):
             "request_summary": _promo_requests_summary(promo_requests),
             "selected_inquiry": selected_inquiry,
             "selected_request": selected_request,
-            "can_reject_selected_request": can_reject_selected_request,
             "selected_request_items": selected_request_items,
             "promo_support_team": promo_team,
             "selected_request_assets": selected_request_assets,
@@ -2169,6 +2142,7 @@ def promo_dashboard(request, request_id: int | None = None):
                 "request_q": request_q,
                 "ops": ops_filter,
             },
+            "close_request_url": close_request_url,
             "team_panels": _dashboard_team_panels(),
             "redirect_query": request.GET.urlencode(),
         }
@@ -2444,6 +2418,11 @@ def promo_module(request, module_key: str):
         selected_request=selected_request,
         service_type=service_type,
     )
+    selected_home_banner_asset = (
+        selected_request_module_assets[0]
+        if service_type == PromoServiceType.HOME_BANNER and selected_request_module_assets
+        else None
+    )
 
     module_items_qs = (
         PromoRequestItem.objects.select_related("request", "request__requester")
@@ -2480,6 +2459,11 @@ def promo_module(request, module_key: str):
             selected_request_module_assets = _promo_module_assets_for_selected_request(
                 selected_request=selected_request,
                 service_type=service_type,
+            )
+            selected_home_banner_asset = (
+                selected_request_module_assets[0]
+                if service_type == PromoServiceType.HOME_BANNER and selected_request_module_assets
+                else None
             )
 
         if not can_write:
@@ -2646,8 +2630,10 @@ def promo_module(request, module_key: str):
             "can_write": can_write,
             "filters": {"q": query_filter},
             "selected_request": selected_request,
+            "selected_requester_label": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_item": selected_request_item,
             "selected_request_module_assets": selected_request_module_assets,
+            "selected_home_banner_asset": selected_home_banner_asset,
             "selected_request_quote": _promo_quote_snapshot(selected_request) if selected_request else None,
             "preview_payload": preview_payload,
             "is_search_module": service_type == PromoServiceType.SEARCH_RESULTS,
@@ -2816,7 +2802,7 @@ def _dashboard_team_panels() -> list[dict]:
         {
             "key": "promo",
             "team": "فريق إدارة الإعلانات والترويج",
-            "summary": "متابعة الاستفسارات الترويجية، التسعير، والتفعيل بعد الاعتماد.",
+            "summary": "متابعة استفسارات الترويج وطلبات الترويج وتنفيذها تشغيليًا حتى الإغلاق.",
             "dashboards": [
                 {"label": "لوحة إدارة الترويج", "url": reverse("dashboard:promo_dashboard")},
                 {"label": "تسعير خدمات الترويج", "url": reverse("dashboard:promo_pricing")},
@@ -2824,7 +2810,7 @@ def _dashboard_team_panels() -> list[dict]:
             "worklists": [
                 "قائمة استفسارات الترويج",
                 "قائمة طلبات الترويج",
-                "طلبات الاعتماد قبل الدفع",
+                "حالة التنفيذ: جديد ← تحت المعالجة ← مكتمل",
             ],
         },
         {

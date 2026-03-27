@@ -9,6 +9,8 @@ class PromoBannerWidget extends StatefulWidget {
   final bool isVideo;
   final bool isActive;
   final bool autoplay;
+  final bool loopVideo;
+  final VoidCallback? onVideoEnded;
   final bool stretchToParent;
   final BoxFit mediaFit;
   final EdgeInsetsGeometry contentPadding;
@@ -24,6 +26,8 @@ class PromoBannerWidget extends StatefulWidget {
     required this.isVideo,
     this.isActive = true,
     this.autoplay = true,
+    this.loopVideo = true,
+    this.onVideoEnded,
     this.stretchToParent = false,
     this.mediaFit = BoxFit.cover,
     this.contentPadding = EdgeInsets.zero,
@@ -42,6 +46,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
   VideoPlayerController? _controller;
   bool _isLoading = false;
   bool _hasVideoError = false;
+  bool _videoEndNotified = false;
 
   @override
   void initState() {
@@ -57,6 +62,15 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     if (mediaChanged) {
       _syncVideoController();
       return;
+    }
+    if (oldWidget.loopVideo != widget.loopVideo) {
+      final controller = _controller;
+      if (controller != null) {
+        unawaited(controller.setLooping(widget.loopVideo));
+      }
+    }
+    if (!oldWidget.isActive && widget.isActive) {
+      _videoEndNotified = false;
     }
     _applyPlaybackState();
   }
@@ -82,9 +96,11 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(url));
     _controller = controller;
+    _videoEndNotified = false;
+    controller.addListener(_handleVideoProgress);
 
     try {
-      await controller.setLooping(true);
+      await controller.setLooping(widget.loopVideo);
       await controller.setVolume(0);
       await controller.initialize();
       if (!mounted || _controller != controller) {
@@ -110,9 +126,39 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
     if (widget.autoplay && widget.isActive) {
+      if (!widget.loopVideo && !controller.value.isPlaying) {
+        _videoEndNotified = false;
+        if (controller.value.position > Duration.zero) {
+          unawaited(controller.seekTo(Duration.zero));
+        }
+      }
       controller.play();
     } else {
       controller.pause();
+    }
+  }
+
+  void _handleVideoProgress() {
+    if (widget.loopVideo || !widget.isActive) return;
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    final duration = controller.value.duration;
+    if (duration <= Duration.zero) return;
+    final position = controller.value.position;
+    final nearEnd = position >= duration - const Duration(milliseconds: 180);
+    if (!nearEnd) {
+      _videoEndNotified = false;
+      return;
+    }
+    if (_videoEndNotified) return;
+    _videoEndNotified = true;
+    final callback = widget.onVideoEnded;
+    if (callback != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.isActive) {
+          callback();
+        }
+      });
     }
   }
 
@@ -120,6 +166,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final controller = _controller;
     _controller = null;
     if (controller != null) {
+      controller.removeListener(_handleVideoProgress);
       await controller.pause();
       await controller.dispose();
     }

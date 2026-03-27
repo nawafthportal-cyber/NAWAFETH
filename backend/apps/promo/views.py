@@ -623,7 +623,11 @@ class MyPromoRequestsListView(generics.ListAPIView):
     serializer_class = PromoRequestDetailSerializer
 
     def get_queryset(self):
-        return PromoRequest.objects.filter(requester=self.request.user).prefetch_related("items", "items__assets", "assets").order_by("-id")
+        return (
+            PromoRequest.objects.filter(requester=self.request.user)
+            .prefetch_related("items", "items__assets", "assets")
+            .order_by("-updated_at", "-id")
+        )
 
 
 class PromoRequestDetailView(generics.RetrieveAPIView):
@@ -745,6 +749,39 @@ class PromoAddAssetView(generics.CreateAPIView):
             },
             status=status.HTTP_201_CREATED,
         )
+
+
+class PromoPreparePaymentView(APIView):
+    permission_classes = [IsOwnerOrBackofficePromo]
+
+    def post(self, request, pk: int):
+        pr = get_object_or_404(
+            PromoRequest.objects.prefetch_related("items", "assets", "items__assets"),
+            pk=pk,
+        )
+        self.check_object_permissions(request, pr)
+
+        if pr.status in (
+            PromoRequestStatus.CANCELLED,
+            PromoRequestStatus.COMPLETED,
+            PromoRequestStatus.EXPIRED,
+        ):
+            return Response(
+                {"detail": "لا يمكن تجهيز الدفع لهذا الطلب في حالته الحالية."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        invoice = getattr(pr, "invoice", None)
+        if invoice is not None and invoice.is_payment_effective():
+            return Response(PromoRequestDetailSerializer(pr).data, status=status.HTTP_200_OK)
+
+        note = str(request.data.get("quote_note") or "").strip()
+        try:
+            pr = quote_and_create_invoice(pr=pr, by_user=request.user, quote_note=note)
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(PromoRequestDetailSerializer(pr).data, status=status.HTTP_200_OK)
 # ---------- Backoffice ----------
 
 class BackofficePromoRequestsListView(generics.ListAPIView):
@@ -753,7 +790,7 @@ class BackofficePromoRequestsListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = PromoRequest.objects.prefetch_related("items").all().order_by("-id")
+        qs = PromoRequest.objects.prefetch_related("items").all().order_by("-updated_at", "-id")
 
         ap = getattr(user, "access_profile", None)
         if not ap:

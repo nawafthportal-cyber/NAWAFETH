@@ -1,0 +1,647 @@
+{% extends "mobile_web/base.html" %}{% load static %}
+{% block title %}الصفحة التفصيلية لخيارات الترويج — نوافــذ{% endblock %}
+{% block body_class %}page-promotion-new{% endblock %}
+
+{% block content %}
+<main
+  class="page-shell"
+  data-promo-new-request-url="{% url 'mobile_web:promotion_new_request' %}"
+  data-promo-requests-url="{% url 'mobile_web:promotion' %}">
+  <div class="page-header">
+    <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
+    <h1>الصفحة التفصيلية لخيارات الترويج</h1>
+  </div>
+
+  <section class="detail-card promo-top-shell">
+    <div class="promo-top-actions">
+      <button type="button" class="promo-nav-pill active" data-promo-view="composer">ترويج</button>
+      <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار</button>
+    </div>
+    <div class="promo-top-meta">
+      <label class="promo-meta-label" for="promo-provider-name">اسم المختص</label>
+      <input id="promo-provider-name" type="text" class="form-input" value="مزود الخدمة" readonly>
+    </div>
+    <div class="promo-page-badge">الصفحة التفصيلية لخيارات الترويج</div>
+  </section>
+
+  <section id="promo-pricing-view" class="detail-card promo-pricing-view" hidden>
+    <h3>دليل الأسعار</h3>
+    <p class="text-muted">هذا الدليل مرجعي. التكلفة النهائية يتم احتسابها ديناميكيًا حسب الخيارات والتواريخ التي تحددها.</p>
+    <div class="pricing-grid">
+      <article class="pricing-card">
+        <h4>بنر الصفحة الرئيسية</h4>
+        <p>اقل مدة للحملة 24 ساعة</p>
+        <p>1000 ريال سعودي لكل (24) ساعة</p>
+      </article>
+      <article class="pricing-card">
+        <h4>شريط أبرز المختصين</h4>
+        <p>اقل مدة للحملة 24 ساعة</p>
+        <p>التكلفة لكل (24) ساعة</p>
+      </article>
+      <article class="pricing-card">
+        <h4>شريط البنرات والمشاريع / شريط اللمحات</h4>
+        <table class="pricing-table">
+          <thead>
+            <tr><th>معدل الظهور</th><th>التكلفة (ريال سعودي)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>مرة كل 10 ثواني</td><td>2000</td></tr>
+            <tr><td>مرة كل 30 ثانية</td><td>1500</td></tr>
+            <tr><td>مرة كل دقيقة</td><td>1000</td></tr>
+            <tr><td>مرة كل خمس دقائق</td><td>500</td></tr>
+            <tr><td>مرة كل ربع ساعة</td><td>250</td></tr>
+            <tr><td>مرة كل نصف ساعة</td><td>200</td></tr>
+            <tr><td>مرة كل ساعة</td><td>100</td></tr>
+          </tbody>
+        </table>
+      </article>
+      <article class="pricing-card">
+        <h4>الظهور في قوائم البحث</h4>
+        <table class="pricing-table">
+          <thead>
+            <tr><th>ترتيب الظهور</th><th>التكلفة (ريال سعودي)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>الأول في القائمة</td><td>10000</td></tr>
+            <tr><td>الثاني في القائمة</td><td>5000</td></tr>
+            <tr><td>من أول خمسة أسماء</td><td>2500</td></tr>
+            <tr><td>من أول عشرة أسماء</td><td>1200</td></tr>
+          </tbody>
+        </table>
+      </article>
+      <article class="pricing-card">
+        <h4>الرسائل الدعائية</h4>
+        <p>سيتم التواصل معكم للاتفاق على عدد الرسائل، جدولتها، والتكلفة.</p>
+      </article>
+      <article class="pricing-card">
+        <h4>الرعاية</h4>
+        <p>سيتم التواصل معكم للاتفاق على مدة الرعاية، مساحات الظهور، والتكلفة.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="promo-composer-view">
+    <form id="promo-form" class="detail-card">
+      <div class="attachment-guide" style="margin-bottom:12px">
+        <strong>سياسة وشروط الإرفاق (مزود الخدمة)</strong>
+        <p style="margin:6px 0 0">يرجى رفع ملفات مرخصة وواضحة وخالية من أي حقوق غير مصرح بها. أي ملف غير مدعوم أو غير مطابق لنوع الخدمة أو مخالف للسياسات سيتم رفضه تلقائيًا ولن يتم إرسال الطلب حتى التصحيح.</p>
+        <p style="margin:6px 0 0">سيظهر تنبيه مباشر عند اختيار ملف غير مدعوم مع عرض الامتدادات المسموحة لكل خدمة.</p>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">عنوان الطلب</label>
+        <input id="promo-title" type="text" class="form-input" placeholder="مثال: حملة إبراز الحساب" required>
+      </div>
+
+      <div id="promo-service-blocks" class="promo-services-grid">
+        <div class="promo-service-block" data-service-block="snapshots">
+          <div class="service-block-header">
+            <h4>شريط اللمحات</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="snapshots">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="form-group">
+              <label class="form-label">معدل الظهور</label>
+              <select data-field="frequency" class="form-select">
+                <option value="10s">كل 10 ثواني</option>
+                <option value="30s">كل 30 ثانية</option>
+                <option value="60s" selected>كل دقيقة</option>
+                <option value="300s">كل 5 دقائق</option>
+                <option value="900s">كل 15 دقيقة</option>
+                <option value="1800s">كل 30 دقيقة</option>
+                <option value="3600s">كل ساعة</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <div class="hint-list">
+              <strong>خيارات معدل الظهور:</strong>
+              <p>كل 10 ثواني • كل 30 ثانية • كل دقيقة • كل 5 دقائق • كل 15 دقيقة • كل 30 دقيقة • كل ساعة</p>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="snapshots">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="portfolio_showcase">
+          <div class="service-block-header">
+            <h4>شريط البنرات والمشاريع</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="portfolio_showcase">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="form-group">
+              <label class="form-label">معدل الظهور</label>
+              <select data-field="frequency" class="form-select">
+                <option value="10s">كل 10 ثواني</option>
+                <option value="30s">كل 30 ثانية</option>
+                <option value="60s" selected>كل دقيقة</option>
+                <option value="300s">كل 5 دقائق</option>
+                <option value="900s">كل 15 دقيقة</option>
+                <option value="1800s">كل 30 دقيقة</option>
+                <option value="3600s">كل ساعة</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="portfolio_showcase">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="featured_specialists">
+          <div class="service-block-header">
+            <h4>شريط أبرز المختصين</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="featured_specialists">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="form-group">
+              <label class="form-label">معدل الظهور</label>
+              <select data-field="frequency" class="form-select">
+                <option value="10s">كل 10 ثواني</option>
+                <option value="30s">كل 30 ثانية</option>
+                <option value="60s" selected>كل دقيقة</option>
+                <option value="300s">كل 5 دقائق</option>
+                <option value="900s">كل 15 دقيقة</option>
+                <option value="1800s">كل 30 دقيقة</option>
+                <option value="3600s">كل ساعة</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="featured_specialists">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="home_banner">
+          <div class="service-block-header">
+            <h4>بنر الصفحة الرئيسية</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="home_banner">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="attachment-guide">
+              <strong>قبل رفع مرفقات البنر:</strong>
+              <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840. إذا كانت الصورة بمقاس مختلف يمكنك تفعيل الضبط التلقائي.</p>
+            </div>
+            <div class="form-group"><label class="form-label">رفع التصميم</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
+            <div class="form-group"><label class="form-label">مواصفات الملف المرفوع</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
+            <div class="banner-editor" id="home-banner-editor" hidden>
+              <div class="banner-editor-head">
+                <strong>معاينة وتحجيم البانر</strong>
+                <small id="home-banner-dims" class="text-muted">لم يتم اختيار ملف بعد</small>
+              </div>
+              <div class="banner-preview-frame" id="home-banner-preview-frame">
+                <div class="banner-preview-stage" id="home-banner-preview-stage">
+                  <div class="banner-preview-empty" id="home-banner-preview-empty">اختر صورة أو فيديو للمعاينة</div>
+                  <div class="banner-preview-media-wrap" id="home-banner-preview-media-wrap"></div>
+                </div>
+              </div>
+              <div class="banner-device-tabs" id="home-banner-device-tabs">
+                <button type="button" class="banner-device-tab active" data-device="mobile">جوال</button>
+                <button type="button" class="banner-device-tab" data-device="tablet">تابلت</button>
+                <button type="button" class="banner-device-tab" data-device="desktop">ديسكتوب</button>
+              </div>
+              <div class="form-group" style="margin-bottom:8px">
+                <label class="form-label" for="home-banner-scale-range">نسبة التحجيم</label>
+                <input id="home-banner-scale-range" type="range" min="40" max="160" value="100" class="form-input">
+                <small class="text-muted">القيمة الحالية: <span id="home-banner-scale-value">100%</span></small>
+              </div>
+              <div class="check-row" style="margin:4px 0 0">
+                <label><input id="home-banner-auto-fit" type="checkbox" checked> ضبط الصور تلقائياً إلى 1920x840 قبل الرفع</label>
+              </div>
+              <small id="home-banner-editor-note" class="text-muted">الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.</small>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="home_banner">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="sponsorship">
+          <div class="service-block-header">
+            <h4>الرعاية</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="sponsorship">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="attachment-guide">
+              <strong>قبل رفع شعار الراعي:</strong>
+              <p style="margin:6px 0 0">ارفع شعارًا بجودة عالية وخلفية مناسبة للعرض داخل التطبيق. يفضّل تسمية الملف باسم الجهة الراعية لتسهيل المراجعة.</p>
+            </div>
+            <div class="form-group"><label class="form-label">رفع شعار الراعي الرسمي</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
+            <div class="form-group"><label class="form-label">مواصفات الملف المرفوع</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+            <div class="form-group"><label class="form-label">نص رسالة الرعاية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
+            <div class="form-group"><label class="form-label">رابط التوجيه لموقع الراعي</label><input data-field="redirect_url" type="url" class="form-input"></div>
+            <div class="form-group"><label class="form-label">اسم الراعي</label><input data-field="sponsor_name" type="text" class="form-input"></div>
+            <div class="form-group"><label class="form-label">مدة الرعاية بالأشهر (رقم)</label><input data-field="sponsorship_months" type="number" min="1" class="form-input" value="1"></div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="sponsorship">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="promo_messages">
+          <div class="service-block-header">
+            <h4>الرسائل الدعائية</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="promo_messages">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="attachment-guide">
+              <strong>قبل رفع مرفقات الرسائل:</strong>
+              <p style="margin:6px 0 0">يمكنك الإرسال بنص فقط أو بمرفق فقط أو بكليهما. عند استخدام مرفقات، استخدم ملفات خفيفة وواضحة لتسهيل التسليم في التنبيهات والمحادثات.</p>
+            </div>
+            <div class="check-row">
+              <label><input data-field="use_notification_channel" type="checkbox" checked> رسائل التنبيه الدعائية</label>
+              <label><input data-field="use_chat_channel" type="checkbox"> رسائل المحادثات الدعائية</label>
+            </div>
+            <div class="form-group"><label class="form-label">وقت الإرسال</label><input data-field="send_at" type="datetime-local" class="form-input"></div>
+            <div class="form-group"><label class="form-label">نص الرسالة الترويجية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
+            <div class="form-group"><label class="form-label">مواصفات الملف المرفوع</label><input data-field="attachment_specs" type="text" class="form-input"></div>
+            <div class="form-group"><label class="form-label">رفع المرفقات</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
+            <button type="button" class="btn-preview-service" data-preview-service="promo_messages">معاينة</button>
+          </div>
+        </div>
+
+        <div class="promo-service-block" data-service-block="search_results">
+          <div class="service-block-header">
+            <h4>الظهور في قوائم البحث</h4>
+            <label class="service-toggle-label">
+              <input type="checkbox" class="service-toggle-input" data-service-toggle="search_results">
+              <span>تفعيل</span>
+            </label>
+          </div>
+          <div class="service-body" hidden>
+            <div class="check-row search-options">
+              <label><input data-field="search_scopes" type="checkbox" value="default" checked> قائمة البحث الافتراضية</label>
+              <label><input data-field="search_scopes" type="checkbox" value="main_results"> نتائج البحث الرئيسية</label>
+              <label><input data-field="search_scopes" type="checkbox" value="category_match"> نتائج البحث المطابقة لتصنيف المختص</label>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ترتيب الظهور</label>
+              <select data-field="search_position" class="form-select">
+                <option value="first">الأول في القائمة</option>
+                <option value="second">الثاني في القائمة</option>
+                <option value="top5">من أول خمسة أسماء</option>
+                <option value="top10">من أول عشرة أسماء</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">تصنيف المختص (اختياري)</label><input data-field="target_category" type="text" class="form-input"></div>
+            <div class="form-row">
+              <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
+              <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <div class="hint-list">
+              <strong>شريط ترتيب الظهور أربعة خيارات:</strong>
+              <p>الأول في القائمة • الثاني في القائمة • من أول خمسة أسماء • من أول عشرة أسماء</p>
+            </div>
+            <button type="button" class="btn-preview-service" data-preview-service="search_results">معاينة</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="promo-live-total" class="promo-live-total" hidden>
+        <div class="promo-live-total-head">
+          <strong>مجمل التكلفة</strong>
+          <div id="promo-live-spinner" class="spinner-inline" hidden></div>
+        </div>
+        <div class="promo-live-total-amount" id="promo-live-amount">0.00 ريال</div>
+        <div class="promo-live-total-detail" id="promo-live-detail">قبل الضريبة: 0.00 ريال • VAT: 0.00 ريال</div>
+        <div id="promo-live-breakdown" class="promo-live-breakdown" hidden></div>
+      </div>
+
+      <div class="promo-submit-actions">
+        <a href="{% url 'mobile_web:promotion' %}" class="btn btn-secondary">إلغاء</a>
+        <button type="submit" class="btn btn-primary" id="promo-submit">استمرار</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="promo-summary-view" class="detail-card promo-summary-view" hidden>
+    <div class="promo-summary-head-badge">ملخص طلب الترويج والتكلفة</div>
+    <div class="promo-summary-provider-row">
+      <span>اسم المختص</span>
+      <strong id="promo-summary-provider">@---</strong>
+    </div>
+    <p class="promo-summary-note">عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند</p>
+
+    <div class="promo-summary-table-wrap">
+      <table class="promo-summary-table">
+        <thead>
+          <tr>
+            <th>البند</th>
+            <th>التكلفة</th>
+          </tr>
+        </thead>
+        <tbody id="promo-summary-items">
+          <tr>
+            <td colspan="2">لا توجد بنود لعرضها</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="promo-summary-totals-wrap">
+      <table class="promo-summary-table promo-summary-totals">
+        <tbody>
+          <tr>
+            <th>المجموع</th>
+            <td id="promo-summary-subtotal">0.00 ريال</td>
+          </tr>
+          <tr>
+            <th>VAT</th>
+            <td id="promo-summary-vat">0.00 ريال</td>
+          </tr>
+          <tr>
+            <th>التكلفة الكلية</th>
+            <td id="promo-summary-total">0.00 ريال</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="promo-summary-actions">
+      <button type="button" class="btn btn-secondary" id="promo-summary-cancel">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="promo-summary-confirm">استمرار</button>
+    </div>
+  </section>
+
+  <section id="promo-payment-view" class="detail-card promo-payment-view" hidden>
+    <div class="promo-payment-head-badge">شاشة الدفع</div>
+
+    <div class="promo-payment-request-row">
+      <span>رقم الطلب</span>
+      <strong id="promo-payment-request-code">—</strong>
+    </div>
+    <div class="promo-payment-amount-row">
+      <span>المبلغ المطلوب</span>
+      <strong id="promo-payment-total">0.00 ريال</strong>
+    </div>
+
+    <div class="promo-payment-brand-box" aria-hidden="true">Apple Pay</div>
+
+    <div class="promo-payment-methods" role="radiogroup" aria-label="خيارات الدفع">
+      <label class="promo-payment-method-option">
+        <input type="radio" name="promo-payment-method" value="mada" checked>
+        <span>مدى</span>
+      </label>
+      <label class="promo-payment-method-option">
+        <input type="radio" name="promo-payment-method" value="visa">
+        <span>فيزا</span>
+      </label>
+      <label class="promo-payment-method-option">
+        <input type="radio" name="promo-payment-method" value="mastercard">
+        <span>ماستر كارد</span>
+      </label>
+    </div>
+
+    <div class="promo-payment-card-grid">
+      <div class="form-group">
+        <label class="form-label" for="promo-card-name">اسم حامل البطاقة</label>
+        <input id="promo-card-name" type="text" class="form-input" maxlength="60" autocomplete="cc-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="promo-card-number">رقم البطاقة</label>
+        <input id="promo-card-number" type="text" class="form-input" inputmode="numeric" maxlength="19" autocomplete="cc-number" placeholder="0000 0000 0000 0000">
+      </div>
+      <div class="form-group half">
+        <label class="form-label" for="promo-card-expiry">تاريخ الانتهاء (MM/YY)</label>
+        <input id="promo-card-expiry" type="text" class="form-input" inputmode="numeric" maxlength="5" autocomplete="cc-exp" placeholder="MM/YY">
+      </div>
+      <div class="form-group half">
+        <label class="form-label" for="promo-card-cvv">CVV</label>
+        <input id="promo-card-cvv" type="password" class="form-input" inputmode="numeric" maxlength="4" autocomplete="cc-csc" placeholder="***">
+      </div>
+    </div>
+
+    <div class="promo-payment-security">
+      <strong>حماية الدفع</strong>
+      <ul>
+        <li>اتصال مشفر عبر HTTPS.</li>
+        <li>التحقق من العملية بمفتاح idempotency لمنع التكرار.</li>
+        <li>لا يتم الاحتفاظ ببيانات البطاقة بعد إتمام العملية.</li>
+      </ul>
+    </div>
+
+    <div class="promo-payment-actions">
+      <button type="button" class="btn btn-secondary" id="promo-payment-back">رجوع</button>
+      <button type="button" class="btn btn-primary" id="promo-payment-submit">دفع</button>
+    </div>
+  </section>
+</main>
+
+<div id="promo-success-modal" class="promo-modal" hidden>
+  <div class="promo-modal-backdrop"></div>
+  <div class="promo-modal-card promo-success-card" role="dialog" aria-modal="true">
+    <div class="success-code-badge" id="success-request-code">رقم الطلب: —</div>
+    <div class="success-message-box">
+      <strong id="success-title">تم إرسال الطلب بنجاح</strong>
+      <p id="success-text">يمكنك متابعة الطلب من صفحة طلباتي.</p>
+    </div>
+    <button type="button" class="btn btn-primary btn-block" id="success-close-btn" style="background:#2f7d1e;border-color:#2f7d1e">إغلاق</button>
+  </div>
+</div>
+
+<div id="promo-modal" class="promo-modal" hidden>
+  <div class="promo-modal-backdrop" data-close-modal="1"></div>
+  <div class="promo-modal-card" role="dialog" aria-modal="true" aria-labelledby="promo-modal-title">
+    <div class="promo-modal-head">
+      <h3 id="promo-modal-title">تفاصيل الترويج</h3>
+      <button type="button" class="promo-modal-close" data-close-modal="1">×</button>
+    </div>
+    <div id="promo-modal-body" class="promo-modal-body"></div>
+    <div class="promo-modal-actions">
+      <button type="button" class="btn btn-secondary" id="promo-modal-cancel">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="promo-modal-confirm">متابعة</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .promo-top-shell{display:grid;grid-template-columns:auto minmax(220px,1fr) auto;gap:12px;align-items:center;margin-bottom:12px}
+  .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .promo-nav-pill{border:1px solid #2f7d1e;background:#fff;color:#2f7d1e;border-radius:999px;padding:8px 18px;font:inherit;font-weight:700;cursor:pointer}
+  .promo-nav-pill.active{background:#2f7d1e;color:#fff}
+  .promo-top-meta{display:flex;align-items:center;gap:8px}
+  .promo-meta-label{font-size:13px;color:#4b5563;font-weight:700;white-space:nowrap}
+  .promo-page-badge{background:#2f7d1e;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;text-align:center;white-space:nowrap}
+
+  .promo-pricing-view h3{margin:0 0 6px;color:#2f7d1e}
+  .pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+  .pricing-card{border:1px solid #d9c4eb;border-radius:12px;padding:12px;background:#fff}
+  .pricing-card h4{margin:0 0 8px;color:#663d90;font-size:15px}
+  .pricing-card p{margin:0 0 6px;color:#374151;line-height:1.7}
+  .pricing-table{width:100%;border-collapse:collapse;font-size:12px}
+  .pricing-table th,.pricing-table td{border:1px solid #eadcf6;padding:6px 8px;text-align:right}
+  .pricing-table th{background:#f5ecfd;color:#5b2f91}
+
+  .attachment-guide{border:1px solid #ece6f8;background:#faf7ff;border-radius:12px;padding:10px 12px;color:#4b2d73;font-size:13px;line-height:1.7;margin:0 0 10px}
+  .attachment-guide strong{display:block;font-weight:700}
+
+  .promo-services-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+  .promo-service-block{border:1px solid #d8c9ea;border-radius:14px;padding:12px;background:#fff;grid-column:span 3}
+  .promo-service-block[data-service-block="sponsorship"],
+  .promo-service-block[data-service-block="promo_messages"],
+  .promo-service-block[data-service-block="search_results"]{grid-column:span 4}
+  .promo-service-block.is-active{border-color:#9b6cc5;box-shadow:0 0 0 2px rgba(155,108,197,.15)}
+  .service-block-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
+  .service-block-header h4{margin:0;color:#663d90;font-size:18px}
+  .service-toggle-label{display:flex;align-items:center;gap:6px;color:#5b2f91;font-size:13px;font-weight:700;cursor:pointer}
+  .service-toggle-input{accent-color:#7b2cbf}
+  .service-body{margin-top:12px}
+
+  .check-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
+  .check-row label{font-size:13px;color:#374151}
+  .hint-list{border:1px dashed #f1cc63;background:#fffbe8;border-radius:10px;padding:8px 10px;margin:0 0 10px;color:#7a4b00;font-size:12px;line-height:1.7}
+  .hint-list strong{display:block;margin-bottom:2px}
+  .hint-list p{margin:0}
+
+  .btn-preview-service{border:1px solid #c8b3ea;background:#faf7ff;color:#663d90;border-radius:999px;padding:6px 16px;font:inherit;font-size:13px;cursor:pointer;transition:background .15s}
+  .btn-preview-service:hover{background:#efe7fb}
+
+  .banner-editor{border:1px solid #ebe3f8;border-radius:14px;padding:12px;background:#faf7ff;margin-bottom:10px}
+  .banner-editor-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+  .banner-preview-frame{position:relative;width:100%;aspect-ratio:16/7;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#0f172a,#1e293b)}
+  .banner-preview-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;--hb-preview-scale:1}
+  .banner-preview-empty{color:#e5e7eb;font-size:13px;text-align:center;padding:10px}
+  .banner-preview-media-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px}
+  .banner-preview-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:scale(var(--hb-preview-scale));transform-origin:center center}
+  .banner-device-tabs{display:flex;gap:8px;margin:10px 0}
+  .banner-device-tab{border:1px solid #d6c8ef;background:#fff;color:#5d2d95;padding:8px 10px;border-radius:999px;font:inherit;font-size:13px}
+  .banner-device-tab.active{background:#efe7fb;border-color:#5d2d95}
+
+  .promo-live-total{border:1px solid rgba(102,61,144,.3);background:#faf7ff;border-radius:14px;padding:14px;margin:14px 0}
+  .promo-live-total-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .promo-live-total-head strong{color:#663d90;font-size:15px}
+  .promo-live-total-amount{font-size:22px;font-weight:800;color:#1a1a2e}
+  .promo-live-total-detail{font-size:12px;color:#6b7280;margin-top:2px}
+  .promo-live-breakdown{margin-top:10px;border-top:1px solid #eadff6;padding-top:8px}
+  .promo-live-breakdown-item{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12px;color:#374151;border-bottom:1px dashed #eee}
+  .promo-live-breakdown-item:last-child{border-bottom:0}
+  .promo-live-breakdown-item strong{color:#4b2d73}
+
+  .promo-submit-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+  .promo-submit-actions .btn{min-height:42px}
+
+  .promo-summary-view{max-width:760px;margin:0 auto}
+  .promo-summary-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:800;padding:12px 24px;border-radius:6px;margin:0 auto 14px;font-size:22px}
+  .promo-summary-provider-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;color:#5b2f91;font-weight:700}
+  .promo-summary-provider-row strong{display:inline-block;border:2px solid #a12d9d;padding:4px 12px;min-width:140px;text-align:center;border-radius:4px;background:#fff}
+  .promo-summary-note{margin:0 0 10px;text-align:center;font-size:22px;color:#111827;line-height:1.6}
+  .promo-summary-table-wrap{border:2px solid #a12d9d;border-bottom:0}
+  .promo-summary-table{width:100%;border-collapse:collapse}
+  .promo-summary-table thead th{background:#a12d9d;color:#fff;font-size:30px;padding:10px;border:2px solid #a12d9d}
+  .promo-summary-table tbody td,.promo-summary-table tbody th{border:2px solid #a12d9d;padding:12px;font-size:30px;text-align:center;background:#fff}
+  .promo-summary-table tbody td[colspan="2"]{font-size:24px;color:#6b7280}
+  .promo-summary-totals-wrap{margin-top:8px}
+  .promo-summary-totals tbody th{background:#f3e5f5;font-weight:800}
+  .promo-summary-totals tbody td{font-weight:700}
+  .promo-summary-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+  .promo-summary-actions .btn{min-width:160px;min-height:44px}
+
+  .promo-payment-view{max-width:560px;margin:0 auto}
+  .promo-payment-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:800;padding:10px 22px;border-radius:6px;margin:0 auto 14px;font-size:24px}
+  .promo-payment-request-row,.promo-payment-amount-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 12px;border:1px solid #d9c4eb;border-radius:8px;background:#fff;margin-bottom:10px}
+  .promo-payment-request-row span,.promo-payment-amount-row span{color:#6b7280;font-weight:700}
+  .promo-payment-request-row strong,.promo-payment-amount-row strong{color:#2f7d1e;font-weight:800}
+  .promo-payment-brand-box{margin:14px auto 12px;max-width:320px;padding:20px 12px;border:2px dashed #d9c4eb;border-radius:14px;background:#fff;text-align:center;font-size:54px;line-height:1;font-weight:800;letter-spacing:1px;color:#111}
+  .promo-payment-methods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
+  .promo-payment-method-option{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #d9c4eb;border-radius:999px;padding:8px;background:#fff;color:#4b2d73;font-weight:700;cursor:pointer}
+  .promo-payment-method-option.is-selected{border-color:#2f7d1e;box-shadow:0 0 0 2px rgba(47,125,30,.12);background:#f5fff2}
+  .promo-payment-method-option input{accent-color:#2f7d1e}
+  .promo-payment-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .promo-payment-card-grid .form-group{margin:0}
+  .promo-payment-card-grid .form-group.half{grid-column:span 1}
+  .promo-payment-card-grid .form-group:not(.half){grid-column:span 2}
+  .promo-payment-security{margin-top:12px;border:1px solid #dcefd7;background:#f5fff2;border-radius:10px;padding:10px 12px}
+  .promo-payment-security strong{display:block;color:#2f7d1e;margin-bottom:6px}
+  .promo-payment-security ul{margin:0;padding-inline-start:18px;color:#4b5563;font-size:12px;line-height:1.7}
+  .promo-payment-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+  .promo-payment-actions .btn{min-width:160px;min-height:44px}
+
+  .promo-modal{position:fixed;inset:0;z-index:1500}
+  .promo-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px)}
+  .promo-modal-card{position:relative;z-index:1;max-width:560px;margin:8vh auto 0;background:#fff;border-radius:22px;padding:18px;box-shadow:0 20px 40px rgba(15,23,42,.18)}
+  .promo-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .promo-modal-head h3{margin:0;color:#3f2470}
+  .promo-modal-close{border:0;background:#f4effd;color:#663d90;width:36px;height:36px;border-radius:999px;font-size:24px;line-height:1;cursor:pointer}
+  .promo-modal-body{max-height:60vh;overflow:auto}
+  .promo-modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+  .promo-modal-section{margin-bottom:14px}
+  .promo-modal-section h4{margin:0 0 8px;color:#3f2470;font-size:15px}
+  .promo-modal-item{padding:10px 12px;border-radius:14px;background:#f7f3ff;margin-bottom:8px}
+  .promo-modal-item strong{display:block;margin-bottom:4px}
+  .promo-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .promo-summary-grid .promo-modal-item{margin-bottom:0;background:#faf8ff}
+  .promo-note{margin:0;color:#6b7280;line-height:1.8;font-size:13px}
+  .promo-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f0f6}
+  .promo-line:last-child{border-bottom:0}
+  .promo-line span:first-child{color:#6b7280}
+
+  .promo-success-card{max-width:420px;text-align:center;padding:28px 24px}
+  .success-code-badge{display:inline-block;border:2px solid #2f7d1e;color:#2f7d1e;border-radius:8px;padding:8px 24px;font-weight:700;font-size:15px;margin:0 0 18px}
+  .success-message-box{border:2px solid #2f7d1e;border-radius:8px;padding:16px;margin:0 0 18px}
+  .success-message-box strong{display:block;font-size:17px;margin:0 0 4px}
+  .success-message-box p{margin:0;color:#6b7280}
+
+  @media (max-width:1024px){
+    .promo-top-shell{grid-template-columns:1fr;gap:10px}
+    .promo-page-badge{justify-self:start}
+    .promo-service-block{grid-column:span 6}
+    .promo-service-block[data-service-block="sponsorship"],
+    .promo-service-block[data-service-block="promo_messages"],
+    .promo-service-block[data-service-block="search_results"]{grid-column:span 6}
+    .pricing-grid{grid-template-columns:1fr}
+  }
+
+  @media (max-width:640px){
+    .promo-service-block{grid-column:span 12}
+    .promo-service-block[data-service-block="sponsorship"],
+    .promo-service-block[data-service-block="promo_messages"],
+    .promo-service-block[data-service-block="search_results"]{grid-column:span 12}
+    .promo-submit-actions .btn{width:100%}
+    .promo-summary-head-badge{font-size:18px;padding:10px 14px}
+    .promo-summary-note{font-size:16px}
+    .promo-summary-table thead th{font-size:18px}
+    .promo-summary-table tbody td,.promo-summary-table tbody th{font-size:18px;padding:10px}
+    .promo-summary-actions .btn{width:100%}
+    .promo-payment-head-badge{font-size:20px}
+    .promo-payment-brand-box{font-size:42px}
+    .promo-payment-methods{grid-template-columns:1fr}
+    .promo-payment-card-grid{grid-template-columns:1fr}
+    .promo-payment-card-grid .form-group,.promo-payment-card-grid .form-group.half{grid-column:span 1}
+    .promo-payment-actions .btn{width:100%}
+    .promo-modal-card{margin:0;height:100%;max-width:none;border-radius:0;padding:16px}
+    .promo-modal-body{max-height:calc(100vh - 170px)}
+    .promo-summary-grid{grid-template-columns:1fr}
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/promotionPage.js' %}"></script>
+{% endblock %}

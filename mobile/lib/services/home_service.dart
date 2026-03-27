@@ -1,6 +1,7 @@
 import 'api_client.dart';
 import '../models/category_model.dart';
 import '../models/banner_model.dart';
+import '../models/featured_specialist_model.dart';
 import '../models/provider_public_model.dart';
 import '../models/media_item_model.dart';
 
@@ -10,6 +11,7 @@ class HomeService {
 
   static _CacheEntry<List<CategoryModel>>? _categoriesCache;
   static final Map<int, _CacheEntry<List<ProviderPublicModel>>> _featuredProvidersCache = {};
+  static final Map<int, _CacheEntry<List<FeaturedSpecialistModel>>> _featuredSpecialistsCache = {};
   static final Map<int, _CacheEntry<List<BannerModel>>> _homeBannersCache = {};
   static final Map<int, _CacheEntry<List<MediaItemModel>>> _spotlightsCache = {};
 
@@ -78,6 +80,43 @@ class HomeService {
     }
     if (cached != null) {
       return List<ProviderPublicModel>.from(cached.data);
+    }
+    return [];
+  }
+
+  static Future<List<FeaturedSpecialistModel>> fetchFeaturedSpecialists({
+    int limit = 10,
+    bool forceRefresh = false,
+  }) async {
+    final cached = _featuredSpecialistsCache[limit];
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return List<FeaturedSpecialistModel>.from(cached.data);
+    }
+
+    final res = await ApiClient.get(
+      '/api/promo/active/?service_type=featured_specialists&limit=$limit',
+    );
+    if (res.isSuccess && res.data != null) {
+      final list = res.data is List
+          ? res.data as List
+          : (res.data['results'] as List?) ?? [];
+      final seenProviderIds = <int>{};
+      final parsed = list
+          .whereType<Map>()
+          .map((item) => FeaturedSpecialistModel.fromPromoPlacement(
+                Map<String, dynamic>.from(item),
+              ))
+          .where((item) => item.providerId > 0 && seenProviderIds.add(item.providerId))
+          .toList(growable: false);
+      _featuredSpecialistsCache[limit] = _CacheEntry<List<FeaturedSpecialistModel>>(
+        List<FeaturedSpecialistModel>.unmodifiable(parsed),
+        DateTime.now(),
+      );
+      return List<FeaturedSpecialistModel>.from(parsed);
+    }
+
+    if (cached != null) {
+      return List<FeaturedSpecialistModel>.from(cached.data);
     }
     return [];
   }

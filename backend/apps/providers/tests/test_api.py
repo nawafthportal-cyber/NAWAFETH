@@ -1,9 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
 from rest_framework.test import APIClient
 
 from apps.accounts.models import OTP
+from apps.promo.models import PromoAdType, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.providers.models import (
     Category,
     ProviderCategory,
@@ -21,6 +23,7 @@ from apps.providers.models import (
 )
 from apps.subscriptions.models import Subscription, SubscriptionStatus
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 
 
 @pytest.mark.django_db
@@ -646,3 +649,78 @@ def test_provider_stats_include_media_likes_and_saves_from_published_media(setti
     assert payload.get("portfolio_saves_count") == 1
     assert payload.get("spotlight_saves_count") == 1
     assert payload.get("media_saves_count") == 2
+
+
+@pytest.mark.django_db
+def test_spotlight_feed_shows_paid_and_today_items_only(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    settings.STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
+    promoted_client = APIClient()
+    _register_and_auth_provider(promoted_client, phone="0500001201")
+    promoted_provider = ProviderProfile.objects.get(user__phone="0500001201")
+    promoted_item = ProviderSpotlightItem.objects.create(
+        provider=promoted_provider,
+        file_type="video",
+        file=SimpleUploadedFile("promoted.mp4", b"video", content_type="video/mp4"),
+        caption="promoted old snapshot",
+    )
+
+    today_client = APIClient()
+    _register_and_auth_provider(today_client, phone="0500001202")
+    today_provider = ProviderProfile.objects.get(user__phone="0500001202")
+    today_item = ProviderSpotlightItem.objects.create(
+        provider=today_provider,
+        file_type="video",
+        file=SimpleUploadedFile("today.mp4", b"video", content_type="video/mp4"),
+        caption="today snapshot",
+    )
+
+    old_client = APIClient()
+    _register_and_auth_provider(old_client, phone="0500001203")
+    old_provider = ProviderProfile.objects.get(user__phone="0500001203")
+    old_item = ProviderSpotlightItem.objects.create(
+        provider=old_provider,
+        file_type="video",
+        file=SimpleUploadedFile("old.mp4", b"video", content_type="video/mp4"),
+        caption="old snapshot",
+    )
+
+    yesterday = timezone.now() - timedelta(days=1)
+    ProviderSpotlightItem.objects.filter(id=promoted_item.id).update(created_at=yesterday)
+    ProviderSpotlightItem.objects.filter(id=old_item.id).update(created_at=yesterday)
+
+    promo_request = PromoRequest.objects.create(
+        requester=promoted_provider.user,
+        title="Snapshot promo bundle",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=timezone.now() - timedelta(hours=1),
+        end_at=timezone.now() + timedelta(hours=2),
+        status=PromoRequestStatus.ACTIVE,
+    )
+    PromoRequestItem.objects.create(
+        request=promo_request,
+        service_type=PromoServiceType.SNAPSHOTS,
+        title="Homepage snapshots placement",
+        start_at=promo_request.start_at,
+        end_at=promo_request.end_at,
+        target_provider=promoted_provider,
+    )
+
+    res = APIClient().get("/api/providers/spotlights/feed/?limit=10")
+
+    assert res.status_code == 200
+    payload = res.json()
+    ids = [row["id"] for row in payload]
+
+    assert promoted_item.id in ids
+    assert today_item.id in ids
+    assert old_item.id not in ids
+    assert payload[0]["id"] == promoted_item.id

@@ -139,3 +139,21 @@ def test_save_user_persists_granted_permissions(otp_client):
     target_profile.refresh_from_db()
     assert target_profile.granted_permissions.filter(code=support_permission.code).exists()
     assert response.status_code == 200
+
+
+def test_new_query_takes_precedence_over_edit_query(otp_client):
+    _seed_dashboard_rows()
+    operator, _operator_profile = _make_admin_user("0557200006", "operator-admin-2")
+
+    target_user = User.objects.create_user(phone="0557200007", username="target-user-2", password="Pass12345!")
+    target_profile = UserAccessProfile.objects.create(user=target_user, level=AccessLevel.USER)
+
+    _login_with_dashboard_otp(otp_client, operator)
+    response = otp_client.get(
+        f"{reverse('dashboard:admin_control_home')}?section=access&new=1&edit={target_profile.id}"
+    )
+
+    assert response.status_code == 200
+    assert response.context["edit_profile"] is None
+    assert response.context["access_form_open"] is True
+    assert "إضافة حساب تشغيل جديد" in response.content.decode("utf-8", errors="ignore")

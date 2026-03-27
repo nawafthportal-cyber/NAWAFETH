@@ -147,6 +147,10 @@ class MobileWebPromotionView(TemplateView):
     template_name = "mobile_web/promotion.html"
 
 
+class MobileWebPromotionNewRequestView(TemplateView):
+    template_name = "mobile_web/promotion_new_request.html"
+
+
 class MobileWebAdditionalServicesView(TemplateView):
     template_name = "mobile_web/additional_services.html"
 
