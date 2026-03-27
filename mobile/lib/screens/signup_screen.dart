@@ -7,6 +7,7 @@ import '../constants/colors.dart';
 import '../constants/saudi_cities.dart';
 import '../services/auth_api_service.dart';
 import '../services/content_service.dart';
+import '../widgets/platform_top_bar.dart';
 import 'terms_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -502,27 +503,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F8),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_forward_rounded,
-            color: AppColors.deepPurple,
-          ),
-          onPressed: () => Navigator.maybePop(context),
-        ),
-        title: Text(
-          _content.title,
-          style: const TextStyle(
-            fontFamily: 'Cairo',
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.deepPurple,
-          ),
-        ),
+      appBar: PlatformTopBar(
+        pageLabel: _content.title,
+        showBackButton: true,
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: SafeArea(
         top: false,

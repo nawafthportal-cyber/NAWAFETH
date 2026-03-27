@@ -15,6 +15,7 @@ import 'package:nawafeth/services/marketplace_service.dart';
 import 'package:nawafeth/services/unread_badge_service.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/models/provider_profile_model.dart';
+import 'package:nawafeth/models/provider_public_model.dart';
 import 'package:nawafeth/screens/notifications_screen.dart';
 import 'package:nawafeth/screens/my_chats_screen.dart';
 
@@ -50,6 +51,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   UserProfile? _userProfile;
   ProviderProfileModel? _providerProfile;
+  ProviderPublicModel? _providerPublicFallback;
   String? _subscriptionPlanName;
   String? _subscriptionStatus;
   DateTime? _subscriptionEndAt;
@@ -98,6 +100,68 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
   int get _savedByUsersCount =>
       _providerStatIntOrNull('media_saves_count') ?? 0;
 
+  String get _providerDisplayName {
+    final providerName = (_providerProfile?.displayName ?? '').trim();
+    if (providerName.isNotEmpty) return providerName;
+
+    final publicName = (_providerPublicFallback?.displayName ?? '').trim();
+    if (publicName.isNotEmpty) return publicName;
+
+    final fallbackProvider = (_userProfile?.providerDisplayName ?? '').trim();
+    if (fallbackProvider.isNotEmpty) return fallbackProvider;
+
+    final userName = (_userProfile?.displayName ?? '').trim();
+    return userName.isEmpty ? 'مزود الخدمة' : userName;
+  }
+
+  String get _providerUsernameLabel {
+    final publicUsername = (_providerPublicFallback?.username ?? '').trim();
+    if (publicUsername.isNotEmpty) {
+      return publicUsername.startsWith('@') ? publicUsername : '@$publicUsername';
+    }
+
+    final value = (_userProfile?.usernameDisplay ?? '').trim();
+    return value.isEmpty ? '@provider' : value;
+  }
+
+  String? get _resolvedProfileImagePath {
+    final providerImage = (_providerProfile?.profileImage ?? '').trim();
+    if (providerImage.isNotEmpty) return providerImage;
+
+    final publicImage = (_providerPublicFallback?.profileImage ?? '').trim();
+    if (publicImage.isNotEmpty) return publicImage;
+
+    final userImage = (_userProfile?.profileImage ?? '').trim();
+    return userImage.isEmpty ? null : userImage;
+  }
+
+  String? get _resolvedCoverImagePath {
+    final providerCover = (_providerProfile?.coverImage ?? '').trim();
+    if (providerCover.isNotEmpty) return providerCover;
+
+    final publicCover = (_providerPublicFallback?.coverImage ?? '').trim();
+    if (publicCover.isNotEmpty) return publicCover;
+
+    final userCover = (_userProfile?.coverImage ?? '').trim();
+    return userCover.isEmpty ? null : userCover;
+  }
+
+  bool get _isProviderVerifiedBlue =>
+      _providerProfile?.isVerifiedBlue == true ||
+      _providerPublicFallback?.isVerifiedBlue == true;
+
+  bool get _isProviderVerifiedGreen =>
+      _providerProfile?.isVerifiedGreen == true ||
+      _providerPublicFallback?.isVerifiedGreen == true;
+
+  bool get _hasProviderExcellenceBadges {
+    final profileBadges = _providerProfile?.excellenceBadges ?? const [];
+    if (profileBadges.isNotEmpty) return true;
+
+    final publicBadges = _providerPublicFallback?.excellenceBadges ?? const [];
+    return publicBadges.isNotEmpty;
+  }
+
   // ✅ نسبة إكمال الملف من البيانات الحقيقية
   double get _profileCompletion => _providerProfile?.profileCompletion ?? 0.30;
 
@@ -141,6 +205,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     // تحميلات ثانوية بالخلفية حتى لا نحجب الشاشة.
     unawaited(_loadProviderProfile(providerFuture));
+    unawaited(_loadProviderPublicFallback());
     unawaited(_loadSubscriptionPlan());
     unawaited(_loadOrderCounts());
     unawaited(_loadMySpotlights());
@@ -158,9 +223,29 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           _providerProfile = providerResult.data;
         });
         unawaited(_loadProviderStats());
+      } else {
+        unawaited(_loadProviderPublicFallback());
       }
     } catch (_) {
-      // optional data
+      unawaited(_loadProviderPublicFallback());
+    }
+  }
+
+  Future<void> _loadProviderPublicFallback() async {
+    try {
+      final providerId = _userProfile?.providerProfileId;
+      if (providerId == null || providerId <= 0) return;
+
+      final response = await InteractiveService.fetchProviderDetail(providerId);
+      if (!mounted || !response.isSuccess || response.dataAsMap == null) return;
+
+      final parsed = ProviderPublicModel.fromJson(response.dataAsMap!);
+      if (!mounted) return;
+      setState(() {
+        _providerPublicFallback = parsed;
+      });
+    } catch (_) {
+      // optional fallback
     }
   }
 
@@ -659,8 +744,12 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
   // رأس الصفحة: غلاف + صورة شخصية + اسم
   Widget _buildHeader() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final coverHeight = screenWidth < 380 ? 178.0 : 194.0;
+    final avatarBottom = screenWidth < 380 ? -34.0 : -40.0;
+    final nameBottom = screenWidth < 380 ? -98.0 : -104.0;
     // ✅ تحديد مصدر صورة الغلاف (محلية أولاً، ثم من API)
-    final coverUrl = ApiClient.buildMediaUrl(_providerProfile?.coverImage);
+    final coverUrl = ApiClient.buildMediaUrl(_resolvedCoverImagePath);
     ImageProvider? coverImageProvider;
     if (_coverImage != null) {
       coverImageProvider = FileImage(_coverImage!);
@@ -669,7 +758,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     }
 
     // ✅ تحديد مصدر الصورة الشخصية (محلية أولاً، ثم من API)
-    final profileUrl = ApiClient.buildMediaUrl(_providerProfile?.profileImage);
+    final profileUrl = ApiClient.buildMediaUrl(_resolvedProfileImagePath);
     ImageProvider? profileImageProvider;
     if (_profileImage != null) {
       profileImageProvider = FileImage(_profileImage!);
@@ -684,7 +773,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
           onTap:
               _isUploadingProfileMedia ? null : () => _pickImage(isCover: true),
           child: Container(
-            height: 190,
+            height: coverHeight,
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: coverImageProvider == null
@@ -706,58 +795,53 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             ),
           ),
         ),
-        // زر الكاميرا وزر التبديل
         Positioned(
-          top: 8,
-          left: 16,
-          child: SafeArea(
-            bottom: false,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: IconButton(
-                icon: const Icon(
-                  Icons.photo_camera_outlined,
-                  color: Colors.white,
-                  size: 20,
+          top: 0,
+          left: 12,
+          right: 12,
+          child: PlatformTopBar(
+            overlay: true,
+            height: 64,
+            notificationCount: _notificationUnread,
+            chatCount: _chatUnread,
+            onNotificationsTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotificationsScreen(),
                 ),
-                onPressed: _isUploadingProfileMedia
-                    ? null
-                    : () => _pickImage(isCover: true),
-              ),
-            ),
+              );
+              _loadUnreadBadges();
+            },
+            onChatsTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MyChatsScreen(),
+                ),
+              );
+              _loadUnreadBadges();
+            },
           ),
         ),
+        // زر الكاميرا
         Positioned(
-          top: 8,
-          right: 16,
-          child: SafeArea(
-            bottom: false,
-              child: PlatformTopBar(
-                overlay: true,
-                height: 92,
-                notificationCount: _notificationUnread,
-                chatCount: _chatUnread,
-                onNotificationsTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NotificationsScreen(),
-                    ),
-                  );
-                  _loadUnreadBadges();
-                },
-                onChatsTap: () async {
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MyChatsScreen(),
-                    ),
-                  );
-                  _loadUnreadBadges();
-                },
+          top: 72,
+          left: 16,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: IconButton(
+              icon: const Icon(
+                Icons.photo_camera_outlined,
+                color: Colors.white,
+                size: 20,
+              ),
+              onPressed: _isUploadingProfileMedia
+                  ? null
+                  : () => _pickImage(isCover: true),
             ),
           ),
         ),
@@ -768,13 +852,13 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                 color: Colors.black26,
                 alignment: Alignment.center,
                 child: const CircularProgressIndicator(color: Colors.white),
-              ),
             ),
           ),
+        ),
 
         // صورة شخصية
         Positioned(
-          bottom: -40,
+          bottom: avatarBottom,
           left: 0,
           right: 0,
           child: Center(
@@ -799,7 +883,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       ],
                     ),
                     child: CircleAvatar(
-                      radius: 38,
+                      radius: screenWidth < 380 ? 36 : 38,
                       backgroundColor: Colors.grey[300],
                       backgroundImage: profileImageProvider,
                       child: profileImageProvider == null
@@ -811,6 +895,44 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                           : null,
                     ),
                   ),
+                  if (_isProviderVerifiedBlue)
+                    Positioned(
+                      right: 0,
+                      bottom: 24,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.verified,
+                          size: 18,
+                          color: Color(0xFF2196F3),
+                        ),
+                      ),
+                    ),
+                  if (_isProviderVerifiedGreen || _hasProviderExcellenceBadges)
+                    Positioned(
+                      left: -2,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _hasProviderExcellenceBadges
+                              ? Icons.workspace_premium_rounded
+                              : Icons.verified_user_rounded,
+                          size: 16,
+                          color: _hasProviderExcellenceBadges
+                              ? const Color(0xFFF9A825)
+                              : const Color(0xFF2E7D32),
+                        ),
+                      ),
+                    ),
                   Positioned(
                     bottom: 3,
                     right: 3,
@@ -829,7 +951,99 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             ),
           ),
         ),
+        Positioned(
+          bottom: nameBottom,
+          left: 16,
+          right: 16,
+          child: Column(
+            children: [
+              Text(
+                _providerDisplayName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _providerUsernameLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              if (_isProviderVerifiedBlue ||
+                  _isProviderVerifiedGreen ||
+                  _hasProviderExcellenceBadges) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    if (_isProviderVerifiedBlue)
+                      _providerBadgeChip(
+                        label: 'توثيق أزرق',
+                        icon: Icons.verified,
+                        color: const Color(0xFF2196F3),
+                      ),
+                    if (_isProviderVerifiedGreen)
+                      _providerBadgeChip(
+                        label: 'توثيق أخضر',
+                        icon: Icons.verified_user,
+                        color: const Color(0xFF2E7D32),
+                      ),
+                    if (_hasProviderExcellenceBadges)
+                      _providerBadgeChip(
+                        label: 'شارات التميز',
+                        icon: Icons.workspace_premium_rounded,
+                        color: const Color(0xFFF9A825),
+                      ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+  Widget _providerBadgeChip({
+    required String label,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withAlpha(26),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withAlpha(90)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontFamily: 'Cairo',
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1369,7 +1583,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                       child: Column(
                         children: [
                           _buildHeader(),
-                          const SizedBox(height: 52),
+                          const SizedBox(height: 118),
                           // زر التبديل بين الحسابات
                           Padding(
                             padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),

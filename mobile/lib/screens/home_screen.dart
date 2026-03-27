@@ -837,118 +837,39 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildHeroBannerBackground(),
 
-          // Gradient overlay
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Colors.black.withValues(alpha: 0.5),
-                  Colors.black.withValues(alpha: 0.15),
-                  Colors.transparent,
-                ],
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-              ),
-            ),
-          ),
-
-          // Content
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 8),
-                  PlatformTopBar(
-                    overlay: true,
-                    height: 92,
-                    showMenuButton: true,
-                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                    notificationCount: _notificationUnread,
-                    chatCount: _chatUnread,
-                    onNotificationsTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const NotificationsScreen(),
-                        ),
-                      );
-                      _loadUnreadBadges();
-                    },
-                    onChatsTap: () async {
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const MyChatsScreen(),
-                        ),
-                      );
-                      _loadUnreadBadges();
-                    },
-                  ),
-
-                  const Spacer(),
-
-                  // Tagline
-                  Text(
-                    _content.heroTitle,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Cairo',
-                        color: Colors.white,
-                        shadows: [
-                          Shadow(color: Colors.black38, blurRadius: 6)
-                        ]),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _content.renderHeroSubtitle(
-                        providerCount: _providers.length),
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'Cairo',
-                        color: Colors.white.withValues(alpha: 0.85)),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Search bar
-                  GestureDetector(
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const SearchProviderScreen())),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.92),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3))
-                        ],
+          // Top bar overlay
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                PlatformTopBar(
+                  overlay: true,
+                  height: 64,
+                  showMenuButton: true,
+                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                  notificationCount: _notificationUnread,
+                  chatCount: _chatUnread,
+                  onNotificationsTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NotificationsScreen(),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.search_rounded,
-                              size: 18, color: Colors.grey.shade500),
-                          const SizedBox(width: 8),
-                          Text(_content.searchPlaceholder,
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  fontFamily: 'Cairo',
-                                  color: Colors.grey.shade500)),
-                        ],
+                    );
+                    _loadUnreadBadges();
+                  },
+                  onChatsTap: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const MyChatsScreen(),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                    );
+                    _loadUnreadBadges();
+                  },
+                ),
+              ],
             ),
           ),
         ],
@@ -2351,17 +2272,11 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 class HomeScreenContent {
-  final String heroTitle;
-  final String heroSubtitle;
-  final String searchPlaceholder;
   final String categoriesTitle;
   final String providersTitle;
   final String bannersTitle;
 
   const HomeScreenContent({
-    required this.heroTitle,
-    required this.heroSubtitle,
-    required this.searchPlaceholder,
     required this.categoriesTitle,
     required this.providersTitle,
     required this.bannersTitle,
@@ -2369,9 +2284,6 @@ class HomeScreenContent {
 
   factory HomeScreenContent.empty() {
     return const HomeScreenContent(
-      heroTitle: '...',
-      heroSubtitle: '...',
-      searchPlaceholder: '...',
       categoriesTitle: '...',
       providersTitle: 'أبرز المختصين',
       bannersTitle: '...',
@@ -2387,21 +2299,9 @@ class HomeScreenContent {
     }
 
     return HomeScreenContent(
-      heroTitle: resolve('home_hero_title', 'الرئيسية'),
-      heroSubtitle: resolve(
-        'home_hero_subtitle',
-        'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.',
-      ),
-      searchPlaceholder: resolve('home_search_placeholder', 'ابحث'),
       categoriesTitle: resolve('home_categories_title', 'التصنيفات'),
       providersTitle: resolve('home_providers_title', 'أبرز المختصين'),
       bannersTitle: resolve('home_banners_title', 'عروض ترويجية'),
     );
-  }
-
-  String renderHeroSubtitle({required int providerCount}) {
-    final value = heroSubtitle.trim();
-    if (value.isEmpty) return '';
-    return value.replaceAll('{provider_count}', providerCount.toString());
   }
 }

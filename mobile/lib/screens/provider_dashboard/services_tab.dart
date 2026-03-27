@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'package:nawafeth/services/provider_services_service.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 
 class ServicesTab extends StatefulWidget {
   const ServicesTab({super.key});
@@ -443,14 +444,9 @@ class _ServicesTabState extends State<ServicesTab> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text(
-            'خدماتي',
-            style: TextStyle(color: Colors.white, fontFamily: 'Cairo'),
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
-          backgroundColor: Colors.deepPurple,
-          elevation: 0,
+        appBar: const PlatformTopBar(
+          pageLabel: 'خدماتي',
+          showBackButton: true,
         ),
         floatingActionButton: (!_isLoading && _errorMessage == null)
             ? FloatingActionButton(

@@ -6,6 +6,7 @@ import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/content_service.dart';
 import '../widgets/custom_drawer.dart';
+import '../widgets/platform_top_bar.dart';
 import 'signup_screen.dart';
 import 'twofa_screen.dart';
 
@@ -225,19 +226,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const CustomDrawer(),
-      appBar: AppBar(
-        backgroundColor: Colors.deepPurple,
-        elevation: 0,
-        centerTitle: true,
-        automaticallyImplyLeading: false,
-        title: Text(
-          _content.title,
-          style: const TextStyle(
-            fontFamily: 'Cairo',
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
+      appBar: PlatformTopBar(
+        pageLabel: _content.title,
+        showBackButton: Navigator.of(context).canPop(),
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: Center(
         child: Padding(

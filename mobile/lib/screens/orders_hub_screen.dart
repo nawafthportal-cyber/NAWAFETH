@@ -3,8 +3,8 @@ import 'package:nawafeth/services/account_mode_service.dart';
 
 import 'client_orders_screen.dart';
 import 'provider_dashboard/provider_orders_screen.dart';
-import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/platform_top_bar.dart';
 
 class OrdersHubScreen extends StatefulWidget {
   const OrdersHubScreen({super.key});
@@ -48,12 +48,10 @@ class _OrdersHubScreenState extends State<OrdersHubScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: Size.fromHeight(60),
-          child: CustomAppBar(
-            showSearchField: false,
-            title: _isProviderMode ? 'طلبات الخدمة' : 'طلباتي',
-          ),
+        appBar: PlatformTopBar(
+          pageLabel: _isProviderMode ? 'طلبات الخدمة' : 'طلباتي',
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         bottomNavigationBar: const CustomBottomNav(currentIndex: 1),
         body: _isProviderMode

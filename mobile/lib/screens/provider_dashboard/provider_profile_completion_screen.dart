@@ -3,12 +3,12 @@ import 'package:nawafeth/models/provider_profile_model.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/api_client.dart';
 import 'package:nawafeth/services/profile_service.dart';
-import 'package:nawafeth/screens/registration/steps/additional_details_step.dart';
 import 'package:nawafeth/screens/registration/steps/contact_info_step.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/screens/registration/steps/language_location_step.dart';
 import 'package:nawafeth/screens/registration/steps/seo_step.dart';
 import 'package:nawafeth/screens/registration/steps/service_details_step.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 
 import '../../constants/colors.dart';
 
@@ -114,20 +114,6 @@ class _ProviderProfileCompletionScreenState
           ),
         );
         break;
-      case 'additional':
-        result = await Navigator.push<bool>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => _SingleStepWrapper(
-              title: 'معلومات إضافية عنك وخدماتك',
-              child: AdditionalDetailsStep(
-                onBack: () => Navigator.pop(context, false),
-                onNext: () => Navigator.pop(context, true),
-              ),
-            ),
-          ),
-        );
-        break;
       case 'contact_full':
         result = await Navigator.push<bool>(
           context,
@@ -195,19 +181,11 @@ class _ProviderProfileCompletionScreenState
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.black87),
-          title: const Text(
-            'إكمال الملف التعريفي',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
+        appBar: const PlatformTopBar(
+          pageLabel: 'إكمال الملف التعريفي',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: _isLoading
             ? const Center(
@@ -722,17 +700,12 @@ class _BasicInfoDetailsScreenState extends State<_BasicInfoDetailsScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: AppColors.deepPurple,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'بيانات التسجيل الأساسية',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        appBar: const PlatformTopBar(
+          overlay: true,
+          pageLabel: 'بيانات التسجيل الأساسية',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: _isLoading
             ? const Center(
@@ -809,8 +782,11 @@ class _SingleStepWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title, style: const TextStyle(fontFamily: 'Cairo')),
+      appBar: PlatformTopBar(
+        pageLabel: title,
+        showBackButton: true,
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: child,
     );

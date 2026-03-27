@@ -262,8 +262,13 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   // -- HEADER --
   Widget _buildHeader(UserProfile profile, bool isDark, Color purple) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final coverHeight = screenWidth < 380 ? 160.0 : 176.0;
+    final avatarTop = coverHeight - 40;
+    final headerHeight = coverHeight + 170;
     final coverImageUrl = ApiClient.buildMediaUrl(profile.coverImage);
     final profileImageUrl = ApiClient.buildMediaUrl(profile.profileImage);
+
     ImageProvider<Object>? coverImageProvider;
     if (_coverImage != null) {
       coverImageProvider = FileImage(_coverImage!);
@@ -279,13 +284,13 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     }
 
     return SizedBox(
-      height: 320,
+      height: headerHeight,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           // Cover
           Container(
-            height: 150,
+            height: coverHeight,
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: coverImageProvider == null
@@ -308,55 +313,52 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       image: coverImageProvider, fit: BoxFit.cover)
                   : null,
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                child: Column(
-                  children: [
-                    PlatformTopBar(
-                      overlay: true,
-                      height: 92,
-                      showMenuButton: true,
-                      notificationCount: _notificationUnread,
-                      chatCount: _chatUnread,
-                      onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                      onNotificationsTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsScreen(),
-                          ),
-                        );
-                        _loadUnreadBadges();
-                      },
-                      onChatsTap: () async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyChatsScreen(),
-                          ),
-                        );
-                        _loadUnreadBadges();
-                      },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              child: Column(
+                children: [
+                  PlatformTopBar(
+                    overlay: true,
+                    height: 64,
+                    showMenuButton: true,
+                    notificationCount: _notificationUnread,
+                    chatCount: _chatUnread,
+                    onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                    onNotificationsTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      );
+                      _loadUnreadBadges();
+                    },
+                    onChatsTap: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MyChatsScreen(),
+                        ),
+                      );
+                      _loadUnreadBadges();
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: _miniIconBtn(
+                      icon: Icons.camera_alt_outlined,
+                      onTap: () => _pickImage(isCover: true),
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: _miniIconBtn(
-                        icon: Icons.camera_alt_outlined,
-                        onTap: () => _pickImage(isCover: true),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
 
           // Avatar + Info
           Positioned(
-            top: 110,
+            top: avatarTop,
             left: 0,
             right: 0,
             child: Column(

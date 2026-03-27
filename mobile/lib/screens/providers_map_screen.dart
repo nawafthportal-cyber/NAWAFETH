@@ -192,7 +192,7 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                     children: [
                       Container(
                         width: 68,
-                        height: 68,
+                        height: 64,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
@@ -210,7 +210,7 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                           child: _providerImageWidget(
                             provider.profileImage,
                             width: 68,
-                            height: 68,
+                            height: 64,
                             fallbackIconSize: 30,
                           ),
                         ),

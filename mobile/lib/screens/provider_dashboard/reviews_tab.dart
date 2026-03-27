@@ -5,6 +5,7 @@ import 'package:nawafeth/services/reviews_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/services/support_service.dart';
 import 'package:nawafeth/screens/chat_detail_screen.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 
 import 'provider_order_details_screen.dart';
 
@@ -887,41 +888,26 @@ class _ReviewsTabState extends State<ReviewsTab> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: Colors.deepPurple,
-          elevation: 0,
-          centerTitle: true,
-          title: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'المراجعات',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                  fontFamily: 'Cairo',
+        appBar: PlatformTopBar(
+          overlay: true,
+          pageLabel: 'المراجعات',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
+          trailingActions: [
+            if (totalReviews > 0)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalReviews',
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
                 ),
               ),
-              if (totalReviews > 0) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    "$totalReviews",
-                    style:
-                        const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          iconTheme: const IconThemeData(color: Colors.white),
+          ],
         ),
         body: _buildBody(context),
       ),

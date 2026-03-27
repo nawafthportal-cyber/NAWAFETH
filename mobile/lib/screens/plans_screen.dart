@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/subscriptions_service.dart';
+import '../widgets/platform_top_bar.dart';
 import 'plan_summary_screen.dart';
 
 class PlansScreen extends StatefulWidget {
@@ -161,22 +162,11 @@ class _PlansScreenState extends State<PlansScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
-        appBar: AppBar(
-          title: Text(
-            'باقات اشتراك مقدم الخدمة',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-              fontSize: veryCompact ? 17 : (compact ? 18 : 20),
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          centerTitle: true,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black),
+        appBar: const PlatformTopBar(
+          pageLabel: 'باقات اشتراك مقدم الخدمة',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())

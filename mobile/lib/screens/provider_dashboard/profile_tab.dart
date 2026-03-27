@@ -7,6 +7,7 @@ import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/widgets/excellence_badges_wrap.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
@@ -661,41 +662,51 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        appBar: AppBar(
-          iconTheme: const IconThemeData(color: Colors.white),
-          backgroundColor: mainColor,
-          title: const Text(
-            "الملف الشخصي",
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(118),
+          child: Container(
+            color: mainColor,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  PlatformTopBar(
+                    overlay: true,
+                    pageLabel: 'الملف الشخصي',
+                    showBackButton: true,
+                    showNotificationAction: false,
+                    showChatAction: false,
+                    trailingActions: [
+                      IconButton(
+                        tooltip: 'معرض الأعمال',
+                        onPressed: _openPortfolio,
+                        icon: const Icon(
+                          Icons.photo_library_outlined,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  TabBar(
+                    indicatorColor: Colors.white,
+                    indicatorWeight: 3,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white70,
+                    labelStyle: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                    controller: _tabController,
+                    tabs: const [
+                      Tab(text: 'معلومات الحساب'),
+                      Tab(text: 'معلومات عامة'),
+                      Tab(text: 'معلومات إضافية'),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-          actions: [
-            IconButton(
-              tooltip: 'معرض الأعمال',
-              onPressed: _openPortfolio,
-              icon: const Icon(Icons.photo_library_outlined, color: Colors.white),
-            ),
-          ],
-          bottom: TabBar(
-            indicatorColor: Colors.white,
-            indicatorWeight: 3,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            labelStyle: const TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-            controller: _tabController,
-            tabs: const [
-              Tab(text: "معلومات الحساب"),
-              Tab(text: "معلومات عامة"),
-              Tab(text: "معلومات إضافية"),
-            ],
           ),
         ),
         backgroundColor: const Color(0xFFF4F4F4),

@@ -11,7 +11,7 @@ import 'package:nawafeth/main.dart';
 
 void main() {
   test('NawafethApp can be constructed', () {
-    const app = NawafethApp();
+    const app = NawafethApp(showOnboarding: false);
     expect(app, isA<NawafethApp>());
   });
 }

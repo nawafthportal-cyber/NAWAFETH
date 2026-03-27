@@ -53,12 +53,12 @@ body.home-mobile-layout .hero-banner-shell .carousel-arrow {
 
 /* Keep a safe stage so full creative remains visible behind hero UI overlays. */
 body.home-mobile-layout .hero-banner-shell .carousel-media-stage {
-  padding: var(--hero-banner-safe-top) var(--hero-banner-safe-inline) var(--hero-banner-safe-bottom);
+  padding: 0;
 }
 
 body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="portrait"] .carousel-media-stage,
 body.home-mobile-layout .hero-banner-shell .carousel-media-frame[data-media-ratio="square"] .carousel-media-stage {
-  padding: var(--hero-banner-safe-top) var(--hero-banner-safe-inline) var(--hero-banner-safe-bottom);
+  padding: 0;
 }
 
 /* Show the full banner asset while the backdrop keeps the hero visually rich. */
@@ -1347,7 +1347,7 @@ body.home-mobile-layout .section-reels {
   }
 
   body.home-mobile-layout #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.home-mobile-layout #main-content {
@@ -1355,7 +1355,7 @@ body.home-mobile-layout .section-reels {
       radial-gradient(circle at 100% 0%, rgba(103, 58, 183, 0.1), transparent 24%),
       radial-gradient(circle at 0% 22%, rgba(33, 150, 243, 0.06), transparent 22%),
       var(--color-bg);
-    padding-bottom: var(--space-2xl);
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
   }
 
   body.home-mobile-layout .container {
@@ -2060,11 +2060,11 @@ body.home-mobile-layout .section-reels {
 
 @media (min-width: 1024px) {
   body.home-mobile-layout #bottom-nav {
-    display: none !important;
+    display: flex !important;
   }
 
   body.home-mobile-layout #main-content {
-    padding-bottom: var(--space-2xl);
+    padding-bottom: calc(var(--bottom-nav-height) + var(--space-xl));
   }
 }
 

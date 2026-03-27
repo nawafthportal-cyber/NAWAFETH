@@ -100,8 +100,9 @@ def test_public_content_api_includes_home_content_blocks():
     res = client.get("/api/content/public/")
 
     assert res.status_code == 200
-    assert "home_hero_title" in res.data["blocks"]
-    assert "home_search_placeholder" in res.data["blocks"]
+    assert "home_categories_title" in res.data["blocks"]
+    assert "home_hero_title" not in res.data["blocks"]
+    assert "home_search_placeholder" not in res.data["blocks"]
 
 
 def test_public_content_api_includes_auth_content_blocks():

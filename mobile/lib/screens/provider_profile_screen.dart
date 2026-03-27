@@ -1499,7 +1499,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     child: Padding(
                       padding: const EdgeInsets.only(top: 14),
                       child: SizedBox(
-                        height: 68,
+                        height: 64,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),

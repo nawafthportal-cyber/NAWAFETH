@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 
 class MapRadiusPickerScreen extends StatefulWidget {
   final LatLng? initialCenter;
@@ -108,13 +109,11 @@ class _MapRadiusPickerScreenState extends State<MapRadiusPickerScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _mainColor,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'تحديد الموقع',
-            style: TextStyle(fontFamily: 'Cairo', color: Colors.white),
-          ),
+        appBar: const PlatformTopBar(
+          pageLabel: 'تحديد الموقع',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: Column(
           children: [

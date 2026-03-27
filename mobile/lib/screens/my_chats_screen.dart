@@ -2,10 +2,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../widgets/app_bar.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
 import '../widgets/excellence_badges_wrap.dart';
+import '../widgets/platform_top_bar.dart';
 import '../models/chat_thread_model.dart';
 import '../services/messaging_service.dart';
 import '../services/auth_service.dart';
@@ -435,9 +435,9 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       drawer: const CustomDrawer(),
-      appBar: const PreferredSize(
-        preferredSize: Size.fromHeight(60),
-        child: CustomAppBar(title: 'محادثاتي'),
+      appBar: const PlatformTopBar(
+        pageLabel: 'محادثاتي',
+        showNotificationAction: false,
       ),
       body: SafeArea(
         child: Column(

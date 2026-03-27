@@ -53,143 +53,148 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    
-    return SizedBox(
-      height: 122,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: Alignment.bottomCenter,
-        children: [
-          // ✅ الشريط السفلي بخلفية منحنية ومرتبة
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: ClipPath(
-              clipper: CurvedNotchClipper(),
-              child: Container(
-                height: 80,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha((0.08 * 255).toInt()),
-                      blurRadius: 20,
-                      spreadRadius: 4,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    // ✅ الرئيسية (أقصى اليمين)
-                    IconWithLabel(
-                      icon: Icons.home,
-                      label: "الرئيسية",
-                      selected: widget.currentIndex == 0,
-                      onTap: () => _navigate(context, 0),
-                    ),
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
-                    // ✅ طلباتي
-                    if (!_isProviderMode)
-                      IconWithLabel(
-                        icon: Icons.list_alt,
-                        label: "طلباتي",
-                        selected: widget.currentIndex == 1,
-                        onTap: () => _navigate(context, 1),
-                      )
-                    else
-                      const SizedBox(width: 52),
-
-                    // ✅ زر الخدمة في المنتصف
-                    const SizedBox(width: 40),
-
-                    // ✅ تفاعلي
-                    IconWithLabel(
-                      icon: Icons.group,
-                      label: "تفاعلي",
-                      selected: widget.currentIndex == 2,
-                      onTap: () => _navigate(context, 2),
-                    ),
-
-                    // ✅ نافذتي (أقصى اليسار)
-                    IconWithLabel(
-                      icon: Icons.person,
-                      label: "نافذتي",
-                      selected: widget.currentIndex == 3,
-                      onTap: () => _navigate(context, 3),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // ✅ زر "خدمة" العائم في المنتصف - يظهر فقط في الصفحة الرئيسية
-          if (widget.currentIndex == 0)
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: 118 + bottomInset,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            // ✅ الشريط السفلي بخلفية منحنية ومرتبة
             Positioned(
-              bottom: 28,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => _onAddServicePressed(context),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 110,
-                      height: 110,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const RadialGradient(
-                          colors: [
-                            Color(0x40DA52FF), // ✅ بديل withOpacity(0.25)
-                            Colors.transparent,
-                          ],
-                          radius: 0.6,
-                        ),
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: ClipPath(
+                clipper: CurvedNotchClipper(),
+                child: Container(
+                  height: 82 + bottomInset,
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha((0.08 * 255).toInt()),
+                        blurRadius: 20,
+                        spreadRadius: 4,
+                        offset: const Offset(0, -2),
                       ),
-                    ),
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primaryDark, AppColors.primaryDark],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          const BoxShadow(
-                            color: Color(0x4DFF0000), // ✅ بديل withOpacity(0.3)
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      // ✅ الرئيسية (أقصى اليمين)
+                      IconWithLabel(
+                        icon: Icons.home,
+                        label: "الرئيسية",
+                        selected: widget.currentIndex == 0,
+                        onTap: () => _navigate(context, 0),
                       ),
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add, size: 24, color: Colors.white),
-                          SizedBox(height: 2),
-                          Text(
-                            "خدمة",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                              height: 1,
-                            ),
-                          ),
-                        ],
+
+                      // ✅ طلباتي
+                      if (!_isProviderMode)
+                        IconWithLabel(
+                          icon: Icons.list_alt,
+                          label: "طلباتي",
+                          selected: widget.currentIndex == 1,
+                          onTap: () => _navigate(context, 1),
+                        )
+                      else
+                        const SizedBox(width: 52),
+
+                      // ✅ زر الخدمة في المنتصف
+                      const SizedBox(width: 40),
+
+                      // ✅ تفاعلي
+                      IconWithLabel(
+                        icon: Icons.group,
+                        label: "تفاعلي",
+                        selected: widget.currentIndex == 2,
+                        onTap: () => _navigate(context, 2),
                       ),
-                    ),
-                  ],
+
+                      // ✅ نافذتي (أقصى اليسار)
+                      IconWithLabel(
+                        icon: Icons.person,
+                        label: "نافذتي",
+                        selected: widget.currentIndex == 3,
+                        onTap: () => _navigate(context, 3),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-        ],
+
+            // ✅ زر "خدمة" العائم في المنتصف - يظهر فقط في الصفحة الرئيسية
+            if (widget.currentIndex == 0)
+              Positioned(
+                bottom: 24 + (bottomInset * 0.2),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _onAddServicePressed(context),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 110,
+                        height: 110,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const RadialGradient(
+                            colors: [
+                              Color(0x40DA52FF), // ✅ بديل withOpacity(0.25)
+                              Colors.transparent,
+                            ],
+                            radius: 0.6,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: const LinearGradient(
+                            colors: [AppColors.primaryDark, AppColors.primaryDark],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            const BoxShadow(
+                              color: Color(0x4DFF0000), // ✅ بديل withOpacity(0.3)
+                              blurRadius: 12,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add, size: 24, color: Colors.white),
+                            SizedBox(height: 2),
+                            Text(
+                              "خدمة",
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                height: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -235,9 +240,11 @@ class IconWithLabel extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 color: contentColor,
               ),

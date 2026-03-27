@@ -455,31 +455,73 @@ var PromotionPage = (function () {
     return parsed.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  function firstNonEmptyText(values) {
+    for (var index = 0; index < values.length; index += 1) {
+      var value = String(values[index] == null ? "" : values[index]).trim();
+      if (value) return value;
+    }
+    return "";
+  }
+
+  function resolveProviderDisplayName(profile, fallback) {
+    var safeProfile = profile && typeof profile === "object" ? profile : {};
+    var nestedUser = safeProfile.user && typeof safeProfile.user === "object" ? safeProfile.user : {};
+    var nestedProvider = safeProfile.provider && typeof safeProfile.provider === "object"
+      ? safeProfile.provider
+      : (safeProfile.provider_profile && typeof safeProfile.provider_profile === "object" ? safeProfile.provider_profile : {});
+
+    var firstName = firstNonEmptyText([safeProfile.first_name, nestedUser.first_name]);
+    var lastName = firstNonEmptyText([safeProfile.last_name, nestedUser.last_name]);
+    var fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    var username = firstNonEmptyText([safeProfile.username, nestedUser.username]);
+    if (username && username.charAt(0) !== "@") {
+      username = "@" + username;
+    }
+
+    return firstNonEmptyText([
+      safeProfile.display_name,
+      safeProfile.provider_display_name,
+      safeProfile.full_name,
+      safeProfile.provider_name,
+      nestedProvider.display_name,
+      nestedProvider.provider_display_name,
+      nestedProvider.business_name,
+      nestedUser.display_name,
+      nestedUser.full_name,
+      fullName,
+      username,
+      safeProfile.phone,
+      nestedUser.phone,
+      fallback
+    ]);
+  }
+
   async function hydrateProviderIdentity() {
     var input = document.getElementById("promo-provider-name");
-    if (!input) return;
+    var display = document.getElementById("promo-provider-display");
+    if (!input && !display) return;
 
     var fallback = "مزود الخدمة";
-    input.value = fallback;
+    if (input) input.value = fallback;
+    if (display) display.textContent = fallback;
 
     try {
       if (!window.Auth || typeof window.Auth.getProfile !== "function") return;
       var profile = await window.Auth.getProfile();
       if (!profile || typeof profile !== "object") return;
 
-      var username = String(profile.username || "").trim();
-      if (username && username.charAt(0) !== "@") {
-        username = "@" + username;
+      var chosen = resolveProviderDisplayName(profile, fallback);
+      if (input) {
+        input.value = chosen;
+        input.title = chosen;
       }
-      var providerName = String(profile.provider_display_name || "").trim();
-      var firstName = String(profile.first_name || "").trim();
-      var lastName = String(profile.last_name || "").trim();
-      var fullName = (firstName + (lastName ? " " + lastName : "")).trim();
-      var phone = String(profile.phone || "").trim();
-      var chosen = providerName || fullName || username || phone || fallback;
-      input.value = chosen;
+      if (display) {
+        display.textContent = chosen;
+        display.title = chosen;
+      }
     } catch (err) {
-      input.value = fallback;
+      if (input) input.value = fallback;
+      if (display) display.textContent = fallback;
     }
   }
 

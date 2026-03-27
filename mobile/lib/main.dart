@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'services/onboarding_service.dart';
 import 'services/account_mode_service.dart';
 import 'services/push_notification_service.dart';
 
@@ -47,11 +48,14 @@ class MyThemeController extends InheritedWidget {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PushNotificationService.initialize();
-  runApp(const NawafethApp());
+  final showOnboarding = await OnboardingService.shouldShowOnboarding();
+  runApp(NawafethApp(showOnboarding: showOnboarding));
 }
 
 class NawafethApp extends StatefulWidget {
-  const NawafethApp({super.key});
+  final bool showOnboarding;
+
+  const NawafethApp({super.key, required this.showOnboarding});
 
   @override
   State<NawafethApp> createState() => _NawafethAppState();
@@ -97,6 +101,7 @@ class _NawafethAppState extends State<NawafethApp> {
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.deepPurple,
             foregroundColor: Colors.white,
+            toolbarHeight: 58,
           ),
         ),
         darkTheme: ThemeData(
@@ -111,6 +116,7 @@ class _NawafethAppState extends State<NawafethApp> {
           appBarTheme: const AppBarTheme(
             backgroundColor: Colors.black87,
             foregroundColor: Colors.white,
+            toolbarHeight: 58,
           ),
         ),
 
@@ -124,7 +130,7 @@ class _NawafethAppState extends State<NawafethApp> {
         ],
 
         // ✅ المسارات
-        initialRoute: '/onboarding', // شاشة البداية عند أول تشغيل
+        initialRoute: widget.showOnboarding ? '/onboarding' : '/home',
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/home': (context) => const HomeScreen(),

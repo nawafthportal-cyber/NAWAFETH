@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../constants/colors.dart';
 import '../services/api_client.dart';
 import '../services/content_service.dart';
+import '../services/onboarding_service.dart';
 import '../widgets/content_block_media.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -169,7 +170,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     _finishOnboarding();
   }
 
-  void _finishOnboarding() {
+  Future<void> _finishOnboarding() async {
+    await OnboardingService.markSeen();
+    if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/home');
   }
 

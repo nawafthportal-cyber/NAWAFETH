@@ -37,7 +37,7 @@ class PlatformTopBar extends StatefulWidget implements PreferredSizeWidget {
     this.onChatsTap,
     this.notificationCount = 0,
     this.chatCount = 0,
-    this.height = 86,
+    this.height = 62,
     this.trailingActions = const [],
   });
 
@@ -187,8 +187,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
         ? BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                Colors.black.withValues(alpha: 0.24),
-                Colors.black.withValues(alpha: 0.08),
+                Colors.black.withValues(alpha: 0.16),
+                Colors.black.withValues(alpha: 0.04),
               ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -221,111 +221,141 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
           child: SizedBox(
             height: widget.height,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: 56,
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: _buildLeadingButton(
-                        context: context,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 380;
+                  final buttonSize = compact ? 36.0 : 38.0;
+                  final sideReserve = compact ? 104.0 : 120.0;
+                  final brandMaxWidth = constraints.maxWidth - (sideReserve * 2);
+                  final actions = <Widget>[
+                    ...widget.trailingActions,
+                    if (widget.trailingActions.isNotEmpty &&
+                        (widget.showNotificationAction || widget.showChatAction))
+                      const SizedBox(width: 4),
+                    if (widget.showNotificationAction)
+                      PlatformTopBarActionButton(
+                        size: buttonSize,
+                        icon: Icons.notifications_none_rounded,
                         foreground: foreground,
                         background: chromeBackground,
                         borderColor: chromeBorder,
+                        count: widget.notificationCount,
+                        onTap: widget.onNotificationsTap,
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        if (widget.pageLabel != null && widget.pageLabel!.trim().isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              widget.pageLabel!.trim(),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'Cairo',
-                                color: secondary,
-                              ),
-                            ),
-                          ),
-                        Container(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 280),
-                            switchInCurve: Curves.easeOutCubic,
-                            switchOutCurve: Curves.easeInCubic,
-                            transitionBuilder: (child, animation) {
-                              return FadeTransition(
-                                opacity: animation,
-                                child: ScaleTransition(
-                                  scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
-                                  child: child,
-                                ),
-                              );
-                            },
-                            child: (_showSponsorFace && _sponsor != null)
-                                ? _buildSponsorFace(
-                                    key: const ValueKey('sponsor-face'),
-                                    foreground: foreground,
-                                    secondary: secondary,
-                                    chromeBackground: chromeBackground,
-                                    chromeBorder: chromeBorder,
-                                  )
-                                : _buildBrandFace(
-                                    key: const ValueKey('brand-face'),
-                                    foreground: foreground,
-                                    chromeBackground: chromeBackground,
-                                    chromeBorder: chromeBorder,
+                    if (widget.showNotificationAction && widget.showChatAction)
+                      const SizedBox(width: 4),
+                    if (widget.showChatAction)
+                      PlatformTopBarActionButton(
+                        size: buttonSize,
+                        icon: Icons.chat_bubble_outline_rounded,
+                        foreground: foreground,
+                        background: chromeBackground,
+                        borderColor: chromeBorder,
+                        count: widget.chatCount,
+                        onTap: widget.onChatsTap,
+                      ),
+                  ];
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned.fill(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: sideReserve),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (widget.pageLabel != null && widget.pageLabel!.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 1),
+                                    child: Text(
+                                      widget.pageLabel!.trim(),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 8.8,
+                                        fontWeight: FontWeight.w800,
+                                        fontFamily: 'Cairo',
+                                        color: secondary,
+                                      ),
+                                    ),
                                   ),
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: brandMaxWidth > 80 ? brandMaxWidth : 80),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    alignment: Alignment.center,
+                                    child: AnimatedSwitcher(
+                                      duration: const Duration(milliseconds: 280),
+                                      switchInCurve: Curves.easeOutCubic,
+                                      switchOutCurve: Curves.easeInCubic,
+                                      transitionBuilder: (child, animation) {
+                                        return FadeTransition(
+                                          opacity: animation,
+                                          child: ScaleTransition(
+                                            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: (_showSponsorFace && _sponsor != null)
+                                          ? _buildSponsorFace(
+                                              key: const ValueKey('sponsor-face'),
+                                              foreground: foreground,
+                                              secondary: secondary,
+                                              chromeBackground: chromeBackground,
+                                              chromeBorder: chromeBorder,
+                                            )
+                                          : _buildBrandFace(
+                                              key: const ValueKey('brand-face'),
+                                              foreground: foreground,
+                                              chromeBackground: chromeBackground,
+                                              chromeBorder: chromeBorder,
+                                            ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 44, maxWidth: 220),
-                    child: Align(
-                      alignment: Alignment.topLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ...widget.trailingActions,
-                          if (widget.trailingActions.isNotEmpty &&
-                              (widget.showNotificationAction || widget.showChatAction))
-                            const SizedBox(width: 6),
-                          if (widget.showNotificationAction) ...[
-                            PlatformTopBarActionButton(
-                              icon: Icons.notifications_none_rounded,
-                              foreground: foreground,
-                              background: chromeBackground,
-                              borderColor: chromeBorder,
-                              count: widget.notificationCount,
-                              onTap: widget.onNotificationsTap,
-                            ),
-                          ],
-                          if (widget.showNotificationAction && widget.showChatAction)
-                            const SizedBox(width: 6),
-                          if (widget.showChatAction)
-                            PlatformTopBarActionButton(
-                              icon: Icons.chat_bubble_outline_rounded,
-                              foreground: foreground,
-                              background: chromeBackground,
-                              borderColor: chromeBorder,
-                              count: widget.chatCount,
-                              onTap: widget.onChatsTap,
-                            ),
-                        ],
                       ),
-                    ),
-                  ),
-                ],
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: SizedBox(
+                          width: sideReserve,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: _buildLeadingButton(
+                              context: context,
+                              foreground: foreground,
+                              background: chromeBackground,
+                              borderColor: chromeBorder,
+                              buttonSize: buttonSize,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SizedBox(
+                          width: sideReserve,
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: actions,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -343,8 +373,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     return Container(
       key: key,
       padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 7,
+        horizontal: 9,
+        vertical: 5,
       ),
       decoration: BoxDecoration(
         color: chromeBackground,
@@ -355,11 +385,11 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: 24,
+            height: 24,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
               gradient: LinearGradient(
                 colors: widget.overlay
                     ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
@@ -374,16 +404,16 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                 color: Colors.white,
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.w900,
-                fontSize: 18,
+                fontSize: 15,
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Text(
             'نوافــذ',
             style: TextStyle(
               color: foreground,
-              fontSize: 17,
+              fontSize: 13.5,
               fontWeight: FontWeight.w900,
               fontFamily: 'Cairo',
             ),
@@ -410,8 +440,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 6,
+          horizontal: 8,
+          vertical: 5,
         ),
         decoration: BoxDecoration(
           color: chromeBackground,
@@ -424,27 +454,27 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
             Text(
               'برعاية',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 8.5,
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Cairo',
                 color: secondary,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             _SponsorBadge(
               assetUrl: sponsor?.assetUrl,
               fallbackLabel: sponsorName,
               overlay: widget.overlay,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 5),
             ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 148),
+              constraints: const BoxConstraints(maxWidth: 112),
               child: Text(
                 sponsorName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   fontFamily: 'Cairo',
                   color: foreground,
@@ -462,9 +492,11 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     required Color foreground,
     required Color background,
     required Color borderColor,
+    required double buttonSize,
   }) {
     if (widget.showBackButton) {
       return PlatformTopBarActionButton(
+        size: buttonSize,
         icon: Icons.arrow_back_rounded,
         foreground: foreground,
         background: background,
@@ -475,6 +507,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
 
     if (widget.showMenuButton) {
       return PlatformTopBarActionButton(
+        size: buttonSize,
         icon: Icons.menu_rounded,
         foreground: foreground,
         background: background,
@@ -483,7 +516,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
       );
     }
 
-    return const SizedBox(width: 44, height: 44);
+    return SizedBox(width: buttonSize, height: buttonSize);
   }
 }
 
@@ -494,6 +527,7 @@ class PlatformTopBarActionButton extends StatelessWidget {
   final Color background;
   final Color borderColor;
   final int count;
+  final double size;
 
   const PlatformTopBarActionButton({
     super.key,
@@ -503,6 +537,7 @@ class PlatformTopBarActionButton extends StatelessWidget {
     required this.borderColor,
     this.onTap,
     this.count = 0,
+    this.size = 42,
   });
 
   @override
@@ -514,23 +549,23 @@ class PlatformTopBarActionButton extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           Container(
-            width: 44,
-            height: 44,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
               color: background,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(color: borderColor),
             ),
             alignment: Alignment.center,
-            child: Icon(icon, color: foreground, size: 21),
+            child: Icon(icon, color: foreground, size: size <= 36 ? 18 : 19),
           ),
           if (count > 0)
             Positioned(
               top: -4,
               right: -5,
               child: Container(
-                constraints: const BoxConstraints(minWidth: 17, minHeight: 17),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                padding: const EdgeInsets.symmetric(horizontal: 3),
                 decoration: BoxDecoration(
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(999),
@@ -540,7 +575,7 @@ class PlatformTopBarActionButton extends StatelessWidget {
                 child: Text(
                   count > 99 ? '99+' : '$count',
                   style: const TextStyle(
-                    fontSize: 8.5,
+                    fontSize: 7.5,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
                   ),

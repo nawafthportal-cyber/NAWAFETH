@@ -13,15 +13,29 @@
   </div>
 
   <section class="detail-card promo-top-shell">
-    <div class="promo-top-actions">
-      <button type="button" class="promo-nav-pill active" data-promo-view="composer">ترويج</button>
-      <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار</button>
+    <div class="promo-top-copy">
+      <span class="promo-top-kicker">إعداد حملة ترويجية</span>
+      <h2>نسّق طلب الترويج بصورة احترافية وواضحة</h2>
+      <p>اختر الخدمات التي تحتاجها فقط، ثم أكمل تفاصيل كل خدمة داخل بطاقة مستقلة ومساحة مريحة للقراءة والإدخال.</p>
     </div>
-    <div class="promo-top-meta">
-      <label class="promo-meta-label" for="promo-provider-name">اسم المختص</label>
-      <input id="promo-provider-name" type="text" class="form-input" value="مزود الخدمة" readonly>
+    <div class="promo-top-toolbar">
+      <div class="promo-top-actions">
+        <button type="button" class="promo-nav-pill active" data-promo-view="composer">إعداد الترويج</button>
+        <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار الفعلية</button>
+      </div>
+      <div class="promo-page-badge">الصفحة التفصيلية لخيارات الترويج</div>
     </div>
-    <div class="promo-page-badge">الصفحة التفصيلية لخيارات الترويج</div>
+    <div class="promo-provider-panel">
+      <div class="promo-provider-copy">
+        <span class="promo-meta-label">اسم مزود الخدمة</span>
+        <strong id="promo-provider-display">مزود الخدمة</strong>
+        <small>يتم جلب الاسم تلقائيًا من الحساب النشط، ويمكنك التحقق منه قبل إرسال الطلب.</small>
+      </div>
+      <div class="promo-provider-field">
+        <label class="promo-meta-label" for="promo-provider-name">الحقل المرجعي للاسم</label>
+        <input id="promo-provider-name" type="text" class="form-input" value="مزود الخدمة" readonly>
+      </div>
+    </div>
   </section>
 
   <section id="promo-pricing-view" class="detail-card promo-pricing-view" hidden>
@@ -57,6 +71,14 @@
         <p style="margin:6px 0 0">سيظهر تنبيه مباشر عند اختيار ملف غير مدعوم مع عرض الامتدادات المسموحة لكل خدمة.</p>
       </div>
 
+      <div class="promo-composer-intro">
+        <div>
+          <strong>خيارات الترويج المتاحة</strong>
+          <p>كل خدمة أدناه أصبحت ضمن بطاقة مستقلة بعرض أوسع حتى تظهر جميع الحقول بوضوح ودون تزاحم.</p>
+        </div>
+        <div class="promo-composer-intro-note">فعّل فقط الخدمات المطلوبة، وستتوسع البطاقة الخاصة بها تلقائيًا لإظهار تفاصيلها.</div>
+      </div>
+
       <div class="form-group">
         <label class="form-label">عنوان الطلب</label>
         <input id="promo-title" type="text" class="form-input" placeholder="مثال: حملة إبراز الحساب" required>
@@ -65,7 +87,10 @@
       <div id="promo-service-blocks" class="promo-services-grid">
         <div class="promo-service-block" data-service-block="snapshots">
           <div class="service-block-header">
-            <h4>شريط اللمحات</h4>
+            <div class="service-block-title">
+              <h4>شريط اللمحات</h4>
+              <p>إبراز سريع ومتكرر داخل مساحات اللمحات لرفع معدل الظهور والانتباه.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="snapshots">
               <span>تفعيل</span>
@@ -98,7 +123,10 @@
 
         <div class="promo-service-block" data-service-block="portfolio_showcase">
           <div class="service-block-header">
-            <h4>شريط البنرات والمشاريع</h4>
+            <div class="service-block-title">
+              <h4>شريط البنرات والمشاريع</h4>
+              <p>عرض أعمالك وبنراتك في مساحة مرئية مخصصة لإبراز المشاريع والخبرة.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="portfolio_showcase">
               <span>تفعيل</span>
@@ -127,7 +155,10 @@
 
         <div class="promo-service-block" data-service-block="featured_specialists">
           <div class="service-block-header">
-            <h4>شريط أبرز المختصين</h4>
+            <div class="service-block-title">
+              <h4>شريط أبرز المختصين</h4>
+              <p>رفع ظهور الحساب داخل مساحة المختصين المميزين لزيادة فرص الوصول المباشر.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="featured_specialists">
               <span>تفعيل</span>
@@ -156,7 +187,10 @@
 
         <div class="promo-service-block" data-service-block="home_banner">
           <div class="service-block-header">
-            <h4>بنر الصفحة الرئيسية</h4>
+            <div class="service-block-title">
+              <h4>بنر الصفحة الرئيسية</h4>
+              <p>واجهة بصرية رئيسية بحجم كبير لعرض التصميم أو الفيديو مع رابط توجيه مباشر.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="home_banner">
               <span>تفعيل</span>
@@ -206,7 +240,10 @@
 
         <div class="promo-service-block" data-service-block="sponsorship">
           <div class="service-block-header">
-            <h4>الرعاية</h4>
+            <div class="service-block-title">
+              <h4>الرعاية</h4>
+              <p>إظهار اسم وشعار الجهة الراعية ورسالتها ضمن حملة أطول مدى وأكثر ثباتًا.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="sponsorship">
               <span>تفعيل</span>
@@ -233,7 +270,10 @@
 
         <div class="promo-service-block" data-service-block="promo_messages">
           <div class="service-block-header">
-            <h4>الرسائل الدعائية</h4>
+            <div class="service-block-title">
+              <h4>الرسائل الدعائية</h4>
+              <p>إرسال محتوى ترويجي عبر الإشعارات أو المحادثات مع مرفقات ورسالة مخصصة.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="promo_messages">
               <span>تفعيل</span>
@@ -258,7 +298,10 @@
 
         <div class="promo-service-block" data-service-block="search_results">
           <div class="service-block-header">
-            <h4>الظهور في قوائم البحث</h4>
+            <div class="service-block-title">
+              <h4>الظهور في قوائم البحث</h4>
+              <p>تحسين موضع ظهورك داخل نتائج البحث مع تحديد النطاق والترتيب الأنسب.</p>
+            </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="search_results">
               <span>تفعيل</span>
@@ -451,14 +494,23 @@
 </div>
 
 <style>
-  .promo-top-shell{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px}
-  .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap;flex-shrink:0}
-  .promo-nav-pill{border:1px solid #2f7d1e;background:#fff;color:#2f7d1e;border-radius:999px;padding:8px 18px;font:inherit;font-weight:700;cursor:pointer}
-  .promo-nav-pill.active{background:#2f7d1e;color:#fff}
-  .promo-top-meta{display:flex;align-items:center;gap:8px;flex:1 1 200px;min-width:0}
-  .promo-top-meta .form-input{min-width:0;flex:1}
-  .promo-meta-label{font-size:13px;color:#4b5563;font-weight:700;white-space:nowrap}
-  .promo-page-badge{background:#2f7d1e;color:#fff;padding:10px 16px;border-radius:8px;font-weight:700;text-align:center;white-space:nowrap;flex-shrink:0}
+  .promo-top-shell{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);gap:18px;align-items:start;margin-bottom:16px;padding:18px;border:1px solid #e3edf2;background:linear-gradient(135deg,#fcfffd 0%,#f3faf6 42%,#f9f6ff 100%);box-shadow:0 16px 40px rgba(15,23,42,.06)}
+  .promo-top-copy h2{margin:6px 0 8px;font-size:26px;line-height:1.35;color:#163126}
+  .promo-top-copy p{margin:0;max-width:62ch;color:#4b5563;line-height:1.9;font-size:14px}
+  .promo-top-kicker{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#e9f7ec;color:#2f7d1e;font-size:12px;font-weight:800}
+  .promo-top-toolbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;align-items:center}
+  .promo-top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+  .promo-nav-pill{border:1px solid #cfe4d4;background:#fff;color:#225d2a;border-radius:999px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(34,93,42,.08);transition:all .18s ease}
+  .promo-nav-pill:hover{transform:translateY(-1px);border-color:#2f7d1e}
+  .promo-nav-pill.active{background:#2f7d1e;color:#fff;border-color:#2f7d1e;box-shadow:0 12px 24px rgba(47,125,30,.22)}
+  .promo-meta-label{font-size:12px;color:#5b6572;font-weight:800;white-space:nowrap;letter-spacing:.01em}
+  .promo-page-badge{display:inline-flex;align-items:center;justify-content:center;background:#163126;color:#fff;padding:12px 16px;border-radius:12px;font-weight:800;text-align:center;min-height:46px}
+  .promo-provider-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:14px;grid-column:1/-1;padding:16px;border-radius:16px;background:#fff;border:1px solid #deebe1;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+  .promo-provider-copy{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .promo-provider-copy strong{font-size:22px;line-height:1.4;color:#1f2937;word-break:break-word}
+  .promo-provider-copy small{color:#64748b;line-height:1.7;font-size:12px}
+  .promo-provider-field{display:flex;flex-direction:column;gap:8px;min-width:0}
+  .promo-provider-field .form-input{min-width:0;height:48px;border-radius:12px;border:1px solid #cfe4d4;background:#f8fcf9;color:#163126;font-weight:700;box-shadow:none}
 
   .promo-pricing-view{background:linear-gradient(180deg,#fff 0,#fbf8ff 100%)}
   .pricing-guide-head h3{margin:0 0 6px;color:#2f7d1e}
@@ -489,17 +541,27 @@
   .attachment-guide{border:1px solid #ece6f8;background:#faf7ff;border-radius:12px;padding:10px 12px;color:#4b2d73;font-size:13px;line-height:1.7;margin:0 0 10px}
   .attachment-guide strong{display:block;font-weight:700}
 
-  .promo-services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-  .promo-service-block{border:1px solid #d8c9ea;border-radius:14px;padding:12px;background:#fff}
-  .promo-service-block.is-active{border-color:#9b6cc5;box-shadow:0 0 0 2px rgba(155,108,197,.15)}
-  .service-block-header{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0}
-  .service-block-header h4{margin:0;color:#663d90;font-size:18px}
-  .service-toggle-label{display:flex;align-items:center;gap:6px;color:#5b2f91;font-size:13px;font-weight:700;cursor:pointer}
+  .promo-composer-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 16px;margin:0 0 14px;border-radius:14px;background:linear-gradient(135deg,#f8fdf9 0%,#f9f7ff 100%);border:1px solid #e2ece6}
+  .promo-composer-intro strong{display:block;margin-bottom:4px;color:#17352a;font-size:16px}
+  .promo-composer-intro p{margin:0;color:#52606d;line-height:1.8;font-size:13px}
+  .promo-composer-intro-note{padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #dce9df;color:#2f7d1e;font-size:12px;font-weight:700;max-width:320px;line-height:1.8}
+
+  .promo-services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start}
+  .promo-service-block{border:1px solid #dfe8f4;border-radius:18px;padding:18px;background:linear-gradient(180deg,#fff 0%,#fcfcff 100%);box-shadow:0 14px 34px rgba(15,23,42,.05);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;min-height:100%}
+  .promo-service-block:hover{transform:translateY(-2px);border-color:#c7d9e8}
+  .promo-service-block.is-active{border-color:#2f7d1e;box-shadow:0 0 0 3px rgba(47,125,30,.08),0 18px 36px rgba(47,125,30,.10);background:linear-gradient(180deg,#ffffff 0%,#f8fff8 100%)}
+  .service-block-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0}
+  .service-block-title{min-width:0}
+  .service-block-header h4{margin:0;color:#243b53;font-size:19px;line-height:1.4}
+  .service-block-title p{margin:6px 0 0;color:#64748b;font-size:13px;line-height:1.8}
+  .service-toggle-label{display:inline-flex;align-items:center;gap:8px;color:#1f4d2a;font-size:13px;font-weight:800;cursor:pointer;padding:8px 12px;border-radius:999px;background:#f5fbf6;border:1px solid #d5e7d8;flex-shrink:0}
   .service-toggle-input{accent-color:#7b2cbf}
-  .service-body{margin-top:12px}
+  .service-body{margin-top:16px;padding-top:16px;border-top:1px solid #edf2f7}
 
   .check-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
-  .check-row label{font-size:13px;color:#374151}
+  .check-row label{font-size:13px;color:#374151;line-height:1.7}
+  .search-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+  .search-options label{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border-radius:12px;background:#f8fafc;border:1px solid #e2e8f0}
   .hint-list{border:1px dashed #f1cc63;background:#fffbe8;border-radius:10px;padding:8px 10px;margin:0 0 10px;color:#7a4b00;font-size:12px;line-height:1.7}
   .hint-list strong{display:block;margin-bottom:2px}
   .hint-list p{margin:0}
@@ -593,12 +655,25 @@
   .success-message-box p{margin:0;color:#6b7280}
 
   @media (max-width:1024px){
-    .promo-page-badge{justify-self:start}
+    .promo-top-shell{grid-template-columns:1fr}
+    .promo-top-toolbar{justify-content:flex-start}
+    .promo-top-actions{justify-content:flex-start}
+    .promo-provider-panel{grid-template-columns:1fr}
     .pricing-guide-instructions{grid-template-columns:1fr}
     .pricing-grid{grid-template-columns:1fr}
   }
 
   @media (max-width:640px){
+    .promo-top-shell{padding:14px}
+    .promo-top-copy h2{font-size:22px}
+    .promo-nav-pill{width:100%;justify-content:center}
+    .promo-top-actions{width:100%}
+    .promo-page-badge{width:100%}
+    .promo-provider-copy strong{font-size:18px}
+    .promo-services-grid{grid-template-columns:1fr}
+    .service-block-header{flex-direction:column;align-items:stretch}
+    .service-toggle-label{justify-content:center}
+    .promo-composer-intro-note{max-width:none;width:100%}
     .promo-submit-actions .btn{width:100%}
     .promo-summary-head-badge{font-size:18px;padding:10px 14px}
     .promo-summary-note{font-size:16px}

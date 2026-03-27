@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../services/marketplace_service.dart';
 import '../constants/saudi_cities.dart';
+import '../widgets/platform_top_bar.dart';
 
 /// شاشة إنشاء طلب خدمة جديد — مربوطة بالباكند
 class ServiceRequestFormScreen extends StatefulWidget {
@@ -104,13 +105,15 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source);
-    if (picked != null) setState(() => _images.add(File(picked.path)));
+    if (picked == null || !mounted) return;
+    setState(() => _images.add(File(picked.path)));
   }
 
   Future<void> _pickVideo(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickVideo(source: source);
-    if (picked != null) setState(() => _videos.add(File(picked.path)));
+    if (picked == null || !mounted) return;
+    setState(() => _videos.add(File(picked.path)));
   }
 
   Future<void> _pickFile() async {
@@ -118,9 +121,9 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'xlsx', 'xls'],
     );
-    if (result != null) {
-      setState(() => _files.add(File(result.files.single.path!)));
-    }
+    final path = result?.files.single.path;
+    if (path == null || !mounted) return;
+    setState(() => _files.add(File(path)));
   }
 
   Future<void> _initRecorder() async {
@@ -146,6 +149,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     }
     if (_isRecording) {
       final path = await _recorder.stopRecorder();
+      if (!mounted) return;
       setState(() {
         _isRecording = false;
         _audioPath = path;
@@ -155,6 +159,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       final path =
           '${dir.path}/audio_${DateTime.now().millisecondsSinceEpoch}.aac';
       await _recorder.startRecorder(toFile: path);
+      if (!mounted) return;
       setState(() => _isRecording = true);
     }
   }
@@ -167,7 +172,8 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       lastDate: DateTime.now().add(const Duration(days: 365)),
       locale: const Locale('ar', 'SA'),
     );
-    if (picked != null) setState(() => _quoteDeadline = picked);
+    if (picked == null || !mounted) return;
+    setState(() => _quoteDeadline = picked);
   }
 
   void _showAttachmentOptions() {
@@ -317,14 +323,13 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: Colors.grey[100],
-        appBar: AppBar(
-          backgroundColor: _mainColor,
-          title: Text(
-            widget.providerName != null
-                ? 'طلب خدمة من ${widget.providerName}'
-                : 'طلب خدمة جديدة',
-            style: const TextStyle(fontFamily: 'Cairo', fontSize: 14.5),
-          ),
+        appBar: PlatformTopBar(
+          pageLabel: widget.providerName != null
+              ? 'طلب خدمة من ${widget.providerName}'
+              : 'طلب خدمة جديدة',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: Form(
           key: _formKey,

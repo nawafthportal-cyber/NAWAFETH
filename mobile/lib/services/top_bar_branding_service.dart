@@ -1,5 +1,3 @@
-import 'package:flutter/foundation.dart';
-
 import 'api_client.dart';
 
 class TopBarSponsorData {
@@ -92,7 +90,7 @@ class TopBarBrandingService {
         final rawPath = _clean(normalized['file'] ?? normalized['file_url']);
         if (rawPath.isEmpty) continue;
         assetUrl = ApiClient.buildMediaUrl(rawPath);
-        if (assetUrl != null && assetUrl!.isNotEmpty) {
+        if ((assetUrl ?? '').isNotEmpty) {
           break;
         }
       }
@@ -101,7 +99,7 @@ class TopBarBrandingService {
     final redirectUrl = _clean(row['redirect_url'] ?? row['sponsor_url']);
     final providerId = _clean(row['target_provider_id']);
     final messageBody = _clean(row['message_body'] ?? row['message_title']);
-    if (sponsorName.isEmpty && (assetUrl == null || assetUrl!.isEmpty)) {
+    if (sponsorName.isEmpty && (assetUrl ?? '').isEmpty) {
       return null;
     }
 

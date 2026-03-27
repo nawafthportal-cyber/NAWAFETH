@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/colors.dart';
 import '../services/verification_service.dart';
+import '../widgets/platform_top_bar.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -120,9 +121,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // رفع ملف (صورة مستند)
   Future<void> _pickFile() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) {
-      setState(() => uploadedFiles.add(File(picked.path)));
-    }
+    if (picked == null || !mounted) return;
+    setState(() => uploadedFiles.add(File(picked.path)));
   }
 
   // اختيار تاريخ من تقويم وحفظه بصيغة YYYY-MM-DD
@@ -160,14 +160,14 @@ class _VerificationScreenState extends State<VerificationScreen> {
       },
     );
 
-    if (picked != null) {
-      final y = picked.year.toString().padLeft(4, '0');
-      final m = picked.month.toString().padLeft(2, '0');
-      final d = picked.day.toString().padLeft(2, '0');
-      setState(() {
-        controller.text = "$y-$m-$d";
-      });
-    }
+    if (picked == null || !mounted) return;
+
+    final y = picked.year.toString().padLeft(4, '0');
+    final m = picked.month.toString().padLeft(2, '0');
+    final d = picked.day.toString().padLeft(2, '0');
+    setState(() {
+      controller.text = "$y-$m-$d";
+    });
   }
 
   // تحقق من صحة المعطيات قبل الانتقال
@@ -406,19 +406,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4FC),
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.black87),
-        title: const Text(
-          "طلب التوثيق",
-          style: TextStyle(
-            fontFamily: "Cairo",
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
-        ),
+      appBar: const PlatformTopBar(
+        pageLabel: 'طلب التوثيق',
+        showBackButton: true,
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: SafeArea(
         child: Column(

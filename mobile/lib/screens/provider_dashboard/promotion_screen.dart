@@ -9,6 +9,7 @@ import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/billing_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
 import 'package:nawafeth/services/promo_service.dart';
+import 'package:nawafeth/widgets/platform_top_bar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
 
@@ -296,29 +297,36 @@ class _PromotionScreenState extends State<PromotionScreen>
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _brandColor,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'إدارة الترويج',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(118),
+          child: Container(
+            color: _brandColor,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  const PlatformTopBar(
+                    overlay: true,
+                    pageLabel: 'إدارة الترويج',
+                    showBackButton: true,
+                    showNotificationAction: false,
+                    showChatAction: false,
+                  ),
+                  TabBar(
+                    controller: _tabController,
+                    indicatorColor: Colors.white,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white70,
+                    onTap: (index) {
+                      if (index == 1) {
+                        Future<void>.microtask(_openNewRequestPage);
+                      }
+                    },
+                    tabs: const [Tab(text: 'طلباتي'), Tab(text: 'طلب جديد')],
+                  ),
+                ],
+              ),
             ),
-          ),
-          bottom: TabBar(
-            controller: _tabController,
-            indicatorColor: Colors.white,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white70,
-            onTap: (index) {
-              if (index == 1) {
-                Future<void>.microtask(_openNewRequestPage);
-              }
-            },
-            tabs: const [Tab(text: 'طلباتي'), Tab(text: 'طلب جديد')],
           ),
         ),
         body: TabBarView(
@@ -421,90 +429,169 @@ class _PromotionScreenState extends State<PromotionScreen>
     return RefreshIndicator(
       onRefresh: () => _loadRequests(silent: true),
       color: _brandColor,
-      child: SingleChildScrollView(
+      child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'قائمة طلبات الترويج',
-                    style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w700,
-                        fontSize: 16,
-                        color: _brandColor),
-                  ),
-                ),
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                      color: _brandColor, shape: BoxShape.circle),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF3EDFC)),
-                border: TableBorder.all(color: const Color(0xFFD6C8EF)),
-                headingTextStyle: const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
-                    color: _brandColor,
-                    fontSize: 12),
-                dataTextStyle:
-                    const TextStyle(fontFamily: 'Cairo', fontSize: 12),
-                columnSpacing: 14,
-                columns: const [
-                  DataColumn(label: Text('رقم الطلب')),
-                  DataColumn(label: Text('نوع الطلب')),
-                  DataColumn(label: Text('تاريخ ووقت اعتماد الطلب')),
-                  DataColumn(label: Text('حالة الطلب')),
-                ],
-                rows: _requests.map((req) => _buildRequestRow(req)).toList(),
+        padding: const EdgeInsets.fromLTRB(12, 14, 12, 22),
+        itemCount: _requests.length + 1,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFD9CBEE)),
               ),
-            ),
-          ],
-        ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'قائمة طلبات الترويج',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: _brandColor,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.campaign_rounded, color: _brandColor, size: 18),
+                ],
+              ),
+            );
+          }
+          final request = _requests[index - 1];
+          return _buildRequestCard(request);
+        },
       ),
     );
   }
 
-  DataRow _buildRequestRow(Map<String, dynamic> request) {
+  Color _statusColor(String status) {
+    switch (status) {
+      case 'active':
+      case 'completed':
+        return const Color(0xFF2E7D32);
+      case 'quoted':
+      case 'pending_payment':
+      case 'in_review':
+        return const Color(0xFF1565C0);
+      case 'rejected':
+      case 'cancelled':
+        return const Color(0xFFC62828);
+      default:
+        return const Color(0xFF6B7280);
+    }
+  }
+
+  Widget _buildRequestCard(Map<String, dynamic> request) {
     final status = (request['status'] as String? ?? 'new').trim();
-    final code = (request['code'] as String? ?? '').trim();
+    final code = (request['code'] as String? ?? '—').trim();
     final requestType = _requestTypeLabelFromRequest(request);
     final approvedAt = _requestApprovedAtFromRequest(request);
+    final statusText = _statusLabels[status] ?? status;
+    final statusColor = _statusColor(status);
 
     String fmtDt(String iso) {
       if (iso.isEmpty) return '—';
       try {
         final dt = DateTime.parse(iso).toLocal();
-        return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} – ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} • ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
       } catch (_) {
         return iso;
       }
     }
 
-    return DataRow(
-      onSelectChanged: (_) => _showRequestDialog(request),
-      cells: [
-        DataCell(Text(code,
-            style: const TextStyle(
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _showRequestDialog(request),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFD8C9EC)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    code,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                      color: _brandColor,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(24),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: statusColor.withAlpha(90)),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                      color: statusColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              requestType,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
                 fontFamily: 'Cairo',
                 fontWeight: FontWeight.w600,
-                color: _brandColor))),
-        DataCell(Text(requestType)),
-        DataCell(Text(fmtDt(approvedAt))),
-        DataCell(Text(_statusLabels[status] ?? status)),
-      ],
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.schedule_rounded, size: 16, color: Colors.black45),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    fmtDt(approvedAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _brandColor),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -949,18 +1036,12 @@ class PromotionNewRequestScreen extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _brandColor,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'طلب ترويج جديد',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        appBar: const PlatformTopBar(
+          overlay: true,
+          pageLabel: 'طلب ترويج جديد',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: _PromoComposer(
           onCreated: () {
@@ -2883,7 +2964,7 @@ class _PromoSummaryScreen extends StatelessWidget {
     final normalizedProviderName =
         providerName.trim().isEmpty ? 'مزود الخدمة' : providerName.trim();
 
-    DataRow _itemRow(Map<String, dynamic> item) {
+    DataRow itemRow(Map<String, dynamic> item) {
       final title = (item['title'] as String? ??
               _serviceLabel(item['service_type'] as String?))
           .trim();
@@ -2905,7 +2986,7 @@ class _PromoSummaryScreen extends StatelessWidget {
       );
     }
 
-    Widget _totalsRow(String label, String amount) {
+    Widget totalsRow(String label, String amount) {
       return Container(
         decoration: BoxDecoration(
           border: Border(
@@ -2965,18 +3046,12 @@ class _PromoSummaryScreen extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: _brandColor,
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'ملخص طلب الترويج والتكلفة',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        appBar: const PlatformTopBar(
+          overlay: true,
+          pageLabel: 'ملخص طلب الترويج والتكلفة',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -3079,14 +3154,14 @@ class _PromoSummaryScreen extends StatelessWidget {
                                   ],
                                 ),
                               ]
-                            : items.map(_itemRow).toList(),
+                            : items.map(itemRow).toList(),
                       ),
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _totalsRow('المجموع', '${_money(preview['subtotal'])} ريال'),
-                  _totalsRow('VAT', '${_money(preview['vat_amount'])} ريال'),
-                  _totalsRow(
+                  totalsRow('المجموع', '${_money(preview['subtotal'])} ريال'),
+                  totalsRow('VAT', '${_money(preview['vat_amount'])} ريال'),
+                  totalsRow(
                       'التكلفة الكلية', '${_money(preview['total'])} ريال'),
                   const SizedBox(height: 16),
                   Row(
@@ -3334,18 +3409,12 @@ class _PromoPaymentScreenState extends State<_PromoPaymentScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF3F4FC),
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF2F7D1E),
-          centerTitle: true,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: const Text(
-            'شاشة الدفع',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+        appBar: const PlatformTopBar(
+          overlay: true,
+          pageLabel: 'شاشة الدفع',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),

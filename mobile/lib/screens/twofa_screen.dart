@@ -9,6 +9,7 @@ import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/content_service.dart';
 import '../services/push_notification_service.dart';
+import '../widgets/platform_top_bar.dart';
 import 'signup_screen.dart';
 
 class TwoFAScreen extends StatefulWidget {
@@ -387,24 +388,11 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F8),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back, color: AppColors.deepPurple),
-        ),
-        title: Text(
-          _content.title,
-          style: const TextStyle(
-            fontFamily: 'Cairo',
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            color: AppColors.deepPurple,
-          ),
-        ),
+      appBar: PlatformTopBar(
+        pageLabel: _content.title,
+        showBackButton: true,
+        showNotificationAction: false,
+        showChatAction: false,
       ),
       body: SafeArea(
         top: false,

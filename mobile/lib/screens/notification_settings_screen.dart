@@ -5,7 +5,9 @@ import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'additional_services_screen.dart';
 import 'my_chats_screen.dart';
+import 'plans_screen.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
@@ -101,7 +103,7 @@ class _NotificationSettingsScreenState
   // ─── تحديث تفضيل واحد ───
   Future<void> _togglePreference(NotificationPreference pref, bool newVal) async {
     if (pref.locked) {
-      _showLockedDialog(pref.lockedReason);
+      _showLockedDialog(pref.lockedReason, tier: pref.tier);
       return;
     }
 
@@ -179,7 +181,7 @@ class _NotificationSettingsScreenState
                 : null,
         value: pref.enabled,
         onChanged: pref.locked
-            ? (_) => _showLockedDialog(pref.lockedReason)
+            ? (_) => _showLockedDialog(pref.lockedReason, tier: pref.tier)
             : isSaving
                 ? null
                 : (val) => _togglePreference(pref, val),
@@ -285,11 +287,32 @@ class _NotificationSettingsScreenState
     return null;
   }
 
+  Widget _lockedDestination({String? tier, String? message}) {
+    final normalizedTier = (tier ?? '').trim().toLowerCase();
+    final normalizedMessage = (message ?? '').trim();
+    final isExtras = normalizedTier == 'extra' ||
+        normalizedMessage.contains('الخدمات الإضافية') ||
+        normalizedMessage.contains('بوابة الخدمات الإضافية');
+    return isExtras ? const AdditionalServicesScreen() : const PlansScreen();
+  }
+
+  String _lockedActionLabel({String? tier, String? message}) {
+    final normalizedTier = (tier ?? '').trim().toLowerCase();
+    final normalizedMessage = (message ?? '').trim();
+    final isExtras = normalizedTier == 'extra' ||
+        normalizedMessage.contains('الخدمات الإضافية') ||
+        normalizedMessage.contains('بوابة الخدمات الإضافية');
+    return isExtras ? 'عرض الخدمات الإضافية' : 'عرض الباقات';
+  }
+
   // ─── Dialog ترقية ───
-  void _showLockedDialog(String reason) {
+  void _showLockedDialog(String reason, {String? tier}) {
     final message = reason.isNotEmpty
         ? reason
         : "هذه الإشعارات غير متاحة في اشتراكك الحالي.";
+    final rootContext = context;
+    final destination = _lockedDestination(tier: tier, message: message);
+    final actionLabel = _lockedActionLabel(tier: tier, message: message);
     showDialog(
       context: context,
       builder: (_) => Dialog(
@@ -328,18 +351,29 @@ class _NotificationSettingsScreenState
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                        onPressed: () {
-                          Navigator.pop(context);
-                          // TODO: فتح الوجهة المناسبة حسب سبب القفل (الباقات/الإضافات)
-                        },
-                        child: const Text(
-                          "حسنًا",
-                          style: TextStyle(fontFamily: "Cairo", fontSize: 14, color: Colors.white, fontWeight: FontWeight.bold),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (!rootContext.mounted) return;
+                        Navigator.push(
+                          rootContext,
+                          MaterialPageRoute(builder: (_) => destination),
+                        );
+                      },
+                      child: Text(
+                        actionLabel,
+                        style: const TextStyle(
+                          fontFamily: "Cairo",
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(

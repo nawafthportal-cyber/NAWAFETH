@@ -28,7 +28,7 @@ const HomePage = (() => {
   let $categoriesList, $providersList, $bannersList, $bannersSection;
   let $portfolioShowcaseSection, $portfolioShowcaseList, $sponsorshipsSection, $sponsorshipsList;
   let $promoMessageSection, $promoMessageCard;
-  let $heroTitle, $heroSubtitle, $searchPlaceholder, $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
+  let $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
   let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
 
   // State
@@ -53,9 +53,6 @@ const HomePage = (() => {
   let _providersBound = false;
   let _popupShown = false;       // only show popup once per session
   let _homeContent = {
-    heroTitle: '',
-    heroSubtitle: '',
-    searchPlaceholder: '',
     categoriesTitle: '',
     providersTitle: '',
     bannersTitle: '',
@@ -69,9 +66,6 @@ const HomePage = (() => {
     $providersList  = document.getElementById('providers-list');
     $bannersList    = document.getElementById('carousel-track');
     $bannersSection = document.getElementById('banners');
-    $heroTitle      = document.getElementById('hero-title');
-    $heroSubtitle   = document.getElementById('hero-subtitle');
-    $searchPlaceholder = document.getElementById('home-search-placeholder');
     $categoriesTitle = document.getElementById('categories-title');
     $providersTitle = document.getElementById('providers-title');
     $bannersTitle = document.getElementById('banners-title');
@@ -494,9 +488,6 @@ const HomePage = (() => {
     if (contentRes.status === 'fulfilled' && contentRes.value.ok && contentRes.value.data) {
       const blocks = contentRes.value.data.blocks || {};
       _homeContent = {
-        heroTitle: _resolveBlockTitle(blocks.home_hero_title, 'الرئيسية'),
-        heroSubtitle: _resolveBlockTitle(blocks.home_hero_subtitle, 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.'),
-        searchPlaceholder: _resolveBlockTitle(blocks.home_search_placeholder, 'ابحث'),
         categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'التصنيفات'),
         providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'أبرز المختصين'),
         bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'عروض ترويجية'),
@@ -1554,22 +1545,10 @@ const HomePage = (() => {
      HELPERS
   ---------------------------------------------------------- */
   function _updateSubtitle(count) {
-    if ($heroTitle) $heroTitle.textContent = _homeContent.heroTitle || 'الرئيسية';
-    if (!$heroSubtitle) return;
-    const value = String(_homeContent.heroSubtitle || '').trim();
-    $heroSubtitle.textContent = (value || 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.')
-      .replaceAll('{provider_count}', String(count));
+    // hero text removed — no-op
   }
 
   function _applyHomeContent() {
-    if ($heroTitle) $heroTitle.textContent = _homeContent.heroTitle || 'الرئيسية';
-    if ($heroSubtitle) {
-      $heroSubtitle.textContent = (_homeContent.heroSubtitle || 'مزودون موثّقون وخدمات مرتبة لتبدأ بشكل أسرع وأكثر وضوحًا.')
-        .replaceAll('{provider_count}', '0');
-    }
-    if ($searchPlaceholder) {
-      $searchPlaceholder.textContent = _homeContent.searchPlaceholder || 'ابحث';
-    }
     if ($categoriesTitle) {
       $categoriesTitle.textContent = _homeContent.categoriesTitle || 'التصنيفات';
     }

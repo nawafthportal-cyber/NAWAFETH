@@ -8,8 +8,11 @@ import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
+import 'chat_detail_screen.dart';
+import 'client_order_details_screen.dart';
 import 'my_chats_screen.dart';
 import 'notification_settings_screen.dart';
+import 'provider_dashboard/provider_order_details_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -91,6 +94,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _errorMessage = null;
       _isLoading = false;
     });
+  }
+
+  Widget? _destinationForNotification(NotificationModel notification) {
+    final rawUrl = (notification.url ?? '').trim();
+    if (rawUrl.isEmpty) return null;
+
+    final uri = Uri.tryParse(rawUrl);
+    final path = (uri?.path ?? rawUrl).trim();
+
+    final requestChatMatch =
+        RegExp(r'^/requests/(\d+)/chat/?$', caseSensitive: false)
+            .firstMatch(path);
+    if (requestChatMatch != null) {
+      final requestId = int.tryParse(requestChatMatch.group(1) ?? '');
+      if (requestId != null) {
+        return _activeMode == 'provider'
+            ? ProviderOrderDetailsScreen(requestId: requestId)
+            : ClientOrderDetailsScreen(requestId: requestId);
+      }
+    }
+
+    final requestMatch =
+        RegExp(r'^/requests/(\d+)/?$', caseSensitive: false).firstMatch(path);
+    if (requestMatch != null) {
+      final requestId = int.tryParse(requestMatch.group(1) ?? '');
+      if (requestId != null) {
+        return _activeMode == 'provider'
+            ? ProviderOrderDetailsScreen(requestId: requestId)
+            : ClientOrderDetailsScreen(requestId: requestId);
+      }
+    }
+
+    final threadMatch =
+        RegExp(r'^/threads/(\d+)(?:/chat)?/?$', caseSensitive: false)
+            .firstMatch(path);
+    if (threadMatch != null) {
+      final threadId = int.tryParse(threadMatch.group(1) ?? '');
+      if (threadId != null) {
+        return ChatDetailScreen(
+          threadId: threadId,
+          peerName: 'المحادثة',
+        );
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _openNotification(NotificationModel notification) async {
+    final destination = _destinationForNotification(notification);
+    if (destination == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'لا يوجد مسار متاح لهذا الإشعار حاليًا',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => destination),
+    );
+    await UnreadBadgeService.refresh(force: true);
   }
 
   Future<void> _loadNotifications() async {
@@ -273,12 +344,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           // تمييز كمقروء عند النقر
           if (!notif.isRead) {
             await NotificationService.markRead(notif.id, mode: _activeMode);
+            if (!mounted) return;
             setState(() {
               _notifications[index] = notif.copyWith(isRead: true);
             });
             unawaited(UnreadBadgeService.refresh(force: true));
           }
-          // TODO: التنقل حسب notif.url
+          await _openNotification(notif);
         },
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

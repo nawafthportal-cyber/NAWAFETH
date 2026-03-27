@@ -7,6 +7,7 @@ import '../services/profile_service.dart';
 import '../services/content_service.dart';
 import '../models/user_profile.dart';
 import '../widgets/content_block_media.dart';
+import '../widgets/platform_top_bar.dart';
 
 /// أيقونة Face ID
 class FaceIDIcon extends StatelessWidget {
@@ -221,6 +222,15 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
     ));
   }
 
+  PlatformTopBar _settingsTopBar() {
+    return PlatformTopBar(
+      pageLabel: 'إعدادات الدخول',
+      showBackButton: Navigator.of(context).canPop(),
+      showNotificationAction: false,
+      showChatAction: false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -232,24 +242,14 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
 
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('إعدادات الدخول'),
-          backgroundColor: _mainColor,
-          foregroundColor: Colors.white,
-          centerTitle: true,
-        ),
+        appBar: _settingsTopBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('إعدادات الدخول'),
-          backgroundColor: _mainColor,
-          foregroundColor: Colors.white,
-          centerTitle: true,
-        ),
+        appBar: _settingsTopBar(),
         body: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(_error!, style: const TextStyle(fontFamily: 'Cairo')),
@@ -264,13 +264,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text('إعدادات الدخول'),
-        backgroundColor: _mainColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 2,
-      ),
+      appBar: _settingsTopBar(),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -723,12 +717,7 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   Widget _buildUnlockScreen() {
     final dotsCount = (_storedPin ?? '').isNotEmpty ? _storedPin!.length : 6;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('إعدادات الدخول'),
-        backgroundColor: _mainColor,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
+      appBar: _settingsTopBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 26),

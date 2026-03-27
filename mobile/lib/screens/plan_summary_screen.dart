@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/subscriptions_service.dart';
+import '../widgets/platform_top_bar.dart';
 
 class PlanSummaryScreen extends StatefulWidget {
   final Map<String, dynamic> plan;
@@ -102,9 +103,11 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
-        appBar: AppBar(
-          title: const Text('ملخص الاشتراك'),
-          centerTitle: true,
+        appBar: const PlatformTopBar(
+          pageLabel: 'ملخص الاشتراك',
+          showBackButton: true,
+          showNotificationAction: false,
+          showChatAction: false,
         ),
         body: ListView(
           padding: const EdgeInsets.all(16),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/extras_service.dart';
 import '../widgets/bottom_nav.dart';
+import '../widgets/platform_top_bar.dart';
 
 class AdditionalServicesScreen extends StatefulWidget {
   const AdditionalServicesScreen({super.key});
@@ -591,20 +592,10 @@ class _AdditionalServicesScreenState extends State<AdditionalServicesScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF4F4F8),
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0.7,
-          centerTitle: true,
-          title: const Text(
-            'الخدمات الإضافية',
-            style: TextStyle(
-              fontFamily: 'Cairo',
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          iconTheme: const IconThemeData(color: Colors.black87),
-          actions: [
+        appBar: PlatformTopBar(
+          pageLabel: 'الخدمات الإضافية',
+          showBackButton: true,
+          trailingActions: [
             IconButton(
               onPressed: _isLoading ? null : () => _loadData(silent: true),
               icon: const Icon(Icons.refresh),
