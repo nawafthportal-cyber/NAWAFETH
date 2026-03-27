@@ -363,17 +363,12 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   }) {
     final targetCategory =
         (item['target_category'] as String? ?? '').trim().toLowerCase();
-    final targetCity = (item['target_city'] as String? ?? '').trim().toLowerCase();
     final categoryContext = selectedCategoryName.trim().toLowerCase();
 
     if (targetCategory.isNotEmpty) {
       if (categoryContext.isEmpty) return false;
       if (targetCategory != categoryContext) return false;
     }
-
-    // شاشة البحث في Flutter لا تمرّر سياق مدينة، لذلك لا نعرض حملات
-    // مستهدفة لمدينة محددة حتى لا تظهر خارج نطاقها.
-    if (targetCity.isNotEmpty) return false;
 
     return true;
   }

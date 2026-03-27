@@ -1651,6 +1651,46 @@ def test_public_active_promos_filters_search_result_items_by_scope_query(api, us
     assert set(mixed_ids) == {default_item.id, category_item.id}
 
 
+def test_public_active_promos_ignore_city_targeting_for_search_results(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="company",
+        display_name="مزود بحث بلا مدينة",
+        bio="bio",
+        city="الرياض",
+        years_experience=0,
+    )
+    now = timezone.now()
+    pr = PromoRequest.objects.create(
+        requester=user,
+        title="search without city targeting",
+        ad_type="bundle",
+        start_at=now - timedelta(days=1),
+        end_at=now + timedelta(days=1),
+        frequency="60s",
+        position="normal",
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now,
+        target_city="جدة",
+    )
+    item = PromoRequestItem.objects.create(
+        request=pr,
+        service_type=PromoServiceType.SEARCH_RESULTS,
+        title="cityless search",
+        start_at=now - timedelta(hours=2),
+        end_at=now + timedelta(hours=20),
+        search_scope="main_results",
+        search_position="first",
+        target_city="جدة",
+        sort_order=10,
+    )
+
+    response = api.get("/api/promo/active/?service_type=search_results&search_scope=main_results&city=الرياض&limit=10")
+    assert response.status_code == 200
+    assert [row.get("item_id") for row in response.data] == [item.id]
+    assert response.data[0]["target_city"] == ""
+
+
 def test_public_active_promos_return_portfolio_showcase_payload(api, user):
     provider = ProviderProfile.objects.create(
         user=user,
@@ -2592,6 +2632,52 @@ def test_create_multi_item_request_expands_search_scopes(api, user):
     )
     assert len(search_items) == 2
     assert {item.search_scope for item in search_items} == {"default", "main_results"}
+
+
+def test_create_multi_item_search_results_clears_target_city(api, user):
+    ProviderProfile.objects.create(
+        user=user,
+        provider_type="individual",
+        display_name="مزود إلغاء المدينة",
+        bio="bio",
+        city="الرياض",
+        years_experience=1,
+    )
+    plan = SubscriptionPlan.objects.create(code="PRO_CITYLESS", title="Pro", tier="pro", features=[], is_active=True)
+    Subscription.objects.create(
+        user=user,
+        plan=plan,
+        status=SubscriptionStatus.ACTIVE,
+        start_at=timezone.now(),
+        end_at=timezone.now() + timedelta(days=365),
+    )
+    api.force_authenticate(user=user)
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=1)
+
+    response = api.post(
+        "/api/promo/requests/create/",
+        data={
+            "title": "طلب بحث بدون مدينة",
+            "items": [
+                {
+                    "service_type": "search_results",
+                    "title": "بحث مباشر",
+                    "start_at": start_at.isoformat(),
+                    "end_at": end_at.isoformat(),
+                    "search_scope": "main_results",
+                    "search_position": "top10",
+                    "target_city": "جدة",
+                },
+            ],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    pr = PromoRequest.objects.get(pk=response.data["id"])
+    search_item = pr.items.get(service_type=PromoServiceType.SEARCH_RESULTS)
+    assert search_item.target_city == ""
 
 
 def test_preview_multi_item_request_expands_search_scopes_pricing(api, user):

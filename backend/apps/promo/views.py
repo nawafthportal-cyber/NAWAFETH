@@ -282,6 +282,7 @@ def _item_is_active_now(*, item: PromoRequestItem, now):
 
 def _build_request_placement(pr: PromoRequest) -> dict:
     position = getattr(pr, "position", "") or PromoPosition.NORMAL
+    service_type = _LEGACY_AD_TYPE_DEFAULT_SERVICE_TYPE.get(pr.ad_type, "")
     return {
         "id": pr.id,
         "request_id": pr.id,
@@ -289,7 +290,7 @@ def _build_request_placement(pr: PromoRequest) -> dict:
         "code": pr.code or "",
         "title": pr.title or "",
         "ad_type": pr.ad_type,
-        "service_type": _LEGACY_AD_TYPE_DEFAULT_SERVICE_TYPE.get(pr.ad_type, ""),
+        "service_type": service_type,
         "start_at": pr.start_at,
         "end_at": pr.end_at,
         "send_at": None,
@@ -298,7 +299,7 @@ def _build_request_placement(pr: PromoRequest) -> dict:
         "search_scope": "",
         "search_position": "",
         "target_category": pr.target_category or "",
-        "target_city": pr.target_city or "",
+        "target_city": "" if service_type == PromoServiceType.SEARCH_RESULTS else (pr.target_city or ""),
         "redirect_url": pr.redirect_url or "",
         "message_title": pr.message_title or "",
         "message_body": pr.message_body or "",
@@ -334,7 +335,7 @@ def _build_item_placement(item: PromoRequestItem) -> dict:
         "search_scope": item.search_scope or "",
         "search_position": item.search_position or "",
         "target_category": item.target_category or pr.target_category or "",
-        "target_city": item.target_city or pr.target_city or "",
+        "target_city": "" if item.service_type == PromoServiceType.SEARCH_RESULTS else (item.target_city or pr.target_city or ""),
         "redirect_url": item.redirect_url or pr.redirect_url or "",
         "message_title": item.message_title or pr.message_title or "",
         "message_body": item.message_body or pr.message_body or "",
@@ -352,9 +353,10 @@ def _build_item_placement(item: PromoRequestItem) -> dict:
 
 
 def _placement_matches_scope(*, placement: dict, city: str, category: str) -> bool:
+    service_type = str(placement.get("service_type") or "").strip()
     city_value = str(placement.get("target_city") or "").strip().lower()
     category_value = str(placement.get("target_category") or "").strip().lower()
-    if city and city_value and city_value != city.strip().lower():
+    if service_type != PromoServiceType.SEARCH_RESULTS and city and city_value and city_value != city.strip().lower():
         return False
     if category and category_value and category_value != category.strip().lower():
         return False

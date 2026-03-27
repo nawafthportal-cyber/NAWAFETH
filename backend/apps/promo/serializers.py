@@ -3,13 +3,14 @@ from __future__ import annotations
 from rest_framework import serializers
 from django.utils import timezone
 
-from apps.providers.models import ProviderPortfolioItem
+from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
 from apps.providers.serializers import ProviderPortfolioItemSerializer
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
     promotional_notification_controls_enabled_for_user,
 )
 
+from .services import promo_rotation_frequency_values
 from .models import (
     HomeBanner,
     PromoAdType,
@@ -221,7 +222,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             PromoServiceType.FEATURED_SPECIALISTS,
             PromoServiceType.PORTFOLIO_SHOWCASE,
             PromoServiceType.SNAPSHOTS,
-        } and attrs.get("frequency") not in PromoFrequency.values:
+        } and attrs.get("frequency") not in promo_rotation_frequency_values():
             raise serializers.ValidationError("معدل الظهور غير صحيح.")
 
         if service_type == PromoServiceType.SEARCH_RESULTS:
@@ -246,6 +247,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 PromoPosition.TOP10,
             }:
                 raise serializers.ValidationError("ترتيب الظهور غير صحيح.")
+            attrs["target_city"] = ""
 
         if service_type in {
             PromoServiceType.FEATURED_SPECIALISTS,
@@ -254,6 +256,11 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             PromoServiceType.SEARCH_RESULTS,
         } and not attrs.get("target_provider") and not attrs.get("target_portfolio_item") and requester_provider is None:
             raise serializers.ValidationError("مقدم الخدمة المستهدف مطلوب لهذا النوع من الترويج.")
+
+        if service_type == PromoServiceType.SNAPSHOTS:
+            spotlight_provider = attrs.get("target_provider") or requester_provider
+            if spotlight_provider is not None and not ProviderSpotlightItem.objects.filter(provider=spotlight_provider).exists():
+                raise serializers.ValidationError("لا يمكن تفعيل شريط اللمحات لمزود لا يملك لمحات منشورة.")
 
         if service_type == PromoServiceType.PROMO_MESSAGES:
             if not send_at:
@@ -320,6 +327,12 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "sort_order",
             "assets",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if data.get("service_type") == PromoServiceType.SEARCH_RESULTS:
+            data["target_city"] = ""
+        return data
 
 
 class PromoRequestCreateSerializer(serializers.ModelSerializer):
@@ -467,12 +480,15 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                     scope_labels = dict(PromoSearchScope.choices)
                     for scope in scopes:
                         expanded = dict(normalized)
+                        expanded["target_city"] = ""
                         expanded["search_scope"] = scope
                         base_title = str(expanded.get("title") or "").strip()
                         if base_title and len(scopes) > 1:
                             expanded["title"] = f"{base_title} - {scope_labels.get(scope, scope)}"[:160]
                         expanded_rows.append(expanded)
                 else:
+                    if service_type == PromoServiceType.SEARCH_RESULTS:
+                        normalized["target_city"] = ""
                     expanded_rows.append(normalized)
 
                 for expanded in expanded_rows:
@@ -696,15 +712,6 @@ class PromoActivePlacementSerializer(serializers.Serializer):
         if not isinstance(obj, dict):
             return None
         target_item = obj.get("target_portfolio_item")
-        if target_item is None and obj.get("service_type") == PromoServiceType.PORTFOLIO_SHOWCASE:
-            target_provider = obj.get("target_provider")
-            if target_provider is not None:
-                target_item = (
-                    ProviderPortfolioItem.objects.select_related("provider", "provider__user")
-                    .filter(provider=target_provider)
-                    .order_by("-created_at", "-id")
-                    .first()
-                )
         if target_item is None:
             return None
         return ProviderPortfolioItemSerializer(target_item, context=self.context).data

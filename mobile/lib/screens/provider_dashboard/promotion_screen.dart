@@ -612,7 +612,11 @@ class _PromotionScreenState extends State<PromotionScreen>
           if ((item['search_scope_label'] as String? ?? '').isNotEmpty) _line('نطاق البحث', item['search_scope_label'] as String),
           if ((item['search_position_label'] as String? ?? '').isNotEmpty) _line('ترتيب الظهور', item['search_position_label'] as String),
           if ((item['target_category'] as String? ?? '').isNotEmpty) _line('التصنيف', item['target_category'] as String),
-          if ((item['target_city'] as String? ?? '').isNotEmpty) _line('المدينة', item['target_city'] as String),
+          if (
+            (item['service_type'] as String? ?? '') != 'search_results' &&
+            (item['target_city'] as String? ?? '').isNotEmpty
+          )
+            _line('المدينة', item['target_city'] as String),
           if (item['send_at'] != null) _line('وقت الإرسال', _fmtDate(item['send_at'])),
           if ((item['redirect_url'] as String? ?? '').isNotEmpty) _line('رابط التحويل', item['redirect_url'] as String),
           if ((item['message_title'] as String? ?? '').isNotEmpty) _line('عنوان الرسالة', item['message_title'] as String),

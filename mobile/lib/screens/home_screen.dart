@@ -70,9 +70,17 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _reelsScroll = ScrollController();
   final ScrollController _featuredSpecialistsScroll = ScrollController();
   Timer? _reelsTimer;
+  Timer? _reelsResumeTimer;
   Timer? _featuredSpecialistsTimer;
+  Timer? _featuredSpecialistsResumeTimer;
   ValueListenable<UnreadBadges>? _badgeListenable;
   double _reelsPos = 0;
+  double _featuredSpecialistsPos = 0;
+  bool _reelsAutoPaused = false;
+  bool _featuredSpecialistsAutoPaused = false;
+  static const Duration _reelsResumeDelay = Duration(seconds: 3);
+  static const Duration _featuredSpecialistsResumeDelay =
+      Duration(seconds: 3);
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -405,12 +413,20 @@ class _HomeScreenState extends State<HomeScreen> {
       _featuredSpecialistsTimer = Timer.periodic(
         const Duration(seconds: 3),
         (_) {
-          if (!mounted || !_featuredSpecialistsScroll.hasClients) return;
+          if (!mounted ||
+              !_featuredSpecialistsScroll.hasClients ||
+              _featuredSpecialistsAutoPaused) {
+            return;
+          }
+          _syncFeaturedSpecialistsPositionFromController();
           final position = _featuredSpecialistsScroll.position;
           final max = position.maxScrollExtent;
-          if (max <= 0) return;
+          if (max <= 0) {
+            _featuredSpecialistsPos = 0;
+            return;
+          }
           const step = 110.0;
-          final next = position.pixels + step;
+          final next = _featuredSpecialistsPos + step;
           final target = next >= max - 4 ? 0.0 : next;
           _featuredSpecialistsScroll.animateTo(
             target,
@@ -419,6 +435,27 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       );
+    });
+  }
+
+  void _syncFeaturedSpecialistsPositionFromController() {
+    if (!_featuredSpecialistsScroll.hasClients) return;
+    final max = _featuredSpecialistsScroll.position.maxScrollExtent;
+    final current = _featuredSpecialistsScroll.offset;
+    _featuredSpecialistsPos = current.clamp(0.0, max).toDouble();
+  }
+
+  void _pauseFeaturedSpecialistsAutoRotate({bool resumeLater = false}) {
+    _featuredSpecialistsAutoPaused = true;
+    _featuredSpecialistsResumeTimer?.cancel();
+    if (!resumeLater) {
+      return;
+    }
+    _featuredSpecialistsResumeTimer =
+        Timer(_featuredSpecialistsResumeDelay, () {
+      if (!mounted) return;
+      _syncFeaturedSpecialistsPositionFromController();
+      _featuredSpecialistsAutoPaused = false;
     });
   }
 
@@ -658,24 +695,53 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startReelsScroll() {
+    _reelsTimer?.cancel();
     _reelsTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      if (_reelsScroll.hasClients && mounted) {
-        _reelsPos += 1.0;
-        final half = _reelsScroll.position.maxScrollExtent / 2;
-        if (_reelsPos >= half) {
-          _reelsScroll.jumpTo(0);
-          _reelsPos = 0;
-        } else {
-          _reelsScroll.jumpTo(_reelsPos);
-        }
+      if (!mounted || !_reelsScroll.hasClients || _reelsAutoPaused) {
+        return;
       }
+      _syncReelsPositionFromController();
+      _reelsPos += 1.0;
+      final max = _reelsScroll.position.maxScrollExtent;
+      if (max <= 0) {
+        _reelsPos = 0;
+        return;
+      }
+      if (_reelsPos >= max) {
+        _reelsScroll.jumpTo(0);
+        _reelsPos = 0;
+      } else {
+        _reelsScroll.jumpTo(_reelsPos);
+      }
+    });
+  }
+
+  void _syncReelsPositionFromController() {
+    if (!_reelsScroll.hasClients) return;
+    final max = _reelsScroll.position.maxScrollExtent;
+    final current = _reelsScroll.offset;
+    _reelsPos = current.clamp(0.0, max).toDouble();
+  }
+
+  void _pauseReelsAutoScroll({bool resumeLater = false}) {
+    _reelsAutoPaused = true;
+    _reelsResumeTimer?.cancel();
+    if (!resumeLater) {
+      return;
+    }
+    _reelsResumeTimer = Timer(_reelsResumeDelay, () {
+      if (!mounted) return;
+      _syncReelsPositionFromController();
+      _reelsAutoPaused = false;
     });
   }
 
   @override
   void dispose() {
     _reelsTimer?.cancel();
+    _reelsResumeTimer?.cancel();
     _featuredSpecialistsTimer?.cancel();
+    _featuredSpecialistsResumeTimer?.cancel();
     _bannersSyncTimer?.cancel();
     _badgeListenable?.removeListener(_handleBadgeChange);
     UnreadBadgeService.release();
@@ -1160,45 +1226,50 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 108,
       margin: const EdgeInsets.only(top: 12),
-      child: ListView.builder(
-        controller: _reelsScroll,
-        scrollDirection: Axis.horizontal,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: _spotlights.length,
-        itemBuilder: (context, index) {
-          final item = _spotlights[index];
-          final thumb = _spotlightThumbUrl(item);
-          final caption = (item.caption ?? '').trim();
+      child: Listener(
+        onPointerDown: (_) => _pauseReelsAutoScroll(),
+        onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
+        onPointerCancel: (_) => _pauseReelsAutoScroll(resumeLater: true),
+        child: ListView.builder(
+          controller: _reelsScroll,
+          scrollDirection: Axis.horizontal,
+          physics: const ClampingScrollPhysics(),
+          itemCount: _spotlights.length,
+          itemBuilder: (context, index) {
+            final item = _spotlights[index];
+            final thumb = _spotlightThumbUrl(item);
+            final caption = (item.caption ?? '').trim();
 
-          return GestureDetector(
-            onTap: () => _openSpotlightViewer(index),
-            child: SizedBox(
-              width: 78,
-              child: Column(
-                children: [
-                  _reelMediaRing(
-                    imageUrl: thumb,
-                    isDark: isDark,
-                    fallbackIcon: item.isVideo
-                        ? Icons.play_arrow_rounded
-                        : Icons.image_rounded,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    caption.isNotEmpty ? caption : 'لمحة',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontFamily: 'Cairo',
-                      color: isDark ? Colors.white70 : Colors.black54,
+            return GestureDetector(
+              onTap: () => _openSpotlightViewer(index),
+              child: SizedBox(
+                width: 78,
+                child: Column(
+                  children: [
+                    _reelMediaRing(
+                      imageUrl: thumb,
+                      isDark: isDark,
+                      fallbackIcon: item.isVideo
+                          ? Icons.play_arrow_rounded
+                          : Icons.image_rounded,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 6),
+                    Text(
+                      caption.isNotEmpty ? caption : 'لمحة',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontFamily: 'Cairo',
+                        color: isDark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -1362,6 +1433,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openSpotlightViewer(int index) async {
     if (_spotlights.isEmpty) return;
 
+    _pauseReelsAutoScroll();
     _reelsTimer?.cancel();
 
     await Navigator.push(
@@ -1376,6 +1448,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (mounted) {
       _syncSpotlightInteractionState();
+      _reelsAutoPaused = false;
       _startReelsScroll();
     }
   }
@@ -1539,12 +1612,23 @@ class _HomeScreenState extends State<HomeScreen> {
           else
             SizedBox(
               height: 138,
-              child: ListView.builder(
-                controller: _featuredSpecialistsScroll,
-                scrollDirection: Axis.horizontal,
-                itemCount: _featuredSpecialists.length,
-                itemBuilder: (context, index) =>
-                    _providerCard(_featuredSpecialists[index], isDark, purple),
+              child: Listener(
+                onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
+                onPointerUp: (_) =>
+                    _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                onPointerCancel: (_) =>
+                    _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                child: ListView.builder(
+                  controller: _featuredSpecialistsScroll,
+                  scrollDirection: Axis.horizontal,
+                  physics: const ClampingScrollPhysics(),
+                  itemCount: _featuredSpecialists.length,
+                  itemBuilder: (context, index) => _providerCard(
+                    _featuredSpecialists[index],
+                    isDark,
+                    purple,
+                  ),
+                ),
               ),
             ),
         ],

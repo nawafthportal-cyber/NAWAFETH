@@ -9,13 +9,16 @@ from apps.content.models import (
     validate_legal_document_file,
 )
 from apps.promo.models import (
-    PromoFrequency,
     PromoOpsStatus,
     PromoPosition,
     PromoSearchScope,
     PromoServiceType,
 )
-from apps.promo.services import promo_min_campaign_hours, promo_min_campaign_message
+from apps.promo.services import (
+    promo_min_campaign_hours,
+    promo_min_campaign_message,
+    promo_rotation_frequency_choices,
+)
 from apps.support.models import SupportTeam, SupportTicketStatus
 
 
@@ -790,7 +793,7 @@ class PromoModuleItemForm(forms.Form):
     frequency = forms.ChoiceField(
         label="معدل الظهور",
         required=False,
-        choices=[("", "غير محدد")] + list(PromoFrequency.choices),
+        choices=[("", "غير محدد")] + list(promo_rotation_frequency_choices()),
         widget=forms.Select(attrs={"class": "input-control"}),
     )
     search_scope = forms.ChoiceField(
@@ -827,6 +830,12 @@ class PromoModuleItemForm(forms.Form):
                 "inputmode": "numeric",
             }
         ),
+    )
+    target_portfolio_item_id = forms.IntegerField(
+        label="عنصر معرض الأعمال المختار",
+        required=False,
+        min_value=1,
+        widget=forms.HiddenInput(),
     )
     target_category = forms.CharField(
         label="التصنيف المستهدف",
@@ -977,7 +986,11 @@ class PromoModuleItemForm(forms.Form):
         } and not (cleaned.get("frequency") or "").strip():
             self.add_error("frequency", "معدل الظهور مطلوب لهذا النوع.")
 
+        if service_type == PromoServiceType.PORTFOLIO_SHOWCASE and not cleaned.get("target_portfolio_item_id"):
+            self.add_error("target_portfolio_item_id", "اختر صورة واحدة من معرض أعمال المزود.")
+
         if service_type == PromoServiceType.SEARCH_RESULTS:
+            cleaned["target_city"] = ""
             selected_scopes = [str(scope).strip() for scope in (cleaned.get("search_scopes") or []) if str(scope).strip()]
             legacy_scope = (cleaned.get("search_scope") or "").strip()
             if not selected_scopes and legacy_scope:

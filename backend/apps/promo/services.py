@@ -29,6 +29,25 @@ from .models import (
 )
 
 
+PROMO_ROTATION_FREQUENCY_CHOICES: tuple[tuple[str, str], ...] = (
+    (PromoFrequency.S10, "كل 10 ثواني"),
+    (PromoFrequency.S30, "كل 30 ثانية"),
+    (PromoFrequency.S60, "كل دقيقة"),
+    (PromoFrequency.S300, "كل 5 دقائق"),
+    (PromoFrequency.S900, "كل 15 دقيقة"),
+    (PromoFrequency.S1800, "كل 30 دقيقة"),
+    (PromoFrequency.S3600, "كل ساعة"),
+)
+
+
+def promo_rotation_frequency_values() -> tuple[str, ...]:
+    return tuple(value for value, _label in PROMO_ROTATION_FREQUENCY_CHOICES)
+
+
+def promo_rotation_frequency_choices() -> tuple[tuple[str, str], ...]:
+    return PROMO_ROTATION_FREQUENCY_CHOICES
+
+
 DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     {
         "code": "home_banner_daily",
@@ -696,7 +715,7 @@ def calc_promo_item_quote(*, item: PromoRequestItem) -> dict:
         PromoServiceType.SNAPSHOTS,
     }:
         _require_campaign_dates(item)
-        if item.frequency not in PromoFrequency.values:
+        if item.frequency not in promo_rotation_frequency_values():
             raise ValueError(f"{item.get_service_type_display()}: معدل الظهور غير صحيح.")
         days = _duration_days(item.start_at, item.end_at)
         rule = _get_pricing_rule(service_type=service_type, frequency=item.frequency)
@@ -911,12 +930,15 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
             scope_labels = dict(PromoSearchScope.choices)
             for scope in scopes:
                 expanded = dict(normalized)
+                expanded["target_city"] = ""
                 expanded["search_scope"] = scope
                 base_title = str(expanded.get("title") or "").strip()
                 if base_title and len(scopes) > 1:
                     expanded["title"] = f"{base_title} - {scope_labels.get(scope, scope)}"[:160]
                 expanded_rows.append(expanded)
         else:
+            if normalized.get("service_type") == PromoServiceType.SEARCH_RESULTS:
+                normalized["target_city"] = ""
             expanded_rows.append(normalized)
 
         for expanded in expanded_rows:

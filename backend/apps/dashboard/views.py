@@ -2283,15 +2283,24 @@ def _promo_module_initial_data_from_request(
             or ""
         ),
         "target_provider_id": target_provider_id,
+        "target_portfolio_item_id": (
+            getattr(selected_item, "target_portfolio_item_id", None)
+            or getattr(selected_request, "target_portfolio_item_id", None)
+            or ""
+        ),
         "target_category": (
             (selected_item.target_category if selected_item else "")
             or selected_request.target_category
             or ""
         ),
         "target_city": (
-            (selected_item.target_city if selected_item else "")
-            or selected_request.target_city
-            or ""
+            ""
+            if service_type == PromoServiceType.SEARCH_RESULTS
+            else (
+                (selected_item.target_city if selected_item else "")
+                or selected_request.target_city
+                or ""
+            )
         ),
         "redirect_url": (
             (selected_item.redirect_url if selected_item else "")
@@ -2320,6 +2329,28 @@ def _promo_module_initial_data_from_request(
         "desktop_scale": int(selected_request.desktop_scale or 100),
     }
     return initial
+
+
+def _promo_module_selected_portfolio_item_data(
+    *,
+    selected_request: PromoRequest | None,
+    selected_item: PromoRequestItem | None,
+) -> dict:
+    target_item = None
+    if selected_item is not None and getattr(selected_item, "target_portfolio_item", None) is not None:
+        target_item = selected_item.target_portfolio_item
+    elif selected_request is not None and getattr(selected_request, "target_portfolio_item", None) is not None:
+        target_item = selected_request.target_portfolio_item
+    if target_item is None:
+        return {}
+    file_field = getattr(target_item, "file", None)
+    thumb_field = getattr(target_item, "thumbnail", None)
+    return {
+        "id": int(target_item.id),
+        "file_url": getattr(file_field, "url", "") if file_field else "",
+        "thumbnail_url": getattr(thumb_field, "url", "") if thumb_field else "",
+        "caption": str(getattr(target_item, "caption", "") or "").strip(),
+    }
 
 
 def _promo_module_assets_for_selected_request(
@@ -2414,6 +2445,10 @@ def promo_module(request, module_key: str):
         selected_request,
         service_type=service_type,
     )
+    selected_portfolio_item_data = _promo_module_selected_portfolio_item_data(
+        selected_request=selected_request,
+        selected_item=selected_request_item,
+    )
     selected_request_module_assets = _promo_module_assets_for_selected_request(
         selected_request=selected_request,
         service_type=service_type,
@@ -2447,6 +2482,10 @@ def promo_module(request, module_key: str):
         ),
     )
     preview_payload = None
+    provider_portfolio_api_template = reverse("providers:provider_portfolio", kwargs={"provider_id": 0}).replace(
+        "/0/portfolio/",
+        "/__provider_id__/portfolio/",
+    )
 
     if request.method == "POST":
         posted_request_id_raw = (request.POST.get("request_id") or "").strip()
@@ -2455,6 +2494,10 @@ def promo_module(request, module_key: str):
             selected_request_item = _promo_selected_request_item_for_service(
                 selected_request,
                 service_type=service_type,
+            )
+            selected_portfolio_item_data = _promo_module_selected_portfolio_item_data(
+                selected_request=selected_request,
+                selected_item=selected_request_item,
             )
             selected_request_module_assets = _promo_module_assets_for_selected_request(
                 selected_request=selected_request,
@@ -2484,6 +2527,39 @@ def promo_module(request, module_key: str):
                 if target_provider is None:
                     module_form.add_error("target_provider_id", "معرف المختص المستهدف غير صحيح.")
 
+            target_portfolio_item = None
+            target_portfolio_item_id = cleaned.get("target_portfolio_item_id")
+            if target_portfolio_item_id:
+                target_portfolio_item = (
+                    ProviderPortfolioItem.objects.select_related("provider", "provider__user")
+                    .filter(id=int(target_portfolio_item_id))
+                    .first()
+                )
+                if target_portfolio_item is None:
+                    module_form.add_error("target_portfolio_item_id", "الصورة المختارة من معرض الأعمال غير متاحة.")
+                elif str(getattr(target_portfolio_item, "file_type", "")).lower() != "image":
+                    module_form.add_error("target_portfolio_item_id", "يمكن اختيار الصور فقط لهذا الشريط.")
+                else:
+                    if target_provider is not None and target_portfolio_item.provider_id != target_provider.id:
+                        module_form.add_error("target_portfolio_item_id", "الصورة المختارة لا تتبع مزود الخدمة المحدد.")
+                    elif target_provider is None:
+                        target_provider = target_portfolio_item.provider
+
+            if (
+                target_provider is None
+                and promo_request is not None
+                and getattr(promo_request.requester, "provider_profile", None) is not None
+                and service_type in PROMO_TARGETED_SERVICE_TYPES
+            ):
+                target_provider = promo_request.requester.provider_profile
+
+            if (
+                service_type == PromoServiceType.SNAPSHOTS
+                and target_provider is not None
+                and not ProviderSpotlightItem.objects.filter(provider=target_provider).exists()
+            ):
+                module_form.add_error("target_provider_id", "لا توجد لمحات منشورة لهذا المزود حتى الآن.")
+
             if module_form.errors:
                 messages.error(request, "يرجى مراجعة الحقول المحددة.")
             elif module_action == "preview_item":
@@ -2495,13 +2571,6 @@ def promo_module(request, module_key: str):
                 messages.info(request, "تم تجهيز معاينة البند. راجع الملخص ثم اضغط اعتماد للتنفيذ.")
             else:
                 try:
-                    if (
-                        target_provider is None
-                        and getattr(promo_request.requester, "provider_profile", None) is not None
-                        and service_type in PROMO_TARGETED_SERVICE_TYPES
-                    ):
-                        target_provider = promo_request.requester.provider_profile
-
                     search_scopes = [str(scope).strip() for scope in (cleaned.get("resolved_search_scopes") or []) if str(scope).strip()]
                     if service_type == PromoServiceType.SEARCH_RESULTS:
                         scopes_to_create = search_scopes
@@ -2536,8 +2605,13 @@ def promo_module(request, module_key: str):
                                 search_scope=scope,
                                 search_position=cleaned.get("search_position") or "",
                                 target_provider=target_provider,
+                                target_portfolio_item=target_portfolio_item,
                                 target_category=cleaned.get("target_category") or "",
-                                target_city=cleaned.get("target_city") or "",
+                                target_city=(
+                                    ""
+                                    if service_type == PromoServiceType.SEARCH_RESULTS
+                                    else (cleaned.get("target_city") or "")
+                                ),
                                 redirect_url=cleaned.get("redirect_url") or "",
                                 message_title=cleaned.get("message_title") or "",
                                 message_body=cleaned.get("message_body") or "",
@@ -2580,9 +2654,17 @@ def promo_module(request, module_key: str):
                         promo_request.end_at = promo_request.start_at + timedelta(days=1)
 
                     first_item = created_items[0]
+                    if not promo_request.target_provider_id and first_item.target_provider_id:
+                        promo_request.target_provider = first_item.target_provider
+                    if not promo_request.target_portfolio_item_id and first_item.target_portfolio_item_id:
+                        promo_request.target_portfolio_item = first_item.target_portfolio_item
                     if not promo_request.target_category and first_item.target_category:
                         promo_request.target_category = first_item.target_category
-                    if not promo_request.target_city and first_item.target_city:
+                    if (
+                        service_type != PromoServiceType.SEARCH_RESULTS
+                        and not promo_request.target_city
+                        and first_item.target_city
+                    ):
                         promo_request.target_city = first_item.target_city
                     if not promo_request.redirect_url and first_item.redirect_url:
                         promo_request.redirect_url = first_item.redirect_url
@@ -2590,6 +2672,8 @@ def promo_module(request, module_key: str):
                         update_fields=[
                             "start_at",
                             "end_at",
+                            "target_provider",
+                            "target_portfolio_item",
                             "target_category",
                             "target_city",
                             "redirect_url",
@@ -2632,14 +2716,27 @@ def promo_module(request, module_key: str):
             "selected_request": selected_request,
             "selected_requester_label": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_item": selected_request_item,
+            "selected_portfolio_item_data": selected_portfolio_item_data,
             "selected_request_module_assets": selected_request_module_assets,
             "selected_home_banner_asset": selected_home_banner_asset,
             "selected_request_quote": _promo_quote_snapshot(selected_request) if selected_request else None,
             "preview_payload": preview_payload,
+            "is_featured_module": service_type == PromoServiceType.FEATURED_SPECIALISTS,
+            "is_portfolio_module": service_type == PromoServiceType.PORTFOLIO_SHOWCASE,
+            "is_snapshots_module": service_type == PromoServiceType.SNAPSHOTS,
             "is_search_module": service_type == PromoServiceType.SEARCH_RESULTS,
             "is_messages_module": service_type == PromoServiceType.PROMO_MESSAGES,
             "is_sponsorship_module": service_type == PromoServiceType.SPONSORSHIP,
             "is_module_review_flow": service_type in {PromoServiceType.PROMO_MESSAGES, PromoServiceType.SPONSORSHIP},
+            "provider_portfolio_api_template": provider_portfolio_api_template,
+            "provider_detail_api_template": reverse("providers:provider_detail", kwargs={"pk": 0}).replace(
+                "/0/",
+                "/__provider_id__/",
+            ),
+            "provider_spotlights_api_template": reverse("providers:provider_spotlights", kwargs={"provider_id": 0}).replace(
+                "/0/spotlights/",
+                "/__provider_id__/spotlights/",
+            ),
         }
     )
     return render(request, "dashboard/promo_module.html", context)

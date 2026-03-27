@@ -22,6 +22,7 @@ const HomePage = (() => {
   const CAROUSEL_IMAGE_ROTATE_MS = 3000;
   const CAROUSEL_VIDEO_FALLBACK_ROTATE_MS = 30000;
   const BANNER_SYNC_INTERVAL_MS = 60000;
+  const PROVIDERS_RESUME_DELAY_MS = 3000;
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
@@ -47,6 +48,7 @@ const HomePage = (() => {
   let _carouselActiveVideoEl = null;
   let _carouselActiveVideoEndedHandler = null;
   let _providersAutoTimer = null;
+  let _providersResumeTimer = null;
   let _providersPaused = false;
   let _providersBound = false;
   let _popupShown = false;       // only show popup once per session
@@ -798,14 +800,29 @@ const HomePage = (() => {
     if (!$providersList || _providersBound) return;
     _providersBound = true;
 
-    const pause = () => { _providersPaused = true; };
-    const resume = () => { _providersPaused = false; };
+    const pause = () => _pauseProvidersAutoRotate();
+    const resumeLater = () => _pauseProvidersAutoRotate({ resumeLater: true });
 
     $providersList.addEventListener('pointerdown', pause, { passive: true });
-    $providersList.addEventListener('pointerup', resume, { passive: true });
-    $providersList.addEventListener('pointercancel', resume, { passive: true });
+    $providersList.addEventListener('pointerup', resumeLater, { passive: true });
+    $providersList.addEventListener('pointercancel', resumeLater, { passive: true });
+    $providersList.addEventListener('wheel', resumeLater, { passive: true });
     $providersList.addEventListener('mouseenter', pause, { passive: true });
-    $providersList.addEventListener('mouseleave', resume, { passive: true });
+    $providersList.addEventListener('mouseleave', resumeLater, { passive: true });
+  }
+
+  function _pauseProvidersAutoRotate(options = {}) {
+    const resumeLater = !!options.resumeLater;
+    _providersPaused = true;
+    if (_providersResumeTimer) {
+      window.clearTimeout(_providersResumeTimer);
+      _providersResumeTimer = null;
+    }
+    if (!resumeLater) return;
+    _providersResumeTimer = window.setTimeout(() => {
+      _providersPaused = false;
+      _providersResumeTimer = null;
+    }, PROVIDERS_RESUME_DELAY_MS);
   }
 
   function _startProvidersAutoRotate() {
@@ -835,6 +852,10 @@ const HomePage = (() => {
     if (_providersAutoTimer) {
       clearInterval(_providersAutoTimer);
       _providersAutoTimer = null;
+    }
+    if (_providersResumeTimer) {
+      window.clearTimeout(_providersResumeTimer);
+      _providersResumeTimer = null;
     }
   }
 

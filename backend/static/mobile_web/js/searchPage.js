@@ -645,18 +645,11 @@ const SearchPage = (() => {
 
   function _matchesSearchPromoTargeting(placement) {
     const categoryContext = _selectedCategoryName().toLowerCase();
-    const cityContext = _readPromoString(_activeCity).toLowerCase();
     const targetCategory = _readPromoString(placement?.target_category).toLowerCase();
-    const targetCity = _readPromoString(placement?.target_city).toLowerCase();
 
     if (targetCategory) {
       if (!categoryContext) return false;
       if (targetCategory !== categoryContext) return false;
-    }
-
-    if (targetCity) {
-      if (!cityContext) return false;
-      if (targetCity !== cityContext) return false;
     }
 
     return true;
@@ -923,7 +916,6 @@ const SearchPage = (() => {
         selectedCategoryName ? 'default,main_results,category_match' : 'default,main_results'
       );
       if (selectedCategoryName) searchQuery.set('category', selectedCategoryName);
-      if (_activeCity) searchQuery.set('city', _activeCity);
       const categoryBannerQuery = new URLSearchParams();
       if (selectedCategoryName) {
         categoryBannerQuery.set('ad_type', 'banner_category');

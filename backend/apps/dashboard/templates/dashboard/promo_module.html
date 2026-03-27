@@ -53,10 +53,10 @@
 
           <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}">
             {% csrf_token %}
-            <h3>إضافة بند ترويجي على طلب قائم</h3>
+            <h3>{% if is_search_module %}إعداد بند الظهور في قوائم البحث{% else %}إضافة بند ترويجي على طلب قائم{% endif %}</h3>
 
             <div class="module-form-layout">
-              {% if module_meta.key != "home_banner" %}
+              {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
                 <section class="module-block">
                   <h4>بيانات الربط</h4>
                   <div class="form-grid">
@@ -153,41 +153,387 @@
                     </div>
                   </div>
                 </section>
+              {% elif is_featured_module %}
+                <section class="module-block module-block-featured-specialists">
+                  <h4>شريط أبرز المختصين</h4>
+                  <div class="featured-specialists-requester-row">
+                    <span>اسم المختص</span>
+                    <strong>{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div class="featured-specialists-layout">
+                    <div class="featured-specialists-form-panel">
+                      <div class="form-grid featured-specialists-form-grid">
+                        <div class="field full">
+                          <small>يتم عرض المختص في شريط أبرز المختصين مع أولوية ظهور حسب معدل التكرار خلال فترة الحملة.</small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                          {{ module_form.request_id }}
+                          {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label>نوع الخدمة</label>
+                          <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                          {{ module_form.title }}
+                          {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                          {{ module_form.target_provider_id }}
+                          {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
+                          {{ module_form.frequency }}
+                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="featured-specialists-phone-panel" aria-hidden="true">
+                      <div class="featured-specialists-phone-shell">
+                        <div class="featured-specialists-phone-notch"></div>
+                        <div class="featured-specialists-phone-screen">
+                          <div class="featured-specialists-phone-topbar"></div>
+                          <div class="featured-specialists-strip-title">موضع شريط أبرز المختصين</div>
+                          <div class="featured-specialists-strip-list">
+                            <div class="featured-specialists-strip-item is-active">
+                              <span class="featured-specialists-avatar"></span>
+                              <span class="featured-specialists-label">مختص مميز</span>
+                            </div>
+                            <div class="featured-specialists-strip-item">
+                              <span class="featured-specialists-avatar"></span>
+                              <span class="featured-specialists-label">مختص مميز</span>
+                            </div>
+                            <div class="featured-specialists-strip-item">
+                              <span class="featured-specialists-avatar"></span>
+                              <span class="featured-specialists-label">مختص مميز</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+              {% elif is_portfolio_module %}
+                <section class="module-block module-block-portfolio-showcase">
+                  <h4>شريط البنرات والمشاريع</h4>
+                  <div class="portfolio-showcase-requester-row">
+                    <span>اسم المختص</span>
+                    <strong id="portfolioShowcaseProviderName">{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div class="portfolio-showcase-layout">
+                    <div class="portfolio-showcase-form-panel">
+                      <div class="form-grid portfolio-showcase-form-grid">
+                        <div class="field full">
+                          <small>بعد اختيار المزود ستظهر صور معرض أعماله فقط. اختر صورة واحدة ليتم اعتمادها في شريط البنرات والمشاريع.</small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                          {{ module_form.request_id }}
+                          {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label>نوع الخدمة</label>
+                          <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                          {{ module_form.title }}
+                          {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
+                          {{ module_form.target_provider_id }}
+                          {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
+                          {{ module_form.frequency }}
+                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          {{ module_form.target_portfolio_item_id }}
+                          {% for err in module_form.target_portfolio_item_id.errors %}<small>{{ err }}</small>{% endfor %}
+                          <div class="portfolio-showcase-gallery-shell">
+                            <div class="portfolio-showcase-gallery-head">
+                              <h5>صور معرض الأعمال المتاحة</h5>
+                              <span class="pill accent" id="portfolioShowcaseGalleryCount">0 صورة</span>
+                            </div>
+                            <p
+                              class="portfolio-showcase-gallery-status"
+                              id="portfolioShowcaseGalleryStatus"
+                            >
+                              أدخل معرف المزود ليتم جلب الصور المتاحة من الـ API.
+                            </p>
+                            <div
+                              class="portfolio-showcase-gallery"
+                              id="portfolioShowcaseGallery"
+                              data-api-template="{{ provider_portfolio_api_template }}"
+                              data-selected-item-id="{{ selected_portfolio_item_data.id|default:'' }}"
+                              data-selected-item-file="{{ selected_portfolio_item_data.file_url|default:selected_portfolio_item_data.thumbnail_url }}"
+                              data-selected-item-thumbnail="{{ selected_portfolio_item_data.thumbnail_url|default:'' }}"
+                              data-selected-item-caption="{{ selected_portfolio_item_data.caption|default:'' }}"
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="portfolio-showcase-phone-panel" aria-hidden="true">
+                      <div class="portfolio-showcase-phone-shell">
+                        <div class="portfolio-showcase-phone-notch"></div>
+                        <div class="portfolio-showcase-phone-screen" id="portfolioShowcasePhonePreview">
+                          <div
+                            class="portfolio-showcase-phone-empty"
+                            id="portfolioShowcasePhoneEmpty"
+                            {% if selected_portfolio_item_data.file_url or selected_portfolio_item_data.thumbnail_url %}hidden{% endif %}
+                          >
+                            اختر صورة من معرض الأعمال لعرضها هنا.
+                          </div>
+                          {% if selected_portfolio_item_data.file_url or selected_portfolio_item_data.thumbnail_url %}
+                            <img
+                              src="{{ selected_portfolio_item_data.file_url|default:selected_portfolio_item_data.thumbnail_url }}"
+                              alt="{{ selected_portfolio_item_data.caption|default:'صورة معرض الأعمال المختارة' }}"
+                            >
+                          {% endif %}
+                        </div>
+                      </div>
+                      <p class="portfolio-showcase-phone-meta" id="portfolioShowcasePreviewCaption">
+                        {% if selected_portfolio_item_data.caption %}
+                          {{ selected_portfolio_item_data.caption }}
+                        {% elif selected_portfolio_item_data.file_url or selected_portfolio_item_data.thumbnail_url %}
+                          تم اختيار صورة محفوظة سابقًا لهذا البند.
+                        {% else %}
+                          المعاينة ستظهر بعد اختيار صورة واحدة من المعرض.
+                        {% endif %}
+                      </p>
+                    </div>
+                  </div>
+                </section>
+              {% elif is_snapshots_module %}
+                <section class="module-block module-block-snapshots">
+                  <h4>شريط اللمحات</h4>
+                  <div class="snapshots-requester-row">
+                    <span>اسم المختص</span>
+                    <strong id="snapshotsProviderName">{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div class="snapshots-layout">
+                    <div class="snapshots-form-panel">
+                      <div class="form-grid snapshots-form-grid">
+                        <div class="field full">
+                          <small>يتم ترويج لمحات المزود داخل الشريط الدائري، وفي الواجهة العامة يظهر معه أيضًا ما أضيف حديثًا خلال اليوم حسب تدفق العرض المعتمد.</small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                          {{ module_form.request_id }}
+                          {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label>نوع الخدمة</label>
+                          <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
+                        </div>
+                        <div class="field full">
+                          <label for="{{ module_form.title.id_for_label }}">عنوان الحملة</label>
+                          {{ module_form.title }}
+                          {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
+                          {{ module_form.target_provider_id }}
+                          {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
+                          {{ module_form.frequency }}
+                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <div class="snapshots-gallery-shell">
+                            <div class="snapshots-gallery-head">
+                              <h5>معاينة لمحات المزود</h5>
+                              <span class="pill accent" id="snapshotsGalleryCount">0 لمحة</span>
+                            </div>
+                            <p class="snapshots-gallery-status" id="snapshotsGalleryStatus">
+                              أدخل معرف المزود ليتم جلب اللمحات من الـ API.
+                            </p>
+                            <div
+                              class="snapshots-gallery"
+                              id="snapshotsGallery"
+                              data-api-template="{{ provider_spotlights_api_template }}"
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="snapshots-phone-panel" aria-hidden="true">
+                      <div class="snapshots-phone-shell">
+                        <div class="snapshots-phone-notch"></div>
+                        <div class="snapshots-phone-screen">
+                          <div class="snapshots-phone-title">موضع شريط اللمحات</div>
+                          <div class="snapshots-phone-strip" id="snapshotsPhoneStrip"></div>
+                          <div class="snapshots-phone-viewer" id="snapshotsPhoneViewer">
+                            <div class="snapshots-phone-empty" id="snapshotsPhoneEmpty">
+                              سيتم عرض معاينة أول لمحة للمزود هنا.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <p class="snapshots-phone-meta" id="snapshotsPreviewCaption">
+                        اللمحات تظهر بشكل دائري، وعند فتحها تعرض المحتوى بشكل رأسي شبيه بتجربة المقاطع القصيرة.
+                      </p>
+                    </div>
+                  </div>
+                </section>
               {% elif is_search_module %}
                 <section class="module-block module-block-search">
-                  <h4>إعدادات الظهور في قوائم البحث</h4>
-                  <div class="form-grid">
-                    <div class="field">
-                      <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص المستهدف</label>
-                      {{ module_form.target_provider_id }}
-                      {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                  <h4>الظهور في قوائم البحث</h4>
+                  <div class="search-module-requester-row">
+                    <div class="search-module-requester-copy">
+                      <span>اسم المختص</span>
+                      <small id="searchModuleProviderMeta">
+                        يظهر هنا اسم المختص وبياناته الأساسية بعد جلبها من الـ API.
+                      </small>
                     </div>
-                    <div class="field">
-                      <label for="{{ module_form.target_category.id_for_label }}">تصنيف المختص</label>
-                      {{ module_form.target_category }}
-                      {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field full">
-                      <label>قوائم الظهور المستهدفة</label>
-                      <div class="checks checks-inline">
-                        {{ module_form.search_scopes }}
+                    <strong
+                      id="searchModuleProviderName"
+                      data-initial-name="{{ selected_requester_label|default:'-' }}"
+                    >{{ selected_requester_label|default:"-" }}</strong>
+                  </div>
+                  <div class="search-module-layout">
+                    <div class="search-module-form-panel">
+                      {{ module_form.title.as_hidden }}
+                      <div class="form-grid search-module-form-grid">
+                        <div class="field full">
+                          <small>
+                            يتم التحكم هنا في أماكن ظهور المختص داخل نتائج البحث المرتبطة بتصنيفه، مع تحديد أولوية ظهوره خلال فترة الحملة.
+                          </small>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
+                          {{ module_form.request_id }}
+                          {% for err in module_form.request_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label>نوع الخدمة</label>
+                          <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                          {{ module_form.target_provider_id }}
+                          {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.target_category.id_for_label }}">تصنيف المختص</label>
+                          {{ module_form.target_category }}
+                          {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field full">
+                          <label>قوائم الظهور المستهدفة</label>
+                          <div class="search-module-scopes" id="searchModuleScopes">
+                            {{ module_form.search_scopes }}
+                          </div>
+                          {% for err in module_form.search_scopes.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.search_position.id_for_label }}">ترتيب الظهور</label>
+                          {{ module_form.search_position }}
+                          {% for err in module_form.search_position.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
+                          {{ module_form.start_at }}
+                          {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
+                        <div class="field">
+                          <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
+                          {{ module_form.end_at }}
+                          {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+                        </div>
                       </div>
-                      {% for err in module_form.search_scopes.errors %}<small>{{ err }}</small>{% endfor %}
+
+                      <div class="search-module-insights">
+                        <article class="search-module-info-card">
+                          <h5>المجالات المرتبطة بالمختص</h5>
+                          <p>
+                            يتم استخدام هذا المجال لربط الظهور بنتائج البحث ذات العلاقة الفعلية بخدمات المختص.
+                          </p>
+                          <ul class="search-module-category-list" id="searchModuleCategories">
+                            <li class="is-empty">أدخل معرف المختص ليتم جلب تصنيفاته من الـ API.</li>
+                          </ul>
+                        </article>
+                        <article class="search-module-info-card">
+                          <h5>خيارات ترتيب الظهور</h5>
+                          <ol class="search-module-position-list">
+                            <li>الأول في القائمة</li>
+                            <li>الثاني في القائمة</li>
+                            <li>من أول خمسة أسماء في القائمة</li>
+                            <li>من أول عشرة أسماء في القائمة</li>
+                          </ol>
+                        </article>
+                      </div>
                     </div>
-                    <div class="field">
-                      <label for="{{ module_form.search_position.id_for_label }}">ترتيب الظهور</label>
-                      {{ module_form.search_position }}
-                      {% for err in module_form.search_position.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
-                      {{ module_form.start_at }}
-                      {% for err in module_form.start_at.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
-                      <label for="{{ module_form.end_at.id_for_label }}">نهاية الحملة</label>
-                      {{ module_form.end_at }}
-                      {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
+
+                    <div class="search-module-preview-panel" aria-hidden="true">
+                      <div class="search-module-phone-shell">
+                        <div class="search-module-phone-notch"></div>
+                        <div class="search-module-phone-screen">
+                          <div class="search-module-phone-topbar">
+                            <span class="search-module-phone-brand">نتائج البحث</span>
+                            <span class="search-module-phone-badge" id="searchModulePhonePositionBadge">—</span>
+                          </div>
+                          <div class="search-module-phone-searchbar">ابحث عن خدمة أو مختص...</div>
+                          <div class="search-module-phone-chips" id="searchModuleScopeChips"></div>
+                          <div class="search-module-phone-category" id="searchModulePhoneCategory">
+                            التصنيف المرتبط: —
+                          </div>
+                          <div
+                            class="search-module-phone-results"
+                            id="searchModulePhoneResults"
+                            data-provider-api-template="{{ provider_detail_api_template }}"
+                          ></div>
+                        </div>
+                      </div>
+                      <p class="search-module-phone-meta" id="searchModulePreviewSummary">
+                        المعاينة توضح مكان ظهور المختص داخل نتائج البحث حسب القوائم والترتيب المختارين.
+                      </p>
+                      <p class="search-module-provider-status" id="searchModuleProviderStatus">
+                        أدخل معرف المختص ليتم جلب بياناته من الباكند وتحديث المعاينة.
+                      </p>
                     </div>
                   </div>
                 </section>
@@ -345,7 +691,7 @@
                 </section>
               {% endif %}
 
-              {% if module_meta.key != "home_banner" %}
+              {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
                 <section class="module-block">
                   <h4>ملاحظات تشغيلية</h4>
                   <div class="form-grid">
@@ -359,13 +705,21 @@
               {% endif %}
             </div>
 
-            <div class="actions {% if module_meta.key == 'home_banner' %}home-banner-actions{% endif %}">
+            <div class="actions {% if module_meta.key == 'home_banner' or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}home-banner-actions{% endif %}">
               {% if can_write %}
-                <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
-                <button class="primary-btn" type="submit" name="workflow_action" value="approve_item" data-require-confirm="اعتماد هذا البند بشكل نهائي؟">
-                  {% if module_meta.key == "home_banner" %}حفظ{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
+                {% if not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
+                  <button class="ghost-btn" type="submit" name="workflow_action" value="preview_item">معاينة</button>
+                {% endif %}
+                <button
+                  class="primary-btn"
+                  type="submit"
+                  name="workflow_action"
+                  value="approve_item"
+                  {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}data-require-confirm="اعتماد هذا البند بشكل نهائي؟"{% endif %}
+                >
+                  {% if module_meta.key == "home_banner" or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}حفظ{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}
                 </button>
-                {% if module_meta.key == "home_banner" %}
+                {% if module_meta.key == "home_banner" or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}
                   <a class="ghost-btn" href="{% url 'dashboard:promo_dashboard' %}{% if selected_request %}?request={{ selected_request.id }}{% endif %}">إلغاء</a>
                 {% endif %}
               {% else %}
@@ -446,7 +800,7 @@
           </section>
         {% endif %}
 
-        {% if preview_payload %}
+        {% if preview_payload and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}
           <section class="section-panel slide-up">
             <div class="title-row">
               <h2>معاينة قبل الاعتماد</h2>
@@ -508,7 +862,10 @@
                   <th>رقم الطلب</th>
                   <th>اسم العميل</th>
                   <th>عنوان البند</th>
-                  {% if is_search_module %}
+                  {% if is_featured_module or is_portfolio_module or is_snapshots_module %}
+                    <th>معدل الظهور</th>
+                    <th>بداية/نهاية</th>
+                  {% elif is_search_module %}
                     <th>قائمة الظهور</th>
                     <th>الترتيب</th>
                   {% elif is_messages_module %}
@@ -531,7 +888,10 @@
                     </td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.title }}</td>
-                    {% if is_search_module %}
+                    {% if is_featured_module or is_portfolio_module or is_snapshots_module %}
+                      <td>{{ row.frequency }}</td>
+                      <td>{{ row.start_at }}<br>{{ row.end_at }}</td>
+                    {% elif is_search_module %}
                       <td>{{ row.search_scope }}</td>
                       <td>{{ row.search_position }}</td>
                     {% elif is_messages_module %}
@@ -544,7 +904,7 @@
                     <td>{{ row.status }}</td>
                   </tr>
                 {% empty %}
-                  <tr><td colspan="6">لا توجد بنود لهذه الوحدة حالياً.</td></tr>
+                  <tr><td colspan="{% if is_search_module or is_featured_module or is_portfolio_module or is_snapshots_module %}6{% else %}5{% endif %}">لا توجد بنود لهذه الوحدة حالياً.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
