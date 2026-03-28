@@ -25,6 +25,59 @@ SUPPORT_STATUS_TRANSITIONS: dict[str, set[str]] = {
 }
 
 
+def build_ticket_notification_url(ticket: SupportTicket | int) -> str:
+    ticket_id = ticket if isinstance(ticket, int) else ticket.id
+    return f"/contact/?ticket={int(ticket_id)}"
+
+
+def _ticket_reference(ticket: SupportTicket) -> str:
+    return (ticket.code or "").strip() or f"HD{ticket.id}"
+
+
+def notify_ticket_requester_about_comment(*, ticket: SupportTicket, comment, by_user):
+    if not ticket.requester_id or comment is None:
+        return None
+    if getattr(comment, "is_internal", False):
+        return None
+    if by_user is not None and ticket.requester_id == getattr(by_user, "id", None):
+        return None
+
+    author_name = ""
+    if by_user is not None:
+        author_name = (
+            getattr(by_user, "name", None)
+            or getattr(by_user, "phone", None)
+            or ""
+        ).strip()
+
+    snippet = " ".join(str(getattr(comment, "text", "") or "").split())
+    if len(snippet) > 180:
+        snippet = snippet[:177].rstrip() + "..."
+
+    body = f"تمت إضافة تعليق جديد على البلاغ ({_ticket_reference(ticket)})."
+    if author_name:
+        body = f"أضاف {author_name} تعليقًا جديدًا على البلاغ ({_ticket_reference(ticket)})."
+    if snippet:
+        body += f" {snippet}"
+    body = body[:500]
+
+    return create_notification(
+        user=ticket.requester,
+        title="تعليق جديد على البلاغ",
+        body=body,
+        kind="report_status_change",
+        url=build_ticket_notification_url(ticket),
+        actor=by_user,
+        meta={
+            "ticket_id": ticket.id,
+            "ticket_code": ticket.code or "",
+            "comment_id": getattr(comment, "id", None),
+        },
+        pref_key="report_status_change",
+        audience_mode="shared",
+    )
+
+
 def _sync_ticket_to_unified(*, ticket: SupportTicket, changed_by=None):
     """
     مزامنة تذكرة الدعم مع محرك الطلبات الموحد (تكامل تدريجي غير معطّل).
@@ -122,7 +175,7 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
         title="تحديث على البلاغ",
         body=body,
         kind="report_status_change",
-        url=f"/support/tickets/{ticket.id}/",
+        url=build_ticket_notification_url(ticket),
         actor=by_user,
         meta={
             "ticket_id": ticket.id,
@@ -131,7 +184,7 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
             "to_status": new_status,
         },
         pref_key="report_status_change",
-        audience_mode="client",
+        audience_mode="shared",
     )
     return ticket
 

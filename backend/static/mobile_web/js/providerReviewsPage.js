@@ -5,8 +5,29 @@ var ProviderReviewsPage = (function () {
   var providerId = null;
   var reviews = [];
   var ratingData = {};
+  var reportDialog = {
+    modal: null,
+    overlay: null,
+    closeBtn: null,
+    cancelBtn: null,
+    submitBtn: null,
+    reasonInput: null,
+    detailsInput: null,
+    reviewerEl: null,
+    dateEl: null,
+    starsEl: null,
+    textEl: null,
+    counterEl: null,
+    toastEl: null,
+    closeTimer: null,
+    toastTimer: null,
+    activeReviewId: "",
+    activeClientId: null,
+    isSubmitting: false
+  };
 
   function init() {
+    bindReportDialog();
     var sort = document.getElementById("rv-sort");
     if (sort) sort.addEventListener("change", function () { sortAndRender(); });
     var retry = document.getElementById("rv-retry");
@@ -188,6 +209,218 @@ var ProviderReviewsPage = (function () {
       .replace(/'/g, "&#39;");
   }
 
+  function getReviewAuthorName(review) {
+    if (!review || typeof review !== "object") return "عميل";
+    if (review.client_name) return review.client_name;
+    if (review.user_name) return review.user_name;
+    if (review.user && review.user.name) return review.user.name;
+    return "عميل";
+  }
+
+  function getReviewText(review) {
+    if (!review || typeof review !== "object") return "";
+    return String(review.comment || review.text || review.review_text || "").trim();
+  }
+
+  function getReviewDateLabel(review) {
+    if (!review || typeof review !== "object") return "بدون تاريخ";
+    var raw = review.created_at || review.created;
+    if (!raw) return "بدون تاريخ";
+    var date = new Date(raw);
+    if (!Number.isFinite(date.getTime())) return "بدون تاريخ";
+    return date.toLocaleDateString("ar-SA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric"
+    });
+  }
+
+  function findReviewById(reviewId) {
+    var normalized = String(reviewId || "");
+    for (var i = 0; i < reviews.length; i++) {
+      if (String(reviews[i] && reviews[i].id || "") === normalized) return reviews[i];
+    }
+    return null;
+  }
+
+  function bindReportDialog() {
+    reportDialog.modal = document.getElementById("rv-report-modal");
+    reportDialog.overlay = reportDialog.modal ? reportDialog.modal.querySelector(".rv-report-overlay") : null;
+    reportDialog.closeBtn = document.getElementById("rv-report-close");
+    reportDialog.cancelBtn = document.getElementById("rv-report-cancel");
+    reportDialog.submitBtn = document.getElementById("rv-report-submit");
+    reportDialog.reasonInput = document.getElementById("rv-report-reason");
+    reportDialog.detailsInput = document.getElementById("rv-report-details");
+    reportDialog.reviewerEl = document.getElementById("rv-report-reviewer");
+    reportDialog.dateEl = document.getElementById("rv-report-date");
+    reportDialog.starsEl = document.getElementById("rv-report-stars");
+    reportDialog.textEl = document.getElementById("rv-report-text");
+    reportDialog.counterEl = document.getElementById("rv-report-counter");
+    reportDialog.toastEl = document.getElementById("rv-toast");
+
+    if (reportDialog.overlay) reportDialog.overlay.addEventListener("click", requestCloseReportDialog);
+    if (reportDialog.closeBtn) reportDialog.closeBtn.addEventListener("click", requestCloseReportDialog);
+    if (reportDialog.cancelBtn) reportDialog.cancelBtn.addEventListener("click", requestCloseReportDialog);
+    if (reportDialog.submitBtn) reportDialog.submitBtn.addEventListener("click", submitReportDialog);
+    if (reportDialog.detailsInput) reportDialog.detailsInput.addEventListener("input", updateReportCounter);
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") return;
+      if (!reportDialog.modal || reportDialog.modal.classList.contains("hidden")) return;
+      event.preventDefault();
+      requestCloseReportDialog();
+    });
+
+    updateReportCounter();
+  }
+
+  function updateReportCounter() {
+    if (!reportDialog.counterEl || !reportDialog.detailsInput) return;
+    var count = String(reportDialog.detailsInput.value || "").length;
+    reportDialog.counterEl.textContent = count + " / 500";
+    reportDialog.counterEl.classList.toggle("is-limit", count >= 450);
+  }
+
+  function setReportSubmitting(submitting) {
+    reportDialog.isSubmitting = !!submitting;
+
+    if (reportDialog.submitBtn) {
+      reportDialog.submitBtn.disabled = !!submitting;
+      reportDialog.submitBtn.textContent = submitting ? "جارٍ إرسال البلاغ..." : "إرسال البلاغ";
+    }
+    if (reportDialog.cancelBtn) reportDialog.cancelBtn.disabled = !!submitting;
+    if (reportDialog.closeBtn) reportDialog.closeBtn.disabled = !!submitting;
+    if (reportDialog.reasonInput) reportDialog.reasonInput.disabled = !!submitting;
+    if (reportDialog.detailsInput) reportDialog.detailsInput.disabled = !!submitting;
+  }
+
+  function showToast(message, type) {
+    if (!reportDialog.toastEl) {
+      alert(message || "");
+      return;
+    }
+    reportDialog.toastEl.textContent = message || "";
+    reportDialog.toastEl.classList.remove("show", "success", "error");
+    if (type) reportDialog.toastEl.classList.add(type);
+    requestAnimationFrame(function () {
+      reportDialog.toastEl.classList.add("show");
+    });
+    window.clearTimeout(reportDialog.toastTimer);
+    reportDialog.toastTimer = window.setTimeout(function () {
+      reportDialog.toastEl.classList.remove("show");
+    }, 2600);
+  }
+
+  function openReportDialog(review) {
+    if (!reportDialog.modal) return;
+
+    window.clearTimeout(reportDialog.closeTimer);
+    reportDialog.activeReviewId = review && review.id !== undefined && review.id !== null ? String(review.id) : "";
+    var clientId = parseInt(review && review.client_id || "", 10);
+    reportDialog.activeClientId = (!Number.isNaN(clientId) && clientId > 0) ? clientId : null;
+
+    if (reportDialog.reviewerEl) reportDialog.reviewerEl.textContent = getReviewAuthorName(review);
+    if (reportDialog.dateEl) reportDialog.dateEl.textContent = getReviewDateLabel(review);
+    if (reportDialog.starsEl) reportDialog.starsEl.innerHTML = buildStars(parseFloat(review && review.rating || 0));
+    if (reportDialog.textEl) {
+      var reviewText = getReviewText(review);
+      reportDialog.textEl.textContent = reviewText || "لا يوجد نص مرفق في هذا التقييم.";
+      reportDialog.textEl.classList.toggle("is-empty", !reviewText);
+    }
+    if (reportDialog.reasonInput) reportDialog.reasonInput.value = "";
+    if (reportDialog.detailsInput) reportDialog.detailsInput.value = "";
+    updateReportCounter();
+    setReportSubmitting(false);
+
+    reportDialog.modal.classList.remove("hidden");
+    reportDialog.modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("rv-report-open");
+    requestAnimationFrame(function () {
+      if (reportDialog.modal) reportDialog.modal.classList.add("open");
+    });
+    window.setTimeout(function () {
+      if (reportDialog.reasonInput) reportDialog.reasonInput.focus();
+    }, 100);
+  }
+
+  function requestCloseReportDialog() {
+    if (reportDialog.isSubmitting) return;
+    closeReportDialog(true);
+  }
+
+  function closeReportDialog(resetForm) {
+    if (!reportDialog.modal) return;
+
+    reportDialog.modal.classList.remove("open");
+    reportDialog.modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("rv-report-open");
+    window.clearTimeout(reportDialog.closeTimer);
+    reportDialog.closeTimer = window.setTimeout(function () {
+      if (!reportDialog.modal) return;
+      reportDialog.modal.classList.add("hidden");
+      if (!resetForm) return;
+
+      reportDialog.activeReviewId = "";
+      reportDialog.activeClientId = null;
+      if (reportDialog.reasonInput) reportDialog.reasonInput.value = "";
+      if (reportDialog.detailsInput) reportDialog.detailsInput.value = "";
+      if (reportDialog.textEl) {
+        reportDialog.textEl.textContent = "-";
+        reportDialog.textEl.classList.remove("is-empty");
+      }
+      if (reportDialog.starsEl) reportDialog.starsEl.innerHTML = "";
+      if (reportDialog.reviewerEl) reportDialog.reviewerEl.textContent = "-";
+      if (reportDialog.dateEl) reportDialog.dateEl.textContent = "-";
+      updateReportCounter();
+    }, 180);
+  }
+
+  function submitReportDialog() {
+    if (!reportDialog.activeReviewId) {
+      showToast("تعذر تحديد التقييم المراد الإبلاغ عنه", "error");
+      return;
+    }
+
+    var reason = String(reportDialog.reasonInput && reportDialog.reasonInput.value || "").trim();
+    var details = String(reportDialog.detailsInput && reportDialog.detailsInput.value || "").trim();
+    if (!reason) {
+      showToast("اختر سبب البلاغ أولاً", "error");
+      if (reportDialog.reasonInput) reportDialog.reasonInput.focus();
+      return;
+    }
+
+    var description = "سبب البلاغ: " + reason;
+    if (details) {
+      description += "\n\nتفاصيل إضافية:\n" + details;
+    }
+
+    var body = {
+      ticket_type: "complaint",
+      description: description,
+      reported_kind: "review",
+      reported_object_id: String(reportDialog.activeReviewId)
+    };
+    if (reportDialog.activeClientId) {
+      body.reported_user = reportDialog.activeClientId;
+    }
+
+    setReportSubmitting(true);
+    safeRequest("/api/support/tickets/create/", {
+      method: "POST",
+      body: body
+    }).then(function (resp) {
+      if (!resp || !resp.ok) {
+        throw new Error(apiErrorMessage(resp ? resp.data : null, "تعذر إرسال البلاغ"));
+      }
+      closeReportDialog(true);
+      showToast("تم إرسال البلاغ للإدارة. شكراً لك", "success");
+    }).catch(function (err) {
+      showToast((err && err.message) ? err.message : "تعذر إرسال البلاغ", "error");
+    }).finally(function () {
+      setReportSubmitting(false);
+    });
+  }
+
   function sortAndRender() {
     var sort = document.getElementById("rv-sort").value;
     var sorted = reviews.slice();
@@ -286,34 +519,11 @@ var ProviderReviewsPage = (function () {
     document.querySelectorAll('.rv-report-btn').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var reviewId = this.getAttribute('data-id');
-        var clientIdRaw = this.getAttribute('data-client-id');
-        var details = window.prompt('اكتب سبب البلاغ عن هذا التقييم:');
-        if (!details || !details.trim()) return;
-        var body = {
-          ticket_type: 'complaint',
-          description: details.trim(),
-          reported_kind: 'review',
-          reported_object_id: String(reviewId)
+        var review = findReviewById(reviewId) || {
+          id: reviewId,
+          client_id: this.getAttribute('data-client-id') || ''
         };
-        var clientId = parseInt(clientIdRaw || '', 10);
-        if (!Number.isNaN(clientId) && clientId > 0) {
-          body.reported_user = clientId;
-        }
-        var button = this;
-        button.disabled = true;
-        safeRequest('/api/support/tickets/create/', {
-          method: 'POST',
-          body: body
-        }).then(function (resp) {
-          if (!resp || !resp.ok) {
-            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر إرسال البلاغ'));
-          }
-          alert('تم إرسال البلاغ بنجاح');
-        }).catch(function (err) {
-          alert((err && err.message) ? err.message : 'تعذر إرسال البلاغ');
-        }).finally(function () {
-          button.disabled = false;
-        });
+        openReportDialog(review);
       });
     });
 

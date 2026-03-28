@@ -8,50 +8,117 @@
 {% block content %}
 <main class="page-content">
   <div class="container">
-    <div id="auth-gate" class="auth-gate hidden">
-      <div class="auth-gate-icon">🎫</div>
-      <h2 id="contact-gate-title">سجّل دخولك</h2>
-      <p id="contact-gate-description">يجب تسجيل الدخول لعرض تذاكر الدعم</p>
-      <a id="contact-gate-login" href="/login/?next=/contact/" class="btn btn-primary">تسجيل الدخول</a>
+    <div id="auth-gate" class="auth-gate auth-gate-unified contact-auth-gate hidden">
+      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M8 10h8"></path>
+          <path d="M8 14h5"></path>
+          <path d="M17 4H7a3 3 0 0 0-3 3v13l4-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Z"></path>
+        </svg>
+      </div>
+      <h2 id="contact-gate-title" class="auth-gate-unified-title">سجّل دخولك</h2>
+      <p id="contact-gate-description" class="auth-gate-unified-desc">يجب تسجيل الدخول لعرض تذاكر الدعم</p>
+      <a id="contact-gate-login" href="/login/?next=/contact/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
-    <div id="support-content" class="hidden">
-      <div class="page-header">
-        <h1 id="contact-page-title">تواصل مع منصة نوافذ</h1>
+    <div id="support-content" class="contact-shell hidden">
+      <section class="contact-hero">
+        <div class="contact-hero-copy">
+          <p class="contact-hero-eyebrow">مركز الدعم والمساعدة</p>
+          <h1 id="contact-page-title" class="contact-hero-title">تواصل مع منصة نوافذ</h1>
+          <p class="contact-hero-subtitle">
+            قدّم بلاغًا جديدًا، تابع حالة تذاكرك، وأضف التعليقات والمرفقات من واجهة أوضح وأكثر ترتيبًا.
+          </p>
+          <div class="contact-hero-tags">
+            <span class="contact-hero-tag">متابعة منظمة</span>
+            <span class="contact-hero-tag">سجل كامل للتعليقات</span>
+            <span class="contact-hero-tag">رفع مرفقات بسهولة</span>
+          </div>
+        </div>
+
+        <div class="contact-hero-stats">
+          <div class="contact-hero-stat">
+            <strong id="support-total-count">0</strong>
+            <span>إجمالي البلاغات</span>
+          </div>
+          <div class="contact-hero-stat">
+            <strong id="support-open-count">0</strong>
+            <span>قيد المتابعة</span>
+          </div>
+          <div class="contact-hero-stat">
+            <strong id="support-closed-count">0</strong>
+            <span>مغلقة</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="support-toolbar contact-toolbar">
+        <button class="contact-toolbar-btn contact-toolbar-btn-secondary" id="btn-support-refresh" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+            <path d="M21 3v6h-6"></path>
+          </svg>
+          <span id="contact-refresh-label">تحديث</span>
+        </button>
+        <button class="contact-toolbar-btn contact-toolbar-btn-primary" id="btn-new-ticket" type="button">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 5v14"></path>
+            <path d="M5 12h14"></path>
+          </svg>
+          <span id="contact-new-ticket-label">بلاغ جديد</span>
+        </button>
       </div>
 
-      <div class="support-toolbar">
-        <button class="btn-sm" id="btn-support-refresh">تحديث</button>
-        <button class="btn-sm" id="btn-new-ticket">بلاغ جديد</button>
-      </div>
-
-      <div class="support-layout">
-        <section class="support-card">
-          <h2 class="support-card-title" id="contact-list-title">قائمة البلاغات</h2>
+      <div class="support-layout contact-layout">
+        <section class="support-card contact-panel contact-panel-list">
+          <div class="contact-panel-head">
+            <div>
+              <h2 class="support-card-title" id="contact-list-title">قائمة البلاغات</h2>
+              <p class="contact-panel-subtitle">تابع جميع البلاغات التي أرسلتها وحالتها الحالية.</p>
+            </div>
+          </div>
           <div id="support-list-loading" class="text-center">
             <span class="spinner-inline"></span>
           </div>
           <div id="support-list-error" class="form-error hidden"></div>
           <div id="support-ticket-list" class="support-ticket-list hidden"></div>
-          <div id="support-list-empty" class="empty-hint hidden">
+          <div id="support-list-empty" class="empty-hint contact-list-empty hidden">
+            <div class="contact-empty-icon" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M8 10h8"></path>
+                <path d="M8 14h5"></path>
+                <path d="M17 4H7a3 3 0 0 0-3 3v13l4-3h9a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3Z"></path>
+              </svg>
+            </div>
             <p id="contact-empty-label">لا توجد بلاغات حتى الآن</p>
           </div>
         </section>
 
-        <section class="support-card">
+        <section class="support-card contact-panel contact-panel-detail">
           <form id="new-ticket-form" class="hidden">
-            <h2 class="support-card-title" id="contact-create-title">إنشاء بلاغ جديد</h2>
+            <div class="contact-panel-head">
+              <div>
+                <h2 class="support-card-title" id="contact-create-title">إنشاء بلاغ جديد</h2>
+                <p class="contact-panel-subtitle">اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.</p>
+              </div>
+            </div>
             <div class="form-group">
               <label class="form-label" for="support-team" id="contact-team-label">فريق الدعم</label>
               <select id="support-team" class="form-select"></select>
             </div>
             <div class="form-group">
               <label class="form-label" for="support-description" id="contact-description-label">التفاصيل</label>
-              <textarea id="support-description" class="form-textarea" maxlength="300"></textarea>
+              <textarea
+                id="support-description"
+                class="form-textarea contact-description-input"
+                maxlength="300"
+                placeholder="اشرح المشكلة أو الطلب بشكل واضح ومختصر..."
+              ></textarea>
             </div>
             <div class="form-group">
               <label class="form-label" for="support-files" id="contact-attachments-label">مرفقات (اختياري)</label>
-              <input type="file" id="support-files" class="form-input" multiple>
+              <input type="file" id="support-files" class="form-input contact-file-input" multiple>
+              <p class="contact-field-hint">يمكنك إرفاق صور أو ملفات تساعد الفريق على فهم البلاغ بسرعة.</p>
             </div>
             <div class="form-error hidden" id="support-create-error"></div>
             <div class="support-actions">
@@ -64,14 +131,27 @@
           </form>
 
           <div id="ticket-detail-view">
-            <h2 class="support-card-title" id="contact-detail-title">تفاصيل البلاغ</h2>
-            <div class="empty-hint" id="ticket-detail-empty">
-              <p id="contact-detail-empty-label">اختر بلاغاً من القائمة لعرض التفاصيل</p>
+            <div class="contact-panel-head">
+              <div>
+                <h2 class="support-card-title" id="contact-detail-title">تفاصيل البلاغ</h2>
+                <p class="contact-panel-subtitle" id="contact-detail-helper">هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.</p>
+              </div>
             </div>
-            <div id="ticket-detail-body" class="hidden"></div>
+            <div class="empty-hint contact-detail-empty" id="ticket-detail-empty">
+              <div class="contact-empty-icon" aria-hidden="true">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M12 3v18"></path>
+                  <path d="M3 12h18"></path>
+                </svg>
+              </div>
+              <p id="contact-detail-empty-label">اختر بلاغًا من القائمة لعرض التفاصيل</p>
+            </div>
+            <div id="ticket-detail-body" class="ticket-detail-body hidden"></div>
           </div>
         </section>
       </div>
+
+      <div id="contact-toast" class="contact-toast" aria-live="polite"></div>
     </div>
   </div>
 </main>

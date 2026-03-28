@@ -35,6 +35,17 @@ class Ticket {
             ?.map((c) => TicketReply.fromJson(c as Map<String, dynamic>))
             .toList() ??
         [];
+    final attachments = (json['attachments'] as List?)
+            ?.map((item) {
+              if (item is String) return item;
+              if (item is Map<String, dynamic>) {
+                return item['file'] as String? ?? '';
+              }
+              return '';
+            })
+            .where((value) => value.trim().isNotEmpty)
+            .toList() ??
+        [];
 
     return Ticket(
       serverId: json['id'] as int?,
@@ -46,6 +57,7 @@ class Ticket {
       title: json['ticket_type'] as String? ?? '',
       description: json['description'] as String? ?? '',
       priority: json['priority'] as String? ?? 'normal',
+      attachments: attachments,
       replies: comments,
       lastUpdate: DateTime.tryParse(json['updated_at'] ?? ''),
     );

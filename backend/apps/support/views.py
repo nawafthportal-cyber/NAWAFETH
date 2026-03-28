@@ -19,7 +19,7 @@ from .serializers import (
     SupportTeamSerializer,
 )
 from .permissions import IsRequesterOrBackofficeSupport
-from .services import change_ticket_status, assign_ticket
+from .services import change_ticket_status, assign_ticket, notify_ticket_requester_about_comment
 
 
 class SupportTeamListView(generics.ListAPIView):
@@ -186,6 +186,7 @@ class SupportTicketAddCommentView(generics.CreateAPIView):
             is_internal=is_internal,
             created_by=request.user,
         )
+        notify_ticket_requester_about_comment(ticket=ticket, comment=obj, by_user=request.user)
         return Response(SupportCommentSerializer(obj).data, status=status.HTTP_201_CREATED)
 
 

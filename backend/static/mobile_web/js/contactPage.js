@@ -56,6 +56,8 @@ const ContactPage = (() => {
   let _tickets = [];
   let _selectedTicket = null;
   let _content = {};
+  let _toastTimer = null;
+  let _preferredTicketId = _ticketIdFromUrl();
 
   async function init() {
     await _loadContent();
@@ -83,6 +85,7 @@ const ContactPage = (() => {
       createTitle: _resolve(blocks.contact_create_title, 'إنشاء بلاغ جديد'),
       detailTitle: _resolve(blocks.contact_detail_title, 'تفاصيل البلاغ'),
       emptyLabel: _resolve(blocks.contact_empty_label, 'لا توجد بلاغات حتى الآن'),
+      teamLabel: _resolve(blocks.contact_team_label, 'فريق الدعم'),
       teamPlaceholder: _resolve(blocks.contact_team_placeholder, 'اختر فريق الدعم'),
       descriptionLabel: _resolve(blocks.contact_description_label, 'التفاصيل'),
       attachmentsLabel: _resolve(blocks.contact_attachments_label, 'مرفقات (اختياري)'),
@@ -99,13 +102,13 @@ const ContactPage = (() => {
     _setText('contact-gate-description', _content.gateDescription);
     _setText('contact-gate-login', _content.gateLogin);
     _setText('contact-page-title', _content.pageTitle);
-    _setText('btn-support-refresh', _content.refreshLabel);
-    _setText('btn-new-ticket', _content.newTicketLabel);
+    _setText('contact-refresh-label', _content.refreshLabel);
+    _setText('contact-new-ticket-label', _content.newTicketLabel);
     _setText('contact-list-title', _content.listTitle);
     _setText('contact-create-title', _content.createTitle);
     _setText('contact-detail-title', _content.detailTitle);
     _setText('contact-empty-label', _content.emptyLabel);
-    _setText('contact-team-label', _content.teamPlaceholder);
+    _setText('contact-team-label', _content.teamLabel);
     _setText('contact-description-label', _content.descriptionLabel);
     _setText('contact-attachments-label', _content.attachmentsLabel);
     _setText('btn-cancel-ticket', _content.cancelLabel);
@@ -148,7 +151,28 @@ const ContactPage = (() => {
     ]);
 
     _setListLoading(false);
+    _renderSummary();
     _renderTickets();
+    if (!_tickets.length) {
+      _selectedTicket = null;
+      _preferredTicketId = null;
+      _syncTicketQueryParam(null);
+      _renderTicketDetail();
+      return;
+    }
+
+    const currentSelectedId = _selectedTicket && _tickets.some((ticket) => ticket && ticket.id === _selectedTicket.id)
+      ? _selectedTicket.id
+      : null;
+    const preferredId = _preferredTicketId || currentSelectedId || _tickets[0].id;
+    if (preferredId) {
+      const selected = await _selectTicket(preferredId, { silent: true });
+      if (selected) return;
+    }
+
+    if (_tickets[0] && _tickets[0].id && _tickets[0].id !== preferredId) {
+      await _selectTicket(_tickets[0].id, { silent: true });
+    }
   }
 
   async function _loadTeams() {
@@ -247,6 +271,33 @@ const ContactPage = (() => {
     list.appendChild(frag);
   }
 
+  function _renderSummary() {
+    const totalEl = document.getElementById('support-total-count');
+    const openEl = document.getElementById('support-open-count');
+    const closedEl = document.getElementById('support-closed-count');
+    const total = _tickets.length;
+    let closed = 0;
+
+    _tickets.forEach((ticket) => {
+      if (String(ticket && ticket.status || '').toLowerCase() === 'closed') {
+        closed += 1;
+      }
+    });
+
+    const open = Math.max(0, total - closed);
+    if (totalEl) totalEl.textContent = String(total);
+    if (openEl) openEl.textContent = String(open);
+    if (closedEl) closedEl.textContent = String(closed);
+  }
+
+  function _ticketTypeLabel(value) {
+    return TICKET_TYPE_MAP[value] || value || 'بلاغ';
+  }
+
+  function _ticketCodeLabel(ticket) {
+    return ticket.code || ('HD' + ticket.id);
+  }
+
   function _buildTicketItem(ticket) {
     const button = UI.el('button', {
       className: 'support-ticket-item' + (_selectedTicket && _selectedTicket.id === ticket.id ? ' active' : ''),
@@ -255,7 +306,7 @@ const ContactPage = (() => {
     button.addEventListener('click', () => _selectTicket(ticket.id));
 
     const top = UI.el('div', { className: 'support-ticket-top' });
-    top.appendChild(UI.el('span', { className: 'support-ticket-code', textContent: ticket.code || ('HD' + ticket.id) }));
+    top.appendChild(UI.el('span', { className: 'support-ticket-code', textContent: _ticketCodeLabel(ticket) }));
     top.appendChild(
       UI.el('span', {
         className: 'support-ticket-status',
@@ -264,14 +315,21 @@ const ContactPage = (() => {
       }),
     );
 
-    const typeLabel = TICKET_TYPE_MAP[ticket.ticket_type] || ticket.ticket_type || 'بلاغ';
+    const typeLabel = _ticketTypeLabel(ticket.ticket_type);
     const desc = String(ticket.description || '').trim();
     const text = desc.length > 80 ? desc.slice(0, 80) + '...' : desc;
+    const meta = UI.el('div', { className: 'support-ticket-meta' });
+    meta.appendChild(UI.el('span', { className: 'support-ticket-type', textContent: typeLabel }));
+    meta.appendChild(UI.el('span', { className: 'support-ticket-time', textContent: _formatDate(ticket.created_at) }));
+
+    const footer = UI.el('div', { className: 'support-ticket-footer' });
+    footer.appendChild(UI.el('span', { className: 'support-ticket-footer-label', textContent: 'عرض التفاصيل' }));
+    footer.appendChild(UI.el('span', { className: 'support-ticket-footer-arrow', textContent: '‹' }));
 
     button.appendChild(top);
-    button.appendChild(UI.el('div', { className: 'support-ticket-type', textContent: typeLabel }));
+    button.appendChild(meta);
     button.appendChild(UI.el('div', { className: 'support-ticket-desc', textContent: text || 'بدون وصف' }));
-    button.appendChild(UI.el('div', { className: 'support-ticket-time', textContent: _formatDate(ticket.created_at) }));
+    button.appendChild(footer);
     return button;
   }
 
@@ -307,16 +365,20 @@ const ContactPage = (() => {
     });
   }
 
-  async function _selectTicket(ticketId) {
+  async function _selectTicket(ticketId, options) {
+    const opts = options || {};
     const detailRes = await ApiClient.get('/api/support/tickets/' + ticketId + '/');
     if (!detailRes.ok || !detailRes.data) {
-      alert('تعذر تحميل تفاصيل البلاغ');
-      return;
+      if (!opts.silent) _notify('تعذر تحميل تفاصيل البلاغ', 'error');
+      return false;
     }
     _selectedTicket = detailRes.data;
+    _preferredTicketId = _selectedTicket && _selectedTicket.id ? _selectedTicket.id : ticketId;
+    _syncTicketQueryParam(_preferredTicketId);
     _closeNewTicketForm();
     _renderTickets();
     _renderTicketDetail();
+    return true;
   }
 
   function _renderTicketDetail() {
@@ -336,8 +398,14 @@ const ContactPage = (() => {
     body.innerHTML = '';
 
     const ticket = _selectedTicket;
+    const attachments = Array.isArray(ticket.attachments) ? ticket.attachments : [];
+    const comments = Array.isArray(ticket.comments) ? ticket.comments : [];
+    const hero = UI.el('section', { className: 'ticket-detail-hero' });
     const head = UI.el('div', { className: 'ticket-detail-head' });
-    head.appendChild(UI.el('h3', { textContent: ticket.code || ('HD' + ticket.id) }));
+    const titleWrap = UI.el('div', { className: 'ticket-detail-title-wrap' });
+    titleWrap.appendChild(UI.el('span', { className: 'ticket-detail-code', textContent: _ticketCodeLabel(ticket) }));
+    titleWrap.appendChild(UI.el('h3', { textContent: _ticketTypeLabel(ticket.ticket_type) }));
+    head.appendChild(titleWrap);
     head.appendChild(
       UI.el('span', {
         className: 'support-ticket-status',
@@ -345,34 +413,59 @@ const ContactPage = (() => {
         style: { backgroundColor: _statusColor(ticket.status) + '1A', color: _statusColor(ticket.status) },
       }),
     );
-    body.appendChild(head);
+    hero.appendChild(head);
 
-    body.appendChild(UI.el('p', { className: 'ticket-detail-description', textContent: ticket.description || '' }));
+    const metaGrid = UI.el('div', { className: 'ticket-detail-meta-grid' });
+    metaGrid.appendChild(_buildDetailMetaCard('تاريخ الإنشاء', _formatDate(ticket.created_at) || '—'));
+    metaGrid.appendChild(_buildDetailMetaCard('المرفقات', String(attachments.length)));
+    metaGrid.appendChild(_buildDetailMetaCard('التعليقات', String(comments.length)));
+    metaGrid.appendChild(_buildDetailMetaCard('الحالة', _statusLabel(ticket.status)));
+    hero.appendChild(metaGrid);
+    body.appendChild(hero);
 
-    if (Array.isArray(ticket.attachments) && ticket.attachments.length) {
-      const section = UI.el('div', { className: 'ticket-detail-section' });
-      section.appendChild(UI.el('h4', { textContent: _content.attachmentsLabel || 'المرفقات' }));
-      ticket.attachments.forEach((att) => {
+    const descriptionSection = UI.el('div', { className: 'ticket-detail-section' });
+    descriptionSection.appendChild(_buildSectionHead('وصف البلاغ'));
+    descriptionSection.appendChild(
+      UI.el('div', {
+        className: 'ticket-detail-description',
+        textContent: ticket.description || 'لا يوجد وصف مرفق لهذا البلاغ.',
+      }),
+    );
+    body.appendChild(descriptionSection);
+
+    const attachmentsSection = UI.el('div', { className: 'ticket-detail-section' });
+    attachmentsSection.appendChild(_buildSectionHead(_content.attachmentsLabel || 'المرفقات', attachments.length));
+    if (!attachments.length) {
+      attachmentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا توجد مرفقات مضافة لهذا البلاغ' }));
+    } else {
+      const attachmentsList = UI.el('div', { className: 'ticket-attachments-list' });
+      attachments.forEach((att) => {
         const href = ApiClient.mediaUrl(att.file);
-        section.appendChild(
-          UI.el('a', {
-            className: 'ticket-attachment-link',
-            href: href,
-            target: '_blank',
-            rel: 'noopener',
+        const link = UI.el('a', {
+          className: 'ticket-attachment-link',
+          href: href,
+          target: '_blank',
+          rel: 'noopener',
+        });
+        link.appendChild(UI.el('span', { className: 'ticket-attachment-icon', textContent: '↗' }));
+        link.appendChild(
+          UI.el('span', {
+            className: 'ticket-attachment-name',
             textContent: String(att.file || '').split('/').pop() || 'مرفق',
           }),
         );
+        attachmentsList.appendChild(link);
       });
-      body.appendChild(section);
+      attachmentsSection.appendChild(attachmentsList);
     }
+    body.appendChild(attachmentsSection);
 
-    const comments = Array.isArray(ticket.comments) ? ticket.comments : [];
     const commentsSection = UI.el('div', { className: 'ticket-detail-section' });
-    commentsSection.appendChild(UI.el('h4', { textContent: 'التعليقات' }));
+    commentsSection.appendChild(_buildSectionHead('التعليقات', comments.length));
     if (!comments.length) {
       commentsSection.appendChild(UI.el('p', { className: 'ticket-muted', textContent: 'لا توجد تعليقات بعد' }));
     } else {
+      const commentsList = UI.el('div', { className: 'ticket-comments-list' });
       comments.forEach((comment) => {
         const row = UI.el('div', { className: 'ticket-comment' });
         row.appendChild(
@@ -382,15 +475,21 @@ const ContactPage = (() => {
           }),
         );
         row.appendChild(UI.el('div', { className: 'ticket-comment-text', textContent: comment.text || '' }));
-        commentsSection.appendChild(row);
+        commentsList.appendChild(row);
       });
+      commentsSection.appendChild(commentsList);
     }
     body.appendChild(commentsSection);
 
     const reply = UI.el('div', { className: 'ticket-reply-box' });
+    const replyHead = UI.el('div', { className: 'ticket-reply-head' });
+    replyHead.appendChild(UI.el('h4', { textContent: 'أضف تعليقًا جديدًا' }));
+    replyHead.appendChild(UI.el('p', { textContent: 'سيظهر تعليقك ضمن سجل البلاغ ليسهل متابعة الحالة.' }));
+    reply.appendChild(replyHead);
+
     const input = UI.el('textarea', {
       id: 'ticket-reply-input',
-      className: 'form-textarea',
+      className: 'form-textarea ticket-reply-input',
       maxlength: '300',
       placeholder: _content.replyPlaceholder || 'اكتب تعليقك...',
     });
@@ -401,22 +500,50 @@ const ContactPage = (() => {
     });
     sendBtn.addEventListener('click', () => _sendComment(ticket.id));
     reply.appendChild(input);
-    reply.appendChild(sendBtn);
+    const replyActions = UI.el('div', { className: 'ticket-reply-actions' });
+    replyActions.appendChild(sendBtn);
+    reply.appendChild(replyActions);
     body.appendChild(reply);
+  }
+
+  function _buildDetailMetaCard(label, value) {
+    const card = UI.el('div', { className: 'ticket-detail-meta-card' });
+    card.appendChild(UI.el('span', { textContent: label }));
+    card.appendChild(UI.el('strong', { textContent: value || '—' }));
+    return card;
+  }
+
+  function _buildSectionHead(title, count) {
+    const head = UI.el('div', { className: 'ticket-section-head' });
+    head.appendChild(UI.el('h4', { textContent: title }));
+    if (count !== undefined && count !== null) {
+      head.appendChild(UI.el('span', { className: 'ticket-section-count', textContent: String(count) }));
+    }
+    return head;
   }
 
   function _openNewTicketForm() {
     const form = document.getElementById('new-ticket-form');
     const detail = document.getElementById('ticket-detail-view');
+    const newBtn = document.getElementById('btn-new-ticket');
     if (form) form.classList.remove('hidden');
     if (detail) detail.classList.add('hidden');
+    if (newBtn) newBtn.classList.add('is-active');
+    _syncTicketQueryParam(null);
+    _clearCreateError();
+
+    const desc = document.getElementById('support-description');
+    if (desc) desc.focus();
   }
 
   function _closeNewTicketForm() {
     const form = document.getElementById('new-ticket-form');
     const detail = document.getElementById('ticket-detail-view');
+    const newBtn = document.getElementById('btn-new-ticket');
     if (form) form.classList.add('hidden');
     if (detail) detail.classList.remove('hidden');
+    if (newBtn) newBtn.classList.remove('is-active');
+    _syncTicketQueryParam(_selectedTicket && _selectedTicket.id ? _selectedTicket.id : _preferredTicketId);
     _clearCreateError();
   }
 
@@ -505,10 +632,12 @@ const ContactPage = (() => {
     _setCreateLoading(false);
     _closeNewTicketForm();
     await _loadTickets();
+    _renderSummary();
     _renderTickets();
     if (ticketId) {
       await _selectTicket(ticketId);
     }
+    _notify('تم إنشاء البلاغ بنجاح', 'success');
   }
 
   async function _sendComment(ticketId) {
@@ -522,12 +651,13 @@ const ContactPage = (() => {
       body: { text },
     });
     if (!res.ok) {
-      alert((res.data && res.data.detail) || 'فشل إرسال التعليق');
+      _notify((res.data && res.data.detail) || 'فشل إرسال التعليق', 'error');
       return;
     }
 
     input.value = '';
     await _selectTicket(ticketId);
+    _notify('تمت إضافة التعليق', 'success');
   }
 
   function _setCreateLoading(loading) {
@@ -551,6 +681,47 @@ const ContactPage = (() => {
     if (!el) return;
     el.textContent = '';
     el.classList.add('hidden');
+  }
+
+  function _notify(message, type) {
+    const toast = document.getElementById('contact-toast');
+    if (!toast) {
+      alert(message || '');
+      return;
+    }
+
+    toast.textContent = message || '';
+    toast.classList.remove('show', 'success', 'error');
+    if (type) toast.classList.add(type);
+    requestAnimationFrame(() => toast.classList.add('show'));
+    window.clearTimeout(_toastTimer);
+    _toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2400);
+  }
+
+  function _ticketIdFromUrl() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const raw = String(params.get('ticket') || '').trim();
+      const parsed = Number(raw);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        return Math.floor(parsed);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function _syncTicketQueryParam(ticketId) {
+    if (!window.history || typeof window.history.replaceState !== 'function') return;
+    try {
+      const url = new URL(window.location.href);
+      if (ticketId) {
+        url.searchParams.set('ticket', String(ticketId));
+      } else {
+        url.searchParams.delete('ticket');
+      }
+      const nextUrl = url.pathname + url.search + url.hash;
+      window.history.replaceState({}, '', nextUrl);
+    } catch (_) {}
   }
 
   function _resolve(block, fallback) {

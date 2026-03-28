@@ -8,6 +8,7 @@ from apps.audit.models import AuditAction, AuditLog
 from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.moderation.models import ModerationCase
+from apps.notifications.models import Notification
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportTeam, SupportTicket, SupportTicketStatus, SupportTicketType
@@ -308,3 +309,65 @@ def test_support_status_transition_blocks_reopen_after_closed(client_user, suppo
             by_user=support_operator_user,
             note="invalid reopen",
         )
+
+
+def test_support_status_change_creates_shared_notification_for_requester(client_user, support_operator_user):
+    ticket = SupportTicket.objects.create(
+        requester=client_user,
+        ticket_type="tech",
+        description="status notification",
+    )
+
+    change_ticket_status(
+        ticket=ticket,
+        new_status=SupportTicketStatus.IN_PROGRESS,
+        by_user=support_operator_user,
+        note="started",
+    )
+
+    notif = Notification.objects.get(user=client_user, kind="report_status_change")
+    assert notif.title == "تحديث على البلاغ"
+    assert notif.audience_mode == "shared"
+    assert notif.url == f"/contact/?ticket={ticket.id}"
+
+
+def test_support_staff_comment_creates_shared_notification_for_requester(api, client_user, support_operator_user):
+    ticket = SupportTicket.objects.create(
+        requester=client_user,
+        ticket_type="tech",
+        description="comment notification",
+    )
+    api.force_authenticate(user=support_operator_user)
+
+    response = api.post(
+        f"/api/support/tickets/{ticket.id}/comments/",
+        data={"text": "تمت مراجعة البلاغ"},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    notif = Notification.objects.get(user=client_user, title="تعليق جديد على البلاغ")
+    assert notif.audience_mode == "shared"
+    assert notif.url == f"/contact/?ticket={ticket.id}"
+    assert "تمت مراجعة البلاغ" in notif.body
+
+
+def test_support_requester_comment_does_not_notify_self(api, client_user):
+    ticket = SupportTicket.objects.create(
+        requester=client_user,
+        ticket_type="tech",
+        description="self comment notification",
+    )
+    api.force_authenticate(user=client_user)
+
+    response = api.post(
+        f"/api/support/tickets/{ticket.id}/comments/",
+        data={"text": "أتابع البلاغ"},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    assert not Notification.objects.filter(
+        user=client_user,
+        title="تعليق جديد على البلاغ",
+    ).exists()

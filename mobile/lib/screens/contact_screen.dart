@@ -1,4 +1,3 @@
-// ignore_for_file: unused_field
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,12 +11,14 @@ class ContactScreen extends StatefulWidget {
   final bool startNewTicketForm;
   final String? initialSupportTeam;
   final String? initialDescription;
+  final int? initialTicketId;
 
   const ContactScreen({
     super.key,
     this.startNewTicketForm = false,
     this.initialSupportTeam,
     this.initialDescription,
+    this.initialTicketId,
   });
 
   @override
@@ -28,11 +29,13 @@ class _ContactScreenState extends State<ContactScreen> {
   // البيانات من الـ API
   List<Ticket> tickets = [];
   bool _isLoadingTickets = true;
+  bool _isLoadingDetail = false;
   String? _ticketsError;
+  String? _detailError;
 
   Ticket? selectedTicket;
   bool showNewTicketForm = false;
-  bool isSupportTeamDropdownOpen = false;
+  int? _preferredTicketId;
   
   // متحكمات النموذج
   final TextEditingController _descriptionController = TextEditingController();
@@ -85,9 +88,26 @@ class _ContactScreenState extends State<ContactScreen> {
     'الخدمات الإضافية': 'extras',
   };
 
+  static const Map<String, String> _ticketTypeLabels = {
+    'tech': 'الدعم الفني',
+    'support': 'الدعم والمساعدة',
+    'suggest': 'اقتراح',
+    'ads': 'إعلانات وترويج',
+    'verify': 'التوثيق',
+    'subs': 'الاشتراكات والترقيات',
+    'extras': 'الخدمات الإضافية',
+    'complaint': 'شكوى وبلاغ',
+  };
+
+  static const Color _brandPrimary = Color(0xFF4D3EC8);
+  static const Color _brandAccent = Color(0xFFF3B35C);
+  static const Color _brandSurface = Color(0xFFF8F5FF);
+  static const Color _brandText = Color(0xFF17132A);
+
   @override
   void initState() {
     super.initState();
+    _preferredTicketId = widget.initialTicketId;
 
     if (widget.startNewTicketForm) {
       showNewTicketForm = true;
@@ -159,17 +179,114 @@ class _ContactScreenState extends State<ContactScreen> {
       } else {
         rawList = [];
       }
+      final loadedTickets = rawList
+          .map((j) => Ticket.fromJson(j as Map<String, dynamic>))
+          .toList();
+      final preferredTicket = _resolvePreferredTicket(loadedTickets);
+
       setState(() {
-        tickets = rawList
-            .map((j) => Ticket.fromJson(j as Map<String, dynamic>))
-            .toList();
+        tickets = loadedTickets;
         _isLoadingTickets = false;
+        if (showNewTicketForm) {
+          selectedTicket = null;
+          _detailError = null;
+        } else {
+          selectedTicket = preferredTicket;
+        }
       });
+
+      final targetDetailId =
+          !showNewTicketForm ? (_preferredTicketId ?? preferredTicket?.serverId) : null;
+      if (targetDetailId != null) {
+        await _fetchTicketDetail(targetDetailId, silent: true);
+      }
     } else {
       setState(() {
         _ticketsError = result.error ?? 'خطأ في جلب التذاكر';
         _isLoadingTickets = false;
       });
+    }
+  }
+
+  Ticket? _resolvePreferredTicket(List<Ticket> loadedTickets) {
+    if (loadedTickets.isEmpty) {
+      return null;
+    }
+
+    final requestedTicketId = _preferredTicketId;
+    if (requestedTicketId != null) {
+      for (final ticket in loadedTickets) {
+        if (ticket.serverId == requestedTicketId) {
+          return ticket;
+        }
+      }
+    }
+
+    final currentTicket = selectedTicket;
+    if (currentTicket == null) {
+      return loadedTickets.first;
+    }
+
+    for (final ticket in loadedTickets) {
+      if (currentTicket.serverId != null &&
+          ticket.serverId == currentTicket.serverId) {
+        return ticket;
+      }
+      if (ticket.id == currentTicket.id) {
+        return ticket;
+      }
+    }
+
+    return loadedTickets.first;
+  }
+
+  Future<void> _fetchTicketDetail(int ticketId, {bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoadingDetail = true;
+        _detailError = null;
+      });
+    } else {
+      _detailError = null;
+    }
+
+    final result = await SupportService.fetchTicketDetail(ticketId);
+    if (!mounted) return;
+
+    if (result.isSuccess && result.data is Map<String, dynamic>) {
+      final detailedTicket = Ticket.fromJson(result.data as Map<String, dynamic>);
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError = null;
+        _preferredTicketId = detailedTicket.serverId;
+        selectedTicket = detailedTicket;
+        tickets = tickets.map((ticket) {
+          if (ticket.serverId == detailedTicket.serverId ||
+              ticket.id == detailedTicket.id) {
+            return detailedTicket;
+          }
+          return ticket;
+        }).toList();
+      });
+    } else {
+      setState(() {
+        _isLoadingDetail = false;
+        _detailError = result.error ?? 'تعذر تحميل تفاصيل البلاغ';
+      });
+    }
+  }
+
+  Future<void> _selectTicket(Ticket ticket) async {
+    setState(() {
+      showNewTicketForm = false;
+      _preferredTicketId = ticket.serverId;
+      selectedTicket = ticket;
+      _detailError = null;
+      _replyController.clear();
+    });
+
+    if (ticket.serverId != null) {
+      await _fetchTicketDetail(ticket.serverId!);
     }
   }
 
@@ -197,6 +314,87 @@ class _ContactScreenState extends State<ContactScreen> {
 
   String _formatDateTime(DateTime dt) {
     return DateFormat('dd/MM/yyyy - HH:mm').format(dt);
+  }
+
+  String _ticketTypeLabel(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'بلاغ دعم';
+    }
+    return _ticketTypeLabels[normalized] ?? normalized;
+  }
+
+  String _ticketTeamLabel(Ticket ticket) {
+    final supportTeam = ticket.supportTeam.trim();
+    if (supportTeam.isNotEmpty) {
+      return supportTeam;
+    }
+    return _ticketTypeLabel(ticket.ticketType);
+  }
+
+  String _replyAuthorLabel(TicketReply reply) {
+    final author = reply.from.trim();
+    if (author.isEmpty || author.toLowerCase() == 'platform') {
+      return 'منصة نوافذ';
+    }
+    if (author.toLowerCase() == 'user') {
+      return 'أنت';
+    }
+    return author;
+  }
+
+  bool _replyFromCurrentUser(TicketReply reply) {
+    return reply.from.trim().toLowerCase() == 'user';
+  }
+
+  String _fileNameFromPath(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return 'مرفق';
+    }
+    final normalized = trimmed.replaceAll('\\', '/');
+    final segments = normalized.split('/');
+    return segments.isNotEmpty ? segments.last : normalized;
+  }
+
+  void _showSnack(String message, {bool isError = false}) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            style: const TextStyle(fontFamily: 'Cairo'),
+            textAlign: TextAlign.right,
+          ),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: isError
+              ? const Color(0xFFB3261E)
+              : const Color(0xFF2F6D4F),
+        ),
+      );
+  }
+
+  void _openNewTicketForm() {
+    setState(() {
+      showNewTicketForm = true;
+      selectedTicket = null;
+      _detailError = null;
+      _replyController.clear();
+    });
+  }
+
+  void _resetNewTicketForm() {
+    setState(() {
+      showNewTicketForm = false;
+      _descriptionController.clear();
+      selectedSupportTeam = widget.initialSupportTeam;
+      attachments.clear();
+      _detailError = null;
+      selectedTicket = _resolvePreferredTicket(tickets);
+    });
   }
 
   Color _getStatusColor(String status, bool isDark) {
@@ -267,12 +465,11 @@ class _ContactScreenState extends State<ContactScreen> {
   }
 
   bool _isSubmitting = false;
+  bool _isSendingReply = false;
 
   Future<void> _createNewTicket() async {
     if (selectedSupportTeam == null || _descriptionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء اختيار فريق الدعم وكتابة التفاصيل')),
-      );
+      _showSnack('الرجاء اختيار فريق الدعم وكتابة التفاصيل', isError: true);
       return;
     }
 
@@ -303,33 +500,34 @@ class _ContactScreenState extends State<ContactScreen> {
       if (!mounted) return;
       setState(() {
         _isSubmitting = false;
+        _preferredTicketId = ticketId;
         showNewTicketForm = false;
-        isSupportTeamDropdownOpen = false;
         _descriptionController.clear();
         selectedSupportTeam = null;
         attachments.clear();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم إنشاء البلاغ بنجاح')),
-      );
+      _showSnack('تم إنشاء البلاغ بنجاح');
 
       // إعادة تحميل التذاكر من الـ API
-      _loadTickets();
+      await _loadTickets();
+      if (ticketId != null) {
+        await _fetchTicketDetail(ticketId, silent: true);
+      }
     } else {
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.error ?? 'فشل إنشاء البلاغ')),
-      );
+      _showSnack(result.error ?? 'فشل إنشاء البلاغ', isError: true);
     }
   }
 
   Future<void> _sendReply() async {
     if (_replyController.text.trim().isEmpty || selectedTicket == null) return;
     if (selectedTicket!.serverId == null) return;
+    if (_isSendingReply) return;
 
     final text = _replyController.text.trim();
     _replyController.clear();
+    setState(() => _isSendingReply = true);
 
     // Optimistic: add locally first
     final reply = TicketReply(
@@ -355,9 +553,14 @@ class _ContactScreenState extends State<ContactScreen> {
     );
 
     if (!result.isSuccess && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.error ?? 'فشل إرسال التعليق')),
-      );
+      _showSnack(result.error ?? 'فشل إرسال التعليق', isError: true);
+      await _fetchTicketDetail(selectedTicket!.serverId!, silent: true);
+    } else if (selectedTicket?.serverId != null) {
+      await _fetchTicketDetail(selectedTicket!.serverId!, silent: true);
+    }
+
+    if (mounted) {
+      setState(() => _isSendingReply = false);
     }
   }
 
@@ -365,100 +568,436 @@ class _ContactScreenState extends State<ContactScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor = isDark
+        ? const Color(0xFF0F1220)
+        : const Color(0xFFF5F3FB);
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: backgroundColor,
       appBar: PlatformTopBar(
         pageLabel: 'تواصل مع منصة نوافذ',
         showBackButton: Navigator.of(context).canPop(),
         showNotificationAction: false,
         showChatAction: false,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // قائمة البلاغات
-            _buildTicketsSection(theme, isDark),
-            
-            const SizedBox(height: 24),
+      body: RefreshIndicator.adaptive(
+        color: _brandPrimary,
+        onRefresh: _loadTickets,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHero(theme, isDark),
+              const SizedBox(height: 16),
+              _buildStatsRow(theme, isDark),
+              const SizedBox(height: 16),
+              _buildTicketsSection(theme, isDark),
+              const SizedBox(height: 16),
+              if (showNewTicketForm)
+                _buildNewTicketForm(theme, isDark)
+              else if (_isLoadingDetail || selectedTicket != null || _detailError != null)
+                _buildTicketDetails(theme, isDark)
+              else
+                _buildDetailPlaceholder(theme, isDark),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-            // نموذج بلاغ جديد أو تفاصيل البلاغ المحدد
-            if (showNewTicketForm)
-              _buildNewTicketForm(theme, isDark)
-            else if (selectedTicket != null)
-              _buildTicketDetails(theme, isDark)
-            else
-              Center(
-                child: Text(
-                  'اضغط على بلاغ لعرض التفاصيل',
+  Widget _buildHero(ThemeData theme, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF4331B8),
+            Color(0xFF6C54E5),
+            Color(0xFF9E82FF),
+          ],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: [
+          BoxShadow(
+            color: _brandPrimary.withValues(alpha: 0.28),
+            blurRadius: 30,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: const Icon(
+                  Icons.support_agent_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'تواصل معنا',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'تابع البلاغات، أرسل استفسارك، وراجع الردود من نفس المكان.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13,
+                        height: 1.6,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.icon(
+                onPressed: _openNewTicketForm,
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: _brandPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                label: const Text(
+                  'بلاغ جديد',
                   style: TextStyle(
                     fontFamily: 'Cairo',
-                    fontSize: 14,
-                    color: isDark ? Colors.white54 : Colors.black45,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-          ],
+              OutlinedButton.icon(
+                onPressed: _isLoadingTickets ? null : () => _loadTickets(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.42),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text(
+                  'تحديث البلاغات',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow(ThemeData theme, bool isDark) {
+    final openCount = tickets
+        .where((ticket) => ticket.status != 'closed' && ticket.status != 'مغلق')
+        .length;
+    final closedCount = tickets.length - openCount;
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _buildStatCard(
+          title: 'إجمالي البلاغات',
+          value: '${tickets.length}',
+          icon: Icons.sticky_note_2_outlined,
+          accent: _brandPrimary,
+          isDark: isDark,
         ),
+        _buildStatCard(
+          title: 'البلاغات المفتوحة',
+          value: '$openCount',
+          icon: Icons.timelapse_rounded,
+          accent: const Color(0xFF2A8B6E),
+          isDark: isDark,
+        ),
+        _buildStatCard(
+          title: 'المغلقة',
+          value: '$closedCount',
+          icon: Icons.verified_rounded,
+          accent: _brandAccent,
+          isDark: isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color accent,
+    required bool isDark,
+  }) {
+    return Container(
+      width: 112,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF191D2D) : Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE9E3FB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.14 : 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: accent, size: 20),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : _brandText,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            title,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              height: 1.5,
+              color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTicketsSection(ThemeData theme, bool isDark) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF171B2A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade200,
-          width: 2,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE9E3FB),
         ),
-        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'قائمة البلاغات',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.black87,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'قائمة البلاغات',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : _brandText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'اختر البلاغ لعرض التفاصيل الكاملة والردود المرتبطة به.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        color: isDark ? Colors.white60 : const Color(0xFF6A6480),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    showNewTicketForm = true;
-                    selectedTicket = null;
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark
-                      ? Colors.pink.shade300
-                      : const Color(0xFFE1BEE7),
-                  foregroundColor: isDark ? Colors.black87 : Colors.deepPurple.shade700,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : _brandSurface,
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Text(
-                  'بلاغ جديد',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                child: Text(
+                  '${tickets.length} بلاغ',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : _brandPrimary,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          
-          // عرض البطاقات
-          ...tickets.map((ticket) => _buildTicketCard(ticket, theme, isDark)),
+          if (_isLoadingTickets)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: CircularProgressIndicator(),
+              ),
+            )
+          else if (_ticketsError != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4F2),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: const Color(0xFFF4C9C4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'تعذر تحميل البلاغات',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF8D2A20),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _ticketsError!,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      color: Color(0xFF8D2A20),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _loadTickets,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFFB3261E),
+                    ),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text(
+                      'إعادة المحاولة',
+                      style: TextStyle(fontFamily: 'Cairo'),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (tickets.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: _brandPrimary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.inbox_outlined,
+                      color: _brandPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'لا توجد بلاغات حتى الآن',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                      color: isDark ? Colors.white : _brandText,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'ابدأ بإنشاء بلاغ جديد وسنرتب توجيهه إلى الفريق المناسب.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      height: 1.7,
+                      color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...tickets.map((ticket) => _buildTicketCard(ticket, theme, isDark)),
         ],
       ),
     );
@@ -466,97 +1005,167 @@ class _ContactScreenState extends State<ContactScreen> {
 
   Widget _buildTicketCard(Ticket ticket, ThemeData theme, bool isDark) {
     final isSelected = selectedTicket?.id == ticket.id;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedTicket = ticket;
-          showNewTicketForm = false;
-        });
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? Colors.deepPurple.shade900.withValues(alpha: 0.3) : Colors.deepPurple.shade50)
-              : (isDark ? Colors.grey.shade800 : Colors.white),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isSelected
-                ? (isDark ? Colors.deepPurple.shade300 : Colors.deepPurple)
-                : (isDark ? Colors.grey.shade700 : Colors.grey.shade300),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => _selectTicket(ticket),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (isDark ? _brandPrimary.withValues(alpha: 0.18) : _brandSurface)
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.03)
+                      : const Color(0xFFFDFCFF)),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: isSelected
+                    ? _brandPrimary
+                    : (isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFE7E0F7)),
+                width: isSelected ? 1.6 : 1,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(ticket.status, isDark),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              ticket.displayStatus,
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: _getStatusTextColor(ticket.status, isDark),
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _ticketTeamLabel(ticket),
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isLoadingDetail && isSelected)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2.2),
+                      )
+                    else
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 16,
+                        color: isDark ? Colors.white54 : const Color(0xFF8A84A1),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        ticket.id,
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: isDark ? Colors.white : _brandText,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      _ticketTypeLabel(ticket.ticketType),
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        color: isDark ? Colors.white60 : const Color(0xFF7A748D),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  ticket.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    height: 1.7,
+                    color: isDark ? Colors.white70 : const Color(0xFF58516B),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 16,
+                      color: isDark ? Colors.white54 : const Color(0xFF8B86A3),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _formatDateTime(ticket.createdAt),
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                          color: isDark ? Colors.white54 : const Color(0xFF8B86A3),
+                        ),
+                      ),
+                    ),
+                    if (ticket.attachments.isNotEmpty)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: _getStatusColor(ticket.status, isDark),
-                          borderRadius: BorderRadius.circular(12),
+                          color: _brandAccent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          ticket.displayStatus,
-                          style: TextStyle(
+                          '${ticket.attachments.length} مرفق',
+                          style: const TextStyle(
                             fontFamily: 'Cairo',
                             fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: _getStatusTextColor(ticket.status, isDark),
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF9A6718),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          ticket.title,
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 13,
-                            color: isDark ? Colors.white70 : Colors.black54,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDateTime(ticket.createdAt),
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11,
-                      color: isDark ? Colors.white54 : Colors.black45,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: isDark ? Colors.deepPurple.shade700 : Colors.deepPurple.shade100,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                ticket.id,
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : Colors.deepPurple.shade700,
+                  ],
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -564,262 +1173,343 @@ class _ContactScreenState extends State<ContactScreen> {
 
   Widget _buildNewTicketForm(ThemeData theme, bool isDark) {
     return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF171B2A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade200,
-          width: 2,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE9E3FB),
         ),
-        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // رسالة توجيهية
           Row(
             children: [
-              Checkbox(
-                value: selectedSupportTeam != null,
-                onChanged: null,
-                activeColor: Colors.deepPurple,
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: _brandPrimary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.edit_note_rounded,
+                  color: _brandPrimary,
+                  size: 24,
+                ),
               ),
+              const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  'لكي نخدمك بشكل أفضل حدد فريق الدعم المطلوب',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 14,
-                    color: isDark ? Colors.white : Colors.black87,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'بلاغ جديد',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white : _brandText,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'اختر الفريق المناسب واكتب وصفًا واضحًا حتى يصل البلاغ بسرعة للجهة الصحيحة.',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        height: 1.6,
+                        color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // قائمة فرق الدعم
+          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+              borderRadius: BorderRadius.circular(22),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      isSupportTeamDropdownOpen = !isSupportTeamDropdownOpen;
-                    });
-                  },
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            isSupportTeamDropdownOpen 
-                              ? Icons.arrow_drop_up 
-                              : Icons.arrow_drop_down,
-                            color: Colors.deepPurple,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            selectedSupportTeam ?? 'فريق الدعم والمساعدة',
+                DropdownButtonFormField<String>(
+                  value: supportTeams.contains(selectedSupportTeam)
+                      ? selectedSupportTeam
+                      : null,
+                  items: supportTeams
+                      .map(
+                        (team) => DropdownMenuItem<String>(
+                          value: team,
+                          child: Text(
+                            team,
                             style: TextStyle(
                               fontFamily: 'Cairo',
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: isDark ? Colors.white : Colors.black87,
+                              color: isDark ? Colors.white : _brandText,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _isSubmitting
+                      ? null
+                      : (value) => setState(() => selectedSupportTeam = value),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  decoration: _fieldDecoration(
+                    isDark: isDark,
+                    labelText: 'الفريق المختص',
+                    hintText: 'اختر فريق الدعم',
+                    prefixIcon: Icons.groups_rounded,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _descriptionController,
+                  maxLength: 300,
+                  maxLines: 5,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    color: isDark ? Colors.white : _brandText,
+                  ),
+                  decoration: _fieldDecoration(
+                    isDark: isDark,
+                    labelText: 'تفاصيل البلاغ',
+                    hintText:
+                        'اشرح المشكلة أو الطلب بشكل مختصر وواضح، مع أي تفاصيل تساعد فريق الدعم.',
+                    prefixIcon: Icons.subject_rounded,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(top: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFFFFCF6),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFF3E7C6),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _brandAccent.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.attach_file_rounded,
+                        color: Color(0xFF9A6718),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'المرفقات',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : _brandText,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'يمكنك إضافة صور أو ملفات توضح البلاغ قبل إرساله.',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color:
+                                  isDark ? Colors.white70 : const Color(0xFF7B745A),
                             ),
                           ),
                         ],
                       ),
-                      if (selectedSupportTeam != null)
-                        Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 20,
-                        ),
-                    ],
-                  ),
-                ),
-                if (isSupportTeamDropdownOpen) ...[
-                  const SizedBox(height: 12),
-                  const Divider(),
-                  const SizedBox(height: 8),
-                  Text(
-                    'قائمة متسلسلة:',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ...supportTeams.map((team) => CheckboxListTile(
-                    title: Text(
-                      team,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    value: selectedSupportTeam == team,
-                    onChanged: (bool? value) {
-                      setState(() {
-                        selectedSupportTeam = value == true ? team : null;
-                      });
-                    },
-                    controlAffinity: ListTileControlAffinity.leading,
-                    dense: true,
-                    activeColor: Colors.deepPurple,
-                  )),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // حقل التفاصيل
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              controller: _descriptionController,
-              maxLength: 300,
-              maxLines: 4,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              decoration: InputDecoration(
-                hintText: 'تفاصيل الطلب (300 حرف)',
-                hintStyle: TextStyle(
-                  fontFamily: 'Cairo',
-                  color: isDark ? Colors.white54 : Colors.black45,
-                ),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // قسم المرفقات
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade200,
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.attach_file, color: Colors.deepPurple),
-                    const SizedBox(width: 8),
-                    Text(
-                      'المرفقات',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
-                    _buildAttachmentButton(
-                      icon: Icons.photo_library,
-                      label: 'Photo Library',
-                      onTap: _pickImage,
-                      isDark: isDark,
+                    OutlinedButton.icon(
+                      onPressed: _pickImage,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text(
+                        'المعرض',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
                     ),
-                    _buildAttachmentButton(
-                      icon: Icons.camera_alt,
-                      label: 'Take Photo',
-                      onTap: _takePhoto,
-                      isDark: isDark,
+                    OutlinedButton.icon(
+                      onPressed: _takePhoto,
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      label: const Text(
+                        'الكاميرا',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
                     ),
-                    _buildAttachmentButton(
-                      icon: Icons.folder,
-                      label: 'Choose File',
-                      onTap: _pickFile,
-                      isDark: isDark,
+                    OutlinedButton.icon(
+                      onPressed: _pickFile,
+                      icon: const Icon(Icons.folder_open_rounded),
+                      label: const Text(
+                        'ملف',
+                        style: TextStyle(fontFamily: 'Cairo'),
+                      ),
                     ),
                   ],
                 ),
                 if (attachments.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    'المرفقات المضافة: ${attachments.length}',
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      color: isDark ? Colors.white70 : Colors.black54,
-                    ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final attachment in attachments)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.06)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.08)
+                                  : const Color(0xFFE7E0F7),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.insert_drive_file_outlined,
+                                size: 16,
+                                color: _brandPrimary,
+                              ),
+                              const SizedBox(width: 6),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 160),
+                                child: Text(
+                                  _fileNameFromPath(attachment),
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 12,
+                                    color: isDark ? Colors.white : _brandText,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () => setState(() {
+                                  attachments.remove(attachment);
+                                }),
+                                child: const Padding(
+                                  padding: EdgeInsets.all(2),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: Color(0xFF8D2A20),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
             ),
           ),
           const SizedBox(height: 20),
-
-          // أزرار الإجراءات
           Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    showNewTicketForm = false;
-                    isSupportTeamDropdownOpen = false;
-                    _descriptionController.clear();
-                    selectedSupportTeam = null;
-                    attachments.clear();
-                  });
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: isDark ? Colors.pink.shade300 : Colors.deepPurple,
-                  side: BorderSide(
-                    color: isDark ? Colors.pink.shade300 : Colors.deepPurple,
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _isSubmitting ? null : _resetNewTicketForm,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : _brandPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.16)
+                          : const Color(0xFFDCCFFF),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                  child: const Text(
+                    'إلغاء',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                ),
-                child: const Text(
-                  'إلغاء',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _createNewTicket,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDark ? Colors.pink.shade300 : const Color(0xFFE1BEE7),
-                  foregroundColor: isDark ? Colors.black87 : Colors.deepPurple.shade700,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _isSubmitting ? null : _createNewTicket,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _brandPrimary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                ),
-                child: const Text(
-                  'إرسال',
-                  style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+                  icon: _isSubmitting
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.send_rounded),
+                  label: Text(
+                    _isSubmitting ? 'جارٍ الإرسال...' : 'إرسال البلاغ',
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -829,358 +1519,617 @@ class _ContactScreenState extends State<ContactScreen> {
     );
   }
 
-  Widget _buildAttachmentButton({
-    required IconData icon,
+  Widget _buildInfoCard({
     required String label,
-    required VoidCallback onTap,
+    required String value,
+    required IconData icon,
     required bool isDark,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.grey.shade700 : Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
-          ),
+    return Container(
+      width: 154,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.04) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE7E0F7),
         ),
-        child: Column(
-          children: [
-            Icon(icon, color: Colors.deepPurple),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 10,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: _brandPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
+            child: Icon(icon, color: _brandPrimary, size: 18),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 11,
+              color: isDark ? Colors.white60 : const Color(0xFF7B7690),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white : _brandText,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyCard({
+    required TicketReply reply,
+    required bool isDark,
+  }) {
+    final fromCurrentUser = _replyFromCurrentUser(reply);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: fromCurrentUser
+            ? _brandPrimary.withValues(alpha: isDark ? 0.16 : 0.08)
+            : (isDark
+                ? Colors.white.withValues(alpha: 0.04)
+                : const Color(0xFFFFFCF6)),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: fromCurrentUser
+              ? _brandPrimary.withValues(alpha: 0.22)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : const Color(0xFFF1E7C7)),
         ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _replyAuthorLabel(reply),
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : _brandText,
+                  ),
+                ),
+              ),
+              Text(
+                _formatDateTime(reply.timestamp),
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  color: isDark ? Colors.white60 : const Color(0xFF8B86A3),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            reply.message,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              height: 1.7,
+              color: isDark ? Colors.white70 : const Color(0xFF58516B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailPlaceholder(ThemeData theme, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF171B2A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE9E3FB),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: _brandPrimary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Icon(
+              Icons.forum_outlined,
+              color: _brandPrimary,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'اختر بلاغًا لعرض التفاصيل',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : _brandText,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'ستظهر هنا حالة البلاغ، المرفقات، والتعليقات بينك وبين فريق الدعم.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              height: 1.7,
+              color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _fieldDecoration({
+    required bool isDark,
+    required String hintText,
+    String? labelText,
+    IconData? prefixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      labelText: labelText,
+      alignLabelWithHint: true,
+      prefixIcon: prefixIcon == null ? null : Icon(prefixIcon),
+      filled: true,
+      fillColor: isDark
+          ? Colors.white.withValues(alpha: 0.04)
+          : const Color(0xFFFDFCFF),
+      hintStyle: TextStyle(
+        fontFamily: 'Cairo',
+        color: isDark ? Colors.white54 : const Color(0xFF8B86A3),
+      ),
+      labelStyle: TextStyle(
+        fontFamily: 'Cairo',
+        color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE7E0F7),
+        ),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : const Color(0xFFE7E0F7),
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: _brandPrimary, width: 1.3),
       ),
     );
   }
 
   Widget _buildTicketDetails(ThemeData theme, bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade200,
-          width: 2,
+    if (_isLoadingDetail && selectedTicket == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(28),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF171B2A) : Colors.white,
+          borderRadius: BorderRadius.circular(28),
         ),
-        borderRadius: BorderRadius.circular(12),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_detailError != null && selectedTicket == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF4F2),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: const Color(0xFFF4C9C4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'تعذر تحميل تفاصيل البلاغ',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF8D2A20),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _detailError!,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                color: Color(0xFF8D2A20),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final ticket = selectedTicket;
+    if (ticket == null) {
+      return _buildDetailPlaceholder(theme, isDark);
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF171B2A) : Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0xFFE9E3FB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.06),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // معلومات البلاغ
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _formatDateTime(selectedTicket!.createdAt),
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 12,
-                      color: isDark ? Colors.white70 : Colors.deepPurple.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    selectedTicket!.title,
-                    style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.deepPurple.shade700 : Colors.deepPurple.shade100,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  selectedTicket!.id,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.deepPurple.shade700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // الوصف
           Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              selectedTicket!.description,
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 14,
-                height: 1.5,
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // زر تعديل
-          Center(
-            child: OutlinedButton(
-              onPressed: () {
-                // يمكن إضافة وظيفة التعديل
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple,
-                side: BorderSide(
-                  color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              ),
-              child: const Text(
-                'تعديل',
-                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // المرفقات
-          if (selectedTicket!.attachments.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade200,
-                ),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.attach_file, color: Colors.deepPurple, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'المرفقات',
-                        style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? Colors.pink.shade300 : const Color(0xFFE1BEE7),
-                          foregroundColor: isDark ? Colors.black87 : Colors.deepPurple.shade700,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: const Text(
-                          'حفظ',
-                          style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () {},
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: isDark ? Colors.pink.shade300 : Colors.deepPurple,
-                          side: BorderSide(
-                            color: isDark ? Colors.pink.shade300 : Colors.deepPurple,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                        ),
-                        child: const Text(
-                          'إلغاء',
-                          style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
+              gradient: LinearGradient(
+                colors: [
+                  isDark ? const Color(0xFF22195C) : _brandSurface,
+                  isDark ? const Color(0xFF171B2A) : const Color(0xFFFDFBFF),
                 ],
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // حالة البلاغ
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFE4DDF8),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'حالة الطلب',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            ticket.id,
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: isDark ? Colors.white : _brandText,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _ticketTypeLabel(ticket.ticketType),
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
-                        color: _getStatusColor(selectedTicket!.status, isDark),
-                        borderRadius: BorderRadius.circular(12),
+                        color: _getStatusColor(ticket.status, isDark),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                       child: Text(
-                        selectedTicket!.status,
+                        ticket.displayStatus,
                         style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          color: _getStatusTextColor(selectedTicket!.status, isDark),
+                          fontWeight: FontWeight.w800,
+                          color: _getStatusTextColor(ticket.status, isDark),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'آخر تحديث في',
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    color: isDark ? Colors.white70 : Colors.black54,
+                if (_detailError != null) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF4F2),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFF4C9C4)),
+                    ),
+                    child: Text(
+                      _detailError!,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        color: Color(0xFF8D2A20),
+                      ),
+                    ),
                   ),
-                ),
-                Text(
-                  _formatDateTime(selectedTicket!.lastUpdate ?? selectedTicket!.createdAt),
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.deepPurple.shade300 : Colors.deepPurple.shade700,
-                  ),
+                ],
+                const SizedBox(height: 18),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _buildInfoCard(
+                      label: 'الفريق',
+                      value: _ticketTeamLabel(ticket),
+                      icon: Icons.groups_rounded,
+                      isDark: isDark,
+                    ),
+                    _buildInfoCard(
+                      label: 'تاريخ الإنشاء',
+                      value: _formatDateTime(ticket.createdAt),
+                      icon: Icons.event_rounded,
+                      isDark: isDark,
+                    ),
+                    _buildInfoCard(
+                      label: 'آخر تحديث',
+                      value: _formatDateTime(ticket.lastUpdate ?? ticket.createdAt),
+                      icon: Icons.update_rounded,
+                      isDark: isDark,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-
-          // ردود المنصة
-          if (selectedTicket!.replies.isNotEmpty) ...[
-            ...selectedTicket!.replies.where((r) => r.from == 'platform').map((reply) =>
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade800.withValues(alpha: 0.5) : Colors.purple.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'تعليق منصة نوافذ (300 حرف)',
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? Colors.white : Colors.black87,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      reply.message,
-                      style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          Text(
+            'وصف البلاغ',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : _brandText,
             ),
-          ],
-
-          // حقل الرد
+          ),
+          const SizedBox(height: 8),
           Container(
-            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+              borderRadius: BorderRadius.circular(22),
             ),
-            child: TextField(
-              controller: _replyController,
-              maxLength: 300,
-              maxLines: 3,
+            child: Text(
+              ticket.description,
               style: TextStyle(
                 fontFamily: 'Cairo',
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-              decoration: InputDecoration(
-                hintText: 'رد على التعليق (300 حرف)',
-                hintStyle: TextStyle(
-                  fontFamily: 'Cairo',
-                  color: isDark ? Colors.white54 : Colors.black45,
-                ),
-                border: InputBorder.none,
+                fontSize: 14,
+                height: 1.8,
+                color: isDark ? Colors.white70 : const Color(0xFF58516B),
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
-          // زر إرسال الرد
-          Center(
-            child: ElevatedButton(
-              onPressed: _sendReply,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? Colors.pink.shade300 : const Color(0xFFE1BEE7),
-                foregroundColor: isDark ? Colors.black87 : Colors.deepPurple.shade700,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+          if (ticket.attachments.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'المرفقات',
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white : _brandText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: ticket.attachments.map((attachment) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.04)
+                        : const Color(0xFFFFFCF6),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.06)
+                          : const Color(0xFFF3E7C6),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.attach_file_rounded,
+                        size: 18,
+                        color: Color(0xFF9A6718),
+                      ),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 190),
+                        child: Text(
+                          _fileNameFromPath(attachment),
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 12,
+                            color: isDark ? Colors.white : _brandText,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'سجل التعليقات',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : _brandText,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 10),
               ),
-              child: const Text(
-                'إرسال',
-                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 15),
+              if (_isLoadingDetail)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (ticket.replies.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+                borderRadius: BorderRadius.circular(22),
               ),
+              child: Text(
+                'لا توجد تعليقات حتى الآن على هذا البلاغ.',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  color: isDark ? Colors.white70 : const Color(0xFF6A6480),
+                ),
+              ),
+            )
+          else
+            ...ticket.replies.map(
+              (reply) => _buildReplyCard(reply: reply, isDark: isDark),
+            ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.04) : _brandSurface,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'أضف ردًا',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : _brandText,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _replyController,
+                  maxLength: 300,
+                  maxLines: 4,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    color: isDark ? Colors.white : _brandText,
+                  ),
+                  decoration: _fieldDecoration(
+                    isDark: isDark,
+                    hintText: 'اكتب ردك أو استفسارك الإضافي هنا.',
+                    prefixIcon: Icons.mode_comment_outlined,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _isSendingReply ? null : _sendReply,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _brandPrimary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 18,
+                        vertical: 14,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    icon: _isSendingReply
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.send_rounded),
+                    label: Text(
+                      _isSendingReply ? 'جارٍ الإرسال...' : 'إرسال الرد',
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

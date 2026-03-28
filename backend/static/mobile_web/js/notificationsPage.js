@@ -218,11 +218,11 @@ const NotificationsPage = (() => {
       tabindex: '0',
     });
 
-    card.addEventListener('click', () => _markRead(notif.id));
+    card.addEventListener('click', () => _openNotification(notif));
     card.addEventListener('keydown', (event) => {
       if (event.key !== 'Enter' && event.key !== ' ') return;
       event.preventDefault();
-      _markRead(notif.id);
+      _openNotification(notif);
     });
 
     const iconWrap = UI.el('div', { className: 'notif-icon' });
@@ -369,6 +369,14 @@ const NotificationsPage = (() => {
   function _findIndexById(id) {
     const target = String(id);
     return _notifications.findIndex((item) => String(item.id) === target);
+  }
+
+  async function _openNotification(notif) {
+    if (!notif) return;
+    if (notif.id) await _markRead(notif.id);
+    const targetUrl = String(notif.url || '').trim();
+    if (!targetUrl) return;
+    window.location.href = targetUrl;
   }
 
   async function _markRead(id) {

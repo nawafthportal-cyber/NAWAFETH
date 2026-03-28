@@ -41,6 +41,76 @@
       <button id="rv-retry" type="button" class="btn btn-sm btn-outline" style="display:none">إعادة المحاولة</button>
     </div>
   </div>
+
+  <div id="rv-report-modal" class="rv-report-modal hidden" aria-hidden="true">
+    <div class="rv-report-overlay" data-rv-report-close="1"></div>
+    <section class="rv-report-dialog" role="dialog" aria-modal="true" aria-labelledby="rv-report-title">
+      <button id="rv-report-close" type="button" class="rv-report-close" aria-label="إغلاق نافذة البلاغ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      </button>
+
+      <div class="rv-report-badge">
+        <span class="rv-report-badge-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 9v4"></path>
+            <path d="M12 17h.01"></path>
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"></path>
+          </svg>
+        </span>
+        <span class="rv-report-badge-text">بلاغ تقييم</span>
+      </div>
+
+      <h2 id="rv-report-title" class="rv-report-title">إبلاغ عن تقييم</h2>
+      <p class="rv-report-subtitle">سيصل البلاغ إلى إدارة المحتوى لمراجعة هذا التقييم واتخاذ الإجراء المناسب.</p>
+
+      <div class="rv-report-preview">
+        <div class="rv-report-preview-head">
+          <div class="rv-report-preview-author">
+            <span class="rv-report-preview-label">صاحب التقييم</span>
+            <strong id="rv-report-reviewer">-</strong>
+          </div>
+          <span id="rv-report-date" class="rv-report-date">-</span>
+        </div>
+        <div id="rv-report-stars" class="rv-report-stars" aria-label="درجة التقييم"></div>
+        <p id="rv-report-text" class="rv-report-text">-</p>
+      </div>
+
+      <label class="rv-report-label" for="rv-report-reason">سبب البلاغ</label>
+      <select id="rv-report-reason" class="rv-report-select">
+        <option value="">اختر سبب البلاغ</option>
+        <option value="ألفاظ غير لائقة أو مسيئة">ألفاظ غير لائقة أو مسيئة</option>
+        <option value="معلومات غير صحيحة أو مضللة">معلومات غير صحيحة أو مضللة</option>
+        <option value="ابتزاز أو تهديد">ابتزاز أو تهديد</option>
+        <option value="إفشاء معلومات شخصية">إفشاء معلومات شخصية</option>
+        <option value="التقييم لا يخص الخدمة المنفذة">التقييم لا يخص الخدمة المنفذة</option>
+        <option value="أخرى">أخرى</option>
+      </select>
+
+      <label class="rv-report-label" for="rv-report-details">تفاصيل إضافية</label>
+      <textarea
+        id="rv-report-details"
+        class="rv-report-textarea"
+        rows="5"
+        maxlength="500"
+        placeholder="اشرح لنا باختصار ما المشكلة في هذا التقييم..."
+      ></textarea>
+
+      <div class="rv-report-helper">
+        <span class="rv-report-helper-text">كلما كان الوصف أوضح، كانت المراجعة أسرع.</span>
+        <span id="rv-report-counter" class="rv-report-counter">0 / 500</span>
+      </div>
+
+      <div class="rv-report-actions">
+        <button id="rv-report-cancel" type="button" class="rv-report-action rv-report-action-cancel">إلغاء</button>
+        <button id="rv-report-submit" type="button" class="rv-report-action rv-report-action-submit">إرسال البلاغ</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="rv-toast" class="rv-toast" aria-live="polite"></div>
 </main>
 {% endblock %}
 

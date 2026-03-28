@@ -10,6 +10,7 @@ import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
 import 'chat_detail_screen.dart';
 import 'client_order_details_screen.dart';
+import 'contact_screen.dart';
 import 'my_chats_screen.dart';
 import 'notification_settings_screen.dart';
 import 'provider_dashboard/provider_order_details_screen.dart';
@@ -102,6 +103,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final uri = Uri.tryParse(rawUrl);
     final path = (uri?.path ?? rawUrl).trim();
+    final normalizedPath = path.toLowerCase();
+
+    if (normalizedPath == '/contact' || normalizedPath == '/contact/') {
+      final ticketId =
+          int.tryParse((uri?.queryParameters['ticket'] ?? '').trim());
+      if (ticketId != null) {
+        return ContactScreen(initialTicketId: ticketId);
+      }
+      return const ContactScreen();
+    }
+
+    final supportTicketMatch =
+        RegExp(r'^/support/tickets/(\d+)/?$', caseSensitive: false)
+            .firstMatch(path);
+    if (supportTicketMatch != null) {
+      final ticketId = int.tryParse(supportTicketMatch.group(1) ?? '');
+      if (ticketId != null) {
+        return ContactScreen(initialTicketId: ticketId);
+      }
+    }
 
     final requestChatMatch =
         RegExp(r'^/requests/(\d+)/chat/?$', caseSensitive: false)
