@@ -643,10 +643,16 @@ class _SponsorBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedUrl = assetUrl?.trim();
     final badge = Container(
-      width: 22,
-      height: 22,
+      width: 26,
+      height: 26,
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(9),
+        border: Border.all(
+          color: overlay
+              ? const Color(0x14FFFFFF)
+              : const Color(0x1A8D5FD3),
+        ),
         gradient: overlay
             ? const LinearGradient(
                 colors: [Color(0x1AF1A559), Color(0x26FFFFFF)],
@@ -664,7 +670,8 @@ class _SponsorBadge extends StatelessWidget {
       child: (resolvedUrl != null && resolvedUrl.isNotEmpty)
           ? Image.network(
               resolvedUrl,
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
               errorBuilder: (_, __, ___) => _fallbackText(),
             )
           : _fallbackText(),

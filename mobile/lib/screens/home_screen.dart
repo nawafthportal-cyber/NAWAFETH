@@ -2153,17 +2153,25 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Container(
                 width: double.infinity,
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  color: Colors.white.withValues(alpha: 0.65),
+                  color: Colors.white.withValues(alpha: 0.96),
+                  border: Border.all(
+                    color: purple.withValues(alpha: isDark ? 0.18 : 0.1),
+                  ),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(14),
                   child: imageUrl != null
-                      ? Image.network(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+                      ? Padding(
+                          padding: const EdgeInsets.all(2),
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            errorBuilder: (_, __, ___) => _gradientPlaceholder(),
+                          ),
                         )
                       : _gradientPlaceholder(),
                 ),

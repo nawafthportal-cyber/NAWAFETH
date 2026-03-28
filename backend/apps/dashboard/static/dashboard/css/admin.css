@@ -1756,8 +1756,10 @@ table.dash-table {
 .sponsorship-preview-media {
   width: 100%;
   height: 100%;
+  padding: 4px;
+  box-sizing: border-box;
   border-radius: 12px;
-  background: rgba(255, 255, 255, .72);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(249, 244, 255, .94));
   border: 1px dashed rgba(126, 51, 153, .22);
   overflow: hidden;
   display: grid;
@@ -1769,7 +1771,8 @@ table.dash-table {
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
 }
 
 .sponsorship-preview-media-placeholder {
