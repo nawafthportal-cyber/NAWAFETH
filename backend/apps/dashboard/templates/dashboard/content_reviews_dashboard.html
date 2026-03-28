@@ -11,7 +11,8 @@
         </div>
         <div class="hero-stats">
           <span class="pill brand">إجمالي الطلبات: {{ summary.total }}</span>
-          <span class="pill danger">بلاغات التقييم: {{ summary.complaints }}</span>
+          <span class="pill accent">استفسارات المحتوى: {{ summary.suggestions }}</span>
+          <span class="pill danger">بلاغات المحتوى: {{ summary.complaints }}</span>
         </div>
       </div>
     </header>
@@ -31,7 +32,7 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>بلاغات التقييمات والمراجعات</h2>
+            <h2>استفسارات وبلاغات إدارة المحتوى</h2>
             <div class="actions">
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">PDF</a>
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=xlsx">Excel</a>
@@ -48,7 +49,7 @@
               {% endfor %}
             </select>
             <select class="input-control" name="type">
-              <option value="">كل أنواع البلاغات</option>
+              <option value="">كل أنواع الطلبات</option>
               {% for code,label in ticket_type_choices %}
                 <option value="{{ code }}" {% if filters.type == code %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
@@ -131,7 +132,7 @@
                   </div>
 
                   <div class="field full">
-                    <label>اسم المستخدم المُشتكى ضده أو رابط الموضوع للشكوى</label>
+                    <label>الحساب أو الرابط المرتبط بالطلب</label>
                     <div class="input-control static-field">
                       <strong>{{ detail_info.reported_account }}</strong>
                       {% if target_info.url %}
@@ -145,9 +146,9 @@
                     {{ review_form.attachment }}
                   </div>
 
-                  <section class="support-attachments-view" aria-label="مرفقات البلاغ">
+                  <section class="support-attachments-view" aria-label="مرفقات الطلب">
                     <div class="title-row">
-                      <h2>مرفقات البلاغ</h2>
+                      <h2>مرفقات الطلب</h2>
                       <span class="pill info">{{ selected_ticket_attachments|length }} مرفق</span>
                     </div>
                     {% if selected_ticket_attachments %}
@@ -179,7 +180,7 @@
                         {% endfor %}
                       </div>
                     {% else %}
-                      <div class="empty-note">لا توجد مرفقات مضافة لهذا البلاغ حتى الآن.</div>
+                      <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب حتى الآن.</div>
                     {% endif %}
                   </section>
 
@@ -213,7 +214,7 @@
                   <div class="actions">
                     {% if can_manage_content %}
                       <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
-                      <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق + حذف المحتوى</button>
+                      <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق الطلب</button>
                       <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
                     {% else %}
                       <span class="pill danger">وضع قراءة فقط</span>
@@ -224,19 +225,19 @@
 
               <aside class="review-report-side">
                 <div class="target-card">
-                  <h4>بطاقة البلاغ</h4>
-                  <div class="quick-stat"><span>رقم البلاغ</span><strong>{{ selected_ticket.code }}</strong></div>
-                  <div class="quick-stat"><span>حساب المُبلِّغ</span><strong>{{ detail_info.reporter_account }}</strong></div>
-                  <div class="quick-stat"><span>حساب المُبلَّغ عنه</span><strong>{{ detail_info.reported_account }}</strong></div>
+                  <h4>بطاقة الطلب</h4>
+                  <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_ticket.code }}</strong></div>
+                  <div class="quick-stat"><span>حساب العميل</span><strong>{{ detail_info.reporter_account }}</strong></div>
+                  <div class="quick-stat"><span>الحساب/الرابط المرتبط</span><strong>{{ detail_info.reported_account }}</strong></div>
                   <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
                   <div class="quick-stat"><span>فريق الدعم</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
                   <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
                 </div>
 
                 <div class="target-card">
-                  <h4>تفاصيل الشكوى الكاملة</h4>
-                  <div class="quick-stat"><span>موضوع الشكوى</span><strong>{{ detail_info.complaint_subject }}</strong></div>
-                  <div class="quick-stat"><span>وصف الشكوى</span><strong>{{ detail_info.complaint_details }}</strong></div>
+                  <h4>تفاصيل الطلب الكاملة</h4>
+                  <div class="quick-stat"><span>موضوع الطلب</span><strong>{{ detail_info.complaint_subject }}</strong></div>
+                  <div class="quick-stat"><span>وصف الطلب</span><strong>{{ detail_info.complaint_details }}</strong></div>
                   <div class="quick-stat"><span>معرف التقييم</span><strong>{{ detail_info.review_id|default:"-" }}</strong></div>
                   <div class="quick-stat"><span>رقم الطلب المرتبط</span><strong>{{ detail_info.request_id|default:"-" }}</strong></div>
                   <div class="quick-stat"><span>تقييم النجوم</span><strong>{% if detail_info.review_rating %}{{ detail_info.review_rating }}/5{% else %}-{% endif %}</strong></div>

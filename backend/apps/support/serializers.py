@@ -4,8 +4,57 @@ from rest_framework import serializers
 
 from .models import (
     SupportTicket, SupportAttachment, SupportComment,
-    SupportTeam, SupportTicketStatus, SupportStatusLog, SupportTicketEntrypoint
+    SupportTeam, SupportTicketStatus, SupportStatusLog, SupportTicketEntrypoint, SupportTicketType
 )
+
+
+SUPPORT_TEAM_CODE_CANDIDATES_BY_TICKET_TYPE = {
+    SupportTicketType.TECH: ("support", "technical", "tech"),
+    SupportTicketType.SUBS: ("finance", "subs"),
+    SupportTicketType.VERIFY: ("verification", "verify"),
+    SupportTicketType.SUGGEST: ("content", "suggest"),
+    SupportTicketType.ADS: ("promo", "ads"),
+    SupportTicketType.COMPLAINT: ("content", "complaint"),
+    SupportTicketType.EXTRAS: ("extras",),
+}
+
+SUPPORT_TEAM_CODE_ALIASES = {
+    "tech": "support",
+    "technical": "support",
+    "support": "support",
+    "suggest": "content",
+    "content": "content",
+    "ads": "promo",
+    "promo": "promo",
+    "verify": "verification",
+    "verification": "verification",
+    "subs": "finance",
+    "finance": "finance",
+    "complaint": "content",
+    "extras": "extras",
+}
+
+
+def _resolve_support_team_for_create(raw_team_value, *, ticket_type: str) -> SupportTeam | None:
+    team_qs = SupportTeam.objects.filter(is_active=True)
+
+    raw_value = str(raw_team_value or "").strip()
+    if raw_value:
+        if raw_value.isdigit():
+            team = team_qs.filter(id=int(raw_value)).first()
+        else:
+            normalized = SUPPORT_TEAM_CODE_ALIASES.get(raw_value.lower(), raw_value.lower())
+            team = team_qs.filter(code__iexact=normalized).first()
+        if team is None:
+            raise serializers.ValidationError({"assigned_team": "فريق الدعم المحدد غير صالح."})
+        return team
+
+    normalized_ticket_type = str(ticket_type or "").strip().lower()
+    for candidate_code in SUPPORT_TEAM_CODE_CANDIDATES_BY_TICKET_TYPE.get(normalized_ticket_type, ()):
+        team = team_qs.filter(code__iexact=candidate_code).first()
+        if team is not None:
+            return team
+    return None
 
 
 class SupportTeamSerializer(serializers.ModelSerializer):
@@ -42,6 +91,8 @@ class SupportStatusLogSerializer(serializers.ModelSerializer):
 
 
 class SupportTicketCreateSerializer(serializers.ModelSerializer):
+    assigned_team = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
     class Meta:
         model = SupportTicket
         fields = [
@@ -53,6 +104,7 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
             "reported_kind",
             "reported_object_id",
             "reported_user",
+            "assigned_team",
         ]
         read_only_fields = ["id", "code"]
 
@@ -72,6 +124,11 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
 
         # أولوية التذكرة حسب ميزة Priority Support
         validated_data.pop("priority", None)
+        raw_assigned_team = validated_data.pop("assigned_team", "")
+        assigned_team = _resolve_support_team_for_create(
+            raw_assigned_team,
+            ticket_type=validated_data.get("ticket_type", ""),
+        )
         reported_kind = (validated_data.get("reported_kind") or "").strip()[:30]
         reported_object_id = (validated_data.get("reported_object_id") or "").strip()[:50]
         validated_data["reported_kind"] = reported_kind
@@ -80,6 +137,7 @@ class SupportTicketCreateSerializer(serializers.ModelSerializer):
             requester=user,
             priority=support_priority(user),
             entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+            assigned_team=assigned_team,
             **validated_data,
         )
         _sync_ticket_to_unified(ticket=ticket, changed_by=user)

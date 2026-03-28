@@ -37,7 +37,8 @@ body.page-provider-dashboard #pd-cover {
 
 body.page-provider-dashboard .provider-avatar-wrap {
   position: relative;
-  width: 80px;
+  width: 86px;
+  height: 86px;
   margin-inline: auto;
 }
 
@@ -65,6 +66,38 @@ body.page-provider-dashboard .provider-avatar-upload {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
 }
 
+body.page-provider-dashboard .provider-avatar-badge {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+  z-index: 2;
+}
+
+body.page-provider-dashboard .provider-avatar-badge-blue {
+  inset-inline-end: -2px;
+  bottom: 18px;
+  background: #2196f3;
+}
+
+body.page-provider-dashboard .provider-avatar-badge-green {
+  inset-inline-start: -2px;
+  top: -2px;
+  background: #2e7d32;
+}
+
+body.page-provider-dashboard .provider-avatar-badge-excellence {
+  inset-inline-start: -2px;
+  top: -2px;
+  background: #f9a825;
+}
+
 body.page-provider-dashboard .provider-verified-badge {
   margin: 6px auto 0;
   display: inline-flex;
@@ -72,7 +105,11 @@ body.page-provider-dashboard .provider-verified-badge {
   gap: 6px;
   font-size: 12px;
   font-weight: 700;
-  color: #2e7d32;
+  color: #5f4b8b;
+  background: rgba(103, 58, 183, 0.08);
+  border: 1px solid rgba(103, 58, 183, 0.18);
+  border-radius: 999px;
+  padding: 3px 10px;
 }
 
 body.page-provider-dashboard .provider-stats {

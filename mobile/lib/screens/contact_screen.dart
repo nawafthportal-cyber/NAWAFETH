@@ -65,6 +65,26 @@ class _ContactScreenState extends State<ContactScreen> {
     'الخدمات الإضافية': 'extras',
   };
 
+  static const Map<String, String> _teamToAssignedCode = {
+    'فريق الدعم والمساعدة': 'support',
+    'فريق إدارة المحتوى': 'content',
+    'فريق إدارة الإعلانات والترويج': 'promo',
+    'فريق التوثيق': 'verification',
+    'فريق إدارة الترقية والاشتراكات': 'finance',
+    'فريق إدارة الخدمات الإضافية': 'extras',
+    'الدعم': 'support',
+    'الدعم الفني': 'support',
+    'الترويج': 'promo',
+    'المالية': 'finance',
+    'الاشتراكات': 'finance',
+    'التوثيق': 'verification',
+    'المحتوى': 'content',
+    'الاقتراحات': 'content',
+    'الإعلانات': 'promo',
+    'الشكاوى والبلاغات': 'content',
+    'الخدمات الإضافية': 'extras',
+  };
+
   @override
   void initState() {
     super.initState();
@@ -151,6 +171,21 @@ class _ContactScreenState extends State<ContactScreen> {
         _isLoadingTickets = false;
       });
     }
+  }
+
+  String _resolveAssignedTeamCode() {
+    final selected = (selectedSupportTeam ?? '').trim();
+    if (selected.isEmpty) return '';
+
+    for (final team in _apiTeams) {
+      final name = (team['name_ar'] as String? ?? '').trim();
+      final code = (team['code'] as String? ?? '').trim();
+      if (name == selected && code.isNotEmpty) {
+        return code;
+      }
+    }
+
+    return _teamToAssignedCode[selected] ?? '';
   }
 
   @override
@@ -244,9 +279,11 @@ class _ContactScreenState extends State<ContactScreen> {
     setState(() => _isSubmitting = true);
 
     final ticketType = _teamToTicketType[selectedSupportTeam] ?? 'tech';
+    final assignedTeamCode = _resolveAssignedTeamCode();
     final result = await SupportService.createTicket(
       ticketType: ticketType,
       description: _descriptionController.text.trim(),
+      assignedTeam: assignedTeamCode.isNotEmpty ? assignedTeamCode : null,
     );
 
     if (!mounted) return;

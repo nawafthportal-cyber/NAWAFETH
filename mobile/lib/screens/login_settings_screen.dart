@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:local_auth/local_auth.dart';
-import '../services/api_client.dart';
 import '../services/auth_api_service.dart';
 import '../services/auth_service.dart';
 import '../services/profile_service.dart';
-import '../services/content_service.dart';
 import '../models/user_profile.dart';
-import '../widgets/content_block_media.dart';
 import '../widgets/platform_top_bar.dart';
 
 /// أيقونة Face ID
@@ -68,16 +65,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   String? _storedPin;
   String? _unlockError;
 
-  // محتوى المساعدة من API (settings_help / settings_info)
-  String? _helpTitle;
-  String? _helpBody;
-  String? _helpMediaUrl;
-  String? _helpMediaType;
-  String? _infoTitle;
-  String? _infoBody;
-  String? _infoMediaUrl;
-  String? _infoMediaType;
-
   @override
   void initState() {
     super.initState();
@@ -93,7 +80,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
       _requiresUnlock = false;
       _isUnlocked = true;
       _loadProfile();
-      _loadHelpContent();
       return;
     }
 
@@ -141,38 +127,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
         _error = result.error ?? 'خطأ غير متوقع';
         _loading = false;
       });
-    }
-  }
-
-  /// تحميل محتوى المساعدة/المعلومات من API
-  Future<void> _loadHelpContent() async {
-    try {
-      final result = await ContentService.fetchPublicContent();
-      if (!mounted) return;
-      if (result.isSuccess && result.dataAsMap != null) {
-        final blocks =
-            (result.dataAsMap!['blocks'] as Map<String, dynamic>?) ?? {};
-
-        final help = blocks['settings_help'];
-        final info = blocks['settings_info'];
-
-        setState(() {
-          if (help is Map<String, dynamic>) {
-            _helpTitle = (help['title_ar'] as String?)?.trim();
-            _helpBody = (help['body_ar'] as String?)?.trim();
-            _helpMediaUrl = ApiClient.buildMediaUrl(help['media_url']?.toString());
-            _helpMediaType = (help['media_type'] as String?)?.trim();
-          }
-          if (info is Map<String, dynamic>) {
-            _infoTitle = (info['title_ar'] as String?)?.trim();
-            _infoBody = (info['body_ar'] as String?)?.trim();
-            _infoMediaUrl = ApiClient.buildMediaUrl(info['media_url']?.toString());
-            _infoMediaType = (info['media_type'] as String?)?.trim();
-          }
-        });
-      }
-    } catch (_) {
-      // fallback — لا شيء
     }
   }
 
@@ -398,31 +352,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
               ),
           ]),
           const SizedBox(height: 20),
-
-          // ─── محتوى المساعدة من لوحة التحكم ───
-          if (_helpTitle != null && _helpTitle!.isNotEmpty ||
-              _helpBody != null && _helpBody!.isNotEmpty ||
-              _helpMediaUrl != null && _helpMediaUrl!.isNotEmpty)
-            _buildContentCard(
-              icon: Icons.help_outline,
-              title: _helpTitle ?? 'مساعدة',
-              body: _helpBody ?? '',
-              color: Colors.orange,
-              mediaUrl: _helpMediaUrl,
-              mediaType: _helpMediaType,
-            ),
-
-          if (_infoTitle != null && _infoTitle!.isNotEmpty ||
-              _infoBody != null && _infoBody!.isNotEmpty ||
-              _infoMediaUrl != null && _infoMediaUrl!.isNotEmpty)
-            _buildContentCard(
-              icon: Icons.info_outline,
-              title: _infoTitle ?? 'معلومات',
-              body: _infoBody ?? '',
-              color: Colors.blue,
-              mediaUrl: _infoMediaUrl,
-              mediaType: _infoMediaType,
-            ),
 
           const SizedBox(height: 30),
 
@@ -711,7 +640,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
       _unlockError = null;
     });
     _loadProfile();
-    _loadHelpContent();
   }
 
   Widget _buildUnlockScreen() {
@@ -823,72 +751,6 @@ class _LoginSettingsScreenState extends State<LoginSettingsScreen> {
   }
 
   // ─── مكونات UI ───
-
-  /// كرت محتوى (مساعدة / معلومات) من لوحة التحكم
-  Widget _buildContentCard({
-    required IconData icon,
-    required String title,
-    required String body,
-    required Color color,
-    String? mediaUrl,
-    String? mediaType,
-  }) {
-    final normalizedMediaUrl = (mediaUrl ?? '').trim();
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 12),
-      color: color.withAlpha(18),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: color.withAlpha(40),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: color.withAlpha(220),
-                  ),
-                ),
-              ),
-            ]),
-            if (normalizedMediaUrl.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              ContentBlockMedia(
-                mediaUrl: normalizedMediaUrl,
-                mediaType: (mediaType ?? '').trim(),
-                aspectRatio: 16 / 9,
-                borderRadius: 18,
-              ),
-            ],
-            if (body.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                body,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 13,
-                  height: 1.6,
-                  color: Colors.black87,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildSection(String title, List<Widget> children) {
     return Card(

@@ -10,7 +10,7 @@ from apps.backoffice.models import Dashboard
 from apps.moderation.models import ModerationCase
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import PlanPeriod, Subscription, SubscriptionPlan, SubscriptionStatus
-from apps.support.models import SupportTeam, SupportTicket, SupportTicketStatus
+from apps.support.models import SupportTeam, SupportTicket, SupportTicketStatus, SupportTicketType
 from apps.support.services import change_ticket_status
 from apps.unified_requests.models import UnifiedRequest
 
@@ -79,6 +79,36 @@ def test_create_ticket(api, client_user):
     assert ur.code.startswith("HD")
     assert ur.status == t.status
     assert ur.request_type == "helpdesk"
+
+
+@pytest.mark.parametrize(
+    ("ticket_type", "team_code", "team_name"),
+    [
+        (SupportTicketType.ADS, "promo", "فريق إدارة الإعلانات والترويج"),
+        (SupportTicketType.SUGGEST, "content", "فريق إدارة المحتوى"),
+    ],
+)
+def test_create_ticket_routes_to_selected_team_from_contact_surface(api, client_user, ticket_type, team_code, team_name):
+    SupportTeam.objects.get_or_create(
+        code=team_code,
+        defaults={"name_ar": team_name, "sort_order": 30, "is_active": True},
+    )
+    api.force_authenticate(user=client_user)
+
+    response = api.post(
+        "/api/support/tickets/create/",
+        data={
+            "ticket_type": ticket_type,
+            "assigned_team": team_code,
+            "description": f"طلب موجه إلى {team_name}",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    ticket = SupportTicket.objects.get(pk=response.data["id"])
+    assert ticket.assigned_team is not None
+    assert ticket.assigned_team.code == team_code
 
 
 def test_create_complaint_ticket_accepts_reported_target(api, client_user):

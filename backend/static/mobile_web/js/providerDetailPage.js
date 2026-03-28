@@ -1457,6 +1457,62 @@ const ProviderDetailPage = (() => {
   }
 
   /* ═══ Reviews ═══ */
+  function _extractProviderReply(review) {
+    return _pickFirstText(
+      review && review.provider_reply,
+      review && review.providerReply,
+      review && review.provider_response,
+      review && review.providerResponse,
+      review && review.reply
+    );
+  }
+
+  function _buildReviewCard(review) {
+    const card = UI.el('article', { className: 'pd-review-card' });
+
+    const header = UI.el('div', { className: 'pd-review-header' });
+    header.appendChild(UI.el('span', {
+      className: 'pd-review-author',
+      textContent: review.reviewer_name || review.client_name || 'مستخدم',
+    }));
+    const stars = UI.el('span', { className: 'pd-review-stars' });
+    const rating = Math.round(review.rating || 0);
+    for (let i = 0; i < 5; i++) {
+      stars.appendChild(UI.icon('star', 14, i < rating ? '#FFC107' : '#E0E0E0'));
+    }
+    header.appendChild(stars);
+    card.appendChild(header);
+
+    const reviewText = _pickFirstText(review.comment, review.text, review.review_text);
+    if (reviewText) {
+      card.appendChild(UI.el('div', { className: 'pd-review-text', textContent: reviewText }));
+    }
+
+    const providerReply = _extractProviderReply(review);
+    if (providerReply) {
+      const replyBox = UI.el('div', { className: 'pd-review-reply' });
+      replyBox.appendChild(UI.el('div', {
+        className: 'pd-review-reply-label',
+        textContent: 'رد مقدم الخدمة',
+      }));
+      replyBox.appendChild(UI.el('div', {
+        className: 'pd-review-reply-text',
+        textContent: providerReply,
+      }));
+      card.appendChild(replyBox);
+    }
+
+    if (review.created_at || review.created) {
+      const d = new Date(review.created_at || review.created);
+      card.appendChild(UI.el('div', {
+        className: 'pd-review-date',
+        textContent: d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' }),
+      }));
+    }
+
+    return card;
+  }
+
   async function _loadReviews() {
     const summaryEl = document.getElementById('pd-rating-summary');
     const listEl = document.getElementById('pd-reviews-list');
@@ -1515,28 +1571,28 @@ const ProviderDetailPage = (() => {
       return;
     }
 
-    reviews.forEach(rev => {
-      const card = UI.el('div', { className: 'pd-review-card' });
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (!listEl) return;
 
-      const header = UI.el('div', { className: 'pd-review-header' });
-      header.appendChild(UI.el('span', { className: 'pd-review-author', textContent: rev.reviewer_name || rev.client_name || 'مستخدم' }));
-      const stars = UI.el('span', { className: 'pd-review-stars' });
-      const rating = Math.round(rev.rating || 0);
-      for (let i = 0; i < 5; i++) {
-        stars.appendChild(UI.icon('star', 14, i < rating ? '#FFC107' : '#E0E0E0'));
-      }
-      header.appendChild(stars);
-      card.appendChild(header);
+    const marqueeReviews = reviews.slice();
+    if (marqueeReviews.length === 1) {
+      marqueeReviews.push(reviews[0]);
+    }
 
-      if (rev.comment || rev.text) {
-        card.appendChild(UI.el('div', { className: 'pd-review-text', textContent: rev.comment || rev.text }));
-      }
-      if (rev.created_at || rev.created) {
-        const d = new Date(rev.created_at || rev.created);
-        card.appendChild(UI.el('div', { className: 'pd-review-date', textContent: d.toLocaleDateString('ar-SA', { year: 'numeric', month: 'short', day: 'numeric' }) }));
-      }
-      if (listEl) listEl.appendChild(card);
+    const marquee = UI.el('div', { className: 'pd-reviews-marquee' });
+    const track = UI.el('div', { className: 'pd-reviews-track' });
+    const groupA = UI.el('div', { className: 'pd-reviews-track-group' });
+
+    marqueeReviews.forEach((review) => {
+      groupA.appendChild(_buildReviewCard(review));
     });
+    const groupB = groupA.cloneNode(true);
+
+    track.style.setProperty('--pd-reviews-duration', Math.max(18, marqueeReviews.length * 6) + 's');
+    track.appendChild(groupA);
+    track.appendChild(groupB);
+    marquee.appendChild(track);
+    listEl.appendChild(marquee);
   }
 
   /* ═══ Helpers ═══ */

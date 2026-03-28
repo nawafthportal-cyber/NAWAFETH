@@ -1532,7 +1532,10 @@ def _promo_base_context(active_key: str) -> dict:
 
 
 def _promo_inquiries_queryset_for_user(user):
-    return _support_queryset_for_user(user).filter(ticket_type=SupportTicketType.ADS)
+    return _support_queryset_for_user(user).filter(
+        Q(assigned_team__code__iexact="promo")
+        | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.ADS)
+    ).distinct()
 
 
 def _promo_requests_queryset_for_user(user):
@@ -3217,12 +3220,44 @@ def _save_content_block(
 @dashboard_staff_required
 @require_dashboard_access("content")
 def content_dashboard_home(request):
+    inquiries_base_qs = _content_review_queryset_for_user(request.user)
+    inquiry_q = (request.GET.get("inquiry_q") or "").strip()
+
+    inquiries_qs = inquiries_base_qs
+    if inquiry_q:
+        inquiries_qs = inquiries_qs.filter(
+            Q(code__icontains=inquiry_q)
+            | Q(description__icontains=inquiry_q)
+            | Q(requester__username__icontains=inquiry_q)
+            | Q(requester__phone__icontains=inquiry_q)
+        )
+    inquiries = list(inquiries_qs.order_by("-created_at", "-id"))
+
+    headers, rows = _content_review_export_rows(inquiries)
+    if _want_csv(request):
+        return _csv_response("content_inquiries.csv", headers, rows)
+    if _want_xlsx(request):
+        return xlsx_response("content_inquiries.xlsx", "content_inquiries", headers, rows)
+    if _want_pdf(request):
+        return pdf_response("content_inquiries.pdf", "لوحة إدارة المحتوى - قائمة الاستفسارات", headers, rows, landscape=True)
+
+    selected_inquiry = None
+    selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
+    if selected_inquiry_id_raw.isdigit():
+        selected_inquiry = inquiries_base_qs.filter(id=int(selected_inquiry_id_raw)).first()
+
     context = _content_base_context("home")
     context.update(
         {
             "hero_title": "لوحة فريق إدارة المحتوى",
             "hero_subtitle": "إدارة نصوص وتجارب الدخول، ضبط الإعدادات، متابعة التقييمات، وتشغيل التميز من لوحة موحدة.",
             "team_panels": _dashboard_team_panels(),
+            "content_inquiries": _content_review_ticket_rows(inquiries),
+            "content_inquiry_summary": _content_review_summary(inquiries),
+            "content_filters": {
+                "inquiry_q": inquiry_q,
+            },
+            "selected_content_inquiry": selected_inquiry,
         }
     )
     return render(request, "dashboard/content_dashboard_home.html", context)
@@ -3527,9 +3562,9 @@ def content_settings(request):
 
 def _content_review_queryset_for_user(user):
     return _support_queryset_for_user(user).filter(
-        ticket_type=SupportTicketType.COMPLAINT,
-        reported_kind__iexact="review",
-    )
+        Q(assigned_team__code__iexact="content")
+        | Q(assigned_team__isnull=True, ticket_type__in=CONTENT_REVIEW_TYPES)
+    ).distinct()
 
 
 def _content_ticket_team_label(ticket: SupportTicket) -> str:
@@ -3680,14 +3715,17 @@ def _content_review_ticket_rows(tickets: list[SupportTicket]) -> list[dict]:
 def _content_review_summary(tickets: list[SupportTicket]) -> dict:
     by_status: dict[str, int] = {}
     complaints = 0
+    suggestions = 0
     for ticket in tickets:
         by_status[ticket.status] = by_status.get(ticket.status, 0) + 1
         if ticket.ticket_type == SupportTicketType.COMPLAINT:
             complaints += 1
+        if ticket.ticket_type == SupportTicketType.SUGGEST:
+            suggestions += 1
     return {
         "total": len(tickets),
         "complaints": complaints,
-        "suggestions": 0,
+        "suggestions": suggestions,
         "new": by_status.get(SupportTicketStatus.NEW, 0),
         "in_progress": by_status.get(SupportTicketStatus.IN_PROGRESS, 0),
         "returned": by_status.get(SupportTicketStatus.RETURNED, 0),
@@ -3991,8 +4029,13 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
 
             if action == "close_ticket":
                 desired_status = SupportTicketStatus.CLOSED
-                # Closing content-review complaints should always remove/hide the reported target.
-                moderation_action = ContentReviewActionForm.MODERATION_ACTION_DELETE_TARGET
+                has_reported_target = bool(
+                    (target_ticket.reported_kind or "").strip() and (target_ticket.reported_object_id or "").strip()
+                )
+                if target_ticket.ticket_type == SupportTicketType.COMPLAINT and has_reported_target:
+                    moderation_action = ContentReviewActionForm.MODERATION_ACTION_DELETE_TARGET
+                else:
+                    moderation_action = ContentReviewActionForm.MODERATION_ACTION_NONE
             elif action == "return_ticket":
                 desired_status = SupportTicketStatus.RETURNED
 
@@ -4118,8 +4161,8 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
     context = _content_base_context("reviews")
     context.update(
         {
-            "hero_title": "إدارة التقييم والمراجعات",
-            "hero_subtitle": "متابعة بلاغات التقييمات فقط ومعالجة الشكوى والمحتوى محل البلاغ بشكل تشغيلي كامل.",
+            "hero_title": "إدارة استفسارات وبلاغات المحتوى",
+            "hero_subtitle": "متابعة الاستفسارات القادمة من تواصل مع نوافذ والبلاغات المحوّلة إلى فريق المحتوى ومعالجتها تشغيليًا.",
             "tickets": _content_review_ticket_rows(tickets),
             "selected_ticket": selected_ticket,
             "review_form": review_form,
@@ -4130,6 +4173,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "can_hide_delete": can_hide_delete,
             "status_choices": SupportTicketStatus.choices,
             "ticket_type_choices": [
+                (SupportTicketType.SUGGEST, dict(SupportTicketType.choices).get(SupportTicketType.SUGGEST)),
                 (SupportTicketType.COMPLAINT, dict(SupportTicketType.choices).get(SupportTicketType.COMPLAINT)),
             ],
             "priority_choices": [("1", "1 - الأساسية"), ("2", "2 - الريادية"), ("3", "3 - الاحترافية")],

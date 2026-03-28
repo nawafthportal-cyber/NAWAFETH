@@ -425,7 +425,11 @@ const ContactPage = (() => {
 
     const createRes = await ApiClient.request('/api/support/tickets/create/', {
       method: 'POST',
-      body: { ticket_type: ticketType, description },
+      body: {
+        ticket_type: ticketType,
+        assigned_team: String(teamEl.value || '').trim(),
+        description,
+      },
     });
 
     if (!createRes.ok || !createRes.data) {

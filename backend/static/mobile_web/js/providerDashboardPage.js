@@ -133,19 +133,27 @@ const ProviderDashboardPage = (() => {
   function _renderHeader() {
     const p = _providerProfile || {};
     const u = _profile || {};
+    const isVerifiedBlue = p.is_verified_blue === true;
+    const isVerifiedGreen = p.is_verified_green === true;
+    const excellenceBadges = _normalizeExcellenceBadges(p.excellence_badges);
+    const hasExcellenceBadges = excellenceBadges.length > 0;
 
     // Cover
     const coverEl = document.getElementById('pd-cover');
     if (p.cover_image) {
       coverEl.style.backgroundImage = `url('${ApiClient.mediaUrl(p.cover_image)}')`;
+    } else {
+      coverEl.style.backgroundImage = '';
     }
 
     // Avatar
     const avatarEl = document.getElementById('pd-avatar');
     const img = p.profile_image || u.profile_image;
+    avatarEl.textContent = '';
     if (img) {
       avatarEl.style.backgroundImage = `url('${ApiClient.mediaUrl(img)}')`;
     } else {
+      avatarEl.style.backgroundImage = '';
       avatarEl.textContent = (p.display_name || u.first_name || '؟')[0];
     }
 
@@ -153,9 +161,26 @@ const ProviderDashboardPage = (() => {
     document.getElementById('pd-name').textContent = p.display_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'مقدم خدمة';
     document.getElementById('pd-handle').textContent = u.username ? `@${u.username}` : '';
 
-    // Verified
-    if (p.is_verified) {
-      document.getElementById('pd-verified').style.display = '';
+    // Avatar badge overlays
+    const blueBadge = document.getElementById('pd-avatar-badge-blue');
+    const greenBadge = document.getElementById('pd-avatar-badge-green');
+    const excellenceBadge = document.getElementById('pd-avatar-badge-excellence');
+    if (blueBadge) blueBadge.classList.toggle('hidden', !isVerifiedBlue);
+    if (excellenceBadge) excellenceBadge.classList.toggle('hidden', !hasExcellenceBadges);
+    if (greenBadge) greenBadge.classList.toggle('hidden', hasExcellenceBadges || !isVerifiedGreen);
+
+    // Text badge under name
+    const verifiedRow = document.getElementById('pd-verified');
+    const verifiedLabel = verifiedRow ? verifiedRow.querySelector('span') : null;
+    const labels = [];
+    if (isVerifiedBlue) labels.push('توثيق أزرق');
+    if (isVerifiedGreen) labels.push('توثيق أخضر');
+    if (hasExcellenceBadges) labels.push('شارة تميز');
+    if (verifiedRow) {
+      verifiedRow.style.display = labels.length ? '' : 'none';
+    }
+    if (verifiedLabel) {
+      verifiedLabel.textContent = labels.join(' • ');
     }
   }
 
@@ -179,6 +204,14 @@ const ProviderDashboardPage = (() => {
     const fromStats = _providerStats?.media_saves_count;
     if (Number.isFinite(Number(fromStats))) return Number(fromStats);
     return 0;
+  }
+
+  function _normalizeExcellenceBadges(value) {
+    if (window.UI && typeof window.UI.normalizeExcellenceBadges === 'function') {
+      return window.UI.normalizeExcellenceBadges(value);
+    }
+    if (!Array.isArray(value)) return [];
+    return value.filter((item) => item && typeof item === 'object');
   }
 
   function _renderSubscription(subRes) {

@@ -496,33 +496,88 @@ var PromotionPage = (function () {
     ]);
   }
 
-  async function hydrateProviderIdentity() {
+  function applyProviderIdentityName(chosen, fallback) {
     var input = document.getElementById("promo-provider-name");
     var display = document.getElementById("promo-provider-display");
     if (!input && !display) return;
 
-    var fallback = "مزود الخدمة";
-    if (input) input.value = fallback;
-    if (display) display.textContent = fallback;
+    var finalName = firstNonEmptyText([chosen, fallback]);
+    if (input) {
+      input.value = finalName;
+      input.title = finalName;
+    }
+    if (display) {
+      display.textContent = finalName;
+      display.title = finalName;
+    }
+  }
+
+  async function fetchProviderIdentityCandidates() {
+    var candidates = [];
+    try {
+      if (window.Auth && typeof window.Auth.getProfile === "function") {
+        var profile = await window.Auth.getProfile();
+        if (profile && typeof profile === "object") {
+          candidates.push(profile);
+          if (profile.provider && typeof profile.provider === "object") {
+            candidates.push(profile.provider);
+          }
+          if (profile.provider_profile && typeof profile.provider_profile === "object") {
+            candidates.push(profile.provider_profile);
+          }
+        }
+      }
+    } catch (_) {}
 
     try {
-      if (!window.Auth || typeof window.Auth.getProfile !== "function") return;
-      var profile = await window.Auth.getProfile();
-      if (!profile || typeof profile !== "object") return;
+      if (window.ApiClient && typeof window.ApiClient.get === "function") {
+        var providerRes = await window.ApiClient.get("/api/providers/me/profile/");
+        if (providerRes && providerRes.ok && providerRes.data && typeof providerRes.data === "object") {
+          candidates.push(providerRes.data);
+          if (providerRes.data.user && typeof providerRes.data.user === "object") {
+            candidates.push(providerRes.data.user);
+          }
+        }
 
-      var chosen = resolveProviderDisplayName(profile, fallback);
-      if (input) {
-        input.value = chosen;
-        input.title = chosen;
+        var meProviderRes = await window.ApiClient.get("/api/accounts/me/?mode=provider");
+        if (meProviderRes && meProviderRes.ok && meProviderRes.data && typeof meProviderRes.data === "object") {
+          candidates.push(meProviderRes.data);
+        }
+
+        var meRes = await window.ApiClient.get("/api/accounts/me/");
+        if (meRes && meRes.ok && meRes.data && typeof meRes.data === "object") {
+          candidates.push(meRes.data);
+        }
       }
-      if (display) {
-        display.textContent = chosen;
-        display.title = chosen;
+    } catch (_) {}
+
+    return candidates;
+  }
+
+  async function hydrateProviderIdentity() {
+    var fallback = "مزود الخدمة";
+    applyProviderIdentityName("", fallback);
+
+    var attemptsLeft = 4;
+    while (attemptsLeft > 0) {
+      var candidates = await fetchProviderIdentityCandidates();
+      var chosen = "";
+      candidates.some(function (candidate) {
+        chosen = resolveProviderDisplayName(candidate, "");
+        return !!chosen;
+      });
+
+      if (chosen) {
+        applyProviderIdentityName(chosen, fallback);
+        return;
       }
-    } catch (err) {
-      if (input) input.value = fallback;
-      if (display) display.textContent = fallback;
+
+      attemptsLeft -= 1;
+      if (attemptsLeft <= 0) break;
+      await new Promise(function (resolve) { setTimeout(resolve, 250); });
     }
+
+    applyProviderIdentityName("", fallback);
   }
 
   function bindServicePicks() {

@@ -208,6 +208,61 @@ def test_promo_inquiry_appears_after_support_transfer_to_promo_team_assignee():
     assert inquiry_rows[0]["assignee"] == (promo_operator.username or promo_operator.phone)
 
 
+def test_promo_dashboard_keeps_support_dashboard_transfer_visible_even_for_non_ads_ticket():
+    admin_client = _dashboard_client()
+    promo_dashboard, _ = Dashboard.objects.get_or_create(
+        code="promo",
+        defaults={"name_ar": "لوحة الترويج", "is_active": True, "sort_order": 30},
+    )
+    promo_team, _ = SupportTeam.objects.get_or_create(
+        code="promo",
+        defaults={"name_ar": "فريق إدارة الإعلانات والترويج", "is_active": True, "sort_order": 30},
+    )
+    promo_operator = User.objects.create_user(
+        phone="0554002091",
+        password="Pass12345!",
+        is_staff=True,
+        role_state=UserRole.STAFF,
+    )
+    promo_access = UserAccessProfile.objects.create(user=promo_operator, level=AccessLevel.USER)
+    promo_access.allowed_dashboards.add(promo_dashboard)
+
+    requester = User.objects.create_user(
+        phone="0554002092",
+        password="Pass12345!",
+        role_state=UserRole.PROVIDER,
+    )
+    ticket = SupportTicket.objects.create(
+        requester=requester,
+        ticket_type=SupportTicketType.TECH,
+        status=SupportTicketStatus.NEW,
+        priority=SupportPriority.NORMAL,
+        entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+        description="طلب دعم تم تحويله لاحقًا إلى فريق الترويج",
+    )
+
+    response = admin_client.post(
+        reverse("dashboard:support_ticket_detail", kwargs={"ticket_id": ticket.id}),
+        {
+            "ticket_id": str(ticket.id),
+            "status": SupportTicketStatus.IN_PROGRESS,
+            "assigned_team": str(promo_team.id),
+            "assigned_to": str(promo_operator.id),
+            "description": ticket.description,
+            "assignee_comment": "تحويل من لوحة الدعم إلى فريق الترويج",
+            "action": "save_ticket",
+        },
+    )
+
+    assert response.status_code == 302
+    promo_client = _dashboard_client_for_user(promo_operator)
+    promo_response = promo_client.get(reverse("dashboard:promo_dashboard"))
+
+    assert promo_response.status_code == 200
+    inquiry_ids = [row["id"] for row in promo_response.context["inquiries"]]
+    assert ticket.id in inquiry_ids
+
+
 def test_promo_inquiry_assignment_keeps_team_fixed_to_promo():
     client = _dashboard_client()
     _, _ = Dashboard.objects.get_or_create(

@@ -20,6 +20,7 @@ class SupportService {
   static Future<ApiResponse> createTicket({
     required String ticketType,
     required String description,
+    String? assignedTeam,
     String? reportedKind,
     String? reportedObjectId,
     int? reportedUser,
@@ -28,6 +29,9 @@ class SupportService {
       'ticket_type': ticketType,
       'description': description,
     };
+    if (assignedTeam != null && assignedTeam.isNotEmpty) {
+      body['assigned_team'] = assignedTeam;
+    }
     if (reportedKind != null && reportedKind.isNotEmpty) {
       body['reported_kind'] = reportedKind;
     }
