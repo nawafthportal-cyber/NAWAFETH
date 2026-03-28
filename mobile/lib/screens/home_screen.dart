@@ -53,7 +53,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _promoPopupShown = false;
   List<MediaItemModel> _portfolioShowcase = [];
   List<Map<String, dynamic>> _portfolioShowcasePlacements = [];
-  List<Map<String, dynamic>> _sponsorships = [];
   Map<String, dynamic>? _promoMessagePlacement;
   bool _promoMessageDismissed = false;
   final Set<int> _seenBannerImpressions = <int>{};
@@ -161,7 +160,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadPromoFeatured(forceRefresh: forceRefresh);
     if (!_promoPopupShown) _loadPromoPopup();
     _loadPromoPortfolioShowcase();
-    _loadPromoSponsorships();
     _loadPromoMessages();
 
     categoriesFuture.then((categories) {
@@ -347,18 +345,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadPromoSponsorships() async {
-    try {
-      final res = await ApiClient.get(
-        '/api/promo/active/?service_type=sponsorship&limit=10',
-      );
-      if (!mounted || !res.isSuccess) return;
-      final items = _promoMapItemsFromResponse(res);
-      if (!mounted) return;
-      setState(() => _sponsorships = items);
-    } catch (_) {}
-  }
-
   Future<void> _loadPromoMessages() async {
     try {
       final res = await ApiClient.get(
@@ -496,18 +482,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  String? _promoAssetUrl(Map<String, dynamic> placement) {
-    final assets = placement['assets'];
-    if (assets is List && assets.isNotEmpty) {
-      final first = assets.first;
-      if (first is Map) {
-        final raw = (first['file'] ?? first['file_url']) as String?;
-        return ApiClient.buildMediaUrl(raw);
-      }
-    }
-    return null;
-  }
-
   Future<bool> _openExternalPromoUrl(String rawUrl) async {
     final trimmed = rawUrl.trim();
     if (trimmed.isEmpty) return false;
@@ -535,18 +509,6 @@ class _HomeScreenState extends State<HomeScreen> {
           providerName: providerName ?? 'مقدم خدمة',
         ),
       ),
-    );
-  }
-
-  Future<void> _openSponsorPlacement(Map<String, dynamic> placement) async {
-    final providerId = placement['target_provider_id'];
-    final parsedProviderId =
-        providerId is int ? providerId : int.tryParse('$providerId');
-    await _openPromoPlacement(
-      redirectUrl: placement['redirect_url'] as String?,
-      providerId: parsedProviderId,
-      providerName:
-          placement['target_provider_display_name'] as String? ?? 'مقدم خدمة',
     );
   }
 
@@ -812,10 +774,6 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_portfolioShowcase.isNotEmpty)
               SliverToBoxAdapter(
                   child: _buildPortfolioShowcase(isDark, purple)),
-
-            // -- Sponsorships --
-            if (_sponsorships.isNotEmpty)
-              SliverToBoxAdapter(child: _buildSponsorships(isDark, purple)),
 
             // -- Bottom safe area --
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
@@ -2058,152 +2016,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildSponsorships(bool isDark, Color purple) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('الرعاة', isDark),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 164,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _sponsorships.length,
-              itemBuilder: (context, index) => _sponsorshipCard(
-                _sponsorships[index],
-                isDark,
-                purple,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sponsorshipCard(
-    Map<String, dynamic> placement,
-    bool isDark,
-    Color purple,
-  ) {
-    final imageUrl = _promoAssetUrl(placement);
-    final sponsorName =
-        (placement['sponsor_name'] as String?)?.trim().isNotEmpty == true
-            ? (placement['sponsor_name'] as String).trim()
-            : ((placement['target_provider_display_name'] as String?)?.trim() ??
-                'راعٍ رسمي');
-    final caption = (placement['message_body'] as String?)?.trim() ?? '';
-    final duration = placement['sponsorship_months'];
-    final months = duration is int ? duration : int.tryParse('$duration') ?? 0;
-
-    return GestureDetector(
-      onTap: () => _openSponsorPlacement(placement),
-      child: Container(
-        width: 232,
-        margin: const EdgeInsets.only(left: 12),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: isDark
-                ? const [Color(0xFF30284A), Color(0xFF1F1A31)]
-                : const [Color(0xFFFFF7E8), Color(0xFFF6F0FF)],
-            begin: Alignment.topRight,
-            end: Alignment.bottomLeft,
-          ),
-          border: Border.all(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.08)
-                : const Color(0xFFE8DDBA),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: purple.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    months > 0 ? 'رعاية $months' 'ش' : 'رعاية',
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Cairo',
-                      color: Colors.deepPurple,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  color: Colors.white.withValues(alpha: 0.96),
-                  border: Border.all(
-                    color: purple.withValues(alpha: isDark ? 0.18 : 0.1),
-                  ),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: imageUrl != null
-                      ? Padding(
-                          padding: const EdgeInsets.all(2),
-                          child: Image.network(
-                            imageUrl,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.center,
-                            errorBuilder: (_, __, ___) => _gradientPlaceholder(),
-                          ),
-                        )
-                      : _gradientPlaceholder(),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              sponsorName,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                fontFamily: 'Cairo',
-                color: isDark ? Colors.white : Colors.black87,
-              ),
-            ),
-            if (caption.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                caption,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 9.5,
-                  fontFamily: 'Cairo',
-                  color: isDark ? Colors.white70 : Colors.grey.shade700,
-                ),
-              ),
-            ],
-          ],
-        ),
       ),
     );
   }

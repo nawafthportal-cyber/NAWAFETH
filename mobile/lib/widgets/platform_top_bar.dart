@@ -628,7 +628,7 @@ class PlatformTopBarMenuButton<T> extends StatelessWidget {
   }
 }
 
-class _SponsorBadge extends StatelessWidget {
+class _SponsorBadge extends StatefulWidget {
   final String? assetUrl;
   final String fallbackLabel;
   final bool overlay;
@@ -640,20 +640,92 @@ class _SponsorBadge extends StatelessWidget {
   });
 
   @override
+  State<_SponsorBadge> createState() => _SponsorBadgeState();
+}
+
+class _SponsorBadgeState extends State<_SponsorBadge> {
+  ImageStream? _imageStream;
+  ImageStreamListener? _imageStreamListener;
+  _SponsorBadgeBox _logoBox = _SponsorBadgeBox.square;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveLogoBox();
+  }
+
+  @override
+  void didUpdateWidget(covariant _SponsorBadge oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if ((oldWidget.assetUrl ?? '').trim() != (widget.assetUrl ?? '').trim()) {
+      _resolveLogoBox();
+    }
+  }
+
+  @override
+  void dispose() {
+    _detachImageListener();
+    super.dispose();
+  }
+
+  void _detachImageListener() {
+    final stream = _imageStream;
+    final listener = _imageStreamListener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _imageStream = null;
+    _imageStreamListener = null;
+  }
+
+  void _resolveLogoBox() {
+    _detachImageListener();
+    final resolvedUrl = widget.assetUrl?.trim();
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
+      if (mounted) {
+        setState(() => _logoBox = _SponsorBadgeBox.square);
+      }
+      return;
+    }
+
+    final provider = NetworkImage(resolvedUrl);
+    final stream = provider.resolve(const ImageConfiguration());
+    final listener = ImageStreamListener(
+      (imageInfo, _) {
+        final width = imageInfo.image.width.toDouble();
+        final height = imageInfo.image.height.toDouble();
+        if (!mounted) return;
+        setState(() {
+          _logoBox = _SponsorBadgeBox.fromDimensions(width, height);
+        });
+        _detachImageListener();
+      },
+      onError: (_, __) {
+        if (!mounted) return;
+        setState(() => _logoBox = _SponsorBadgeBox.square);
+        _detachImageListener();
+      },
+    );
+    _imageStream = stream;
+    _imageStreamListener = listener;
+    stream.addListener(listener);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final resolvedUrl = assetUrl?.trim();
-    final badge = Container(
-      width: 26,
-      height: 26,
+    final resolvedUrl = widget.assetUrl?.trim();
+    return Container(
+      width: 24,
+      height: 24,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: overlay
+          color: widget.overlay
               ? const Color(0x14FFFFFF)
               : const Color(0x1A8D5FD3),
         ),
-        gradient: overlay
+        gradient: widget.overlay
             ? const LinearGradient(
                 colors: [Color(0x1AF1A559), Color(0x26FFFFFF)],
                 begin: Alignment.topRight,
@@ -668,26 +740,56 @@ class _SponsorBadge extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,
       child: (resolvedUrl != null && resolvedUrl.isNotEmpty)
-          ? Image.network(
-              resolvedUrl,
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => _fallbackText(),
+          ? SizedBox(
+              width: _logoBox.width,
+              height: _logoBox.height,
+              child: Image.network(
+                resolvedUrl,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) => _fallbackText(),
+              ),
             )
           : _fallbackText(),
     );
-    return badge;
   }
 
   Widget _fallbackText() {
     return Text(
-      fallbackLabel.trim().isEmpty ? 'ر' : fallbackLabel.trim().characters.first,
+      widget.fallbackLabel.trim().isEmpty
+          ? 'ر'
+          : widget.fallbackLabel.trim().characters.first,
       style: const TextStyle(
         color: AppColors.deepPurple,
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: FontWeight.w900,
         fontFamily: 'Cairo',
       ),
     );
+  }
+}
+
+class _SponsorBadgeBox {
+  final double width;
+  final double height;
+
+  const _SponsorBadgeBox._(this.width, this.height);
+
+  static const _SponsorBadgeBox square = _SponsorBadgeBox._(16, 16);
+  static const _SponsorBadgeBox wide = _SponsorBadgeBox._(18, 12);
+  static const _SponsorBadgeBox tall = _SponsorBadgeBox._(12, 18);
+
+  static _SponsorBadgeBox fromDimensions(double width, double height) {
+    if (width <= 0 || height <= 0) {
+      return square;
+    }
+    final ratio = width / height;
+    if (ratio >= 1.55) {
+      return wide;
+    }
+    if (ratio <= 0.82) {
+      return tall;
+    }
+    return square;
   }
 }

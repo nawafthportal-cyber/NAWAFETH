@@ -26,7 +26,7 @@ const HomePage = (() => {
 
   // DOM refs
   let $categoriesList, $providersList, $bannersList, $bannersSection;
-  let $portfolioShowcaseSection, $portfolioShowcaseList, $sponsorshipsSection, $sponsorshipsList;
+  let $portfolioShowcaseSection, $portfolioShowcaseList;
   let $promoMessageSection, $promoMessageCard;
   let $categoriesTitle, $providersTitle, $bannersTitle, $reelsTrack, $offlineBanner;
   let $carouselTrack, $carouselDots, $carouselPrev, $carouselNext;
@@ -77,8 +77,6 @@ const HomePage = (() => {
     $carouselNext   = document.getElementById('carousel-next');
     $portfolioShowcaseSection = document.getElementById('portfolio-showcase');
     $portfolioShowcaseList = document.getElementById('portfolio-showcase-list');
-    $sponsorshipsSection = document.getElementById('sponsorships');
-    $sponsorshipsList = document.getElementById('sponsorships-list');
     $promoMessageSection = document.getElementById('home-promo-message');
     $promoMessageCard = document.getElementById('home-promo-message-card');
     _bindReelsInteraction();
@@ -471,7 +469,7 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, sponsorshipsRes, promoMessageRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, promoMessageRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
@@ -481,7 +479,6 @@ const HomePage = (() => {
       ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=10'),
       ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
-      ApiClient.get('/api/promo/active/?service_type=sponsorship&limit=10'),
       ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
     ]);
 
@@ -576,16 +573,6 @@ const HomePage = (() => {
         _popupShown = true;
         _showPromoPopup(list[0]);
       }
-    }
-
-    // Sponsorship placements
-    if (sponsorshipsRes.status === 'fulfilled' && sponsorshipsRes.value.ok && sponsorshipsRes.value.data) {
-      const placements = Array.isArray(sponsorshipsRes.value.data)
-        ? sponsorshipsRes.value.data
-        : (sponsorshipsRes.value.data.results || []);
-      _renderSponsorships(placements);
-    } else {
-      _renderSponsorships([]);
     }
 
     // Promo messages card
@@ -982,65 +969,6 @@ const HomePage = (() => {
 
     $portfolioShowcaseList.textContent = '';
     $portfolioShowcaseList.appendChild(frag);
-  }
-
-  function _renderSponsorships(placements) {
-    if (!$sponsorshipsSection || !$sponsorshipsList) return;
-    const rows = Array.isArray(placements) ? placements : [];
-    if (!rows.length) {
-      $sponsorshipsSection.style.display = 'none';
-      $sponsorshipsList.textContent = '';
-      return;
-    }
-    $sponsorshipsSection.style.display = '';
-
-    const frag = document.createDocumentFragment();
-    rows.forEach((promo) => {
-      const sponsorName = _readBannerString(promo.sponsor_name || promo.target_provider_display_name) || 'راعٍ رسمي';
-      const months = _readBannerInt(promo.sponsorship_months);
-      const messageBody = _readBannerString(promo.message_body);
-      const asset = Array.isArray(promo.assets) && promo.assets.length ? promo.assets[0] : null;
-      const assetUrl = asset ? ApiClient.mediaUrl(asset.file || asset.file_url) : '';
-      const redirectUrl = _readBannerString(promo.redirect_url || promo.sponsor_url);
-      const providerId = _readBannerInt(promo.target_provider_id);
-
-      const card = UI.el('div', { className: 'sponsor-card', role: 'button', tabindex: '0' });
-      card.appendChild(UI.el('span', {
-        className: 'sponsor-chip',
-        textContent: months > 0 ? 'رعاية ' + months + 'ش' : 'رعاية',
-      }));
-
-      const media = UI.el('div', { className: 'sponsor-media' });
-      if (assetUrl) {
-        const img = UI.el('img', { alt: sponsorName, loading: 'lazy' });
-        img.src = assetUrl;
-        media.appendChild(img);
-      }
-      card.appendChild(media);
-      card.appendChild(UI.el('div', { className: 'sponsor-title', textContent: sponsorName }));
-      if (messageBody) {
-        card.appendChild(UI.el('div', { className: 'sponsor-body', textContent: messageBody }));
-      }
-
-      const openSponsor = () => {
-        if (redirectUrl) {
-          window.open(redirectUrl, '_blank', 'noopener');
-        } else if (providerId > 0) {
-          window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
-        }
-      };
-      card.addEventListener('click', openSponsor);
-      card.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openSponsor();
-        }
-      });
-      frag.appendChild(card);
-    });
-
-    $sponsorshipsList.textContent = '';
-    $sponsorshipsList.appendChild(frag);
   }
 
   function _renderPromoMessage(promo) {
