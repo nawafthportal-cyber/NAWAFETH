@@ -20,6 +20,22 @@ const ContactPage = (() => {
     extras: 'خدمات إضافية',
   };
 
+  const TEAM_CODE_TO_TICKET_TYPE = {
+    support: 'tech',
+    technical: 'tech',
+    tech: 'tech',
+    finance: 'subs',
+    subs: 'subs',
+    verification: 'verify',
+    verify: 'verify',
+    content: 'suggest',
+    suggest: 'suggest',
+    complaint: 'complaint',
+    promo: 'ads',
+    ads: 'ads',
+    extras: 'extras',
+  };
+
   const NAME_TO_TYPE = {
     'الدعم الفني': 'tech',
     'الاشتراكات': 'subs',
@@ -28,6 +44,12 @@ const ContactPage = (() => {
     'الإعلانات': 'ads',
     'الشكاوى والبلاغات': 'complaint',
     'الخدمات الإضافية': 'extras',
+    'فريق الدعم والمساعدة': 'tech',
+    'فريق إدارة الترقية والاشتراكات': 'subs',
+    'فريق التوثيق': 'verify',
+    'فريق إدارة المحتوى': 'suggest',
+    'فريق إدارة الإعلانات والترويج': 'ads',
+    'فريق إدارة الخدمات الإضافية': 'extras',
   };
 
   let _teams = [];
@@ -401,9 +423,34 @@ const ContactPage = (() => {
   function _teamToTicketType(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
-    if (TICKET_TYPE_MAP[raw]) return raw;
+    const normalized = raw.toLowerCase();
+    if (TICKET_TYPE_MAP[normalized]) return normalized;
+    if (TEAM_CODE_TO_TICKET_TYPE[normalized]) return TEAM_CODE_TO_TICKET_TYPE[normalized];
+    if (/^\d+$/.test(raw)) {
+      const team = _teams.find((item) => String(item && item.id) === raw);
+      const teamCode = String(team && team.code || '').trim().toLowerCase();
+      if (teamCode && TEAM_CODE_TO_TICKET_TYPE[teamCode]) {
+        return TEAM_CODE_TO_TICKET_TYPE[teamCode];
+      }
+    }
     if (NAME_TO_TYPE[raw]) return NAME_TO_TYPE[raw];
     return raw;
+  }
+
+  function _extractApiErrorMessage(payload, fallback) {
+    if (payload && typeof payload.detail === 'string' && payload.detail.trim()) {
+      return payload.detail.trim();
+    }
+    if (payload && typeof payload === 'object') {
+      const values = Object.values(payload);
+      for (const value of values) {
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (Array.isArray(value) && value.length && typeof value[0] === 'string' && value[0].trim()) {
+          return value[0].trim();
+        }
+      }
+    }
+    return fallback;
   }
 
   async function _createTicket() {
@@ -434,7 +481,7 @@ const ContactPage = (() => {
 
     if (!createRes.ok || !createRes.data) {
       _setCreateLoading(false);
-      _setCreateError((createRes.data && createRes.data.detail) || 'فشل إنشاء البلاغ');
+      _setCreateError(_extractApiErrorMessage(createRes.data, 'فشل إنشاء البلاغ'));
       return;
     }
 
