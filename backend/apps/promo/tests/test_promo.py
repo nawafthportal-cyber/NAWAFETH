@@ -336,9 +336,9 @@ def test_public_home_banners_only_from_active_promo(api, user):
     active_item = next(item for item in r.data if item["id"] == asset.id)
     assert active_item.get("file")
     assert active_item.get("redirect_url") == "https://example.com/promo"
-    assert active_item.get("mobile_scale") == 94
-    assert active_item.get("tablet_scale") == 106
-    assert active_item.get("desktop_scale") == 118
+    assert active_item.get("mobile_scale") == 100
+    assert active_item.get("tablet_scale") == 100
+    assert active_item.get("desktop_scale") == 100
     # Ensure inactive request assets are not included.
     assert all(item.get("caption") != "should not show" for item in r.data)
 
@@ -438,9 +438,9 @@ def test_public_home_banners_include_active_bundle_home_banner(api, user):
     payload = next(row for row in r.data if row["id"] == asset.id)
     assert payload.get("provider_id") == pp.id
     assert payload.get("redirect_url") == ""
-    assert payload.get("mobile_scale") == 88
-    assert payload.get("tablet_scale") == 96
-    assert payload.get("desktop_scale") == 112
+    assert payload.get("mobile_scale") == 100
+    assert payload.get("tablet_scale") == 100
+    assert payload.get("desktop_scale") == 100
 
 
 def test_public_home_banners_bundle_item_respects_start_and_end_window(api, user):
@@ -577,9 +577,9 @@ def test_public_home_carousel_includes_device_scales(api, user):
 
     assert response.status_code == 200
     payload = next(row for row in response.data if row["id"] == banner.id)
-    assert payload["mobile_scale"] == 92
-    assert payload["tablet_scale"] == 108
-    assert payload["desktop_scale"] == 128
+    assert payload["mobile_scale"] == 100
+    assert payload["tablet_scale"] == 100
+    assert payload["desktop_scale"] == 100
     assert payload["provider_id"] == provider.id
 
 
@@ -1338,6 +1338,32 @@ def test_promo_item_validation_requires_assets_for_required_service_types(user):
 
     assert serializer.is_valid() is False
     assert "مرفق واحد على الأقل" in str(serializer.errors)
+
+
+def test_home_banner_serializer_normalizes_scales_to_full_size(user):
+    start_at = timezone.now() + timedelta(days=2)
+    end_at = start_at + timedelta(days=4)
+
+    request_stub = type("RequestStub", (), {"user": user})()
+    serializer = PromoRequestCreateSerializer(
+        data={
+            "title": "بنر رئيسي كامل",
+            "ad_type": PromoAdType.BANNER_HOME,
+            "start_at": start_at.isoformat(),
+            "end_at": end_at.isoformat(),
+            "frequency": PromoFrequency.S60,
+            "position": PromoPosition.NORMAL,
+            "mobile_scale": 140,
+            "tablet_scale": 150,
+            "desktop_scale": 160,
+        },
+        context={"request": request_stub},
+    )
+
+    assert serializer.is_valid(), serializer.errors
+    assert serializer.validated_data["mobile_scale"] == 100
+    assert serializer.validated_data["tablet_scale"] == 100
+    assert serializer.validated_data["desktop_scale"] == 100
 
 
 def test_quote_requires_uploaded_assets_for_required_service_types(user):
@@ -2225,7 +2251,7 @@ def test_banner_asset_limit_uses_subscription_capability(api, user):
     assert "الحد الأقصى" in str(second_upload.data.get("detail", ""))
 
 
-def test_home_banner_asset_upload_rejects_invalid_dimensions(api, user):
+def test_home_banner_asset_upload_autofits_invalid_image_dimensions(api, user):
     _ensure_provider_requester(user)
     plan = SubscriptionPlan.objects.create(
         code="pro_home_banner_dims",
@@ -2270,8 +2296,28 @@ def test_home_banner_asset_upload_rejects_invalid_dimensions(api, user):
         format="multipart",
     )
 
-    assert response.status_code == 400
-    assert "الأبعاد المعتمدة" in str(response.data.get("detail", ""))
+    assert response.status_code == 201
+    asset = PromoAsset.objects.get(request=pr, item=item)
+    with Image.open(asset.file) as uploaded_img:
+        assert uploaded_img.size == (1920, 840)
+
+
+def test_home_banner_model_autofits_invalid_image_dimensions(user):
+    provider = _ensure_provider_requester(user)
+    banner = HomeBanner(
+        title="legacy dashboard banner",
+        media_type="image",
+        media_file=_png_upload("legacy-wrong.png", size=(1280, 720)),
+        provider=provider,
+        is_active=True,
+        created_by=user,
+    )
+
+    banner.full_clean()
+    banner.save()
+
+    with Image.open(banner.media_file) as uploaded_img:
+        assert uploaded_img.size == (1920, 840)
 
 
 @override_settings(PROMO_HOME_BANNER_VIDEO_AUTOFIT=True)
@@ -2315,11 +2361,12 @@ def test_home_banner_video_upload_autofits_when_dimensions_mismatch(api, user, m
         "الأبعاد المعتمدة لبنر الصفحة الرئيسية هي 1920x840 بكسل. تم رفع ملف بأبعاد 1280x720."
     )
     mocker.patch(
-        "apps.promo.views.validate_home_banner_media_dimensions",
-        side_effect=[dim_error, None],
+        "apps.promo.home_banner_media.validate_home_banner_media_dimensions",
+        side_effect=[dim_error],
     )
+    mocker.patch("apps.promo.views.validate_home_banner_media_dimensions", return_value=None)
     transcode_mock = mocker.patch(
-        "apps.promo.views._transcode_home_banner_video_to_required_dims",
+        "apps.promo.home_banner_media.transcode_home_banner_video_to_required_dims",
         return_value=SimpleUploadedFile(
             "autofit-video.mp4",
             b"\x00\x00\x00\x18ftypmp42",

@@ -10,6 +10,7 @@ from django.utils import timezone
 from apps.providers.models import ProviderProfile, ProviderPortfolioItem
 from apps.support.models import SupportTicket
 
+from .home_banner_media import normalize_home_banner_media_upload
 from .validators import validate_file_size, validate_extension, validate_home_banner_media_dimensions
 
 
@@ -449,6 +450,11 @@ class HomeBanner(models.Model):
                 errors["media_type"] = "نوع الوسائط المحدد لا يطابق الملف المرفوع."
             else:
                 try:
+                    self.media_file = normalize_home_banner_media_upload(
+                        self.media_file,
+                        asset_type=detected_type,
+                        required_validation=True,
+                    )
                     validate_home_banner_media_dimensions(self.media_file, asset_type=detected_type)
                 except ValidationError as exc:
                     errors["media_file"] = str(exc)

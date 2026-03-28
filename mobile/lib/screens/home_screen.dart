@@ -830,50 +830,46 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _buildHero() {
-    return SizedBox(
-      height: 280,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _buildHeroBannerBackground(),
-
-          // Top bar overlay
-          Padding(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SafeArea(
+          bottom: false,
+          child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                PlatformTopBar(
-                  overlay: true,
-                  height: 64,
-                  showMenuButton: true,
-                  onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-                  notificationCount: _notificationUnread,
-                  chatCount: _chatUnread,
-                  onNotificationsTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
-                      ),
-                    );
-                    _loadUnreadBadges();
-                  },
-                  onChatsTap: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MyChatsScreen(),
-                      ),
-                    );
-                    _loadUnreadBadges();
-                  },
-                ),
-              ],
+            child: PlatformTopBar(
+              overlay: false,
+              height: 64,
+              showMenuButton: true,
+              onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+              notificationCount: _notificationUnread,
+              chatCount: _chatUnread,
+              onNotificationsTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                );
+                _loadUnreadBadges();
+              },
+              onChatsTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MyChatsScreen(),
+                  ),
+                );
+                _loadUnreadBadges();
+              },
             ),
           ),
-        ],
-      ),
+        ),
+        AspectRatio(
+          aspectRatio: 16 / 7,
+          child: _buildHeroBannerBackground(),
+        ),
+      ],
     );
   }
 
@@ -946,22 +942,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  double _clampResponsiveValue(double value, double minimum, double maximum) {
-    if (value < minimum) return minimum;
-    if (value > maximum) return maximum;
-    return value;
-  }
-
-  EdgeInsets _heroBannerStagePadding({
-    required double width,
-    required double height,
-  }) {
-    final horizontal = _clampResponsiveValue(width * 0.045, 12, 36);
-    final top = _clampResponsiveValue(height * 0.2, 48, 72);
-    final bottom = _clampResponsiveValue(height * 0.34, 84, 118);
-    return EdgeInsets.fromLTRB(horizontal, top, horizontal, bottom);
-  }
-
   Widget _buildHeroBannerBackdrop(BannerModel banner, String? mediaUrl) {
     if (mediaUrl == null || banner.isVideo) {
       return _gradientPlaceholder();
@@ -1004,41 +984,30 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     if (mediaUrl == null) return _gradientPlaceholder();
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 390.0;
-        final height = constraints.maxHeight.isFinite ? constraints.maxHeight : 280.0;
-        final stagePadding = _heroBannerStagePadding(width: width, height: height);
+    if (banner.isVideo) {
+      return PromoBannerWidget(
+        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
+        mediaUrl: mediaUrl,
+        isVideo: true,
+        isActive: isActive,
+        autoplay: true,
+        loopVideo: false,
+        onVideoEnded: isActive ? () => _handleHeroBannerVideoEnded(banner.id) : null,
+        borderRadius: 0,
+        stretchToParent: true,
+        mediaFit: BoxFit.contain,
+        mediaOverlayOpacity: 0,
+        contentPadding: EdgeInsets.zero,
+        fallback: _gradientPlaceholder(),
+      );
+    }
 
-        if (banner.isVideo) {
-          return PromoBannerWidget(
-            key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-            mediaUrl: mediaUrl,
-            isVideo: true,
-            isActive: isActive,
-            autoplay: true,
-            loopVideo: false,
-            onVideoEnded: isActive ? () => _handleHeroBannerVideoEnded(banner.id) : null,
-            borderRadius: 0,
-            stretchToParent: true,
-            mediaFit: BoxFit.contain,
-            mediaOverlayOpacity: 0,
-            contentPadding: stagePadding,
-            fallback: _gradientPlaceholder(),
-          );
-        }
-
-        return Padding(
-          padding: stagePadding,
-          child: Image.network(
-            mediaUrl,
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-            errorBuilder: (_, __, ___) => _gradientPlaceholder(),
-          ),
-        );
-      },
+    return Image.network(
+      mediaUrl,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
     );
   }
 

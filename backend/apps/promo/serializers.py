@@ -41,6 +41,10 @@ def _read_banner_scale(value, *, fallback: int, minimum: int, maximum: int) -> i
     return max(minimum, min(parsed, maximum))
 
 
+def _hero_banner_public_scale() -> int:
+    return 100
+
+
 class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
     provider_id = serializers.SerializerMethodField()
     provider_display_name = serializers.SerializerMethodField()
@@ -123,11 +127,8 @@ class PromoHomeBannerAssetSerializer(serializers.ModelSerializer):
         return str(getattr(obj.request, "redirect_url", "") or "")
 
     def _banner_scale_values(self, obj: PromoAsset) -> tuple[int, int, int]:
-        request = getattr(obj, "request", None)
-        mobile = _read_banner_scale(getattr(request, "mobile_scale", None), fallback=100, minimum=40, maximum=140)
-        tablet = _read_banner_scale(getattr(request, "tablet_scale", None), fallback=mobile, minimum=40, maximum=150)
-        desktop = _read_banner_scale(getattr(request, "desktop_scale", None), fallback=tablet, minimum=40, maximum=160)
-        return mobile, tablet, desktop
+        scale = _hero_banner_public_scale()
+        return scale, scale, scale
 
     def get_mobile_scale(self, obj: PromoAsset) -> int:
         return self._banner_scale_values(obj)[0]
@@ -375,6 +376,8 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         items = attrs.get("items") or []
         from .services import promo_min_campaign_hours, promo_min_campaign_message
 
+        self._normalize_home_banner_scales(attrs)
+
         if items:
             has_notification = any(item.get("use_notification_channel") for item in items)
             has_chat = any(item.get("use_chat_channel") for item in items)
@@ -433,6 +436,20 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         if attrs.get("position") not in PromoPosition.values:
             raise serializers.ValidationError("موقع الظهور غير صحيح.")
         return attrs
+
+    def _normalize_home_banner_scales(self, attrs):
+        items = attrs.get("items") or []
+        has_home_banner_item = any(
+            str(item.get("service_type") or "").strip() == PromoServiceType.HOME_BANNER
+            for item in items
+            if isinstance(item, dict)
+        )
+        if attrs.get("ad_type") != PromoAdType.BANNER_HOME and not has_home_banner_item:
+            return
+        scale = _hero_banner_public_scale()
+        attrs["mobile_scale"] = scale
+        attrs["tablet_scale"] = scale
+        attrs["desktop_scale"] = scale
 
     def create(self, validated_data):
         request = self.context["request"]
@@ -735,6 +752,9 @@ class HomeBannerSerializer(serializers.ModelSerializer):
     media_url = serializers.FileField(source="media_file", read_only=True)
     provider_id = serializers.SerializerMethodField()
     provider_display_name = serializers.SerializerMethodField()
+    mobile_scale = serializers.SerializerMethodField()
+    tablet_scale = serializers.SerializerMethodField()
+    desktop_scale = serializers.SerializerMethodField()
 
     class Meta:
         model = HomeBanner
@@ -759,3 +779,12 @@ class HomeBannerSerializer(serializers.ModelSerializer):
         if obj.provider and getattr(obj.provider, "display_name", None):
             return str(obj.provider.display_name)
         return ""
+
+    def get_mobile_scale(self, obj) -> int:
+        return _hero_banner_public_scale()
+
+    def get_tablet_scale(self, obj) -> int:
+        return _hero_banner_public_scale()
+
+    def get_desktop_scale(self, obj) -> int:
+        return _hero_banner_public_scale()

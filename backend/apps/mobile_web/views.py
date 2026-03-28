@@ -150,6 +150,27 @@ class MobileWebPromotionView(TemplateView):
 class MobileWebPromotionNewRequestView(TemplateView):
     template_name = "mobile_web/promotion_new_request.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = getattr(self.request, "user", None)
+        provider_name = ""
+
+        if user is not None and getattr(user, "is_authenticated", False):
+            provider_profile = getattr(user, "provider_profile", None)
+            first_name = str(getattr(user, "first_name", "") or "").strip()
+            last_name = str(getattr(user, "last_name", "") or "").strip()
+            full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+
+            provider_name = (
+                str(getattr(provider_profile, "display_name", "") or "").strip()
+                or full_name
+                or str(getattr(user, "username", "") or "").strip()
+                or str(getattr(user, "phone", "") or "").strip()
+            )
+
+        context["promo_provider_display_name"] = provider_name
+        return context
+
 
 class MobileWebAdditionalServicesView(TemplateView):
     template_name = "mobile_web/additional_services.html"

@@ -93,8 +93,6 @@ var PromotionPage = (function () {
     paymentMethod: "mada"
   };
   var homeBannerEditor = {
-    activeDevice: "mobile",
-    scales: { mobile: 100, tablet: 100, desktop: 100 },
     previewUrl: ""
   };
 
@@ -133,12 +131,12 @@ var PromotionPage = (function () {
 
   function getRequestsUrl() {
     var shell = getMainShell();
-    return (shell && shell.dataset && shell.dataset.promoRequestsUrl) || "/promotion/";
+    return (shell && shell.dataset && shell.dataset.promoRequestsUrl) || "/mobile-web/promotion/";
   }
 
   function getNewRequestUrl() {
     var shell = getMainShell();
-    return (shell && shell.dataset && shell.dataset.promoNewRequestUrl) || "/promotion/new/";
+    return (shell && shell.dataset && shell.dataset.promoNewRequestUrl) || "/mobile-web/promotion/new/";
   }
 
   function goToRequestsPage() {
@@ -481,12 +479,15 @@ var PromotionPage = (function () {
     return firstNonEmptyText([
       safeProfile.display_name,
       safeProfile.provider_display_name,
+      safeProfile.name,
       safeProfile.full_name,
       safeProfile.provider_name,
       nestedProvider.display_name,
       nestedProvider.provider_display_name,
+      nestedProvider.name,
       nestedProvider.business_name,
       nestedUser.display_name,
+      nestedUser.name,
       nestedUser.full_name,
       fullName,
       username,
@@ -512,8 +513,18 @@ var PromotionPage = (function () {
     }
   }
 
+  function getServerRenderedProviderName() {
+    var shell = getMainShell();
+    var shellName = shell && shell.dataset ? String(shell.dataset.providerDisplayName || "").trim() : "";
+    return shellName;
+  }
+
   async function fetchProviderIdentityCandidates() {
     var candidates = [];
+    var shellName = getServerRenderedProviderName();
+    if (shellName) {
+      candidates.push({ provider_display_name: shellName });
+    }
     try {
       if (window.Auth && typeof window.Auth.getProfile === "function") {
         var profile = await window.Auth.getProfile();
@@ -555,8 +566,8 @@ var PromotionPage = (function () {
   }
 
   async function hydrateProviderIdentity() {
-    var fallback = "مزود الخدمة";
-    applyProviderIdentityName("", fallback);
+    var fallback = getServerRenderedProviderName() || "مزود الخدمة";
+    applyProviderIdentityName(fallback, fallback);
 
     var attemptsLeft = 4;
     while (attemptsLeft > 0) {
@@ -615,33 +626,14 @@ var PromotionPage = (function () {
 
   function bindHomeBannerEditor() {
     var filesInput = document.querySelector('[data-service-block="home_banner"] [data-field="files"]');
-    var tabsRoot = document.getElementById("home-banner-device-tabs");
-    var scaleRange = document.getElementById("home-banner-scale-range");
-    if (!filesInput || !tabsRoot || !scaleRange) return;
+    if (!filesInput) return;
 
-    // Keep picker aligned with backend-allowed extensions for home banner.
     filesInput.setAttribute("accept", ".jpg,.jpeg,.png,.mp4");
 
     filesInput.addEventListener("change", function () {
       var file = filesInput.files && filesInput.files[0] ? filesInput.files[0] : null;
       renderHomeBannerPreview(file);
     });
-
-    tabsRoot.addEventListener("click", function (e) {
-      var tab = e.target.closest(".banner-device-tab");
-      if (!tab) return;
-      homeBannerEditor.activeDevice = String(tab.dataset.device || "mobile");
-      updateHomeBannerScaleUi();
-    });
-
-    scaleRange.addEventListener("input", function () {
-      var limits = scaleLimitsForDevice(homeBannerEditor.activeDevice);
-      var value = clampScale(scaleRange.value, limits.min, limits.max);
-      homeBannerEditor.scales[homeBannerEditor.activeDevice] = value;
-      updateHomeBannerScaleUi();
-    });
-
-    updateHomeBannerScaleUi();
   }
 
   function renderHomeBannerPreview(file) {
@@ -702,8 +694,7 @@ var PromotionPage = (function () {
         dims.textContent = "تعذر معاينة الفيديو المختار";
       };
       wrap.appendChild(video);
-      note.textContent = "الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.";
-      updateHomeBannerScaleUi();
+      note.textContent = "الفيديو يُرفع كما هو، لذلك يفضّل استخدام ملف MP4 واضح وصالح للعرض.";
       return;
     }
 
@@ -718,105 +709,20 @@ var PromotionPage = (function () {
       dims.textContent = "تعذر معاينة الصورة المختارة";
     };
     wrap.appendChild(img);
-    note.textContent = "يمكن ضبط الصورة تلقائياً إلى 1920x840 قبل الرفع عند تفعيل الخيار أدناه.";
-    updateHomeBannerScaleUi();
-  }
-
-  function scaleLimitsForDevice(device) {
-    if (device === "mobile") return { min: 40, max: 140 };
-    if (device === "tablet") return { min: 40, max: 150 };
-    return { min: 40, max: 160 };
-  }
-
-  function clampScale(value, min, max) {
-    var parsed = parseInt(String(value || ""), 10);
-    if (!Number.isFinite(parsed)) return min;
-    if (parsed < min) return min;
-    if (parsed > max) return max;
-    return parsed;
-  }
-
-  function updateHomeBannerScaleUi() {
-    var tabsRoot = document.getElementById("home-banner-device-tabs");
-    var scaleRange = document.getElementById("home-banner-scale-range");
-    var valueEl = document.getElementById("home-banner-scale-value");
-    var stage = document.getElementById("home-banner-preview-stage");
-    if (!tabsRoot || !scaleRange || !valueEl || !stage) return;
-
-    tabsRoot.querySelectorAll(".banner-device-tab").forEach(function (tab) {
-      var isActive = String(tab.dataset.device || "") === homeBannerEditor.activeDevice;
-      tab.classList.toggle("active", isActive);
-    });
-
-    var limits = scaleLimitsForDevice(homeBannerEditor.activeDevice);
-    var value = clampScale(homeBannerEditor.scales[homeBannerEditor.activeDevice], limits.min, limits.max);
-    homeBannerEditor.scales[homeBannerEditor.activeDevice] = value;
-    scaleRange.min = String(limits.min);
-    scaleRange.max = String(limits.max);
-    scaleRange.value = String(value);
-    valueEl.textContent = value + "%";
-    stage.style.setProperty("--hb-preview-scale", String(value / 100));
+    note.textContent = "سيقوم النظام بضبط الصورة تلقائياً إلى المقاس المعتمد 1920x840 عند الرفع.";
   }
 
   function homeBannerAutoFitEnabled() {
-    var checkbox = document.getElementById("home-banner-auto-fit");
-    return !!(checkbox && checkbox.checked);
+    return true;
   }
 
   function collectHomeBannerScalePayload() {
     if (selectedServices.indexOf("home_banner") < 0) return {};
     return {
-      mobile_scale: clampScale(homeBannerEditor.scales.mobile, 40, 140),
-      tablet_scale: clampScale(homeBannerEditor.scales.tablet, 40, 150),
-      desktop_scale: clampScale(homeBannerEditor.scales.desktop, 40, 160)
+      mobile_scale: 100,
+      tablet_scale: 100,
+      desktop_scale: 100
     };
-  }
-
-  async function normalizeHomeBannerImage(file) {
-    return new Promise(function (resolve, reject) {
-      var imageUrl = URL.createObjectURL(file);
-      var img = new Image();
-      img.onload = function () {
-        try {
-          var canvas = document.createElement("canvas");
-          canvas.width = HOME_BANNER_REQUIRED_WIDTH;
-          canvas.height = HOME_BANNER_REQUIRED_HEIGHT;
-          var ctx = canvas.getContext("2d");
-          if (!ctx) throw new Error("canvas-context-unavailable");
-
-          ctx.fillStyle = "#0f172a";
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-          var scale = Math.min(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight);
-          var drawWidth = img.naturalWidth * scale;
-          var drawHeight = img.naturalHeight * scale;
-          var offsetX = (canvas.width - drawWidth) / 2;
-          var offsetY = (canvas.height - drawHeight) / 2;
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-
-          canvas.toBlob(function (blob) {
-            try { URL.revokeObjectURL(imageUrl); } catch (e) {}
-            if (!blob) {
-              reject(new Error("image-export-failed"));
-              return;
-            }
-            var baseName = String(file.name || "banner").replace(/\.[^/.]+$/, "");
-            var outputName = baseName + "-banner.jpg";
-            resolve(new File([blob], outputName, { type: "image/jpeg", lastModified: Date.now() }));
-          }, "image/jpeg", 0.92);
-        } catch (err) {
-          try { URL.revokeObjectURL(imageUrl); } catch (e) {}
-          reject(err);
-        }
-      };
-      img.onerror = function () {
-        try { URL.revokeObjectURL(imageUrl); } catch (e) {}
-        reject(new Error("image-load-failed"));
-      };
-      img.src = imageUrl;
-    });
   }
 
   function bindRequestActions() {
@@ -1591,15 +1497,6 @@ var PromotionPage = (function () {
         var sourceFile = files[y];
         var uploadFile = sourceFile;
         var uploadType = detectAssetType(sourceFile.name);
-        if (s === "home_banner" && uploadType === "image" && homeBannerAutoFitEnabled()) {
-          try {
-            uploadFile = await normalizeHomeBannerImage(sourceFile);
-            uploadType = "image";
-          } catch (normalizeErr) {
-            uploadFailures.push((sourceFile.name || "ملف") + ": تعذر ضبط الصورة تلقائياً قبل الرفع.");
-            continue;
-          }
-        }
         var fd = new FormData();
         fd.append("file", uploadFile, uploadFile.name);
         fd.append("asset_type", uploadType);
@@ -1916,8 +1813,6 @@ var PromotionPage = (function () {
       try { URL.revokeObjectURL(homeBannerEditor.previewUrl); } catch (e) {}
     }
     homeBannerEditor.previewUrl = "";
-    homeBannerEditor.activeDevice = "mobile";
-    homeBannerEditor.scales = { mobile: 100, tablet: 100, desktop: 100 };
 
     document.getElementById("promo-form").reset();
     selectedServices = [];
@@ -1959,7 +1854,6 @@ var PromotionPage = (function () {
     if (mediaWrap) mediaWrap.innerHTML = "";
     if (empty) empty.hidden = false;
     if (dims) dims.textContent = "لم يتم اختيار ملف بعد";
-    updateHomeBannerScaleUi();
   }
 
   function valueOf(element) {

@@ -6,7 +6,8 @@
 <main
   class="page-shell"
   data-promo-new-request-url="{% url 'mobile_web:promotion_new_request' %}"
-  data-promo-requests-url="{% url 'mobile_web:promotion' %}">
+  data-promo-requests-url="{% url 'mobile_web:promotion' %}"
+  data-provider-display-name="{{ promo_provider_display_name|default:'' }}">
   <div class="page-header">
     <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
     <h1>الصفحة التفصيلية لخيارات الترويج</h1>
@@ -28,12 +29,12 @@
     <div class="promo-provider-panel">
       <div class="promo-provider-copy">
         <span class="promo-meta-label">اسم مزود الخدمة</span>
-        <strong id="promo-provider-display">مزود الخدمة</strong>
+        <strong id="promo-provider-display">{{ promo_provider_display_name|default:"مزود الخدمة" }}</strong>
         <small>يتم جلب الاسم تلقائيًا من الحساب النشط، ويمكنك التحقق منه قبل إرسال الطلب.</small>
       </div>
       <div class="promo-provider-field">
         <label class="promo-meta-label" for="promo-provider-name">الحقل المرجعي للاسم</label>
-        <input id="promo-provider-name" type="text" class="form-input" value="مزود الخدمة" readonly>
+        <input id="promo-provider-name" type="text" class="form-input" value="{{ promo_provider_display_name|default:'مزود الخدمة' }}" readonly>
       </div>
     </div>
   </section>
@@ -199,9 +200,9 @@
           <div class="service-body" hidden>
             <div class="attachment-guide">
               <strong>قبل رفع مرفقات البنر:</strong>
-              <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840. إذا كانت الصورة بمقاس مختلف يمكنك تفعيل الضبط التلقائي.</p>
+              <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840، وأي صورة يتم تجهيزها تلقائيًا وفق هذا المقاس عند الرفع.</p>
             </div>
-            <div class="form-group"><label class="form-label">رفع التصميم</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4" multiple><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4</small></div>
+            <div class="form-group"><label class="form-label">رفع التصميم</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4"><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4. يتم ضبط الصورة تلقائيًا قبل اعتمادها إذا لزم الأمر.</small></div>
             <div class="form-group"><label class="form-label">مواصفات الملف المرفوع</label><input data-field="attachment_specs" type="text" class="form-input"></div>
             <div class="form-row">
               <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
@@ -210,7 +211,7 @@
             <div class="form-group"><label class="form-label">رابط التوجيه</label><input data-field="redirect_url" type="url" class="form-input"></div>
             <div class="banner-editor" id="home-banner-editor" hidden>
               <div class="banner-editor-head">
-                <strong>معاينة وتحجيم البانر</strong>
+                <strong>معاينة البانر</strong>
                 <small id="home-banner-dims" class="text-muted">لم يتم اختيار ملف بعد</small>
               </div>
               <div class="banner-preview-frame" id="home-banner-preview-frame">
@@ -219,20 +220,7 @@
                   <div class="banner-preview-media-wrap" id="home-banner-preview-media-wrap"></div>
                 </div>
               </div>
-              <div class="banner-device-tabs" id="home-banner-device-tabs">
-                <button type="button" class="banner-device-tab active" data-device="mobile">جوال</button>
-                <button type="button" class="banner-device-tab" data-device="tablet">تابلت</button>
-                <button type="button" class="banner-device-tab" data-device="desktop">ديسكتوب</button>
-              </div>
-              <div class="form-group" style="margin-bottom:8px">
-                <label class="form-label" for="home-banner-scale-range">نسبة التحجيم</label>
-                <input id="home-banner-scale-range" type="range" min="40" max="160" value="100" class="form-input">
-                <small class="text-muted">القيمة الحالية: <span id="home-banner-scale-value">100%</span></small>
-              </div>
-              <div class="check-row" style="margin:4px 0 0">
-                <label><input id="home-banner-auto-fit" type="checkbox" checked> ضبط الصور تلقائياً إلى 1920x840 قبل الرفع</label>
-              </div>
-              <small id="home-banner-editor-note" class="text-muted">الفيديو لا تتم إعادة ترميزه في المتصفح. يجب أن يكون MP4 بالأبعاد المعتمدة.</small>
+              <small id="home-banner-editor-note" class="text-muted">سيتم اعتماد المقاس النظامي تلقائيًا للصور، بينما يجب أن يكون الفيديو بصيغة MP4 صالحة للعرض.</small>
             </div>
             <button type="button" class="btn-preview-service" data-preview-service="home_banner">معاينة</button>
           </div>
@@ -557,6 +545,9 @@
   .service-toggle-label{display:inline-flex;align-items:center;gap:8px;color:#1f4d2a;font-size:13px;font-weight:800;cursor:pointer;padding:8px 12px;border-radius:999px;background:#f5fbf6;border:1px solid #d5e7d8;flex-shrink:0}
   .service-toggle-input{accent-color:#7b2cbf}
   .service-body{margin-top:16px;padding-top:16px;border-top:1px solid #edf2f7}
+  .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+  .form-row .half,.form-group.half{min-width:0}
+  .promo-service-block .form-input[type="datetime-local"]{min-width:0}
 
   .check-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
   .check-row label{font-size:13px;color:#374151;line-height:1.7}
@@ -572,13 +563,10 @@
   .banner-editor{border:1px solid #ebe3f8;border-radius:14px;padding:12px;background:#faf7ff;margin-bottom:10px}
   .banner-editor-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
   .banner-preview-frame{position:relative;width:100%;aspect-ratio:16/7;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#0f172a,#1e293b)}
-  .banner-preview-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;--hb-preview-scale:1}
+  .banner-preview-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
   .banner-preview-empty{color:#e5e7eb;font-size:13px;text-align:center;padding:10px}
   .banner-preview-media-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px}
-  .banner-preview-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;transform:scale(var(--hb-preview-scale));transform-origin:center center}
-  .banner-device-tabs{display:flex;gap:8px;margin:10px 0}
-  .banner-device-tab{border:1px solid #d6c8ef;background:#fff;color:#5d2d95;padding:8px 10px;border-radius:999px;font:inherit;font-size:13px}
-  .banner-device-tab.active{background:#efe7fb;border-color:#5d2d95}
+  .banner-preview-media{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
 
   .promo-live-total{border:1px solid rgba(102,61,144,.3);background:#faf7ff;border-radius:14px;padding:14px;margin:14px 0}
   .promo-live-total-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
@@ -671,6 +659,7 @@
     .promo-page-badge{width:100%}
     .promo-provider-copy strong{font-size:18px}
     .promo-services-grid{grid-template-columns:1fr}
+    .form-row{grid-template-columns:1fr}
     .service-block-header{flex-direction:column;align-items:stretch}
     .service-toggle-label{justify-content:center}
     .promo-composer-intro-note{max-width:none;width:100%}

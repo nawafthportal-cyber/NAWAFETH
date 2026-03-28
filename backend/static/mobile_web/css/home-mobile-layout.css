@@ -970,7 +970,7 @@ body.home-mobile-layout .reel-item:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--carousel-media-pad-block) var(--carousel-media-pad-inline);
+  padding: 0;
   box-sizing: border-box;
 }
 

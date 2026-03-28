@@ -1166,9 +1166,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final previewRes = await PromoService.previewBundleRequest(
       title: _title.text.trim(),
       items: items,
-      mobileScale: _homeBannerDraft?.mobileScale,
-      tabletScale: _homeBannerDraft?.tabletScale,
-      desktopScale: _homeBannerDraft?.desktopScale,
+      mobileScale: _homeBannerDraft == null ? null : 100,
+      tabletScale: _homeBannerDraft == null ? null : 100,
+      desktopScale: _homeBannerDraft == null ? null : 100,
     );
     if (!mounted) return;
     if (!previewRes.isSuccess) {
@@ -2263,29 +2263,16 @@ class _PromoComposerState extends State<_PromoComposer> {
                         ),
                       ),
                     ),
-                    _buildScaleSlider(
-                      label: 'تحجيم الجوال',
-                      value: draft.mobileScale,
-                      min: 40,
-                      max: 140,
-                      onChanged: (value) =>
-                          setState(() => draft.mobileScale = value.round()),
-                    ),
-                    _buildScaleSlider(
-                      label: 'تحجيم التابلت',
-                      value: draft.tabletScale,
-                      min: 40,
-                      max: 150,
-                      onChanged: (value) =>
-                          setState(() => draft.tabletScale = value.round()),
-                    ),
-                    _buildScaleSlider(
-                      label: 'تحجيم الديسكتوب',
-                      value: draft.desktopScale,
-                      min: 40,
-                      max: 160,
-                      onChanged: (value) =>
-                          setState(() => draft.desktopScale = value.round()),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'يعرض النظام البنر تلقائيًا بالحجم الكامل بدون تكبير إضافي، ولا يحتاج هذا النوع إلى ضبط يدوي.',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -2350,54 +2337,6 @@ class _PromoComposerState extends State<_PromoComposer> {
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
-    );
-  }
-
-  Widget _buildScaleSlider({
-    required String label,
-    required int value,
-    required double min,
-    required double max,
-    required ValueChanged<double> onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-            Text(
-              '$value%',
-              style: const TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        Slider(
-          value: value.toDouble().clamp(min, max),
-          min: min,
-          max: max,
-          divisions: (max - min).round(),
-          label: '$value%',
-          activeColor: _brandColor,
-          onChanged: (newValue) {
-            onChanged(newValue);
-            _scheduleLiveQuote();
-          },
-        ),
-      ],
     );
   }
 
@@ -2549,12 +2488,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final previewRes = await PromoService.previewBundleRequest(
       title: title,
       items: [draft.toPayload(sortOrder)],
-      mobileScale:
-          draft.service.type == 'home_banner' ? draft.mobileScale : null,
-      tabletScale:
-          draft.service.type == 'home_banner' ? draft.tabletScale : null,
-      desktopScale:
-          draft.service.type == 'home_banner' ? draft.desktopScale : null,
+      mobileScale: draft.service.type == 'home_banner' ? 100 : null,
+      tabletScale: draft.service.type == 'home_banner' ? 100 : null,
+      desktopScale: draft.service.type == 'home_banner' ? 100 : null,
     );
     if (!mounted) return;
     if (!previewRes.isSuccess) {
@@ -2718,9 +2654,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final previewRes = await PromoService.previewBundleRequest(
       title: _title.text.trim(),
       items: items,
-      mobileScale: _homeBannerDraft?.mobileScale,
-      tabletScale: _homeBannerDraft?.tabletScale,
-      desktopScale: _homeBannerDraft?.desktopScale,
+      mobileScale: _homeBannerDraft == null ? null : 100,
+      tabletScale: _homeBannerDraft == null ? null : 100,
+      desktopScale: _homeBannerDraft == null ? null : 100,
     );
     if (!mounted) return;
     if (!previewRes.isSuccess) {
@@ -2741,9 +2677,9 @@ class _PromoComposerState extends State<_PromoComposer> {
     final createRes = await PromoService.createBundleRequest(
       title: _title.text.trim(),
       items: items,
-      mobileScale: _homeBannerDraft?.mobileScale,
-      tabletScale: _homeBannerDraft?.tabletScale,
-      desktopScale: _homeBannerDraft?.desktopScale,
+      mobileScale: _homeBannerDraft == null ? null : 100,
+      tabletScale: _homeBannerDraft == null ? null : 100,
+      desktopScale: _homeBannerDraft == null ? null : 100,
     );
     if (!mounted) return;
     if (!createRes.isSuccess) {
@@ -3680,9 +3616,6 @@ class _PromoDraft {
   String frequency = '60s';
   final Set<String> searchScopes = {'default'};
   String searchPosition = 'first';
-  int mobileScale = 100;
-  int tabletScale = 100;
-  int desktopScale = 100;
   bool notify = true;
   bool chat = false;
 
@@ -3778,9 +3711,9 @@ class _PromoDraft {
       body['sponsorship_months'] = monthCount;
     }
     if (service.type == 'home_banner') {
-      body['mobile_scale'] = mobileScale;
-      body['tablet_scale'] = tabletScale;
-      body['desktop_scale'] = desktopScale;
+      body['mobile_scale'] = 100;
+      body['tablet_scale'] = 100;
+      body['desktop_scale'] = 100;
     }
     if (specs.text.trim().isNotEmpty) {
       body['attachment_specs'] = specs.text.trim();
@@ -3807,9 +3740,6 @@ class _PromoDraft {
       ..clear()
       ..add('default');
     searchPosition = 'first';
-    mobileScale = 100;
-    tabletScale = 100;
-    desktopScale = 100;
     notify = true;
     chat = false;
   }
