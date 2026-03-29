@@ -212,7 +212,7 @@ ul, ol { list-style: none; }
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
-  --topbar-center-pill-width: 188px;
+  --topbar-center-pill-width: 86px;
   --topbar-center-pill-height: 48px;
   display: grid;
   align-items: stretch;
@@ -243,12 +243,12 @@ ul, ol { list-style: none; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 0;
   width: 100%;
   max-width: 100%;
   min-height: 100%;
   height: 100%;
-  padding: 7px 14px 7px 10px;
+  padding: 0;
   box-sizing: border-box;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
@@ -258,53 +258,34 @@ ul, ol { list-style: none; }
 }
 
 .topbar-brand-mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   background: linear-gradient(135deg, var(--color-primary-dark), var(--color-primary));
   color: #fff;
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 900;
   box-shadow: 0 10px 20px rgba(103, 58, 183, 0.22);
 }
 
 .topbar-brand-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  align-items: center;
-  overflow: hidden;
-}
-
-.topbar-brand-title {
-  color: var(--color-primary-dark);
-  font-size: 18px;
-  font-weight: 900;
-  line-height: 1.1;
-  white-space: nowrap;
-}
-
-.topbar-brand-subtitle {
-  color: var(--color-text-secondary);
-  font-size: 10px;
-  font-weight: 700;
-  white-space: nowrap;
+  display: none;
 }
 
 .topbar-sponsor {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 0;
   width: 100%;
   max-width: 100%;
   min-height: 100%;
   height: 100%;
-  padding: 4px 10px;
+  padding: 0;
   box-sizing: border-box;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
@@ -318,20 +299,14 @@ ul, ol { list-style: none; }
   cursor: pointer;
 }
 
-.topbar-sponsor-label {
-  color: var(--color-text-secondary);
-  font-size: 10px;
-  font-weight: 800;
-}
-
 .topbar-sponsor-media {
-  width: 24px;
-  height: 24px;
+  width: 30px;
+  height: 30px;
   padding: 4px;
-  --topbar-sponsor-logo-width: 16px;
-  --topbar-sponsor-logo-height: 16px;
+  --topbar-sponsor-logo-width: 18px;
+  --topbar-sponsor-logo-height: 18px;
   box-sizing: border-box;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   display: inline-flex;
   align-items: center;
@@ -343,18 +318,18 @@ ul, ol { list-style: none; }
 }
 
 .topbar-sponsor-media.is-wide {
-  --topbar-sponsor-logo-width: 18px;
-  --topbar-sponsor-logo-height: 12px;
+  --topbar-sponsor-logo-width: 20px;
+  --topbar-sponsor-logo-height: 13px;
 }
 
 .topbar-sponsor-media.is-tall {
-  --topbar-sponsor-logo-width: 12px;
-  --topbar-sponsor-logo-height: 18px;
+  --topbar-sponsor-logo-width: 13px;
+  --topbar-sponsor-logo-height: 20px;
 }
 
 .topbar-sponsor-media.is-square {
-  --topbar-sponsor-logo-width: 16px;
-  --topbar-sponsor-logo-height: 16px;
+  --topbar-sponsor-logo-width: 18px;
+  --topbar-sponsor-logo-height: 18px;
 }
 
 .topbar-sponsor-media img {
@@ -367,18 +342,13 @@ ul, ol { list-style: none; }
 }
 
 .topbar-sponsor-placeholder {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 900;
 }
 
+.topbar-sponsor-label,
 .topbar-sponsor-name {
-  max-width: 108px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  font-weight: 800;
+  display: none;
 }
 
 .topbar-sponsor.is-placeholder .topbar-sponsor-name {
@@ -576,42 +546,39 @@ ul, ol { list-style: none; }
   }
 
   .topbar-brand-wrap {
-    --topbar-center-pill-width: 176px;
+    --topbar-center-pill-width: 74px;
     --topbar-center-pill-height: 44px;
     max-width: calc(100% - 116px);
   }
 
-  .topbar-brand-link {
-    padding: 6px 12px 6px 8px;
-  }
-
   .topbar-brand-mark {
-    width: 30px;
-    height: 30px;
-    border-radius: 10px;
-    font-size: 17px;
+    width: 26px;
+    height: 26px;
+    border-radius: 9px;
+    font-size: 15px;
   }
 
-  .topbar-brand-title {
-    font-size: 16px;
+  .topbar-sponsor-media {
+    width: 26px;
+    height: 26px;
+    --topbar-sponsor-logo-width: 16px;
+    --topbar-sponsor-logo-height: 16px;
+    border-radius: 9px;
   }
 
-  .topbar-brand-subtitle {
-    display: none;
+  .topbar-sponsor-media.is-wide {
+    --topbar-sponsor-logo-width: 18px;
+    --topbar-sponsor-logo-height: 12px;
   }
 
-  .topbar-sponsor {
-    gap: 6px;
-    padding: 4px 8px;
+  .topbar-sponsor-media.is-tall {
+    --topbar-sponsor-logo-width: 12px;
+    --topbar-sponsor-logo-height: 18px;
   }
 
-  .topbar-sponsor-name {
-    max-width: 84px;
-    font-size: 11px;
-  }
-
-  .topbar-sponsor-label {
-    font-size: 9px;
+  .topbar-sponsor-media.is-square {
+    --topbar-sponsor-logo-width: 16px;
+    --topbar-sponsor-logo-height: 16px;
   }
 }
 

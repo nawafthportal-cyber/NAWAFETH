@@ -358,6 +358,8 @@ const Nav = (() => {
     sponsorName.textContent = name;
     sponsor.classList.toggle('is-placeholder', !safePayload || (!href && !assetUrl && name === 'مساحة الرعاية'));
     sponsor.classList.toggle('is-link', !!href);
+    sponsor.setAttribute('aria-label', `الراعي الحالي: ${name}`);
+    sponsor.setAttribute('title', name);
     sponsor.setAttribute('data-sponsor-name', name);
     sponsor.setAttribute('data-sponsor-message', message);
     sponsor.setAttribute('data-sponsor-href', href);

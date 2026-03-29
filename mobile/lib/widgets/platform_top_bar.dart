@@ -176,9 +176,6 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final foreground = widget.overlay
         ? Colors.white
         : (isDark ? Colors.white : const Color(0xFF56316D));
-    final secondary = widget.overlay
-        ? Colors.white.withValues(alpha: 0.84)
-        : (isDark ? Colors.white70 : const Color(0xFF7B6A90));
     final chromeBackground = widget.overlay
         ? Colors.white.withValues(alpha: 0.14)
         : Colors.white.withValues(alpha: isDark ? 0.08 : 0.82);
@@ -235,7 +232,7 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                     availableWidth: brandMaxWidth,
                     compact: compact,
                   );
-                  final faceHeight = compact ? 34.0 : 36.0;
+                  final faceHeight = compact ? 36.0 : 38.0;
                   final actions = <Widget>[
                     ...widget.trailingActions,
                     if (widget.trailingActions.isNotEmpty &&
@@ -274,77 +271,46 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                           child: Padding(
                             padding:
                                 EdgeInsets.symmetric(horizontal: sideReserve),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (widget.pageLabel != null &&
-                                    widget.pageLabel!.trim().isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 1),
-                                    child: Text(
-                                      widget.pageLabel!.trim(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        fontSize: 8.8,
-                                        fontWeight: FontWeight.w800,
-                                        fontFamily: 'Cairo',
-                                        color: secondary,
-                                      ),
-                                    ),
-                                  ),
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                      maxWidth: brandMaxWidth > 80
-                                          ? brandMaxWidth
-                                          : 80),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.center,
-                                    child: AnimatedSwitcher(
-                                      duration:
-                                          const Duration(milliseconds: 280),
-                                      switchInCurve: Curves.easeOutCubic,
-                                      switchOutCurve: Curves.easeInCubic,
-                                      transitionBuilder: (child, animation) {
-                                        return FadeTransition(
-                                          opacity: animation,
-                                          child: ScaleTransition(
-                                            scale: Tween<double>(
-                                                    begin: 0.96, end: 1)
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    brandMaxWidth > 80 ? brandMaxWidth : 80,
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.center,
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 280),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  transitionBuilder: (child, animation) {
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: ScaleTransition(
+                                        scale:
+                                            Tween<double>(begin: 0.96, end: 1)
                                                 .animate(animation),
-                                            child: child,
-                                          ),
-                                        );
-                                      },
-                                      child: (_showSponsorFace &&
-                                              _sponsor != null)
-                                          ? _buildSponsorFace(
-                                              key: const ValueKey(
-                                                  'sponsor-face'),
-                                              shellWidth: faceWidth,
-                                              shellHeight: faceHeight,
-                                              foreground: foreground,
-                                              secondary: secondary,
-                                              chromeBackground:
-                                                  chromeBackground,
-                                              chromeBorder: chromeBorder,
-                                            )
-                                          : _buildBrandFace(
-                                              key: const ValueKey('brand-face'),
-                                              shellWidth: faceWidth,
-                                              shellHeight: faceHeight,
-                                              foreground: foreground,
-                                              chromeBackground:
-                                                  chromeBackground,
-                                              chromeBorder: chromeBorder,
-                                            ),
-                                    ),
-                                  ),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: (_showSponsorFace && _sponsor != null)
+                                      ? _buildSponsorFace(
+                                          key: const ValueKey('sponsor-face'),
+                                          shellWidth: faceWidth,
+                                          shellHeight: faceHeight,
+                                          chromeBackground: chromeBackground,
+                                          chromeBorder: chromeBorder,
+                                        )
+                                      : _buildBrandFace(
+                                          key: const ValueKey('brand-face'),
+                                          shellWidth: faceWidth,
+                                          shellHeight: faceHeight,
+                                          chromeBackground: chromeBackground,
+                                          chromeBorder: chromeBorder,
+                                        ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -393,64 +359,17 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     Key? key,
     required double shellWidth,
     required double shellHeight,
-    required Color foreground,
     required Color chromeBackground,
     required Color chromeBorder,
   }) {
-    final titleMaxWidth = math.max(54.0, shellWidth - 52.0);
     return _buildFaceShell(
       key: key,
       width: shellWidth,
       height: shellHeight,
       chromeBackground: chromeBackground,
       chromeBorder: chromeBorder,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 24,
-              height: 24,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                gradient: LinearGradient(
-                  colors: widget.overlay
-                      ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
-                      : const [Color(0xFF5B2F88), Color(0xFF8D5FD3)],
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                ),
-              ),
-              child: const Text(
-                'ن',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontFamily: 'Cairo',
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
-              ),
-            ),
-            const SizedBox(width: 6),
-            ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: titleMaxWidth),
-              child: Text(
-                'نوافــذ',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: foreground,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w900,
-                  fontFamily: 'Cairo',
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+      padding: const EdgeInsets.all(4),
+      child: Center(child: _AppBadge(overlay: widget.overlay)),
     );
   }
 
@@ -458,8 +377,6 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     Key? key,
     required double shellWidth,
     required double shellHeight,
-    required Color foreground,
-    required Color secondary,
     required Color chromeBackground,
     required Color chromeBorder,
   }) {
@@ -467,7 +384,6 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final sponsorName = sponsor?.name.trim().isNotEmpty == true
         ? sponsor!.name.trim()
         : 'مساحة الرعاية';
-    final nameMaxWidth = math.max(44.0, shellWidth - 88.0);
     return InkWell(
       key: key,
       onTap: sponsor == null ? null : _handleSponsorTap,
@@ -477,42 +393,12 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
         height: shellHeight,
         chromeBackground: chromeBackground,
         chromeBorder: chromeBorder,
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.all(4),
         child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'برعاية',
-                style: TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'Cairo',
-                  color: secondary,
-                ),
-              ),
-              const SizedBox(width: 5),
-              _SponsorBadge(
-                assetUrl: sponsor?.assetUrl,
-                fallbackLabel: sponsorName,
-                overlay: widget.overlay,
-              ),
-              const SizedBox(width: 5),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: nameMaxWidth),
-                child: Text(
-                  sponsorName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    fontFamily: 'Cairo',
-                    color: foreground,
-                  ),
-                ),
-              ),
-            ],
+          child: _SponsorBadge(
+            assetUrl: sponsor?.assetUrl,
+            fallbackLabel: sponsorName,
+            overlay: widget.overlay,
           ),
         ),
       ),
@@ -550,10 +436,10 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     required double availableWidth,
     required bool compact,
   }) {
-    const compactTargetWidth = 166.0;
-    const regularTargetWidth = 194.0;
+    const compactTargetWidth = 68.0;
+    const regularTargetWidth = 76.0;
     final targetWidth = compact ? compactTargetWidth : regularTargetWidth;
-    return math.max(80.0, math.min(availableWidth, targetWidth));
+    return math.max(56.0, math.min(availableWidth, targetWidth));
   }
 
   Widget _buildLeadingButton({
@@ -692,6 +578,48 @@ class PlatformTopBarMenuButton<T> extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         onSelected: onSelected,
         itemBuilder: itemBuilder,
+      ),
+    );
+  }
+}
+
+class _AppBadge extends StatelessWidget {
+  final bool overlay;
+
+  const _AppBadge({required this.overlay});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 24,
+      height: 24,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: LinearGradient(
+          colors: overlay
+              ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
+              : const [Color(0xFF5B2F88), Color(0xFF8D5FD3)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (overlay ? const Color(0xFFD8A877) : const Color(0xFF6E42A0))
+                .withValues(alpha: 0.22),
+            blurRadius: 14,
+            offset: const Offset(0, 7),
+          ),
+        ],
+      ),
+      child: const Text(
+        'ن',
+        style: TextStyle(
+          color: Colors.white,
+          fontFamily: 'Cairo',
+          fontWeight: FontWeight.w900,
+          fontSize: 15,
+        ),
       ),
     );
   }
