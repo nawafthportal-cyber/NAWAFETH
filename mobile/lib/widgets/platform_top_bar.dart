@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -116,7 +117,8 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     if (sponsor == null || !mounted) return;
 
     final message = sponsor.messageBody?.trim();
-    final title = sponsor.name.trim().isNotEmpty ? sponsor.name.trim() : 'الراعي الرسمي';
+    final title =
+        sponsor.name.trim().isNotEmpty ? sponsor.name.trim() : 'الراعي الرسمي';
     final canOpen = sponsor.hasLink;
     final action = await showDialog<String>(
       context: context,
@@ -227,11 +229,18 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                   final compact = constraints.maxWidth < 380;
                   final buttonSize = compact ? 36.0 : 38.0;
                   final sideReserve = compact ? 104.0 : 120.0;
-                  final brandMaxWidth = constraints.maxWidth - (sideReserve * 2);
+                  final brandMaxWidth =
+                      constraints.maxWidth - (sideReserve * 2);
+                  final faceWidth = _resolveCenterFaceWidth(
+                    availableWidth: brandMaxWidth,
+                    compact: compact,
+                  );
+                  final faceHeight = compact ? 34.0 : 36.0;
                   final actions = <Widget>[
                     ...widget.trailingActions,
                     if (widget.trailingActions.isNotEmpty &&
-                        (widget.showNotificationAction || widget.showChatAction))
+                        (widget.showNotificationAction ||
+                            widget.showChatAction))
                       const SizedBox(width: 4),
                     if (widget.showNotificationAction)
                       PlatformTopBarActionButton(
@@ -263,12 +272,14 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                       Positioned.fill(
                         child: Center(
                           child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: sideReserve),
+                            padding:
+                                EdgeInsets.symmetric(horizontal: sideReserve),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (widget.pageLabel != null && widget.pageLabel!.trim().isNotEmpty)
+                                if (widget.pageLabel != null &&
+                                    widget.pageLabel!.trim().isNotEmpty)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 1),
                                     child: Text(
@@ -285,35 +296,49 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
                                     ),
                                   ),
                                 ConstrainedBox(
-                                  constraints: BoxConstraints(maxWidth: brandMaxWidth > 80 ? brandMaxWidth : 80),
+                                  constraints: BoxConstraints(
+                                      maxWidth: brandMaxWidth > 80
+                                          ? brandMaxWidth
+                                          : 80),
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
                                     alignment: Alignment.center,
                                     child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 280),
+                                      duration:
+                                          const Duration(milliseconds: 280),
                                       switchInCurve: Curves.easeOutCubic,
                                       switchOutCurve: Curves.easeInCubic,
                                       transitionBuilder: (child, animation) {
                                         return FadeTransition(
                                           opacity: animation,
                                           child: ScaleTransition(
-                                            scale: Tween<double>(begin: 0.96, end: 1).animate(animation),
+                                            scale: Tween<double>(
+                                                    begin: 0.96, end: 1)
+                                                .animate(animation),
                                             child: child,
                                           ),
                                         );
                                       },
-                                      child: (_showSponsorFace && _sponsor != null)
+                                      child: (_showSponsorFace &&
+                                              _sponsor != null)
                                           ? _buildSponsorFace(
-                                              key: const ValueKey('sponsor-face'),
+                                              key: const ValueKey(
+                                                  'sponsor-face'),
+                                              shellWidth: faceWidth,
+                                              shellHeight: faceHeight,
                                               foreground: foreground,
                                               secondary: secondary,
-                                              chromeBackground: chromeBackground,
+                                              chromeBackground:
+                                                  chromeBackground,
                                               chromeBorder: chromeBorder,
                                             )
                                           : _buildBrandFace(
                                               key: const ValueKey('brand-face'),
+                                              shellWidth: faceWidth,
+                                              shellHeight: faceHeight,
                                               foreground: foreground,
-                                              chromeBackground: chromeBackground,
+                                              chromeBackground:
+                                                  chromeBackground,
                                               chromeBorder: chromeBorder,
                                             ),
                                     ),
@@ -366,65 +391,73 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
 
   Widget _buildBrandFace({
     Key? key,
+    required double shellWidth,
+    required double shellHeight,
     required Color foreground,
     required Color chromeBackground,
     required Color chromeBorder,
   }) {
-    return Container(
+    final titleMaxWidth = math.max(54.0, shellWidth - 52.0);
+    return _buildFaceShell(
       key: key,
-      padding: const EdgeInsets.symmetric(
-        horizontal: 9,
-        vertical: 5,
-      ),
-      decoration: BoxDecoration(
-        color: chromeBackground,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: chromeBorder),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 24,
-            height: 24,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              gradient: LinearGradient(
-                colors: widget.overlay
-                    ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
-                    : const [Color(0xFF5B2F88), Color(0xFF8D5FD3)],
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
+      width: shellWidth,
+      height: shellHeight,
+      chromeBackground: chromeBackground,
+      chromeBorder: chromeBorder,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Center(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  colors: widget.overlay
+                      ? const [Color(0xFFF1A559), Color(0xFFB788F3)]
+                      : const [Color(0xFF5B2F88), Color(0xFF8D5FD3)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                ),
+              ),
+              child: const Text(
+                'ن',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                ),
               ),
             ),
-            child: const Text(
-              'ن',
-              style: TextStyle(
-                color: Colors.white,
-                fontFamily: 'Cairo',
-                fontWeight: FontWeight.w900,
-                fontSize: 15,
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: titleMaxWidth),
+              child: Text(
+                'نوافــذ',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Cairo',
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            'نوافــذ',
-            style: TextStyle(
-              color: foreground,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w900,
-              fontFamily: 'Cairo',
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSponsorFace({
     Key? key,
+    required double shellWidth,
+    required double shellHeight,
     required Color foreground,
     required Color secondary,
     required Color chromeBackground,
@@ -434,57 +467,93 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     final sponsorName = sponsor?.name.trim().isNotEmpty == true
         ? sponsor!.name.trim()
         : 'مساحة الرعاية';
+    final nameMaxWidth = math.max(44.0, shellWidth - 88.0);
     return InkWell(
       key: key,
       onTap: sponsor == null ? null : _handleSponsorTap,
       borderRadius: BorderRadius.circular(999),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 5,
+      child: _buildFaceShell(
+        width: shellWidth,
+        height: shellHeight,
+        chromeBackground: chromeBackground,
+        chromeBorder: chromeBorder,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'برعاية',
+                style: TextStyle(
+                  fontSize: 8.5,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Cairo',
+                  color: secondary,
+                ),
+              ),
+              const SizedBox(width: 5),
+              _SponsorBadge(
+                assetUrl: sponsor?.assetUrl,
+                fallbackLabel: sponsorName,
+                overlay: widget.overlay,
+              ),
+              const SizedBox(width: 5),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: nameMaxWidth),
+                child: Text(
+                  sponsorName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Cairo',
+                    color: foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFaceShell({
+    Key? key,
+    required double width,
+    required double height,
+    required Color chromeBackground,
+    required Color chromeBorder,
+    required EdgeInsetsGeometry padding,
+    required Widget child,
+  }) {
+    return SizedBox(
+      key: key,
+      width: width,
+      height: height,
+      child: DecoratedBox(
         decoration: BoxDecoration(
           color: chromeBackground,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: chromeBorder),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'برعاية',
-              style: TextStyle(
-                fontSize: 8.5,
-                fontWeight: FontWeight.w800,
-                fontFamily: 'Cairo',
-                color: secondary,
-              ),
-            ),
-            const SizedBox(width: 5),
-            _SponsorBadge(
-              assetUrl: sponsor?.assetUrl,
-              fallbackLabel: sponsorName,
-              overlay: widget.overlay,
-            ),
-            const SizedBox(width: 5),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 112),
-              child: Text(
-                sponsorName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  fontFamily: 'Cairo',
-                  color: foreground,
-                ),
-              ),
-            ),
-          ],
+        child: Padding(
+          padding: padding,
+          child: child,
         ),
       ),
     );
+  }
+
+  double _resolveCenterFaceWidth({
+    required double availableWidth,
+    required bool compact,
+  }) {
+    const compactTargetWidth = 166.0;
+    const regularTargetWidth = 194.0;
+    final targetWidth = compact ? compactTargetWidth : regularTargetWidth;
+    return math.max(80.0, math.min(availableWidth, targetWidth));
   }
 
   Widget _buildLeadingButton({

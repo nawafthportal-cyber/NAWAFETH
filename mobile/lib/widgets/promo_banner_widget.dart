@@ -19,6 +19,11 @@ class PromoBannerWidget extends StatefulWidget {
   final String? subtitle;
   final double borderRadius;
   final Widget? fallback;
+  final bool showBackdrop;
+  final double backdropBlurSigma;
+  final double backdropOverlayOpacity;
+  final double backdropScale;
+  final Alignment mediaAlignment;
 
   const PromoBannerWidget({
     super.key,
@@ -36,6 +41,11 @@ class PromoBannerWidget extends StatefulWidget {
     this.subtitle,
     this.borderRadius = 16,
     this.fallback,
+    this.showBackdrop = false,
+    this.backdropBlurSigma = 12,
+    this.backdropOverlayOpacity = 0.3,
+    this.backdropScale = 1.08,
+    this.mediaAlignment = Alignment.center,
   });
 
   @override
@@ -57,8 +67,8 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
   @override
   void didUpdateWidget(covariant PromoBannerWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final mediaChanged =
-        oldWidget.mediaUrl != widget.mediaUrl || oldWidget.isVideo != widget.isVideo;
+    final mediaChanged = oldWidget.mediaUrl != widget.mediaUrl ||
+        oldWidget.isVideo != widget.isVideo;
     if (mediaChanged) {
       _syncVideoController();
       return;
@@ -194,16 +204,19 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
           else if (widget.isVideo)
             _buildVideoLayers()
           else
-            _buildImage(url),
+            _buildImageLayers(url),
           if (widget.mediaOverlayOpacity > 0)
             Positioned.fill(
-              child: ColoredBox(color: Colors.black.withValues(alpha: widget.mediaOverlayOpacity)),
+              child: ColoredBox(
+                  color: Colors.black
+                      .withValues(alpha: widget.mediaOverlayOpacity)),
             ),
           if (hasTitle || hasSubtitle)
             Positioned.fill(
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -256,14 +269,56 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     );
   }
 
+  Widget _buildImageLayers(String url) {
+    if (!widget.showBackdrop) {
+      return _buildImage(url);
+    }
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: _buildImageBackdrop(url)),
+        Positioned.fill(
+          child: ColoredBox(
+            color:
+                Colors.black.withValues(alpha: widget.backdropOverlayOpacity),
+          ),
+        ),
+        Positioned.fill(child: _buildImage(url)),
+      ],
+    );
+  }
+
+  Widget _buildImageBackdrop(String url) {
+    return ImageFiltered(
+      imageFilter: ImageFilter.blur(
+        sigmaX: widget.backdropBlurSigma,
+        sigmaY: widget.backdropBlurSigma,
+      ),
+      child: Transform.scale(
+        scale: widget.backdropScale,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          alignment: widget.mediaAlignment,
+          filterQuality: FilterQuality.high,
+          errorBuilder: (_, __, ___) => _fallback(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildImage(String url) {
     return Image.network(
       url,
       fit: widget.mediaFit,
+      alignment: widget.mediaAlignment,
+      filterQuality: FilterQuality.high,
       errorBuilder: (_, __, ___) => _fallback(),
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;
-        return const Center(child: CircularProgressIndicator(color: Colors.white));
+        return const Center(
+            child: CircularProgressIndicator(color: Colors.white));
       },
     );
   }
@@ -272,7 +327,8 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
     final controller = _controller;
     if (_hasVideoError) return _fallback();
     if (_isLoading || controller == null || !controller.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+          child: CircularProgressIndicator(color: Colors.white));
     }
 
     final size = controller.value.size;
@@ -284,6 +340,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
         Positioned.fill(
           child: FittedBox(
             fit: BoxFit.cover,
+            alignment: widget.mediaAlignment,
             clipBehavior: Clip.hardEdge,
             child: SizedBox(
               width: size.width,
@@ -301,6 +358,7 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
         Positioned.fill(
           child: FittedBox(
             fit: mainFit,
+            alignment: widget.mediaAlignment,
             clipBehavior: Clip.hardEdge,
             child: SizedBox(
               width: size.width,

@@ -1167,6 +1167,41 @@ body.home-mobile-layout .section-reels {
    TABLET + DESKTOP: keep app-like single flow
    ================================================================ */
 @media (min-width: 769px) {
+  body.home-mobile-layout #hero {
+    min-height: auto;
+    padding: clamp(10px, 2vw, 18px) clamp(14px, 2.4vw, 24px) 0;
+    background:
+      radial-gradient(circle at 12% 0%, rgba(33, 150, 243, 0.1), transparent 30%),
+      radial-gradient(circle at 88% 0%, rgba(103, 58, 183, 0.12), transparent 32%),
+      linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.58));
+  }
+
+  body.home-mobile-layout .hero-banner-shell {
+    position: relative;
+    inset: auto;
+    width: min(100%, 960px);
+    margin-inline: auto;
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-wrapper {
+    height: auto;
+    aspect-ratio: 16 / 7;
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at top right, rgba(255,255,255,.14), transparent 30%),
+      linear-gradient(140deg, #0f172a 0%, #1e293b 52%, #020617 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 28px 64px rgba(17, 24, 39, 0.16);
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-track {
+    height: 100%;
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-arrow {
+    opacity: 0.78;
+  }
+
   body.home-mobile-layout .container {
     max-width: 960px;
     margin-inline: auto;
@@ -1346,6 +1381,27 @@ body.home-mobile-layout .section-reels {
 @media (min-width: 1024px) {
   body.home-mobile-layout #top-navbar {
     display: block !important;
+  }
+
+  body.home-mobile-layout #hero {
+    padding: clamp(18px, 2.4vw, 28px) clamp(20px, 3vw, 36px) 0;
+  }
+
+  body.home-mobile-layout .hero-banner-shell {
+    width: min(100%, 1120px);
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-wrapper {
+    border-radius: 28px;
+    box-shadow: 0 34px 82px rgba(17, 24, 39, 0.18);
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-arrow {
+    opacity: 0;
+  }
+
+  body.home-mobile-layout .hero-banner-shell .carousel-wrapper:hover .carousel-arrow {
+    opacity: 1;
   }
 
   body.home-mobile-layout #site-footer {

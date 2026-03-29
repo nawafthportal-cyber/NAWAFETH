@@ -1,6 +1,5 @@
 // ignore_for_file: unused_field, unused_element
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -79,8 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _reelsAutoPaused = false;
   bool _featuredSpecialistsAutoPaused = false;
   static const Duration _reelsResumeDelay = Duration(seconds: 3);
-  static const Duration _featuredSpecialistsResumeDelay =
-      Duration(seconds: 3);
+  static const Duration _featuredSpecialistsResumeDelay = Duration(seconds: 3);
 
   static const _reelFallbackLogos = [
     'assets/images/32.jpeg',
@@ -303,7 +301,8 @@ class _HomeScreenState extends State<HomeScreen> {
         sourceApp: 'promo',
         objectType: 'ProviderProfile',
         objectId: (providerId ?? 0).toString(),
-        dedupeKey: 'promo.popup_open:flutter.home:${providerId ?? 0}:${title.trim()}',
+        dedupeKey:
+            'promo.popup_open:flutter.home:${providerId ?? 0}:${title.trim()}',
         payload: {
           'redirect_url': redirectUrl ?? '',
           'media_type': mediaType,
@@ -562,8 +561,7 @@ class _HomeScreenState extends State<HomeScreen> {
     int? providerId,
     String? providerName,
   }) async {
-    final isActionable =
-        (redirectUrl?.trim().isNotEmpty ?? false) ||
+    final isActionable = (redirectUrl?.trim().isNotEmpty ?? false) ||
         (providerId != null && providerId > 0);
     await showDialog(
       context: context,
@@ -875,12 +873,27 @@ class _HomeScreenState extends State<HomeScreen> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        _buildHeroBannerBackdrop(banner, mediaUrl),
         Positioned.fill(
-          child: _buildHeroBannerForeground(
-            banner: banner,
+          child: PromoBannerWidget(
+            key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
             mediaUrl: mediaUrl,
+            isVideo: banner.isVideo,
             isActive: isActive,
+            autoplay: true,
+            loopVideo: false,
+            onVideoEnded: banner.isVideo && isActive
+                ? () => _handleHeroBannerVideoEnded(banner.id)
+                : null,
+            borderRadius: 0,
+            stretchToParent: true,
+            mediaFit: BoxFit.contain,
+            mediaOverlayOpacity: 0,
+            contentPadding: EdgeInsets.zero,
+            showBackdrop: true,
+            backdropBlurSigma: 24,
+            backdropOverlayOpacity: 0.18,
+            backdropScale: 1.08,
+            fallback: _gradientPlaceholder(),
           ),
         ),
         DecoratedBox(
@@ -897,75 +910,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildHeroBannerBackdrop(BannerModel banner, String? mediaUrl) {
-    if (mediaUrl == null || banner.isVideo) {
-      return _gradientPlaceholder();
-    }
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        ImageFiltered(
-          imageFilter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-          child: Transform.scale(
-            scale: 1.08,
-            child: Image.network(
-              mediaUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _gradientPlaceholder(),
-            ),
-          ),
-        ),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.black.withValues(alpha: 0.24),
-                Colors.blueGrey.shade900.withValues(alpha: 0.18),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildHeroBannerForeground({
-    required BannerModel banner,
-    required String? mediaUrl,
-    required bool isActive,
-  }) {
-    if (mediaUrl == null) return _gradientPlaceholder();
-
-    if (banner.isVideo) {
-      return PromoBannerWidget(
-        key: ValueKey('hero-banner-${banner.id}-${banner.mediaUrl}'),
-        mediaUrl: mediaUrl,
-        isVideo: true,
-        isActive: isActive,
-        autoplay: true,
-        loopVideo: false,
-        onVideoEnded: isActive ? () => _handleHeroBannerVideoEnded(banner.id) : null,
-        borderRadius: 0,
-        stretchToParent: true,
-        mediaFit: BoxFit.contain,
-        mediaOverlayOpacity: 0,
-        contentPadding: EdgeInsets.zero,
-        fallback: _gradientPlaceholder(),
-      );
-    }
-
-    return Image.network(
-      mediaUrl,
-      fit: BoxFit.contain,
-      width: double.infinity,
-      height: double.infinity,
-      errorBuilder: (_, __, ___) => _gradientPlaceholder(),
     );
   }
 
@@ -1053,9 +997,8 @@ class _HomeScreenState extends State<HomeScreen> {
             : ((placement['title'] as String?) ?? 'رسالة دعائية');
     final body = (placement['message_body'] as String?) ?? '';
     final providerIdRaw = placement['target_provider_id'];
-    final providerId = providerIdRaw is int
-        ? providerIdRaw
-        : int.tryParse('$providerIdRaw');
+    final providerId =
+        providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
     final providerName = placement['target_provider_display_name'] as String?;
     final redirectUrl = placement['redirect_url'] as String?;
 
@@ -1365,9 +1308,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.info_outline_rounded,
-                         size: 20,
-                         color: isDark ? Colors.white24 : Colors.grey.shade300),
-                     const SizedBox(height: 4),
+                        size: 20,
+                        color: isDark ? Colors.white24 : Colors.grey.shade300),
+                    const SizedBox(height: 4),
                     Text('لا يوجد مختصون مميزون حالياً',
                         style: TextStyle(
                             fontSize: 10,
@@ -1589,9 +1532,10 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openPortfolioShowcasePlacement(int index) async {
     if (index < 0 || index >= _portfolioShowcase.length) return;
     final item = _portfolioShowcase[index];
-    final placement = (index >= 0 && index < _portfolioShowcasePlacements.length)
-        ? _portfolioShowcasePlacements[index]
-        : const <String, dynamic>{};
+    final placement =
+        (index >= 0 && index < _portfolioShowcasePlacements.length)
+            ? _portfolioShowcasePlacements[index]
+            : const <String, dynamic>{};
 
     AnalyticsService.trackFireAndForget(
       eventName: 'promo.portfolio_showcase_click',
@@ -1607,15 +1551,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     final providerIdRaw = placement['target_provider_id'];
-    final providerId = providerIdRaw is int
-        ? providerIdRaw
-        : int.tryParse('$providerIdRaw');
+    final providerId =
+        providerIdRaw is int ? providerIdRaw : int.tryParse('$providerIdRaw');
     await _openPromoPlacement(
       redirectUrl: placement['redirect_url'] as String?,
       providerId: providerId ?? item.providerId,
-      providerName:
-          (placement['target_provider_display_name'] as String?) ??
-              item.providerDisplayName,
+      providerName: (placement['target_provider_display_name'] as String?) ??
+          item.providerDisplayName,
     );
   }
 
@@ -1703,7 +1645,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.14),
+                          color:
+                              const Color(0xFFF59E0B).withValues(alpha: 0.14),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color:
@@ -1856,20 +1799,25 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted || _banners.length <= 1 || !_bannerPageController.hasClients) {
       return;
     }
-    final safeIndex = _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
-        ? _bannerCurrentPage
-        : 0;
+    final safeIndex =
+        _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
+            ? _bannerCurrentPage
+            : 0;
     final currentBanner = _banners[safeIndex];
     final expectedBannerId = currentBanner.id;
-    final delay =
-        currentBanner.isVideo ? _resolveBannerRotateDelay(currentBanner) : _imageBannerRotateDelay;
+    final delay = currentBanner.isVideo
+        ? _resolveBannerRotateDelay(currentBanner)
+        : _imageBannerRotateDelay;
     _bannerAutoTimer = Timer(delay, () {
-      if (!mounted || !_bannerPageController.hasClients || _banners.length <= 1) {
+      if (!mounted ||
+          !_bannerPageController.hasClients ||
+          _banners.length <= 1) {
         return;
       }
-      final activeIndex = _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
-          ? _bannerCurrentPage
-          : 0;
+      final activeIndex =
+          _bannerCurrentPage >= 0 && _bannerCurrentPage < _banners.length
+              ? _bannerCurrentPage
+              : 0;
       final activeBanner = _banners[activeIndex];
       if (activeBanner.id != expectedBannerId) {
         return;
@@ -1928,7 +1876,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           fit: StackFit.expand,
                           children: [
                             PromoMediaTile(
-                              key: ValueKey('promo-banner-${b.id}-${b.mediaUrl}'),
+                              key: ValueKey(
+                                  'promo-banner-${b.id}-${b.mediaUrl}'),
                               mediaUrl: url,
                               mediaType: b.isVideo ? 'video' : 'image',
                               borderRadius: 0,

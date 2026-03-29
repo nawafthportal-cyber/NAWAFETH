@@ -30,6 +30,8 @@
   }
 
   .topbar-brand-wrap {
+    --topbar-center-pill-width: 244px;
+    --topbar-center-pill-height: 56px;
     max-width: calc(100% - 168px);
   }
 
@@ -57,7 +59,7 @@
   }
 
   .topbar-sponsor-name {
-    max-width: 220px;
+    max-width: 136px;
   }
 
   .navbar-brand {

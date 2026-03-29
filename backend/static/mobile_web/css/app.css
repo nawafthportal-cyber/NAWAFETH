@@ -212,15 +212,21 @@ ul, ol { list-style: none; }
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
+  --topbar-center-pill-width: 188px;
+  --topbar-center-pill-height: 48px;
   display: grid;
-  place-items: center;
-  width: min(100%, 520px);
+  align-items: stretch;
+  justify-items: stretch;
+  width: min(100%, var(--topbar-center-pill-width));
   max-width: calc(100% - 132px);
-  min-height: 42px;
+  min-height: var(--topbar-center-pill-height);
+  height: var(--topbar-center-pill-height);
 }
 
 .topbar-brand-face {
   grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   pointer-events: none;
   transform: translateY(4px) scale(0.98);
@@ -236,13 +242,19 @@ ul, ol { list-style: none; }
 .topbar-brand-link {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
+  width: 100%;
   max-width: 100%;
+  min-height: 100%;
+  height: 100%;
   padding: 7px 14px 7px 10px;
+  box-sizing: border-box;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.78);
   border: 1px solid rgba(103, 58, 183, 0.1);
   box-shadow: 0 10px 22px rgba(29, 21, 55, 0.07);
+  overflow: hidden;
 }
 
 .topbar-brand-mark {
@@ -265,6 +277,7 @@ ul, ol { list-style: none; }
   flex-direction: column;
   min-width: 0;
   align-items: center;
+  overflow: hidden;
 }
 
 .topbar-brand-title {
@@ -285,15 +298,20 @@ ul, ol { list-style: none; }
 .topbar-sponsor {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  width: 100%;
   max-width: 100%;
-  min-height: 34px;
+  min-height: 100%;
+  height: 100%;
   padding: 4px 10px;
+  box-sizing: border-box;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.74);
   border: 1px solid rgba(26, 26, 46, 0.08);
   box-shadow: 0 8px 18px rgba(20, 16, 39, 0.05);
   color: var(--color-text);
+  overflow: hidden;
 }
 
 .topbar-sponsor.is-link {
@@ -354,7 +372,8 @@ ul, ol { list-style: none; }
 }
 
 .topbar-sponsor-name {
-  max-width: 180px;
+  max-width: 108px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -557,6 +576,8 @@ ul, ol { list-style: none; }
   }
 
   .topbar-brand-wrap {
+    --topbar-center-pill-width: 176px;
+    --topbar-center-pill-height: 44px;
     max-width: calc(100% - 116px);
   }
 
@@ -585,7 +606,7 @@ ul, ol { list-style: none; }
   }
 
   .topbar-sponsor-name {
-    max-width: 118px;
+    max-width: 84px;
     font-size: 11px;
   }
 
