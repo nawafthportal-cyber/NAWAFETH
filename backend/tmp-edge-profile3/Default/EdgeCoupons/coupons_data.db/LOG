@@ -1,5 +1,0 @@
-2026/03/09-02:49:26.945 3464 Creating DB c:\Users\manso\nawafeth\backend\tmp-edge-profile3\Default\EdgeCoupons/coupons_data.db since it was missing.
-2026/03/09-02:49:26.957 3464 Reusing MANIFEST c:\Users\manso\nawafeth\backend\tmp-edge-profile3\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
-2026/03/09-02:49:27.379 6ab8 Level-0 table #5: started
-2026/03/09-02:49:27.386 6ab8 Level-0 table #5: 681597 bytes OK
-2026/03/09-02:49:27.391 6ab8 Delete type=0 #3

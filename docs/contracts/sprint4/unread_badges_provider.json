@@ -1,7 +1,0 @@
-{
-  "notifications": 3,
-  "chats": 4,
-  "degraded": false,
-  "stale": false,
-  "mode": "provider"
-}

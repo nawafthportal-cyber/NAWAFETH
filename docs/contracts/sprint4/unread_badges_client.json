@@ -1,7 +1,0 @@
-{
-  "notifications": 2,
-  "chats": 1,
-  "degraded": false,
-  "stale": false,
-  "mode": "client"
-}
