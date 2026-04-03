@@ -398,6 +398,11 @@ class PublicActivePromosView(generics.ListAPIView):
                 request_qs = request_qs.none()
         elif legacy_types is not None:
             request_qs = request_qs.filter(ad_type__in=legacy_types) if legacy_types else request_qs.none()
+        elif service_type:
+            # Request-level placements only exist for legacy ad types that map directly
+            # to a public service type. Item-based services such as sponsorship must not
+            # leak their parent bundle request into the filtered response.
+            request_qs = request_qs.none()
 
         item_qs = _public_active_bundle_item_queryset()
         compatible_item_service_types = None

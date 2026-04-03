@@ -15,6 +15,7 @@ const Nav = (() => {
   let _badgeOwnsLeadership = false;
   let _badgeEventsBound = false;
   let _topbarSponsorLoaded = false;
+  let _topbarBrandLogoLoaded = false;
   let _topbarSponsorRotateTimer = 0;
   let _topbarSponsorFace = 'brand';
   let _topbarSponsorPayload = null;
@@ -26,7 +27,9 @@ const Nav = (() => {
   const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
   const _badgeTabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const _topbarSponsorKey = 'nw_topbar_sponsor_v1';
+  const _topbarBrandLogoKey = 'nw_topbar_brand_logo_v1';
   const _topbarSponsorTtlMs = 5 * 60 * 1000;
+  const _topbarBrandLogoTtlMs = 5 * 60 * 1000;
 
   function init() {
     _ensureSingleBottomNav();
@@ -38,6 +41,7 @@ const Nav = (() => {
     _initLogout();
     _initUnreadBadges();
     _initTopbarSponsor();
+    _initTopbarBrandLogo();
   }
 
   function _initTopNavbar() {
@@ -202,6 +206,30 @@ const Nav = (() => {
       expiresAt: Date.now() + _topbarSponsorTtlMs,
       payload,
     });
+  }
+
+  function _readCachedTopbarBrandLogo() {
+    const cached = _readStorageJson(_topbarBrandLogoKey);
+    if (!cached) return null;
+    if (Number(cached.expiresAt || 0) < Date.now()) return null;
+    return cached.payload || null;
+  }
+
+  function _writeCachedTopbarBrandLogo(payload) {
+    _writeStorageJson(_topbarBrandLogoKey, {
+      expiresAt: Date.now() + _topbarBrandLogoTtlMs,
+      payload,
+    });
+  }
+
+  function _normalizeTopbarBrandLogo(block) {
+    if (!block || typeof block !== 'object') return null;
+    const mediaUrl = String(block.media_url || '').trim();
+    if (!mediaUrl) return null;
+    return {
+      assetUrl: ApiClient.mediaUrl(mediaUrl),
+      title: String(block.title_ar || '').trim() || 'شعار المنصة',
+    };
   }
 
   function _setTopbarFace(face) {
@@ -403,6 +431,58 @@ const Nav = (() => {
       sponsorMedia.appendChild(fallback);
     }
     _startTopbarSponsorRotation();
+  }
+
+  function _renderDefaultTopbarBrandMark(markEl, fallbackLabel) {
+    if (!markEl) return;
+    markEl.classList.remove('has-image');
+    markEl.textContent = fallbackLabel;
+  }
+
+  function _applyTopbarBrandLogo(payload) {
+    const markEl = document.getElementById('topbar-brand-mark');
+    if (!markEl) return;
+
+    const defaultMark = String(markEl.getAttribute('data-default-mark') || markEl.textContent || 'ن').trim() || 'ن';
+    const safePayload = payload && typeof payload === 'object' ? payload : null;
+    const assetUrl = String(safePayload?.assetUrl || '').trim();
+    if (!assetUrl) {
+      _renderDefaultTopbarBrandMark(markEl, defaultMark);
+      return;
+    }
+
+    markEl.classList.add('has-image');
+    markEl.textContent = '';
+    const img = document.createElement('img');
+    img.src = assetUrl;
+    img.alt = String(safePayload?.title || 'شعار المنصة').trim() || 'شعار المنصة';
+    img.addEventListener('error', () => {
+      _renderDefaultTopbarBrandMark(markEl, defaultMark);
+    }, { once: true });
+    markEl.appendChild(img);
+  }
+
+  async function _initTopbarBrandLogo() {
+    if (_topbarBrandLogoLoaded) return;
+    _topbarBrandLogoLoaded = true;
+
+    const markEl = document.getElementById('topbar-brand-mark');
+    if (!markEl) return;
+
+    const cached = _readCachedTopbarBrandLogo();
+    if (cached) {
+      _applyTopbarBrandLogo(cached);
+    } else {
+      _applyTopbarBrandLogo(null);
+    }
+
+    const res = await ApiClient.get('/api/content/public/');
+    if (!res?.ok || !res.data) return;
+
+    const blocks = res.data.blocks || {};
+    const payload = _normalizeTopbarBrandLogo(blocks.topbar_brand_logo);
+    _writeCachedTopbarBrandLogo(payload);
+    _applyTopbarBrandLogo(payload);
   }
 
   async function _initTopbarSponsor() {

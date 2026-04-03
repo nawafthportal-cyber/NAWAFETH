@@ -51,13 +51,14 @@ class PlatformTopBar extends StatefulWidget implements PreferredSizeWidget {
 
 class _PlatformTopBarState extends State<PlatformTopBar> {
   TopBarSponsorData? _sponsor;
+  String? _brandLogoUrl;
   Timer? _sponsorRotateTimer;
   bool _showSponsorFace = false;
 
   @override
   void initState() {
     super.initState();
-    _loadSponsor();
+    _loadBranding();
   }
 
   @override
@@ -82,11 +83,17 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
     });
   }
 
-  Future<void> _loadSponsor() async {
-    final sponsor = await TopBarBrandingService.fetchActiveSponsor();
+  Future<void> _loadBranding() async {
+    final results = await Future.wait<Object?>([
+      TopBarBrandingService.fetchActiveSponsor(),
+      TopBarBrandingService.fetchBrandLogo(),
+    ]);
+    final sponsor = results[0] as TopBarSponsorData?;
+    final brandLogoUrl = results[1] as String?;
     if (!mounted) return;
     setState(() {
       _sponsor = sponsor;
+      _brandLogoUrl = brandLogoUrl;
       _showSponsorFace = false;
     });
     _restartSponsorRotation();
@@ -369,7 +376,12 @@ class _PlatformTopBarState extends State<PlatformTopBar> {
       chromeBackground: chromeBackground,
       chromeBorder: chromeBorder,
       padding: const EdgeInsets.all(4),
-      child: Center(child: _AppBadge(overlay: widget.overlay)),
+      child: Center(
+        child: _AppBadge(
+          overlay: widget.overlay,
+          logoUrl: _brandLogoUrl,
+        ),
+      ),
     );
   }
 
@@ -585,11 +597,58 @@ class PlatformTopBarMenuButton<T> extends StatelessWidget {
 
 class _AppBadge extends StatelessWidget {
   final bool overlay;
+  final String? logoUrl;
 
-  const _AppBadge({required this.overlay});
+  const _AppBadge({required this.overlay, this.logoUrl});
 
   @override
   Widget build(BuildContext context) {
+    final resolvedLogoUrl = logoUrl?.trim();
+    if (resolvedLogoUrl != null && resolvedLogoUrl.isNotEmpty) {
+      return Container(
+        width: 24,
+        height: 24,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: overlay ? 0.94 : 0.98),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: overlay
+                ? Colors.white.withValues(alpha: 0.22)
+                : const Color(0x1A8D5FD3),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: overlay ? 0.10 : 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 7),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          resolvedLogoUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => Center(
+            child: Text(
+              'ن',
+              style: TextStyle(
+                color: overlay
+                    ? const Color(0xFF8D5FD3)
+                    : const Color(0xFF5B2F88),
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return _buildDefaultBadge();
+  }
+
+  Widget _buildDefaultBadge() {
     return Container(
       width: 24,
       height: 24,

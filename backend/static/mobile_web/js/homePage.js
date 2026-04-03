@@ -56,6 +56,7 @@ const HomePage = (() => {
     categoriesTitle: '',
     providersTitle: '',
     bannersTitle: '',
+    fallbackBanner: null,
   };
 
   /* ----------------------------------------------------------
@@ -255,6 +256,37 @@ const HomePage = (() => {
     return safePrimary.concat(safeFallback.slice(0, remaining));
   }
 
+  function _buildFallbackBannerFromBlock(block) {
+    if (!block || typeof block !== 'object') return null;
+    const mediaUrl = _readBannerString(block.media_url);
+    if (!mediaUrl) return null;
+    return {
+      id: 0,
+      title: _readBannerString(block.title_ar),
+      media_type: (_readBannerString(block.media_type) || 'image').toLowerCase(),
+      media_url: mediaUrl,
+      link_url: '',
+      provider_id: 0,
+      provider_display_name: '',
+      display_order: 0,
+      mobile_scale: 100,
+      tablet_scale: 100,
+      desktop_scale: 100,
+      duration_seconds: 0,
+      is_fallback: true,
+    };
+  }
+
+  function _resolveRenderedBanners(banners) {
+    const safeBanners = Array.isArray(banners) ? banners.filter(Boolean) : [];
+    if (safeBanners.length) return safeBanners;
+    return _homeContent.fallbackBanner ? [_homeContent.fallbackBanner] : [];
+  }
+
+  function _isTrackableBanner(banner) {
+    return !!banner && !banner.is_fallback && _readBannerInt(banner.id) > 0;
+  }
+
   function _bannerSignature(list) {
     const rows = Array.isArray(list) ? list : [];
     return rows.map((banner) => [
@@ -264,6 +296,7 @@ const HomePage = (() => {
       String(banner.link_url || ''),
       String(banner.display_order || 0),
       String(banner.duration_seconds || 0),
+      String(!!banner.is_fallback),
     ].join('|')).join('||');
   }
 
@@ -294,20 +327,21 @@ const HomePage = (() => {
         ? _parseBannerList(carouselRes.data)
         : [];
       const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
-      const nextSignature = _bannerSignature(mergedBanners);
+      const renderedBanners = _resolveRenderedBanners(mergedBanners);
+      const nextSignature = _bannerSignature(renderedBanners);
       const currentSignature = _bannerSignature(_carouselItems);
 
       if (!mergedBanners.length) {
-        if (_carouselItems.length) {
-          NwCache.set(CACHE_BANNERS, [], TTL);
-          _renderBanners([]);
+        NwCache.set(CACHE_BANNERS, [], TTL);
+        if (nextSignature !== currentSignature) {
+          _renderBanners(renderedBanners);
         }
         return;
       }
 
       NwCache.set(CACHE_BANNERS, mergedBanners, TTL);
       if (nextSignature !== currentSignature) {
-        _renderBanners(mergedBanners);
+        _renderBanners(renderedBanners);
       }
     } catch (_) {
       // Keep the current rendered banners on transient sync failures.
@@ -488,6 +522,7 @@ const HomePage = (() => {
         categoriesTitle: _resolveBlockTitle(blocks.home_categories_title, 'التصنيفات'),
         providersTitle: _resolveBlockTitle(blocks.home_providers_title, 'أبرز المختصين'),
         bannersTitle: _resolveBlockTitle(blocks.home_banners_title, 'عروض ترويجية'),
+        fallbackBanner: _buildFallbackBannerFromBlock(blocks.home_banners_fallback),
       };
       _applyHomeContent();
     }
@@ -555,9 +590,9 @@ const HomePage = (() => {
       _renderBanners(mergedBanners);
     } else if (bannersFetched) {
       NwCache.set(CACHE_BANNERS, [], TTL);
-      _renderBanners([]);
+      _renderBanners(_resolveRenderedBanners([]));
     } else if (!NwCache.get(CACHE_BANNERS)) {
-      _renderBanners([]);
+      _renderBanners(_resolveRenderedBanners([]));
     }
 
     // Spotlights (reels)
@@ -1058,7 +1093,7 @@ const HomePage = (() => {
       if (b.link_url) {
         slide.style.cursor = 'pointer';
         slide.addEventListener('click', () => {
-          if (typeof NwAnalytics !== 'undefined') {
+          if (typeof NwAnalytics !== 'undefined' && _isTrackableBanner(b)) {
             NwAnalytics.track('promo.banner_click', {
               surface: 'mobile_web.home.carousel',
               source_app: 'promo',
@@ -1076,7 +1111,7 @@ const HomePage = (() => {
       } else if (b.provider_id && b.provider_id > 0) {
         slide.style.cursor = 'pointer';
         slide.addEventListener('click', () => {
-          if (typeof NwAnalytics !== 'undefined') {
+          if (typeof NwAnalytics !== 'undefined' && _isTrackableBanner(b)) {
             NwAnalytics.track('promo.banner_click', {
               surface: 'mobile_web.home.carousel',
               source_app: 'promo',
@@ -1101,7 +1136,7 @@ const HomePage = (() => {
     });
     _applyResponsiveBannerScales();
     _syncCarouselSlideMedia($carouselTrack.querySelector('.carousel-slide.active'), true);
-    if (typeof NwAnalytics !== 'undefined' && banners[0]) {
+    if (typeof NwAnalytics !== 'undefined' && _isTrackableBanner(banners[0])) {
       NwAnalytics.trackOnce(
         'promo.banner_impression',
         {
@@ -1177,7 +1212,7 @@ const HomePage = (() => {
     }
     if (dots[_carouselIdx]) dots[_carouselIdx].classList.add('active');
     if (restartTimer) _startCarouselAutoRotate();
-    if (typeof NwAnalytics !== 'undefined' && _carouselItems[_carouselIdx]) {
+    if (typeof NwAnalytics !== 'undefined' && _isTrackableBanner(_carouselItems[_carouselIdx])) {
       const banner = _carouselItems[_carouselIdx];
       NwAnalytics.trackOnce(
         'promo.banner_impression',

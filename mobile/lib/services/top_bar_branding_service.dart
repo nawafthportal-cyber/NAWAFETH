@@ -1,4 +1,5 @@
 import 'api_client.dart';
+import 'content_service.dart';
 
 class TopBarSponsorData {
   final String name;
@@ -23,6 +24,7 @@ class TopBarSponsorData {
 class TopBarBrandingService {
   static const Duration _cacheTtl = Duration(minutes: 5);
   static _TopBarSponsorCache? _cache;
+  static _TopBarBrandLogoCache? _brandLogoCache;
 
   static Future<TopBarSponsorData?> fetchActiveSponsor({
     bool forceRefresh = false,
@@ -42,6 +44,24 @@ class TopBarBrandingService {
     final sponsor = _pickFirstSponsor(response.data);
     _cache = _TopBarSponsorCache(sponsor, DateTime.now());
     return sponsor;
+  }
+
+  static Future<String?> fetchBrandLogo({bool forceRefresh = false}) async {
+    final cached = _brandLogoCache;
+    if (!forceRefresh && cached != null && cached.isFresh(_cacheTtl)) {
+      return cached.data;
+    }
+
+    final response = await ContentService.fetchPublicContent(
+      forceRefresh: forceRefresh,
+    );
+    if (!response.isSuccess || response.dataAsMap == null) {
+      return cached?.data;
+    }
+
+    final logoUrl = _parseBrandLogoUrl(response.dataAsMap!);
+    _brandLogoCache = _TopBarBrandLogoCache(logoUrl, DateTime.now());
+    return logoUrl;
   }
 
   static TopBarSponsorData? _pickFirstSponsor(dynamic payload) {
@@ -115,6 +135,19 @@ class TopBarBrandingService {
   static String _clean(Object? value) {
     return value == null ? '' : value.toString().trim();
   }
+
+  static String? _parseBrandLogoUrl(Map<String, dynamic> payload) {
+    final blocks = payload['blocks'];
+    if (blocks is! Map) return null;
+    final rawBlock = blocks['topbar_brand_logo'];
+    if (rawBlock is! Map) return null;
+    final block = Map<String, dynamic>.from(rawBlock);
+    final mediaPath = _clean(block['media_url']);
+    if (mediaPath.isEmpty) return null;
+    final mediaUrl = ApiClient.buildMediaUrl(mediaPath);
+    if ((mediaUrl ?? '').trim().isEmpty) return null;
+    return mediaUrl;
+  }
 }
 
 class _TopBarSponsorCache {
@@ -122,6 +155,17 @@ class _TopBarSponsorCache {
   final DateTime fetchedAt;
 
   const _TopBarSponsorCache(this.data, this.fetchedAt);
+
+  bool isFresh(Duration ttl) {
+    return DateTime.now().difference(fetchedAt) <= ttl;
+  }
+}
+
+class _TopBarBrandLogoCache {
+  final String? data;
+  final DateTime fetchedAt;
+
+  const _TopBarBrandLogoCache(this.data, this.fetchedAt);
 
   bool isFresh(Duration ttl) {
     return DateTime.now().difference(fetchedAt) <= ttl;

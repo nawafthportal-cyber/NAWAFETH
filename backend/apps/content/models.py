@@ -40,6 +40,8 @@ class ContentBlockKey(models.TextChoices):
     HOME_CATEGORIES_TITLE = "home_categories_title", "الرئيسية - عنوان التصنيفات"
     HOME_PROVIDERS_TITLE = "home_providers_title", "الرئيسية - عنوان مزودي الخدمة"
     HOME_BANNERS_TITLE = "home_banners_title", "الرئيسية - عنوان العروض الترويجية"
+    HOME_BANNERS_FALLBACK = "home_banners_fallback", "الرئيسية - البنر الافتراضي"
+    TOPBAR_BRAND_LOGO = "topbar_brand_logo", "الشريط العلوي - شعار المنصة"
     LOGIN_TITLE = "login_title", "الدخول - العنوان"
     LOGIN_DESCRIPTION = "login_description", "الدخول - الوصف"
     LOGIN_PHONE_HINT = "login_phone_hint", "الدخول - تلميح الجوال"

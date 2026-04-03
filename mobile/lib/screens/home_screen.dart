@@ -86,6 +86,13 @@ class _HomeScreenState extends State<HomeScreen> {
     'assets/images/879797.jpeg',
   ];
 
+  List<BannerModel> get _heroBanners {
+    if (_banners.isNotEmpty) return _banners;
+    final fallbackBanner = _content.fallbackBanner;
+    if (fallbackBanner == null) return const <BannerModel>[];
+    return <BannerModel>[fallbackBanner];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -512,6 +519,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openBanner(BannerModel banner) async {
+    if (!_isBannerActionable(banner)) {
+      return;
+    }
     AnalyticsService.trackFireAndForget(
       eventName: 'promo.banner_click',
       surface: 'flutter.home.hero',
@@ -529,6 +539,12 @@ class _HomeScreenState extends State<HomeScreen> {
       providerId: banner.providerId,
       providerName: banner.providerDisplayName,
     );
+  }
+
+  bool _isBannerActionable(BannerModel banner) {
+    final redirect = banner.linkUrl?.trim() ?? '';
+    if (redirect.isNotEmpty) return true;
+    return (banner.providerId ?? 0) > 0;
   }
 
   void _trackBannerImpression(
@@ -830,7 +846,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroBannerBackground() {
-    if (_banners.isEmpty) {
+    final heroBanners = _heroBanners;
+    if (heroBanners.isEmpty) {
       return Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -842,24 +859,45 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    if (heroBanners.length == 1) {
+      final banner = heroBanners.first;
+      final mediaUrl = ApiClient.buildMediaUrl(banner.mediaUrl);
+      final content = _buildAdaptiveHeroBanner(
+        banner: banner,
+        mediaUrl: mediaUrl,
+        isActive: true,
+      );
+      if (!_isBannerActionable(banner)) {
+        return content;
+      }
+      return GestureDetector(
+        onTap: () => _openBanner(banner),
+        child: content,
+      );
+    }
+
     return PageView.builder(
       controller: _bannerPageController,
-      itemCount: _banners.length,
+      itemCount: heroBanners.length,
       onPageChanged: (idx) {
         if (_bannerCurrentPage == idx) return;
         setState(() => _bannerCurrentPage = idx);
         _scheduleNextBannerAutoRotate();
       },
       itemBuilder: (context, index) {
-        final banner = _banners[index];
+        final banner = heroBanners[index];
         final mediaUrl = ApiClient.buildMediaUrl(banner.mediaUrl);
+        final content = _buildAdaptiveHeroBanner(
+          banner: banner,
+          mediaUrl: mediaUrl,
+          isActive: index == _bannerCurrentPage,
+        );
+        if (!_isBannerActionable(banner)) {
+          return content;
+        }
         return GestureDetector(
           onTap: () => _openBanner(banner),
-          child: _buildAdaptiveHeroBanner(
-            banner: banner,
-            mediaUrl: mediaUrl,
-            isActive: index == _bannerCurrentPage,
-          ),
+          child: content,
         );
       },
     );
@@ -2013,11 +2051,13 @@ class HomeScreenContent {
   final String categoriesTitle;
   final String providersTitle;
   final String bannersTitle;
+  final BannerModel? fallbackBanner;
 
   const HomeScreenContent({
     required this.categoriesTitle,
     required this.providersTitle,
     required this.bannersTitle,
+    required this.fallbackBanner,
   });
 
   factory HomeScreenContent.empty() {
@@ -2025,6 +2065,7 @@ class HomeScreenContent {
       categoriesTitle: '...',
       providersTitle: 'أبرز المختصين',
       bannersTitle: '...',
+      fallbackBanner: null,
     );
   }
 
@@ -2036,10 +2077,26 @@ class HomeScreenContent {
       return title.isNotEmpty ? title : fallback;
     }
 
+    BannerModel? resolveFallbackBanner(String key) {
+      final rawBlock = blocks[key];
+      if (rawBlock is! Map) return null;
+      final block = Map<String, dynamic>.from(rawBlock);
+      final mediaUrl = (block['media_url'] as String?)?.trim() ?? '';
+      if (mediaUrl.isEmpty) return null;
+      return BannerModel.fromJson({
+        'id': 0,
+        'title': (block['title_ar'] as String?)?.trim(),
+        'media_type': (block['media_type'] as String?)?.trim() ?? 'image',
+        'media_url': mediaUrl,
+        'display_order': 0,
+      });
+    }
+
     return HomeScreenContent(
       categoriesTitle: resolve('home_categories_title', 'التصنيفات'),
       providersTitle: resolve('home_providers_title', 'أبرز المختصين'),
       bannersTitle: resolve('home_banners_title', 'عروض ترويجية'),
+      fallbackBanner: resolveFallbackBanner('home_banners_fallback'),
     );
   }
 }

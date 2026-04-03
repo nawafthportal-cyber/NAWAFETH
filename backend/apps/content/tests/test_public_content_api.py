@@ -101,6 +101,8 @@ def test_public_content_api_includes_home_content_blocks():
 
     assert res.status_code == 200
     assert "home_categories_title" in res.data["blocks"]
+    assert "home_banners_fallback" in res.data["blocks"]
+    assert "topbar_brand_logo" in res.data["blocks"]
     assert "home_hero_title" not in res.data["blocks"]
     assert "home_search_placeholder" not in res.data["blocks"]
 

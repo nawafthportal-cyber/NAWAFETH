@@ -1566,6 +1566,47 @@ def test_public_active_promos_returns_item_based_featured_placements(api, user):
     assert any(row.get("item_id") == item.id for row in legacy_r.data)
 
 
+def test_public_active_promos_sponsorship_filter_excludes_parent_bundle_and_expired_item(api, user):
+    now = timezone.now()
+    parent = PromoRequest.objects.create(
+        requester=user,
+        title="bundle with expired sponsorship",
+        ad_type=PromoAdType.BUNDLE,
+        start_at=now - timedelta(days=2),
+        end_at=now + timedelta(days=2),
+        frequency=PromoFrequency.S60,
+        position=PromoPosition.NORMAL,
+        status=PromoRequestStatus.ACTIVE,
+        activated_at=now - timedelta(days=1),
+    )
+    expired_item = PromoRequestItem.objects.create(
+        request=parent,
+        service_type=PromoServiceType.SPONSORSHIP,
+        title="expired sponsor",
+        start_at=now - timedelta(days=4),
+        end_at=now - timedelta(days=1),
+        sponsor_name="راعي منتهي",
+        sponsorship_months=1,
+    )
+    PromoAsset.objects.create(
+        request=parent,
+        item=expired_item,
+        asset_type="image",
+        title="expired sponsor asset",
+        file=SimpleUploadedFile(
+            "sponsor.png",
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89",
+            content_type="image/png",
+        ),
+        uploaded_by=user,
+    )
+
+    response = api.get("/api/promo/active/?service_type=sponsorship&limit=10")
+
+    assert response.status_code == 200
+    assert response.data == []
+
+
 def test_public_active_bundle_item_queryset_excludes_message_delivery_columns():
     from apps.promo.views import _public_active_bundle_item_queryset
 
