@@ -16,6 +16,7 @@ urlpatterns = [
     path("support/<int:ticket_id>/", views.support_dashboard, name="support_ticket_detail"),
     path("promo/", views.promo_dashboard, name="promo_dashboard"),
     path("promo/<int:request_id>/", views.promo_dashboard, name="promo_request_detail"),
+    path("verification/", views.verification_dashboard, name="verification_dashboard"),
     path("promo/modules/<slug:module_key>/", views.promo_module, name="promo_module"),
     path(
         "promo/modules/<slug:module_key>/preview-context/",

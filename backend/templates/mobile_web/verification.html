@@ -1,86 +1,281 @@
-{% extends "mobile_web/base.html" %}{% load static %}
+{% extends "mobile_web/base.html" %}
+{% load static %}
 {% block title %}التوثيق — نوافــذ{% endblock %}
 {% block body_class %}page-verification{% endblock %}
 
 {% block content %}
-<main class="page-shell">
-  <div id="auth-gate" class="auth-gate" style="display:none">
-    <div class="auth-gate-inner">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      <h2>تسجيل الدخول مطلوب</h2>
-      <a href="/login/?next=/verification/" class="btn btn-primary">تسجيل الدخول</a>
+<main class="page-shell verification-page-shell">
+  <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+    <div class="auth-gate-inner auth-gate-unified-card">
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="#5FA8E8"></path>
+          <path d="M10 15.2 6.7 11.9 5.3 13.3 10 18l8.7-8.7-1.4-1.4z" fill="#FFFFFF"></path>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لطلب التوثيق</h2>
+      <p class="auth-gate-unified-desc">يمكن لمزودي الخدمة فقط استكمال طلبات الشارة الزرقاء أو الخضراء</p>
+      <a href="/login/?next=/verification/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
   </div>
 
-  <div id="verify-content" style="display:none">
-    <div class="page-header">
-      <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-      <h1>التوثيق</h1>
-    </div>
+  <div id="verify-content" class="verification-page hidden">
+    <header class="verify-page-hero">
+      <div class="verify-page-topline">
+        <button type="button" class="verify-back-btn" id="verifyBackBtn" aria-label="رجوع">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <span class="verify-section-pill">
+          <span class="verify-section-pill-icon" aria-hidden="true">✓</span>
+          <span>توثيق</span>
+        </span>
+      </div>
 
-    <!-- Step Indicator -->
-    <div class="wizard-steps" id="verify-steps">
-      <div class="wizard-step active" data-step="1"><span>1</span><small>نوع الشارة</small></div>
-      <div class="wizard-step" data-step="2"><span>2</span><small>المتطلبات</small></div>
-      <div class="wizard-step" data-step="3"><span>3</span><small>المراجعة</small></div>
-    </div>
-
-    <!-- Step 1: Badge Type -->
-    <section id="verify-step1" class="verify-step">
-      <h2>اختر نوع شارة التوثيق</h2>
-      <div class="badge-options">
-        <div class="badge-option" data-type="blue">
-          <div class="badge-icon" style="background:#2196F3">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-          </div>
-          <h3>الشارة الزرقاء</h3>
-          <p>للأفراد والمنشآت — هوية وطنية أو سجل تجاري</p>
+      <div class="verify-page-heading">
+        <div class="verify-page-copy">
+          <p class="verify-page-kicker">مزود الخدمة / نافذتي / التوثيق</p>
+          <h1>الصفحة التفصيلية لخيارات التوثيق</h1>
+          <p class="verify-page-subtitle">
+            اختر نوع الشارة، أكمل بيانات التحقق الرسمية، ثم انتقل إلى ملخص طلب التوثيق والتكلفة.
+          </p>
         </div>
-        <div class="badge-option" data-type="green">
-          <div class="badge-icon" style="background:#4CAF50">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="white"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
-          </div>
-          <h3>الشارة الخضراء</h3>
-          <p>للمتخصصين — شهادات مهنية ومؤهلات</p>
+
+        <div class="verify-provider-chip">
+          <span class="verify-provider-chip-label">اسم المختص</span>
+          <strong id="verify-provider-name">...</strong>
+          <span id="verify-provider-handle">@...</span>
         </div>
       </div>
+    </header>
+
+    <section class="verify-badge-tabs" aria-label="أنواع الشارات">
+      <button type="button" class="verify-badge-tab is-active" id="verifyBadgeBlueTab" data-badge-type="blue">
+        <span class="verify-badge-tab-icon is-blue" aria-hidden="true">✓</span>
+        <span class="verify-badge-tab-text">
+          <strong>الشارة الزرقاء</strong>
+          <small>الهوية الشخصية أو الصفة التجارية</small>
+        </span>
+      </button>
+      <button type="button" class="verify-badge-tab" id="verifyBadgeGreenTab" data-badge-type="green">
+        <span class="verify-badge-tab-icon is-green" aria-hidden="true">✓</span>
+        <span class="verify-badge-tab-text">
+          <strong>الشارة الخضراء</strong>
+          <small>الاعتمادات والرخص والخبرة والشهادات</small>
+        </span>
+      </button>
     </section>
 
-    <!-- Step 2: Requirements -->
-    <section id="verify-step2" class="verify-step" style="display:none">
-      <h2 id="verify-step2-title">المتطلبات</h2>
-      <div id="verify-requirements"></div>
-      <div class="form-group">
-        <label>رفع المستندات</label>
-        <input type="file" id="verify-files" class="form-input" multiple accept="image/*,.pdf">
-        <div id="verify-file-list" class="file-chips"></div>
+    <section class="verify-detail-board" id="verifyDetailBoard">
+      <div class="verify-panel is-active" id="verifyBluePanel">
+        <div class="verify-panel-header">
+          <div>
+            <h2>تفاصيل طلب الشارة الزرقاء</h2>
+            <p>
+              التوثيق اللحظي بهوية وطنية أو إقامة أو سجل تجاري صادر من المملكة العربية السعودية.
+            </p>
+          </div>
+          <div class="verify-inline-note">يمكنك رفع أكثر من ملف ضمن المرفقات الرسمية.</div>
+        </div>
+
+        <div class="verify-blue-layout">
+          <article class="verify-lookup-card" data-subject-type="individual">
+            <div class="verify-card-head">
+              <label class="verify-subject-choice">
+                <input type="radio" name="verify-blue-subject" value="individual" checked>
+                <span>فرد</span>
+              </label>
+              <p>توثيق الشارة الزرقاء للهوية الشخصية.</p>
+            </div>
+
+            <div class="verify-form-stack">
+              <label class="form-label" for="blueIndividualNumber">رقم الهوية / الإقامة</label>
+              <input id="blueIndividualNumber" class="form-input" type="text" inputmode="numeric" placeholder="أدخل الرقم">
+
+              <label class="form-label" for="blueIndividualDate">تاريخ الميلاد</label>
+              <input id="blueIndividualDate" class="form-input" type="date">
+            </div>
+
+            <div class="verify-inline-actions">
+              <button type="button" class="btn btn-outline" id="blueIndividualResetBtn">إلغاء</button>
+              <button type="button" class="btn btn-primary" id="blueIndividualPreviewBtn">استمرار</button>
+            </div>
+
+            <div class="verify-preview-card hidden" id="blueIndividualResult">
+              <div class="verify-preview-chip">من خدمات علم</div>
+              <div class="verify-preview-field">
+                <span>اسم العميل</span>
+                <strong id="blueIndividualResultValue">-</strong>
+              </div>
+              <div class="verify-inline-actions">
+                <button type="button" class="btn btn-outline" id="blueIndividualRejectBtn">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="blueIndividualApproveBtn">اعتماد</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="verify-lookup-card" data-subject-type="business">
+            <div class="verify-card-head">
+              <label class="verify-subject-choice">
+                <input type="radio" name="verify-blue-subject" value="business">
+                <span>منشأة</span>
+              </label>
+              <p>توثيق الشارة الزرقاء للصفة التجارية.</p>
+            </div>
+
+            <div class="verify-form-stack">
+              <label class="form-label" for="blueBusinessNumber">رقم السجل التجاري</label>
+              <input id="blueBusinessNumber" class="form-input" type="text" inputmode="numeric" placeholder="أدخل الرقم">
+
+              <label class="form-label" for="blueBusinessDate">تاريخه</label>
+              <input id="blueBusinessDate" class="form-input" type="date">
+            </div>
+
+            <div class="verify-inline-actions">
+              <button type="button" class="btn btn-outline" id="blueBusinessResetBtn">إلغاء</button>
+              <button type="button" class="btn btn-primary" id="blueBusinessPreviewBtn">استمرار</button>
+            </div>
+
+            <div class="verify-preview-card hidden" id="blueBusinessResult">
+              <div class="verify-preview-chip">من خدمات علم</div>
+              <div class="verify-preview-field">
+                <span>اسم المنشأة</span>
+                <strong id="blueBusinessResultValue">-</strong>
+              </div>
+              <div class="verify-inline-actions">
+                <button type="button" class="btn btn-outline" id="blueBusinessRejectBtn">إلغاء</button>
+                <button type="button" class="btn btn-primary" id="blueBusinessApproveBtn">اعتماد</button>
+              </div>
+            </div>
+          </article>
+
+          <aside class="verify-attachments-card">
+            <div class="verify-card-head">
+              <label class="verify-check-row">
+                <input type="checkbox" id="blueExtraDocsToggle">
+                <span>توثيق أوراق رسمية أخرى</span>
+              </label>
+              <p>
+                نرجو إرفاق مستندات إثبات الصفة الشخصية أو التجارية المراد التحقق منها بحيث يكون المستند واضحًا وتاريخه ساريًا.
+              </p>
+            </div>
+
+            <div class="verify-attachments-body" id="blueAttachmentsBody">
+              <label class="form-label" for="blueAttachmentsInput">المرفقات</label>
+              <input id="blueAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
+              <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
+              <div class="verify-file-list" id="blueFileList"></div>
+              <div class="verify-files-feedback" id="blueFilesFeedback"></div>
+            </div>
+
+            <div class="verify-inline-actions">
+              <button type="button" class="btn btn-outline" id="blueFilesClearBtn">إلغاء</button>
+              <button type="button" class="btn btn-primary" id="blueFilesApplyBtn">تقديم</button>
+            </div>
+          </aside>
+        </div>
       </div>
-      <div class="wizard-nav">
-        <button class="btn btn-outline" id="verify-back1">السابق</button>
-        <button class="btn btn-primary" id="verify-next2">التالي</button>
+
+      <div class="verify-panel" id="verifyGreenPanel">
+        <div class="verify-panel-header">
+          <div>
+            <h2>تفاصيل طلب الشارة الخضراء</h2>
+            <p>اختر البنود المهنية المطلوب اعتمادها، ثم أرفق المستندات الداعمة المشتركة للطلب.</p>
+          </div>
+          <div class="verify-inline-note">يمكنك اختيار أكثر من بند ورفع أكثر من ملف.</div>
+        </div>
+
+        <div class="verify-green-layout">
+          <section class="verify-green-list-card">
+            <div class="verify-card-head">
+              <p>حدد البنود التي تريد تضمينها ضمن طلب الشارة الخضراء.</p>
+            </div>
+            <div class="verify-green-list" id="verifyGreenRequirements"></div>
+          </section>
+
+          <aside class="verify-attachments-card verify-green-attachments-card">
+            <div class="verify-card-head">
+              <strong>المرفقات</strong>
+              <p>
+                نرجو إرفاق المستندات الداعمة بحيث يكون المستند واضحًا وتاريخه ساريًا، ويمكن رفع أكثر من ملف.
+              </p>
+            </div>
+
+            <div class="verify-attachments-body" id="greenAttachmentsBody">
+              <label class="form-label" for="greenAttachmentsInput">المرفقات</label>
+              <input id="greenAttachmentsInput" class="form-input" type="file" multiple accept="image/*,.pdf">
+              <div class="verify-upload-hint">يمكن رفع أكثر من ملف.</div>
+              <div class="verify-file-list" id="greenFileList"></div>
+              <div class="verify-files-feedback" id="greenFilesFeedback"></div>
+            </div>
+
+            <div class="verify-inline-actions">
+              <button type="button" class="btn btn-outline" id="greenFilesClearBtn">إلغاء</button>
+              <button type="button" class="btn btn-primary" id="greenFilesApplyBtn">تقديم</button>
+            </div>
+          </aside>
+        </div>
       </div>
     </section>
 
-    <!-- Step 3: Review -->
-    <section id="verify-step3" class="verify-step" style="display:none">
-      <h2>مراجعة الطلب والرسوم</h2>
-      <div class="payment-summary" id="verify-summary"></div>
-      <div class="form-group">
-        <div class="req-item" id="verify-pricing-note">سيتم تحميل الرسوم الحالية حسب باقتك.</div>
+    <section class="verify-pricing-strip hidden" id="verifyPricingStrip">
+      <div class="verify-pricing-head">
+        <div>
+          <h2>الأسعار</h2>
+          <p id="verifyCurrentPlanNote">الأسعار التالية مرتبطة بالباقات الفعالة لمزودي الخدمة.</p>
+        </div>
       </div>
-      <div class="wizard-nav">
-        <button class="btn btn-outline" id="verify-back2">السابق</button>
-        <button class="btn btn-primary" id="verify-submit">إرسال الطلب</button>
+      <div class="verify-plan-grid" id="verifyPlansGrid"></div>
+    </section>
+
+    <div class="verify-page-actions" id="verifyDetailActions">
+      <button type="button" class="btn btn-outline" id="verifyDetailCancelBtn">إلغاء</button>
+      <button type="button" class="btn btn-primary" id="verifyToSummaryBtn">استمرار</button>
+    </div>
+
+    <section class="verify-summary-step hidden" id="verifySummaryStep">
+      <div class="verify-summary-card verify-summary-shell">
+        <div class="verify-summary-title-bar">ملخص طلب التوثيق</div>
+
+        <div class="verify-summary-provider-row">
+          <span class="verify-summary-provider-label">اسم المختص</span>
+          <span class="verify-summary-provider-value" id="verifySummaryProviderHandle">@...</span>
+        </div>
+
+        <p class="verify-summary-caption">عرض البنود التي تم اختيارها من الصفحة السابقة</p>
+
+        <div class="verify-summary-table-wrap">
+          <table class="verify-summary-table">
+            <thead>
+              <tr>
+                <th>البند</th>
+              </tr>
+            </thead>
+            <tbody id="verifySummaryRows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="verify-page-actions verify-summary-actions">
+        <button type="button" class="btn btn-outline" id="verifySummaryCancelBtn">إلغاء</button>
+        <button type="button" class="btn btn-primary" id="verifySubmitBtn">استمرار</button>
       </div>
     </section>
 
-    <!-- Success -->
-    <section id="verify-success" class="verify-step" style="display:none">
-      <div class="success-card">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="#4CAF50"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
-        <h2>تم إرسال طلب التوثيق</h2>
-        <p id="verify-success-note">سيتم مراجعة مستنداتك ثم إشعارك بحالة الطلب والرسوم إن وجدت.</p>
-        <a href="/provider-dashboard/" class="btn btn-primary">العودة للوحة التحكم</a>
+    <section class="verify-success-card hidden" id="verifySuccessStep">
+      <div class="verify-success-dialog">
+        <div class="verify-success-request-bar">
+          <span>رقم الطلب:</span>
+          <strong id="verifySuccessRequestCode">AD0001</strong>
+        </div>
+        <div class="verify-success-message-box">
+          <strong>تم استلام الطلب</strong>
+          <p id="verifySuccessNote">سيتم التواصل معكم بعد عملية التدقيق المعتمدة من منصة المختص.</p>
+        </div>
+        <div class="verify-page-actions verify-success-actions">
+          <button type="button" class="btn btn-primary" id="verifySuccessCloseBtn">إغلاق</button>
+        </div>
       </div>
     </section>
   </div>

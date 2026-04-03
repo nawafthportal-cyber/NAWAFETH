@@ -1,214 +1,260 @@
-# NAWAFETH
+# نوافذ — NAWAFETH
 
+[![Backend Tests](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/backend-critical-tests.yml/badge.svg)](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/backend-critical-tests.yml)
 [![Mobile Flutter Tests](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/mobile-flutter-tests.yml/badge.svg)](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/mobile-flutter-tests.yml)
+[![Docker Build](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/docker.yml/badge.svg)](https://github.com/nawafthportal-cyber/NAWAFETH/actions/workflows/docker.yml)
 
-NAWAFETH is a monorepo that contains:
-- `backend/`: Django + DRF + Channels (WebSockets) + Celery-ready settings.
-- `mobile/`: Flutter client app.
+منصة سوق خدمات عربية شاملة تربط العملاء بمقدمي الخدمات. تتضمن تطبيق موبايل (Flutter)، واجهة ويب (Django templates)، ولوحة تحكم إدارية.
 
-## Project Structure
+**الدومين:** nawafthportal.com
 
-- `backend/`: API, dashboard, mobile-web pages, auth, business modules.
-- `mobile/`: Flutter application and platform targets.
-- `render.yaml`: Render Blueprint for backend service + Redis + Postgres.
-- `.github/workflows/`: CI for backend critical suites and Flutter tests.
+---
 
-## Tech Stack
+## هيكل المشروع
 
-- Backend: Django, Django REST Framework, Channels, WhiteNoise, Gunicorn/Uvicorn worker.
-- Mobile: Flutter (Dart 3), HTTP client based integration with backend APIs.
-- Data: SQLite (local default) or PostgreSQL via `DATABASE_URL`.
-- Realtime/cache: Redis (`REDIS_URL`) in production, in-memory fallback locally.
+```
+nawafeth/
+├── backend/          # Django API + لوحة التحكم + صفحات الويب
+│   ├── apps/         # 25 تطبيق Django
+│   ├── config/       # إعدادات المشروع (base, dev, prod)
+│   ├── scripts/      # سكربتات النشر والبناء
+│   ├── static/       # ملفات CSS/JS
+│   └── templates/    # قوالب HTML
+├── mobile/           # تطبيق Flutter
+│   ├── lib/screens/  # 34 شاشة
+│   ├── lib/services/ # 26 خدمة API
+│   └── lib/widgets/  # مكونات UI
+├── nginx/            # إعدادات Nginx reverse proxy
+├── docker-compose.yml
+└── render.yaml       # إعداد النشر على Render
+```
 
-## Prerequisites
+## التقنيات
 
-- Python 3.12 recommended (matches CI).
-- Flutter stable channel.
-- PowerShell (Windows) or Bash (Linux/macOS) for scripts.
-- Optional locally: Redis and PostgreSQL.
+| الطبقة | التقنية |
+|--------|---------|
+| Backend | Django 5.1, Django REST Framework, Channels (WebSocket) |
+| المهام الخلفية | Celery + Celery Beat + Redis broker |
+| قاعدة البيانات | PostgreSQL (إنتاج) / SQLite (تطوير) |
+| التخزين المؤقت | Redis |
+| تخزين الملفات | Cloudflare R2 (S3) / مجلد محلي |
+| السيرفر | Gunicorn + Uvicorn ASGI worker |
+| الملفات الثابتة | WhiteNoise + Brotli |
+| الموبايل | Flutter (Dart 3) |
+| البنية التحتية | Docker Compose (6 خدمات) / Render Blueprint |
 
-## Local Setup (Backend)
+## تطبيقات Backend (25 تطبيق)
 
-### 1) Create virtual environment (repo root)
+| الفئة | التطبيقات | الوصف |
+|-------|----------|-------|
+| الهوية والمصادقة | `accounts`, `verification`, `core` | تسجيل، OTP، JWT، بصمة حيوية |
+| السوق | `providers`, `marketplace`, `reviews` | مقدمو خدمات، طلبات، تقييمات |
+| التواصل | `messaging`, `notifications`, `support` | محادثات فورية، إشعارات، تذاكر دعم |
+| التجارة | `billing`, `subscriptions`, `extras` | فوترة، اشتراكات، إضافات |
+| المحتوى | `promo`, `content`, `excellence` | عروض ترويجية، جوائز تميز |
+| الإدارة | `dashboard`, `backoffice`, `moderation`, `audit` | لوحة تحكم RBAC، إشراف، سجل مراجعة |
+| التحليل | `analytics`, `features` | تتبع أحداث، أعلام ميزات، KPIs |
+| متخصص | `mobile_web`, `unified_requests`, `extras_portal`, `uploads` | صفحات ويب، بوابة شركاء |
 
-Windows PowerShell:
+## نقاط API الرئيسية
+
+```
+/healthz/                    # فحص الحياة
+/health/live/  /health/ready/ # فحوصات Kubernetes
+/admin-panel/                # لوحة Django الإدارية
+/dashboard/                  # لوحة التحكم
+
+/api/accounts/       # المصادقة والملفات الشخصية
+/api/providers/      # مقدمو الخدمات
+/api/marketplace/    # طلبات السوق والمطابقة
+/api/messaging/      # المحادثات + WebSocket
+/api/notifications/  # الإشعارات
+/api/reviews/        # التقييمات
+/api/subscriptions/  # إدارة الاشتراكات
+/api/billing/        # الفواتير والمدفوعات
+/api/verification/   # التحقق من الهوية
+/api/promo/          # الحملات الترويجية
+/api/extras/         # الخدمات الإضافية
+/api/excellence/     # نظام الجوائز
+/api/analytics/      # تتبع الأحداث
+/api/moderation/     # إشراف المحتوى
+/api/support/        # تذاكر الدعم
+/api/features/       # أعلام الميزات
+
+/mobile-web/         # صفحات الويب المتجاوبة
+/portal/extras/      # بوابة الشركاء
+```
+
+## المتطلبات
+
+- Python 3.12+
+- Flutter stable channel
+- PowerShell (Windows) أو Bash (Linux/macOS)
+- اختياري محلياً: Redis + PostgreSQL
+
+---
+
+## ⚙️ الإعداد المحلي
+
+### Backend
 
 ```powershell
+# 1) البيئة الافتراضية
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
 
-### 2) Install dependencies
-
-```powershell
+# 2) التبعيات
 cd backend
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt -r requirements/dev.txt
-```
+pip install --upgrade pip
+pip install -r requirements.txt -r requirements/dev.txt
 
-`requirements.txt` points to production requirements, while `requirements/dev.txt` adds test/lint tools.
+# 3) ملف الإعدادات — انسخ من المثال
+cp env.example .env
+# عدّل القيم حسب الحاجة
 
-### 3) Configure environment
-
-Create `backend/.env` from `backend/env.example` and adjust values.
-
-Minimal local example:
-
-```env
-DJANGO_ENV=dev
-DJANGO_DEBUG=1
-DJANGO_SECRET_KEY=dev-secret-key-change-me
-DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,10.0.2.2
-```
-
-Database behavior:
-- If `DATABASE_URL` is empty: SQLite at `backend/db.sqlite3`.
-- If `DATABASE_URL` is set: PostgreSQL connection is used.
-
-Channels/cache behavior:
-- If `REDIS_URL` is empty: in-memory channel layer + local memory cache.
-- If `REDIS_URL` is set: Redis channel layer + Redis cache.
-
-### 4) Run migrations and start server
-
-```powershell
+# 4) قاعدة البيانات والتشغيل
 python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-Or use helper script from repo root:
-
+أو استخدم السكربت الجاهز:
 ```powershell
 backend\runserver_local.ps1
 ```
 
-## Health and Core URLs
+#### إعدادات البيئة
 
-- Liveness: `/healthz/`
-- Health details: `/health/`
-- Live/ready checks: `/health/live/`, `/health/ready/`
-- Django admin: `/admin-panel/`
-- Dashboard namespace: `/dashboard/`
-- API namespaces include `/api/accounts/`, `/api/providers/`, `/api/marketplace/`, `/api/messaging/`, and others.
+| المتغير | القيمة الافتراضية | الوصف |
+|---------|------------------|-------|
+| `DJANGO_ENV` | `dev` | `dev` أو `prod` |
+| `DJANGO_DEBUG` | `1` | تفعيل وضع التطوير |
+| `DJANGO_SECRET_KEY` | — | مفتاح سري (مطلوب) |
+| `DATABASE_URL` | فارغ = SQLite | رابط PostgreSQL |
+| `REDIS_URL` | فارغ = ذاكرة محلية | رابط Redis |
 
-## Mobile Setup (Flutter)
-
-### 1) Install packages
+### Mobile (Flutter)
 
 ```powershell
 cd mobile
 flutter pub get
-```
 
-### 2) Run app against backend
-
-Use `--dart-define` values from `mobile/lib/config/app_env.dart`:
-
-- Local backend:
-
-```bash
+# تشغيل مع الباك اند المحلي
 flutter run --dart-define=API_TARGET=local
-```
 
-- Render backend:
-
-```bash
+# تشغيل مع سيرفر Render
 flutter run --dart-define=API_TARGET=render
-```
 
-- Explicit custom URL (requires `API_TARGET=auto`):
-
-```bash
+# رابط مخصص
 flutter run --dart-define=API_TARGET=auto --dart-define=API_BASE_URL=https://example.com
-```
 
-- Override local target URL directly:
-
-```bash
+# تعديل رابط الباك اند المحلي (مثلاً للشبكة المحلية)
 flutter run --dart-define=API_TARGET=local --dart-define=API_LOCAL_BASE_URL=http://192.168.1.10:8000
 ```
 
-Default behavior note:
-- `API_TARGET` defaults to `render` in code.
+> `API_TARGET` يكون `render` افتراضياً.
 
-## Testing
+---
+
+## 🐳 Docker Compose
+
+يتضمن 6 خدمات:
+
+| الخدمة | الصورة | الوصف |
+|--------|--------|-------|
+| `db` | PostgreSQL 16 | قاعدة بيانات رئيسية |
+| `redis` | Redis 7 | Cache + Broker + Channels |
+| `web` | Django + Gunicorn | سيرفر التطبيق (3 workers) |
+| `celery_worker` | Celery | معالجة المهام الخلفية |
+| `celery_beat` | Celery Beat | جدولة المهام |
+| `nginx` | Nginx 1.27 | Reverse proxy + ملفات ثابتة |
+
+```powershell
+docker-compose up -d
+```
+
+## ⏰ المهام المجدولة (Celery Beat)
+
+| المهمة | التكرار | الوظيفة |
+|--------|---------|---------|
+| marketplace-dispatch-ready | كل دقيقة | مطابقة وإرسال الطلبات العاجلة |
+| verification-expire-badges | كل ساعة | تنظيف شارات التحقق المنتهية |
+| promo-auto-complete | كل ساعة | إنهاء الحملات المنتهية |
+| subscription-renewal-reminders | كل 6 ساعات | تذكيرات تجديد الاشتراك |
+| excellence-generate-candidates | كل 12 ساعة | ترشيح المرشحين للجوائز |
+| excellence-rebuild-all-cache | يومياً 3:15 ص | تحديث كاش الجوائز |
+| analytics-rebuild-daily-stats | يومياً 2:20 ص | إعادة بناء إحصائيات KPI |
+
+---
+
+## 🧪 الاختبارات
 
 ### Backend
 
-From `backend/`:
-
 ```powershell
-python manage.py check
-python manage.py makemigrations --check --dry-run
-pytest -q
+cd backend
+python manage.py check                        # فحص النظام
+python manage.py makemigrations --check --dry-run  # فحص الهجرات
+pytest -q                                      # تشغيل الاختبارات
 ```
-
-CI also runs a critical regression subset (analytics, moderation, dashboard, notifications, messaging, support, promo, subscriptions, extras).
 
 ### Mobile
 
-From `mobile/`:
-
-```bash
+```powershell
+cd mobile
 flutter test
 ```
 
-CI includes full Flutter tests and `test/badge_heuristics_guard_test.dart`.
+## 🚀 النشر على Render
 
-## Deployment on Render
+ملف `render.yaml` يحدد:
+- **Web service:** `nawafeth-backend` (Python)
+- **Redis:** `nawafeth-redis` (key-value)
+- **PostgreSQL:** `nawafeth-db`
 
-Render Blueprint is defined in `render.yaml` with:
-- Web service `nawafeth-backend` (`rootDir: backend`).
-- Managed Redis key-value service (`nawafeth-redis`).
-- Managed PostgreSQL database (`nawafeth-db`).
+خطوات النشر التلقائية:
+1. **Build:** `bash scripts/render_build.sh`
+2. **Pre-deploy:** migrations + collectstatic + smoke tests
+3. **Start:** `bash scripts/render_start.sh`
 
-Build/start pipeline:
-- Build: `bash scripts/render_build.sh`
-- Pre-deploy: migrations + collectstatic + startup smoke check
-- Start: `bash scripts/render_start.sh`
+### Feature Flags (إنتاج)
 
-Required environment variables:
-- `DJANGO_SECRET_KEY`
-- `DATABASE_URL`
-- `REDIS_URL`
+| العلم | القيمة | الوصف |
+|-------|--------|-------|
+| `FEATURE_MODERATION_CENTER` | `1` | مركز الإشراف |
+| `FEATURE_ANALYTICS_EVENTS` | `1` | تتبع الأحداث |
+| `FEATURE_ANALYTICS_KPI_SURFACES` | `1` | لوحات KPI |
+| `PROMO_HOME_BANNER_VIDEO_AUTOFIT` | `1` | قص تلقائي لفيديوهات البانر (1920×840) |
+| `INSTALL_FFMPEG_ON_BUILD` | `1` | تثبيت ffmpeg أثناء البناء |
 
-Important production defaults:
-- `DJANGO_ENV=prod`
-- `DJANGO_DEBUG=0`
-- HTTPS/security headers and CORS/CSRF constraints are enforced in prod settings.
+## 📁 الملفات الثابتة والوسائط
 
-Promo home banner video autofit (production):
-- `PROMO_HOME_BANNER_VIDEO_AUTOFIT=1` enables automatic server-side fitting of uploaded home-banner videos to `1920x840`.
-- `INSTALL_FFMPEG_ON_BUILD=1` lets `backend/scripts/render_build.sh` attempt installing `ffmpeg` during build.
-- `REQUIRE_FFMPEG=1` fails the build when autofit is enabled but `ffmpeg` is unavailable.
+- الملفات الثابتة تُجمع في `backend/staticfiles` وتُقدم عبر WhiteNoise + Brotli.
+- الوسائط المحلية في `backend/media/`.
+- تخزين سحابي اختياري عبر R2/S3 (`USE_R2_MEDIA=1`).
 
-## Static and Media Files
+## 🔐 المصادقة
 
-- Static assets are collected to `backend/staticfiles` and served with WhiteNoise.
-- Local media default path is `backend/media`.
-- On Render, local filesystem is ephemeral unless a persistent disk is configured.
-- Optional object storage is supported via R2/S3-compatible environment variables (`USE_R2_MEDIA=1` and related keys in `backend/env.example`).
+1. تسجيل المستخدم → إرسال OTP عبر SMS
+2. تحقق OTP → إصدار JWT (60 دقيقة access, 30 يوم refresh)
+3. خيار بصمة حيوية (fingerprint/face)
 
-## Common Operational Notes
+| الوضع | سلوك OTP |
+|-------|----------|
+| `dev` | قبول أي رمز من 4 أرقام |
+| `prod` | تحقق صارم فقط |
 
-- Settings module auto-selects by `DJANGO_ENV`:
-	- `dev` -> `config.settings.dev`
-	- `prod` -> `config.settings.prod`
-- OTP dev bypass is enabled only in dev settings and explicitly disabled in prod.
-- If static/media behavior is inconsistent in a deploy, verify the corresponding env flags in `render.yaml` and `backend/config/settings/prod.py`.
+## CI/CD
 
-## CI Workflows
+| Workflow | الملف | الوظيفة |
+|----------|-------|---------|
+| Backend Tests | `backend-critical-tests.yml` | اختبارات Python 3.12 + pytest |
+| Mobile Tests | `mobile-flutter-tests.yml` | اختبارات Flutter + badge guard |
+| Docker Build | `docker.yml` | بناء وتحقق Docker Compose |
 
-- Backend critical checks: `.github/workflows/backend-critical-tests.yml`
-- Mobile Flutter tests: `.github/workflows/mobile-flutter-tests.yml`
+---
 
-## Cleanup Guidance (Important)
+## ملاحظات تشغيلية
 
-Do not commit generated/runtime artifacts such as virtualenvs, local DB files, build outputs, and temporary browser profiles.
-
-Examples to keep out of version control:
-- `.venv/`, `backend/.venv/`
-- `backend/db.sqlite3`
-- `backend/staticfiles/`
-- `mobile/build/`
-- temporary debug/output files and browser profile dumps
+- الإعدادات تُحدد تلقائياً حسب `DJANGO_ENV`: `dev` → `config.settings.dev`, `prod` → `config.settings.prod`
+- في الإنتاج: HTTPS إجباري، HSTS، رؤوس أمان، CORS/CSRF مقيدة
+- تجاوز OTP في التطوير فقط — معطل تماماً في الإنتاج

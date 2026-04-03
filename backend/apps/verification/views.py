@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone as dt_timezone
+
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -12,16 +14,23 @@ from django.utils import timezone
 
 from apps.backoffice.policies import VerificationFinalizePolicy
 from apps.billing.models import InvoiceLineItem
-from apps.dashboard.access import dashboard_assignee_user
+from apps.dashboard.access import active_access_profile_for_user, dashboard_assignee_user
+from apps.support.models import SupportTicket, SupportTicketEntrypoint, SupportTicketType
 
 from .models import (
+    VerifiedBadge,
+    VerificationBadgeType,
     VerificationRequest,
     VerificationDocument,
+    VerificationInquiryProfile,
     VerificationStatus,
     VerificationRequirement,
     VerificationRequirementAttachment,
 )
 from .serializers import (
+    BackofficeVerificationInquirySerializer,
+    VerifiedAccountRowSerializer,
+    VerificationBluePreviewSerializer,
     VerificationRequestCreateSerializer,
     VerificationRequestDetailSerializer,
     VerificationDocumentSerializer,
@@ -38,6 +47,7 @@ from .services import (
     get_public_badges_catalog,
     mark_request_in_review,
     mirror_document_to_requirement_attachments,
+    verification_blue_preview_for_user,
     verification_pricing_for_user,
     _sync_verification_to_unified,
 )
@@ -45,8 +55,12 @@ from .services import (
 
 def verification_request_queryset():
     return (
-        VerificationRequest.objects.select_related("requester", "assigned_to", "invoice")
+        VerificationRequest.objects.select_related("requester", "assigned_to", "invoice", "blue_profile")
         .prefetch_related(
+            Prefetch(
+                "linked_inquiries",
+                queryset=VerificationInquiryProfile.objects.select_related("ticket").order_by("-updated_at", "-id"),
+            ),
             Prefetch(
                 "documents",
                 queryset=VerificationDocument.objects.order_by("id"),
@@ -68,6 +82,30 @@ def verification_request_queryset():
     )
 
 
+def verification_inquiry_queryset_for_user(user):
+    qs = (
+        SupportTicket.objects.select_related(
+            "requester",
+            "assigned_team",
+            "assigned_to",
+            "verification_profile",
+            "verification_profile__linked_request",
+        )
+        .filter(entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM)
+        .filter(
+            Q(assigned_team__code__iexact="verification")
+            | Q(assigned_team__code__iexact="verify")
+            | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.VERIFY)
+        )
+        .distinct()
+        .order_by("-created_at", "-id")
+    )
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == "user":
+        qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
+    return qs
+
+
 class VerificationRequestCreateView(generics.CreateAPIView):
     permission_classes = [IsOwnerOrBackofficeVerify]
     serializer_class = VerificationRequestCreateSerializer
@@ -83,6 +121,16 @@ class MyVerificationPricingView(APIView):
 
     def get(self, request):
         return Response(verification_pricing_for_user(request.user), status=status.HTTP_200_OK)
+
+
+class VerificationBluePreviewView(APIView):
+    permission_classes = [IsOwnerOrBackofficeVerify]
+
+    def post(self, request):
+        serializer = VerificationBluePreviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = verification_blue_preview_for_user(user=request.user, **serializer.validated_data)
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class MyVerificationRequestsListView(generics.ListAPIView):
@@ -215,6 +263,102 @@ class BackofficeVerificationRequestsListView(generics.ListAPIView):
         return qs
 
 
+class BackofficeVerificationInquiriesListView(generics.ListAPIView):
+    permission_classes = [IsOwnerOrBackofficeVerify]
+    serializer_class = BackofficeVerificationInquirySerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        qs = verification_inquiry_queryset_for_user(user)
+
+        status_q = (self.request.query_params.get("status") or "").strip()
+        q = (self.request.query_params.get("q") or "").strip()
+        if status_q:
+            qs = qs.filter(status=status_q)
+        if q:
+            qs = qs.filter(
+                Q(code__icontains=q)
+                | Q(description__icontains=q)
+                | Q(requester__phone__icontains=q)
+                | Q(requester__username__icontains=q)
+            )
+        return qs
+
+
+class BackofficeVerifiedAccountsListView(APIView):
+    permission_classes = [IsOwnerOrBackofficeVerify]
+
+    def get(self, request):
+        now = timezone.now()
+        query = (request.query_params.get("q") or "").strip().lower()
+
+        badges = (
+            VerifiedBadge.objects.filter(is_active=True, expires_at__gt=now)
+            .select_related("user", "request", "request__blue_profile", "user__provider_profile")
+            .order_by("-activated_at", "-id")
+        )
+
+        access_profile = active_access_profile_for_user(request.user)
+        if access_profile and access_profile.level == "user":
+            badges = badges.filter(Q(request__assigned_to=request.user) | Q(request__assigned_to__isnull=True))
+
+        rows: list[dict] = []
+        for badge in badges:
+            user = badge.user
+            provider_profile = getattr(user, "provider_profile", None)
+            requester_name = (
+                (getattr(user, "username", "") or getattr(user, "phone", "") or f"user-{user.id}").strip()
+            )
+            if requester_name and not requester_name.startswith("@"):
+                requester_name = f"@{requester_name}"
+            display_name = ""
+            if provider_profile is not None:
+                display_name = (getattr(provider_profile, "display_name", "") or "").strip()
+
+            blue_profile = getattr(getattr(badge, "request", None), "blue_profile", None)
+            verified_name = (getattr(blue_profile, "verified_name", "") or "").strip() or display_name or requester_name
+            request_code = badge.request.code if badge.request is not None else ""
+            if badge.request is not None and not request_code:
+                request_code = f"AD{badge.request.id:06d}"
+
+            haystack = " ".join(
+                token
+                for token in [
+                    requester_name,
+                    verified_name,
+                    request_code,
+                    badge.verification_code,
+                    badge.verification_title,
+                    badge.get_badge_type_display(),
+                ]
+                if token
+            ).lower()
+            if query and query not in haystack:
+                continue
+
+            rows.append(
+                {
+                    "badge_id": badge.id,
+                    "user_id": user.id,
+                    "requester_name": requester_name or "غير محدد",
+                    "verified_name": verified_name,
+                    "request_id": badge.request_id,
+                    "request_code": request_code,
+                    "verification_code": badge.verification_code or "",
+                    "verification_title": badge.verification_title or "",
+                    "badge_type": badge.badge_type,
+                    "badge_type_label": badge.get_badge_type_display(),
+                    "activated_at": badge.activated_at,
+                    "expires_at": badge.expires_at,
+                }
+            )
+
+        fallback_dt = datetime.min.replace(tzinfo=dt_timezone.utc)
+        rows.sort(key=lambda row: row.get("activated_at") or fallback_dt, reverse=True)
+        serializer = VerifiedAccountRowSerializer(rows, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class BackofficeVerificationAssignView(APIView):
     """تعيين طلب توثيق لموظف تشغيل (User-level scoping)."""
 
@@ -290,8 +434,15 @@ class BackofficeDecideRequirementView(APIView):
 
         is_approved = ser.validated_data["is_approved"]
         note = ser.validated_data.get("decision_note", "")
+        evidence_expires_at = ser.validated_data.get("evidence_expires_at")
 
-        decide_requirement(req=req, is_approved=is_approved, note=note, by_user=request.user)
+        decide_requirement(
+            req=req,
+            is_approved=is_approved,
+            note=note,
+            by_user=request.user,
+            evidence_expires_at=evidence_expires_at,
+        )
         return Response({"ok": True}, status=status.HTTP_200_OK)
 
 

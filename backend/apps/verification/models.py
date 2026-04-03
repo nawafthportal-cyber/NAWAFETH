@@ -15,6 +15,11 @@ class VerificationBadgeType(models.TextChoices):
     GREEN = "green", "شارة خضراء"
 
 
+class VerificationBlueSubjectType(models.TextChoices):
+    INDIVIDUAL = "individual", "فرد"
+    BUSINESS = "business", "منشأة"
+
+
 class VerificationStatus(models.TextChoices):
     NEW = "new", "جديد"
     IN_REVIEW = "in_review", "قيد المراجعة"
@@ -161,6 +166,7 @@ class VerificationRequirement(models.Model):
 
     is_approved = models.BooleanField(null=True, blank=True)  # None => لم يقرر
     decision_note = models.CharField(max_length=300, blank=True)
+    evidence_expires_at = models.DateTimeField(null=True, blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -196,6 +202,54 @@ class VerificationRequirementAttachment(models.Model):
 
     def __str__(self) -> str:
         return f"{self.requirement_id} attachment#{self.pk}"
+
+
+class VerificationBlueProfile(models.Model):
+    request = models.OneToOneField(
+        VerificationRequest,
+        on_delete=models.CASCADE,
+        related_name="blue_profile",
+    )
+    subject_type = models.CharField(max_length=20, choices=VerificationBlueSubjectType.choices)
+    official_number = models.CharField(max_length=32)
+    official_date = models.DateField()
+    verified_name = models.CharField(max_length=180)
+    is_name_approved = models.BooleanField(default=False)
+    verification_source = models.CharField(max_length=40, default="elm")
+    verified_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "بيانات الشارة الزرقاء"
+        verbose_name_plural = "بيانات الشارة الزرقاء"
+
+    def __str__(self) -> str:
+        return f"{self.request.code or self.request_id} blue profile"
+
+
+class VerificationInquiryProfile(models.Model):
+    ticket = models.OneToOneField(
+        "support.SupportTicket",
+        on_delete=models.CASCADE,
+        related_name="verification_profile",
+    )
+    linked_request = models.ForeignKey(
+        VerificationRequest,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="linked_inquiries",
+    )
+    detailed_request_url = models.URLField(blank=True)
+    operator_comment = models.CharField(max_length=300, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ملف استفسار التوثيق"
+        verbose_name_plural = "ملفات استفسارات التوثيق"
+
+    def __str__(self) -> str:
+        return f"Verification inquiry profile #{self.pk}"
 
 
 class VerifiedBadge(models.Model):

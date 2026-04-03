@@ -1,0 +1,202 @@
+(function () {
+  "use strict";
+
+  function closeAlerts() {
+    const list = document.getElementById("alertsList");
+    if (!list) {
+      return;
+    }
+    list.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const alert = btn.closest(".alert");
+        if (alert) {
+          alert.remove();
+        }
+      });
+    });
+    window.setTimeout(() => {
+      list.querySelectorAll(".alert").forEach((alert) => alert.remove());
+    }, 9000);
+  }
+
+  function attachCharCounters() {
+    document.querySelectorAll("textarea[maxlength]").forEach((textarea) => {
+      const max = Number(textarea.getAttribute("maxlength") || 0);
+      if (!Number.isFinite(max) || max <= 0) {
+        return;
+      }
+      const counter = document.createElement("small");
+      counter.className = "char-counter";
+      textarea.insertAdjacentElement("afterend", counter);
+      const update = function () {
+        const size = (textarea.value || "").length;
+        counter.textContent = size + " / " + max;
+        counter.style.color = size > max ? "#b83838" : "#6f1d79";
+      };
+      textarea.addEventListener("input", update);
+      update();
+    });
+  }
+
+  function setupInquiryConfirmations() {
+    const form = document.getElementById("verificationInquiryForm");
+    if (!form) {
+      return;
+    }
+    form.addEventListener("submit", (event) => {
+      const submitter = event.submitter;
+      if (!submitter) {
+        return;
+      }
+      if ((submitter.value || "") === "close_inquiry") {
+        if (!window.confirm("تأكيد إغلاق استفسار التوثيق؟")) {
+          event.preventDefault();
+          return;
+        }
+      }
+      form.querySelectorAll("button[type='submit']").forEach((button) => {
+        button.disabled = true;
+        button.style.opacity = "0.65";
+      });
+    });
+  }
+
+  function setupRequestSubmitState() {
+    const form = document.getElementById("verificationRequestActionForm");
+    if (!form) {
+      return;
+    }
+    form.addEventListener("submit", () => {
+      form.querySelectorAll("button[type='submit']").forEach((button) => {
+        button.disabled = true;
+        button.style.opacity = "0.65";
+      });
+    });
+  }
+
+  function setupConfirmationButtons() {
+    document.querySelectorAll("button[data-confirm-message]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        const message = button.getAttribute("data-confirm-message") || "";
+        if (message && !window.confirm(message)) {
+          event.preventDefault();
+        }
+      });
+    });
+  }
+
+  function setupInquiryCommentLinkInsertion() {
+    const form = document.getElementById("verificationInquiryForm");
+    if (!form) {
+      return;
+    }
+
+    const insertBtn = document.getElementById("insertVerificationDetailLinkBtn");
+    const commentField = form.querySelector("textarea[name='operator_comment']");
+    const detailUrlField = form.querySelector("input[name='detailed_request_url']");
+    if (!insertBtn || !commentField || !detailUrlField) {
+      return;
+    }
+
+    const linkLabel = "رابط صفحة طلب التوثيق التفصيلي: ";
+
+    function updateButtonState() {
+      const url = (detailUrlField.value || "").trim();
+      insertBtn.disabled = !url;
+      insertBtn.setAttribute("aria-disabled", insertBtn.disabled ? "true" : "false");
+    }
+
+    function insertAtSelection(textarea, text) {
+      const value = textarea.value || "";
+      const hasSelection =
+        Number.isInteger(textarea.selectionStart) && Number.isInteger(textarea.selectionEnd);
+      const start = hasSelection ? textarea.selectionStart : value.length;
+      const end = hasSelection ? textarea.selectionEnd : value.length;
+      const nextValue = value.slice(0, start) + text + value.slice(end);
+      textarea.value = nextValue;
+      const cursor = start + text.length;
+      textarea.focus();
+      if (typeof textarea.setSelectionRange === "function") {
+        textarea.setSelectionRange(cursor, cursor);
+      }
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    insertBtn.addEventListener("click", () => {
+      const url = (detailUrlField.value || "").trim();
+      if (!url) {
+        detailUrlField.focus();
+        return;
+      }
+      if ((commentField.value || "").includes(url)) {
+        commentField.focus();
+        return;
+      }
+
+      const snippet = linkLabel + url;
+      const rawValue = commentField.value || "";
+      const max = Number(commentField.getAttribute("maxlength") || 0);
+      let prefix = "";
+      const hasSelection =
+        Number.isInteger(commentField.selectionStart) && Number.isInteger(commentField.selectionEnd);
+      const start = hasSelection ? commentField.selectionStart : rawValue.length;
+      const beforeSelection = rawValue.slice(0, start);
+      if (beforeSelection.trim()) {
+        prefix = beforeSelection.endsWith("\n") ? "" : "\n";
+      }
+      const insertText = prefix + snippet;
+      if (Number.isFinite(max) && max > 0 && rawValue.length + insertText.length > max) {
+        window.alert("لا يمكن إدراج الرابط لأن تعليق المكلف سيتجاوز الحد الأقصى (300 حرف).");
+        commentField.focus();
+        return;
+      }
+      insertAtSelection(commentField, insertText);
+    });
+
+    detailUrlField.addEventListener("input", updateButtonState);
+    updateButtonState();
+  }
+
+  function scrollSelectionIntoView() {
+    const activeRow = document.querySelector(".active-ticket");
+    if (activeRow) {
+      activeRow.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+
+    const hash = window.location.hash || "";
+    if (
+      hash === "#verificationInquiryForm" ||
+      hash === "#verificationRequestActionForm" ||
+      hash === "#verifiedAccountDetailCard"
+    ) {
+      const target = document.querySelector(hash);
+      if (target) {
+        target.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search || "");
+    const selector = params.has("request")
+      ? "#verificationRequestActionForm"
+      : (params.has("inquiry")
+        ? "#verificationInquiryForm"
+        : (params.has("verified_badge") ? "#verifiedAccountDetailCard" : ""));
+    if (selector) {
+      const target = document.querySelector(selector);
+      if (target) {
+        target.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    closeAlerts();
+    attachCharCounters();
+    setupInquiryConfirmations();
+    setupRequestSubmitState();
+    setupConfirmationButtons();
+    setupInquiryCommentLinkInsertion();
+    scrollSelectionIntoView();
+  });
+})();

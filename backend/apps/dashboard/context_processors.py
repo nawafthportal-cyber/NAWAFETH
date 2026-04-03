@@ -10,6 +10,7 @@ MAIN_DASHBOARD_NAV = (
     ("support", "لوحة الدعم والمساعدة", "dashboard:support_dashboard"),
     ("content", "لوحة إدارة المحتوى", "dashboard:content_dashboard_home"),
     ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard"),
+    ("verify", "لوحة فريق التوثيق", "dashboard:verification_dashboard"),
 )
 
 
@@ -30,6 +31,7 @@ def dashboard_nav_access(request):
         "support": dashboard_allowed(user, "support"),
         "content": dashboard_allowed(user, "content"),
         "promo": dashboard_allowed(user, "promo"),
+        "verify": dashboard_allowed(user, "verify"),
         "analytics": dashboard_allowed(user, "analytics"),
     }
 

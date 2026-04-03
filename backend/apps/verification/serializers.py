@@ -1,13 +1,22 @@
 from __future__ import annotations
 
 from rest_framework import serializers
+from django.utils import timezone
+
+from apps.features.support import support_priority
 from apps.providers.eligibility import ProviderAccessError, ensure_provider_access
+from apps.support.models import SupportTicket
+from apps.support.models import SupportTicketType
 
 from .models import (
     VerificationRequest, VerificationDocument,
     VerificationBadgeType,
+    VerificationBlueProfile,
+    VerificationBlueSubjectType,
+    VerificationInquiryProfile,
     VerificationRequirement, VerificationRequirementAttachment,
 )
+from .services import REQUIREMENTS_CATALOG
 
 
 class VerificationRequirementAttachmentSerializer(serializers.ModelSerializer):
@@ -34,6 +43,7 @@ class VerificationRequirementSerializer(serializers.ModelSerializer):
             "title",
             "is_approved",
             "decision_note",
+            "evidence_expires_at",
             "decided_by",
             "decided_at",
             "attachments",
@@ -51,6 +61,101 @@ class VerificationDocumentSerializer(serializers.ModelSerializer):
         read_only_fields = ["is_approved", "decision_note", "decided_by", "decided_at", "uploaded_by", "uploaded_at"]
 
 
+class VerificationBlueProfileSerializer(serializers.ModelSerializer):
+    subject_type_label = serializers.CharField(source="get_subject_type_display", read_only=True)
+    official_number_label = serializers.SerializerMethodField()
+    official_date_label = serializers.SerializerMethodField()
+    verified_name_label = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VerificationBlueProfile
+        fields = [
+            "subject_type",
+            "subject_type_label",
+            "official_number",
+            "official_number_label",
+            "official_date",
+            "official_date_label",
+            "verified_name",
+            "verified_name_label",
+            "is_name_approved",
+            "verification_source",
+            "verified_at",
+            "updated_at",
+        ]
+
+    def get_official_number_label(self, obj: VerificationBlueProfile):
+        if obj.subject_type == VerificationBlueSubjectType.BUSINESS:
+            return "رقم السجل التجاري"
+        return "رقم الهوية / الإقامة"
+
+    def get_official_date_label(self, obj: VerificationBlueProfile):
+        if obj.subject_type == VerificationBlueSubjectType.BUSINESS:
+            return "تاريخه"
+        return "تاريخ الميلاد"
+
+    def get_verified_name_label(self, obj: VerificationBlueProfile):
+        if obj.subject_type == VerificationBlueSubjectType.BUSINESS:
+            return "اسم المنشأة"
+        return "اسم العميل"
+
+
+class VerificationBlueProfileInputSerializer(serializers.Serializer):
+    subject_type = serializers.ChoiceField(choices=VerificationBlueSubjectType.choices)
+    official_number = serializers.CharField(max_length=32)
+    official_date = serializers.DateField(input_formats=["%Y-%m-%d", "%d/%m/%Y"])
+    verified_name = serializers.CharField(max_length=180)
+    is_name_approved = serializers.BooleanField()
+
+    def validate_official_number(self, value):
+        normalized = "".join(ch for ch in str(value or "").strip() if ch.isdigit())
+        if len(normalized) < 6:
+            raise serializers.ValidationError("رقم الإثبات غير صالح.")
+        return normalized[:32]
+
+    def validate_verified_name(self, value):
+        normalized = str(value or "").strip()
+        if not normalized:
+            raise serializers.ValidationError("الاسم المسترجع مطلوب.")
+        return normalized[:180]
+
+    def validate(self, attrs):
+        if not attrs.get("is_name_approved"):
+            raise serializers.ValidationError("يجب اعتماد الاسم المسترجع قبل إرسال طلب الشارة الزرقاء.")
+        return attrs
+
+
+class VerificationBluePreviewSerializer(serializers.Serializer):
+    subject_type = serializers.ChoiceField(choices=VerificationBlueSubjectType.choices)
+    official_number = serializers.CharField(max_length=32)
+    official_date = serializers.DateField(input_formats=["%Y-%m-%d", "%d/%m/%Y"])
+
+    def validate_official_number(self, value):
+        normalized = "".join(ch for ch in str(value or "").strip() if ch.isdigit())
+        if len(normalized) < 6:
+            raise serializers.ValidationError("رقم الإثبات غير صالح.")
+        return normalized[:32]
+
+
+def _user_handle(user_obj) -> str:
+    if not user_obj:
+        return "غير محدد"
+    label = (getattr(user_obj, "username", "") or getattr(user_obj, "phone", "") or f"user-{user_obj.id}").strip()
+    if label and not label.startswith("@"):
+        label = f"@{label}"
+    return label or "غير محدد"
+
+
+def _verification_priority_number_for_user(user) -> int:
+    priority_code = support_priority(user)
+    mapping = {
+        "low": 1,
+        "normal": 2,
+        "high": 3,
+    }
+    return int(mapping.get(priority_code, 2))
+
+
 class VerificationRequestCreateSerializer(serializers.ModelSerializer):
     requirements = serializers.ListField(
         child=serializers.DictField(),
@@ -58,11 +163,12 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         allow_empty=True,
         write_only=True,
     )
+    blue_profile = VerificationBlueProfileInputSerializer(required=False, write_only=True)
 
     class Meta:
         model = VerificationRequest
-        fields = ["id", "code", "badge_type", "priority", "requirements"]
-        read_only_fields = ["id", "code"]
+        fields = ["id", "code", "badge_type", "priority", "requirements", "blue_profile"]
+        read_only_fields = ["id", "code", "priority"]
 
     def validate_badge_type(self, v):
         if v in (None, ""):
@@ -88,6 +194,8 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("badge_type غير صحيح.")
             if not code:
                 raise serializers.ValidationError("code مطلوب.")
+            if code not in (REQUIREMENTS_CATALOG.get(badge_type) or {}):
+                raise serializers.ValidationError("code غير صالح لنوع الشارة المحدد.")
             key = (badge_type, code)
             if key in seen:
                 raise serializers.ValidationError("لا يمكن تكرار نفس بند التوثيق داخل الطلب الواحد.")
@@ -102,6 +210,15 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
                 ensure_provider_access(request.user)
             except ProviderAccessError as exc:
                 raise serializers.ValidationError({"detail": exc.detail})
+        blue_profile = attrs.get("blue_profile")
+        if blue_profile:
+            badge_type = attrs.get("badge_type")
+            requirements = attrs.get("requirements") or []
+            includes_blue = badge_type == VerificationBadgeType.BLUE or any(
+                (item or {}).get("badge_type") == VerificationBadgeType.BLUE for item in requirements
+            )
+            if not includes_blue:
+                raise serializers.ValidationError({"blue_profile": "بيانات الشارة الزرقاء مرتبطة فقط بطلبات الشارة الزرقاء."})
         return attrs
 
     def create(self, validated_data):
@@ -113,6 +230,8 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         )
 
         requirements = validated_data.pop("requirements", []) or []
+        blue_profile_data = validated_data.pop("blue_profile", None)
+        validated_data.pop("priority", None)
 
         badge_type = validated_data.get("badge_type")
 
@@ -135,6 +254,7 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         else:
             validated_data["badge_type"] = None
 
+        validated_data["priority"] = _verification_priority_number_for_user(user)
         vr = VerificationRequest.objects.create(requester=user, **validated_data)
         # Create requirements.
         for idx, r in enumerate(requirements):
@@ -147,6 +267,18 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
                 sort_order=idx,
             )
 
+        if blue_profile_data:
+            VerificationBlueProfile.objects.create(
+                request=vr,
+                subject_type=blue_profile_data["subject_type"],
+                official_number=blue_profile_data["official_number"],
+                official_date=blue_profile_data["official_date"],
+                verified_name=blue_profile_data["verified_name"],
+                is_name_approved=blue_profile_data["is_name_approved"],
+                verification_source="elm",
+                verified_at=timezone.now(),
+            )
+
         _sync_verification_to_unified(vr=vr, changed_by=user)
         return vr
 
@@ -154,24 +286,78 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
 class VerificationRequestDetailSerializer(serializers.ModelSerializer):
     documents = VerificationDocumentSerializer(many=True, read_only=True)
     requirements = VerificationRequirementSerializer(many=True, read_only=True)
+    blue_profile = VerificationBlueProfileSerializer(read_only=True)
 
     invoice_summary = serializers.SerializerMethodField()
+    requester_id = serializers.IntegerField(source="requester.id", read_only=True)
+    requester_name = serializers.SerializerMethodField()
+    assigned_to_id = serializers.IntegerField(source="assigned_to.id", read_only=True)
+    assigned_to_name = serializers.SerializerMethodField()
+    badge_types = serializers.SerializerMethodField()
+    badge_type_labels = serializers.SerializerMethodField()
+    linked_inquiries = serializers.SerializerMethodField()
 
     class Meta:
         model = VerificationRequest
         fields = [
             "id", "code",
+            "requester_id",
+            "requester_name",
             "badge_type",
+            "badge_types",
+            "badge_type_labels",
             "priority",
             "status",
             "admin_note", "reject_reason",
+            "assigned_to_id",
+            "assigned_to_name",
+            "assigned_at",
             "invoice",
             "invoice_summary",
             "requested_at", "reviewed_at", "approved_at",
             "activated_at", "expires_at",
+            "linked_inquiries",
+            "blue_profile",
             "documents",
             "requirements",
         ]
+
+    def get_requester_name(self, obj: VerificationRequest):
+        return _user_handle(getattr(obj, "requester", None))
+
+    def get_assigned_to_name(self, obj: VerificationRequest):
+        assigned_to = getattr(obj, "assigned_to", None)
+        return _user_handle(assigned_to) if assigned_to else "غير مكلف"
+
+    def get_badge_types(self, obj: VerificationRequest):
+        if obj.badge_type:
+            return [obj.badge_type]
+        values: list[str] = []
+        seen: set[str] = set()
+        for requirement in obj.requirements.all():
+            badge_type = str(requirement.badge_type or "").strip()
+            if badge_type and badge_type not in seen:
+                seen.add(badge_type)
+                values.append(badge_type)
+        return values
+
+    def get_badge_type_labels(self, obj: VerificationRequest):
+        labels = dict(VerificationBadgeType.choices)
+        return [labels.get(item, item) for item in self.get_badge_types(obj)]
+
+    def get_linked_inquiries(self, obj: VerificationRequest):
+        rows = []
+        for profile in getattr(obj, "linked_inquiries", []).all() if hasattr(obj, "linked_inquiries") else []:
+            ticket = getattr(profile, "ticket", None)
+            if ticket is None:
+                continue
+            rows.append(
+                {
+                    "ticket_id": ticket.id,
+                    "ticket_code": ticket.code or f"HD{ticket.id:06d}",
+                }
+            )
+        return rows
 
     def get_invoice_summary(self, obj: VerificationRequest):
         inv = getattr(obj, "invoice", None)
@@ -213,6 +399,125 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
         }
 
 
+class VerificationInquiryProfileSerializer(serializers.ModelSerializer):
+    ticket_id = serializers.IntegerField(source="ticket.id", read_only=True)
+    ticket_code = serializers.SerializerMethodField()
+    linked_request_id = serializers.IntegerField(source="linked_request.id", read_only=True)
+    linked_request_code = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VerificationInquiryProfile
+        fields = [
+            "ticket_id",
+            "ticket_code",
+            "linked_request_id",
+            "linked_request_code",
+            "detailed_request_url",
+            "operator_comment",
+            "updated_at",
+        ]
+
+    def get_ticket_code(self, obj: VerificationInquiryProfile):
+        ticket = getattr(obj, "ticket", None)
+        if ticket is None:
+            return ""
+        return ticket.code or f"HD{ticket.id:06d}"
+
+    def get_linked_request_code(self, obj: VerificationInquiryProfile):
+        linked_request = getattr(obj, "linked_request", None)
+        if linked_request is None:
+            return ""
+        return linked_request.code or f"AD{linked_request.id:06d}"
+
+
+class BackofficeVerificationInquirySerializer(serializers.ModelSerializer):
+    requester_name = serializers.SerializerMethodField()
+    priority_number = serializers.SerializerMethodField()
+    team_name = serializers.SerializerMethodField()
+    assigned_to_name = serializers.SerializerMethodField()
+    linked_request_id = serializers.SerializerMethodField()
+    linked_request_code = serializers.SerializerMethodField()
+    detailed_request_url = serializers.SerializerMethodField()
+    operator_comment = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SupportTicket
+        fields = [
+            "id",
+            "code",
+            "requester_name",
+            "ticket_type",
+            "priority",
+            "priority_number",
+            "status",
+            "description",
+            "created_at",
+            "assigned_at",
+            "team_name",
+            "assigned_to",
+            "assigned_to_name",
+            "linked_request_id",
+            "linked_request_code",
+            "detailed_request_url",
+            "operator_comment",
+        ]
+
+    def get_requester_name(self, obj: SupportTicket):
+        return _user_handle(getattr(obj, "requester", None))
+
+    def get_priority_number(self, obj: SupportTicket):
+        mapping = {"low": 1, "normal": 2, "high": 3}
+        return int(mapping.get(obj.priority, 1))
+
+    def get_team_name(self, obj: SupportTicket):
+        if obj.assigned_team:
+            return obj.assigned_team.name_ar
+        if obj.ticket_type == SupportTicketType.VERIFY:
+            return "فريق التوثيق"
+        return "غير محدد"
+
+    def get_assigned_to_name(self, obj: SupportTicket):
+        assigned_to = getattr(obj, "assigned_to", None)
+        return _user_handle(assigned_to) if assigned_to else "غير مكلف"
+
+    def _profile(self, obj: SupportTicket):
+        return getattr(obj, "verification_profile", None)
+
+    def get_linked_request_id(self, obj: SupportTicket):
+        profile = self._profile(obj)
+        return getattr(profile, "linked_request_id", None)
+
+    def get_linked_request_code(self, obj: SupportTicket):
+        profile = self._profile(obj)
+        linked_request = getattr(profile, "linked_request", None)
+        if linked_request is None:
+            return ""
+        return linked_request.code or f"AD{linked_request.id:06d}"
+
+    def get_detailed_request_url(self, obj: SupportTicket):
+        profile = self._profile(obj)
+        return getattr(profile, "detailed_request_url", "") if profile else ""
+
+    def get_operator_comment(self, obj: SupportTicket):
+        profile = self._profile(obj)
+        return getattr(profile, "operator_comment", "") if profile else ""
+
+
+class VerifiedAccountRowSerializer(serializers.Serializer):
+    badge_id = serializers.IntegerField()
+    user_id = serializers.IntegerField()
+    requester_name = serializers.CharField()
+    verified_name = serializers.CharField()
+    request_id = serializers.IntegerField()
+    request_code = serializers.CharField(allow_blank=True)
+    verification_code = serializers.CharField()
+    verification_title = serializers.CharField(allow_blank=True)
+    badge_type = serializers.CharField()
+    badge_type_label = serializers.CharField()
+    activated_at = serializers.DateTimeField(allow_null=True)
+    expires_at = serializers.DateTimeField(allow_null=True)
+
+
 class VerificationDocDecisionSerializer(serializers.Serializer):
     is_approved = serializers.BooleanField(required=True)
     decision_note = serializers.CharField(required=False, allow_blank=True, max_length=300)
@@ -221,3 +526,4 @@ class VerificationDocDecisionSerializer(serializers.Serializer):
 class VerificationRequirementDecisionSerializer(serializers.Serializer):
     is_approved = serializers.BooleanField(required=True)
     decision_note = serializers.CharField(required=False, allow_blank=True, max_length=300)
+    evidence_expires_at = serializers.DateTimeField(required=False, allow_null=True)

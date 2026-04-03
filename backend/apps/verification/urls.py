@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    VerificationBluePreviewView,
     MyVerificationPricingView,
     VerificationRequestCreateView,
     MyVerificationRequestsListView,
@@ -8,16 +9,19 @@ from .views import (
     VerificationAddDocumentView,
     VerificationAddRequirementAttachmentView,
 
+    BackofficeVerificationInquiriesListView,
     BackofficeVerificationRequestsListView,
     BackofficeVerificationAssignView,
     BackofficeDecideDocumentView,
     BackofficeDecideRequirementView,
     BackofficeFinalizeRequestView,
+    BackofficeVerifiedAccountsListView,
 )
 
 urlpatterns = [
     # client
     path("pricing/my/", MyVerificationPricingView.as_view(), name="pricing_my"),
+    path("blue-preview/", VerificationBluePreviewView.as_view(), name="blue_preview"),
     path("requests/create/", VerificationRequestCreateView.as_view(), name="create"),
     path("requests/my/", MyVerificationRequestsListView.as_view(), name="my"),
     path("requests/<int:pk>/", VerificationRequestDetailView.as_view(), name="detail"),
@@ -29,7 +33,9 @@ urlpatterns = [
     ),
 
     # backoffice
+    path("backoffice/inquiries/", BackofficeVerificationInquiriesListView.as_view(), name="bo_inquiries"),
     path("backoffice/requests/", BackofficeVerificationRequestsListView.as_view(), name="bo_list"),
+    path("backoffice/verified-accounts/", BackofficeVerifiedAccountsListView.as_view(), name="bo_verified_accounts"),
     path("backoffice/requests/<int:pk>/assign/", BackofficeVerificationAssignView.as_view(), name="bo_assign"),
     path("backoffice/documents/<int:doc_id>/decision/", BackofficeDecideDocumentView.as_view(), name="bo_decide_doc"),
     path(

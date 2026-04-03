@@ -57,3 +57,42 @@ Thumbs.db
 
 # Archives
 *.zip
+
+# Pytest temp directories
+.pytest_*/
+.tmp_pytest*/
+.tmp_test/
+.tmp/
+pytest_*/
+tmp_ok/
+nawafeth_test_media_*/
+tmp_test_*/
+tmp_verify/
+
+# Edge browser profiles (testing artifacts)
+tmp-edge-profile*/
+
+# Test output files
+test_*.txt
+test_*.log
+tmp-notif-*.log
+tmp-notif-*.png
+
+# One-off scripts & analysis output
+analyze_output.txt
+fix_deprecation.py
+
+# Old CSS backups
+*.old.css
+
+# Build logs
+flutter-build-debug.log
+gradle-assemble-debug.log
+
+# Docs folder (reports/audits - not needed in repo)
+docs/
+
+# Report files at root
+*_REPORT.md
+*_CONTRACT.md
+*PHASE*.md

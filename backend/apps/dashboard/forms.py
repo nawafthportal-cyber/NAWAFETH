@@ -23,6 +23,7 @@ from apps.promo.services import (
     promo_rotation_frequency_choices,
 )
 from apps.support.models import SupportTeam, SupportTicketStatus
+from apps.verification.models import VerificationStatus
 
 
 ACCESS_MANAGED_DASHBOARD_CODES = (
@@ -738,6 +739,126 @@ class PromoRequestActionForm(forms.Form):
 
     def clean_ops_note(self):
         return (self.cleaned_data.get("ops_note") or "").strip()[:300]
+
+
+class VerificationInquiryActionForm(forms.Form):
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=SupportTicketStatus.choices,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_team = forms.ChoiceField(
+        label="الفريق المكلف",
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    description = forms.CharField(
+        label="تفاصيل الطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 4,
+                "maxlength": 300,
+                "placeholder": "تفاصيل الطلب (300 حرف).",
+            }
+        ),
+    )
+    operator_comment = forms.CharField(
+        label="تعليق المكلف بالطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "اطلب معلومات إضافية من العميل أو أرسل رابط صفحة طلب التوثيق (300 حرف).",
+            }
+        ),
+    )
+    detailed_request_url = forms.URLField(
+        label="رابط صفحة طلب التوثيق التفصيلي",
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    linked_request_id = forms.ChoiceField(
+        label="ربط الاستفسار بطلب توثيق",
+        required=False,
+        widget=forms.HiddenInput(),
+    )
+    attachment = forms.FileField(
+        label="المرفقات",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "input-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        team_choices = kwargs.pop("team_choices", None)
+        linked_request_choices = kwargs.pop("linked_request_choices", None)
+        super().__init__(*args, **kwargs)
+
+        if team_choices is None:
+            team_qs = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
+            team_choices = [(str(team.id), team.name_ar) for team in team_qs]
+        if assignee_choices is None:
+            assignee_choices = []
+        if linked_request_choices is None:
+            linked_request_choices = []
+
+        self.fields["assigned_team"].choices = [("", "غير محدد")] + list(team_choices)
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices)
+        self.fields["linked_request_id"].choices = [("", "بدون ربط")] + list(linked_request_choices)
+
+    def clean_description(self):
+        return (self.cleaned_data.get("description") or "").strip()[:300]
+
+    def clean_operator_comment(self):
+        return (self.cleaned_data.get("operator_comment") or "").strip()[:300]
+
+
+class VerificationRequestActionForm(forms.Form):
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=VerificationStatus.choices,
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control disabled-select", "disabled": "disabled"}),
+    )
+    admin_note = forms.CharField(
+        label="تعليق فريق التوثيق",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "ملاحظة داخلية لفريق التوثيق (300 حرف).",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        super().__init__(*args, **kwargs)
+        if assignee_choices is None:
+            assignee_choices = []
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices)
+
+    def clean_admin_note(self):
+        return (self.cleaned_data.get("admin_note") or "").strip()[:300]
 
 
 class PromoModuleItemForm(forms.Form):

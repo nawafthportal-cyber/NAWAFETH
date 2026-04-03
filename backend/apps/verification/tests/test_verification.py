@@ -11,8 +11,11 @@ from apps.backoffice.models import UserAccessProfile
 from apps.backoffice.models import Dashboard
 from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
+from apps.support.models import SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketType
 from apps.verification.models import VerifiedBadge
 from apps.verification.models import VerificationBadgeType
+from apps.verification.models import VerificationBlueProfile
+from apps.verification.models import VerificationInquiryProfile
 from apps.verification.models import VerificationRequest
 from apps.verification.models import VerificationDocument
 from apps.verification.models import VerificationRequirement
@@ -151,6 +154,71 @@ def test_create_verification_request(api, user):
     assert ur.request_type == "verification"
     assert ur.code.startswith("AD")
     assert ur.status == vr.status
+
+
+def test_blue_preview_endpoint_returns_provider_based_reference_name(api, user):
+    provider_profile = _make_provider(user)
+    provider_profile.display_name = "مؤسسة المثال"
+    provider_profile.save(update_fields=["display_name"])
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/verification/blue-preview/",
+        data={
+            "subject_type": "business",
+            "official_number": "1010123456",
+            "official_date": "2026-04-03",
+        },
+        format="json",
+    )
+
+    assert response.status_code == 200
+    assert response.data["subject_type"] == "business"
+    assert response.data["subject_type_label"] == "منشأة"
+    assert response.data["official_number_label"] == "رقم السجل التجاري"
+    assert response.data["official_date_label"] == "تاريخه"
+    assert response.data["verified_name"] == "مؤسسة المثال"
+    assert response.data["verification_source"] == "elm"
+    assert response.data["verification_source_label"] == "من خدمات علم"
+
+
+def test_create_blue_request_persists_blue_profile_and_exposes_it_in_detail(api, user):
+    _make_provider(user)
+    user.first_name = "سارة"
+    user.last_name = "محمد"
+    user.save(update_fields=["first_name", "last_name"])
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/verification/requests/create/",
+        data={
+            "badge_type": "blue",
+            "requirements": [{"badge_type": "blue", "code": "B1"}],
+            "blue_profile": {
+                "subject_type": "individual",
+                "official_number": "1020304050",
+                "official_date": "1992-02-14",
+                "verified_name": "سارة محمد",
+                "is_name_approved": True,
+            },
+        },
+        format="json",
+    )
+
+    assert response.status_code == 201
+    vr = VerificationRequest.objects.get(pk=response.data["id"])
+    blue_profile = VerificationBlueProfile.objects.get(request=vr)
+    assert blue_profile.subject_type == "individual"
+    assert blue_profile.official_number == "1020304050"
+    assert blue_profile.verified_name == "سارة محمد"
+    assert blue_profile.is_name_approved is True
+
+    detail_response = api.get(f"/api/verification/requests/{vr.id}/")
+    assert detail_response.status_code == 200
+    assert detail_response.data["blue_profile"]["subject_type"] == "individual"
+    assert detail_response.data["blue_profile"]["official_number_label"] == "رقم الهوية / الإقامة"
+    assert detail_response.data["blue_profile"]["official_date_label"] == "تاريخ الميلاد"
+    assert detail_response.data["blue_profile"]["verified_name"] == "سارة محمد"
 
 
 def test_verification_pricing_endpoint_reflects_subscription_tier(api, user):
@@ -317,6 +385,42 @@ def test_green_flow_requirement_attachment_moves_request_to_in_review(api, user)
     assert vr.requirements.get(pk=req_id).attachments.count() == 1
 
 
+def test_green_flow_shared_document_upload_mirrors_to_all_selected_requirements(api, user):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    create_response = api.post(
+        "/api/verification/requests/create/",
+        data={
+            "badge_type": "green",
+            "requirements": [
+                {"badge_type": "green", "code": "G1"},
+                {"badge_type": "green", "code": "G2"},
+            ],
+        },
+        format="json",
+    )
+    assert create_response.status_code == 201
+
+    request_id = create_response.data["id"]
+    upload_response = api.post(
+        f"/api/verification/requests/{request_id}/documents/",
+        data={
+            "doc_type": "other",
+            "title": "مرفقات داعمة للشارة الخضراء",
+            "file": SimpleUploadedFile("green.pdf", b"evidence", content_type="application/pdf"),
+        },
+    )
+    assert upload_response.status_code == 201
+
+    vr = VerificationRequest.objects.get(pk=request_id)
+    requirements = list(vr.requirements.order_by("code"))
+    assert vr.status == VerificationStatus.IN_REVIEW
+    assert vr.documents.count() == 1
+    assert [req.code for req in requirements] == ["G1", "G2"]
+    assert all(req.attachments.count() == 1 for req in requirements)
+
+
 @pytest.mark.parametrize(
     ("tier", "expected_amount", "expected_request_status", "expected_invoice_status"),
     [
@@ -383,7 +487,7 @@ def test_verification_pricing_has_blue_green_parity_by_tier(user, tier, expected
     assert pricing["prices"]["green"]["final_amount"] == expected_amount
 
 
-def test_multi_requirement_verification_is_billed_once_per_badge_flow(user):
+def test_multi_requirement_verification_is_billed_per_approved_requirement(user):
     plan = SubscriptionPlan.objects.create(code="RIYADI_MULTI", tier="riyadi", title="Riyadi", features=[])
     Subscription.objects.create(
         user=user,
@@ -397,12 +501,11 @@ def test_multi_requirement_verification_is_billed_once_per_badge_flow(user):
     vr = finalize_request_and_create_invoice(vr=vr, by_user=user)
 
     assert vr.invoice is not None
-    assert vr.invoice.lines.count() == 1
-    line = vr.invoice.lines.get()
-    assert line.item_code == "VERIFY_GREEN"
-    assert str(line.amount) == "50.00"
-    assert str(vr.invoice.subtotal) == "50.00"
-    assert str(vr.invoice.total) == "50.00"
+    assert vr.invoice.lines.count() == 3
+    assert [line.item_code for line in vr.invoice.lines.order_by("sort_order", "id")] == ["G1", "G2", "G3"]
+    assert all(str(line.amount) == "50.00" for line in vr.invoice.lines.all())
+    assert str(vr.invoice.subtotal) == "150.00"
+    assert str(vr.invoice.total) == "150.00"
     assert str(vr.invoice.vat_percent) == "0.00"
     assert vr.status == VerificationStatus.PENDING_PAYMENT
 
@@ -521,6 +624,24 @@ def test_backoffice_list(api, admin_user, user):
     assert len(r.data) >= 1
 
 
+def test_provider_created_request_appears_in_backoffice_requests_list(api, admin_user, user):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+    create_response = api.post(
+        "/api/verification/requests/create/",
+        data={"badge_type": "green", "requirements": [{"badge_type": "green", "code": "G1"}]},
+        format="json",
+    )
+    assert create_response.status_code == 201
+    request_code = create_response.data["code"]
+
+    api.force_authenticate(user=admin_user)
+    list_response = api.get("/api/verification/backoffice/requests/")
+
+    assert list_response.status_code == 200
+    assert any(item["code"] == request_code for item in list_response.data)
+
+
 def test_backoffice_list_forbidden_without_access_profile(api, user):
     VerificationRequest.objects.create(requester=user, badge_type="blue")
     api.force_authenticate(user=user)
@@ -604,3 +725,104 @@ def test_verification_pricing_uses_canonical_db_row_not_settings_matrix(settings
 
     assert pricing["prices"]["blue"]["amount"] == "12.00"
     assert pricing["prices"]["green"]["amount"] == "7.00"
+
+
+def test_create_verification_request_ignores_client_priority_and_uses_server_priority(api, user):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/verification/requests/create/",
+        data={"badge_type": "blue", "priority": 3},
+        format="json",
+    )
+
+    assert response.status_code == 201
+    vr = VerificationRequest.objects.get(pk=response.data["id"])
+    assert vr.priority == 1
+
+
+def test_create_verification_request_rejects_unknown_requirement_code(api, user):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/verification/requests/create/",
+        data={
+            "badge_type": "green",
+            "requirements": [{"badge_type": "green", "code": "G99"}],
+        },
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "code غير صالح" in str(response.data)
+
+
+def test_backoffice_request_list_includes_requester_and_assignment_fields(api, admin_user, verify_operator_user, user):
+    vr = VerificationRequest.objects.create(
+        requester=user,
+        badge_type="blue",
+        assigned_to=verify_operator_user,
+        assigned_at=timezone.now(),
+    )
+
+    api.force_authenticate(user=admin_user)
+    response = api.get("/api/verification/backoffice/requests/")
+
+    assert response.status_code == 200
+    row = next(item for item in response.data if item["id"] == vr.id)
+    assert row["requester_name"].startswith("@")
+    assert row["assigned_to_name"].startswith("@") or verify_operator_user.phone in row["assigned_to_name"]
+    assert row["assigned_at"] is not None
+
+
+def test_backoffice_inquiries_list_returns_verification_tickets_with_profile_link(api, admin_user, user):
+    verification_team, _ = SupportTeam.objects.get_or_create(
+        code="verification",
+        defaults={"name_ar": "فريق التوثيق", "is_active": True, "sort_order": 40},
+    )
+    ticket = SupportTicket.objects.create(
+        requester=user,
+        ticket_type=SupportTicketType.VERIFY,
+        entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+        assigned_team=verification_team,
+        description="استفسار توثيق",
+    )
+    vr = VerificationRequest.objects.create(requester=user, badge_type="green")
+    VerificationInquiryProfile.objects.create(ticket=ticket, linked_request=vr, operator_comment="تم الربط")
+
+    api.force_authenticate(user=admin_user)
+    response = api.get("/api/verification/backoffice/inquiries/")
+
+    assert response.status_code == 200
+    row = next(item for item in response.data if item["id"] == ticket.id)
+    assert row["code"] == ticket.code
+    assert row["linked_request_code"] == vr.code
+    assert row["operator_comment"] == "تم الربط"
+
+
+def test_backoffice_verified_accounts_list_returns_active_badges(api, admin_user, user):
+    vr = VerificationRequest.objects.create(requester=user, badge_type="blue")
+    VerifiedBadge.objects.create(
+        user=user,
+        request=vr,
+        badge_type=VerificationBadgeType.BLUE,
+        verification_code="B1",
+        verification_title="توثيق أساسي",
+        activated_at=timezone.now(),
+        expires_at=timezone.now() + timezone.timedelta(days=15),
+        is_active=True,
+    )
+
+    api.force_authenticate(user=admin_user)
+    response = api.get("/api/verification/backoffice/verified-accounts/")
+
+    assert response.status_code == 200
+    assert response.data
+    row = next(item for item in response.data if item["badge_id"])
+    assert row["user_id"] == user.id
+    assert row["verification_code"] == "B1"
+    assert row["badge_type"] == VerificationBadgeType.BLUE
+    assert row["badge_type_label"]
+    assert row["request_code"] == vr.code

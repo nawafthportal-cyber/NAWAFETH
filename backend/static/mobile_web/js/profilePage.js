@@ -293,6 +293,12 @@ const ProfilePage = (() => {
       badge.textContent = String(count);
       badge.classList.remove('hidden');
     }
+
+    const verificationTile = document.getElementById('btn-provider-verification');
+    const verificationDivider = document.getElementById('provider-verification-divider');
+    const canVerify = _canSwitchToProvider();
+    if (verificationTile) verificationTile.classList.toggle('hidden', !canVerify);
+    if (verificationDivider) verificationDivider.classList.toggle('hidden', !canVerify);
   }
 
   /* ──────── Provider CTA (for non-providers) ──────── */

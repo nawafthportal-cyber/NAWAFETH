@@ -18,7 +18,8 @@ def dashboards():
         ("support", "الدعم والمساعدة", 2),
         ("content", "إدارة المحتوى", 3),
         ("promo", "إدارة الترويج", 4),
-        ("analytics", "التحليلات", 5),
+        ("verify", "التوثيق", 5),
+        ("analytics", "التحليلات", 6),
     ]
     for code, name_ar, order in rows:
         Dashboard.objects.get_or_create(
@@ -60,12 +61,14 @@ def test_power_user_is_scoped_to_allowed_dashboards(dashboards, otp_client):
     assert otp_client.get(reverse("dashboard:admin_control_home")).status_code == 403
     assert otp_client.get(reverse("dashboard:content_dashboard_home")).status_code == 403
     assert otp_client.get(reverse("dashboard:promo_dashboard")).status_code == 403
+    assert otp_client.get(reverse("dashboard:verification_dashboard")).status_code == 403
     assert otp_client.get(reverse("dashboard:analytics_insights")).status_code == 403
 
     html = support_response.content.decode("utf-8", errors="ignore")
     assert reverse("dashboard:admin_control_home") not in html
     assert reverse("dashboard:content_dashboard_home") not in html
     assert reverse("dashboard:promo_dashboard") not in html
+    assert reverse("dashboard:verification_dashboard") not in html
     assert reverse("dashboard:analytics_insights") not in html
 
 
@@ -84,3 +87,4 @@ def test_admin_user_keeps_full_dashboard_access(dashboards, otp_client):
     assert otp_client.get(reverse("dashboard:support_dashboard")).status_code == 200
     assert otp_client.get(reverse("dashboard:content_dashboard_home")).status_code == 200
     assert otp_client.get(reverse("dashboard:promo_dashboard")).status_code == 200
+    assert otp_client.get(reverse("dashboard:verification_dashboard")).status_code == 200

@@ -1,14 +1,21 @@
+import shutil
+from pathlib import Path
+
 import pytest
 from django.core.cache import cache
 
 
 @pytest.fixture(autouse=True)
-def use_local_file_storage_for_tests(settings, tmp_path):
+def use_local_file_storage_for_tests(settings):
     """
     Force local filesystem storage in tests so they never depend on
     external S3/R2 permissions or network state.
     """
-    settings.MEDIA_ROOT = str(tmp_path)
+    base_dir = Path(getattr(settings, "BASE_DIR", Path(__file__).resolve().parent))
+    media_root = base_dir / ".tmp_test_media"
+    shutil.rmtree(media_root, ignore_errors=True)
+    media_root.mkdir(parents=True, exist_ok=True)
+    settings.MEDIA_ROOT = str(media_root)
     settings.DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
     settings.STORAGES = {
         "default": {
@@ -18,6 +25,8 @@ def use_local_file_storage_for_tests(settings, tmp_path):
             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
+    yield
+    shutil.rmtree(media_root, ignore_errors=True)
 
 
 @pytest.fixture(autouse=True)

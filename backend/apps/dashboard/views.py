@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import re
 from decimal import Decimal, InvalidOperation
 from datetime import date, datetime, time, timedelta
 from functools import wraps
@@ -10,7 +11,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -49,7 +50,7 @@ from apps.providers.models import (
 )
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.reviews.services import sync_review_to_unified
-from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus
+from apps.billing.models import Invoice, InvoiceLineItem, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 from apps.support.models import (
     SupportAttachment,
@@ -80,13 +81,33 @@ from apps.promo.models import (
     PromoSearchScope,
     PromoServiceType,
 )
-from apps.verification.models import VerificationRequest
+from apps.verification.models import (
+    VerifiedBadge,
+    VerificationBadgeType,
+    VerificationDocument,
+    VerificationInquiryProfile,
+    VerificationRequirement,
+    VerificationRequirementAttachment,
+    VerificationRequest,
+    VerificationStatus,
+)
+from apps.verification.serializers import VerificationRequestDetailSerializer
 from apps.promo.services import (
     calc_promo_request_quote,
     expire_due_promos,
     ensure_default_pricing_rules,
     set_promo_ops_status,
     _sync_promo_to_unified,
+)
+from apps.verification.services import (
+    REQUIREMENTS_CATALOG,
+    _sync_verification_to_unified,
+    create_renewal_request_from_verified_badge,
+    deactivate_verified_badge,
+    decide_requirement,
+    finalize_request_and_create_invoice,
+    mark_request_in_review,
+    verification_invoice_preview_for_request,
 )
 from apps.excellence.selectors import (
     FEATURED_SERVICE_BADGE_CODE,
@@ -127,6 +148,8 @@ from .forms import (
     PromoModuleItemForm,
     PromoRequestActionForm,
     SupportDashboardActionForm,
+    VerificationInquiryActionForm,
+    VerificationRequestActionForm,
 )
 from .security import is_safe_redirect_url
 
@@ -376,6 +399,8 @@ def dashboard_index(request):
         return redirect("dashboard:content_dashboard_home")
     if dashboard_allowed(request.user, "promo"):
         return redirect("dashboard:promo_dashboard")
+    if dashboard_allowed(request.user, "verify"):
+        return redirect("dashboard:verification_dashboard")
     if dashboard_allowed(request.user, "analytics"):
         return redirect("dashboard:analytics_insights")
     return HttpResponseForbidden("لا توجد لوحة متاحة لهذا الحساب.")
@@ -2153,6 +2178,1293 @@ def promo_dashboard(request, request_id: int | None = None):
     return render(request, "dashboard/promo_dashboard.html", context)
 
 
+def _verification_priority_row_class(priority_number: int) -> str:
+    if int(priority_number or 1) >= 3:
+        return "priority-3"
+    if int(priority_number or 1) == 2:
+        return "priority-2"
+    return "priority-1"
+
+
+def _verification_support_team() -> SupportTeam | None:
+    return (
+        SupportTeam.objects.filter(is_active=True)
+        .filter(Q(code__iexact="verification") | Q(code__iexact="verify"))
+        .order_by("sort_order", "id")
+        .first()
+    )
+
+
+def _verification_nav_items(active_key: str) -> list[dict]:
+    items = [
+        {
+            "key": "verification",
+            "label": "التوثيق",
+            "description": "قائمة استفسارات التوثيق وطلبات التوثيق التشغيلية.",
+            "url": reverse("dashboard:verification_dashboard"),
+        },
+        {
+            "key": "verified_accounts",
+            "label": "بيانات الحسابات الموثقة",
+            "description": "عرض الحسابات التي تمتلك شارات توثيق فعالة.",
+            "url": f"{reverse('dashboard:verification_dashboard')}?tab=verified_accounts",
+        },
+    ]
+    for item in items:
+        item["active"] = item["key"] == active_key
+    return items
+
+
+def _verification_base_context(active_key: str) -> dict:
+    latest_helpdesk_code = (
+        SupportTicket.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "HD000001"
+    )
+    latest_verification_code = (
+        VerificationRequest.objects.exclude(code="").order_by("-id").values_list("code", flat=True).first()
+        or "AD000001"
+    )
+    return {
+        "nav_items": _verification_nav_items(active_key),
+        "request_codes": [
+            {"code": latest_helpdesk_code, "label": "استفسارات التوثيق"},
+            {"code": latest_verification_code, "label": "طلبات التوثيق"},
+        ],
+    }
+
+
+def _verification_inquiries_queryset_for_user(user):
+    return (
+        _support_queryset_for_user(user)
+        .filter(
+            Q(assigned_team__code__iexact="verification")
+            | Q(assigned_team__code__iexact="verify")
+            | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.VERIFY)
+        )
+        .select_related("verification_profile", "verification_profile__linked_request")
+        .distinct()
+    )
+
+
+def _verification_requests_queryset_for_user(user):
+    qs = (
+        VerificationRequest.objects.select_related("requester", "assigned_to", "invoice")
+        .prefetch_related(
+            "documents",
+            "requirements",
+            "requirements__attachments",
+            "linked_inquiries",
+            "linked_inquiries__ticket",
+            "invoice__lines",
+        )
+        .order_by("-updated_at", "-id")
+    )
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
+    return qs
+
+
+def _verification_request_badge_labels(verification_request: VerificationRequest) -> list[str]:
+    labels = dict(VerificationBadgeType.choices)
+    seen: set[str] = set()
+    values: list[str] = []
+    if verification_request.badge_type:
+        seen.add(verification_request.badge_type)
+        values.append(labels.get(verification_request.badge_type, verification_request.badge_type))
+    for requirement in verification_request.requirements.all():
+        badge_type = str(requirement.badge_type or "").strip()
+        if badge_type and badge_type not in seen:
+            seen.add(badge_type)
+            values.append(labels.get(badge_type, badge_type))
+    return values
+
+
+def _verification_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
+    rows: list[dict] = []
+    for ticket in tickets:
+        team_label = _support_team_label(ticket)
+        team_label = team_label.replace("فريق ", "") if team_label.startswith("فريق ") else team_label
+        linked_request = getattr(getattr(ticket, "verification_profile", None), "linked_request", None)
+        rows.append(
+            {
+                "id": ticket.id,
+                "code": ticket.code or f"HD{ticket.id:06d}",
+                "requester": _support_requester_label(ticket),
+                "priority_number": _support_priority_number(ticket.priority),
+                "priority_class": _support_priority_row_class(ticket.priority),
+                "ticket_type": ticket.get_ticket_type_display(),
+                "created_at": _format_dt(ticket.created_at),
+                "status": ticket.get_status_display(),
+                "team": team_label,
+                "assignee": _support_assignee_label(ticket),
+                "assigned_at": _format_dt(ticket.assigned_at),
+                "linked_request_code": linked_request.code if linked_request else "",
+            }
+        )
+    return rows
+
+
+def _verification_request_rows(requests: list[VerificationRequest]) -> list[dict]:
+    rows: list[dict] = []
+    for verification_request in requests:
+        priority_number = int(verification_request.priority or 1)
+        rows.append(
+            {
+                "id": verification_request.id,
+                "code": verification_request.code or f"AD{verification_request.id:06d}",
+                "requester": _promo_requester_label(verification_request.requester),
+                "priority_number": priority_number,
+                "priority_class": _verification_priority_row_class(priority_number),
+                "approved_at": _format_dt(
+                    verification_request.approved_at
+                    or verification_request.reviewed_at
+                    or verification_request.requested_at
+                ),
+                "request_status": verification_request.get_status_display(),
+                "badge_labels": _verification_request_badge_labels(verification_request),
+                "assignee": (
+                    (verification_request.assigned_to.username or verification_request.assigned_to.phone or "").strip()
+                    if verification_request.assigned_to
+                    else "غير مكلف"
+                )
+                or "غير مكلف",
+                "assigned_at": _format_dt(verification_request.assigned_at),
+            }
+        )
+    return rows
+
+
+VERIFICATION_REQUEST_EDITABLE_STATUSES = {
+    VerificationStatus.NEW,
+    VerificationStatus.IN_REVIEW,
+    VerificationStatus.REJECTED,
+}
+
+
+def _verification_request_is_editable(verification_request: VerificationRequest | None) -> bool:
+    if verification_request is None:
+        return False
+    return str(verification_request.status or "").strip() in VERIFICATION_REQUEST_EDITABLE_STATUSES
+
+
+def _verification_datetime_local_input_value(value) -> str:
+    if value is None:
+        return ""
+    try:
+        current_tz = timezone.get_current_timezone()
+        normalized = timezone.localtime(value, current_tz) if timezone.is_aware(value) else timezone.make_aware(value, current_tz)
+    except Exception:
+        return ""
+    return normalized.strftime("%Y-%m-%dT%H:%M")
+
+
+def _verification_requirement_review_rows(
+    verification_request: VerificationRequest,
+    *,
+    badge_type: str,
+) -> list[dict]:
+    rows: list[dict] = []
+    for requirement in verification_request.requirements.all():
+        if requirement.badge_type != badge_type:
+            continue
+        attachments = list(requirement.attachments.all())
+        current_state = ""
+        if requirement.is_approved is True:
+            current_state = "approve"
+        elif requirement.is_approved is False:
+            current_state = "reject"
+        latest_attachment = attachments[-1] if attachments else None
+        rows.append(
+            {
+                "id": requirement.id,
+                "code": requirement.code,
+                "title": requirement.title,
+                "badge_type": requirement.badge_type,
+                "badge_label": requirement.get_badge_type_display(),
+                "decision_value": current_state,
+                "decision_note": requirement.decision_note or "",
+                "attachment_count": len(attachments),
+                "attachments": attachments,
+                "latest_attachment_at": _format_dt(getattr(latest_attachment, "uploaded_at", None)),
+                "evidence_expires_at_label": _format_dt(requirement.evidence_expires_at),
+                "evidence_expires_at_value": _verification_datetime_local_input_value(requirement.evidence_expires_at),
+            }
+        )
+    return rows
+
+
+def _verification_request_review_payload(verification_request: VerificationRequest | None) -> dict:
+    if verification_request is None:
+        return {
+            "blue_rows": [],
+            "green_rows": [],
+            "blue_profile": None,
+            "blue_documents": [],
+            "all_decided": False,
+        }
+
+    blue_profile_obj = getattr(verification_request, "blue_profile", None)
+    blue_profile = None
+    if blue_profile_obj is not None:
+        is_business = str(blue_profile_obj.subject_type or "").strip() == "business"
+        blue_profile = {
+            "subject_type_display": blue_profile_obj.get_subject_type_display(),
+            "verified_name": blue_profile_obj.verified_name,
+            "official_number": blue_profile_obj.official_number,
+            "official_date": blue_profile_obj.official_date,
+            "official_number_label": "رقم السجل التجاري" if is_business else "رقم الهوية / الإقامة",
+            "official_date_label": "تاريخه" if is_business else "تاريخ الميلاد",
+        }
+    blue_rows = _verification_requirement_review_rows(verification_request, badge_type=VerificationBadgeType.BLUE)
+    green_rows = _verification_requirement_review_rows(verification_request, badge_type=VerificationBadgeType.GREEN)
+    blue_documents = []
+    for document in verification_request.documents.all():
+        if str(document.doc_type or "").strip().lower() in {"id", "cr", "iban", "other"}:
+            blue_documents.append(document)
+
+    all_decided = all(item.get("decision_value") in {"approve", "reject"} for item in [*blue_rows, *green_rows]) and bool(
+        blue_rows or green_rows
+    )
+    return {
+        "blue_rows": blue_rows,
+        "green_rows": green_rows,
+        "blue_profile": blue_profile,
+        "blue_documents": blue_documents,
+        "all_decided": all_decided,
+    }
+
+
+def _verification_request_decision_summary(verification_request: VerificationRequest | None) -> dict:
+    if verification_request is None:
+        return {
+            "approved": [],
+            "rejected": [],
+            "pending": [],
+            "pricing": None,
+        }
+
+    approved_rows: list[dict] = []
+    rejected_rows: list[dict] = []
+    pending_rows: list[dict] = []
+    for requirement in verification_request.requirements.all():
+        row = {
+            "id": requirement.id,
+            "code": requirement.code,
+            "title": requirement.title,
+            "badge_type": requirement.badge_type,
+            "badge_label": requirement.get_badge_type_display(),
+            "decision_note": requirement.decision_note or "",
+        }
+        if requirement.is_approved is True:
+            approved_rows.append(row)
+        elif requirement.is_approved is False:
+            rejected_rows.append(row)
+        else:
+            pending_rows.append(row)
+
+    pricing_preview = verification_invoice_preview_for_request(vr=verification_request) if approved_rows else None
+    if pricing_preview:
+        amount_by_code = {
+            str(line["item_code"]): f"{Decimal(str(line['amount'])).quantize(Decimal('0.00'))}"
+            for line in pricing_preview["lines"]
+        }
+        for row in approved_rows:
+            row["amount"] = amount_by_code.get(row["code"], "0.00")
+        pricing_preview = {
+            **pricing_preview,
+            "subtotal": f"{Decimal(str(pricing_preview['subtotal'])).quantize(Decimal('0.00'))}",
+            "vat_percent": f"{Decimal(str(pricing_preview['vat_percent'])).quantize(Decimal('0.00'))}",
+            "vat_amount": f"{Decimal(str(pricing_preview['vat_amount'])).quantize(Decimal('0.00'))}",
+            "total": f"{Decimal(str(pricing_preview['total'])).quantize(Decimal('0.00'))}",
+        }
+
+    return {
+        "approved": approved_rows,
+        "rejected": rejected_rows,
+        "pending": pending_rows,
+        "pricing": pricing_preview,
+    }
+
+
+def _verification_verified_badges_queryset_for_user(user):
+    now = timezone.now()
+    qs = (
+        VerifiedBadge.objects.filter(is_active=True, expires_at__gt=now)
+        .select_related("user", "request", "request__invoice", "request__blue_profile", "user__provider_profile")
+        .prefetch_related(
+            Prefetch(
+                "request__requirements",
+                queryset=VerificationRequirement.objects.order_by("sort_order", "id").prefetch_related(
+                    Prefetch(
+                        "attachments",
+                        queryset=VerificationRequirementAttachment.objects.order_by("id"),
+                    )
+                ),
+            ),
+            Prefetch(
+                "request__documents",
+                queryset=VerificationDocument.objects.order_by("id"),
+            ),
+            Prefetch(
+                "request__invoice__lines",
+                queryset=InvoiceLineItem.objects.order_by("sort_order", "id"),
+            ),
+        )
+        .order_by("-activated_at", "-id")
+    )
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        qs = qs.filter(Q(request__assigned_to=user) | Q(request__assigned_to__isnull=True))
+    return qs
+
+
+def _verification_verified_name_for_badge(badge: VerifiedBadge) -> str:
+    verification_request = getattr(badge, "request", None)
+    blue_profile = getattr(verification_request, "blue_profile", None)
+    if blue_profile and (blue_profile.verified_name or "").strip():
+        return (blue_profile.verified_name or "").strip()
+    provider_profile = getattr(getattr(badge, "user", None), "provider_profile", None)
+    display_name = (getattr(provider_profile, "display_name", "") or "").strip() if provider_profile else ""
+    return display_name or _promo_requester_label(getattr(badge, "user", None))
+
+
+def _verification_requirement_for_badge(badge: VerifiedBadge):
+    verification_request = getattr(badge, "request", None)
+    if verification_request is None:
+        return None
+    cached_requirements = getattr(verification_request, "_prefetched_objects_cache", {}).get("requirements")
+    iterable = cached_requirements if cached_requirements is not None else verification_request.requirements.order_by("sort_order", "id").prefetch_related("attachments")
+    for requirement in iterable:
+        if requirement.code == badge.verification_code:
+            return requirement
+    return None
+
+
+def _verification_verified_account_rows(user, *, q: str = "") -> list[dict]:
+    normalized_query = str(q or "").strip().lower()
+    rows: list[dict] = []
+    for badge in _verification_verified_badges_queryset_for_user(user):
+        requester_name = _promo_requester_label(badge.user)
+        verified_name = _verification_verified_name_for_badge(badge)
+        request_code = badge.request.code if badge.request and badge.request.code else (f"AD{badge.request_id:06d}" if badge.request_id else "")
+        haystack = " ".join(
+            token
+            for token in [
+                requester_name,
+                verified_name,
+                badge.verification_code,
+                badge.verification_title,
+                badge.get_badge_type_display(),
+                request_code,
+            ]
+            if token
+        ).lower()
+        if normalized_query and normalized_query not in haystack:
+            continue
+        rows.append(
+            {
+                "id": badge.id,
+                "badge_id": badge.id,
+                "user_id": badge.user_id,
+                "request_id": badge.request_id,
+                "request_code": request_code,
+                "requester_name": requester_name,
+                "verified_name": verified_name,
+                "verification_code": badge.verification_code or "-",
+                "verification_title": badge.verification_title or "-",
+                "badge_type": badge.badge_type,
+                "badge_type_label": badge.get_badge_type_display(),
+                "badge_type_class": "brand" if badge.badge_type == VerificationBadgeType.BLUE else "mint",
+                "activated_at": badge.activated_at,
+                "expires_at": badge.expires_at,
+            }
+        )
+    return rows
+
+
+def _verification_inquiry_summary(tickets: list[SupportTicket]) -> dict:
+    by_status: dict[str, int] = {}
+    for ticket in tickets:
+        by_status[ticket.status] = by_status.get(ticket.status, 0) + 1
+    return {
+        "total": len(tickets),
+        "new": by_status.get(SupportTicketStatus.NEW, 0),
+        "in_progress": by_status.get(SupportTicketStatus.IN_PROGRESS, 0),
+        "returned": by_status.get(SupportTicketStatus.RETURNED, 0),
+        "closed": by_status.get(SupportTicketStatus.CLOSED, 0),
+    }
+
+
+def _verification_request_summary(requests: list[VerificationRequest]) -> dict:
+    by_status: dict[str, int] = {}
+    for verification_request in requests:
+        by_status[verification_request.status] = by_status.get(verification_request.status, 0) + 1
+    return {
+        "total": len(requests),
+        "new": by_status.get("new", 0),
+        "in_review": by_status.get("in_review", 0),
+        "approved": by_status.get("approved", 0),
+        "pending_payment": by_status.get("pending_payment", 0),
+        "active": by_status.get("active", 0),
+    }
+
+
+def _verification_verified_accounts_summary(rows: list[dict]) -> dict:
+    return {
+        "total": len(rows),
+        "blue": sum(1 for row in rows if row.get("badge_type") == VerificationBadgeType.BLUE),
+        "green": sum(1 for row in rows if row.get("badge_type") == VerificationBadgeType.GREEN),
+        "accounts": len({row.get("user_id") for row in rows if row.get("user_id")}),
+    }
+
+
+def _verification_inquiry_export_rows(tickets: list[SupportTicket]) -> tuple[list[str], list[list]]:
+    headers = [
+        "رقم الطلب",
+        "اسم العميل",
+        "الأولوية",
+        "نوع الطلب",
+        "تاريخ ووقت استلام الطلب",
+        "حالة الطلب",
+        "فريق الدعم",
+        "المكلف بالطلب",
+        "تاريخ ووقت التكليف",
+    ]
+    rows: list[list] = []
+    for row in _verification_inquiry_rows(tickets):
+        rows.append(
+            [
+                row["code"],
+                row["requester"],
+                row["priority_number"],
+                row["ticket_type"],
+                row["created_at"],
+                row["status"],
+                row["team"],
+                row["assignee"],
+                row["assigned_at"],
+            ]
+        )
+    return headers, rows
+
+
+def _verification_request_export_rows(requests: list[VerificationRequest]) -> tuple[list[str], list[list]]:
+    headers = [
+        "رقم الطلب",
+        "اسم العميل",
+        "الأولوية",
+        "تاريخ ووقت اعتماد الطلب",
+        "حالة الطلب",
+        "المكلف بالطلب",
+        "تاريخ ووقت التكليف",
+    ]
+    rows: list[list] = []
+    for row in _verification_request_rows(requests):
+        rows.append(
+            [
+                row["code"],
+                row["requester"],
+                row["priority_number"],
+                row["approved_at"],
+                row["request_status"],
+                row["assignee"],
+                row["assigned_at"],
+            ]
+        )
+    return headers, rows
+
+
+def _verification_verified_accounts_export_rows(rows: list[dict]) -> tuple[list[str], list[list]]:
+    headers = [
+        "اسم العميل",
+        "رمز التوثيق",
+        "نوع شارة التوثيق",
+        "تاريخ تفعيل التوثيق",
+        "تاريخ نهاية تفعيل التوثيق",
+        "رقم طلب التوثيق المصدر",
+    ]
+    data_rows: list[list] = []
+    for row in rows:
+        data_rows.append(
+            [
+                row["requester_name"],
+                row["verification_code"],
+                row["badge_type_label"],
+                _format_dt(row["activated_at"]),
+                _format_dt(row["expires_at"]),
+                row["request_code"] or "-",
+            ]
+        )
+    return headers, data_rows
+
+
+def _verification_document_rows_for_badge(badge: VerifiedBadge) -> list[dict]:
+    rows: list[dict] = []
+    seen_keys: set[tuple[str, str]] = set()
+
+    requirement = _verification_requirement_for_badge(badge)
+    if requirement is not None:
+        cached_attachments = getattr(requirement, "_prefetched_objects_cache", {}).get("attachments")
+        attachments = cached_attachments if cached_attachments is not None else requirement.attachments.order_by("id")
+        for index, attachment in enumerate(attachments, start=1):
+            file_name = getattr(getattr(attachment, "file", None), "name", "") or ""
+            key = ("attachment", file_name)
+            if not file_name or key in seen_keys:
+                continue
+            seen_keys.add(key)
+            rows.append(
+                {
+                    "title": requirement.title or f"مرفق توثيق {index}",
+                    "label": file_name.rsplit("/", 1)[-1] or f"مرفق {index}",
+                    "url": attachment.file.url,
+                    "uploaded_at": attachment.uploaded_at,
+                    "uploaded_at_label": _format_dt(attachment.uploaded_at),
+                    "kind": "attachment",
+                }
+            )
+
+    if badge.badge_type == VerificationBadgeType.BLUE:
+        verification_request = getattr(badge, "request", None)
+        if verification_request is not None:
+            cached_documents = getattr(verification_request, "_prefetched_objects_cache", {}).get("documents")
+            documents = cached_documents if cached_documents is not None else verification_request.documents.order_by("id")
+            for index, document in enumerate(documents, start=1):
+                file_name = getattr(getattr(document, "file", None), "name", "") or ""
+                key = ("document", file_name)
+                if not file_name or key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                rows.append(
+                    {
+                        "title": document.title or document.get_doc_type_display() or f"مستند داعم {index}",
+                        "label": file_name.rsplit("/", 1)[-1] or f"مستند {index}",
+                        "url": document.file.url,
+                        "uploaded_at": document.uploaded_at,
+                        "uploaded_at_label": _format_dt(document.uploaded_at),
+                        "kind": "document",
+                    }
+                )
+    return rows
+
+
+def _verification_payment_summary_for_badge(badge: VerifiedBadge):
+    verification_request = getattr(badge, "request", None)
+    invoice = getattr(verification_request, "invoice", None) if verification_request is not None else None
+    if not invoice or not invoice.is_payment_effective():
+        return None
+
+    cached_lines = getattr(invoice, "_prefetched_objects_cache", {}).get("lines")
+    invoice_lines = cached_lines if cached_lines is not None else invoice.lines.order_by("sort_order", "id")
+    matched_line = next((line for line in invoice_lines if (line.item_code or "") == (badge.verification_code or "")), None)
+    amount_value = matched_line.amount if matched_line is not None else (invoice.payment_amount or invoice.total or Decimal("0.00"))
+    amount_text = f"{Decimal(str(amount_value or '0.00')).quantize(Decimal('0.00'))}"
+    paid_at = invoice.payment_confirmed_at or invoice.paid_at
+    currency = (invoice.payment_currency or invoice.currency or "SAR").strip() or "SAR"
+    invoice_code = invoice.code or f"IV{invoice.id:06d}"
+    return {
+        "invoice_id": invoice.id,
+        "invoice_code": invoice_code,
+        "amount": amount_text,
+        "currency": currency,
+        "paid_at": paid_at,
+        "paid_at_label": _format_dt(paid_at),
+        "message": f"تمت عملية سداد الرسوم بنجاح في تاريخ {_format_dt(paid_at)} بقيمة {amount_text} {currency}.",
+    }
+
+
+def _verification_verified_account_detail_payload(badge: VerifiedBadge | None):
+    if badge is None:
+        return None
+
+    requirement = _verification_requirement_for_badge(badge)
+    request_code = badge.request.code if badge.request and badge.request.code else (f"AD{badge.request_id:06d}" if badge.request_id else "")
+    return {
+        "id": badge.id,
+        "requester_name": _promo_requester_label(badge.user),
+        "verified_name": _verification_verified_name_for_badge(badge),
+        "verification_code": badge.verification_code or "-",
+        "verification_title": requirement.title if requirement is not None else (badge.verification_title or "-"),
+        "badge_type": badge.badge_type,
+        "badge_type_label": badge.get_badge_type_display(),
+        "activated_at": badge.activated_at,
+        "activated_at_label": _format_dt(badge.activated_at),
+        "expires_at": badge.expires_at,
+        "expires_at_label": _format_dt(badge.expires_at),
+        "evidence_expires_at_label": _format_dt(requirement.evidence_expires_at) if requirement and requirement.evidence_expires_at else "-",
+        "request_id": badge.request_id,
+        "request_code": request_code,
+        "documents": _verification_document_rows_for_badge(badge),
+        "last_payment": _verification_payment_summary_for_badge(badge),
+    }
+
+
+def _verification_redirect_with_state(
+    request,
+    *,
+    request_id: int | None = None,
+    inquiry_id: int | None = None,
+    extra_params: dict[str, str | None] | None = None,
+):
+    query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
+    base = request.path
+    params = QueryDict(query, mutable=True)
+    if inquiry_id is not None:
+        params["inquiry"] = str(inquiry_id)
+    if request_id is not None:
+        params["request"] = str(request_id)
+    if extra_params:
+        for key, value in extra_params.items():
+            if value in (None, ""):
+                params.pop(key, None)
+            else:
+                params[key] = str(value)
+    normalized_query = params.urlencode()
+    return redirect(f"{base}?{normalized_query}") if normalized_query else redirect(base)
+
+
+def _extract_first_http_url(text: str) -> str:
+    match = re.search(r"https?://[^\s]+", text or "")
+    if not match:
+        return ""
+    return match.group(0).rstrip(".,);]")
+
+
+def _verification_badge_guide() -> dict:
+    green_requirements = list((REQUIREMENTS_CATALOG.get(VerificationBadgeType.GREEN) or {}).values())
+    return {
+        "blue": {
+            "title": "توثيق الشارة الزرقاء",
+            "description": "توثيق الهوية الشخصية أو الصفة التجارية.",
+        },
+        "green": {
+            "title": "توثيق الشارة الخضراء",
+            "requirements": green_requirements,
+        },
+    }
+
+
+@dashboard_staff_required
+@require_dashboard_access("verify")
+def verification_dashboard(request):
+    can_write = dashboard_allowed(request.user, "verify", write=True)
+    access_profile = active_access_profile_for_user(request.user)
+    assignee_choices = _dashboard_assignee_choices("verify")
+    verification_team = _verification_support_team()
+    team_choices = [(str(verification_team.id), verification_team.name_ar)] if verification_team else []
+
+    inquiries_base_qs = _verification_inquiries_queryset_for_user(request.user)
+    verification_requests_base_qs = _verification_requests_queryset_for_user(request.user)
+    verified_badges_base_qs = _verification_verified_badges_queryset_for_user(request.user)
+
+    inquiry_q = (request.GET.get("inquiry_q") or "").strip()
+    request_q = (request.GET.get("request_q") or "").strip()
+    accounts_q = (request.GET.get("accounts_q") or "").strip()
+    tab = (request.GET.get("tab") or "verification").strip().lower()
+    if tab not in {"verification", "verified_accounts"}:
+        tab = "verification"
+
+    inquiries_qs = inquiries_base_qs
+    if inquiry_q:
+        inquiries_qs = inquiries_qs.filter(
+            Q(code__icontains=inquiry_q)
+            | Q(description__icontains=inquiry_q)
+            | Q(requester__username__icontains=inquiry_q)
+            | Q(requester__phone__icontains=inquiry_q)
+        )
+    inquiries = list(inquiries_qs.order_by("-created_at", "-id"))
+
+    verification_requests_qs = verification_requests_base_qs
+    if request_q:
+        verification_requests_qs = verification_requests_qs.filter(
+            Q(code__icontains=request_q)
+            | Q(admin_note__icontains=request_q)
+            | Q(requester__username__icontains=request_q)
+            | Q(requester__phone__icontains=request_q)
+        )
+    verification_requests = list(verification_requests_qs)
+    verified_accounts = _verification_verified_account_rows(request.user, q=accounts_q)
+
+    selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
+    selected_inquiry = inquiries_base_qs.filter(id=int(selected_inquiry_id_raw)).first() if selected_inquiry_id_raw.isdigit() else None
+
+    selected_request = None
+    selected_request_id_raw = (request.GET.get("request") or "").strip()
+    if selected_request_id_raw.isdigit():
+        selected_request = verification_requests_base_qs.filter(id=int(selected_request_id_raw)).first()
+
+    selected_verified_badge = None
+    selected_verified_badge_id_raw = (request.GET.get("verified_badge") or "").strip()
+    if selected_verified_badge_id_raw.isdigit():
+        selected_verified_badge = verified_badges_base_qs.filter(id=int(selected_verified_badge_id_raw)).first()
+    request_stage = (request.GET.get("request_stage") or "").strip().lower()
+    if request_stage not in {"review", "summary"}:
+        request_stage = "summary" if selected_request and not _verification_request_is_editable(selected_request) else "review"
+
+    linked_request_choices = [
+        (str(row.id), f"{row.code or f'AD{row.id:06d}'} - {_promo_requester_label(row.requester)}")
+        for row in verification_requests_base_qs[:200]
+    ]
+
+    inquiry_profile = getattr(selected_inquiry, "verification_profile", None) if selected_inquiry else None
+    verification_team_id = verification_team.id if verification_team is not None else None
+    initial_team_id = verification_team_id
+    if initial_team_id is None and selected_inquiry is not None:
+        initial_team_id = selected_inquiry.assigned_team_id
+
+    inquiry_form = VerificationInquiryActionForm(
+        initial={
+            "status": selected_inquiry.status if selected_inquiry else SupportTicketStatus.NEW,
+            "assigned_team": str(initial_team_id or ""),
+            "assigned_to": str(selected_inquiry.assigned_to_id or "") if selected_inquiry else "",
+            "description": (selected_inquiry.description or "") if selected_inquiry else "",
+            "operator_comment": (inquiry_profile.operator_comment or "") if inquiry_profile else "",
+            "detailed_request_url": (inquiry_profile.detailed_request_url or "") if inquiry_profile else "",
+            "linked_request_id": str(inquiry_profile.linked_request_id or "") if inquiry_profile else "",
+        },
+        assignee_choices=assignee_choices,
+        team_choices=team_choices,
+        linked_request_choices=linked_request_choices,
+    )
+    request_form = VerificationRequestActionForm(
+        initial={
+            "assigned_to": str(selected_request.assigned_to_id or "") if selected_request else "",
+            "status": selected_request.status if selected_request else "new",
+            "admin_note": (selected_request.admin_note or "") if selected_request else "",
+        },
+        assignee_choices=assignee_choices,
+    )
+
+    if request.method == "POST":
+        if not can_write:
+            return HttpResponseForbidden("لا تملك صلاحية تعديل لوحة التوثيق.")
+        action = (request.POST.get("action") or "").strip()
+
+        if action == "save_inquiry":
+            raw_ticket_id = (request.POST.get("ticket_id") or "").strip()
+            if not raw_ticket_id.isdigit():
+                messages.error(request, "تعذر تحديد استفسار التوثيق المطلوب تحديثه.")
+                return _verification_redirect_with_state(request)
+            target_ticket = inquiries_base_qs.filter(id=int(raw_ticket_id)).first()
+            if target_ticket is None:
+                messages.error(request, "الاستفسار المحدد غير متاح لهذا الحساب.")
+                return _verification_redirect_with_state(request)
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_ticket.assigned_to_id and target_ticket.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: الاستفسار ليس ضمن المهام المكلف بها.")
+
+            post_data = request.POST.copy()
+            if verification_team is not None:
+                post_data["assigned_team"] = str(verification_team.id)
+
+            post_form = VerificationInquiryActionForm(
+                post_data,
+                request.FILES,
+                assignee_choices=assignee_choices,
+                team_choices=team_choices,
+                linked_request_choices=linked_request_choices,
+            )
+            if not post_form.is_valid():
+                selected_inquiry = target_ticket
+                inquiry_form = post_form
+                messages.error(request, "يرجى مراجعة حقول نموذج استفسار التوثيق.")
+                return _verification_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            desired_status = post_form.cleaned_data.get("status")
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else None
+            if assigned_to_id is not None:
+                assignee = dashboard_assignee_user(assigned_to_id, "verify", write=True)
+                if assignee is None:
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة التوثيق.")
+                    return _verification_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            team_id = verification_team.id if verification_team is not None else None
+            note = post_form.cleaned_data.get("operator_comment") or ""
+            target_ticket = assign_ticket(
+                ticket=target_ticket,
+                team_id=team_id,
+                user_id=assigned_to_id,
+                by_user=request.user,
+                note=note,
+            )
+
+            new_description = post_form.cleaned_data.get("description") or target_ticket.description or ""
+            if new_description != (target_ticket.description or ""):
+                target_ticket.description = new_description
+                target_ticket.last_action_by = request.user
+                target_ticket.save(update_fields=["description", "last_action_by", "updated_at"])
+
+            if desired_status and desired_status != target_ticket.status:
+                try:
+                    target_ticket = change_ticket_status(
+                        ticket=target_ticket,
+                        new_status=desired_status,
+                        by_user=request.user,
+                        note=note,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return _verification_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            if note:
+                SupportComment.objects.create(
+                    ticket=target_ticket,
+                    text=note[:300],
+                    is_internal=True,
+                    created_by=request.user,
+                )
+
+            attachment = post_form.cleaned_data.get("attachment")
+            if attachment is not None:
+                try:
+                    from apps.features.upload_limits import user_max_upload_mb
+                    from apps.uploads.validators import validate_user_file_size
+
+                    validate_user_file_size(attachment, user_max_upload_mb(request.user))
+                except DjangoValidationError as exc:
+                    messages.error(request, str(exc))
+                    return _verification_redirect_with_state(request, inquiry_id=target_ticket.id)
+                SupportAttachment.objects.create(
+                    ticket=target_ticket,
+                    file=attachment,
+                    uploaded_by=request.user,
+                )
+
+            linked_request_id_raw = (post_form.cleaned_data.get("linked_request_id") or "").strip()
+            linked_request = (
+                VerificationRequest.objects.filter(id=int(linked_request_id_raw)).first()
+                if linked_request_id_raw.isdigit()
+                else None
+            )
+            profile, _ = VerificationInquiryProfile.objects.get_or_create(ticket=target_ticket)
+            profile.linked_request = linked_request
+            comment_detail_url = _extract_first_http_url(note)
+            stored_detail_url = (post_form.cleaned_data.get("detailed_request_url") or "").strip()
+            profile.detailed_request_url = comment_detail_url or ("" if note else stored_detail_url)
+            profile.operator_comment = note[:300]
+            profile.save(update_fields=["linked_request", "detailed_request_url", "operator_comment", "updated_at"])
+
+            messages.success(request, f"تم تحديث استفسار التوثيق {target_ticket.code or target_ticket.id} بنجاح.")
+            return _verification_redirect_with_state(
+                request,
+                inquiry_id=target_ticket.id,
+                request_id=(linked_request.id if linked_request else None),
+            )
+
+        if action in {"save_request", "continue_request_review", "finalize_request"}:
+            raw_request_id = (request.POST.get("verification_request_id") or "").strip()
+            if not raw_request_id.isdigit():
+                messages.error(request, "تعذر تحديد طلب التوثيق المطلوب.")
+                return _verification_redirect_with_state(request)
+            target_request = verification_requests_base_qs.filter(id=int(raw_request_id)).first()
+            if target_request is None:
+                messages.error(request, "طلب التوثيق المحدد غير متاح لهذا الحساب.")
+                return _verification_redirect_with_state(request)
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_request.assigned_to_id and target_request.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: الطلب ليس ضمن المهام المكلف بها.")
+
+            posted_request_stage = (request.POST.get("request_stage") or "review").strip().lower()
+            if posted_request_stage not in {"review", "summary"}:
+                posted_request_stage = "review"
+            post_form = VerificationRequestActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+            )
+            if not post_form.is_valid():
+                selected_request = target_request
+                request_form = post_form
+                messages.error(request, "يرجى مراجعة حقول نموذج طلب التوثيق.")
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": posted_request_stage},
+                )
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else None
+            if assigned_to_id is not None:
+                assignee = dashboard_assignee_user(assigned_to_id, "verify", write=True)
+                if assignee is None:
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة التوثيق.")
+                    return _verification_redirect_with_state(request, request_id=target_request.id)
+                if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
+                    return HttpResponseForbidden("لا يمكنك تعيين الطلب لمستخدم آخر.")
+            else:
+                assignee = None
+
+            updates: list[str] = []
+            next_admin_note = (post_form.cleaned_data.get("admin_note") or "")[:300]
+            if assigned_to_id != target_request.assigned_to_id:
+                target_request.assigned_to = assignee
+                target_request.assigned_at = timezone.now() if assignee else None
+                updates.extend(["assigned_to", "assigned_at"])
+
+            if next_admin_note != (target_request.admin_note or ""):
+                target_request.admin_note = next_admin_note
+                updates.append("admin_note")
+
+            if updates:
+                updates.append("updated_at")
+                target_request.save(update_fields=updates)
+                _sync_verification_to_unified(vr=target_request, changed_by=request.user)
+
+            if action in {"save_request", "continue_request_review"}:
+                if not _verification_request_is_editable(target_request):
+                    messages.error(request, "هذا الطلب في مرحلة لاحقة ولا يمكن تعديل بنوده من شاشة المراجعة.")
+                    return _verification_redirect_with_state(
+                        request,
+                        request_id=target_request.id,
+                        extra_params={"request_stage": "summary"},
+                    )
+
+                decision_rows = []
+                validation_errors: list[str] = []
+                for requirement in target_request.requirements.all():
+                    current_state = requirement.is_approved if requirement.is_approved in (True, False) else None
+                    raw_decision = (request.POST.get(f"decision_{requirement.id}") or "").strip().lower()
+                    desired_state = current_state
+                    if raw_decision == "approve":
+                        desired_state = True
+                    elif raw_decision == "reject":
+                        desired_state = False
+
+                    reason_key = f"reject_reason_{requirement.id}"
+                    has_reason_input = reason_key in request.POST
+                    desired_note = (
+                        (request.POST.get(reason_key) or "").strip()[:300]
+                        if has_reason_input
+                        else (requirement.decision_note or "")
+                    )
+
+                    evidence_key = f"evidence_expires_at_{requirement.id}"
+                    has_evidence_input = evidence_key in request.POST
+                    desired_evidence = requirement.evidence_expires_at
+                    if has_evidence_input:
+                        raw_evidence = (request.POST.get(evidence_key) or "").strip()
+                        desired_evidence = _parse_datetime_local(raw_evidence) if raw_evidence else None
+                    if requirement.badge_type != VerificationBadgeType.GREEN:
+                        desired_evidence = None
+
+                    if action == "continue_request_review" and desired_state is None:
+                        validation_errors.append(f"حدد اعتمادًا أو رفضًا للبند {requirement.code}.")
+
+                    decision_rows.append(
+                        {
+                            "requirement": requirement,
+                            "current_state": current_state,
+                            "desired_state": desired_state,
+                            "current_note": requirement.decision_note or "",
+                            "desired_note": desired_note,
+                            "current_evidence": requirement.evidence_expires_at,
+                            "desired_evidence": desired_evidence,
+                        }
+                    )
+
+                if validation_errors:
+                    for error in validation_errors:
+                        messages.error(request, error)
+                    return _verification_redirect_with_state(
+                        request,
+                        request_id=target_request.id,
+                        extra_params={"request_stage": "review"},
+                    )
+
+                changed_decisions = False
+                for row in decision_rows:
+                    desired_state = row["desired_state"]
+                    if desired_state is None:
+                        continue
+                    if (
+                        desired_state != row["current_state"]
+                        or row["desired_note"] != row["current_note"]
+                        or row["desired_evidence"] != row["current_evidence"]
+                    ):
+                        decide_requirement(
+                            req=row["requirement"],
+                            is_approved=bool(desired_state),
+                            note=row["desired_note"],
+                            by_user=request.user,
+                            evidence_expires_at=row["desired_evidence"],
+                        )
+                        changed_decisions = True
+
+                if changed_decisions:
+                    mark_request_in_review(vr=target_request, changed_by=request.user)
+
+                target_request = verification_requests_base_qs.filter(id=target_request.id).first() or target_request
+                next_stage = "summary" if action == "continue_request_review" else "review"
+                message_text = (
+                    f"تم تجهيز ملخص طلب التوثيق {target_request.code or target_request.id}."
+                    if action == "continue_request_review"
+                    else f"تم تحديث مراجعة طلب التوثيق {target_request.code or target_request.id} بنجاح."
+                )
+                messages.success(request, message_text)
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": next_stage},
+                )
+
+            if target_request.status in {VerificationStatus.PENDING_PAYMENT, VerificationStatus.ACTIVE}:
+                messages.info(request, "تم اعتماد هذا الطلب مسبقًا وتظهر لك نسخة القراءة فقط من الملخص.")
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": "summary"},
+                )
+
+            pending_items = list(target_request.requirements.filter(is_approved__isnull=True))
+            if pending_items:
+                messages.error(request, "أكمل اعتماد أو رفض جميع البنود أولًا قبل إصدار ملخص الاعتماد النهائي.")
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": "review"},
+                )
+
+            rejected_items = list(target_request.requirements.filter(is_approved=False))
+            missing_reasons: list[str] = []
+            for requirement in rejected_items:
+                reason_key = f"reject_reason_{requirement.id}"
+                desired_note = (request.POST.get(reason_key) or "").strip()[:300]
+                if reason_key in request.POST:
+                    if not desired_note:
+                        missing_reasons.append(requirement.code)
+                    elif desired_note != (requirement.decision_note or ""):
+                        decide_requirement(
+                            req=requirement,
+                            is_approved=False,
+                            note=desired_note,
+                            by_user=request.user,
+                            evidence_expires_at=requirement.evidence_expires_at,
+                        )
+                elif not (requirement.decision_note or "").strip():
+                    missing_reasons.append(requirement.code)
+
+            if missing_reasons:
+                messages.error(request, f"أدخل سبب الرفض للبنود التالية: {', '.join(missing_reasons)}.")
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": "summary"},
+                )
+
+            target_request = verification_requests_base_qs.filter(id=target_request.id).first() or target_request
+            try:
+                target_request = finalize_request_and_create_invoice(vr=target_request, by_user=request.user)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return _verification_redirect_with_state(
+                    request,
+                    request_id=target_request.id,
+                    extra_params={"request_stage": "summary"},
+                )
+
+            messages.success(
+                request,
+                f"تم اعتماد طلب التوثيق {target_request.code or target_request.id} وتحويله إلى {target_request.get_status_display()}.",
+            )
+            return _verification_redirect_with_state(
+                request,
+                request_id=target_request.id,
+                extra_params={"request_stage": "summary"},
+            )
+
+        if action in {"renew_verified_badge", "delete_verified_badge"}:
+            raw_badge_id = (request.POST.get("verified_badge_id") or "").strip()
+            if not raw_badge_id.isdigit():
+                messages.error(request, "تعذر تحديد سجل التوثيق المطلوب.")
+                return _verification_redirect_with_state(request, extra_params={"tab": "verified_accounts"})
+
+            target_badge = verified_badges_base_qs.filter(id=int(raw_badge_id)).first()
+            if target_badge is None:
+                messages.error(request, "سجل التوثيق المحدد غير متاح أو لم يعد مفعلًا.")
+                return _verification_redirect_with_state(
+                    request,
+                    extra_params={"tab": "verified_accounts", "verified_badge": None},
+                )
+
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_badge.request.assigned_to_id and target_badge.request.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: هذا السجل ليس ضمن نطاق الطلبات المكلف بها.")
+
+            if action == "delete_verified_badge":
+                deactivate_verified_badge(badge=target_badge, by_user=request.user)
+                messages.success(
+                    request,
+                    f"تم حذف تفعيل رمز التوثيق {target_badge.verification_code or target_badge.id} من قائمة الحسابات الموثقة.",
+                )
+                return _verification_redirect_with_state(
+                    request,
+                    extra_params={
+                        "tab": "verified_accounts",
+                        "verified_badge": None,
+                        "request": None,
+                        "inquiry": None,
+                        "request_stage": None,
+                    },
+                )
+
+            try:
+                renewal_request = create_renewal_request_from_verified_badge(
+                    badge=target_badge,
+                    assigned_to=request.user,
+                    by_user=request.user,
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return _verification_redirect_with_state(
+                    request,
+                    extra_params={"tab": "verified_accounts", "verified_badge": target_badge.id},
+                )
+
+            messages.success(
+                request,
+                f"تم إنشاء طلب تجديد جديد للرمز {target_badge.verification_code or target_badge.id} برقم {renewal_request.code or renewal_request.id}.",
+            )
+            return _verification_redirect_with_state(
+                request,
+                request_id=renewal_request.id,
+                extra_params={
+                    "tab": "verification",
+                    "verified_badge": None,
+                    "inquiry": None,
+                    "request_stage": "review",
+                },
+            )
+
+    export_scope = (request.GET.get("scope") or "").strip().lower()
+    if export_scope == "inquiries":
+        headers, rows = _verification_inquiry_export_rows(inquiries)
+        if _want_csv(request):
+            return _csv_response("verification_inquiries.csv", headers, rows)
+        if _want_xlsx(request):
+            return xlsx_response("verification_inquiries.xlsx", "verification_inquiries", headers, rows)
+        if _want_pdf(request):
+            return pdf_response("verification_inquiries.pdf", "قائمة استفسارات التوثيق", headers, rows, landscape=True)
+    if export_scope == "requests":
+        headers, rows = _verification_request_export_rows(verification_requests)
+        if _want_csv(request):
+            return _csv_response("verification_requests.csv", headers, rows)
+        if _want_xlsx(request):
+            return xlsx_response("verification_requests.xlsx", "verification_requests", headers, rows)
+        if _want_pdf(request):
+            return pdf_response("verification_requests.pdf", "قائمة طلبات التوثيق", headers, rows, landscape=True)
+    if export_scope == "verified_accounts":
+        headers, rows = _verification_verified_accounts_export_rows(verified_accounts)
+        if _want_csv(request):
+            return _csv_response("verified_accounts.csv", headers, rows)
+        if _want_xlsx(request):
+            return xlsx_response("verified_accounts.xlsx", "verified_accounts", headers, rows)
+        if _want_pdf(request):
+            return pdf_response("verified_accounts.pdf", "بيانات الحسابات الموثقة", headers, rows, landscape=True)
+
+    selected_inquiry_attachments = list(selected_inquiry.attachments.order_by("-id")[:8]) if selected_inquiry else []
+    selected_inquiry_comments = list(selected_inquiry.comments.order_by("-id")[:8]) if selected_inquiry else []
+    linked_inquiries_for_request = (
+        list(selected_request.linked_inquiries.select_related("ticket").order_by("-updated_at", "-id"))
+        if selected_request
+        else []
+    )
+    selected_request_review = _verification_request_review_payload(selected_request)
+    selected_request_decision_summary = _verification_request_decision_summary(selected_request)
+    if (
+        selected_request
+        and request_stage == "summary"
+        and selected_request_decision_summary.get("pending")
+        and _verification_request_is_editable(selected_request)
+    ):
+        request_stage = "review"
+    selected_request_invoice_summary = (
+        VerificationRequestDetailSerializer(selected_request).data.get("invoice_summary")
+        if selected_request
+        else None
+    )
+    if selected_request_invoice_summary and selected_request_decision_summary.get("approved"):
+        invoice_amounts_by_code = {
+            str(line.get("item_code") or ""): str(line.get("amount") or "0.00")
+            for line in (selected_request_invoice_summary.get("lines") or [])
+        }
+        for row in selected_request_decision_summary["approved"]:
+            if row["code"] in invoice_amounts_by_code:
+                row["amount"] = invoice_amounts_by_code[row["code"]]
+    selected_request_financial_summary = selected_request_invoice_summary or selected_request_decision_summary.get("pricing")
+    close_request_params = request.GET.copy()
+    close_request_params.pop("request", None)
+    close_request_query = close_request_params.urlencode()
+    close_request_url = f"{request.path}?{close_request_query}" if close_request_query else request.path
+    request_review_params = request.GET.copy()
+    if selected_request is not None:
+        request_review_params["request"] = str(selected_request.id)
+    request_review_params["request_stage"] = "review"
+    request_review_query = request_review_params.urlencode()
+    request_review_url = f"{request.path}?{request_review_query}" if request_review_query else request.path
+    request_summary_params = request.GET.copy()
+    if selected_request is not None:
+        request_summary_params["request"] = str(selected_request.id)
+    request_summary_params["request_stage"] = "summary"
+    request_summary_query = request_summary_params.urlencode()
+    request_summary_url = f"{request.path}?{request_summary_query}" if request_summary_query else request.path
+    close_inquiry_params = request.GET.copy()
+    close_inquiry_params.pop("inquiry", None)
+    close_inquiry_query = close_inquiry_params.urlencode()
+    close_inquiry_url = f"{request.path}?{close_inquiry_query}" if close_inquiry_query else request.path
+    selected_verified_badge_detail = _verification_verified_account_detail_payload(selected_verified_badge)
+    close_verified_badge_params = request.GET.copy()
+    close_verified_badge_params.pop("verified_badge", None)
+    close_verified_badge_query = close_verified_badge_params.urlencode()
+    close_verified_badge_url = f"{request.path}?{close_verified_badge_query}" if close_verified_badge_query else request.path
+
+    context = _verification_base_context(tab)
+    context.update(
+        {
+            "hero_title": "لوحة فريق إدارة التوثيق",
+            "hero_subtitle": "متابعة استفسارات التوثيق من صفحة التواصل، مراجعة طلبات التوثيق من مزودي الخدمة، وربطها بالحسابات الموثقة.",
+            "can_write": can_write,
+            "badge_guide": _verification_badge_guide(),
+            "inquiries": _verification_inquiry_rows(inquiries),
+            "verification_requests": _verification_request_rows(verification_requests),
+            "verified_accounts": verified_accounts,
+            "inquiry_summary": _verification_inquiry_summary(inquiries),
+            "request_summary": _verification_request_summary(verification_requests),
+            "verified_accounts_summary": _verification_verified_accounts_summary(verified_accounts),
+            "selected_inquiry": selected_inquiry,
+            "selected_request": selected_request,
+            "selected_verified_badge": selected_verified_badge,
+            "selected_verified_badge_detail": selected_verified_badge_detail,
+            "selected_request_is_editable": _verification_request_is_editable(selected_request),
+            "selected_request_badge_labels": _verification_request_badge_labels(selected_request) if selected_request else [],
+            "selected_request_invoice_summary": selected_request_invoice_summary,
+            "selected_request_financial_summary": selected_request_financial_summary,
+            "selected_request_review": selected_request_review,
+            "selected_request_decision_summary": selected_request_decision_summary,
+            "request_stage": request_stage,
+            "linked_inquiries_for_request": linked_inquiries_for_request,
+            "verification_support_team": verification_team,
+            "selected_inquiry_attachments": selected_inquiry_attachments,
+            "selected_inquiry_comments": selected_inquiry_comments,
+            "inquiry_form": inquiry_form,
+            "request_form": request_form,
+            "request_review_url": request_review_url,
+            "request_summary_url": request_summary_url,
+            "close_verified_badge_url": close_verified_badge_url,
+            "filters": {
+                "inquiry_q": inquiry_q,
+                "request_q": request_q,
+                "accounts_q": accounts_q,
+                "tab": tab,
+            },
+            "close_request_url": close_request_url,
+            "close_inquiry_url": close_inquiry_url,
+            "redirect_query": request.GET.urlencode(),
+        }
+    )
+    return render(request, "dashboard/verification_dashboard.html", context)
+
+
 def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
     rows: list[dict] = []
     now = timezone.now()
@@ -3045,7 +4357,7 @@ def _dashboard_team_panels() -> list[dict]:
             "team": "فريق التوثيق",
             "summary": "متابعة حالات التوثيق والتحقق من استيفاء المتطلبات النظامية.",
             "dashboards": [
-                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+                {"label": "لوحة فريق التوثيق", "url": reverse("dashboard:verification_dashboard")},
             ],
             "worklists": [
                 "طلبات التوثيق",

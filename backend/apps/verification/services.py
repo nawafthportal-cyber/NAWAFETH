@@ -23,6 +23,7 @@ from apps.subscriptions.tiering import (
 from .models import (
     VerificationRequest, VerificationDocument,
     VerificationStatus, VerifiedBadge, VerificationBadgeType,
+    VerificationBlueProfile, VerificationBlueSubjectType,
     VerificationRequirement,
     VerificationRequirementAttachment,
 )
@@ -58,7 +59,7 @@ REQUIREMENTS_CATALOG: dict[str, dict[str, dict[str, str]]] = {
         },
         "G6": {
             "code": "G6",
-            "title": "توثيق كفؤ (عبر أبشر لمن يعمل في توصيل الطلبات أو النقل التشاركي ويستخدم مركبته الخاصة)",
+            "title": "توثيق كفو (عبر أبشر لمن يعمل في توصيل الطلبات أو النقل التشاركي ويستخدم مركبته الخاصة)",
         },
     },
 }
@@ -68,14 +69,14 @@ BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
     VerificationBadgeType.BLUE: {
         "badge_type": VerificationBadgeType.BLUE,
         "title": "الشارة الزرقاء",
-        "short_description": "توثيق الهوية أو السجل التجاري من مصادر سعودية رسمية.",
-        "explanation": "تعني أن مقدم الخدمة أكمل التحقق الأساسي لهويته أو سجله التجاري داخل المملكة.",
+        "short_description": "توثيق الهوية الشخصية أو الصفة التجارية.",
+        "explanation": "تعني أن مقدم الخدمة أكمل التحقق الأساسي لهويته الشخصية أو صفته التجارية عبر مستندات سعودية رسمية.",
     },
     VerificationBadgeType.GREEN: {
         "badge_type": VerificationBadgeType.GREEN,
         "title": "الشارة الخضراء",
-        "short_description": "توثيق الكفاءة المهنية أو الاعتماد التنظيمي وفق متطلبات المجال.",
-        "explanation": "تعني أن مقدم الخدمة قدم واعتمد أدلة كفاءة مهنية أو ترخيص/اعتماد مرتبط بخدمته.",
+        "short_description": "توثيق الاعتمادات المهنية والرخص والخبرة والشهادات المرتبطة بالمجال.",
+        "explanation": "تعني أن مقدم الخدمة قدم واعتمد أدلة كفاءة مهنية أو ترخيص أو اعتماد أو خبرة مرتبطة بخدمته.",
     },
 }
 
@@ -128,6 +129,42 @@ def get_public_badges_catalog():
     return {
         "count": len(items),
         "items": items,
+    }
+
+
+def verification_blue_preview_for_user(*, user, subject_type: str, official_number: str, official_date):
+    provider_profile = getattr(user, "provider_profile", None)
+    first_name = str(getattr(user, "first_name", "") or "").strip()
+    last_name = str(getattr(user, "last_name", "") or "").strip()
+    full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+    username = str(getattr(user, "username", "") or "").strip()
+    phone = str(getattr(user, "phone", "") or "").strip()
+    provider_display_name = str(getattr(provider_profile, "display_name", "") or "").strip()
+
+    if subject_type == VerificationBlueSubjectType.BUSINESS:
+        verified_name = provider_display_name or full_name or username or phone or "اسم المنشأة"
+        verified_name_label = "اسم المنشأة"
+        official_number_label = "رقم السجل التجاري"
+        official_date_label = "تاريخه"
+    else:
+        verified_name = full_name or provider_display_name or username or phone or "اسم العميل"
+        verified_name_label = "اسم العميل"
+        official_number_label = "رقم الهوية / الإقامة"
+        official_date_label = "تاريخ الميلاد"
+
+    subject_labels = dict(VerificationBlueSubjectType.choices)
+    return {
+        "subject_type": subject_type,
+        "subject_type_label": subject_labels.get(subject_type, subject_type),
+        "official_number": str(official_number or "").strip(),
+        "official_date": official_date.isoformat() if official_date else None,
+        "official_number_label": official_number_label,
+        "official_date_label": official_date_label,
+        "verified_name": verified_name,
+        "verified_name_label": verified_name_label,
+        "verification_source": "elm",
+        "verification_source_label": "من خدمات علم",
+        "can_confirm": True,
     }
 
 
@@ -343,6 +380,50 @@ def _ordered_unique_badge_types(badge_types) -> list[str]:
     return ordered
 
 
+def verification_invoice_preview_for_request(*, vr: VerificationRequest) -> dict[str, object]:
+    approved_items = list(vr.requirements.filter(is_approved=True).order_by("sort_order", "id"))
+    pricing_snapshot = verification_pricing_for_user(vr.requester)
+    pricing_policy = verification_billing_policy()
+    currency = str(pricing_policy.get("currency") or _get_verification_currency() or VERIFICATION_PRICING_CURRENCY)
+    vat_percent = Decimal(str(pricing_policy.get("additional_vat_percent") or "0.00"))
+
+    lines: list[dict[str, object]] = []
+    subtotal = Decimal("0.00")
+    for idx, item in enumerate(approved_items):
+        amount = _fee_for_user_and_badge(vr.requester, item.badge_type)
+        subtotal += amount
+        lines.append(
+            {
+                "sort_order": idx,
+                "item_code": item.code,
+                "title": item.title,
+                "badge_type": item.badge_type,
+                "amount": amount,
+            }
+        )
+
+    vat_amount = Decimal("0.00")
+    if vat_percent > Decimal("0.00"):
+        vat_amount = (subtotal * vat_percent / Decimal("100.00")).quantize(Decimal("0.01"))
+    total = (subtotal + vat_amount).quantize(Decimal("0.01"))
+
+    return {
+        "currency": currency,
+        "pricing": pricing_snapshot,
+        "tax_policy": pricing_policy.get("tax_policy"),
+        "tax_policy_label": pricing_policy.get("tax_policy_label"),
+        "billing_cycle": pricing_policy.get("billing_cycle"),
+        "billing_cycle_label": pricing_policy.get("billing_cycle_label"),
+        "additional_vat_percent": str(vat_percent.quantize(Decimal("0.01"))),
+        "price_note": pricing_policy.get("price_note") or "",
+        "subtotal": subtotal.quantize(Decimal("0.01")),
+        "vat_percent": vat_percent.quantize(Decimal("0.01")),
+        "vat_amount": vat_amount.quantize(Decimal("0.01")),
+        "total": total,
+        "lines": lines,
+    }
+
+
 def _requirement_attachment_count(req: VerificationRequirement) -> int:
     cached = getattr(req, "_prefetched_objects_cache", {}).get("attachments")
     if cached is not None:
@@ -365,6 +446,107 @@ def verification_request_has_blocking_open_request(user, badge_type: str, *, exc
     return qs.filter(
         Q(badge_type=normalized_badge) | Q(requirements__badge_type=normalized_badge)
     ).distinct().exists()
+
+
+def _verification_user_handle(user) -> str:
+    label = (getattr(user, "username", "") or getattr(user, "phone", "") or f"user-{getattr(user, 'id', '')}").strip()
+    if label and not label.startswith("@"):
+        label = f"@{label}"
+    return label or "غير محدد"
+
+
+@transaction.atomic
+def deactivate_verified_badge(*, badge: VerifiedBadge, by_user=None) -> VerifiedBadge:
+    badge = VerifiedBadge.objects.select_for_update().select_related("user", "request").get(pk=badge.pk)
+    if not badge.is_active:
+        return badge
+
+    badge.is_active = False
+    badge.save(update_fields=["is_active"])
+    _sync_verification_to_unified(vr=badge.request, changed_by=by_user or badge.user)
+    return badge
+
+
+@transaction.atomic
+def create_renewal_request_from_verified_badge(*, badge: VerifiedBadge, assigned_to=None, by_user=None) -> VerificationRequest:
+    badge = VerifiedBadge.objects.select_for_update().select_related("user", "request", "request__blue_profile").get(pk=badge.pk)
+    if not badge.is_active:
+        raise ValueError("سجل التوثيق المحدد غير مفعل أو تم حذفه من القائمة.")
+
+    if verification_request_has_blocking_open_request(
+        badge.user,
+        badge.badge_type,
+        exclude_request_id=badge.request_id,
+    ):
+        raise ValueError("يوجد طلب توثيق قائم لنفس نوع الشارة، أكمل معالجته أولًا قبل إنشاء طلب تجديد جديد.")
+
+    source_request = badge.request
+    source_requirements = list(
+        source_request.requirements.order_by("sort_order", "id").prefetch_related("attachments")
+    )
+    source_requirement = next((item for item in source_requirements if item.code == badge.verification_code), None)
+    requirement_def = resolve_requirement_def(
+        badge.badge_type,
+        badge.verification_code or ("B1" if badge.badge_type == VerificationBadgeType.BLUE else "G1"),
+    )
+    requirement_title = (
+        (source_requirement.title if source_requirement is not None else "")
+        or (badge.verification_title or "")
+        or requirement_def["title"]
+    )[:220]
+
+    renewal_request = VerificationRequest.objects.create(
+        requester=badge.user,
+        assigned_to=assigned_to,
+        assigned_at=timezone.now() if assigned_to else None,
+        badge_type=badge.badge_type,
+        priority=int(getattr(source_request, "priority", 2) or 2),
+        status=VerificationStatus.NEW,
+        admin_note=f"طلب تجديد لسجل {badge.verification_code} للحساب {_verification_user_handle(badge.user)}"[:300],
+    )
+
+    renewal_requirement = VerificationRequirement.objects.create(
+        request=renewal_request,
+        badge_type=badge.badge_type,
+        code=requirement_def["code"],
+        title=requirement_title,
+        evidence_expires_at=(source_requirement.evidence_expires_at if source_requirement is not None else None),
+        sort_order=0,
+    )
+
+    if source_requirement is not None:
+        source_attachments = list(getattr(source_requirement, "_prefetched_objects_cache", {}).get("attachments") or source_requirement.attachments.all())
+        for attachment in source_attachments:
+            VerificationRequirementAttachment.objects.create(
+                requirement=renewal_requirement,
+                file=attachment.file.name,
+                uploaded_by=by_user or attachment.uploaded_by,
+            )
+
+    source_blue_profile = getattr(source_request, "blue_profile", None)
+    if badge.badge_type == VerificationBadgeType.BLUE and source_blue_profile is not None:
+        VerificationBlueProfile.objects.create(
+            request=renewal_request,
+            subject_type=source_blue_profile.subject_type,
+            official_number=source_blue_profile.official_number,
+            official_date=source_blue_profile.official_date,
+            verified_name=source_blue_profile.verified_name,
+            is_name_approved=source_blue_profile.is_name_approved,
+            verification_source=source_blue_profile.verification_source or "elm",
+            verified_at=source_blue_profile.verified_at,
+        )
+
+        for document in source_request.documents.order_by("id"):
+            VerificationDocument.objects.create(
+                request=renewal_request,
+                doc_type=document.doc_type,
+                title=document.title,
+                file=document.file.name,
+                uploaded_by=by_user or document.uploaded_by,
+            )
+
+    _sync_verification_to_unified(vr=renewal_request, changed_by=by_user or assigned_to or badge.user)
+    return renewal_request
 
 
 @transaction.atomic
@@ -519,7 +701,7 @@ def verification_pricing_for_user(user) -> dict[str, object]:
 def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
     """
     رسوم التوثيق منفصلة عن الاشتراك، لكن الاشتراك يؤثر على سعرها.
-    الرسم النهائي سنوي ويُحتسب مرة واحدة لكل طلب/شارة وفق فئة الباقة الحالية.
+    الرسم النهائي سنوي ويُحتسب لكل بند توثيق معتمد وفق فئة الباقة الحالية.
     """
     pricing = verification_pricing_for_user(user)
     entry = (pricing.get("prices") or {}).get(badge_type, {})
@@ -543,13 +725,21 @@ def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, 
 
 
 @transaction.atomic
-def decide_requirement(*, req: VerificationRequirement, is_approved: bool, note: str, by_user):
+def decide_requirement(
+    *,
+    req: VerificationRequirement,
+    is_approved: bool,
+    note: str,
+    by_user,
+    evidence_expires_at=None,
+):
     req = VerificationRequirement.objects.select_for_update().get(pk=req.pk)
     req.is_approved = bool(is_approved)
     req.decision_note = (note or "")[:300]
+    req.evidence_expires_at = evidence_expires_at
     req.decided_by = by_user
     req.decided_at = timezone.now()
-    req.save(update_fields=["is_approved", "decision_note", "decided_by", "decided_at"])
+    req.save(update_fields=["is_approved", "decision_note", "evidence_expires_at", "decided_by", "decided_at"])
     return req
 
 
@@ -632,13 +822,10 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         vr.reject_reason = "تم رفض بعض البنود."
     vr.save(update_fields=["status", "approved_at", "reviewed_at", "reject_reason", "updated_at"])
 
-    # Create invoice once per approved badge flow, not per approved requirement.
+    # Create invoice rows per approved verification item so the ops summary
+    # matches the exact codes approved by the review team.
     if not vr.invoice_id:
-        pricing_snapshot = verification_pricing_for_user(vr.requester)
-        pricing_by_badge = pricing_snapshot.get("prices") or {}
-        approved_badge_types = _ordered_unique_badge_types(
-            item.badge_type for item in approved_items
-        )
+        invoice_preview = verification_invoice_preview_for_request(vr=vr)
         inv = Invoice.objects.create(
             user=vr.requester,
             title="رسوم التوثيق",
@@ -649,15 +836,13 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
             reference_id=vr.code,
             status=InvoiceStatus.DRAFT,
         )
-        for idx, badge_type in enumerate(approved_badge_types):
-            fee_payload = pricing_by_badge.get(badge_type) or {}
-            fee = Decimal(str(fee_payload.get("amount", _fee_for_badge(badge_type))))
+        for line in invoice_preview["lines"]:
             InvoiceLineItem.objects.create(
                 invoice=inv,
-                item_code=_badge_billing_code(badge_type),
-                title=_badge_billing_title(badge_type),
-                amount=fee,
-                sort_order=idx,
+                item_code=str(line["item_code"]),
+                title=str(line["title"]),
+                amount=Decimal(str(line["amount"])),
+                sort_order=int(line["sort_order"]),
             )
         inv.recalc()
 
