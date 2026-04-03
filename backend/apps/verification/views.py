@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
 
+from django.db import transaction
 from django.db.models import Prefetch, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -185,15 +186,16 @@ class VerificationAddDocumentView(generics.CreateAPIView):
         if not doc_type:
             return Response({"detail": "doc_type مطلوب"}, status=status.HTTP_400_BAD_REQUEST)
 
-        doc = VerificationDocument.objects.create(
-            request=vr,
-            doc_type=doc_type,
-            title=title[:160],
-            file=file_obj,
-            uploaded_by=request.user,
-        )
-        mirror_document_to_requirement_attachments(doc=doc)
-        mark_request_in_review(vr=vr, changed_by=request.user)
+        with transaction.atomic():
+            doc = VerificationDocument.objects.create(
+                request=vr,
+                doc_type=doc_type,
+                title=title[:160],
+                file=file_obj,
+                uploaded_by=request.user,
+            )
+            mirror_document_to_requirement_attachments(doc=doc)
+            mark_request_in_review(vr=vr, changed_by=request.user)
 
         return Response(VerificationDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
@@ -227,12 +229,13 @@ class VerificationAddRequirementAttachmentView(generics.CreateAPIView):
         except DjangoValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        att = VerificationRequirementAttachment.objects.create(
-            requirement=req,
-            file=file_obj,
-            uploaded_by=request.user,
-        )
-        mark_request_in_review(vr=vr, changed_by=request.user)
+        with transaction.atomic():
+            att = VerificationRequirementAttachment.objects.create(
+                requirement=req,
+                file=file_obj,
+                uploaded_by=request.user,
+            )
+            mark_request_in_review(vr=vr, changed_by=request.user)
 
         return Response(VerificationRequirementAttachmentSerializer(att).data, status=status.HTTP_201_CREATED)
 

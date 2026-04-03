@@ -210,13 +210,17 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
                 ensure_provider_access(request.user)
             except ProviderAccessError as exc:
                 raise serializers.ValidationError({"detail": exc.detail})
+        badge_type = attrs.get("badge_type")
+        requirements = attrs.get("requirements") or []
+        includes_blue = badge_type == VerificationBadgeType.BLUE or any(
+            (item or {}).get("badge_type") == VerificationBadgeType.BLUE for item in requirements
+        )
         blue_profile = attrs.get("blue_profile")
-        if blue_profile:
-            badge_type = attrs.get("badge_type")
-            requirements = attrs.get("requirements") or []
-            includes_blue = badge_type == VerificationBadgeType.BLUE or any(
-                (item or {}).get("badge_type") == VerificationBadgeType.BLUE for item in requirements
+        if includes_blue and not blue_profile:
+            raise serializers.ValidationError(
+                {"blue_profile": "بيانات الشارة الزرقاء مطلوبة لأي طلب يتضمن بنود الشارة الزرقاء."}
             )
+        if blue_profile:
             if not includes_blue:
                 raise serializers.ValidationError({"blue_profile": "بيانات الشارة الزرقاء مرتبطة فقط بطلبات الشارة الزرقاء."})
         return attrs

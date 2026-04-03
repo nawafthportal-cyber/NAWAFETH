@@ -581,7 +581,7 @@ def _document_target_badge_types(vr: VerificationRequest, doc_type: str) -> set[
 
 @transaction.atomic
 def mirror_document_to_requirement_attachments(*, doc: VerificationDocument) -> list[VerificationRequirementAttachment]:
-    doc = VerificationDocument.objects.select_for_update().select_related("request", "uploaded_by").get(pk=doc.pk)
+    doc = VerificationDocument.objects.select_for_update().select_related("request").get(pk=doc.pk)
     vr = doc.request
     reqs = list(vr.requirements.all().order_by("sort_order", "id"))
     if not reqs:
@@ -757,6 +757,13 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
     vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
 
     reqs = list(vr.requirements.prefetch_related("attachments").all())
+    includes_blue = (
+        vr.badge_type == VerificationBadgeType.BLUE
+        or any(req.badge_type == VerificationBadgeType.BLUE for req in reqs)
+    )
+    if includes_blue and not hasattr(vr, "blue_profile"):
+        raise ValueError("لا يمكن اعتماد طلب يتضمن الشارة الزرقاء بدون بيانات الشارة الزرقاء المعتمدة.")
+
     if not reqs:
         docs = list(vr.documents.all())
         if not docs:

@@ -19,7 +19,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   // الحالة
   String? selectedType; // "blue" أو "green"
-  String? blueOption; // "person" / "company" / "other"
+  String? blueOption; // "person" / "company"
   final List<String> greenOptions = [];
   final List<File> uploadedFiles = [];
   Map<String, dynamic>? _pricing;
@@ -118,6 +118,76 @@ class _VerificationScreenState extends State<VerificationScreen> {
     return _pricingHintFor(selectedType == 'green' ? 'green' : 'blue');
   }
 
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  String _digitsOnly(String value) {
+    return value.replaceAll(RegExp(r'\D'), '');
+  }
+
+  Map<String, String>? _buildBluePreviewPayload() {
+    if (selectedType != 'blue') return null;
+    if (blueOption == 'person') {
+      final officialNumber = _digitsOnly(_idCtrl.text.trim());
+      final officialDate = _dobCtrl.text.trim();
+      if (officialNumber.isEmpty || officialDate.isEmpty) return null;
+      return {
+        'subject_type': 'individual',
+        'official_number': officialNumber,
+        'official_date': officialDate,
+      };
+    }
+    if (blueOption == 'company') {
+      final officialNumber = _digitsOnly(_crCtrl.text.trim());
+      final officialDate = _crDateCtrl.text.trim();
+      if (officialNumber.isEmpty || officialDate.isEmpty) return null;
+      return {
+        'subject_type': 'business',
+        'official_number': officialNumber,
+        'official_date': officialDate,
+      };
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> _resolveBlueProfileForSubmission() async {
+    final payload = _buildBluePreviewPayload();
+    if (payload == null) {
+      return null;
+    }
+    final previewRes = await VerificationService.previewBlue(
+      subjectType: payload['subject_type']!,
+      officialNumber: payload['official_number']!,
+      officialDate: payload['official_date']!,
+    );
+    if (!previewRes.isSuccess) {
+      _showErrorSnackBar(
+        (previewRes.error ?? 'تعذر التحقق من بيانات الشارة الزرقاء').trim(),
+      );
+      return null;
+    }
+    final preview = previewRes.dataAsMap;
+    final verifiedName = (preview?['verified_name'] ?? '').toString().trim();
+    if (verifiedName.isEmpty) {
+      _showErrorSnackBar('تعذر استرجاع الاسم المعتمد للشارة الزرقاء.');
+      return null;
+    }
+    return {
+      'subject_type': payload['subject_type'],
+      'official_number': payload['official_number'],
+      'official_date': payload['official_date'],
+      'verified_name': verifiedName,
+      'is_name_approved': true,
+    };
+  }
+
   // رفع ملف (صورة مستند)
   Future<void> _pickFile() async {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
@@ -179,11 +249,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
       if (selectedType == "blue") {
         if (blueOption == null) return false;
         if (blueOption == "person" || blueOption == "company") {
-          return _formKeyBlue.currentState?.validate() == true;
+          return _formKeyBlue.currentState?.validate() == true &&
+              uploadedFiles.isNotEmpty;
         }
-        if (blueOption == "other") {
-          return uploadedFiles.isNotEmpty;
-        }
+        return false;
       } else if (selectedType == "green") {
         return greenOptions.isNotEmpty && uploadedFiles.isNotEmpty;
       }
@@ -228,22 +297,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
     // تحديد badge_type و requirements
     String? badgeType = selectedType == 'blue' ? 'blue' : 'green';
     List<Map<String, String>> requirements = [];
+    Map<String, dynamic>? blueProfile;
 
     if (selectedType == 'blue' && blueOption != null) {
-      String code;
-      switch (blueOption) {
-        case 'person':
-          code = 'B1';
-          break;
-        case 'company':
-          code = 'B1';
-          break;
-        default:
-          code = 'B1';
-      }
       requirements.add({
         'badge_type': 'blue',
-        'code': code,
+        'code': 'B1',
       });
     } else if (selectedType == 'green') {
       final codeMap = {
@@ -262,36 +321,44 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
     }
 
+    if (selectedType == 'blue') {
+      blueProfile = await _resolveBlueProfileForSubmission();
+      if (blueProfile == null) {
+        if (mounted) {
+          setState(() => _isSending = false);
+        }
+        return;
+      }
+    }
+
     // 1) إنشاء الطلب
     final createRes = await VerificationService.createRequest(
       badgeType: badgeType,
       requirements: requirements,
+      blueProfile: blueProfile,
     );
 
     if (!mounted) return;
 
     if (!createRes.isSuccess) {
       setState(() => _isSending = false);
-      final errorText = (createRes.error ?? 'فشل في إنشاء الطلب').trim();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(errorText),
-          backgroundColor: Colors.red,
-        ),
-      );
+      _showErrorSnackBar((createRes.error ?? 'فشل في إنشاء الطلب').trim());
       return;
     }
 
     final requestId = createRes.dataAsMap?['id'] as int?;
+    if (requestId == null) {
+      setState(() => _isSending = false);
+      _showErrorSnackBar('تم استلام رد غير مكتمل من الخادم أثناء إنشاء الطلب.');
+      return;
+    }
 
     // 2) رفع المستندات
-    if (requestId != null && uploadedFiles.isNotEmpty) {
+    if (uploadedFiles.isNotEmpty) {
       String docType;
       if (selectedType == 'blue') {
         if (blueOption == 'company') {
           docType = 'cr';
-        } else if (blueOption == 'other') {
-          docType = 'other';
         } else {
           docType = 'id';
         }
@@ -300,11 +367,20 @@ class _VerificationScreenState extends State<VerificationScreen> {
       }
 
       for (final file in uploadedFiles) {
-        await VerificationService.uploadDocument(
+        final uploadRes = await VerificationService.uploadDocument(
           requestId: requestId,
           file: file,
           docType: docType,
         );
+        if (!mounted) return;
+        if (!uploadRes.isSuccess) {
+          setState(() => _isSending = false);
+          _showErrorSnackBar(
+            (uploadRes.error ?? 'تم إنشاء الطلب لكن تعذر رفع أحد المرفقات.')
+                .trim(),
+          );
+          return;
+        }
       }
     }
 
@@ -319,82 +395,81 @@ class _VerificationScreenState extends State<VerificationScreen> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder:
-          (_) => Dialog(
-            backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Colors.green.shade400, Colors.green.shade700],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade400, Colors.green.shade700],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: const Icon(
+                  Icons.verified,
+                  color: Colors.white,
+                  size: 52,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                "تم إرسال طلب التوثيق ✅",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: "Cairo",
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                pricingNote,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: "Cairo",
+                  color: Colors.black54,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.deepPurple,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    child: const Icon(
-                      Icons.verified,
-                      color: Colors.white,
-                      size: 52,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 16,
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    "تم إرسال طلب التوثيق ✅",
-                    textAlign: TextAlign.center,
+                  child: const Text(
+                    "حسناً",
                     style: TextStyle(
                       fontFamily: "Cairo",
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
+                      fontSize: 15,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    pricingNote,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontFamily: "Cairo",
-                      color: Colors.black54,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.deepPurple,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 12,
-                          horizontal: 16,
-                        ),
-                      ),
-                      child: const Text(
-                        "حسناً",
-                        style: TextStyle(
-                          fontFamily: "Cairo",
-                          fontSize: 15,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
+        ),
+      ),
     );
   }
 
@@ -491,7 +566,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
               onPressed: (canNext && !_isSending) ? _nextStep : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.deepPurple,
-                disabledBackgroundColor: AppColors.deepPurple.withValues(alpha: 0.25),
+                disabledBackgroundColor:
+                    AppColors.deepPurple.withValues(alpha: 0.25),
                 minimumSize: const Size(double.infinity, 52),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
@@ -586,10 +662,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
           const SizedBox(height: 8),
           if (selectedType != null)
             _infoHint(
-              text:
-                  selectedType == "blue"
-                      ? "اختر ما إذا كان التوثيق كفرد أو كيان تجاري أو أوراق رسمية، ثم أكمل البيانات المطلوبة."
-                      : "اختر نوع الاعتمادات التي ترغب في توثيقها، ثم أرفق المستندات الداعمة.",
+              text: selectedType == "blue"
+                  ? "اختر ما إذا كان التوثيق كفرد أو كيان تجاري، ثم أكمل البيانات المطلوبة."
+                  : "اختر نوع الاعتمادات التي ترغب في توثيقها، ثم أرفق المستندات الداعمة.",
             ),
         ],
       ),
@@ -644,15 +719,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             icon: Icons.apartment,
             onTap: () => setState(() => blueOption = "company"),
           ),
-          const SizedBox(height: 10),
-          _optionChoiceCard(
-            value: "other",
-            groupValue: blueOption,
-            title: "أوراق رسمية",
-            subtitle: "خطابات، عقود، أو مستندات رسمية أخرى.",
-            icon: Icons.description_outlined,
-            onTap: () => setState(() => blueOption = "other"),
-          ),
           const SizedBox(height: 16),
           if (blueOption == "person" || blueOption == "company")
             Form(
@@ -666,20 +732,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       icon: Icons.credit_card,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator:
-                          (v) =>
-                              (v == null || v.trim().length < 8)
-                                  ? "يرجى إدخال رقم هوية صالح"
-                                  : null,
+                      validator: (v) => (v == null || v.trim().length < 8)
+                          ? "يرجى إدخال رقم هوية صالح"
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     GestureDetector(
-                      onTap:
-                          () => _pickDateForController(
-                            _dobCtrl,
-                            firstDate: DateTime(1950),
-                            lastDate: DateTime(DateTime.now().year - 10),
-                          ),
+                      onTap: () => _pickDateForController(
+                        _dobCtrl,
+                        firstDate: DateTime(1950),
+                        lastDate: DateTime(DateTime.now().year - 10),
+                      ),
                       child: AbsorbPointer(
                         child: _inputField(
                           controller: _dobCtrl,
@@ -687,14 +750,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           icon: Icons.calendar_today_outlined,
                           hint: "اختر من التقويم",
                           keyboardType: TextInputType.datetime,
-                          validator:
-                              (v) =>
-                                  (v == null ||
-                                          !RegExp(
-                                            r'^\d{4}-\d{2}-\d{2}$',
-                                          ).hasMatch(v))
-                                      ? "صيغة التاريخ غير صحيحة"
-                                      : null,
+                          validator: (v) => (v == null ||
+                                  !RegExp(
+                                    r'^\d{4}-\d{2}-\d{2}$',
+                                  ).hasMatch(v))
+                              ? "صيغة التاريخ غير صحيحة"
+                              : null,
                         ),
                       ),
                     ),
@@ -706,20 +767,17 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       icon: Icons.business_center_outlined,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator:
-                          (v) =>
-                              (v == null || v.trim().length < 5)
-                                  ? "يرجى إدخال رقم سجل صالح"
-                                  : null,
+                      validator: (v) => (v == null || v.trim().length < 5)
+                          ? "يرجى إدخال رقم سجل صالح"
+                          : null,
                     ),
                     const SizedBox(height: 12),
                     GestureDetector(
-                      onTap:
-                          () => _pickDateForController(
-                            _crDateCtrl,
-                            firstDate: DateTime(1970),
-                            lastDate: DateTime.now(),
-                          ),
+                      onTap: () => _pickDateForController(
+                        _crDateCtrl,
+                        firstDate: DateTime(1970),
+                        lastDate: DateTime.now(),
+                      ),
                       child: AbsorbPointer(
                         child: _inputField(
                           controller: _crDateCtrl,
@@ -727,14 +785,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           icon: Icons.date_range_outlined,
                           hint: "اختر من التقويم",
                           keyboardType: TextInputType.datetime,
-                          validator:
-                              (v) =>
-                                  (v == null ||
-                                          !RegExp(
-                                            r'^\d{4}-\d{2}-\d{2}$',
-                                          ).hasMatch(v))
-                                      ? "صيغة التاريخ غير صحيحة"
-                                      : null,
+                          validator: (v) => (v == null ||
+                                  !RegExp(
+                                    r'^\d{4}-\d{2}-\d{2}$',
+                                  ).hasMatch(v))
+                              ? "صيغة التاريخ غير صحيحة"
+                              : null,
                         ),
                       ),
                     ),
@@ -742,14 +798,18 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ],
               ),
             ),
-          if (blueOption == "other") ...[
-            const SizedBox(height: 8),
+          if (blueOption == "person" || blueOption == "company") ...[
+            const SizedBox(height: 16),
             _filesSectionHeader(),
             const SizedBox(height: 6),
             _uploadBox(),
             const SizedBox(height: 6),
             _filesChips(),
           ],
+          _infoHint(
+            text:
+                "للشارة الزرقاء يلزم إدخال بيانات الهوية للفرد أو السجل التجاري للمنشأة، مع إرفاق المستند الرسمي، حتى يتم اعتماد الاسم الرسمي قبل إرسال الطلب.",
+          ),
         ],
       ),
     );
@@ -772,8 +832,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color:
-              selected ? AppColors.deepPurple.withValues(alpha: 0.06) : Colors.white,
+          color: selected
+              ? AppColors.deepPurple.withValues(alpha: 0.06)
+              : Colors.white,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected ? AppColors.deepPurple : Colors.grey.shade300,
@@ -786,10 +847,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color:
-                    selected
-                        ? AppColors.deepPurple
-                        : AppColors.deepPurple.withValues(alpha: 0.08),
+                color: selected
+                    ? AppColors.deepPurple
+                    : AppColors.deepPurple.withValues(alpha: 0.08),
               ),
               child: Icon(
                 icon,
@@ -836,10 +896,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
                 color: selected ? AppColors.deepPurple : Colors.white,
               ),
-              child:
-                  selected
-                      ? const Icon(Icons.check, size: 12, color: Colors.white)
-                      : null,
+              child: selected
+                  ? const Icon(Icons.check, size: 12, color: Colors.white)
+                  : null,
             ),
           ],
         ),
@@ -875,34 +934,30 @@ class _VerificationScreenState extends State<VerificationScreen> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children:
-                options.map((opt) {
-                  final selected = greenOptions.contains(opt);
-                  return FilterChip(
-                    label: Text(
-                      opt,
-                      style: const TextStyle(fontFamily: "Cairo"),
-                    ),
-                    selected: selected,
-                    selectedColor: AppColors.deepPurple.withValues(alpha: 0.12),
-                    checkmarkColor: AppColors.deepPurple,
-                    side: BorderSide(
-                      color:
-                          selected
-                              ? AppColors.deepPurple
-                              : Colors.grey.shade300,
-                    ),
-                    onSelected: (val) {
-                      setState(() {
-                        if (val) {
-                          greenOptions.add(opt);
-                        } else {
-                          greenOptions.remove(opt);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
+            children: options.map((opt) {
+              final selected = greenOptions.contains(opt);
+              return FilterChip(
+                label: Text(
+                  opt,
+                  style: const TextStyle(fontFamily: "Cairo"),
+                ),
+                selected: selected,
+                selectedColor: AppColors.deepPurple.withValues(alpha: 0.12),
+                checkmarkColor: AppColors.deepPurple,
+                side: BorderSide(
+                  color: selected ? AppColors.deepPurple : Colors.grey.shade300,
+                ),
+                onSelected: (val) {
+                  setState(() {
+                    if (val) {
+                      greenOptions.add(opt);
+                    } else {
+                      greenOptions.remove(opt);
+                    }
+                  });
+                },
+              );
+            }).toList(),
           ),
           const SizedBox(height: 16),
           _filesSectionHeader(),
@@ -964,16 +1019,15 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors:
-                                isBlue
-                                    ? [
-                                      Colors.blue.shade400,
-                                      Colors.blue.shade700,
-                                    ]
-                                    : [
-                                      Colors.green.shade400,
-                                      Colors.green.shade700,
-                                    ],
+                            colors: isBlue
+                                ? [
+                                    Colors.blue.shade400,
+                                    Colors.blue.shade700,
+                                  ]
+                                : [
+                                    Colors.green.shade400,
+                                    Colors.green.shade700,
+                                  ],
                           ),
                         ),
                         padding: const EdgeInsets.all(9),
@@ -1017,8 +1071,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       blueOption == "person"
                           ? "فرد"
                           : blueOption == "company"
-                          ? "كيان تجاري"
-                          : "أوراق رسمية",
+                              ? "كيان تجاري"
+                              : "أوراق رسمية",
                     ),
                   if (!isBlue)
                     _kvRow(
@@ -1048,25 +1102,24 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       child: Wrap(
                         spacing: 6,
                         runSpacing: 4,
-                        children:
-                            greenOptions
-                                .map(
-                                  (e) => Chip(
-                                    label: Text(
-                                      e,
-                                      style: const TextStyle(
-                                        fontFamily: "Cairo",
-                                        fontSize: 11,
-                                      ),
-                                    ),
-                                    backgroundColor: AppColors.deepPurple
-                                        .withValues(alpha: 0.04),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                        children: greenOptions
+                            .map(
+                              (e) => Chip(
+                                label: Text(
+                                  e,
+                                  style: const TextStyle(
+                                    fontFamily: "Cairo",
+                                    fontSize: 11,
                                   ),
-                                )
-                                .toList(),
+                                ),
+                                backgroundColor: AppColors.deepPurple
+                                    .withValues(alpha: 0.04),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            )
+                            .toList(),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1191,18 +1244,21 @@ class _VerificationScreenState extends State<VerificationScreen> {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient:
-              selected
-                  ? LinearGradient(
-                    colors: [color.withValues(alpha: 0.10), color.withValues(alpha: 0.02)],
-                    begin: Alignment.topRight,
-                    end: Alignment.bottomLeft,
-                  )
-                  : null,
+          gradient: selected
+              ? LinearGradient(
+                  colors: [
+                    color.withValues(alpha: 0.10),
+                    color.withValues(alpha: 0.02)
+                  ],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                )
+              : null,
           color: selected ? null : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected ? color.withValues(alpha: 0.55) : Colors.grey.shade200,
+            color:
+                selected ? color.withValues(alpha: 0.55) : Colors.grey.shade200,
             width: selected ? 2 : 1,
           ),
           boxShadow: [
@@ -1239,10 +1295,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                             fontFamily: "Cairo",
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
-                            color:
-                                type == "blue"
-                                    ? Colors.blue.shade700
-                                    : Colors.green.shade700,
+                            color: type == "blue"
+                                ? Colors.blue.shade700
+                                : Colors.green.shade700,
                           ),
                         ),
                       ),
@@ -1523,16 +1578,16 @@ class _ProgressSteps extends StatelessWidget {
                           margin: const EdgeInsets.symmetric(horizontal: 6),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors:
-                                  isActive
-                                      ? [
-                                        AppColors.deepPurple,
-                                        AppColors.deepPurple.withValues(alpha: 0.4),
-                                      ]
-                                      : [
-                                        Colors.grey.shade300,
-                                        Colors.grey.shade300,
-                                      ],
+                              colors: isActive
+                                  ? [
+                                      AppColors.deepPurple,
+                                      AppColors.deepPurple
+                                          .withValues(alpha: 0.4),
+                                    ]
+                                  : [
+                                      Colors.grey.shade300,
+                                      Colors.grey.shade300,
+                                    ],
                             ),
                             borderRadius: BorderRadius.circular(2),
                           ),

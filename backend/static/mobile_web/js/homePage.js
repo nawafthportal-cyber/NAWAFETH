@@ -131,7 +131,7 @@ const HomePage = (() => {
     }
 
     const bans = NwCache.get(CACHE_BANNERS);
-    if (bans && bans.data && bans.data.length) {
+    if (bans && !bans.stale && bans.data && bans.data.length) {
       _renderBanners(bans.data);
       any = true;
     }
@@ -543,9 +543,19 @@ const HomePage = (() => {
       ? _parseBannerList(carouselRes.value.data)
       : [];
     const mergedBanners = _mergeBannerLists(promoBanners, carouselBanners, 10);
+    const bannersFetched =
+      promoBansRes.status === 'fulfilled'
+      && !!promoBansRes.value
+      && promoBansRes.value.ok
+      && carouselRes.status === 'fulfilled'
+      && !!carouselRes.value
+      && carouselRes.value.ok;
     if (mergedBanners.length) {
       NwCache.set(CACHE_BANNERS, mergedBanners, TTL);
       _renderBanners(mergedBanners);
+    } else if (bannersFetched) {
+      NwCache.set(CACHE_BANNERS, [], TTL);
+      _renderBanners([]);
     } else if (!NwCache.get(CACHE_BANNERS)) {
       _renderBanners([]);
     }

@@ -26,6 +26,7 @@ from apps.verification.services import (
     activate_after_payment,
     decide_document,
     finalize_request_and_create_invoice,
+    mirror_document_to_requirement_attachments,
     verification_billing_policy,
     verification_pricing_for_user,
 )
@@ -54,6 +55,27 @@ def _make_provider(user, *, sync_role: bool = True):
         display_name=f"Provider {user.phone}",
         bio="bio",
     )
+
+
+def _blue_profile_payload(
+    *,
+    subject_type: str = "individual",
+    official_number: str = "1020304050",
+    official_date: str = "1992-02-14",
+    verified_name: str = "سارة محمد",
+    for_model: bool = False,
+):
+    return {
+        "subject_type": subject_type,
+        "official_number": official_number,
+        "official_date": (
+            timezone.datetime.strptime(official_date, "%Y-%m-%d").date()
+            if for_model
+            else official_date
+        ),
+        "verified_name": verified_name,
+        "is_name_approved": True,
+    }
 
 
 def test_verification_billing_policy_uses_platform_config_currency():
@@ -109,6 +131,8 @@ def other_staff_user():
 
 def _create_ready_verification_request(*, user, badge_type="blue"):
     vr = VerificationRequest.objects.create(requester=user, badge_type=badge_type)
+    if badge_type == "blue":
+        VerificationBlueProfile.objects.create(request=vr, **_blue_profile_payload(for_model=True))
     doc = VerificationDocument.objects.create(
         request=vr,
         doc_type="id",
@@ -123,6 +147,8 @@ def _create_ready_verification_request(*, user, badge_type="blue"):
 def _create_ready_requirement_request(*, user, badge_type="green", codes=None):
     codes = list(codes or (["G1"] if badge_type == "green" else ["B1"]))
     vr = VerificationRequest.objects.create(requester=user, badge_type=badge_type)
+    if badge_type == "blue":
+        VerificationBlueProfile.objects.create(request=vr, **_blue_profile_payload(for_model=True))
     for idx, code in enumerate(codes):
         req = VerificationRequirement.objects.create(
             request=vr,
@@ -142,7 +168,7 @@ def _create_ready_requirement_request(*, user, badge_type="green", codes=None):
 def test_create_verification_request(api, user):
     _make_provider(user)
     api.force_authenticate(user=user)
-    r = api.post("/api/verification/requests/create/", data={"badge_type": "blue"}, format="json")
+    r = api.post("/api/verification/requests/create/", data={"badge_type": "green"}, format="json")
     assert r.status_code == 201
     assert r.data["code"].startswith("AD")
     vr = VerificationRequest.objects.get(pk=r.data["id"])
@@ -194,13 +220,7 @@ def test_create_blue_request_persists_blue_profile_and_exposes_it_in_detail(api,
         data={
             "badge_type": "blue",
             "requirements": [{"badge_type": "blue", "code": "B1"}],
-            "blue_profile": {
-                "subject_type": "individual",
-                "official_number": "1020304050",
-                "official_date": "1992-02-14",
-                "verified_name": "سارة محمد",
-                "is_name_approved": True,
-            },
+            "blue_profile": _blue_profile_payload(),
         },
         format="json",
     )
@@ -282,9 +302,23 @@ def test_legacy_provider_profile_user_can_create_verification_request(api, user)
     _make_provider(user, sync_role=False)
     api.force_authenticate(user=user)
 
-    response = api.post("/api/verification/requests/create/", data={"badge_type": "blue"}, format="json")
+    response = api.post("/api/verification/requests/create/", data={"badge_type": "green"}, format="json")
 
     assert response.status_code == 201
+
+
+def test_create_blue_request_requires_blue_profile(api, user):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    response = api.post(
+        "/api/verification/requests/create/",
+        data={"badge_type": "blue", "requirements": [{"badge_type": "blue", "code": "B1"}]},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "بيانات الشارة الزرقاء مطلوبة" in str(response.data)
 
 
 def test_blue_flow_document_upload_moves_request_to_in_review_and_mirrors_authoritative_attachment(api, user):
@@ -293,7 +327,11 @@ def test_blue_flow_document_upload_moves_request_to_in_review_and_mirrors_author
 
     create_response = api.post(
         "/api/verification/requests/create/",
-        data={"badge_type": "blue", "requirements": [{"badge_type": "blue", "code": "B1"}]},
+        data={
+            "badge_type": "blue",
+            "requirements": [{"badge_type": "blue", "code": "B1"}],
+            "blue_profile": _blue_profile_payload(),
+        },
         format="json",
     )
     assert create_response.status_code == 201
@@ -318,6 +356,73 @@ def test_blue_flow_document_upload_moves_request_to_in_review_and_mirrors_author
     assert req.attachments.count() == 1
 
 
+def test_mirror_document_to_requirement_attachments_handles_nullable_uploaded_by(user):
+    _make_provider(user)
+    vr = VerificationRequest.objects.create(
+        requester=user,
+        badge_type=VerificationBadgeType.BLUE,
+        status=VerificationStatus.NEW,
+    )
+    req = VerificationRequirement.objects.create(
+        request=vr,
+        badge_type=VerificationBadgeType.BLUE,
+        code="B1",
+        title="Blue requirement",
+    )
+    doc = VerificationDocument.objects.create(
+        request=vr,
+        doc_type="id",
+        title="هوية بدون رافع",
+        file=SimpleUploadedFile("id.png", b"evidence", content_type="image/png"),
+        uploaded_by=None,
+    )
+
+    created = mirror_document_to_requirement_attachments(doc=doc)
+
+    req.refresh_from_db()
+    assert len(created) == 1
+    assert req.attachments.count() == 1
+    assert req.attachments.get().uploaded_by is None
+
+
+def test_document_upload_rolls_back_if_attachment_mirroring_fails(api, user, monkeypatch):
+    _make_provider(user)
+    api.force_authenticate(user=user)
+
+    create_response = api.post(
+        "/api/verification/requests/create/",
+        data={
+            "badge_type": "blue",
+            "requirements": [{"badge_type": "blue", "code": "B1"}],
+            "blue_profile": _blue_profile_payload(),
+        },
+        format="json",
+    )
+    assert create_response.status_code == 201
+
+    request_id = create_response.data["id"]
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("mirror failed")
+
+    monkeypatch.setattr("apps.verification.views.mirror_document_to_requirement_attachments", _boom)
+
+    with pytest.raises(RuntimeError, match="mirror failed"):
+        api.post(
+            f"/api/verification/requests/{request_id}/documents/",
+            data={
+                "doc_type": "id",
+                "title": "هوية",
+                "file": SimpleUploadedFile("id.png", b"evidence", content_type="image/png"),
+            },
+        )
+
+    vr = VerificationRequest.objects.get(pk=request_id)
+    assert vr.documents.count() == 0
+    assert vr.requirements.get(code="B1").attachments.count() == 0
+    assert vr.status == VerificationStatus.NEW
+
+
 def test_duplicate_prevention_blocks_existing_requirement_based_request(api, user):
     _make_provider(user)
     existing = VerificationRequest.objects.create(requester=user, badge_type=None, status=VerificationStatus.IN_REVIEW)
@@ -331,7 +436,11 @@ def test_duplicate_prevention_blocks_existing_requirement_based_request(api, use
     api.force_authenticate(user=user)
     response = api.post(
         "/api/verification/requests/create/",
-        data={"badge_type": "blue", "requirements": [{"badge_type": "blue", "code": "B1"}]},
+        data={
+            "badge_type": "blue",
+            "requirements": [{"badge_type": "blue", "code": "B1"}],
+            "blue_profile": _blue_profile_payload(),
+        },
         format="json",
     )
 
@@ -521,6 +630,24 @@ def test_finalize_rejects_approved_requirement_without_evidence(user):
     )
 
     with pytest.raises(ValueError, match="مرفقات إثبات"):
+        finalize_request_and_create_invoice(vr=vr, by_user=user)
+
+
+def test_finalize_rejects_blue_requirement_request_without_blue_profile(user):
+    vr = VerificationRequest.objects.create(requester=user, badge_type=VerificationBadgeType.BLUE)
+    req = VerificationRequirement.objects.create(
+        request=vr,
+        badge_type=VerificationBadgeType.BLUE,
+        code="B1",
+        title="Blue requirement",
+        is_approved=True,
+    )
+    req.attachments.create(
+        file=SimpleUploadedFile("b1.png", b"evidence", content_type="image/png"),
+        uploaded_by=user,
+    )
+
+    with pytest.raises(ValueError, match="بيانات الشارة الزرقاء"):
         finalize_request_and_create_invoice(vr=vr, by_user=user)
 
 
@@ -733,7 +860,7 @@ def test_create_verification_request_ignores_client_priority_and_uses_server_pri
 
     response = api.post(
         "/api/verification/requests/create/",
-        data={"badge_type": "blue", "priority": 3},
+        data={"badge_type": "green", "priority": 3},
         format="json",
     )
 

@@ -24,13 +24,33 @@ class VerificationService {
   static Future<ApiResponse> createRequest({
     String? badgeType,
     List<Map<String, String>>? requirements,
+    Map<String, dynamic>? blueProfile,
   }) async {
     final body = <String, dynamic>{};
     if (badgeType != null) body['badge_type'] = badgeType;
     if (requirements != null && requirements.isNotEmpty) {
       body['requirements'] = requirements;
     }
+    if (blueProfile != null && blueProfile.isNotEmpty) {
+      body['blue_profile'] = blueProfile;
+    }
     return ApiClient.post('/api/verification/requests/create/', body: body);
+  }
+
+  /// معاينة بيانات الشارة الزرقاء قبل إنشاء الطلب
+  static Future<ApiResponse> previewBlue({
+    required String subjectType,
+    required String officialNumber,
+    required String officialDate,
+  }) {
+    return ApiClient.post(
+      '/api/verification/blue-preview/',
+      body: {
+        'subject_type': subjectType,
+        'official_number': officialNumber,
+        'official_date': officialDate,
+      },
+    );
   }
 
   /// جلب طلبات التوثيق الخاصة بي
