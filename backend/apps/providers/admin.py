@@ -64,8 +64,8 @@ class ProviderProfileAdmin(admin.ModelAdmin):
 
 @admin.register(ProviderCategory)
 class ProviderCategoryAdmin(admin.ModelAdmin):
-    list_display = ("id", "provider", "subcategory")
-    list_filter = ("subcategory__category", "subcategory")
+    list_display = ("id", "provider", "subcategory", "accepts_urgent")
+    list_filter = ("accepts_urgent", "subcategory__category", "subcategory")
     search_fields = ("provider__display_name", "provider__user__phone", "subcategory__name")
     ordering = ("-id",)
     list_select_related = ("provider", "provider__user", "subcategory", "subcategory__category")

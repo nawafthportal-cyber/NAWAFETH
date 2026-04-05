@@ -68,17 +68,6 @@ class PromoPosition(models.TextChoices):
     NORMAL = "normal", "عادي"
 
 
-class PromoFrequency(models.TextChoices):
-    S10 = "10s", "كل 10 ثواني"
-    S20 = "20s", "كل 20 ثانية"
-    S30 = "30s", "كل 30 ثانية"
-    S60 = "60s", "كل 60 ثانية"
-    S300 = "300s", "كل 5 دقائق"
-    S900 = "900s", "كل 15 دقيقة"
-    S1800 = "1800s", "كل 30 دقيقة"
-    S3600 = "3600s", "كل ساعة"
-
-
 class PromoOpsStatus(models.TextChoices):
     NEW = "new", "جديد"
     IN_PROGRESS = "in_progress", "تحت المعالجة"
@@ -148,8 +137,7 @@ class PromoRequest(models.Model):
     start_at = models.DateTimeField()
     end_at = models.DateTimeField()
 
-    # معدل الظهور + موقع الظهور
-    frequency = models.CharField(max_length=10, choices=PromoFrequency.choices, default=PromoFrequency.S60)
+    # موقع الظهور
     position = models.CharField(max_length=10, choices=PromoPosition.choices, default=PromoPosition.NORMAL)
 
     # مستهدفات (اختياري)
@@ -246,7 +234,6 @@ class PromoRequestItem(models.Model):
     end_at = models.DateTimeField(null=True, blank=True)
     send_at = models.DateTimeField(null=True, blank=True)
 
-    frequency = models.CharField(max_length=10, choices=PromoFrequency.choices, blank=True, default="")
     search_scope = models.CharField(max_length=30, choices=PromoSearchScope.choices, blank=True, default="")
     search_position = models.CharField(max_length=10, choices=PromoPosition.choices, blank=True, default="")
 
@@ -347,7 +334,6 @@ class PromoPricingRule(models.Model):
     service_type = models.CharField(max_length=40, choices=PromoServiceType.choices)
     title = models.CharField(max_length=160)
     unit = models.CharField(max_length=20, choices=PromoPriceUnit.choices, default=PromoPriceUnit.DAY)
-    frequency = models.CharField(max_length=10, choices=PromoFrequency.choices, blank=True, default="")
     search_position = models.CharField(max_length=10, choices=PromoPosition.choices, blank=True, default="")
     message_channel = models.CharField(max_length=20, choices=PromoMessageChannel.choices, blank=True, default="")
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))

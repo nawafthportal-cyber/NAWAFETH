@@ -42,6 +42,11 @@ class ContentBlockKey(models.TextChoices):
     HOME_BANNERS_TITLE = "home_banners_title", "الرئيسية - عنوان العروض الترويجية"
     HOME_BANNERS_FALLBACK = "home_banners_fallback", "الرئيسية - البنر الافتراضي"
     TOPBAR_BRAND_LOGO = "topbar_brand_logo", "الشريط العلوي - شعار المنصة"
+    TOPBAR_BRAND_TITLE = "topbar_brand_title", "الشريط العلوي - اسم المنصة"
+    TOPBAR_BRAND_SUBTITLE = "topbar_brand_subtitle", "الشريط العلوي - وصف المنصة"
+    FOOTER_BRAND_TITLE = "footer_brand_title", "الفوتر - اسم المنصة"
+    FOOTER_BRAND_DESCRIPTION = "footer_brand_description", "الفوتر - وصف المنصة"
+    FOOTER_COPYRIGHT = "footer_copyright", "الفوتر - حقوق النشر"
     LOGIN_TITLE = "login_title", "الدخول - العنوان"
     LOGIN_DESCRIPTION = "login_description", "الدخول - الوصف"
     LOGIN_PHONE_HINT = "login_phone_hint", "الدخول - تلميح الجوال"
@@ -189,6 +194,20 @@ class SiteContentBlock(models.Model):
         return f"{self.key}"
 
 
+class BrandingContentBlock(SiteContentBlock):
+    class Meta:
+        proxy = True
+        verbose_name = "هوية المنصة"
+        verbose_name_plural = "هوية المنصة"
+
+
+class HomePageFallbackBannerBlock(SiteContentBlock):
+    class Meta:
+        proxy = True
+        verbose_name = "بنر الرئيسية الافتراضي"
+        verbose_name_plural = "بنر الرئيسية الافتراضي"
+
+
 class SiteLegalDocument(models.Model):
     doc_type = models.CharField(max_length=40, choices=LegalDocumentType.choices)
     body_ar = models.TextField(blank=True, default="")
@@ -228,6 +247,10 @@ class SiteLegalDocument(models.Model):
 
 class SiteLinks(models.Model):
     x_url = models.URLField(blank=True)
+    instagram_url = models.URLField(blank=True)
+    snapchat_url = models.URLField(blank=True)
+    tiktok_url = models.URLField(blank=True)
+    youtube_url = models.URLField(blank=True)
     whatsapp_url = models.URLField(blank=True)
     email = models.EmailField(blank=True)
     android_store = models.URLField(blank=True)
@@ -247,3 +270,12 @@ class SiteLinks(models.Model):
 
     def __str__(self):
         return f"SiteLinks#{self.pk}"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj

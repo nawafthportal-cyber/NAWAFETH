@@ -183,7 +183,7 @@
                     <div class="featured-specialists-form-panel">
                       <div class="form-grid featured-specialists-form-grid">
                         <div class="field full">
-                          <small>يتم عرض المختص في شريط أبرز المختصين مع أولوية ظهور حسب معدل التكرار خلال فترة الحملة.</small>
+                          <small>يتم عرض المختص في شريط أبرز المختصين خلال فترة الحملة المعتمدة.</small>
                         </div>
                         <div class="field">
                           <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
@@ -203,11 +203,6 @@
                           <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
                           {{ module_form.target_provider_id }}
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
-                        </div>
-                        <div class="field">
-                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
-                          {{ module_form.frequency }}
-                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
                           <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
@@ -278,11 +273,6 @@
                           <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
                           {{ module_form.target_provider_id }}
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
-                        </div>
-                        <div class="field">
-                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
-                          {{ module_form.frequency }}
-                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
                           <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
@@ -384,11 +374,6 @@
                           <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
                           {{ module_form.target_provider_id }}
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
-                        </div>
-                        <div class="field">
-                          <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
-                          {{ module_form.frequency }}
-                          {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
                           <label for="{{ module_form.start_at.id_for_label }}">بداية الحملة</label>
@@ -843,11 +828,6 @@
                       {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
                     </div>
                     <div class="field">
-                      <label for="{{ module_form.frequency.id_for_label }}">معدل الظهور</label>
-                      {{ module_form.frequency }}
-                      {% for err in module_form.frequency.errors %}<small>{{ err }}</small>{% endfor %}
-                    </div>
-                    <div class="field">
                       <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
                       {{ module_form.target_provider_id }}
                       {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
@@ -1065,7 +1045,6 @@
                   <th>اسم العميل</th>
                   <th>عنوان البند</th>
                   {% if is_featured_module or is_portfolio_module or is_snapshots_module %}
-                    <th>معدل الظهور</th>
                     <th>بداية/نهاية</th>
                   {% elif is_search_module %}
                     <th>قائمة الظهور</th>
@@ -1093,7 +1072,6 @@
                     <td>{{ row.requester }}</td>
                     <td>{{ row.title }}</td>
                     {% if is_featured_module or is_portfolio_module or is_snapshots_module %}
-                      <td>{{ row.frequency }}</td>
                       <td>{{ row.start_at }}<br>{{ row.end_at }}</td>
                     {% elif is_search_module %}
                       <td>{{ row.search_scope }}</td>

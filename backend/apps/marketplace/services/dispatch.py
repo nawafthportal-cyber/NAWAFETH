@@ -106,7 +106,8 @@ def _eligible_matching_providers(service_request: ServiceRequest):
         return ProviderProfile.objects.none()
 
     provider_ids = ProviderCategory.objects.filter(
-        subcategory_id__in=subcategory_ids
+        subcategory_id__in=subcategory_ids,
+        accepts_urgent=True,
     ).values_list("provider_id", flat=True)
 
     providers = ProviderProfile.objects.select_related("user").filter(

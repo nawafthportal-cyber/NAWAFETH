@@ -1,4 +1,107 @@
+import json
+
+from django.utils.text import slugify
 from django.views.generic import TemplateView
+
+from apps.providers.models import ProviderProfile
+
+
+def _clean_meta_text(value, fallback=""):
+    return " ".join(str(value or fallback).split()).strip()
+
+
+def _provider_image_absolute_url(request, provider):
+    for field in (getattr(provider, "cover_image", None), getattr(provider, "profile_image", None)):
+        if not field:
+            continue
+        try:
+            url = field.url
+        except Exception:
+            url = ""
+        if url:
+            return request.build_absolute_uri(url)
+    return ""
+
+
+def _provider_social_urls(provider):
+    urls = []
+    for item in getattr(provider, "social_links", []) or []:
+        if isinstance(item, dict):
+            url = str(item.get("url") or item.get("href") or item.get("link") or "").strip()
+        else:
+            url = str(item or "").strip()
+        if not url or url.lower().startswith("mailto:"):
+            continue
+        if url.startswith("http://") or url.startswith("https://"):
+            urls.append(url)
+    return list(dict.fromkeys(urls))
+
+
+def _normalized_provider_slug(value):
+    raw = _clean_meta_text(value)
+    if not raw:
+        return ""
+    return slugify(raw, allow_unicode=True).strip("-")
+
+
+def _provider_canonical_path(provider_id, provider_slug=""):
+    if provider_slug:
+        return f"/provider/{provider_id}/{provider_slug}/"
+    return f"/provider/{provider_id}/"
+
+
+def _provider_meta_context(request, provider):
+    seo_slug = _normalized_provider_slug(getattr(provider, "seo_slug", ""))
+    canonical_path = _provider_canonical_path(provider.id, seo_slug)
+    canonical_url = request.build_absolute_uri(canonical_path)
+    display_name = _clean_meta_text(getattr(provider, "display_name", ""), "مقدم خدمة")
+    seo_title = _clean_meta_text(getattr(provider, "seo_title", "")) or display_name
+    page_title = f"{seo_title} | نوافــذ"
+    description = (
+        _clean_meta_text(getattr(provider, "seo_meta_description", ""))
+        or _clean_meta_text(getattr(provider, "bio", ""))
+        or _clean_meta_text(getattr(provider, "about_details", ""))
+        or f"تعرف على خدمات {display_name} عبر منصة نوافــذ."
+    )
+    keywords = _clean_meta_text(getattr(provider, "seo_keywords", ""))
+    image_url = _provider_image_absolute_url(request, provider)
+    structured = {
+        "@context": "https://schema.org",
+        "@type": "ProfessionalService",
+        "name": display_name,
+        "description": description,
+        "url": canonical_url,
+    }
+    if image_url:
+        structured["image"] = image_url
+    if getattr(provider, "city", ""):
+        structured["areaServed"] = {
+            "@type": "City",
+            "name": str(provider.city).strip(),
+        }
+    phone_value = _clean_meta_text(getattr(provider, "whatsapp", "") or getattr(getattr(provider, "user", None), "phone", ""))
+    if phone_value:
+        structured["telephone"] = phone_value
+    same_as = _provider_social_urls(provider)
+    if same_as:
+        structured["sameAs"] = same_as
+    rating_count = int(getattr(provider, "rating_count", 0) or 0)
+    if rating_count > 0:
+        structured["aggregateRating"] = {
+            "@type": "AggregateRating",
+            "ratingValue": str(getattr(provider, "rating_avg", "0.00") or "0.00"),
+            "ratingCount": rating_count,
+        }
+    return {
+        "page_meta_title": page_title,
+        "page_meta_description": description,
+        "page_meta_keywords": keywords,
+        "page_meta_canonical": canonical_url,
+        "page_meta_image": image_url,
+        "page_meta_url": canonical_url,
+        "page_meta_robots": "index,follow,max-image-preview:large",
+        "page_structured_data_json": json.dumps(structured, ensure_ascii=False),
+    }
 
 
 class MobileWebHomeView(TemplateView):
@@ -47,6 +150,19 @@ class MobileWebProfileView(TemplateView):
 
 class MobileWebProviderDetailView(TemplateView):
     template_name = "mobile_web/provider_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        provider_id = kwargs.get("provider_id")
+        provider = (
+            ProviderProfile.objects.select_related("user")
+            .filter(pk=provider_id, user__is_active=True)
+            .first()
+        )
+        if not provider:
+            return context
+        context.update(_provider_meta_context(self.request, provider))
+        return context
 
 
 class MobileWebNotificationsView(TemplateView):
@@ -125,6 +241,10 @@ class MobileWebPlanSummaryView(TemplateView):
 
 class MobileWebVerificationView(TemplateView):
     template_name = "mobile_web/verification.html"
+
+
+class MobileWebVerificationPaymentView(TemplateView):
+    template_name = "mobile_web/verification_payment.html"
 
 
 class MobileWebServiceDetailView(TemplateView):

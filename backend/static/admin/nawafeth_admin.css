@@ -1,0 +1,225 @@
+html[dir="rtl"] #header {
+  background: linear-gradient(135deg, #15152c 0%, #2d325f 55%, #4c2b87 100%);
+  color: #fff;
+}
+
+html[dir="rtl"] #header a:link,
+html[dir="rtl"] #header a:visited {
+  color: #fff;
+}
+
+html[dir="rtl"] .nawafeth-admin-subtitle {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+html[dir="rtl"] #content {
+  padding-top: 22px;
+}
+
+html[dir="rtl"] .naw-admin-dashboard {
+  display: grid;
+  gap: 18px;
+}
+
+html[dir="rtl"] .naw-admin-hero {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(76, 43, 135, 0.14);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(124, 58, 237, 0.16), transparent 34%),
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 32%),
+    linear-gradient(180deg, #ffffff 0%, #f8f7ff 100%);
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+}
+
+html[dir="rtl"] .naw-admin-eyebrow,
+html[dir="rtl"] .naw-admin-section-kicker {
+  margin: 0 0 6px;
+  color: #6d28d9;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+html[dir="rtl"] .naw-admin-hero h2,
+html[dir="rtl"] .naw-admin-section-head h3 {
+  margin: 0;
+  color: #16162d;
+  font-size: 28px;
+  font-weight: 900;
+}
+
+html[dir="rtl"] .naw-admin-hero p:not(.naw-admin-eyebrow) {
+  margin: 10px 0 0;
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.9;
+  max-width: 880px;
+}
+
+html[dir="rtl"] .naw-admin-hero-actions,
+html[dir="rtl"] .naw-admin-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+html[dir="rtl"] .naw-admin-action,
+html[dir="rtl"] .naw-admin-shortcut {
+  display: grid;
+  gap: 4px;
+  min-height: 72px;
+  padding: 14px 16px;
+  border: 1px solid rgba(76, 43, 135, 0.14);
+  border-radius: 18px;
+  background: #fff;
+  color: #1f2443;
+  text-decoration: none;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+html[dir="rtl"] .naw-admin-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+html[dir="rtl"] .naw-admin-shortcut strong {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+html[dir="rtl"] .naw-admin-shortcut span {
+  color: #667085;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+html[dir="rtl"] .naw-admin-grid {
+  display: grid;
+  gap: 18px;
+}
+
+html[dir="rtl"] .naw-admin-section {
+  padding: 20px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+}
+
+html[dir="rtl"] .naw-admin-section-head {
+  margin-bottom: 14px;
+}
+
+html[dir="rtl"] .naw-admin-apps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+html[dir="rtl"] .naw-admin-app-card {
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fff 0%, #fafafe 100%);
+  overflow: hidden;
+}
+
+html[dir="rtl"] .naw-admin-app-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+html[dir="rtl"] .naw-admin-app-head h4 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+html[dir="rtl"] .naw-admin-app-head h4 a {
+  color: #241b45;
+  text-decoration: none;
+}
+
+html[dir="rtl"] .naw-admin-app-head span {
+  white-space: nowrap;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html[dir="rtl"] .naw-admin-models {
+  list-style: none;
+  margin: 0;
+  padding: 8px;
+}
+
+html[dir="rtl"] .naw-admin-models li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 12px;
+}
+
+html[dir="rtl"] .naw-admin-models li:nth-child(odd) {
+  background: rgba(109, 40, 217, 0.03);
+}
+
+html[dir="rtl"] .naw-admin-models a,
+html[dir="rtl"] .naw-admin-models span {
+  color: #27314d;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+html[dir="rtl"] .naw-admin-add-link {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(109, 40, 217, 0.08);
+  color: #6d28d9 !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  html[dir="rtl"] .naw-admin-action:hover,
+  html[dir="rtl"] .naw-admin-shortcut:hover {
+    transform: translateY(-2px);
+    border-color: rgba(76, 43, 135, 0.22);
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  }
+
+  html[dir="rtl"] .naw-admin-app-head h4 a:hover,
+  html[dir="rtl"] .naw-admin-models a:hover {
+    color: #6d28d9;
+  }
+}
+
+@media (max-width: 767px) {
+  html[dir="rtl"] .naw-admin-hero,
+  html[dir="rtl"] .naw-admin-section {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  html[dir="rtl"] .naw-admin-hero h2,
+  html[dir="rtl"] .naw-admin-section-head h3 {
+    font-size: 22px;
+  }
+}

@@ -34,7 +34,7 @@ def activate_verification_on_invoice_paid(sender, instance: Invoice, created, **
 
     try:
         if instance.is_payment_effective():
-            activate_after_payment(vr=vr)
+            activate_after_payment(vr=vr, notify_requester=True)
         else:
             revoke_after_payment_reversal(vr=vr)
     except Exception:

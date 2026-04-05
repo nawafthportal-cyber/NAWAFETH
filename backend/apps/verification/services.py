@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from urllib.parse import urlencode
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.billing.models import Invoice, InvoiceStatus
+from apps.billing.models import Invoice, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus, PaymentProvider
 from apps.billing.models import InvoiceLineItem
 from apps.subscriptions.configuration import (
     canonical_subscription_plan_for_tier,
@@ -431,10 +432,15 @@ def _requirement_attachment_count(req: VerificationRequirement) -> int:
     return req.attachments.count()
 
 
-def verification_request_has_blocking_open_request(user, badge_type: str, *, exclude_request_id: int | None = None) -> bool:
+def verification_request_blocking_open_request_for_badge(
+    user,
+    badge_type: str,
+    *,
+    exclude_request_id: int | None = None,
+) -> VerificationRequest | None:
     normalized_badge = str(badge_type or "").strip().lower()
     if normalized_badge not in VerificationBadgeType.values or not getattr(user, "pk", None):
-        return False
+        return None
 
     qs = VerificationRequest.objects.filter(
         requester=user,
@@ -443,9 +449,22 @@ def verification_request_has_blocking_open_request(user, badge_type: str, *, exc
     if exclude_request_id:
         qs = qs.exclude(pk=exclude_request_id)
 
-    return qs.filter(
-        Q(badge_type=normalized_badge) | Q(requirements__badge_type=normalized_badge)
-    ).distinct().exists()
+    return (
+        qs.filter(
+            Q(badge_type=normalized_badge) | Q(requirements__badge_type=normalized_badge)
+        )
+        .distinct()
+        .order_by("-requested_at", "-id")
+        .first()
+    )
+
+
+def verification_request_has_blocking_open_request(user, badge_type: str, *, exclude_request_id: int | None = None) -> bool:
+    return verification_request_blocking_open_request_for_badge(
+        user,
+        badge_type,
+        exclude_request_id=exclude_request_id,
+    ) is not None
 
 
 def _verification_user_handle(user) -> str:
@@ -711,6 +730,223 @@ def _fee_for_user_and_badge(user, badge_type: str) -> Decimal:
     return Decimal(str(amount))
 
 
+def _verification_default_payment_provider() -> str:
+    configured = str(getattr(settings, "BILLING_DEFAULT_PROVIDER", "") or "").strip().lower()
+    if configured in PaymentProvider.values:
+        return configured
+    return PaymentProvider.MOCK
+
+
+def _ensure_checkout_attempt(*, invoice: Invoice, by_user):
+    latest_attempt = (
+        PaymentAttempt.objects.filter(invoice=invoice)
+        .exclude(checkout_url="")
+        .order_by("-created_at")
+        .first()
+    )
+    if latest_attempt is not None:
+        legacy_checkout_url = str(getattr(latest_attempt, "checkout_url", "") or "").strip().lower()
+        if "example-pay.local" in legacy_checkout_url:
+            # Repair legacy mock links generated before introducing local checkout routes.
+            from apps.billing.services import _make_checkout_url
+
+            latest_attempt.checkout_url = _make_checkout_url(latest_attempt.provider, str(latest_attempt.id))
+            latest_attempt.save(update_fields=["checkout_url"])
+        return latest_attempt
+
+    from apps.billing.services import init_payment
+
+    return init_payment(
+        invoice=invoice,
+        provider=_verification_default_payment_provider(),
+        by_user=by_user or invoice.user,
+        idempotency_key=f"verify-request-{invoice.id}",
+    )
+
+
+def verification_payment_page_url(*, vr: VerificationRequest) -> str:
+    params: dict[str, str] = {}
+    if getattr(vr, "id", None):
+        params["request_id"] = str(vr.id)
+    if getattr(vr, "invoice_id", None):
+        params["invoice_id"] = str(vr.invoice_id)
+    base_path = "/verification/payment/"
+    if not params:
+        return base_path
+    return f"{base_path}?{urlencode(params)}"
+
+
+def _get_or_create_provider_direct_thread(*, user_a, user_b):
+    from apps.messaging.models import Thread
+
+    if not user_a or not user_b or user_a.id == user_b.id:
+        return None
+
+    thread = (
+        Thread.objects.filter(is_direct=True, context_mode=Thread.ContextMode.PROVIDER)
+        .filter(
+            Q(participant_1=user_a, participant_2=user_b)
+            | Q(participant_1=user_b, participant_2=user_a)
+        )
+        .order_by("-id")
+        .first()
+    )
+    if thread is not None:
+        return thread
+
+    return Thread.objects.create(
+        is_direct=True,
+        context_mode=Thread.ContextMode.PROVIDER,
+        participant_1=user_a,
+        participant_2=user_b,
+    )
+
+
+def _send_verification_system_message(*, vr: VerificationRequest, sender, body: str):
+    from apps.messaging.models import Message
+    from apps.messaging.views import _unarchive_for_participants
+
+    thread = _get_or_create_provider_direct_thread(user_a=sender, user_b=vr.requester)
+    if thread is None:
+        return None
+
+    Message.objects.create(
+        thread=thread,
+        sender=sender,
+        body=(body or "")[:2000],
+        created_at=timezone.now(),
+    )
+    _unarchive_for_participants(thread)
+    return thread
+
+
+def _verification_rejection_reason_lines(reqs) -> list[str]:
+    lines: list[str] = []
+    for requirement in reqs or []:
+        if requirement.is_approved is not False:
+            continue
+        reason = (requirement.decision_note or "").strip() or "لم يتم استيفاء متطلبات هذا البند."
+        lines.append(f"- {requirement.code}: {reason}")
+    return lines
+
+
+def _notify_requester_review_outcome(*, vr: VerificationRequest, by_user, reqs=None) -> None:
+    try:
+        from apps.notifications.models import EventType
+        from apps.notifications.services import create_notification
+    except Exception:
+        return
+
+    requirements = list(reqs) if reqs is not None else list(vr.requirements.all())
+    approved_count = sum(1 for item in requirements if item.is_approved is True)
+    rejected_count = sum(1 for item in requirements if item.is_approved is False)
+    request_code = vr.code or f"AD{vr.id:06d}"
+    actor = by_user or getattr(vr, "assigned_to", None) or vr.requester
+    thread = None
+    notification_url = "/verification/"
+    notification_title = ""
+    notification_body = ""
+    notification_kind = "info"
+    message_body = ""
+    payment_page_url = verification_payment_page_url(vr=vr)
+    payment_link = ""
+
+    if vr.status == VerificationStatus.PENDING_PAYMENT and vr.invoice_id:
+        # Checkout link generation is best-effort and must not block request finalization.
+        try:
+            attempt = _ensure_checkout_attempt(invoice=vr.invoice, by_user=actor)
+            payment_link = str(getattr(attempt, "checkout_url", "") or "").strip()
+        except Exception:
+            payment_link = ""
+        notification_title = "استكمال رسوم التوثيق"
+        notification_body = (
+            f"تهانينا، تم اعتماد طلب التوثيق ({request_code}) وإصدار فاتورة بانتظار الدفع. "
+            "افتح صفحة الدفع لإكمال السداد."
+        )
+        notification_kind = "info"
+
+        message_lines = [
+            f"رسالة آلية من فريق التوثيق بخصوص الطلب {request_code}.",
+            "تهانينا، تمت الموافقة على طلب التوثيق.",
+            f"تم اعتماد {approved_count} بند/بنود من طلب التوثيق.",
+        ]
+        if rejected_count:
+            message_lines.append(f"تم رفض {rejected_count} بند/بنود أخرى بعد المراجعة.")
+            message_lines.append("البنود المرفوضة وأسبابها:")
+            message_lines.extend(_verification_rejection_reason_lines(requirements)[:6])
+        if vr.invoice_id:
+            invoice_code = vr.invoice.code or f"IV{vr.invoice_id:06d}"
+            message_lines.append(f"رقم الفاتورة: {invoice_code}")
+        message_lines.append(f"صفحة الدفع: {payment_page_url}")
+        message_body = "\n".join(message_lines)
+    elif vr.status == VerificationStatus.REJECTED:
+        notification_title = "رفض طلب التوثيق"
+        notification_body = f"تم رفض طلب التوثيق ({request_code}). افتح الرسالة النظامية لمراجعة أسباب الرفض."
+        notification_kind = "error"
+
+        message_lines = [
+            f"رسالة آلية من فريق التوثيق بخصوص الطلب {request_code}.",
+            "تم رفض طلب التوثيق بعد مراجعة البنود والمرفقات.",
+        ]
+        if (vr.reject_reason or "").strip():
+            message_lines.append(f"ملخص القرار: {(vr.reject_reason or '').strip()}")
+        message_lines.extend(_verification_rejection_reason_lines(requirements)[:4])
+        message_body = "\n".join(message_lines)
+    elif vr.status == VerificationStatus.ACTIVE:
+        notification_title = "اكتمل طلب التوثيق"
+        notification_body = f"تم اعتماد طلب التوثيق ({request_code}) وتفعيل التوثيق على الحساب بنجاح."
+        notification_kind = "success"
+        message_lines = [
+            f"رسالة آلية من فريق التوثيق بخصوص الطلب {request_code}.",
+            "تهانينا، تم اعتماد طلب التوثيق وتفعيل الشارة على حسابك بنجاح.",
+        ]
+        if rejected_count:
+            message_lines.append(f"تم رفض {rejected_count} بند/بنود ضمن نفس الطلب.")
+            message_lines.append("البنود المرفوضة وأسبابها:")
+            message_lines.extend(_verification_rejection_reason_lines(requirements)[:6])
+        message_body = "\n".join(message_lines)
+    else:
+        return
+
+    if actor is not None and getattr(actor, "id", None) != vr.requester_id and message_body:
+        try:
+            thread = _send_verification_system_message(vr=vr, sender=actor, body=message_body)
+        except Exception:
+            thread = None
+
+    if vr.status == VerificationStatus.PENDING_PAYMENT:
+        notification_url = payment_page_url
+    elif thread is not None:
+        notification_url = f"/chat/{thread.id}/"
+    elif payment_link:
+        notification_url = payment_link
+
+    try:
+        create_notification(
+            user=vr.requester,
+            title=notification_title,
+            body=notification_body,
+            kind=notification_kind,
+            url=notification_url,
+            actor=actor,
+            event_type=EventType.STATUS_CHANGED,
+            request_id=vr.id,
+            meta={
+                "verification_request_id": vr.id,
+                "verification_request_code": request_code,
+                "status": vr.status,
+                "invoice_id": vr.invoice_id,
+                "thread_id": getattr(thread, "id", None),
+                "approved_count": approved_count,
+                "rejected_count": rejected_count,
+            },
+            pref_key="verification_completed",
+            audience_mode="provider",
+        )
+    except Exception:
+        pass
+
+
 @transaction.atomic
 def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, by_user):
     doc = VerificationDocument.objects.select_for_update().select_related("request").get(pk=doc.pk)
@@ -721,6 +957,7 @@ def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, 
     doc.decided_by = by_user
     doc.decided_at = timezone.now()
     doc.save(update_fields=["is_approved", "decision_note", "decided_by", "decided_at"])
+    mark_request_in_review(vr=doc.request, changed_by=by_user)
     return doc
 
 
@@ -740,6 +977,7 @@ def decide_requirement(
     req.decided_by = by_user
     req.decided_at = timezone.now()
     req.save(update_fields=["is_approved", "decision_note", "evidence_expires_at", "decided_by", "decided_at"])
+    mark_request_in_review(vr=req.request, changed_by=by_user)
     return req
 
 
@@ -757,12 +995,6 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
     vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
 
     reqs = list(vr.requirements.prefetch_related("attachments").all())
-    includes_blue = (
-        vr.badge_type == VerificationBadgeType.BLUE
-        or any(req.badge_type == VerificationBadgeType.BLUE for req in reqs)
-    )
-    if includes_blue and not hasattr(vr, "blue_profile"):
-        raise ValueError("لا يمكن اعتماد طلب يتضمن الشارة الزرقاء بدون بيانات الشارة الزرقاء المعتمدة.")
 
     if not reqs:
         docs = list(vr.documents.all())
@@ -780,6 +1012,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
             vr.reject_reason = "تم رفض جميع مستندات التوثيق."
             vr.save(update_fields=["status", "reject_reason", "reviewed_at", "updated_at"])
             _sync_verification_to_unified(vr=vr, changed_by=by_user)
+            _notify_requester_review_outcome(vr=vr, by_user=by_user, reqs=[])
             return vr
 
         bt = vr.badge_type or VerificationBadgeType.BLUE
@@ -814,6 +1047,13 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
     if approved_without_evidence:
         raise ValueError("يوجد بنود معتمدة بدون مرفقات إثبات.")
 
+    includes_blue = (
+        vr.badge_type == VerificationBadgeType.BLUE
+        or any(req.badge_type == VerificationBadgeType.BLUE for req in reqs)
+    )
+    if includes_blue and not hasattr(vr, "blue_profile"):
+        raise ValueError("لا يمكن اعتماد طلب يتضمن الشارة الزرقاء بدون بيانات الشارة الزرقاء المعتمدة.")
+
     vr.reviewed_at = timezone.now()
 
     if not approved_items:
@@ -821,6 +1061,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         vr.reject_reason = "تم رفض جميع بنود التوثيق."
         vr.save(update_fields=["status", "reject_reason", "reviewed_at", "updated_at"])
         _sync_verification_to_unified(vr=vr, changed_by=by_user)
+        _notify_requester_review_outcome(vr=vr, by_user=by_user, reqs=reqs)
         return vr
 
     vr.status = VerificationStatus.APPROVED
@@ -867,12 +1108,13 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
             inv.save(update_fields=["status", "paid_at", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
             vr = activate_after_payment(vr=vr)
 
-    _sync_verification_to_unified(vr=vr, changed_by=by_user)
+        _sync_verification_to_unified(vr=vr, changed_by=by_user)
+        _notify_requester_review_outcome(vr=vr, by_user=by_user, reqs=reqs)
     return vr
 
 
 @transaction.atomic
-def activate_after_payment(*, vr: VerificationRequest):
+def activate_after_payment(*, vr: VerificationRequest, notify_requester: bool = False, changed_by=None):
     """
     تفعيل الشارة بعد الدفع:
     - إنشاء VerifiedBadge
@@ -929,6 +1171,16 @@ def activate_after_payment(*, vr: VerificationRequest):
 
     # Update ProviderProfile flags from source-of-truth badge records.
     sync_provider_badges(vr.requester)
+
+    if notify_requester:
+        try:
+            _notify_requester_review_outcome(
+                vr=vr,
+                by_user=changed_by,
+                reqs=list(vr.requirements.all()),
+            )
+        except Exception:
+            pass
 
     _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
     return vr

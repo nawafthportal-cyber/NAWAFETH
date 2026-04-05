@@ -1,15 +1,19 @@
 from rest_framework import serializers
+from django.utils.text import slugify
 
 from apps.accounts.models import User
+from apps.accounts.phone_validation import require_phone_local05
 from apps.accounts.role_context import get_active_role
 
 from .models import (
     Category,
+    ProviderCategory,
     ProviderPortfolioItem,
     ProviderProfile,
     ProviderService,
     ProviderSpotlightItem,
     SubCategory,
+    sync_provider_accepts_urgent_flag,
 )
 
 
@@ -33,6 +37,43 @@ def _safe_file_url(field_file):
         return ""
 
 
+def _trim_text(value):
+    return " ".join(str(value or "").split()).strip()
+
+
+def _normalize_keywords_text(value):
+    parts = []
+    for part in str(value or "").replace("\n", ",").replace("،", ",").split(","):
+        cleaned = _trim_text(part)
+        if cleaned:
+            parts.append(cleaned)
+    return "، ".join(dict.fromkeys(parts))
+
+
+def _normalize_seo_slug(value):
+    raw = _trim_text(value)
+    if not raw:
+        return ""
+    normalized = slugify(raw, allow_unicode=True).strip("-")
+    if not normalized:
+        raise serializers.ValidationError("أدخل رابطًا مخصصًا صالحًا")
+    return normalized
+
+
+class ProviderSeoValidationMixin:
+    def validate_seo_title(self, value):
+        return _trim_text(value)
+
+    def validate_seo_keywords(self, value):
+        return _normalize_keywords_text(value)
+
+    def validate_seo_meta_description(self, value):
+        return _trim_text(value)
+
+    def validate_seo_slug(self, value):
+        return _normalize_seo_slug(value)
+
+
 class SubCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SubCategory
@@ -47,7 +88,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ("id", "name", "subcategories")
 
 
-class ProviderProfileSerializer(serializers.ModelSerializer):
+class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
     subcategory_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -60,27 +101,42 @@ class ProviderProfileSerializer(serializers.ModelSerializer):
         exclude = ("excellence_badges_cache",)
         read_only_fields = ("user", "is_verified_blue", "is_verified_green")
 
+    def validate_whatsapp(self, value):
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        try:
+            return require_phone_local05(text, allow_blank=True)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
+
     def create(self, validated_data):
         subcategory_ids = validated_data.pop("subcategory_ids", [])
         profile = super().create(validated_data)
 
         # Create ProviderCategory entries
         if subcategory_ids:
-            from .models import ProviderCategory, SubCategory
-
             for sub_id in subcategory_ids:
                 try:
                     subcategory = SubCategory.objects.get(id=sub_id, is_active=True)
                     ProviderCategory.objects.get_or_create(
-                        provider=profile, subcategory=subcategory
+                        provider=profile,
+                        subcategory=subcategory,
+                        defaults={"accepts_urgent": bool(profile.accepts_urgent)},
                     )
                 except SubCategory.DoesNotExist:
                     pass  # Skip invalid subcategory IDs
 
+        sync_provider_accepts_urgent_flag(profile)
         return profile
 
 
-class ProviderProfileMeSerializer(serializers.ModelSerializer):
+class ProviderSubcategorySettingSerializer(serializers.Serializer):
+    subcategory_id = serializers.IntegerField(min_value=1)
+    accepts_urgent = serializers.BooleanField(required=False, default=False)
+
+
+class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
     """Provider profile for the authenticated owner (read + update).
 
     Keep sensitive/computed fields read-only.
@@ -117,6 +173,7 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
             "qualifications",
             "experiences",
             "content_sections",
+            "seo_title",
             "seo_keywords",
             "seo_meta_description",
             "seo_slug",
@@ -146,6 +203,15 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
         value = getattr(obj, "excellence_badges_cache", None)
         return value if isinstance(value, list) else []
 
+    def validate_whatsapp(self, value):
+        text = str(value or "").strip()
+        if not text:
+            return ""
+        try:
+            return require_phone_local05(text, allow_blank=True)
+        except ValueError as exc:
+            raise serializers.ValidationError(str(exc))
+
     def _provider_subcategory_rows(self, obj):
         rows = []
         relation_rows = getattr(obj, "_prefetched_objects_cache", {}).get("providercategory_set")
@@ -166,6 +232,7 @@ class ProviderProfileMeSerializer(serializers.ModelSerializer):
                     "name": subcategory.name,
                     "category_id": category.id,
                     "category_name": category.name,
+                    "accepts_urgent": bool(getattr(relation, "accepts_urgent", False)),
                 }
             )
         return rows
@@ -233,6 +300,10 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "lat",
             "lng",
             "coverage_radius_km",
+            "seo_title",
+            "seo_keywords",
+            "seo_meta_description",
+            "seo_slug",
             "accepts_urgent",
             "is_verified_blue",
             "is_verified_green",
@@ -409,6 +480,14 @@ class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at")
 
 
+class ProviderPortfolioItemUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProviderPortfolioItem
+        fields = (
+            "caption",
+        )
+
+
 class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(source="provider.id", read_only=True)
     provider_display_name = serializers.CharField(source="provider.display_name", read_only=True)
@@ -484,6 +563,33 @@ class ProviderSpotlightItemSerializer(serializers.ModelSerializer):
 
 
 class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):
+    file_type = serializers.ChoiceField(
+        choices=ProviderSpotlightItem.FILE_TYPE_CHOICES,
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        upload = attrs.get("file")
+        file_type = (attrs.get("file_type") or "").strip().lower()
+
+        if not file_type and upload is not None:
+            content_type = str(getattr(upload, "content_type", "") or "").strip().lower()
+            filename = str(getattr(upload, "name", "") or "").strip().lower()
+            if content_type.startswith("video/") or filename.endswith((".mp4", ".mov", ".avi", ".webm", ".mkv")):
+                file_type = "video"
+            elif content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
+                file_type = "image"
+
+        if file_type not in {"image", "video"}:
+            raise serializers.ValidationError({
+                "file_type": "نوع الملف يجب أن يكون صورة أو فيديو.",
+            })
+
+        attrs["file_type"] = file_type
+        return attrs
+
     class Meta:
         model = ProviderSpotlightItem
         fields = (
@@ -526,13 +632,36 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
     subcategory_ids = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         allow_empty=True,
-        required=True,
+        required=False,
+        default=list,
     )
+    subcategory_settings = ProviderSubcategorySettingSerializer(many=True, required=False, default=list)
 
-    def validate_subcategory_ids(self, value):
-        ids = list(dict.fromkeys(value))  # de-dupe, keep order
+    def validate(self, attrs):
+        raw_ids = list(attrs.get("subcategory_ids") or [])
+        raw_settings = list(attrs.get("subcategory_settings") or [])
+
+        ordered_ids = []
+        urgent_by_id = {}
+
+        for sub_id in raw_ids:
+            if sub_id in urgent_by_id:
+                continue
+            ordered_ids.append(sub_id)
+            urgent_by_id[sub_id] = False
+
+        for item in raw_settings:
+            sub_id = item["subcategory_id"]
+            if sub_id not in urgent_by_id:
+                ordered_ids.append(sub_id)
+                urgent_by_id[sub_id] = False
+            urgent_by_id[sub_id] = bool(item.get("accepts_urgent", False))
+
+        ids = ordered_ids
         if not ids:
-            return []
+            attrs["subcategory_ids"] = []
+            attrs["subcategory_settings"] = []
+            return attrs
 
         existing = set(
             SubCategory.objects.filter(id__in=ids, is_active=True).values_list("id", flat=True)
@@ -540,7 +669,16 @@ class MyProviderSubcategoriesSerializer(serializers.Serializer):
         missing = [i for i in ids if i not in existing]
         if missing:
             raise serializers.ValidationError(f"تصنيفات فرعية غير صالحة: {missing}")
-        return ids
+
+        attrs["subcategory_ids"] = ids
+        attrs["subcategory_settings"] = [
+            {
+                "subcategory_id": sub_id,
+                "accepts_urgent": bool(urgent_by_id.get(sub_id, False)),
+            }
+            for sub_id in ids
+        ]
+        return attrs
 
 
 class SubCategoryWithCategorySerializer(serializers.ModelSerializer):
@@ -560,6 +698,7 @@ class SubCategoryWithCategorySerializer(serializers.ModelSerializer):
 class ProviderServiceSerializer(serializers.ModelSerializer):
     provider_id = serializers.IntegerField(read_only=True)
     price_unit_label = serializers.CharField(source="get_price_unit_display", read_only=True)
+    accepts_urgent = serializers.SerializerMethodField()
     subcategory_id = serializers.PrimaryKeyRelatedField(
         source="subcategory",
         queryset=SubCategory.objects.filter(is_active=True),
@@ -579,6 +718,7 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             "price_unit",
             "price_unit_label",
             "is_active",
+            "accepts_urgent",
             "subcategory",
             "subcategory_id",
             "created_at",
@@ -591,6 +731,59 @@ class ProviderServiceSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
+
+    def _input_accepts_urgent(self):
+        if not hasattr(self, "initial_data") or not hasattr(self.initial_data, "get"):
+            return serializers.empty
+        if "accepts_urgent" not in self.initial_data:
+            return serializers.empty
+        return serializers.BooleanField(required=False).run_validation(self.initial_data.get("accepts_urgent"))
+
+    def _accepts_urgent_map(self, provider_id):
+        cache = self.context.setdefault("_provider_category_urgent_cache", {})
+        if provider_id not in cache:
+            cache[provider_id] = dict(
+                ProviderCategory.objects.filter(provider_id=provider_id)
+                .values_list("subcategory_id", "accepts_urgent")
+            )
+        return cache[provider_id]
+
+    def _upsert_provider_category(self, provider, subcategory, accepts_urgent):
+        relation, created = ProviderCategory.objects.get_or_create(
+            provider=provider,
+            subcategory=subcategory,
+            defaults={"accepts_urgent": bool(accepts_urgent)},
+        )
+        if not created and relation.accepts_urgent != bool(accepts_urgent):
+            relation.accepts_urgent = bool(accepts_urgent)
+            relation.save(update_fields=["accepts_urgent"])
+        cache = self.context.get("_provider_category_urgent_cache")
+        if isinstance(cache, dict) and getattr(provider, "id", None) in cache:
+            cache[provider.id][subcategory.id] = bool(accepts_urgent)
+        sync_provider_accepts_urgent_flag(provider)
+
+    def get_accepts_urgent(self, obj):
+        provider_id = getattr(obj, "provider_id", None)
+        subcategory_id = getattr(obj, "subcategory_id", None)
+        if not provider_id or not subcategory_id:
+            return False
+        return bool(self._accepts_urgent_map(provider_id).get(subcategory_id, False))
+
+    def create(self, validated_data):
+        accepts_urgent = self._input_accepts_urgent()
+        if accepts_urgent is serializers.empty:
+            accepts_urgent = False
+        service = super().create(validated_data)
+        self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
+        return service
+
+    def update(self, instance, validated_data):
+        accepts_urgent = self._input_accepts_urgent()
+        service = super().update(instance, validated_data)
+        if accepts_urgent is serializers.empty:
+            accepts_urgent = self.get_accepts_urgent(service)
+        self._upsert_provider_category(service.provider, service.subcategory, accepts_urgent)
+        return service
 
 
 class ProviderServicePublicSerializer(serializers.ModelSerializer):

@@ -24,6 +24,7 @@ const ProviderDetailPage = (() => {
   let _mediaLikesTotal = null;
   let _spotlightSyncBound = false;
   let _portfolioSyncBound = false;
+  let _portfolioPreviewObserver = null;
   let _derivedMainCategory = '';
   let _derivedSubCategory = '';
   let _returnNav = null;
@@ -34,7 +35,7 @@ const ProviderDetailPage = (() => {
   };
 
   function init() {
-    const match = window.location.pathname.match(/\/provider\/(\d+)/);
+    const match = window.location.pathname.match(/\/provider\/(\d+)(?:\/[^/?#]+)?\/?/);
     if (!match) {
       document.querySelector('.pd-page').textContent = '';
       const msg = UI.el('div', { className: 'pd-empty', style: { padding: '80px 20px' } });
@@ -66,6 +67,7 @@ const ProviderDetailPage = (() => {
       document.querySelectorAll('.pd-panel').forEach(p => p.classList.remove('active'));
       const panel = document.getElementById('tab-' + _activeTab);
       if (panel) panel.classList.add('active');
+      _syncPortfolioPreviewPlayback();
     });
   }
 
@@ -151,13 +153,7 @@ const ProviderDetailPage = (() => {
     // Bookmark
     const bookmarkBtn = document.getElementById('btn-bookmark');
     if (bookmarkBtn) {
-      bookmarkBtn.addEventListener('click', () => {
-        if (!Auth.isLoggedIn()) {
-          window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname);
-          return;
-        }
-        window.location.href = '/interactive/';
-      });
+      bookmarkBtn.addEventListener('click', _handleBookmarkAction);
     }
 
     // Share
@@ -374,14 +370,14 @@ const ProviderDetailPage = (() => {
       avatarEl.textContent = displayName.charAt(0) || '؟';
     }
 
-    // ── Badge ──
-    const badge = document.getElementById('pd-verified-badge');
-    if (p.is_verified_blue || p.is_verified_green) {
-      badge.classList.remove('hidden');
-      const color = p.is_verified_blue ? '#2196F3' : '#4CAF50';
-      badge.querySelector('svg').setAttribute('fill', color);
-    } else {
-      badge.classList.add('hidden');
+    // ── Verification badges (blue/green unified style) ──
+    const blueBadge = document.getElementById('pd-verified-badge-blue');
+    const greenBadge = document.getElementById('pd-verified-badge-green');
+    if (blueBadge) {
+      blueBadge.classList.toggle('hidden', !_asBool(p.is_verified_blue));
+    }
+    if (greenBadge) {
+      greenBadge.classList.toggle('hidden', !_asBool(p.is_verified_green));
     }
 
     const excellenceWrap = _ensureExcellenceMount();
@@ -437,8 +433,8 @@ const ProviderDetailPage = (() => {
     // ── Profile tab content ──
     _renderProfileTab(p);
 
-    // ── Page title ──
-    document.title = (displayName || 'مقدم خدمة') + ' — نوافذ';
+    // ── Page meta ──
+    _applySeoMeta(p, displayName);
   }
 
   /* ── Render profile tab details ── */
@@ -448,6 +444,9 @@ const ProviderDetailPage = (() => {
     const providerTypeLabel = _pickFirstText(p.provider_type_label, p.providerTypeLabel);
     const whatsappRaw = _pickFirstText(p.whatsapp, p.phone, p.phone_number, p.phoneNumber);
     const websiteRaw = String(p.website || '').trim();
+    const cityText = _displayOrUnavailable(p.city, unavailable);
+    const experienceText = p.years_experience ? p.years_experience + ' سنوات' : unavailable;
+    const serviceRangeText = _resolveServiceRangeKm(p) + ' كم';
     const socialCard = document.getElementById('pd-social-card');
 
     // Bio
@@ -461,10 +460,13 @@ const ProviderDetailPage = (() => {
     _setText('pd-sub-category', _displayOrUnavailable(subCategory, unavailable));
 
     // Experience
-    _setText('pd-experience', p.years_experience ? p.years_experience + ' سنوات' : unavailable);
+    _setText('pd-experience', experienceText);
     _setText('pd-whatsapp', _displayOrUnavailable(whatsappRaw, unavailable));
     _setText('pd-website', websiteRaw || unavailable);
-    _setText('pd-city-name', _displayOrUnavailable(p.city, unavailable));
+    _setText('pd-city-name', cityText);
+    _setText('pd-overview-city', cityText);
+    _setText('pd-overview-experience', experienceText);
+    _setText('pd-overview-range', serviceRangeText);
 
     // ── Website ──
     const websiteBtn = document.getElementById('pd-website-open');
@@ -1177,14 +1179,18 @@ const ProviderDetailPage = (() => {
   async function _loadPortfolio() {
     const container = document.getElementById('pd-portfolio-sections');
     const emptyEl = document.getElementById('pd-portfolio-empty');
+    if (!container) return;
     const res = await ApiClient.get(_withMode('/api/providers/' + _providerId + '/portfolio/'));
     if (!res.ok) return;
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
 
     container.textContent = '';
+    _updatePortfolioHeroMetrics(0, 0);
+    _resetPortfolioPreviewObserver();
 
     if (!list.length) {
       if (emptyEl) emptyEl.classList.remove('hidden');
+      _syncPortfolioPreviewPlayback();
       return;
     }
     if (emptyEl) emptyEl.classList.add('hidden');
@@ -1243,11 +1249,15 @@ const ProviderDetailPage = (() => {
     _recomputeEngagementView();
 
     const sections = _resolvePortfolioSections(grouped);
+    _updatePortfolioHeroMetrics(_portfolioItems.length, sections.length);
     sections.forEach(({ sectionTitle, sectionDesc, items }) => {
       const section = UI.el('section', { className: 'pd-portfolio-section' });
       const header = UI.el('div', { className: 'pd-portfolio-section-head' });
       header.appendChild(UI.el('h4', { className: 'pd-portfolio-section-title', textContent: sectionTitle }));
-      header.appendChild(UI.el('span', { className: 'pd-portfolio-section-count', textContent: String(items.length) }));
+      const meta = UI.el('div', { className: 'pd-portfolio-section-meta' });
+      meta.appendChild(UI.el('span', { className: 'pd-portfolio-section-count', textContent: String(items.length) }));
+      meta.appendChild(UI.el('span', { className: 'pd-portfolio-section-hint', textContent: 'مرر أفقياً وافتح أي بطاقة' }));
+      header.appendChild(meta);
       section.appendChild(header);
 
       if (sectionDesc) {
@@ -1263,24 +1273,36 @@ const ProviderDetailPage = (() => {
         return;
       }
 
-      const grid = UI.el('div', { className: 'pd-portfolio-grid' });
+      const grid = UI.el('div', { className: 'pd-portfolio-grid pd-portfolio-reel-rail' });
       items.forEach((item, index) => {
-        const el = UI.el('div', { className: 'pd-portfolio-item' });
+        const el = UI.el('article', { className: 'pd-portfolio-item pd-portfolio-reel-card' });
         el.dataset.itemId = String(_safeInt(item.id));
         el.setAttribute('role', 'button');
         el.setAttribute('tabindex', '0');
         const displayUrl = (item.type === 'video' && item.thumbnail) ? item.thumbnail : item.media;
-        el.appendChild(UI.lazyImg(ApiClient.mediaUrl(displayUrl), item.desc || sectionTitle));
+        const frame = UI.el('div', { className: 'pd-portfolio-frame' });
+        if (item.type === 'video') {
+          frame.appendChild(_buildPortfolioPreviewVideo(item, displayUrl, item.desc || sectionTitle));
+        } else {
+          frame.appendChild(UI.lazyImg(ApiClient.mediaUrl(displayUrl), item.desc || sectionTitle));
+        }
+
+        const topline = UI.el('div', { className: 'pd-portfolio-topline' });
+        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip', textContent: sectionTitle }));
+        topline.appendChild(UI.el('span', { className: 'pd-portfolio-top-chip muted', textContent: item.type === 'video' ? 'فيديو قصير' : 'صورة' }));
+        frame.appendChild(topline);
 
         if (item.type === 'video') {
           const badge = UI.el('div', { className: 'pd-portfolio-video-badge' });
           badge.appendChild(_createSVG('<polygon points="5 3 19 12 5 21 5 3" fill="#fff"/>', 14));
-          el.appendChild(badge);
+          frame.appendChild(badge);
         }
 
-        if (item.desc && item.desc !== 'بدون وصف') {
-          el.appendChild(UI.el('div', { className: 'pd-portfolio-overlay', textContent: item.desc }));
-        }
+        const overlay = UI.el('div', { className: 'pd-portfolio-overlay' });
+        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-overlay-kicker', textContent: item.type === 'video' ? 'شاهد العرض العمودي' : 'استعرض العمل' }));
+        overlay.appendChild(UI.el('strong', { className: 'pd-portfolio-overlay-title', textContent: (item.desc && item.desc !== 'بدون وصف') ? item.desc : item.media_label }));
+        overlay.appendChild(UI.el('span', { className: 'pd-portfolio-open-indicator', textContent: 'فتح بملء الشاشة' }));
+        frame.appendChild(overlay);
 
         const stats = UI.el('div', { className: 'pd-portfolio-item-stats' });
         const likesStat = UI.el('button', { className: 'pd-portfolio-item-stat pd-portfolio-item-action', type: 'button' });
@@ -1309,13 +1331,15 @@ const ProviderDetailPage = (() => {
         });
         stats.appendChild(savesStat);
 
-        el.appendChild(stats);
+        frame.appendChild(stats);
+        el.appendChild(frame);
         el.addEventListener('click', () => {
           if (typeof SpotlightViewer !== 'undefined') {
             SpotlightViewer.open(items, index, {
               source: 'portfolio',
               label: 'معرض',
               eventName: 'nw:portfolio-engagement-update',
+              immersive: true,
               modeContext: _mode || 'client',
             });
           }
@@ -1336,6 +1360,97 @@ const ProviderDetailPage = (() => {
     if (!container.children.length && emptyEl) {
       emptyEl.classList.remove('hidden');
     }
+    _setupPortfolioPreviewObserver();
+    _syncPortfolioPreviewPlayback();
+  }
+
+  function _buildPortfolioPreviewVideo(item, fallbackUrl, label) {
+    const video = document.createElement('video');
+    video.className = 'pd-portfolio-preview-video';
+    video.muted = true;
+    video.defaultMuted = true;
+    video.loop = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    video.setAttribute('muted', 'muted');
+    video.setAttribute('playsinline', 'playsinline');
+    video.setAttribute('webkit-playsinline', 'webkit-playsinline');
+    video.setAttribute('aria-label', label || item.media_label || 'فيديو من المعرض');
+    video.dataset.previewVideo = 'true';
+    video.dataset.inview = '0';
+
+    const sourceUrl = ApiClient.mediaUrl(item.file_url || item.media || fallbackUrl);
+    if (sourceUrl) video.src = sourceUrl;
+    const posterUrl = ApiClient.mediaUrl(item.thumbnail || item.thumbnail_url || fallbackUrl || item.media);
+    if (posterUrl) video.poster = posterUrl;
+
+    video.addEventListener('error', () => {
+      const replacement = UI.lazyImg(posterUrl || fallbackUrl || item.media, label || item.media_label || '');
+      replacement.className = 'pd-portfolio-preview-fallback';
+      if (video.parentNode) video.parentNode.replaceChild(replacement, video);
+    }, { once: true });
+
+    return video;
+  }
+
+  function _resetPortfolioPreviewObserver() {
+    if (_portfolioPreviewObserver) {
+      _portfolioPreviewObserver.disconnect();
+      _portfolioPreviewObserver = null;
+    }
+  }
+
+  function _setupPortfolioPreviewObserver() {
+    _resetPortfolioPreviewObserver();
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    const videos = Array.from(document.querySelectorAll('.pd-portfolio-preview-video'));
+    if (!videos.length) return;
+
+    if (typeof window.IntersectionObserver !== 'function') {
+      videos.forEach((video, index) => {
+        video.dataset.inview = index === 0 ? '1' : '0';
+      });
+      return;
+    }
+
+    _portfolioPreviewObserver = new window.IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target;
+        video.dataset.inview = entry.isIntersecting && entry.intersectionRatio >= 0.65 ? '1' : '0';
+      });
+      _syncPortfolioPreviewPlayback();
+    }, {
+      threshold: [0.35, 0.65, 0.85],
+    });
+
+    videos.forEach((video) => _portfolioPreviewObserver.observe(video));
+  }
+
+  function _syncPortfolioPreviewPlayback() {
+    if (typeof document === 'undefined') return;
+    const shouldPlay = _activeTab === 'portfolio';
+    document.querySelectorAll('.pd-portfolio-preview-video').forEach((video) => {
+      const isVisible = video.dataset.inview === '1';
+      if (shouldPlay && isVisible) {
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') {
+          playAttempt.catch(() => {});
+        }
+        return;
+      }
+      try {
+        video.pause();
+      } catch (_) {
+        // no-op
+      }
+    });
+  }
+
+  function _updatePortfolioHeroMetrics(totalItems, totalSections) {
+    const totalEl = document.getElementById('pd-portfolio-total');
+    const sectionsEl = document.getElementById('pd-portfolio-sections-total');
+    if (totalEl) totalEl.textContent = String(_safeInt(totalItems)) + ' عنصر';
+    if (sectionsEl) sectionsEl.textContent = String(_safeInt(totalSections)) + ' قسم';
   }
 
   function _syncPortfolioEngagementTotals() {
@@ -1452,8 +1567,41 @@ const ProviderDetailPage = (() => {
     const bookmarkBtn = document.getElementById('btn-bookmark');
     if (!bookmarkBtn) return;
     bookmarkBtn.classList.toggle('bookmarked', _isBookmarked);
+    bookmarkBtn.setAttribute('aria-label', _isBookmarked ? 'فتح مفضلتي' : 'الانتقال إلى المعرض للحفظ');
+    bookmarkBtn.title = _isBookmarked ? 'فتح مفضلتي' : 'احفظ من المعرض أو اللمحات';
     const svg = bookmarkBtn.querySelector('svg');
     if (svg) svg.setAttribute('fill', _isBookmarked ? '#fff' : 'none');
+  }
+
+  function _handleBookmarkAction() {
+    if (!Auth.isLoggedIn()) {
+      window.location.href = '/login/?next=' + encodeURIComponent(window.location.pathname + window.location.search);
+      return;
+    }
+
+    if (_isBookmarked) {
+      window.location.href = '/interactive/?tab=favorites';
+      return;
+    }
+
+    _switchToTab('portfolio');
+    const portfolioPanel = document.getElementById('tab-portfolio');
+    if (portfolioPanel && typeof portfolioPanel.scrollIntoView === 'function') {
+      portfolioPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    _showToast('اضغط حفظ على أي صورة أو فيديو لإضافته إلى مفضلتك');
+  }
+
+  function _switchToTab(nextTab) {
+    const btn = document.querySelector('.pd-tab[data-tab="' + nextTab + '"]');
+    if (!btn) return;
+    document.querySelectorAll('.pd-tab').forEach((tabBtn) => tabBtn.classList.remove('active'));
+    btn.classList.add('active');
+    _activeTab = nextTab;
+    document.querySelectorAll('.pd-panel').forEach((panel) => panel.classList.remove('active'));
+    const panel = document.getElementById('tab-' + nextTab);
+    if (panel) panel.classList.add('active');
+    _syncPortfolioPreviewPlayback();
   }
 
   /* ═══ Reviews ═══ */
@@ -1620,6 +1768,68 @@ const ProviderDetailPage = (() => {
 
   function _trimText(value) {
     return String(value || '').trim();
+  }
+
+  function _normalizeSeoSlug(value) {
+    return _trimText(value)
+      .toLowerCase()
+      .replace(/[^\u0600-\u06ff0-9a-z]+/gi, '-')
+      .replace(/^-+|-+$/g, '');
+  }
+
+  function _providerCanonicalPath(provider) {
+    const providerId = _safeInt(provider && provider.id ? provider.id : _providerId);
+    if (!providerId) return '';
+    const seoSlug = _normalizeSeoSlug(provider && provider.seo_slug);
+    return seoSlug ? ('/provider/' + providerId + '/' + seoSlug + '/') : ('/provider/' + providerId + '/');
+  }
+
+  function _setMetaContent(id, value) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.setAttribute('content', _trimText(value));
+  }
+
+  function _setCanonicalUrl(url) {
+    if (!url) return;
+    const node = document.getElementById('page-canonical');
+    if (node) node.setAttribute('href', url);
+  }
+
+  function _applySeoMeta(provider, displayName) {
+    const seoTitle = _pickFirstText(provider && provider.seo_title, displayName, 'مقدم خدمة');
+    const pageTitle = seoTitle ? (seoTitle + ' | نوافــذ') : 'نوافــذ | مقدم خدمة';
+    const description = _pickFirstText(
+      provider && provider.seo_meta_description,
+      provider && provider.bio,
+      provider && provider.about_details,
+      displayName ? ('تعرف على خدمات ' + displayName + ' عبر منصة نوافــذ.') : 'منصة نوافــذ للخدمات الرقمية والمهنية.'
+    );
+    const canonicalPath = _providerCanonicalPath(provider);
+    const canonicalUrl = canonicalPath ? (window.location.origin + canonicalPath) : window.location.href;
+    const imageUrl = _pickFirstText(provider && provider.cover_image, provider && provider.profile_image);
+    const absoluteImageUrl = imageUrl
+      ? (/^https?:\/\//i.test(imageUrl) ? imageUrl : (window.location.origin + (imageUrl.startsWith('/') ? '' : '/') + imageUrl))
+      : '';
+
+    document.title = pageTitle;
+    _setMetaContent('meta-description', description);
+    _setMetaContent('meta-keywords', provider && provider.seo_keywords);
+    _setMetaContent('meta-og-title', pageTitle);
+    _setMetaContent('meta-og-description', description);
+    _setMetaContent('meta-og-url', canonicalUrl);
+    _setMetaContent('meta-og-image', absoluteImageUrl);
+    _setMetaContent('meta-twitter-title', pageTitle);
+    _setMetaContent('meta-twitter-description', description);
+    _setMetaContent('meta-twitter-image', absoluteImageUrl);
+    _setCanonicalUrl(canonicalUrl);
+
+    if (canonicalPath) {
+      const currentPath = window.location.pathname.endsWith('/') ? window.location.pathname : (window.location.pathname + '/');
+      if (currentPath !== canonicalPath && window.history && typeof window.history.replaceState === 'function') {
+        window.history.replaceState({}, '', canonicalPath + window.location.search + window.location.hash);
+      }
+    }
   }
 
   function _pickFirstText() {

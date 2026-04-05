@@ -20,6 +20,13 @@ _DEFAULT_FAVICON_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6
 """
 
 _DEFAULT_ROBOTS_TXT = "User-agent: *\nAllow: /\n"
+_DEFAULT_SERVICE_WORKER_JS = """self.addEventListener('install', function () {
+  self.skipWaiting();
+});
+self.addEventListener('activate', function (event) {
+  event.waitUntil(self.clients.claim());
+});
+"""
 
 
 class UnreadBadgesView(APIView):
@@ -65,4 +72,17 @@ class RootRobotsTxtView(View):
         else:
             response = HttpResponse(_DEFAULT_ROBOTS_TXT, content_type="text/plain; charset=utf-8")
         response["Cache-Control"] = "public, max-age=3600"
+        return response
+
+
+class RootServiceWorkerView(View):
+    def get(self, request):
+        asset_path = finders.find("sw.js")
+        if asset_path:
+            content = Path(asset_path).read_text(encoding="utf-8")
+        else:
+            content = _DEFAULT_SERVICE_WORKER_JS
+        response = HttpResponse(content, content_type="application/javascript; charset=utf-8")
+        response["Cache-Control"] = "no-cache"
+        response["Service-Worker-Allowed"] = "/"
         return response

@@ -33,6 +33,7 @@ class VerificationRequirementAttachmentSerializer(serializers.ModelSerializer):
 
 class VerificationRequirementSerializer(serializers.ModelSerializer):
     attachments = VerificationRequirementAttachmentSerializer(many=True, read_only=True)
+    decision_status_label = serializers.SerializerMethodField()
 
     class Meta:
         model = VerificationRequirement
@@ -42,12 +43,20 @@ class VerificationRequirementSerializer(serializers.ModelSerializer):
             "code",
             "title",
             "is_approved",
+            "decision_status_label",
             "decision_note",
             "evidence_expires_at",
             "decided_by",
             "decided_at",
             "attachments",
         ]
+
+    def get_decision_status_label(self, obj: VerificationRequirement):
+        if obj.is_approved is True:
+            return "معتمد"
+        if obj.is_approved is False:
+            return "مرفوض"
+        return "بانتظار المراجعة"
 
 
 class VerificationDocumentSerializer(serializers.ModelSerializer):
@@ -209,7 +218,7 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
             try:
                 ensure_provider_access(request.user)
             except ProviderAccessError as exc:
-                raise serializers.ValidationError({"detail": exc.detail})
+                raise serializers.ValidationError({"detail": exc.detail, "code": exc.code})
         badge_type = attrs.get("badge_type")
         requirements = attrs.get("requirements") or []
         includes_blue = badge_type == VerificationBadgeType.BLUE or any(
@@ -218,11 +227,21 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         blue_profile = attrs.get("blue_profile")
         if includes_blue and not blue_profile:
             raise serializers.ValidationError(
-                {"blue_profile": "بيانات الشارة الزرقاء مطلوبة لأي طلب يتضمن بنود الشارة الزرقاء."}
+                {
+                    "detail": "بيانات الشارة الزرقاء مطلوبة لأي طلب يتضمن بنود الشارة الزرقاء.",
+                    "blue_profile": "بيانات الشارة الزرقاء مطلوبة لأي طلب يتضمن بنود الشارة الزرقاء.",
+                    "code": "verification_blue_profile_required",
+                }
             )
         if blue_profile:
             if not includes_blue:
-                raise serializers.ValidationError({"blue_profile": "بيانات الشارة الزرقاء مرتبطة فقط بطلبات الشارة الزرقاء."})
+                raise serializers.ValidationError(
+                    {
+                        "detail": "بيانات الشارة الزرقاء مرتبطة فقط بطلبات الشارة الزرقاء.",
+                        "blue_profile": "بيانات الشارة الزرقاء مرتبطة فقط بطلبات الشارة الزرقاء.",
+                        "code": "verification_blue_profile_unexpected",
+                    }
+                )
         return attrs
 
     def create(self, validated_data):
@@ -230,7 +249,7 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         from .services import (
             _sync_verification_to_unified,
             resolve_requirement_def,
-            verification_request_has_blocking_open_request,
+            verification_request_blocking_open_request_for_badge,
         )
 
         requirements = validated_data.pop("requirements", []) or []
@@ -242,14 +261,32 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
         # Legacy flow: badge_type only -> create a single default requirement.
         if not requirements:
             if badge_type not in VerificationBadgeType.values:
-                raise serializers.ValidationError("badge_type مطلوب أو قم بإرسال requirements.")
+                raise serializers.ValidationError(
+                    {
+                        "detail": "نوع الشارة مطلوب أو قم بإرسال بنود التوثيق المطلوبة.",
+                        "code": "verification_badge_type_required",
+                    }
+                )
             requirements = [{"badge_type": badge_type, "code": "B1" if badge_type == "blue" else "G1"}]
 
         # Prevent multiple active/pending requests for the same badge type.
         # (Mixed requests are also blocked if they include a badge type that already has a pending request.)
         for bt in {r["badge_type"] for r in requirements}:
-            if verification_request_has_blocking_open_request(user, bt):
-                raise serializers.ValidationError("يوجد طلب توثيق قائم لنفس نوع الشارة.")
+            existing_request = verification_request_blocking_open_request_for_badge(user, bt)
+            if existing_request is not None:
+                raise serializers.ValidationError(
+                    {
+                        "detail": "يوجد طلب توثيق قائم لنفس نوع الشارة. أكمل الطلب الحالي قبل إنشاء طلب جديد.",
+                        "code": "verification_request_exists",
+                        "existing_request": {
+                            "id": existing_request.id,
+                            "code": existing_request.code,
+                            "status": existing_request.status,
+                            "status_label": existing_request.get_status_display(),
+                            "badge_type": bt,
+                        },
+                    }
+                )
 
         # For backward compatibility, store badge_type if request is single-type; otherwise keep it null.
         badge_types = {r["badge_type"] for r in requirements}
@@ -291,6 +328,7 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
     documents = VerificationDocumentSerializer(many=True, read_only=True)
     requirements = VerificationRequirementSerializer(many=True, read_only=True)
     blue_profile = VerificationBlueProfileSerializer(read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
 
     invoice_summary = serializers.SerializerMethodField()
     requester_id = serializers.IntegerField(source="requester.id", read_only=True)
@@ -312,6 +350,7 @@ class VerificationRequestDetailSerializer(serializers.ModelSerializer):
             "badge_type_labels",
             "priority",
             "status",
+            "status_label",
             "admin_note", "reject_reason",
             "assigned_to_id",
             "assigned_to_name",

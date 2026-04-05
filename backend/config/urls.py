@@ -21,7 +21,8 @@ from django.conf.urls.static import static
 from django.utils.translation import gettext_lazy as _
 
 from apps.core.health import HealthCheckView, HealthLiveView, HealthReadyView, healthz
-from apps.core.views import RootFaviconView, RootRobotsTxtView, UnreadBadgesView
+from apps.core.views import RootFaviconView, RootRobotsTxtView, RootServiceWorkerView, UnreadBadgesView
+from apps.billing.views import MockCheckoutView
 from apps.mobile_web.views import (
     MobileWebHomeView,
     MobileWebLoginView,
@@ -54,6 +55,7 @@ from apps.mobile_web.views import (
     MobileWebPlansView,
     MobileWebPlanSummaryView,
     MobileWebVerificationView,
+    MobileWebVerificationPaymentView,
     MobileWebServiceDetailView,
     MobileWebServiceRequestFormView,
     MobileWebProviderRegisterView,
@@ -75,6 +77,8 @@ admin.site.index_title = _("مرحبًا بك في لوحة التحكم")
 urlpatterns = [
     path("favicon.ico", RootFaviconView.as_view(), name="favicon"),
     path("robots.txt", RootRobotsTxtView.as_view(), name="robots_txt"),
+    path("sw.js", RootServiceWorkerView.as_view(), name="service_worker"),
+    path("checkout/<str:provider>/<uuid:attempt_id>/", MockCheckoutView.as_view(), name="public_mock_checkout"),
     path("healthz/", healthz, name="healthz"),
     path("health/", HealthCheckView.as_view(), name="health"),
     path("health/live/", HealthLiveView.as_view(), name="health_live"),
@@ -130,6 +134,7 @@ urlpatterns = [
     path("orders/<int:request_id>/", MobileWebOrderDetailView.as_view(), name="order_detail"),
     path("interactive/", MobileWebInteractiveView.as_view(), name="interactive"),
     path("profile/", MobileWebProfileView.as_view(), name="profile"),
+    path("provider/<int:provider_id>/<str:provider_slug>/", MobileWebProviderDetailView.as_view(), name="provider_detail_slug"),
     path("provider/<int:provider_id>/", MobileWebProviderDetailView.as_view(), name="provider_detail"),
     path("notifications/", MobileWebNotificationsView.as_view(), name="notifications"),
     path(
@@ -160,6 +165,7 @@ urlpatterns = [
     path("plans/", MobileWebPlansView.as_view(), name="plans"),
     path("plans/summary/", MobileWebPlanSummaryView.as_view(), name="plan_summary"),
     path("verification/", MobileWebVerificationView.as_view(), name="verification"),
+    path("verification/payment/", MobileWebVerificationPaymentView.as_view(), name="verification_payment"),
     path("service/<int:service_id>/", MobileWebServiceDetailView.as_view(), name="service_detail"),
     path("service-request/", MobileWebServiceRequestFormView.as_view(), name="service_request_form"),
     path("provider-register/", MobileWebProviderRegisterView.as_view(), name="provider_register"),

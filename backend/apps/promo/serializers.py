@@ -10,12 +10,10 @@ from apps.subscriptions.capabilities import (
     promotional_notification_controls_enabled_for_user,
 )
 
-from .services import promo_rotation_frequency_values
 from .models import (
     HomeBanner,
     PromoAdType,
     PromoAsset,
-    PromoFrequency,
     PromoMessageChannel,
     PromoOpsStatus,
     PromoPosition,
@@ -164,7 +162,6 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             "start_at",
             "end_at",
             "send_at",
-            "frequency",
             "search_scope",
             "search_scopes",
             "search_position",
@@ -218,13 +215,6 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("لا يمكن بدء حملة بتاريخ ماض.")
             if (end_at - start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
                 raise serializers.ValidationError(promo_min_campaign_message())
-
-        if service_type in {
-            PromoServiceType.FEATURED_SPECIALISTS,
-            PromoServiceType.PORTFOLIO_SHOWCASE,
-            PromoServiceType.SNAPSHOTS,
-        } and attrs.get("frequency") not in promo_rotation_frequency_values():
-            raise serializers.ValidationError("معدل الظهور غير صحيح.")
 
         if service_type == PromoServiceType.SEARCH_RESULTS:
             scopes = [str(scope).strip() for scope in (attrs.get("search_scopes") or []) if str(scope).strip()]
@@ -285,7 +275,6 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
 class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
     assets = PromoAssetSerializer(many=True, read_only=True)
     service_type_label = serializers.CharField(source="get_service_type_display", read_only=True)
-    frequency_label = serializers.CharField(source="get_frequency_display", read_only=True)
     search_scope_label = serializers.CharField(source="get_search_scope_display", read_only=True)
     search_position_label = serializers.CharField(source="get_search_position_display", read_only=True)
 
@@ -299,8 +288,6 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "start_at",
             "end_at",
             "send_at",
-            "frequency",
-            "frequency_label",
             "search_scope",
             "search_scope_label",
             "search_position",
@@ -348,7 +335,6 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             "ad_type",
             "start_at",
             "end_at",
-            "frequency",
             "position",
             "target_category",
             "target_city",
@@ -431,8 +417,6 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             )
         if attrs.get("ad_type") not in PromoAdType.values:
             raise serializers.ValidationError("نوع الإعلان غير صحيح.")
-        if attrs.get("frequency") not in PromoFrequency.values:
-            raise serializers.ValidationError("معدل الظهور غير صحيح.")
         if attrs.get("position") not in PromoPosition.values:
             raise serializers.ValidationError("موقع الظهور غير صحيح.")
         return attrs
@@ -541,7 +525,6 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 ad_type=PromoAdType.BUNDLE,
                 start_at=request_start,
                 end_at=request_end,
-                frequency=PromoFrequency.S60,
                 position=PromoPosition.NORMAL,
                 status=PromoRequestStatus.NEW,
                 ops_status=PromoOpsStatus.NEW,
@@ -600,7 +583,6 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "ad_type",
             "start_at",
             "end_at",
-            "frequency",
             "position",
             "target_category",
             "target_city",
@@ -667,7 +649,6 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     start_at = serializers.DateTimeField(read_only=True, allow_null=True)
     end_at = serializers.DateTimeField(read_only=True, allow_null=True)
     send_at = serializers.DateTimeField(read_only=True, allow_null=True)
-    frequency = serializers.CharField(read_only=True, allow_blank=True)
     position = serializers.CharField(read_only=True, allow_blank=True)
     search_scope = serializers.CharField(read_only=True, allow_blank=True)
     search_position = serializers.CharField(read_only=True, allow_blank=True)

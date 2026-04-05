@@ -32,6 +32,21 @@ def default_promo_base_prices() -> dict[str, int]:
     }
 
 
+def default_promo_frequency_multipliers() -> dict[str, float]:
+    """Compatibility default kept for historical migrations.
+
+    The runtime promo frequency multiplier setting was removed, but older
+    migrations still import this callable when building the migration graph.
+    """
+
+    return {
+        "10s": 1.6,
+        "20s": 1.3,
+        "30s": 1.1,
+        "60s": 1.0,
+    }
+
+
 def default_promo_position_multipliers() -> dict[str, float]:
     return {
         "first": 1.5,
@@ -39,15 +54,6 @@ def default_promo_position_multipliers() -> dict[str, float]:
         "top5": 1.35,
         "top10": 1.15,
         "normal": 1.0,
-    }
-
-
-def default_promo_frequency_multipliers() -> dict[str, float]:
-    return {
-        "10s": 1.6,
-        "20s": 1.3,
-        "30s": 1.1,
-        "60s": 1.0,
     }
 
 
@@ -101,11 +107,6 @@ class PlatformConfig(models.Model):
     promo_position_multipliers = models.JSONField(
         "مضاعفات مواقع الظهور legacy للترويج",
         default=default_promo_position_multipliers,
-        blank=True,
-    )
-    promo_frequency_multipliers = models.JSONField(
-        "مضاعفات تكرار الظهور legacy للترويج",
-        default=default_promo_frequency_multipliers,
         blank=True,
     )
 
@@ -211,12 +212,6 @@ class PlatformConfig(models.Model):
         return self._json_numeric_map(
             self.promo_position_multipliers,
             default_promo_position_multipliers(),
-        )
-
-    def get_promo_frequency_multipliers(self) -> dict[str, str]:
-        return self._json_numeric_map(
-            self.promo_frequency_multipliers,
-            default_promo_frequency_multipliers(),
         )
 
     @classmethod

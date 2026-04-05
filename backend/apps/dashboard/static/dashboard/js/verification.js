@@ -55,8 +55,16 @@
         }
       }
       form.querySelectorAll("button[type='submit']").forEach((button) => {
-        button.disabled = true;
         button.style.opacity = "0.65";
+        if (submitter && button === submitter) {
+          // Keep the clicked submitter enabled for this tick so its name/value
+          // stays in the submitted payload (needed for server action routing).
+          window.setTimeout(() => {
+            button.disabled = true;
+          }, 0);
+          return;
+        }
+        button.disabled = true;
       });
     });
   }
@@ -66,12 +74,139 @@
     if (!form) {
       return;
     }
-    form.addEventListener("submit", () => {
+    form.addEventListener("submit", (event) => {
+      const submitter = event.submitter;
       form.querySelectorAll("button[type='submit']").forEach((button) => {
-        button.disabled = true;
         button.style.opacity = "0.65";
+        if (submitter && button === submitter) {
+          // Keep the clicked submitter enabled for this tick so its name/value
+          // stays in the submitted payload (needed for server action routing).
+          window.setTimeout(() => {
+            button.disabled = true;
+          }, 0);
+          return;
+        }
+        button.disabled = true;
       });
     });
+  }
+
+  function setupRequestAutoSave() {
+    const form = document.getElementById("verificationRequestActionForm");
+    if (!form) {
+      return;
+    }
+
+    const stageInput = form.querySelector("input[name='request_stage']");
+    const isReviewStage = stageInput && (stageInput.value || "").trim().toLowerCase() === "review";
+    if (!isReviewStage) {
+      return;
+    }
+
+    const saveButton = form.querySelector("button[type='submit'][name='action'][value='save_request']");
+    if (!saveButton) {
+      return;
+    }
+
+    const actionsRow = saveButton.closest(".actions");
+    if (!actionsRow) {
+      return;
+    }
+
+    const statusSelect = form.querySelector("select[name='status']");
+    const assigneeSelect = form.querySelector("select[name='assigned_to']");
+
+    const indicator = document.createElement("small");
+    indicator.className = "verification-autosave-indicator";
+    indicator.style.marginInlineStart = "8px";
+    indicator.style.color = "#6f1d79";
+    indicator.textContent = "سيتم الحفظ تلقائيًا عند التعديل";
+    actionsRow.insertBefore(indicator, saveButton);
+
+    let autosaveTimer = 0;
+    let isSaving = false;
+    let hasQueuedSave = false;
+
+    function setIndicator(text, color) {
+      indicator.textContent = text;
+      if (color) {
+        indicator.style.color = color;
+      }
+    }
+
+    function buildAutosaveFormData() {
+      const payload = new FormData(form);
+      payload.set("action", "save_request");
+      payload.set("request_stage", "review");
+      return payload;
+    }
+
+    async function runAutosave() {
+      if (isSaving) {
+        hasQueuedSave = true;
+        return;
+      }
+      isSaving = true;
+      setIndicator("جاري الحفظ...", "#1e40af");
+      try {
+        const response = await fetch(form.getAttribute("action") || window.location.href, {
+          method: "POST",
+          body: buildAutosaveFormData(),
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin",
+        });
+        if (response.ok) {
+          setIndicator("تم الحفظ تلقائيًا", "#15803d");
+        } else {
+          setIndicator("تعذر الحفظ التلقائي - استخدم زر حفظ", "#b91c1c");
+        }
+      } catch (_) {
+        setIndicator("تعذر الحفظ التلقائي - تحقق من الاتصال", "#b91c1c");
+      } finally {
+        isSaving = false;
+        if (hasQueuedSave) {
+          hasQueuedSave = false;
+          runAutosave();
+        }
+      }
+    }
+
+    function scheduleAutosave() {
+      if (autosaveTimer) {
+        window.clearTimeout(autosaveTimer);
+      }
+      autosaveTimer = window.setTimeout(runAutosave, 850);
+    }
+
+    function onReviewFieldChange() {
+      if (statusSelect && (statusSelect.value || "").trim() === "new") {
+        statusSelect.value = "in_review";
+      }
+      scheduleAutosave();
+    }
+
+    const watchedSelectors = [
+      "select[name='assigned_to']",
+      "select[name='status']",
+      "textarea[name='admin_note']",
+      "input[name^='decision_']",
+      "input[name^='evidence_expires_at_']",
+    ];
+
+    watchedSelectors.forEach((selector) => {
+      form.querySelectorAll(selector).forEach((element) => {
+        const eventName = element.matches("textarea") || element.matches("input[type='datetime-local']") ? "input" : "change";
+        element.addEventListener(eventName, onReviewFieldChange);
+      });
+    });
+
+    if (statusSelect && (statusSelect.value || "").trim() === "") {
+      statusSelect.value = "new";
+    }
+
+    if (assigneeSelect && !assigneeSelect.value) {
+      setIndicator("اختر المكلف وسيتم حفظه تلقائيًا", "#6f1d79");
+    }
   }
 
   function setupConfirmationButtons() {
@@ -195,6 +330,7 @@
     attachCharCounters();
     setupInquiryConfirmations();
     setupRequestSubmitState();
+    setupRequestAutoSave();
     setupConfirmationButtons();
     setupInquiryCommentLinkInsertion();
     scrollSelectionIntoView();

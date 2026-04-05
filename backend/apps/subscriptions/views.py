@@ -10,7 +10,6 @@ from .models import SubscriptionPlan, Subscription
 from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
 from .services import start_subscription_checkout
-from .bootstrap import CANONICAL_PLAN_CODES
 from .tiering import canonical_tier_order
 
 
@@ -19,7 +18,7 @@ class PlansListView(generics.ListAPIView):
     serializer_class = PlanSerializer
 
     def get_queryset(self):
-        plans = list(SubscriptionPlan.objects.filter(is_active=True, code__in=CANONICAL_PLAN_CODES))
+        plans = list(SubscriptionPlan.objects.filter(is_active=True))
         plans.sort(key=lambda plan: (canonical_tier_order(plan.normalized_tier()), plan.price, plan.id))
         return plans
 

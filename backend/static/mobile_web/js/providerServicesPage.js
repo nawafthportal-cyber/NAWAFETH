@@ -219,10 +219,14 @@ var ProviderServicesPage = (function () {
       var priceStr = service.price_unit === "negotiable"
         ? "قابل للتفاوض"
         : ((service.price_from || "0") + " - " + (service.price_to || "0") + " ر.س");
+      var urgentBadge = service.accepts_urgent
+        ? '<span class="svc-urgent-badge">يستقبل الطلبات العاجلة</span>'
+        : '<span class="svc-urgent-badge is-muted">العاجل غير مفعل</span>';
 
       return '<div class="service-card" data-id="' + service.id + '">' +
         '<div class="svc-header"><h3>' + (service.title || "") + '</h3><span class="badge ' + (service.is_active ? "badge-success" : "badge-muted") + '">' + (service.is_active ? "مفعلة" : "معطلة") + '</span></div>' +
         '<p class="svc-cat">' + catName + (subName ? " \u2192 " + subName : "") + '</p>' +
+        '<div class="svc-badges">' + urgentBadge + '</div>' +
         '<p class="svc-desc">' + (service.description || "").substring(0, 100) + '</p>' +
         '<div class="svc-footer"><span class="svc-price">' + priceStr + '</span><span class="svc-price-type">' + priceUnit + '</span></div>' +
         (readOnlyMode ? '<div class="svc-readonly">عرض فقط</div>' : '<div class="svc-actions"><button class="btn btn-sm btn-outline btn-edit" data-id="' + service.id + '">تعديل</button><button class="btn btn-sm btn-danger btn-delete" data-id="' + service.id + '">حذف</button></div>') +
@@ -302,10 +306,12 @@ var ProviderServicesPage = (function () {
       document.getElementById("svc-price-from").value = service.price_from || "";
       document.getElementById("svc-price-to").value = service.price_to || "";
       document.getElementById("svc-active").checked = service.is_active !== false;
+      document.getElementById("svc-accepts-urgent").checked = !!service.accepts_urgent;
       document.getElementById("svc-price-row").style.display = service.price_unit === "negotiable" ? "none" : "";
     } else {
       document.getElementById("svc-form").reset();
       document.getElementById("svc-active").checked = true;
+      document.getElementById("svc-accepts-urgent").checked = false;
       document.getElementById("svc-price-row").style.display = "";
     }
 
@@ -357,6 +363,7 @@ var ProviderServicesPage = (function () {
       subcategory_id: parseInt(subcat, 10),
       price_unit: priceUnit,
       is_active: document.getElementById("svc-active").checked,
+      accepts_urgent: document.getElementById("svc-accepts-urgent").checked,
     };
 
     if (priceUnit !== "negotiable") {

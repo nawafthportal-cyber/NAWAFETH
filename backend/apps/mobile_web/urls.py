@@ -31,6 +31,7 @@ from .views import (
     MobileWebPlansView,
     MobileWebPlanSummaryView,
     MobileWebVerificationView,
+    MobileWebVerificationPaymentView,
     MobileWebServiceDetailView,
     MobileWebServiceRequestFormView,
     MobileWebProviderRegisterView,
@@ -60,6 +61,7 @@ urlpatterns = [
     path("orders/<int:request_id>/", MobileWebOrderDetailView.as_view(), name="order_detail"),
     path("interactive/", MobileWebInteractiveView.as_view(), name="interactive"),
     path("profile/", MobileWebProfileView.as_view(), name="profile"),
+    path("provider/<int:provider_id>/<str:provider_slug>/", MobileWebProviderDetailView.as_view(), name="provider_detail_slug"),
     path("provider/<int:provider_id>/", MobileWebProviderDetailView.as_view(), name="provider_detail"),
     path("notifications/", MobileWebNotificationsView.as_view(), name="notifications"),
     path(
@@ -85,6 +87,7 @@ urlpatterns = [
     path("plans/", MobileWebPlansView.as_view(), name="plans"),
     path("plans/summary/", MobileWebPlanSummaryView.as_view(), name="plan_summary"),
     path("verification/", MobileWebVerificationView.as_view(), name="verification"),
+    path("verification/payment/", MobileWebVerificationPaymentView.as_view(), name="verification_payment"),
     path("service/<int:service_id>/", MobileWebServiceDetailView.as_view(), name="service_detail"),
     path("service-request/", MobileWebServiceRequestFormView.as_view(), name="service_request_form"),
     path("provider-register/", MobileWebProviderRegisterView.as_view(), name="provider_register"),

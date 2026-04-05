@@ -13,7 +13,8 @@
           <span class="pill brand">استفسارات التوثيق: {{ inquiry_summary.total }}</span>
           <span class="pill accent">طلبات التوثيق: {{ request_summary.total }}</span>
           <span class="pill mint">حسابات موثقة: {{ verified_accounts_summary.total }}</span>
-          <span class="pill info">قيد المراجعة: {{ request_summary.in_review }}</span>
+          <span class="pill info">تحت المعالجة: {{ request_summary.in_review }}</span>
+          <span class="pill mint">مكتملة: {{ request_summary.completed }}</span>
         </div>
       </div>
     </header>
@@ -438,7 +439,7 @@
             <div class="title-row">
               <h2>{% if request_stage == 'summary' %}ملخص اعتماد طلب التوثيق{% else %}مراجعة بنود طلب التوثيق{% endif %}: {{ selected_request.code }}</h2>
               <div class="actions">
-                <span class="pill brand">الحالة الحالية: {{ selected_request.get_status_display }}</span>
+                <span class="pill brand">الحالة الحالية: {{ selected_request_status_label }}</span>
                 {% for label in selected_request_badge_labels %}
                   <span class="pill {% if label == 'شارة خضراء' %}mint{% else %}info{% endif %}">{{ label }}</span>
                 {% endfor %}
@@ -468,8 +469,12 @@
                   {{ request_form.assigned_to }}
                 </div>
                 <div class="field">
-                  <label>حالة النظام</label>
-                  <div class="input-control static-field"><strong>{{ selected_request.get_status_display }}</strong></div>
+                  <label for="{{ request_form.status.id_for_label }}">حالة الطلب</label>
+                  {% if can_write and selected_request_is_editable %}
+                    {{ request_form.status }}
+                  {% else %}
+                    <div class="input-control static-field"><strong>{{ selected_request_status_label }}</strong></div>
+                  {% endif %}
                 </div>
                 <div class="field full">
                   <label for="{{ request_form.admin_note.id_for_label }}">تعليق فريق التوثيق</label>
@@ -713,7 +718,12 @@
                 </section>
 
                 <div class="verification-summary-hints">
-                  <p>عند اعتماد الطلب سيتم إصدار الرسوم بناءً على البنود المعتمدة، ثم ينتقل الطلب تلقائيًا إلى انتظار الدفع أو التفعيل المباشر حسب باقة العميل.</p>
+                  <p><strong>في حالة الاعتماد يتم بشكل آلي:</strong></p>
+                  <p>✓ إرسال رسالة تهنئة للعميل في حالة اعتماد أي طلب توثيق.</p>
+                  <p>✓ رابط دفع رسوم التوثيق مع بيان تفاصيل الرسوم.</p>
+                  <p>✓ بعد إتمام عملية سداد الرسوم يتم إظهار علامات التوثيق المناسبة في حساب العميل حسب ما تم اعتماده.</p>
+                  <p>✓ يتم إضافة بيانات التوثيق في قائمة البيانات الموثقة.</p>
+                  <p>✓ رسالة للعميل ببنود التوثيق المرفوضة وسبب الرفض.</p>
                   {% if selected_request_invoice_summary %}
                     <p>حالة الفاتورة الحالية: <strong>{{ selected_request_invoice_summary.status }}</strong></p>
                   {% endif %}
@@ -761,9 +771,9 @@
             <h4>مؤشرات سريعة</h4>
             {% if filters.tab == 'verification' %}
               <div class="quick-stat"><span>الاستفسارات الجديدة</span><strong>{{ inquiry_summary.new }}</strong></div>
-              <div class="quick-stat"><span>طلبات قيد المراجعة</span><strong>{{ request_summary.in_review }}</strong></div>
-              <div class="quick-stat"><span>طلبات بانتظار الدفع</span><strong>{{ request_summary.pending_payment }}</strong></div>
-              <div class="quick-stat"><span>طلبات مفعلة</span><strong>{{ request_summary.active }}</strong></div>
+              <div class="quick-stat"><span>طلبات جديدة</span><strong>{{ request_summary.new }}</strong></div>
+              <div class="quick-stat"><span>طلبات تحت المعالجة</span><strong>{{ request_summary.in_review }}</strong></div>
+              <div class="quick-stat"><span>طلبات مكتملة</span><strong>{{ request_summary.completed }}</strong></div>
             {% else %}
               <div class="quick-stat"><span>حسابات زرقاء</span><strong>{{ verified_accounts_summary.blue }}</strong></div>
               <div class="quick-stat"><span>حسابات خضراء</span><strong>{{ verified_accounts_summary.green }}</strong></div>

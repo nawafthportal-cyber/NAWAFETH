@@ -117,6 +117,15 @@ const ChatsPage = (() => {
 
   function _activeMode() {
     try {
+      const params = new URLSearchParams(window.location.search || '');
+      const modeFromUrl = (params.get('mode') || '').trim().toLowerCase();
+      if (modeFromUrl === 'provider' || modeFromUrl === 'client') {
+        sessionStorage.setItem('nw_account_mode', modeFromUrl);
+        return modeFromUrl;
+      }
+    } catch (_) {}
+
+    try {
       const mode = (sessionStorage.getItem('nw_account_mode') || '').trim().toLowerCase();
       if (mode === 'provider' || mode === 'client') return mode;
     } catch (_) {}
@@ -129,6 +138,10 @@ const ChatsPage = (() => {
     const mode = _activeMode();
     const sep = path.includes('?') ? '&' : '?';
     return path + sep + 'mode=' + encodeURIComponent(mode);
+  }
+
+  function _threadUrl(threadId) {
+    return _withMode('/chat/' + threadId + '/');
   }
 
   async function _startDirectChat(providerId) {
@@ -144,7 +157,7 @@ const ChatsPage = (() => {
     });
 
     if (res.ok && res.data && res.data.id) {
-      window.location.href = '/chat/' + res.data.id + '/';
+      window.location.href = _threadUrl(res.data.id);
       return;
     }
 
@@ -607,7 +620,7 @@ const ChatsPage = (() => {
 
   function _openThread(threadId) {
     if (!threadId) return;
-    window.location.href = '/chat/' + threadId + '/';
+    window.location.href = _threadUrl(threadId);
   }
 
   function _findThreadIndex(threadId) {

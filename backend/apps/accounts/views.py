@@ -24,6 +24,7 @@ from .serializers import (
     OTPVerifySerializer,
     WalletSerializer,
 )
+from .phone_validation import keep_digits as _keep_digits, normalize_phone_local05 as _normalize_phone_local05
 
 from .permissions import IsAtLeastPhoneOnly
 from .role_context import get_active_role
@@ -37,27 +38,6 @@ from .otp import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _keep_digits(value: str) -> str:
-    return "".join(ch for ch in (value or "") if ch.isdigit())
-
-
-def _normalize_phone_local05(phone: str) -> str:
-    raw = (phone or "").strip()
-    digits = _keep_digits(raw)
-
-    if len(digits) == 10 and digits.startswith("05"):
-        return digits
-    if len(digits) == 9 and digits.startswith("5"):
-        return f"0{digits}"
-    if len(digits) == 12 and digits.startswith("9665"):
-        return f"0{digits[3:]}"
-    if len(digits) == 14 and digits.startswith("009665"):
-        return f"0{digits[5:]}"
-
-    return raw
-
 
 def _phone_candidates(phone: str) -> list[str]:
     raw = (phone or "").strip()

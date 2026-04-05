@@ -1,7 +1,10 @@
 import logging
+import uuid
+from urllib.parse import urljoin, urlparse
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -23,6 +26,104 @@ from .push import send_push_for_notification
 
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_checkout_attempt_id(path: str) -> str:
+    cleaned = str(path or "").strip().strip("/")
+    if not cleaned:
+        return ""
+    parts = [segment for segment in cleaned.split("/") if segment]
+    if len(parts) >= 3 and parts[0] == "checkout":
+        return parts[2]
+    if len(parts) >= 5 and parts[0] == "api" and parts[1] == "billing" and parts[2] == "checkout":
+        return parts[4]
+    return ""
+
+
+def _verification_payment_url_for_checkout_attempt(attempt_id: str) -> str:
+    raw_attempt_id = str(attempt_id or "").strip()
+    if not raw_attempt_id:
+        return ""
+    try:
+        parsed_attempt_id = uuid.UUID(raw_attempt_id)
+    except Exception:
+        return ""
+
+    try:
+        from apps.billing.models import PaymentAttempt
+        from apps.verification.models import VerificationRequest
+    except Exception:
+        return ""
+
+    attempt = (
+        PaymentAttempt.objects.select_related("invoice")
+        .filter(pk=parsed_attempt_id)
+        .only("id", "invoice_id", "invoice__id", "invoice__reference_type", "invoice__reference_id", "invoice__user_id")
+        .first()
+    )
+    if attempt is None or attempt.invoice is None:
+        return ""
+
+    invoice = attempt.invoice
+    if str(getattr(invoice, "reference_type", "") or "").strip() != "verify_request":
+        return ""
+
+    verification_request = (
+        VerificationRequest.objects.filter(invoice_id=invoice.id)
+        .only("id", "invoice_id")
+        .first()
+    )
+    if verification_request is None:
+        reference_code = str(getattr(invoice, "reference_id", "") or "").strip()
+        if reference_code:
+            verification_request = (
+                VerificationRequest.objects.filter(code=reference_code)
+                .only("id", "invoice_id")
+                .first()
+            )
+    if verification_request is None:
+        return ""
+
+    return f"/verification/payment/?request_id={verification_request.id}&invoice_id={verification_request.invoice_id or invoice.id}"
+
+
+def normalize_notification_url(url: str) -> str:
+    """
+    Normalizes legacy mock checkout links that used an unreachable host.
+    """
+    raw_url = str(url or "").strip()
+    if not raw_url:
+        return ""
+
+    candidate = raw_url if "://" in raw_url else f"https://local.invalid{raw_url if raw_url.startswith('/') else '/' + raw_url}"
+    parsed = urlparse(candidate)
+    path = str(parsed.path or "").strip()
+    if not path:
+        return raw_url
+
+    checkout_attempt_id = _extract_checkout_attempt_id(path)
+    if checkout_attempt_id:
+        verification_payment_url = _verification_payment_url_for_checkout_attempt(checkout_attempt_id)
+        if verification_payment_url:
+            return verification_payment_url
+
+    lowered = raw_url.lower()
+    if "example-pay.local" not in lowered:
+        return raw_url
+
+    if not (path.startswith("/checkout/") or path.startswith("/api/billing/checkout/")):
+        return raw_url
+
+    checkout_base_url = str(getattr(settings, "BILLING_MOCK_CHECKOUT_BASE_URL", "") or "").strip()
+    if not checkout_base_url:
+        checkout_base_url = "http://127.0.0.1:8000"
+
+    normalized = urljoin(checkout_base_url.rstrip("/") + "/", path.lstrip("/"))
+    if parsed.query:
+        normalized = f"{normalized}?{parsed.query}"
+    if parsed.fragment:
+        normalized = f"{normalized}#{parsed.fragment}"
+    return normalized
 
 
 NOTIFICATION_CATALOG = {
@@ -492,6 +593,7 @@ def create_notification(
     audience_mode: str = "shared",
 ):
     meta = meta or {}
+    normalized_url = normalize_notification_url(url)
     normalized_audience_mode = normalize_preference_mode(audience_mode)
     derived_pref_key = pref_key or EVENT_TO_PREF_KEY.get(event_type or "")
     if not should_send_notification(user=user, pref_key=derived_pref_key, audience_mode=normalized_audience_mode):
@@ -503,7 +605,7 @@ def create_notification(
             title=title,
             body=body,
             kind=kind,
-            url=url,
+            url=normalized_url,
             audience_mode=normalized_audience_mode,
             is_urgent=bool(is_urgent or kind == "urgent"),
         )
@@ -540,7 +642,7 @@ def _broadcast_notification_created(notification: Notification) -> None:
         "title": notification.title,
         "body": notification.body,
         "kind": notification.kind,
-        "url": notification.url,
+        "url": normalize_notification_url(notification.url),
         "audience_mode": notification.audience_mode,
         "is_read": notification.is_read,
         "is_pinned": notification.is_pinned,

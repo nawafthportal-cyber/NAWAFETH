@@ -22,7 +22,7 @@ class VerificationBlueSubjectType(models.TextChoices):
 
 class VerificationStatus(models.TextChoices):
     NEW = "new", "جديد"
-    IN_REVIEW = "in_review", "قيد المراجعة"
+    IN_REVIEW = "in_review", "تحت المعالجة"
     REJECTED = "rejected", "مرفوض"
     APPROVED = "approved", "معتمد"
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"

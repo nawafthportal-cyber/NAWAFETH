@@ -120,6 +120,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.content.context_processors.site_public_content",
                 "apps.dashboard.context_processors.dashboard_nav_access",
             ],
         },
@@ -468,6 +469,10 @@ BILLING_WEBHOOK_SECRETS = env_json(
     },
 )
 
+# رابط أساس اختياري لروابط الدفع التجريبية (mock checkout).
+# مثال: BILLING_MOCK_CHECKOUT_BASE_URL=http://127.0.0.1:8000
+BILLING_MOCK_CHECKOUT_BASE_URL = (os.getenv("BILLING_MOCK_CHECKOUT_BASE_URL", "") or "").strip()
+
 # Settings للباقات (اختياري الآن)
 SUBS_GRACE_DAYS = 7  # فترة سماح بعد الانتهاء
 
@@ -512,14 +517,6 @@ PROMO_POSITION_MULTIPLIER = {
     "top5": 1.35,
     "top10": 1.15,
     "normal": 1.0,
-}
-
-# مضاعفات حسب معدل الظهور
-PROMO_FREQUENCY_MULTIPLIER = {
-    "10s": 1.6,
-    "20s": 1.3,
-    "30s": 1.1,
-    "60s": 1.0,
 }
 
 # Home banner canonical media specs across web/mobile/dashboard.

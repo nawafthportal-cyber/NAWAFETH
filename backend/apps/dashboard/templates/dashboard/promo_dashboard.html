@@ -334,7 +334,6 @@
                   {% if item.title %}<div class="quick-stat"><span>العنوان</span><strong>{{ item.title }}</strong></div>{% endif %}
                   {% if item.start_at %}<div class="quick-stat"><span>بداية</span><strong>{{ item.start_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
                   {% if item.end_at %}<div class="quick-stat"><span>نهاية</span><strong>{{ item.end_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
-                  {% if item.frequency %}<div class="quick-stat"><span>معدل الظهور</span><strong>{{ item.get_frequency_display }}</strong></div>{% endif %}
                   {% if item.search_scope %}<div class="quick-stat"><span>نطاق البحث</span><strong>{{ item.get_search_scope_display }}</strong></div>{% endif %}
                   {% if item.search_position %}<div class="quick-stat"><span>ترتيب الظهور</span><strong>{{ item.get_search_position_display }}</strong></div>{% endif %}
                   {% if item.target_category %}<div class="quick-stat"><span>التصنيف</span><strong>{{ item.target_category }}</strong></div>{% endif %}

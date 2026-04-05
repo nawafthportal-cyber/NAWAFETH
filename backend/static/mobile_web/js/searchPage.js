@@ -8,6 +8,7 @@
 const SearchPage = (() => {
   let _providers = [];
   let _activeCat = '';
+  let _activeSubcategory = '';
   let _query = '';
   let _activeCity = '';
   let _urgentOnly = false;
@@ -68,6 +69,7 @@ const SearchPage = (() => {
     const params = new URLSearchParams(window.location.search);
     const urlQ = (params.get('q') || '').trim();
     const urlCat = (params.get('category') || params.get('category_id') || '').trim();
+    const urlSubcategory = (params.get('subcategory') || params.get('subcategory_id') || '').trim();
     const urlCity = (params.get('city') || '').trim();
     const urlSort = (params.get('sort') || '').trim();
     _urgentOnly = (params.get('urgent') || '').trim() === '1';
@@ -78,6 +80,7 @@ const SearchPage = (() => {
       _clearBtn.classList.remove('hidden');
     }
     if (urlCat) _activeCat = urlCat;
+    if (urlSubcategory) _activeSubcategory = urlSubcategory;
     if (urlCity) _activeCity = urlCity;
     if (urlSort) _selectedSort = urlSort;
     _syncResultsLink();
@@ -126,6 +129,7 @@ const SearchPage = (() => {
       row.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
       _activeCat = chip.dataset.catId || '';
+      _activeSubcategory = '';
       _loadSearchPromos();
       _fetchProviders();
     });
@@ -233,6 +237,13 @@ const SearchPage = (() => {
     row.innerHTML = '';
     _categoriesById = new Map();
 
+    if (!_activeCat && _activeSubcategory) {
+      const matchedCategory = cats.find(cat => Array.isArray(cat?.subcategories) && cat.subcategories.some(sub => String(sub?.id || '') === String(_activeSubcategory)));
+      if (matchedCategory && matchedCategory.id) {
+        _activeCat = String(matchedCategory.id);
+      }
+    }
+
     const allBtn = document.createElement('button');
     allBtn.className = 'filter-chip' + (!_activeCat ? ' active' : '');
     allBtn.dataset.catId = '';
@@ -258,6 +269,7 @@ const SearchPage = (() => {
     let url = '/api/providers/list/?page_size=30';
     if (_query) url += '&q=' + encodeURIComponent(_query);
     if (_activeCat) url += '&category_id=' + encodeURIComponent(_activeCat);
+    if (_activeSubcategory) url += '&subcategory_id=' + encodeURIComponent(_activeSubcategory);
     if (_activeCity) url += '&city=' + encodeURIComponent(_activeCity);
     if (_urgentOnly) url += '&accepts_urgent=1';
 
@@ -450,8 +462,10 @@ const SearchPage = (() => {
 
     if (!_mapInstance) {
       _mapInstance = L.map(canvas, { scrollWheelZoom: false });
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
       }).addTo(_mapInstance);
     }
 
@@ -537,6 +551,7 @@ const SearchPage = (() => {
     const params = new URLSearchParams();
     if (_query) params.set('q', _query);
     if (_activeCat) params.set('category_id', _activeCat);
+    if (_activeSubcategory) params.set('subcategory_id', _activeSubcategory);
     if (_activeCity) params.set('city', _activeCity);
     if (_urgentOnly) params.set('urgent', '1');
     if (_selectedSort && _selectedSort !== 'default') params.set('sort', _selectedSort);
@@ -664,6 +679,7 @@ const SearchPage = (() => {
     const distanceKm = _distanceKmByProviderId[provider.id];
     const rating = _safeNum(provider.rating_avg);
     const ratingLabel = rating > 0 ? rating.toFixed(1) : '-';
+    const ratingCount = _safeInt(provider.rating_count);
     const completed = _completedCount(provider);
 
     const card = UI.el('a', {
@@ -722,16 +738,41 @@ const SearchPage = (() => {
 
     const body = UI.el('div', { className: 'provider-list-body' });
     const nameWrap = UI.el('div', { className: 'provider-list-name-wrap' });
-    nameWrap.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
-    if (_featuredProviderIds.has(String(provider.id))) {
-      nameWrap.appendChild(UI.el('span', { className: 'promo-featured-badge', textContent: 'مميز' }));
+    const nameLine = UI.el('div', { className: 'provider-list-name-line' });
+    nameLine.appendChild(UI.el('div', { className: 'provider-list-name', textContent: displayName }));
+    nameWrap.appendChild(nameLine);
+
+    const badgesRow = UI.el('div', { className: 'provider-list-badges' });
+    if (provider.is_verified_blue || provider.is_verified_green) {
+      const verifiedChip = UI.el('span', { className: 'provider-list-badge is-verified' });
+      verifiedChip.appendChild(
+        UI.icon(
+          provider.is_verified_blue ? 'verified_blue' : 'verified_green',
+          14,
+          provider.is_verified_blue ? '#2196F3' : '#2E7D32'
+        )
+      );
+      verifiedChip.appendChild(UI.el('span', { textContent: 'موثّق' }));
+      badgesRow.appendChild(verifiedChip);
     }
-    const excellence = UI.buildExcellenceBadges(provider.excellence_badges, {
-      className: 'excellence-badges compact provider-list-excellence',
-      compact: true,
-      iconSize: 10,
-    });
-    if (excellence) nameWrap.appendChild(excellence);
+
+    if (_featuredProviderIds.has(String(provider.id))) {
+      badgesRow.appendChild(UI.el('span', { className: 'provider-list-badge is-featured', textContent: 'مميز' }));
+    }
+
+    if (excellenceItems.length) {
+      badgesRow.appendChild(
+        UI.el('span', {
+          className: 'provider-list-badge is-excellence',
+          textContent: excellenceItems[0].name || excellenceItems[0].code || 'شارة تميز',
+        })
+      );
+    }
+
+    if (badgesRow.childNodes.length) {
+      nameWrap.appendChild(badgesRow);
+    }
+
     body.appendChild(nameWrap);
 
     if (city) {
@@ -744,14 +785,14 @@ const SearchPage = (() => {
     if (Number.isFinite(distanceKm)) {
       const distanceRow = UI.el('div', { className: 'provider-list-distance' });
       distanceRow.appendChild(_tinyIcon('near', '#3F51B5'));
-      distanceRow.appendChild(UI.el('span', { textContent: distanceKm.toFixed(1) + ' كم' }));
+      distanceRow.appendChild(UI.el('span', { className: 'provider-list-distance-label', textContent: 'يبعد عنك' }));
+      distanceRow.appendChild(UI.el('strong', { className: 'provider-list-distance-value', textContent: distanceKm.toFixed(1) + ' كم' }));
       body.appendChild(distanceRow);
     }
 
     const stats = UI.el('div', { className: 'provider-list-stats' });
-    stats.appendChild(_statChip('star', ratingLabel, '#F9A825'));
-    stats.appendChild(_statChip('people', String(_safeInt(provider.followers_count)), '#8A8A93'));
-    stats.appendChild(_statChip('done', String(completed), '#2E7D32'));
+    stats.appendChild(_statChip('star', ratingLabel, '#F9A825', ratingCount ? (ratingCount + ' تقييم') : 'بدون تقييمات'));
+    stats.appendChild(_statChip('done', String(completed), '#2E7D32', 'طلبات مكتملة'));
     body.appendChild(stats);
 
     card.appendChild(body);
@@ -763,12 +804,20 @@ const SearchPage = (() => {
     return card;
   }
 
-  function _statChip(kind, value, color) {
+  function _statChip(kind, value, color, label) {
     const chip = UI.el('span', { className: 'provider-list-stat-chip' });
-    if (kind === 'star') chip.appendChild(UI.icon('star', 11, color));
-    else if (kind === 'people') chip.appendChild(UI.icon('people', 11, color));
-    else chip.appendChild(_tinyIcon('done', color));
-    chip.appendChild(UI.el('span', { textContent: value }));
+    const iconWrap = UI.el('span', { className: 'provider-list-stat-icon' });
+    if (kind === 'star') iconWrap.appendChild(UI.icon('star', 12, color));
+    else if (kind === 'people') iconWrap.appendChild(UI.icon('people', 12, color));
+    else iconWrap.appendChild(_tinyIcon('done', color));
+    chip.appendChild(iconWrap);
+
+    const textWrap = UI.el('span', { className: 'provider-list-stat-copy' });
+    textWrap.appendChild(UI.el('strong', { className: 'provider-list-stat-value', textContent: value }));
+    if (label) {
+      textWrap.appendChild(UI.el('span', { className: 'provider-list-stat-label', textContent: label }));
+    }
+    chip.appendChild(textWrap);
     return chip;
   }
 

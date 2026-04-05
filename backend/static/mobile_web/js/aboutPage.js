@@ -55,6 +55,10 @@ const AboutPage = (() => {
     // روابط التواصل الاجتماعي
     const socialBox = document.getElementById('about-social');
     _bindLink('btn-x-url', links.x_url);
+    _bindLink('btn-instagram-url', links.instagram_url);
+    _bindLink('btn-snapchat-url', links.snapchat_url);
+    _bindLink('btn-tiktok-url', links.tiktok_url);
+    _bindLink('btn-youtube-url', links.youtube_url);
     _bindLink('btn-whatsapp', _normalizeWhatsapp(links.whatsapp_url));
     _bindLink('btn-email', _normalizeEmail(links.email));
     const socialTitle = _resolveTitle(blocks.about_social_title, 'تواصل معنا');

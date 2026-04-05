@@ -1,12 +1,12 @@
 {% extends "mobile_web/base.html" %}{% load static %}
-{% block title %}التسجيل كمقدم خدمة — نوافــذ{% endblock %}
+{% block title %}التسجيل كمزود خدمة — نوافــذ{% endblock %}
 {% block body_class %}page-provider-register{% endblock %}
 
 {% block content %}
 <main class="page-shell">
   <div class="page-header">
     <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>التسجيل كمقدم خدمة</h1>
+    <h1>التسجيل كمزود خدمة</h1>
   </div>
 
   <!-- Progress -->
@@ -25,15 +25,14 @@
         <label class="form-label">صفة الحساب</label>
         <div class="chip-group" id="reg-type-chips">
           <button type="button" class="chip active" data-val="individual">فرد</button>
-          <button type="button" class="chip" data-val="company">مؤسسة / شركة</button>
-          <button type="button" class="chip" data-val="freelancer">مستقل</button>
+          <button type="button" class="chip" data-val="company">منشأة</button>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">اسم العرض</label>
         <input id="reg-display-name" type="text" class="form-input" placeholder="الاسم كما سيظهر للعملاء" required>
       </div>
-      <div class="form-group">
+      <div class="form-group form-group-wide">
         <label class="form-label">نبذة عنك</label>
         <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
       </div>
@@ -56,11 +55,48 @@
         <label class="form-label">التصنيف الفرعي</label>
         <select id="reg-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
       </div>
+
+      <div class="category-suggest-box form-group-wide" id="reg-suggest-box">
+        <button type="button" class="category-suggest-trigger" id="reg-suggest-open">
+          <span class="category-suggest-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.9 3.85L18 8.1l-3 2.95.72 4.15L12 13.2l-3.72 2 0.72-4.15-3-2.95 4.1-1.25L12 3z" />
+            </svg>
+          </span>
+          <span class="category-suggest-copy">
+            <strong>لم تجد تصنيف خدماتك؟</strong>
+            <small>يمكنك اقتراح تصنيف جديد وسيتم مراجعته من قبل الفريق المعني بالتصنيف.</small>
+          </span>
+        </button>
+
+        <div class="category-suggest-form hidden" id="reg-suggest-form">
+          <div class="form-group">
+            <label class="form-label">تصنيف رئيسي مقترح</label>
+            <input id="reg-suggest-main" type="text" class="form-input" placeholder="مثال: تصميم تفاعلي">
+          </div>
+          <div class="form-group">
+            <label class="form-label">تصنيف فرعي مقترح</label>
+            <input id="reg-suggest-sub" type="text" class="form-input" placeholder="مثال: تصميم صفحة هبوط بالذكاء الاصطناعي">
+          </div>
+          <div class="form-group form-group-wide">
+            <label class="form-label">ملاحظات إضافية (اختياري)</label>
+            <textarea id="reg-suggest-note" class="form-input" rows="2" placeholder="اكتب وصفًا مختصرًا يساعد الفريق على فهم اقتراحك"></textarea>
+          </div>
+          <div class="form-row category-suggest-actions">
+            <button class="btn btn-secondary" id="reg-suggest-close" type="button" style="flex:1">إغلاق</button>
+            <button class="btn btn-primary" id="reg-suggest-submit" type="button" style="flex:1" aria-busy="false">
+              <span id="reg-suggest-submit-text">إرسال الاقتراح</span>
+              <span id="reg-suggest-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="form-group">
-        <label class="form-label">اسم الخدمة الأولى</label>
+        <label class="form-label">اسم الخدمة </label>
         <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
       </div>
-      <div class="form-group">
+      <div class="form-group form-group-wide">
         <label class="form-label">وصف الخدمة</label>
         <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
       </div>
@@ -76,7 +112,7 @@
     <div class="detail-card">
       <div class="form-group">
         <label class="form-label">رقم الواتساب</label>
-        <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05xxxxxxxx">
+        <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05XXXXXXXX" maxlength="10" inputmode="numeric" pattern="05[0-9]{8}" dir="ltr">
       </div>
       <div class="form-group">
         <label class="form-label">الموقع الإلكتروني (اختياري)</label>
@@ -98,11 +134,12 @@
     <div class="success-card">
       <div class="success-icon">✓</div>
       <h2>تم التسجيل بنجاح!</h2>
-      <p>تم إنشاء حساب مقدم الخدمة بنجاح. يمكنك الآن إكمال ملفك الشخصي وإضافة خدماتك.</p>
+      <p>تم إنشاء حساب مزود الخدمة بنجاح. يمكنك الآن إكمال ملفك الشخصي وإضافة خدماتك.</p>
       <a href="/provider-dashboard/" class="btn btn-primary btn-block">الانتقال للوحة التحكم</a>
       <a href="/profile-completion/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
     </div>
   </div>
+  <div id="reg-toast" class="reg-toast" aria-live="polite"></div>
 </main>
 {% endblock %}
 

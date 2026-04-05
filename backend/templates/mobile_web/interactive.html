@@ -8,29 +8,21 @@
 {% block body_class %}page-interactive{% endblock %}
 
 {% block extra_css %}
-<style>
-  body.page-interactive #bottom-nav {
-    display: flex !important;
-  }
-
-  body.page-interactive .page-content {
-    padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg));
-  }
-</style>
+<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260405-spotlight-viewer">
 {% endblock %}
 
 {% block content %}
 <main class="page-content">
   <div class="container">
-    <div class="mw-page-topbar">
-      <button class="mw-page-menu-btn" id="hero-menu-btn" type="button" aria-label="القائمة">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
-      </button>
-      <h1 class="mw-page-title">تفاعلي</h1>
-      <span class="mw-page-topbar-spacer" aria-hidden="true"></span>
-    </div>
-
     <div class="interactive-root">
+      <section class="interactive-hero">
+        <div class="interactive-hero-copy">
+          <span class="interactive-kicker">لوحة تفاعلك</span>
+          <h1 class="interactive-hero-title">تفاعلي</h1>
+        </div>
+
+      </section>
+
       <div id="interactive-loading" class="interactive-loading">
         <div class="interactive-state">
           <div class="spinner"></div>
@@ -49,25 +41,52 @@
       </div>
 
       <!-- Content -->
-      <div id="interactive-content" class="hidden">
-        <!-- Tabs -->
-        <div class="interactive-tabs-shell">
-          <div class="tabs-row" id="interact-tabs"></div>
-        </div>
+      <div id="interactive-content" class="interactive-content-shell hidden">
+        <section class="interactive-overview-card">
+          <div class="interactive-tabs-heading">
+            <div class="interactive-tabs-copy">
+              <span class="interactive-tabs-kicker">إدارة التفاعل</span>
+              <h2 class="interactive-tabs-title">كل ما يخص حضورك وتفضيلاتك</h2>
+            </div>
+            <p class="interactive-tabs-note">بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.</p>
+          </div>
+
+          <div class="interactive-tabs-shell">
+            <div class="tabs-row" id="interact-tabs"></div>
+          </div>
+        </section>
 
         <!-- Following tab -->
-        <section id="tab-following" class="tab-panel active">
+        <section id="tab-following" class="tab-panel active interactive-panel-shell">
+          <div class="interactive-panel-head">
+            <div>
+              <h3 class="interactive-panel-title">من أتابع</h3>
+              <p class="interactive-panel-subtitle">المزودون والحسابات التي اخترت البقاء قريبًا منها.</p>
+            </div>
+          </div>
           <div class="interactive-following-grid" id="following-list"></div>
         </section>
 
         <!-- Followers tab (provider mode only) -->
-        <section id="tab-followers" class="tab-panel">
+        <section id="tab-followers" class="tab-panel interactive-panel-shell">
+          <div class="interactive-panel-head">
+            <div>
+              <h3 class="interactive-panel-title">متابعيني</h3>
+              <p class="interactive-panel-subtitle">الأشخاص الذين يتابعون نشاطك ويهتمون بعروضك ومحتواك.</p>
+            </div>
+          </div>
           <div class="interactive-followers-list" id="followers-list"></div>
         </section>
 
         <!-- Favorites tab -->
-        <section id="tab-favorites" class="tab-panel">
-          <div class="interactive-favorites-grid" id="favorites-list"></div>
+        <section id="tab-favorites" class="tab-panel interactive-panel-shell">
+          <div class="interactive-panel-head">
+            <div>
+              <h3 class="interactive-panel-title">مفضلتي</h3>
+              <p class="interactive-panel-subtitle">الريلز والوسائط التي احتفظت بها للرجوع إليها بسرعة.</p>
+            </div>
+          </div>
+          <div class="interactive-favorites-host" id="favorites-list"></div>
         </section>
       </div>
     </div>
@@ -76,6 +95,6 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/spotlightViewer.js' %}"></script>
-<script src="{% static 'mobile_web/js/interactivePage.js' %}"></script>
+<script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260405-spotlight-viewer"></script>
+<script src="{% static 'mobile_web/js/interactivePage.js' %}?v=20260405-interactive"></script>
 {% endblock %}

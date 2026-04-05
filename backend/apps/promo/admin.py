@@ -74,7 +74,7 @@ class PromoRequestItemAdmin(admin.ModelAdmin):
         "duration_days",
         "sort_order",
     )
-    list_filter = ("service_type", "frequency", "search_scope", "search_position")
+    list_filter = ("service_type", "search_scope", "search_position")
     search_fields = ("request__code", "title", "target_category", "target_city", "pricing_rule_code")
     ordering = ("request", "sort_order", "id")
     list_select_related = ("request", "target_provider", "target_portfolio_item")

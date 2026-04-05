@@ -14,7 +14,7 @@
     <div class="pf-hero-copy">
       <p class="pf-hero-kicker">محتوى أعمالك</p>
       <h2 class="pf-hero-title">اعرض أفضل نماذجك بصورة مرتبة وواضحة</h2>
-      <p class="pf-hero-desc">قسّم أعمالك إلى أقسام مستقلة، ثم أضف الصور أو الفيديوهات التي تساعد العميل على فهم خبرتك بسرعة كما في تجربة التطبيق.</p>
+      <p class="pf-hero-desc">أنشئ أقسامًا واضحة، ثم ارفع صورًا أو فيديوهات قصيرة. سيظهر ترتيب الأقسام كما تحفظه هنا داخل صفحة مقدم الخدمة.</p>
     </div>
     <div class="pf-hero-stats" aria-label="إحصاءات معرض الأعمال">
       <div class="pf-stat-card">
@@ -27,6 +27,8 @@
       </div>
     </div>
   </section>
+
+  <div id="pf-status" class="pf-status" style="display:none" aria-live="polite"></div>
 
   <div id="pf-loading" class="loading-center"><div class="spinner"></div></div>
 
@@ -44,8 +46,9 @@
 <!-- Add Section Modal -->
 <div class="modal-overlay" id="pf-modal" style="display:none">
   <div class="modal-sheet">
-    <div class="modal-header"><h2>إضافة قسم جديد</h2><button class="btn-icon" id="pf-modal-close">×</button></div>
+    <div class="modal-header"><h2 id="pf-modal-title">إضافة قسم جديد</h2><button class="btn-icon" id="pf-modal-close">×</button></div>
     <form id="pf-section-form" class="modal-body">
+      <input id="pf-section-id" type="hidden" value="">
       <div class="form-group">
         <label class="form-label">اسم القسم</label>
         <input id="pf-section-title" type="text" class="form-input" placeholder="مثال: تصميم داخلي" required>
@@ -54,7 +57,8 @@
         <label class="form-label">وصف (اختياري)</label>
         <textarea id="pf-section-desc" class="form-input" rows="2" placeholder="وصف مختصر"></textarea>
       </div>
-      <button type="submit" class="btn btn-primary btn-block">إنشاء القسم</button>
+      <p class="pf-modal-note" id="pf-modal-note">يمكنك رفع الصور والفيديوهات داخل القسم مباشرة بعد إنشائه، وسيتم ربط العناصر به تلقائيًا.</p>
+      <button type="submit" class="btn btn-primary btn-block" id="pf-section-submit">إنشاء القسم</button>
     </form>
   </div>
 </div>

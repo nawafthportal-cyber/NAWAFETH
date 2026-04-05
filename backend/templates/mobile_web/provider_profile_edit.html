@@ -2,6 +2,10 @@
 {% block title %}تعديل الملف الشخصي — نوافــذ{% endblock %}
 {% block body_class %}page-provider-profile-edit{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+{% endblock %}
+
 {% block content %}
 <main class="page-shell pe-page-shell">
   <div class="page-header pe-page-header">
@@ -9,9 +13,6 @@
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <h1 id="pe-page-title" class="pe-page-title">الملف الشخصي</h1>
-    <a href="/provider-portfolio/" class="btn-icon pe-head-action" title="معرض الأعمال" aria-label="معرض الأعمال">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    </a>
   </div>
 
   <div id="pe-loading" class="loading-center pe-loading"><div class="spinner"></div></div>
@@ -52,10 +53,13 @@
           </div>
         </section>
 
-        <a href="/provider-portfolio/" class="detail-card pe-portfolio-link">
-          <div class="pe-portfolio-icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-          </div>
+        <section class="detail-card pe-helper-card" aria-live="polite">
+          <p class="pe-helper-kicker">القسم الحالي</p>
+          <h2 id="pe-section-label" class="pe-helper-title">معلومات الحساب</h2>
+          <p id="pe-section-summary" class="pe-helper-desc">حدّث اسم الحساب، صفته، رقم الجوال، النبذة، المدينة، والبريد الإلكتروني من نفس الواجهة.</p>
+        </section>
+
+        <a href="/provider-portfolio/" class="detail-card pe-portfolio-link pe-portfolio-link-no-icon">
           <div class="pe-portfolio-copy">
             <strong>معرض الأعمال</strong>
             <p class="text-muted">تحكم بالمحتوى الذي يظهر للعملاء داخل الملف التعريفي</p>
@@ -63,11 +67,13 @@
           <svg class="pe-portfolio-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         </a>
 
-        <section class="detail-card pe-helper-card" aria-live="polite">
-          <p class="pe-helper-kicker">القسم الحالي</p>
-          <h2 id="pe-section-label" class="pe-helper-title">معلومات الحساب</h2>
-          <p id="pe-section-summary" class="pe-helper-desc">حدّث الاسم، صفة الحساب، والنبذة التي تظهر للعملاء داخل الصفحة.</p>
-        </section>
+        <a href="/provider-services/" class="detail-card pe-portfolio-link pe-portfolio-link-no-icon">
+          <div class="pe-portfolio-copy">
+            <strong>التصنيفات والخدمات</strong>
+            <p class="text-muted">أضف تخصصاتك وفعّل استقبال الطلبات العاجلة لكل تصنيف من مكان واحد</p>
+          </div>
+          <svg class="pe-portfolio-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
       </aside>
 
       <section class="pe-main">
@@ -87,5 +93,6 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}"></script>
 {% endblock %}

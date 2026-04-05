@@ -10,6 +10,14 @@
     <button class="btn-icon btn-add" id="btn-add-service" title="إضافة خدمة"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
   </div>
 
+  <section class="ps-intro-card" aria-label="تنبيه إعداد الخدمات">
+    <div class="ps-intro-copy">
+      <p class="ps-intro-kicker">التصنيفات والخدمات</p>
+      <h2>أضف تخصصك وفَعِّل الطلبات العاجلة للتصنيفات المناسبة فقط</h2>
+      <p>عند إنشاء خدمة جديدة يمكنك تحديد التصنيف الرئيسي والفرعي، ثم تفعيل استقبال الطلبات العاجلة لهذا التصنيف وحده حتى يبقى التوزيع أدق.</p>
+    </div>
+  </section>
+
   <div id="ps-loading" class="loading-center"><div class="spinner"></div></div>
   <div id="ps-error" class="empty-state" style="display:none"><p></p><button class="btn btn-outline" onclick="ProviderServicesPage.reload()">إعادة المحاولة</button></div>
   <div id="ps-empty" class="empty-state" style="display:none">
@@ -36,6 +44,15 @@
       <div class="form-group">
         <label class="form-label">التصنيف الفرعي</label>
         <select id="svc-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
+      </div>
+      <div class="form-group svc-urgent-group">
+        <label class="svc-urgent-toggle" for="svc-accepts-urgent">
+          <input type="checkbox" id="svc-accepts-urgent">
+          <span class="svc-urgent-copy">
+            <strong>تفعيل استقبال الطلبات العاجلة لهذا التصنيف</strong>
+            <small>يطبّق هذا الإعداد على التصنيف الفرعي المحدد فقط، ويمكنك تغييره لاحقًا من نفس الشاشة.</small>
+          </span>
+        </label>
       </div>
       <div class="form-group">
         <label class="form-label">اسم الخدمة</label>

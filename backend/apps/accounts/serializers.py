@@ -2,17 +2,14 @@ import re
 
 from rest_framework import serializers
 from .models import User
-
-
-def _digits_only(value: str) -> str:
-    return "".join(ch for ch in str(value or "") if ch.isdigit())
+from .phone_validation import require_phone_local05
 
 
 def _validate_phone_local05(value: str) -> str:
-    digits = _digits_only(value)
-    if not re.fullmatch(r"05\d{8}", digits):
-        raise serializers.ValidationError("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX")
-    return digits
+    try:
+        return require_phone_local05(value)
+    except ValueError as exc:
+        raise serializers.ValidationError(str(exc))
 
 
 class OTPSendSerializer(serializers.Serializer):

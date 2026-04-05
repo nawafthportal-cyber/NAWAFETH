@@ -1,0 +1,176 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="naw-admin-dashboard">
+  <section class="naw-admin-hero">
+    <div class="naw-admin-hero-copy">
+      <p class="naw-admin-eyebrow">لوحة تشغيل المنصة</p>
+      <h2>إدارة نوافذ من منظور تشغيلي واضح</h2>
+      <p>
+        تم تنظيم الأدمن حسب مجالات العمل اليومية: التشغيل والحوكمة، الحسابات ومقدمو الخدمات،
+        النمو والإيرادات، ثم المحتوى والإعدادات العامة.
+      </p>
+    </div>
+    <div class="naw-admin-hero-actions">
+      <a class="naw-admin-action" href="#ops-section">التشغيل والحوكمة</a>
+      <a class="naw-admin-action" href="#accounts-section">الحسابات والمزودون</a>
+      <a class="naw-admin-action" href="#revenue-section">الإيرادات والنمو</a>
+      <a class="naw-admin-action" href="#settings-section">المحتوى والإعدادات</a>
+    </div>
+  </section>
+
+  <section class="naw-admin-shortcuts">
+    <a class="naw-admin-shortcut" href="{% url 'admin:verification_verificationrequest_changelist' %}">
+      <strong>طلبات التوثيق</strong>
+      <span>مراجعة واعتماد وتتبع حالة التوثيق</span>
+    </a>
+    <a class="naw-admin-shortcut" href="{% url 'admin:support_supportticket_changelist' %}">
+      <strong>تذاكر الدعم</strong>
+      <span>إدارة التذاكر والمحادثات التشغيلية</span>
+    </a>
+    <a class="naw-admin-shortcut" href="{% url 'admin:providers_providerprofile_changelist' %}">
+      <strong>ملفات المزودين</strong>
+      <span>متابعة ملفات مقدمي الخدمات والتحقق منها</span>
+    </a>
+    <a class="naw-admin-shortcut" href="{% url 'admin:billing_invoice_changelist' %}">
+      <strong>الفواتير والمدفوعات</strong>
+      <span>الوصول السريع إلى الفوترة ومحاولات الدفع</span>
+    </a>
+  </section>
+
+  <div class="naw-admin-grid">
+    <section class="naw-admin-section" id="ops-section">
+      <div class="naw-admin-section-head">
+        <p class="naw-admin-section-kicker">تشغيل يومي</p>
+        <h3>التشغيل والحوكمة</h3>
+      </div>
+      <div class="naw-admin-apps">
+        {% for app in app_list %}
+          {% if app.app_label == 'verification' or app.app_label == 'support' or app.app_label == 'unified_requests' or app.app_label == 'backoffice' or app.app_label == 'moderation' or app.app_label == 'audit' or app.app_label == 'notifications' %}
+            <article class="naw-admin-app-card">
+              <div class="naw-admin-app-head">
+                <h4><a href="{{ app.app_url }}">{{ app.name }}</a></h4>
+                <span>{{ app.models|length }} عنصر</span>
+              </div>
+              <ul class="naw-admin-models">
+                {% for model in app.models %}
+                  <li>
+                    {% if model.admin_url %}
+                      <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                    {% else %}
+                      <span>{{ model.name }}</span>
+                    {% endif %}
+                    {% if model.add_url %}
+                      <a class="naw-admin-add-link" href="{{ model.add_url }}">إضافة</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="naw-admin-section" id="accounts-section">
+      <div class="naw-admin-section-head">
+        <p class="naw-admin-section-kicker">المستخدمون والملفات</p>
+        <h3>الحسابات والمزودون</h3>
+      </div>
+      <div class="naw-admin-apps">
+        {% for app in app_list %}
+          {% if app.app_label == 'accounts' or app.app_label == 'providers' or app.app_label == 'messaging' or app.app_label == 'reviews' or app.app_label == 'excellence' %}
+            <article class="naw-admin-app-card">
+              <div class="naw-admin-app-head">
+                <h4><a href="{{ app.app_url }}">{{ app.name }}</a></h4>
+                <span>{{ app.models|length }} عنصر</span>
+              </div>
+              <ul class="naw-admin-models">
+                {% for model in app.models %}
+                  <li>
+                    {% if model.admin_url %}
+                      <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                    {% else %}
+                      <span>{{ model.name }}</span>
+                    {% endif %}
+                    {% if model.add_url %}
+                      <a class="naw-admin-add-link" href="{{ model.add_url }}">إضافة</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="naw-admin-section" id="revenue-section">
+      <div class="naw-admin-section-head">
+        <p class="naw-admin-section-kicker">إدارة النمو</p>
+        <h3>الإيرادات والنمو</h3>
+      </div>
+      <div class="naw-admin-apps">
+        {% for app in app_list %}
+          {% if app.app_label == 'billing' or app.app_label == 'subscriptions' or app.app_label == 'promo' or app.app_label == 'analytics' or app.app_label == 'marketplace' or app.app_label == 'extras' or app.app_label == 'extras_portal' %}
+            <article class="naw-admin-app-card">
+              <div class="naw-admin-app-head">
+                <h4><a href="{{ app.app_url }}">{{ app.name }}</a></h4>
+                <span>{{ app.models|length }} عنصر</span>
+              </div>
+              <ul class="naw-admin-models">
+                {% for model in app.models %}
+                  <li>
+                    {% if model.admin_url %}
+                      <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                    {% else %}
+                      <span>{{ model.name }}</span>
+                    {% endif %}
+                    {% if model.add_url %}
+                      <a class="naw-admin-add-link" href="{{ model.add_url }}">إضافة</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="naw-admin-section" id="settings-section">
+      <div class="naw-admin-section-head">
+        <p class="naw-admin-section-kicker">التهيئة والإدارة</p>
+        <h3>المحتوى والإعدادات العامة</h3>
+      </div>
+      <div class="naw-admin-apps">
+        {% for app in app_list %}
+          {% if app.app_label == 'content' or app.app_label == 'core' or app.app_label == 'features' or app.app_label == 'dashboard' %}
+            <article class="naw-admin-app-card">
+              <div class="naw-admin-app-head">
+                <h4><a href="{{ app.app_url }}">{{ app.name }}</a></h4>
+                <span>{{ app.models|length }} عنصر</span>
+              </div>
+              <ul class="naw-admin-models">
+                {% for model in app.models %}
+                  <li>
+                    {% if model.admin_url %}
+                      <a href="{{ model.admin_url }}">{{ model.name }}</a>
+                    {% else %}
+                      <span>{{ model.name }}</span>
+                    {% endif %}
+                    {% if model.add_url %}
+                      <a class="naw-admin-add-link" href="{{ model.add_url }}">إضافة</a>
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </article>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

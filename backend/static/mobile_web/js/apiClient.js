@@ -14,7 +14,7 @@ const ApiClient = (() => {
    * Returns null for anonymous browsing (home page allows AllowAny).
    */
   function _getToken() {
-    try { return sessionStorage.getItem('nw_access_token'); } catch { return null; }
+    try { return sessionStorage.getItem('nw_access_token'); } catch(_) { return null; }
   }
 
   function _clearStoredTokens() {
@@ -29,7 +29,7 @@ const ApiClient = (() => {
       sessionStorage.removeItem('nw_refresh_token');
       sessionStorage.removeItem('nw_user_id');
       sessionStorage.removeItem('nw_role_state');
-    } catch {}
+    } catch(_) {}
   }
 
   function _isRefreshPath(path) {
@@ -38,7 +38,7 @@ const ApiClient = (() => {
 
   async function _tryRefresh() {
     let refresh;
-    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch { return { ok: false, terminal: false }; }
+    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch(_) { return { ok: false, terminal: false }; }
     if (!refresh) return { ok: false, terminal: false };
     try {
       const res = await fetch(BASE + '/api/accounts/token/refresh/', {
@@ -49,7 +49,7 @@ const ApiClient = (() => {
       if (res.ok) {
         const d = await res.json();
         if (d && d.access) {
-          try { sessionStorage.setItem('nw_access_token', d.access); } catch {}
+          try { sessionStorage.setItem('nw_access_token', d.access); } catch(_) {}
           return { ok: true, terminal: false };
         }
       }
@@ -57,7 +57,7 @@ const ApiClient = (() => {
         _clearStoredTokens();
         return { ok: false, terminal: true };
       }
-    } catch { /* transient network/server failure */ }
+    } catch(_) { /* transient network/server failure */ }
     return { ok: false, terminal: false };
   }
 
@@ -170,8 +170,10 @@ const ApiClient = (() => {
   }
 
   /* Original ApiClient — get() returns { ok, status, data } for backward compat */
-  return { get, request, mediaUrl, refreshAccessToken, BASE };
+    return { get, request, mediaUrl, refreshAccessToken, BASE };
 })();
+
+  window.ApiClient = ApiClient;
 
 /**
  * NwApiClient — convenience layer used by new pages.

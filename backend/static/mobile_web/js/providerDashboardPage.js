@@ -10,6 +10,29 @@ const ProviderDashboardPage = (() => {
   let _providerStats = null;
   let _favoritesCount = 0;
 
+  function _apiErrorMessage(response, fallback) {
+    const data = response && response.data ? response.data : null;
+    if (data) {
+      if (typeof data.detail === 'string' && data.detail.trim()) return data.detail.trim();
+      if (Array.isArray(data.non_field_errors) && data.non_field_errors.length) return String(data.non_field_errors[0]);
+      const firstKey = Object.keys(data)[0];
+      if (firstKey) {
+        const value = data[firstKey];
+        if (Array.isArray(value) && value.length) return String(value[0]);
+        if (typeof value === 'string' && value.trim()) return value.trim();
+      }
+    }
+    return fallback || 'فشل الطلب';
+  }
+
+  function _spotlightFileType(file) {
+    const mime = String(file && file.type || '').trim().toLowerCase();
+    const name = String(file && file.name || '').trim().toLowerCase();
+    if (mime.startsWith('video/') || /\.(mp4|mov|avi|webm|mkv)$/i.test(name)) return 'video';
+    if (mime.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(name)) return 'image';
+    return '';
+  }
+
   function _extractList(payload) {
     if (Array.isArray(payload)) return payload;
     if (payload && Array.isArray(payload.results)) return payload.results;
@@ -360,10 +383,25 @@ const ProviderDashboardPage = (() => {
     document.getElementById('spotlight-upload').addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      const fileType = _spotlightFileType(file);
+      if (fileType !== 'video') {
+        alert('يمكن رفع فيديو فقط في قسم الريلز والأضواء.');
+        e.target.value = '';
+        return;
+      }
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('file_type', fileType);
+      const input = e.target;
+      input.disabled = true;
       const res = await ApiClient.request('/api/providers/me/spotlights/', { method: 'POST', body: fd, formData: true });
-      if (res.ok) location.reload();
+      input.disabled = false;
+      input.value = '';
+      if (res.ok) {
+        location.reload();
+        return;
+      }
+      alert(_apiErrorMessage(res, 'تعذر رفع الريلز الآن.'));
     });
   }
 

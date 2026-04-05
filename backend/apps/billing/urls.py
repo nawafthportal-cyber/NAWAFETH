@@ -6,10 +6,12 @@ from .views import (
     InvoiceDetailView,
     CompleteMockPaymentView,
     InitPaymentView,
+    MockCheckoutView,
     WebhookReceiverView,
 )
 
 urlpatterns = [
+    path("checkout/<str:provider>/<uuid:attempt_id>/", MockCheckoutView.as_view(), name="mock_checkout"),
     path("invoices/", InvoiceCreateView.as_view(), name="invoice_create"),
     path("invoices/my/", MyInvoicesListView.as_view(), name="my_invoices"),
     path("invoices/<int:pk>/", InvoiceDetailView.as_view(), name="invoice_detail"),

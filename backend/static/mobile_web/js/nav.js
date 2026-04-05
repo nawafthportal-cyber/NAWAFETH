@@ -25,6 +25,7 @@ const Nav = (() => {
   const _badgeSocketBackoffMaxMs = 30000;
   const _badgeLeaderKey = 'nw_badge_poll_leader_v2';
   const _badgeSnapshotKey = 'nw_badge_snapshot_v2';
+  const _badgeRealtimeLocalOverrideKey = 'nw_enable_local_ws';
   const _badgeTabId = Math.random().toString(36).slice(2) + Date.now().toString(36);
   const _topbarSponsorKey = 'nw_topbar_sponsor_v1';
   const _topbarBrandLogoKey = 'nw_topbar_brand_logo_v1';
@@ -764,7 +765,19 @@ const Nav = (() => {
   }
 
   function _canUseBadgeRealtime() {
-    return Auth.isLoggedIn() && _badgeOwnsLeadership && _isPageActive();
+    return Auth.isLoggedIn() && _badgeOwnsLeadership && _isPageActive() && !_shouldSkipBadgeRealtime();
+  }
+
+  function _shouldSkipBadgeRealtime() {
+    try {
+      const localOverride = String(window.localStorage.getItem(_badgeRealtimeLocalOverrideKey) || '').trim().toLowerCase();
+      if (localOverride === '1' || localOverride === 'true') {
+        return false;
+      }
+    } catch (_) {}
+    const host = String(window.location.hostname || '').trim().toLowerCase();
+    const isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+    return isLoopback && window.location.protocol === 'http:';
   }
 
   function _badgeSocketUrl() {

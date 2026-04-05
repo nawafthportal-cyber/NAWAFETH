@@ -204,7 +204,6 @@ def _build_request_placement(pr: PromoRequest) -> dict:
         "start_at": pr.start_at,
         "end_at": pr.end_at,
         "send_at": None,
-        "frequency": pr.frequency or "",
         "position": position,
         "search_scope": "",
         "search_position": "",
@@ -240,7 +239,6 @@ def _build_item_placement(item: PromoRequestItem) -> dict:
         "start_at": item.start_at or pr.start_at,
         "end_at": item.end_at or pr.end_at,
         "send_at": item.send_at,
-        "frequency": item.frequency or pr.frequency or "",
         "position": position,
         "search_scope": item.search_scope or "",
         "search_position": item.search_position or "",
@@ -549,8 +547,7 @@ class PromoPricingGuideView(APIView):
         )
         for rule in rules:
             display_key = (
-                (rule.get_frequency_display() if rule.frequency else "")
-                or (rule.get_search_position_display() if rule.search_position else "")
+                (rule.get_search_position_display() if rule.search_position else "")
                 or (rule.get_message_channel_display() if rule.message_channel else "")
                 or rule.title
             )
@@ -563,8 +560,6 @@ class PromoPricingGuideView(APIView):
                     "amount": f"{rule.amount:.2f}",
                     "unit": rule.unit,
                     "unit_label": rule.get_unit_display(),
-                    "frequency": rule.frequency or "",
-                    "frequency_label": rule.get_frequency_display() if rule.frequency else "",
                     "search_position": rule.search_position or "",
                     "search_position_label": rule.get_search_position_display() if rule.search_position else "",
                     "message_channel": rule.message_channel or "",

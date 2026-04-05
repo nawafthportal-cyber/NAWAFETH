@@ -1092,7 +1092,21 @@ ul, ol { list-style: none; }
 }
 @media (min-width: 768px) { .footer-inner { grid-template-columns: 2fr 1fr 1fr; } }
 
+.footer-logo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+}
 .footer-logo { font-size: 28px; font-weight: 900; color: #fff; display: block; margin-bottom: var(--space-sm); }
+.footer-logo-image {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 12px;
+  background: rgba(255,255,255,.08);
+  padding: 6px;
+}
 .footer-desc { font-size: 14px; color: rgba(255,255,255,.6); max-width: 340px; line-height: 1.7; }
 .footer-links h4 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: var(--space-md); }
 .footer-links a {
@@ -1100,6 +1114,33 @@ ul, ol { list-style: none; }
   padding: var(--space-xs) 0; transition: color var(--transition-fast);
 }
 .footer-links a:hover { color: var(--color-accent); }
+.footer-store-links,
+.footer-social-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--space-md);
+}
+.footer-store-link,
+.footer-social-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255,255,255,.06);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.footer-store-link:hover,
+.footer-social-link:hover {
+  background: rgba(255,255,255,.12);
+  border-color: rgba(255,255,255,.2);
+  color: #fff;
+}
 .footer-bottom {
   border-top: 1px solid rgba(255,255,255,.08);
   padding: var(--space-lg) 0;
@@ -1735,13 +1776,14 @@ ul, ol { list-style: none; }
    RESPONSIVE: BOTTOM NAV vs FOOTER
    ==================================================================== */
 @media (max-width: 768px) {
-  #site-footer { display: none; }
+  body.mobile-web-parity #site-footer { display: none !important; }
+  body.mobile-web-parity #bottom-nav { display: flex !important; }
   main, .page-content { padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg)); }
 }
 @media (min-width: 769px) {
-  #site-footer { display: none !important; }
-  #bottom-nav { display: flex !important; }
-  main, .page-content { padding-bottom: calc(var(--bottom-nav-height) + var(--space-lg)); }
+  body.mobile-web-parity #site-footer { display: block !important; }
+  body.mobile-web-parity #bottom-nav { display: none !important; }
+  main, .page-content { padding-bottom: var(--space-2xl); }
 }
 
 /* ====================================================================

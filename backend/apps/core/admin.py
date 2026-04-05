@@ -30,7 +30,6 @@ class PlatformConfigAdmin(admin.ModelAdmin):
                 "promo_min_campaign_hours",
                 "promo_base_prices",
                 "promo_position_multipliers",
-                "promo_frequency_multipliers",
             ),
         }),
         ("الخدمات الإضافية", {

@@ -31,6 +31,7 @@ from .models import (
 	ProviderSpotlightLike,
 	ProviderSpotlightSave,
 	SubCategory,
+	sync_provider_accepts_urgent_flag,
 )
 from .serializers import (
 	CategorySerializer,
@@ -41,6 +42,7 @@ from .serializers import (
 	ProviderServiceSerializer,
 	ProviderPortfolioItemCreateSerializer,
 	ProviderPortfolioItemSerializer,
+	ProviderPortfolioItemUpdateSerializer,
 	ProviderProfileSerializer,
 	ProviderProfileMeSerializer,
 	ProviderPublicSerializer,
@@ -130,11 +132,17 @@ class MyProviderSubcategoriesView(APIView):
 		if not provider:
 			raise NotFound("provider_profile_not_found")
 
-		ids = list(
+		rows = list(
 			ProviderCategory.objects.filter(provider=provider)
-			.values_list("subcategory_id", flat=True)
+			.select_related("subcategory")
+			.order_by("subcategory__category__name", "subcategory__name", "id")
 		)
-		return Response({"subcategory_ids": ids}, status=status.HTTP_200_OK)
+		ids = [row.subcategory_id for row in rows]
+		settings = [
+			{"subcategory_id": row.subcategory_id, "accepts_urgent": bool(row.accepts_urgent)}
+			for row in rows
+		]
+		return Response({"subcategory_ids": ids, "subcategory_settings": settings}, status=status.HTTP_200_OK)
 
 	def put(self, request):
 		provider = getattr(request.user, "provider_profile", None)
@@ -144,16 +152,25 @@ class MyProviderSubcategoriesView(APIView):
 		serializer = MyProviderSubcategoriesSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 		ids = serializer.validated_data.get("subcategory_ids", [])
+		settings = serializer.validated_data.get("subcategory_settings", [])
 
 		with transaction.atomic():
 			ProviderCategory.objects.filter(provider=provider).delete()
-			if ids:
+			if settings:
 				ProviderCategory.objects.bulk_create(
-					[ProviderCategory(provider=provider, subcategory_id=sid) for sid in ids]
+					[
+						ProviderCategory(
+							provider=provider,
+							subcategory_id=item["subcategory_id"],
+							accepts_urgent=bool(item.get("accepts_urgent", False)),
+						)
+						for item in settings
+					]
 				)
+			sync_provider_accepts_urgent_flag(provider)
 
 		# Return updated ids (normalized)
-		return Response({"subcategory_ids": ids}, status=status.HTTP_200_OK)
+		return Response({"subcategory_ids": ids, "subcategory_settings": settings}, status=status.HTTP_200_OK)
 
 
 class MyProviderServicesListCreateView(generics.ListCreateAPIView):
@@ -168,7 +185,7 @@ class MyProviderServicesListCreateView(generics.ListCreateAPIView):
 			return ProviderService.objects.none()
 		return (
 			ProviderService.objects.filter(provider=pp)
-			.select_related("subcategory", "subcategory__category")
+			.select_related("provider", "subcategory", "subcategory__category")
 			.order_by("-updated_at", "-id")
 		)
 
@@ -190,7 +207,7 @@ class MyProviderServiceDetailView(generics.RetrieveUpdateDestroyAPIView):
 		if not pp:
 			return ProviderService.objects.none()
 		return ProviderService.objects.filter(provider=pp).select_related(
-			"subcategory", "subcategory__category"
+			"provider", "subcategory", "subcategory__category"
 		)
 
 
@@ -305,14 +322,16 @@ class ProviderListView(generics.ListAPIView):
 			qs = qs.filter(city__icontains=city)
 		if has_location in {"1", "true", "yes"}:
 			qs = qs.exclude(lat__isnull=True).exclude(lng__isnull=True)
-		if accepts_urgent in {"1", "true", "yes"}:
-			qs = qs.filter(accepts_urgent=True)
+		urgent_only = accepts_urgent in {"1", "true", "yes"}
 
 		# Optional service taxonomy filters via ProviderCategory
 		if subcategory_id:
 			try:
 				sid = int(subcategory_id)
-				qs = qs.filter(providercategory__subcategory_id=sid)
+				filters = {"providercategory__subcategory_id": sid}
+				if urgent_only:
+					filters["providercategory__accepts_urgent"] = True
+				qs = qs.filter(**filters)
 			except ValueError:
 				pass
 		elif category_id:
@@ -322,9 +341,14 @@ class ProviderListView(generics.ListAPIView):
 					SubCategory.objects.filter(category_id=cid, is_active=True).values_list("id", flat=True)
 				)
 				if sub_ids:
-					qs = qs.filter(providercategory__subcategory_id__in=sub_ids)
+					filters = {"providercategory__subcategory_id__in": sub_ids}
+					if urgent_only:
+						filters["providercategory__accepts_urgent"] = True
+					qs = qs.filter(**filters)
 			except ValueError:
 				pass
+		elif urgent_only:
+			qs = qs.filter(accepts_urgent=True)
 		return qs.distinct()
 
 
@@ -454,11 +478,15 @@ class MyProviderPortfolioListCreateView(generics.ListCreateAPIView):
 			raise
 
 
-class MyProviderPortfolioDetailView(generics.RetrieveDestroyAPIView):
+class MyProviderPortfolioDetailView(generics.RetrieveUpdateDestroyAPIView):
 	"""Provider-owned single portfolio item (retrieve/delete)."""
 
 	permission_classes = [IsAtLeastProvider]
-	serializer_class = ProviderPortfolioItemSerializer
+
+	def get_serializer_class(self):
+		if self.request.method in {"PATCH", "PUT"}:
+			return ProviderPortfolioItemUpdateSerializer
+		return ProviderPortfolioItemSerializer
 
 	def get_queryset(self):
 		pp = getattr(self.request.user, "provider_profile", None)

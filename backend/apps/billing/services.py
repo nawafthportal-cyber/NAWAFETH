@@ -5,6 +5,7 @@ import hmac
 import json
 import secrets
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urljoin
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
@@ -24,14 +25,28 @@ SUCCESS_STATUSES = {"paid", "success", "succeeded"}
 FAILURE_STATUSES = {"failed", "error"}
 CANCELLED_STATUSES = {"cancelled", "canceled"}
 REVERSAL_STATUSES = {"refunded", "refund", "reversed", "reverse", "chargeback"}
+SUPPORTED_PAYMENT_METHODS = {"apple_pay", "mada", "visa", "mastercard"}
 
 
 def _make_checkout_url(provider: str, attempt_id: str) -> str:
     """
-    رابط تجريبي (Mock).
-    لاحقًا سيتم استبداله برابط بوابة الدفع الحقيقي.
+    رابط checkout:
+    - في بيئة mock نستخدم مسارًا محليًا قابلًا للفتح على نفس النظام.
+    - يمكن تخصيص الدومين عبر BILLING_MOCK_CHECKOUT_BASE_URL.
     """
-    return f"https://example-pay.local/checkout/{provider}/{attempt_id}"
+    normalized_provider = str(provider or "").strip().lower()
+    checkout_path = f"/api/billing/checkout/{normalized_provider}/{attempt_id}/"
+    checkout_base_url = str(getattr(settings, "BILLING_MOCK_CHECKOUT_BASE_URL", "") or "").strip()
+    if not checkout_base_url:
+        checkout_base_url = "http://127.0.0.1:8000"
+    return urljoin(checkout_base_url.rstrip("/") + "/", checkout_path.lstrip("/"))
+
+
+def _normalize_payment_method(value: str | None) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in SUPPORTED_PAYMENT_METHODS:
+        return normalized
+    return ""
 
 
 def _money_or_none(value) -> Decimal | None:
@@ -156,7 +171,14 @@ def _mark_invoice_reversal(*, invoice: Invoice, next_status: str):
 
 
 @transaction.atomic
-def init_payment(*, invoice: Invoice, provider: str, by_user, idempotency_key: str | None = None):
+def init_payment(
+    *,
+    invoice: Invoice,
+    provider: str,
+    by_user,
+    idempotency_key: str | None = None,
+    payment_method: str | None = None,
+):
     """
     إنشاء محاولة دفع مع idempotency:
     - إذا وصل نفس idempotency_key لنفس الفاتورة ولم تنجح/تفشل بشكل نهائي => نعيد نفس المحاولة
@@ -186,16 +208,29 @@ def init_payment(*, invoice: Invoice, provider: str, by_user, idempotency_key: s
     if not idempotency_key:
         idempotency_key = secrets.token_urlsafe(24)
 
+    normalized_payment_method = _normalize_payment_method(payment_method)
+
     existing = PaymentAttempt.objects.filter(
         invoice=invoice,
         idempotency_key=idempotency_key,
     ).order_by("-created_at").first()
 
     if existing:
+        if normalized_payment_method:
+            payload = existing.request_payload if isinstance(existing.request_payload, dict) else {}
+            if payload.get("payment_method") != normalized_payment_method:
+                merged_payload = dict(payload)
+                merged_payload["payment_method"] = normalized_payment_method
+                existing.request_payload = merged_payload
+                existing.save(update_fields=["request_payload"])
         return existing
 
     invoice.status = InvoiceStatus.PENDING
     invoice.save(update_fields=["status", "updated_at"])
+
+    request_payload = {"invoice_code": invoice.code, "total": str(invoice.total)}
+    if normalized_payment_method:
+        request_payload["payment_method"] = normalized_payment_method
 
     attempt = PaymentAttempt.objects.create(
         invoice=invoice,
@@ -205,7 +240,7 @@ def init_payment(*, invoice: Invoice, provider: str, by_user, idempotency_key: s
         amount=invoice.total,
         currency=invoice.currency,
         created_by=by_user,
-        request_payload={"invoice_code": invoice.code, "total": str(invoice.total)},
+        request_payload=request_payload,
     )
 
     # في المزود الحقيقي هنا سننشئ Session/Intent ثم نخزن checkout_url + provider_reference
@@ -218,7 +253,13 @@ def init_payment(*, invoice: Invoice, provider: str, by_user, idempotency_key: s
 
 
 @transaction.atomic
-def complete_mock_payment(*, invoice: Invoice, by_user, idempotency_key: str | None = None):
+def complete_mock_payment(
+    *,
+    invoice: Invoice,
+    by_user,
+    idempotency_key: str | None = None,
+    payment_method: str | None = None,
+):
     invoice = Invoice.objects.select_for_update().get(pk=invoice.pk)
     if invoice.is_payment_effective():
         attempt = PaymentAttempt.objects.filter(
@@ -227,20 +268,65 @@ def complete_mock_payment(*, invoice: Invoice, by_user, idempotency_key: str | N
         ).order_by("-created_at").first()
         return invoice, attempt
 
-    attempt = init_payment(
-        invoice=invoice,
-        provider=PaymentProvider.MOCK,
-        by_user=by_user,
-        idempotency_key=idempotency_key or f"mock-invoice-{invoice.id}",
-    )
+    normalized_payment_method = _normalize_payment_method(payment_method)
+
+    if idempotency_key:
+        attempt = init_payment(
+            invoice=invoice,
+            provider=PaymentProvider.MOCK,
+            by_user=by_user,
+            idempotency_key=idempotency_key,
+            payment_method=normalized_payment_method,
+        )
+    else:
+        # Reuse the latest mock attempt for this invoice when available so
+        # complete-mock-payment updates the same record created by init-payment.
+        attempt = (
+            PaymentAttempt.objects.select_for_update()
+            .filter(invoice=invoice, provider=PaymentProvider.MOCK)
+            .order_by("-created_at")
+            .first()
+        )
+        if attempt is None:
+            attempt = init_payment(
+                invoice=invoice,
+                provider=PaymentProvider.MOCK,
+                by_user=by_user,
+                idempotency_key=f"mock-invoice-{invoice.id}",
+                payment_method=normalized_payment_method,
+            )
+        elif normalized_payment_method:
+            payload_hint = attempt.request_payload if isinstance(attempt.request_payload, dict) else {}
+            if _normalize_payment_method(payload_hint.get("payment_method")) != normalized_payment_method:
+                merged_payload = dict(payload_hint)
+                merged_payload["payment_method"] = normalized_payment_method
+                attempt.request_payload = merged_payload
+                attempt.save(update_fields=["request_payload"])
+
+    if not normalized_payment_method:
+        payload_hint = attempt.request_payload if isinstance(attempt.request_payload, dict) else {}
+        normalized_payment_method = _normalize_payment_method(payload_hint.get("payment_method"))
+
+    provider_reference = str(getattr(attempt, "provider_reference", "") or "").strip()
+    if not provider_reference:
+        provider_reference = f"mock_ref_{attempt.id.hex[:12]}"
+        update_fields: list[str] = ["provider_reference"]
+        attempt.provider_reference = provider_reference
+        if not str(getattr(attempt, "checkout_url", "") or "").strip():
+            attempt.checkout_url = _make_checkout_url(PaymentProvider.MOCK, str(attempt.id))
+            update_fields.append("checkout_url")
+        attempt.save(update_fields=update_fields)
+
     event_id = f"mock-complete-{attempt.id}"
     payload = {
-        "provider_reference": attempt.provider_reference,
+        "provider_reference": provider_reference,
         "invoice_code": invoice.code,
         "status": "success",
         "amount": str(invoice.total),
         "currency": invoice.currency,
     }
+    if normalized_payment_method:
+        payload["payment_method"] = normalized_payment_method
     signature = sign_webhook_payload(provider=PaymentProvider.MOCK, payload=payload, event_id=event_id)
     result = handle_webhook(
         provider=PaymentProvider.MOCK,

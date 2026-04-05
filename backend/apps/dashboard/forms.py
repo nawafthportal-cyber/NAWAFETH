@@ -20,7 +20,6 @@ from apps.promo.models import (
 from apps.promo.services import (
     promo_min_campaign_hours,
     promo_min_campaign_message,
-    promo_rotation_frequency_choices,
 )
 from apps.support.models import SupportTeam, SupportTicketStatus
 from apps.verification.models import VerificationStatus
@@ -494,6 +493,26 @@ class ContentSettingsLinksForm(forms.Form):
         required=False,
         widget=forms.URLInput(attrs={"class": "input-control", "placeholder": "https://x.com/..."}),
     )
+    instagram_url = forms.URLField(
+        label="رابط إنستغرام",
+        required=False,
+        widget=forms.URLInput(attrs={"class": "input-control", "placeholder": "https://instagram.com/..."}),
+    )
+    snapchat_url = forms.URLField(
+        label="رابط سناب شات",
+        required=False,
+        widget=forms.URLInput(attrs={"class": "input-control", "placeholder": "https://snapchat.com/add/..."}),
+    )
+    tiktok_url = forms.URLField(
+        label="رابط تيك توك",
+        required=False,
+        widget=forms.URLInput(attrs={"class": "input-control", "placeholder": "https://tiktok.com/@..."}),
+    )
+    youtube_url = forms.URLField(
+        label="رابط يوتيوب",
+        required=False,
+        widget=forms.URLInput(attrs={"class": "input-control", "placeholder": "https://youtube.com/..."}),
+    )
     whatsapp_url = forms.URLField(
         label="رابط الواتساب",
         required=False,
@@ -825,6 +844,12 @@ class VerificationInquiryActionForm(forms.Form):
 
 
 class VerificationRequestActionForm(forms.Form):
+    REQUEST_STATUS_CHOICES = [
+        (VerificationStatus.NEW, "جديد"),
+        (VerificationStatus.IN_REVIEW, "تحت المعالجة"),
+        ("completed", "مكتمل"),
+    ]
+
     assigned_to = forms.ChoiceField(
         label="المكلف بالطلب",
         required=False,
@@ -832,9 +857,9 @@ class VerificationRequestActionForm(forms.Form):
     )
     status = forms.ChoiceField(
         label="حالة الطلب",
-        choices=VerificationStatus.choices,
+        choices=REQUEST_STATUS_CHOICES,
         required=False,
-        widget=forms.Select(attrs={"class": "input-control disabled-select", "disabled": "disabled"}),
+        widget=forms.Select(attrs={"class": "input-control"}),
     )
     admin_note = forms.CharField(
         label="تعليق فريق التوثيق",
@@ -913,12 +938,6 @@ class PromoModuleItemForm(forms.Form):
         required=False,
         input_formats=["%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M", "%Y-%m-%d"],
         widget=forms.DateTimeInput(attrs={"type": "datetime-local", "class": "input-control"}),
-    )
-    frequency = forms.ChoiceField(
-        label="معدل الظهور",
-        required=False,
-        choices=[("", "غير محدد")] + list(promo_rotation_frequency_choices()),
-        widget=forms.Select(attrs={"class": "input-control"}),
     )
     search_scope = forms.ChoiceField(
         label="قائمة الظهور في البحث",
@@ -1160,13 +1179,6 @@ class PromoModuleItemForm(forms.Form):
                 self.add_error("end_at", "تاريخ النهاية يجب أن يكون بعد البداية.")
             elif (end_at - start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
                 self.add_error("end_at", promo_min_campaign_message())
-
-        if service_type in {
-            PromoServiceType.FEATURED_SPECIALISTS,
-            PromoServiceType.PORTFOLIO_SHOWCASE,
-            PromoServiceType.SNAPSHOTS,
-        } and not (cleaned.get("frequency") or "").strip():
-            self.add_error("frequency", "معدل الظهور مطلوب لهذا النوع.")
 
         if service_type == PromoServiceType.PORTFOLIO_SHOWCASE and not cleaned.get("target_portfolio_item_id"):
             self.add_error("target_portfolio_item_id", "اختر صورة واحدة من معرض أعمال المزود.")

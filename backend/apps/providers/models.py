@@ -65,6 +65,7 @@ class ProviderProfile(models.Model):
     qualifications = models.JSONField(default=list, blank=True)
     experiences = models.JSONField(default=list, blank=True)
     content_sections = models.JSONField(default=list, blank=True)
+    seo_title = models.CharField(max_length=160, blank=True, default="")
     seo_keywords = models.CharField(max_length=500, blank=True, default="")
     seo_meta_description = models.CharField(max_length=500, blank=True, default="")
     seo_slug = models.CharField(max_length=150, blank=True, default="")
@@ -234,6 +235,7 @@ class ProviderSpotlightSave(models.Model):
 class ProviderCategory(models.Model):
     provider = models.ForeignKey(ProviderProfile, on_delete=models.CASCADE)
     subcategory = models.ForeignKey(SubCategory, on_delete=models.CASCADE)
+    accepts_urgent = models.BooleanField(default=False)
 
     class Meta:
         constraints = [
@@ -242,6 +244,17 @@ class ProviderCategory(models.Model):
                 name="uniq_provider_subcategory",
             )
         ]
+
+
+def sync_provider_accepts_urgent_flag(provider: ProviderProfile | None) -> bool:
+    if provider is None or not getattr(provider, "pk", None):
+        return False
+
+    enabled = ProviderCategory.objects.filter(provider=provider, accepts_urgent=True).exists()
+    if provider.accepts_urgent != enabled:
+        ProviderProfile.objects.filter(pk=provider.pk).update(accepts_urgent=enabled)
+        provider.accepts_urgent = enabled
+    return enabled
 
 
 class ProviderService(models.Model):

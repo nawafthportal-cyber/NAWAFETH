@@ -188,7 +188,7 @@ const ChatDetailPage = (() => {
   }
 
   async function _loadThreadMeta() {
-    const res = await ApiClient.get('/api/messaging/direct/threads/');
+    const res = await ApiClient.get(_withMode('/api/messaging/direct/threads/'));
     if (!res.ok || !res.data) return;
 
     const list = Array.isArray(res.data) ? res.data : (res.data.results || []);
@@ -232,7 +232,7 @@ const ChatDetailPage = (() => {
   }
 
   async function _loadThreadState() {
-    const res = await ApiClient.get('/api/messaging/thread/' + state.threadId + '/state/');
+    const res = await ApiClient.get(_withMode('/api/messaging/thread/' + state.threadId + '/state/'));
     if (!res.ok || !res.data) return;
 
     state.threadState = {
@@ -250,7 +250,9 @@ const ChatDetailPage = (() => {
     state.isLoading = true;
     if (opts.showLoader) _showViewState('loading');
 
-    const res = await ApiClient.get('/api/messaging/direct/thread/' + state.threadId + '/messages/?limit=80&offset=0');
+    const res = await ApiClient.get(
+      _withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/?limit=80&offset=0')
+    );
     state.isLoading = false;
 
     if (!res.ok || !res.data) {
@@ -690,7 +692,7 @@ const ChatDetailPage = (() => {
     formData.append('attachment_type', attachment.type || 'file');
     formData.append('attachment', attachment.file);
 
-    const res = await ApiClient.request('/api/messaging/direct/thread/' + state.threadId + '/messages/send/', {
+    const res = await ApiClient.request(_withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/send/'), {
       method: 'POST',
       body: formData,
       formData: true,
@@ -710,7 +712,7 @@ const ChatDetailPage = (() => {
   }
 
   async function _sendTextFallback(text, tempId, clientId) {
-    const res = await ApiClient.request('/api/messaging/direct/thread/' + state.threadId + '/messages/send/', {
+    const res = await ApiClient.request(_withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/send/'), {
       method: 'POST',
       body: { body: text },
     });
@@ -778,7 +780,10 @@ const ChatDetailPage = (() => {
   }
 
   async function _markRead(withToast) {
-    const res = await ApiClient.request('/api/messaging/direct/thread/' + state.threadId + '/messages/read/', { method: 'POST' });
+    const res = await ApiClient.request(
+      _withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/read/'),
+      { method: 'POST' }
+    );
     if (!res.ok) return;
     window.dispatchEvent(new Event('nw:badge-refresh'));
     if (withToast) _showToast('تم تمييز المحادثة كمقروءة', 'success');
@@ -1248,7 +1253,7 @@ const ChatDetailPage = (() => {
     }
 
     const body = 'طلب خدمة مباشر:\nhttps://www.nawafthportal.com/service-request/?provider_id=' + providerId;
-    const res = await ApiClient.request('/api/messaging/direct/thread/' + state.threadId + '/messages/send/', {
+    const res = await ApiClient.request(_withMode('/api/messaging/direct/thread/' + state.threadId + '/messages/send/'), {
       method: 'POST',
       body: { body },
     });
@@ -1408,11 +1413,26 @@ const ChatDetailPage = (() => {
 
   function _activeMode() {
     try {
+      const params = new URLSearchParams(window.location.search || '');
+      const modeFromUrl = _trim(params.get('mode')).toLowerCase();
+      if (modeFromUrl === 'provider' || modeFromUrl === 'client') {
+        sessionStorage.setItem('nw_account_mode', modeFromUrl);
+        return modeFromUrl;
+      }
+    } catch (_) {}
+
+    try {
       const mode = _trim(sessionStorage.getItem('nw_account_mode')).toLowerCase();
       if (mode === 'provider' || mode === 'client') return mode;
     } catch (_) {}
     const role = _trim(Auth.getRoleState()).toLowerCase();
     return role === 'provider' ? 'provider' : 'client';
+  }
+
+  function _withMode(path) {
+    const mode = _activeMode();
+    const sep = path.includes('?') ? '&' : '?';
+    return path + sep + 'mode=' + encodeURIComponent(mode);
   }
 
   function _asList(data) {

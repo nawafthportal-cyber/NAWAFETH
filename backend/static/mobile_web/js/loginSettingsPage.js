@@ -427,9 +427,6 @@ const LoginSettingsPage = (() => {
   function _normalizePhone05(value) {
     const digits = String(value || "").replace(/[^\d]/g, "");
     if (/^05\d{8}$/.test(digits)) return digits;
-    if (/^5\d{8}$/.test(digits)) return "0" + digits;
-    if (/^9665\d{8}$/.test(digits)) return "0" + digits.slice(3);
-    if (/^009665\d{8}$/.test(digits)) return "0" + digits.slice(5);
     return "";
   }
 

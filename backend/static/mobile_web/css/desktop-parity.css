@@ -6,6 +6,20 @@
 
 /* ── Desktop: Enhanced Navigation ── */
 @media (min-width: 769px) {
+  body.mobile-web-parity #site-footer {
+    display: block !important;
+  }
+
+  body.mobile-web-parity #bottom-nav {
+    display: none !important;
+  }
+
+  main,
+  .page-content,
+  #main-content {
+    padding-bottom: var(--space-2xl);
+  }
+
   #top-navbar {
     display: block !important;
   }

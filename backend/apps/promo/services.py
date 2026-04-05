@@ -15,7 +15,6 @@ from apps.notifications.services import create_notification
 from .models import (
     PromoAdPrice,
     PromoAdType,
-    PromoFrequency,
     PromoMessageChannel,
     PromoOpsStatus,
     PromoPosition,
@@ -28,26 +27,6 @@ from .models import (
     PromoServiceType,
 )
 
-
-PROMO_ROTATION_FREQUENCY_CHOICES: tuple[tuple[str, str], ...] = (
-    (PromoFrequency.S10, "كل 10 ثواني"),
-    (PromoFrequency.S30, "كل 30 ثانية"),
-    (PromoFrequency.S60, "كل دقيقة"),
-    (PromoFrequency.S300, "كل 5 دقائق"),
-    (PromoFrequency.S900, "كل 15 دقيقة"),
-    (PromoFrequency.S1800, "كل 30 دقيقة"),
-    (PromoFrequency.S3600, "كل ساعة"),
-)
-
-
-def promo_rotation_frequency_values() -> tuple[str, ...]:
-    return tuple(value for value, _label in PROMO_ROTATION_FREQUENCY_CHOICES)
-
-
-def promo_rotation_frequency_choices() -> tuple[tuple[str, str], ...]:
-    return PROMO_ROTATION_FREQUENCY_CHOICES
-
-
 DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     {
         "code": "home_banner_daily",
@@ -58,193 +37,28 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
         "sort_order": 10,
     },
     {
-        "code": "featured_10s",
+        "code": "featured_daily",
         "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل 10 ثواني",
+        "title": "شريط أبرز المختصين - لكل 24 ساعة",
         "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S10,
-        "amount": Decimal("2000.00"),
+        "amount": Decimal("1000.00"),
         "sort_order": 20,
     },
     {
-        "code": "featured_30s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل 30 ثانية",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S30,
-        "amount": Decimal("1500.00"),
-        "sort_order": 21,
-    },
-    {
-        "code": "featured_60s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S60,
-        "amount": Decimal("1000.00"),
-        "sort_order": 22,
-    },
-    {
-        "code": "featured_300s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل 5 دقائق",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S300,
-        "amount": Decimal("500.00"),
-        "sort_order": 23,
-    },
-    {
-        "code": "featured_900s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل 15 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S900,
-        "amount": Decimal("250.00"),
-        "sort_order": 24,
-    },
-    {
-        "code": "featured_1800s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل 30 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S1800,
-        "amount": Decimal("200.00"),
-        "sort_order": 25,
-    },
-    {
-        "code": "featured_3600s",
-        "service_type": PromoServiceType.FEATURED_SPECIALISTS,
-        "title": "شريط أبرز المختصين - كل ساعة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S3600,
-        "amount": Decimal("100.00"),
-        "sort_order": 26,
-    },
-    {
-        "code": "portfolio_10s",
+        "code": "portfolio_daily",
         "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل 10 ثواني",
+        "title": "شريط البنرات والمشاريع - لكل 24 ساعة",
         "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S10,
-        "amount": Decimal("2000.00"),
+        "amount": Decimal("1000.00"),
         "sort_order": 30,
     },
     {
-        "code": "portfolio_30s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل 30 ثانية",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S30,
-        "amount": Decimal("1500.00"),
-        "sort_order": 31,
-    },
-    {
-        "code": "portfolio_60s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S60,
-        "amount": Decimal("1000.00"),
-        "sort_order": 32,
-    },
-    {
-        "code": "portfolio_300s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل 5 دقائق",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S300,
-        "amount": Decimal("500.00"),
-        "sort_order": 33,
-    },
-    {
-        "code": "portfolio_900s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل 15 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S900,
-        "amount": Decimal("250.00"),
-        "sort_order": 34,
-    },
-    {
-        "code": "portfolio_1800s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل 30 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S1800,
-        "amount": Decimal("200.00"),
-        "sort_order": 35,
-    },
-    {
-        "code": "portfolio_3600s",
-        "service_type": PromoServiceType.PORTFOLIO_SHOWCASE,
-        "title": "شريط البنرات والمشاريع - كل ساعة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S3600,
-        "amount": Decimal("100.00"),
-        "sort_order": 36,
-    },
-    {
-        "code": "snapshots_10s",
+        "code": "snapshots_daily",
         "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل 10 ثواني",
+        "title": "شريط اللمحات - لكل 24 ساعة",
         "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S10,
-        "amount": Decimal("2000.00"),
+        "amount": Decimal("1000.00"),
         "sort_order": 40,
-    },
-    {
-        "code": "snapshots_30s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل 30 ثانية",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S30,
-        "amount": Decimal("1500.00"),
-        "sort_order": 41,
-    },
-    {
-        "code": "snapshots_60s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S60,
-        "amount": Decimal("1000.00"),
-        "sort_order": 42,
-    },
-    {
-        "code": "snapshots_300s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل 5 دقائق",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S300,
-        "amount": Decimal("500.00"),
-        "sort_order": 43,
-    },
-    {
-        "code": "snapshots_900s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل 15 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S900,
-        "amount": Decimal("250.00"),
-        "sort_order": 44,
-    },
-    {
-        "code": "snapshots_1800s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل 30 دقيقة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S1800,
-        "amount": Decimal("200.00"),
-        "sort_order": 45,
-    },
-    {
-        "code": "snapshots_3600s",
-        "service_type": PromoServiceType.SNAPSHOTS,
-        "title": "شريط اللمحات - كل ساعة",
-        "unit": PromoPriceUnit.DAY,
-        "frequency": PromoFrequency.S3600,
-        "amount": Decimal("100.00"),
-        "sort_order": 46,
     },
     {
         "code": "search_first",
@@ -363,7 +177,7 @@ def _platform_config():
 
 
 def promo_min_campaign_hours() -> int:
-    return max(1, int(_platform_config().promo_min_campaign_hours or 24))
+    return max(24, int(_platform_config().promo_min_campaign_hours or 24))
 
 
 def promo_min_campaign_message(*, prefix: str = "الحد الأدنى لمدة الحملة هو") -> str:
@@ -381,16 +195,6 @@ def _promo_position_multipliers_map() -> dict[str, Decimal]:
     raw = (
         config.get_promo_position_multipliers()
         or getattr(settings, "PROMO_POSITION_MULTIPLIER", {})
-        or {}
-    )
-    return {str(key): Decimal(str(value)) for key, value in raw.items()}
-
-
-def _promo_frequency_multipliers_map() -> dict[str, Decimal]:
-    config = _platform_config()
-    raw = (
-        config.get_promo_frequency_multipliers()
-        or getattr(settings, "PROMO_FREQUENCY_MULTIPLIER", {})
         or {}
     )
     return {str(key): Decimal(str(value)) for key, value in raw.items()}
@@ -612,10 +416,6 @@ def _promo_request_summary(pr: PromoRequest) -> str:
     return pr.title or pr.get_ad_type_display()
 
 
-def _legacy_frequency_value(freq: str) -> Decimal:
-    return _promo_frequency_multipliers_map().get(freq, Decimal("1.0"))
-
-
 def _legacy_position_value(position: str) -> Decimal:
     return _promo_position_multipliers_map().get(position, Decimal("1.0"))
 
@@ -641,7 +441,6 @@ def calc_promo_quote(*, pr: PromoRequest) -> dict:
         days = 1
     subtotal = _get_base_price(pr.ad_type)
     subtotal *= _legacy_position_value(pr.position)
-    subtotal *= _legacy_frequency_value(pr.frequency)
     subtotal *= Decimal(str(days))
     return {"subtotal": subtotal.quantize(Decimal("0.01")), "days": days}
 
@@ -683,11 +482,9 @@ def _require_campaign_dates(item: PromoRequestItem) -> None:
         raise ValueError(f"{item.get_service_type_display()}: {promo_min_campaign_message()}")
 
 
-def _get_pricing_rule(*, service_type: str, frequency: str = "", search_position: str = "", message_channel: str = "") -> PromoPricingRule:
+def _get_pricing_rule(*, service_type: str, search_position: str = "", message_channel: str = "") -> PromoPricingRule:
     ensure_default_pricing_rules()
     qs = PromoPricingRule.objects.filter(service_type=service_type, is_active=True)
-    if frequency:
-        qs = qs.filter(frequency=frequency)
     if search_position:
         qs = qs.filter(search_position=search_position)
     if message_channel:
@@ -715,10 +512,8 @@ def calc_promo_item_quote(*, item: PromoRequestItem) -> dict:
         PromoServiceType.SNAPSHOTS,
     }:
         _require_campaign_dates(item)
-        if item.frequency not in promo_rotation_frequency_values():
-            raise ValueError(f"{item.get_service_type_display()}: معدل الظهور غير صحيح.")
         days = _duration_days(item.start_at, item.end_at)
-        rule = _get_pricing_rule(service_type=service_type, frequency=item.frequency)
+        rule = _get_pricing_rule(service_type=service_type)
         subtotal = rule.amount * Decimal(str(days))
         return {"subtotal": money_round(subtotal), "days": days, "rule": rule}
 
@@ -816,7 +611,6 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
             ad_type=validated_data.get("ad_type") or PromoAdType.BANNER_HOME,
             start_at=validated_data.get("start_at"),
             end_at=validated_data.get("end_at"),
-            frequency=validated_data.get("frequency") or PromoFrequency.S60,
             position=validated_data.get("position") or PromoPosition.NORMAL,
             target_category=validated_data.get("target_category") or "",
             target_city=validated_data.get("target_city") or "",
@@ -902,7 +696,6 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
         ad_type=PromoAdType.BUNDLE,
         start_at=timezone.now(),
         end_at=timezone.now(),
-        frequency=PromoFrequency.S60,
         position=PromoPosition.NORMAL,
     )
 

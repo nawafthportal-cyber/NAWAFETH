@@ -9,7 +9,6 @@ const UrgentRequestPage = (() => {
   let _videos = [];
   let _files = [];
   let _audio = null;
-  let _lastNearestToastKey = '';
   const _cities = [
     'أبها', 'الأحساء', 'الأفلاج', 'الباحة', 'البكيرية', 'البدائع', 'الجبيل', 'الجموم',
     'الحريق', 'الحوطة', 'الخبر', 'الخرج', 'الخفجي', 'الدرعية', 'الدلم', 'الدمام',
@@ -36,8 +35,18 @@ const UrgentRequestPage = (() => {
     const catSel = document.getElementById('ur-category');
     if (catSel) catSel.addEventListener('change', _onCategoryChange);
 
+    const subSel = document.getElementById('ur-subcategory');
+    if (subSel) {
+      subSel.addEventListener('change', _updateNearestCityHint);
+    }
+
     const fileInput = document.getElementById('ur-files');
     if (fileInput) fileInput.addEventListener('change', _onFilesChanged);
+
+    const fileTrigger = document.getElementById('ur-file-trigger');
+    if (fileTrigger && fileInput) {
+      fileTrigger.addEventListener('click', () => fileInput.click());
+    }
 
     const form = document.getElementById('ur-form');
     if (form) form.addEventListener('submit', _onSubmit);
@@ -46,7 +55,7 @@ const UrgentRequestPage = (() => {
     if (citySel) {
       citySel.addEventListener('change', () => {
         _updateCityClearVisibility();
-        _maybeShowNearestMapToast();
+        _updateNearestCityHint();
       });
     }
 
@@ -55,10 +64,11 @@ const UrgentRequestPage = (() => {
       clearCityBtn.addEventListener('click', () => {
         if (citySel) citySel.value = '';
         _updateCityClearVisibility();
-        _lastNearestToastKey = '';
+        _updateNearestCityHint();
       });
     }
 
+    _updateNearestCityHint();
     _renderAttachments();
   }
 
@@ -86,6 +96,7 @@ const UrgentRequestPage = (() => {
       citySel.appendChild(option);
     });
     _updateCityClearVisibility();
+    _updateNearestCityHint();
   }
 
   function _bindDispatchMode() {
@@ -100,57 +111,50 @@ const UrgentRequestPage = (() => {
         });
         chip.classList.add('active');
         _updateCityClearVisibility();
-        _maybeShowNearestMapToast();
+        _updateNearestCityHint();
       });
     });
   }
 
-  function _maybeShowNearestMapToast() {
+  function _updateNearestCityHint() {
+    const hint = document.getElementById('ur-city-hint');
+    const hintText = document.getElementById('ur-city-hint-text');
+    const mapLink = document.getElementById('ur-city-map-link');
+    if (!hint || !hintText || !mapLink) return;
+
     const dispatch = document.querySelector('input[name="dispatch_mode"]:checked')?.value || 'all';
     const city = (document.getElementById('ur-city')?.value || '').trim();
-    if (dispatch !== 'nearest' || !city) return;
+    const shouldShow = dispatch === 'nearest' && city;
 
-    const key = dispatch + '::' + city;
-    if (key === _lastNearestToastKey) return;
-    _lastNearestToastKey = key;
-
-    _showHintToast('سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة ' + city, {
-      actionLabel: 'عرض الخريطة',
-      onAction: () => {
-        const url = '/providers-map/?city=' + encodeURIComponent(city) + '&sort=nearest&urgent=1';
-        window.location.href = url;
-      },
-    });
-  }
-
-  function _showHintToast(message, opts) {
-    const options = opts || {};
-    const toast = UI.el('div', {
-      className: 'search-toast',
-    });
-    toast.appendChild(UI.el('span', { textContent: message }));
-
-    if (options.actionLabel && typeof options.onAction === 'function') {
-      const btn = UI.el('button', {
-        type: 'button',
-        textContent: options.actionLabel,
-      });
-      btn.style.marginInlineStart = '10px';
-      btn.style.background = 'transparent';
-      btn.style.border = 'none';
-      btn.style.color = 'inherit';
-      btn.style.fontWeight = '700';
-      btn.style.cursor = 'pointer';
-      btn.addEventListener('click', options.onAction);
-      toast.appendChild(btn);
+    hint.classList.toggle('hidden', !shouldShow);
+    if (!shouldShow) {
+      hintText.textContent = '';
+      mapLink.classList.add('hidden');
+      mapLink.removeAttribute('href');
+      return;
     }
 
-    document.body.appendChild(toast);
-    requestAnimationFrame(() => toast.classList.add('show'));
-    setTimeout(() => {
-      toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 180);
-    }, 2400);
+    hintText.textContent = 'سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة ' + city + '.';
+    const params = new URLSearchParams();
+    params.set('city', city);
+    params.set('sort', 'nearest');
+    params.set('urgent', '1');
+
+    const categoryId = _selectedCategoryId();
+    const subcategoryId = _selectedSubcategoryId();
+    if (categoryId) params.set('category_id', categoryId);
+    if (subcategoryId) params.set('subcategory_id', subcategoryId);
+
+    mapLink.href = '/providers-map/?' + params.toString();
+    mapLink.classList.remove('hidden');
+  }
+
+  function _selectedCategoryId() {
+    return String(document.getElementById('ur-category')?.value || '').trim();
+  }
+
+  function _selectedSubcategoryId() {
+    return String(document.getElementById('ur-subcategory')?.value || '').trim();
   }
 
   function _updateCityClearVisibility() {
@@ -202,6 +206,7 @@ const UrgentRequestPage = (() => {
         subSel.appendChild(o);
       });
     } catch (e) { /* ignore */ }
+    _updateNearestCityHint();
   }
 
   /* ---- File handling ---- */
@@ -365,6 +370,21 @@ const UrgentRequestPage = (() => {
     if (!_images.length && !_videos.length && !_files.length && !_audio) {
       list.appendChild(UI.el('span', { className: 'attach-empty', textContent: 'لا توجد مرفقات مضافة' }));
     }
+
+    _updateAttachmentSummary();
+  }
+
+  function _updateAttachmentSummary() {
+    const summary = document.getElementById('ur-file-summary');
+    if (!summary) return;
+
+    const parts = [];
+    if (_images.length) parts.push(_images.length + ' صورة');
+    if (_videos.length) parts.push(_videos.length + ' فيديو');
+    if (_audio) parts.push('تسجيل صوتي');
+    if (_files.length) parts.push(_files.length + ' ملف');
+
+    summary.textContent = parts.length ? ('تمت إضافة: ' + parts.join(' • ')) : 'لا توجد مرفقات مضافة';
   }
 
   function _appendRequestFiles(formData) {

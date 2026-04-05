@@ -120,6 +120,23 @@ def _promotional_permissions_label(capabilities: dict) -> str:
     return "غير متاحة"
 
 
+def _notifications_label(capabilities: dict) -> str:
+    return "مفعلة" if capabilities.get("notifications_enabled") else "غير مفعلة"
+
+
+def _support_priority_label(capabilities: dict) -> str:
+    support = capabilities.get("support") or {}
+    if support.get("is_priority"):
+        return "أولوية عالية"
+    priority = str(support.get("priority") or "").strip().lower()
+    mapping = {
+        "high": "أولوية عالية",
+        "normal": "أولوية عادية",
+        "low": "أولوية منخفضة",
+    }
+    return mapping.get(priority, "أولوية عادية")
+
+
 def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
     target_tier = canonical_tier_from_inputs(
         tier=getattr(plan, "tier", ""),
@@ -215,7 +232,7 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
     green_amount = verification_price_amount(verification, "green", prefer_final=True)
 
     card_rows = [
-        {"key": "annual_price", "label": "السعر السنوي", "value": offer["annual_price_label"]},
+        {"key": "annual_price", "label": "سعر الباقة", "value": offer["annual_price_label"]},
         {"key": "verification_blue", "label": "التوثيق الأزرق", "value": _verification_label(blue_amount)},
         {"key": "verification_green", "label": "التوثيق الأخضر", "value": _verification_label(green_amount)},
         {
@@ -239,14 +256,29 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
             "value": capabilities["support"]["sla_label"],
         },
         {
+            "key": "support_priority",
+            "label": "أولوية الدعم",
+            "value": _support_priority_label(capabilities),
+        },
+        {
             "key": "promotional_controls",
             "label": "الرسائل الدعائية",
             "value": _promotional_permissions_label(capabilities),
         },
         {
+            "key": "notifications",
+            "label": "الإشعارات",
+            "value": _notifications_label(capabilities),
+        },
+        {
             "key": "reminders",
             "label": "سياسة رسائل التذكير",
             "value": capabilities["reminders"]["label"],
+        },
+        {
+            "key": "storage",
+            "label": "سعة التخزين والرفع",
+            "value": capabilities["storage"]["label"],
         },
     ]
 
@@ -260,8 +292,11 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
         "chats_label": capabilities["messaging"]["label"],
         "support_sla_hours": capabilities["support"]["sla_hours"],
         "support_sla_label": capabilities["support"]["sla_label"],
+        "support_priority_label": _support_priority_label(capabilities),
         "promotional_permissions_label": _promotional_permissions_label(capabilities),
+        "notifications_label": _notifications_label(capabilities),
         "reminder_policy_label": capabilities["reminders"]["label"],
+        "storage_label": capabilities["storage"]["label"],
         "verification_blue_amount": str(_money(blue_amount)),
         "verification_green_amount": str(_money(green_amount)),
         "verification_blue_label": _verification_label(blue_amount),

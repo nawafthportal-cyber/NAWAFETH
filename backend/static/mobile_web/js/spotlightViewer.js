@@ -13,6 +13,7 @@ const SpotlightViewer = (() => {
   let _options = {};
   let _touchStartY = 0;
   let _swiping = false;
+  let _currentVideo = null;
 
   /* ----------------------------------------------------------
      PUBLIC: open viewer
@@ -25,16 +26,31 @@ const SpotlightViewer = (() => {
     _buildOverlay();
     _renderCurrent();
     document.body.style.overflow = 'hidden';
+    if (_currentVideo) {
+      const playAttempt = _currentVideo.play();
+      if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+    }
   }
 
   /* ----------------------------------------------------------
      PUBLIC: close viewer
   ---------------------------------------------------------- */
   function close() {
+    if (_currentVideo) {
+      try {
+        _currentVideo.pause();
+        _currentVideo.removeAttribute('src');
+        _currentVideo.load();
+      } catch (_) {
+        // no-op
+      }
+      _currentVideo = null;
+    }
     if (_overlay) {
       _overlay.remove();
       _overlay = null;
     }
+    document.removeEventListener('keydown', _onKeyDown);
     document.body.style.overflow = '';
     _items = [];
     _currentIndex = 0;
@@ -49,6 +65,7 @@ const SpotlightViewer = (() => {
 
     _overlay = document.createElement('div');
     _overlay.className = 'sv-overlay';
+    if (_options && _options.immersive) _overlay.classList.add('sv-immersive');
     _overlay.setAttribute('role', 'dialog');
     _overlay.setAttribute('aria-label', 'عارض اللمحات');
 
@@ -138,6 +155,15 @@ const SpotlightViewer = (() => {
     const item = _items[_currentIndex];
     if (!item) return;
 
+    if (_currentVideo) {
+      try {
+        _currentVideo.pause();
+      } catch (_) {
+        // no-op
+      }
+      _currentVideo = null;
+    }
+
     // Counter
     const counter = document.getElementById('sv-counter');
     if (counter) counter.textContent = (_currentIndex + 1) + ' / ' + _items.length;
@@ -157,27 +183,87 @@ const SpotlightViewer = (() => {
     const mediaEl = document.getElementById('sv-media');
     if (mediaEl) {
       mediaEl.innerHTML = '';
+      mediaEl.classList.remove('is-video', 'is-image');
       const isVideo = _isVideo(item);
+      const posterUrl = _resolveUrl(item.thumbnail_url || item.file_url);
+
+      const backdrop = document.createElement('div');
+      backdrop.className = 'sv-media-backdrop';
+      backdrop.classList.add(isVideo ? 'is-video' : 'is-image');
+      if (posterUrl) backdrop.style.backgroundImage = 'url("' + posterUrl.replace(/"/g, '\\"') + '")';
+      mediaEl.appendChild(backdrop);
+
+      const frame = document.createElement('div');
+      frame.className = 'sv-media-frame';
+      frame.classList.add(isVideo ? 'is-video' : 'is-image');
+      mediaEl.appendChild(frame);
 
       if (isVideo) {
+        mediaEl.classList.add('is-video');
         const video = document.createElement('video');
         video.className = 'sv-video';
         video.autoplay = true;
         video.loop = true;
+        video.preload = 'auto';
+        video.controls = false;
         video.playsInline = true;
-        video.muted = false;
+        video.muted = true;
+        video.defaultMuted = true;
         video.src = _resolveUrl(item.file_url);
+        if (posterUrl) video.poster = posterUrl;
+        video.setAttribute('muted', 'muted');
+        video.setAttribute('playsinline', 'playsinline');
+        video.setAttribute('webkit-playsinline', 'webkit-playsinline');
+        video.setAttribute('disablepictureinpicture', '');
         video.addEventListener('error', () => {
           video.style.display = 'none';
           const errIcon = document.createElement('div');
           errIcon.className = 'sv-media-error';
           errIcon.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="rgba(255,255,255,0.5)"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
-          mediaEl.appendChild(errIcon);
+          frame.appendChild(errIcon);
         });
-        mediaEl.appendChild(video);
+        video.addEventListener('loadedmetadata', () => {
+          const playAttempt = video.play();
+          if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+        });
+        _currentVideo = video;
+        frame.appendChild(video);
+
+        const playToggle = document.createElement('button');
+        playToggle.className = 'sv-play-toggle';
+        playToggle.setAttribute('type', 'button');
+        playToggle.setAttribute('aria-label', 'تشغيل أو إيقاف الفيديو');
+        playToggle.innerHTML = '<svg width="34" height="34" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>';
+        playToggle.addEventListener('click', (event) => {
+          event.stopPropagation();
+          _togglePlayback(video, playToggle);
+        });
+        frame.appendChild(playToggle);
+
+        const muteBtn = document.createElement('button');
+        muteBtn.className = 'sv-mute-btn';
+        muteBtn.setAttribute('type', 'button');
+        muteBtn.setAttribute('aria-label', 'تشغيل أو كتم الصوت');
+        muteBtn.innerHTML = _soundIcon(true);
+        muteBtn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          video.muted = !video.muted;
+          muteBtn.innerHTML = _soundIcon(video.muted);
+        });
+        frame.appendChild(muteBtn);
+
+        video.addEventListener('play', () => playToggle.classList.add('hidden'));
+        video.addEventListener('pause', () => playToggle.classList.remove('hidden'));
+
+        frame.addEventListener('click', () => _togglePlayback(video, playToggle));
       } else {
+        _currentVideo = null;
+        mediaEl.classList.add('is-image');
         const imgUrl = _resolveUrl(item.thumbnail_url || item.file_url);
         if (imgUrl) {
+          const imageShell = document.createElement('div');
+          imageShell.className = 'sv-image-shell';
+
           const img = document.createElement('img');
           img.className = 'sv-image';
           img.src = imgUrl;
@@ -187,9 +273,10 @@ const SpotlightViewer = (() => {
             const errIcon = document.createElement('div');
             errIcon.className = 'sv-media-error';
             errIcon.innerHTML = '<svg width="40" height="40" viewBox="0 0 24 24" fill="rgba(255,255,255,0.5)"><path d="M21 5v6.59l-3-3.01-4 4.01-4-4-4 4-3-3.01V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2zm-3 6.42l3 3.01V19c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2v-6.58l3 2.99 4-4 4 4 4-3.99z"/></svg>';
-            mediaEl.appendChild(errIcon);
+            frame.appendChild(errIcon);
           });
-          mediaEl.appendChild(img);
+          imageShell.appendChild(img);
+          frame.appendChild(imageShell);
         }
       }
     }
@@ -567,9 +654,15 @@ const SpotlightViewer = (() => {
   }
 
   function _isVideo(item) {
+    const fileType = String(item?.file_type || '').toLowerCase();
+    if (fileType === 'video') return true;
+
+    const mediaType = String(item?.media_type || '').toLowerCase();
+    if (mediaType.startsWith('video')) return true;
+
     const url = (item.file_url || '').toLowerCase();
     return url.endsWith('.mp4') || url.endsWith('.mov') || url.endsWith('.webm')
-        || (item.media_type && item.media_type.toLowerCase() === 'video');
+      || url.includes('.mp4?') || url.includes('.mov?') || url.includes('.webm?');
   }
 
   function _resolveMediaLabel(item) {
@@ -621,6 +714,25 @@ const SpotlightViewer = (() => {
       toast.classList.remove('show');
       window.setTimeout(() => toast.remove(), 180);
     }, 1800);
+  }
+
+  function _togglePlayback(video, toggleBtn) {
+    if (!video) return;
+    if (video.paused) {
+      const playAttempt = video.play();
+      if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      if (toggleBtn) toggleBtn.classList.add('hidden');
+      return;
+    }
+    video.pause();
+    if (toggleBtn) toggleBtn.classList.remove('hidden');
+  }
+
+  function _soundIcon(isMuted) {
+    if (isMuted) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+    }
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
   }
 
   return { open, close };

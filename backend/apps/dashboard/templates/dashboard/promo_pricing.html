@@ -87,7 +87,7 @@
                 </div>
                 {% for rule in featured_rules %}
                   <div class="quick-stat promo-pricing-edit-row">
-                    <span>{{ rule.get_frequency_display }}</span>
+                    <span>{{ rule.title }}</span>
                     <label class="price-inline">
                       <input
                         class="input-control pricing-input"
@@ -115,7 +115,6 @@
                     <thead>
                       <tr>
                         <th>الخدمة</th>
-                        <th>معدل الظهور</th>
                         <th>التكلفة (ريال سعودي)</th>
                       </tr>
                     </thead>
@@ -123,7 +122,6 @@
                       {% for rule in portfolio_rules %}
                         <tr>
                           <td>شريط البنرات والمشاريع</td>
-                          <td>{{ rule.get_frequency_display }}</td>
                           <td>
                             <label class="price-cell">
                               <input
@@ -145,7 +143,6 @@
                       {% for rule in snapshot_rules %}
                         <tr>
                           <td>شريط اللمحات</td>
-                          <td>{{ rule.get_frequency_display }}</td>
                           <td>
                             <label class="price-cell">
                               <input
@@ -164,7 +161,7 @@
                           </td>
                         </tr>
                       {% empty %}
-                        <tr><td colspan="3">لا توجد قواعد تسعير مفعلة لهذا القسم.</td></tr>
+                        <tr><td colspan="2">لا توجد قواعد تسعير مفعلة لهذا القسم.</td></tr>
                       {% endfor %}
                     </tbody>
                   </table>

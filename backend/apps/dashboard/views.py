@@ -70,7 +70,6 @@ from apps.promo.models import (
     PromoAdType,
     PromoAsset,
     PromoAssetType,
-    PromoFrequency,
     PromoInquiryProfile,
     PromoOpsStatus,
     PromoPosition,
@@ -2321,7 +2320,8 @@ def _verification_request_rows(requests: list[VerificationRequest]) -> list[dict
                     or verification_request.reviewed_at
                     or verification_request.requested_at
                 ),
-                "request_status": verification_request.get_status_display(),
+                "request_status": _verification_request_ops_status_label(verification_request),
+                "request_status_key": _verification_request_ops_status_key(verification_request),
                 "badge_labels": _verification_request_badge_labels(verification_request),
                 "assignee": (
                     (verification_request.assigned_to.username or verification_request.assigned_to.phone or "").strip()
@@ -2333,6 +2333,42 @@ def _verification_request_rows(requests: list[VerificationRequest]) -> list[dict
             }
         )
     return rows
+
+
+VERIFICATION_REQUEST_OPS_STATUS_NEW = "new"
+VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW = "in_review"
+VERIFICATION_REQUEST_OPS_STATUS_COMPLETED = "completed"
+
+VERIFICATION_REQUEST_OPS_STATUS_LABELS = {
+    VERIFICATION_REQUEST_OPS_STATUS_NEW: "جديد",
+    VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW: "تحت المعالجة",
+    VERIFICATION_REQUEST_OPS_STATUS_COMPLETED: "مكتمل",
+}
+
+VERIFICATION_REQUEST_COMPLETED_INTERNAL_STATUSES = {
+    VerificationStatus.APPROVED,
+    VerificationStatus.PENDING_PAYMENT,
+    VerificationStatus.ACTIVE,
+    VerificationStatus.EXPIRED,
+    VerificationStatus.REJECTED,
+}
+
+
+def _verification_request_ops_status_key(verification_request: VerificationRequest | None) -> str:
+    if verification_request is None:
+        return VERIFICATION_REQUEST_OPS_STATUS_NEW
+
+    raw_status = str(verification_request.status or "").strip()
+    if raw_status == VerificationStatus.NEW:
+        return VERIFICATION_REQUEST_OPS_STATUS_NEW
+    if raw_status in VERIFICATION_REQUEST_COMPLETED_INTERNAL_STATUSES:
+        return VERIFICATION_REQUEST_OPS_STATUS_COMPLETED
+    return VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW
+
+
+def _verification_request_ops_status_label(verification_request: VerificationRequest | None) -> str:
+    status_key = _verification_request_ops_status_key(verification_request)
+    return VERIFICATION_REQUEST_OPS_STATUS_LABELS.get(status_key, VERIFICATION_REQUEST_OPS_STATUS_LABELS[VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW])
 
 
 VERIFICATION_REQUEST_EDITABLE_STATUSES = {
@@ -2598,15 +2634,24 @@ def _verification_inquiry_summary(tickets: list[SupportTicket]) -> dict:
 
 def _verification_request_summary(requests: list[VerificationRequest]) -> dict:
     by_status: dict[str, int] = {}
+    by_ops_status: dict[str, int] = {
+        VERIFICATION_REQUEST_OPS_STATUS_NEW: 0,
+        VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW: 0,
+        VERIFICATION_REQUEST_OPS_STATUS_COMPLETED: 0,
+    }
     for verification_request in requests:
         by_status[verification_request.status] = by_status.get(verification_request.status, 0) + 1
+        status_key = _verification_request_ops_status_key(verification_request)
+        by_ops_status[status_key] = by_ops_status.get(status_key, 0) + 1
     return {
         "total": len(requests),
-        "new": by_status.get("new", 0),
-        "in_review": by_status.get("in_review", 0),
+        "new": by_ops_status.get(VERIFICATION_REQUEST_OPS_STATUS_NEW, 0),
+        "in_review": by_ops_status.get(VERIFICATION_REQUEST_OPS_STATUS_IN_REVIEW, 0),
+        "completed": by_ops_status.get(VERIFICATION_REQUEST_OPS_STATUS_COMPLETED, 0),
         "approved": by_status.get("approved", 0),
         "pending_payment": by_status.get("pending_payment", 0),
         "active": by_status.get("active", 0),
+        "rejected": by_status.get("rejected", 0),
     }
 
 
@@ -2929,7 +2974,7 @@ def verification_dashboard(request):
     request_form = VerificationRequestActionForm(
         initial={
             "assigned_to": str(selected_request.assigned_to_id or "") if selected_request else "",
-            "status": selected_request.status if selected_request else "new",
+            "status": _verification_request_ops_status_key(selected_request) if selected_request else VERIFICATION_REQUEST_OPS_STATUS_NEW,
             "admin_note": (selected_request.admin_note or "") if selected_request else "",
         },
         assignee_choices=assignee_choices,
@@ -3096,11 +3141,40 @@ def verification_dashboard(request):
                 assignee = None
 
             updates: list[str] = []
+            status_changed_manually = False
             next_admin_note = (post_form.cleaned_data.get("admin_note") or "")[:300]
             if assigned_to_id != target_request.assigned_to_id:
                 target_request.assigned_to = assignee
                 target_request.assigned_at = timezone.now() if assignee else None
                 updates.extend(["assigned_to", "assigned_at"])
+
+            requested_status = (post_form.cleaned_data.get("status") or "").strip()
+            if requested_status:
+                if not _verification_request_is_editable(target_request):
+                    messages.error(request, "لا يمكن تعديل حالة هذا الطلب في مرحلته الحالية.")
+                    return _verification_redirect_with_state(
+                        request,
+                        request_id=target_request.id,
+                        extra_params={"request_stage": posted_request_stage},
+                    )
+
+                if requested_status == VERIFICATION_REQUEST_OPS_STATUS_COMPLETED:
+                    messages.error(request, "حالة مكتمل تُحتسب تلقائيًا بعد اعتماد الطلب في مرحلة الملخص النهائي.")
+                    return _verification_redirect_with_state(
+                        request,
+                        request_id=target_request.id,
+                        extra_params={"request_stage": posted_request_stage},
+                    )
+
+                mapped_status = (
+                    VerificationStatus.NEW
+                    if requested_status == VERIFICATION_REQUEST_OPS_STATUS_NEW
+                    else VerificationStatus.IN_REVIEW
+                )
+                if mapped_status != target_request.status:
+                    target_request.status = mapped_status
+                    updates.append("status")
+                    status_changed_manually = True
 
             if next_admin_note != (target_request.admin_note or ""):
                 target_request.admin_note = next_admin_note
@@ -3110,6 +3184,9 @@ def verification_dashboard(request):
                 updates.append("updated_at")
                 target_request.save(update_fields=updates)
                 _sync_verification_to_unified(vr=target_request, changed_by=request.user)
+
+            if action in {"save_request", "continue_request_review"} and not status_changed_manually:
+                target_request = mark_request_in_review(vr=target_request, changed_by=request.user)
 
             if action in {"save_request", "continue_request_review"}:
                 if not _verification_request_is_editable(target_request):
@@ -3433,6 +3510,7 @@ def verification_dashboard(request):
             "verified_accounts_summary": _verification_verified_accounts_summary(verified_accounts),
             "selected_inquiry": selected_inquiry,
             "selected_request": selected_request,
+            "selected_request_status_label": _verification_request_ops_status_label(selected_request) if selected_request else "",
             "selected_verified_badge": selected_verified_badge,
             "selected_verified_badge_detail": selected_verified_badge_detail,
             "selected_request_is_editable": _verification_request_is_editable(selected_request),
@@ -3499,7 +3577,6 @@ def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
                 "end_at": _format_dt(item.end_at or promo_request.end_at),
                 "send_at": _format_dt(item.send_at),
                 "status": promo_request.get_ops_status_display(),
-                "frequency": item.get_frequency_display() if item.frequency else "-",
                 "search_scope": item.get_search_scope_display() if item.search_scope else "-",
                 "search_position": item.get_search_position_display() if item.search_position else "-",
                 "channels": " + ".join(channels) if channels else "-",
@@ -3605,11 +3682,6 @@ def _promo_module_initial_data_from_request(
         "start_at": _promo_datetime_local_input_value((selected_item.start_at if selected_item else None) or selected_request.start_at),
         "end_at": _promo_datetime_local_input_value((selected_item.end_at if selected_item else None) or selected_request.end_at),
         "send_at": _promo_datetime_local_input_value((selected_item.send_at if selected_item else None) or selected_request.start_at),
-        "frequency": (
-            (selected_item.frequency if selected_item else "")
-            or selected_request.frequency
-            or ""
-        ),
         "search_scope": (selected_item.search_scope if selected_item else "") or (search_scopes[0] if search_scopes else ""),
         "search_scopes": search_scopes,
         "search_position": (
@@ -3998,7 +4070,6 @@ def promo_module(request, module_key: str):
                                 start_at=cleaned.get("start_at"),
                                 end_at=cleaned.get("end_at"),
                                 send_at=cleaned.get("send_at"),
-                                frequency=cleaned.get("frequency") or "",
                                 search_scope=scope,
                                 search_position=cleaned.get("search_position") or "",
                                 target_provider=target_provider,
@@ -4758,7 +4829,7 @@ def content_settings(request):
         }
     )
 
-    links_obj = SiteLinks.objects.order_by("-updated_at", "-id").first()
+    links_obj = SiteLinks.load()
     about_block = _content_block_get_or_create(
         ContentBlockKey.ABOUT_SECTION_ABOUT,
         default_title="حول منصة مختص",
@@ -4771,6 +4842,10 @@ def content_settings(request):
             "ios_store": links_obj.ios_store if links_obj else "",
             "android_store": links_obj.android_store if links_obj else "",
             "x_url": links_obj.x_url if links_obj else "",
+            "instagram_url": links_obj.instagram_url if links_obj else "",
+            "snapchat_url": links_obj.snapchat_url if links_obj else "",
+            "tiktok_url": links_obj.tiktok_url if links_obj else "",
+            "youtube_url": links_obj.youtube_url if links_obj else "",
             "whatsapp_url": links_obj.whatsapp_url if links_obj else "",
             "email": links_obj.email if links_obj else "",
         }
@@ -4820,11 +4895,15 @@ def content_settings(request):
         elif action == "save_links":
             links_form = ContentSettingsLinksForm(request.POST)
             if links_form.is_valid():
-                links = links_obj or SiteLinks()
+                links = links_obj or SiteLinks.load()
                 links.website_url = links_form.cleaned_data.get("website_url") or ""
                 links.ios_store = links_form.cleaned_data.get("ios_store") or ""
                 links.android_store = links_form.cleaned_data.get("android_store") or ""
                 links.x_url = links_form.cleaned_data.get("x_url") or ""
+                links.instagram_url = links_form.cleaned_data.get("instagram_url") or ""
+                links.snapchat_url = links_form.cleaned_data.get("snapchat_url") or ""
+                links.tiktok_url = links_form.cleaned_data.get("tiktok_url") or ""
+                links.youtube_url = links_form.cleaned_data.get("youtube_url") or ""
                 links.whatsapp_url = links_form.cleaned_data.get("whatsapp_url") or ""
                 links.email = links_form.cleaned_data.get("email") or ""
                 links.updated_by = request.user
@@ -4843,7 +4922,7 @@ def content_settings(request):
                     reference_type="content.site_links",
                     reference_id=str(links.id),
                     request=request,
-                    extra={"fields": ["website_url", "ios_store", "android_store", "x_url", "whatsapp_url", "email"]},
+                    extra={"fields": ["website_url", "ios_store", "android_store", "x_url", "instagram_url", "snapchat_url", "tiktok_url", "youtube_url", "whatsapp_url", "email"]},
                 )
                 messages.success(request, "تم تحديث بيانات صفحة الإعدادات وروابط المنصة.")
                 return redirect(f"{reverse('dashboard:content_settings')}?doc_type={selected_doc_type}")

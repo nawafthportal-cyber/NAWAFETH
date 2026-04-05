@@ -182,6 +182,26 @@
                   {% for err in links_form.x_url.errors %}<small>{{ err }}</small>{% endfor %}
                 </div>
                 <div class="field">
+                  <label for="{{ links_form.instagram_url.id_for_label }}">رابط إنستغرام</label>
+                  {{ links_form.instagram_url }}
+                  {% for err in links_form.instagram_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.snapchat_url.id_for_label }}">رابط سناب شات</label>
+                  {{ links_form.snapchat_url }}
+                  {% for err in links_form.snapchat_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.tiktok_url.id_for_label }}">رابط تيك توك</label>
+                  {{ links_form.tiktok_url }}
+                  {% for err in links_form.tiktok_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
+                  <label for="{{ links_form.youtube_url.id_for_label }}">رابط يوتيوب</label>
+                  {{ links_form.youtube_url }}
+                  {% for err in links_form.youtube_url.errors %}<small>{{ err }}</small>{% endfor %}
+                </div>
+                <div class="field">
                   <label for="{{ links_form.whatsapp_url.id_for_label }}">رابط الواتساب</label>
                   {{ links_form.whatsapp_url }}
                   {% for err in links_form.whatsapp_url.errors %}<small>{{ err }}</small>{% endfor %}

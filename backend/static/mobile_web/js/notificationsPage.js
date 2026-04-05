@@ -49,6 +49,14 @@ const NotificationsPage = (() => {
 
   function _activeMode() {
     try {
+      const params = new URLSearchParams(window.location.search || '');
+      const modeFromUrl = (params.get('mode') || '').trim().toLowerCase();
+      if (modeFromUrl === 'provider' || modeFromUrl === 'client') {
+        sessionStorage.setItem('nw_account_mode', modeFromUrl);
+        return modeFromUrl;
+      }
+    } catch (_) {}
+    try {
       const mode = (sessionStorage.getItem('nw_account_mode') || '').trim().toLowerCase();
       if (mode === 'provider' || mode === 'client') return mode;
     } catch (_) {}
@@ -371,10 +379,17 @@ const NotificationsPage = (() => {
     return _notifications.findIndex((item) => String(item.id) === target);
   }
 
+  function _withModeOnNavigation(targetUrl) {
+    const raw = String(targetUrl || '').trim();
+    if (!raw) return '';
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return _withMode(raw);
+  }
+
   async function _openNotification(notif) {
     if (!notif) return;
     if (notif.id) await _markRead(notif.id);
-    const targetUrl = String(notif.url || '').trim();
+    const targetUrl = _withModeOnNavigation(notif.url || '');
     if (!targetUrl) return;
     window.location.href = targetUrl;
   }

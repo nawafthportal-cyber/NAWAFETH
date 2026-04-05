@@ -67,6 +67,25 @@
       </button>
     </section>
 
+    <section class="verify-status-notice hidden" id="verifyStatusNotice" aria-live="polite">
+      <div class="verify-status-notice-copy">
+        <strong id="verifyStatusNoticeTitle">تنبيه</strong>
+        <p id="verifyStatusNoticeBody"></p>
+      </div>
+      <a href="#" class="btn btn-outline hidden" id="verifyStatusNoticeAction">فتح</a>
+    </section>
+
+    <section class="verify-tracking-strip" id="verifyTrackingStrip">
+      <div class="verify-tracking-head">
+        <div>
+          <h2>متابعة طلبات التوثيق</h2>
+          <p>استعرض حالة كل طلب، البنود المرفوضة، وأسباب الرفض بالتفصيل.</p>
+        </div>
+        <button type="button" class="btn btn-outline" id="verifyTrackingRefreshBtn">تحديث</button>
+      </div>
+      <div class="verify-tracking-list" id="verifyRequestsTimeline"></div>
+    </section>
+
     <section class="verify-detail-board" id="verifyDetailBoard">
       <div class="verify-panel is-active" id="verifyBluePanel">
         <div class="verify-panel-header">
@@ -103,8 +122,7 @@
             </div>
 
             <div class="verify-preview-card hidden" id="blueIndividualResult">
-              <div class="verify-preview-chip">من خدمات علم</div>
-              <div class="verify-preview-field">
+               <div class="verify-preview-field">
                 <span>اسم العميل</span>
                 <strong id="blueIndividualResultValue">-</strong>
               </div>
@@ -138,8 +156,7 @@
             </div>
 
             <div class="verify-preview-card hidden" id="blueBusinessResult">
-              <div class="verify-preview-chip">من خدمات علم</div>
-              <div class="verify-preview-field">
+               <div class="verify-preview-field">
                 <span>اسم المنشأة</span>
                 <strong id="blueBusinessResultValue">-</strong>
               </div>
@@ -279,6 +296,8 @@
       </div>
     </section>
   </div>
+
+  <div class="verify-toast" id="verifyToast" aria-live="polite"></div>
 </main>
 {% endblock %}
 

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
+from urllib.parse import quote
+
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect
+from django.views import View
 
-from .models import Invoice
+from .models import Invoice, PaymentAttempt, PaymentProvider
 from .serializers import (
     InvoiceCreateSerializer,
     InvoiceDetailSerializer,
@@ -15,7 +19,87 @@ from .serializers import (
     PaymentAttemptSerializer,
 )
 from .permissions import IsInvoiceOwner
-from .services import complete_mock_payment, init_payment, handle_webhook
+from .services import complete_mock_payment, init_payment, handle_webhook, sign_webhook_payload
+
+
+def _safe_next_path(raw_next: str, default_path: str = "/verification/") -> str:
+    value = (raw_next or "").strip()
+    if value.startswith("/") and not value.startswith("//"):
+        return value
+    return default_path
+
+
+class MockCheckoutView(View):
+    """
+    صفحة checkout تجريبية قابلة للفتح من المتصفح.
+    - تتأكد من ملكية الفاتورة.
+    - تكمل الدفع التجريبي عبر webhook mock آمن.
+    - تعيد التوجيه إلى صفحة التوثيق/الوجهة المطلوبة.
+    """
+
+    def get(self, request, provider: str, attempt_id):
+        normalized_provider = (provider or "").strip().lower()
+        if normalized_provider != PaymentProvider.MOCK:
+            return HttpResponseBadRequest("مزود الدفع غير مدعوم في صفحة checkout التجريبية.")
+
+        attempt = get_object_or_404(
+            PaymentAttempt.objects.select_related("invoice"),
+            pk=attempt_id,
+            provider=PaymentProvider.MOCK,
+        )
+        invoice = attempt.invoice
+
+        if not request.user.is_authenticated:
+            next_param = quote(request.get_full_path(), safe="/?=&%")
+            return redirect(f"/login/?next={next_param}")
+
+        if request.user.id != invoice.user_id:
+            return HttpResponseForbidden("غير مصرح: لا يمكنك إتمام دفع فاتورة لا تخص حسابك.")
+
+        next_path = _safe_next_path(request.GET.get("next"), default_path="/verification/")
+        if invoice.is_payment_effective():
+            sep = "&" if "?" in next_path else "?"
+            return redirect(f"{next_path}{sep}payment=already_paid&invoice={invoice.code}")
+
+        action = (request.GET.get("action") or "pay").strip().lower()
+        status_value = "success"
+        if action in {"cancel", "canceled", "cancelled"}:
+            status_value = "cancelled"
+        elif action in {"fail", "failed", "error"}:
+            status_value = "failed"
+
+        payload = {
+            "provider_reference": attempt.provider_reference,
+            "invoice_code": invoice.code,
+            "status": status_value,
+            "amount": str(invoice.total),
+            "currency": invoice.currency,
+        }
+        event_id = f"mock-checkout-{status_value}-{attempt.id}"
+        signature = sign_webhook_payload(
+            provider=PaymentProvider.MOCK,
+            payload=payload,
+            event_id=event_id,
+        )
+        result = handle_webhook(
+            provider=PaymentProvider.MOCK,
+            payload=payload,
+            signature=signature,
+            event_id=event_id,
+        )
+        if not result.get("ok"):
+            return HttpResponse(
+                result.get("detail") or "تعذر إتمام عملية الدفع التجريبية.",
+                status=int(result.get("http_status") or 400),
+            )
+
+        payment_flag = "success"
+        if status_value == "cancelled":
+            payment_flag = "cancelled"
+        elif status_value == "failed":
+            payment_flag = "failed"
+        sep = "&" if "?" in next_path else "?"
+        return redirect(f"{next_path}{sep}payment={payment_flag}&invoice={invoice.code}")
 
 
 class InvoiceCreateView(generics.CreateAPIView):
@@ -59,9 +143,16 @@ class InitPaymentView(APIView):
 
         provider = serializer.validated_data["provider"]
         idem = serializer.validated_data.get("idempotency_key") or ""
+        payment_method = serializer.validated_data.get("payment_method") or ""
 
         try:
-            attempt = init_payment(invoice=invoice, provider=provider, by_user=request.user, idempotency_key=idem)
+            attempt = init_payment(
+                invoice=invoice,
+                provider=provider,
+                by_user=request.user,
+                idempotency_key=idem,
+                payment_method=payment_method,
+            )
         except ValueError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -86,6 +177,7 @@ class CompleteMockPaymentView(APIView):
                 invoice=invoice,
                 by_user=request.user,
                 idempotency_key=serializer.validated_data.get("idempotency_key") or "",
+                payment_method=serializer.validated_data.get("payment_method") or "",
             )
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

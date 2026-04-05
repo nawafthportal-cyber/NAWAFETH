@@ -22,12 +22,25 @@ const InteractivePage = (() => {
 
     _mode = _resolveMode();
     _isProviderMode = _mode === 'provider';
+    _activeTab = _resolveInitialTab();
     _hideGate();
     _renderTabs();
     _bindTabs();
-    _switchTab('following');
+    _switchTab(_activeTab);
     _setInitialLoading(false);
     await _loadAll();
+  }
+
+  function _resolveInitialTab() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const requested = String(params.get('tab') || '').trim().toLowerCase();
+      if (requested === 'favorites') return 'favorites';
+      if (requested === 'followers' && _isProviderMode) return 'followers';
+    } catch (_) {
+      // no-op
+    }
+    return 'following';
   }
 
   function _setInitialLoading(show) {
@@ -44,11 +57,6 @@ const InteractivePage = (() => {
     const activeMode = (modeOverride || _mode || 'client').toLowerCase() === 'provider' ? 'provider' : 'client';
     const sep = path.includes('?') ? '&' : '?';
     return path + sep + 'mode=' + encodeURIComponent(activeMode);
-  }
-
-  function _uniqueModes() {
-    const first = (_mode || 'client').toLowerCase() === 'provider' ? 'provider' : 'client';
-    return first === 'provider' ? ['provider', 'client'] : ['client', 'provider'];
   }
 
   function _parseList(payload) {
@@ -180,35 +188,26 @@ const InteractivePage = (() => {
     const container = document.getElementById('following-list');
     _renderLoading(container, 'جاري تحميل المتابَعين...');
 
-    const modes = _uniqueModes();
-    const responses = await Promise.all(
-      modes.map((mode) => ApiClient.get(_withMode('/api/providers/me/following/', mode)))
-    );
+    const response = await ApiClient.get(_withMode('/api/providers/me/following/', _mode));
 
-    if (responses.every((res) => res.status === 401)) {
+    if (response.status === 401) {
       _showGate();
       return;
     }
 
-    const hasSuccess = responses.some((res) => res.ok);
-    if (!hasSuccess) {
-      const firstError = responses.find((res) => !res.ok)?.error;
-      _renderError(container, firstError || 'تعذر تحميل القائمة', _fetchFollowing);
+    if (!response.ok) {
+      _renderError(container, response.error || 'تعذر تحميل القائمة', _fetchFollowing);
       return;
     }
 
     const mergedMap = new Map();
-    responses
-      .filter((res) => res.ok)
-      .forEach((res) => {
-        _parseList(res.data).forEach((entry) => {
-          const provider = entry && (entry.provider || entry);
-          const providerId = _toInt(provider && provider.id);
-          if (providerId <= 0) return;
-          if (!mergedMap.has(providerId)) {
-            mergedMap.set(providerId, entry);
-          }
-        });
+    _parseList(response.data).forEach((entry) => {
+      const provider = entry && (entry.provider || entry);
+      const providerId = _toInt(provider && provider.id);
+      if (providerId <= 0) return;
+      if (!mergedMap.has(providerId)) {
+        mergedMap.set(providerId, entry);
+      }
       });
 
     const list = Array.from(mergedMap.values());
@@ -377,42 +376,28 @@ const InteractivePage = (() => {
     const container = document.getElementById('favorites-list');
     _renderLoading(container, 'جاري تحميل المفضلة...');
 
-    const modes = _uniqueModes();
-    const responses = await Promise.all(
-      modes.map(async (mode) => {
-        const [portfolioRes, spotlightsRes] = await Promise.all([
-          ApiClient.get(_withMode('/api/providers/me/favorites/', mode)),
-          ApiClient.get(_withMode('/api/providers/me/favorites/spotlights/', mode)),
-        ]);
-        return { mode, portfolioRes, spotlightsRes };
-      })
-    );
+    const [portfolioRes, spotlightsRes] = await Promise.all([
+      ApiClient.get(_withMode('/api/providers/me/favorites/', _mode)),
+      ApiClient.get(_withMode('/api/providers/me/favorites/spotlights/', _mode)),
+    ]);
 
-    const allUnauthorized = responses.every(
-      ({ portfolioRes, spotlightsRes }) => portfolioRes.status === 401 && spotlightsRes.status === 401
-    );
-    if (allUnauthorized) {
+    if (portfolioRes.status === 401 && spotlightsRes.status === 401) {
       _showGate();
       return;
     }
 
-    const hasAnySuccess = responses.some(
-      ({ portfolioRes, spotlightsRes }) => portfolioRes.ok || spotlightsRes.ok
-    );
-    if (!hasAnySuccess) {
+    if (!portfolioRes.ok && !spotlightsRes.ok) {
       _renderError(container, 'تعذر تحميل عناصر المفضلة', _fetchFavorites);
       return;
     }
 
     const merged = [];
-    responses.forEach(({ mode, portfolioRes, spotlightsRes }) => {
-      if (portfolioRes.ok) {
-        merged.push(..._parseList(portfolioRes.data).map((row) => _normalizeMedia(row, 'portfolio', mode)));
-      }
-      if (spotlightsRes.ok) {
-        merged.push(..._parseList(spotlightsRes.data).map((row) => _normalizeMedia(row, 'spotlight', mode)));
-      }
-    });
+    if (portfolioRes.ok) {
+      merged.push(..._parseList(portfolioRes.data).map((row) => _normalizeMedia(row, 'portfolio', _mode)));
+    }
+    if (spotlightsRes.ok) {
+      merged.push(..._parseList(spotlightsRes.data).map((row) => _normalizeMedia(row, 'spotlight', _mode)));
+    }
 
     const dedupedMap = new Map();
     merged.forEach((item) => {
@@ -457,12 +442,111 @@ const InteractivePage = (() => {
     }
 
     const frag = document.createDocumentFragment();
-    _favorites.forEach((item, index) => frag.appendChild(_buildFavoriteCard(item, index)));
+    const spotlightItems = _favorites.filter((item) => item.source === 'spotlight');
+    const otherItems = _favorites.filter((item) => item.source !== 'spotlight');
+
+    if (spotlightItems.length) {
+      const section = UI.el('section', { className: 'interactive-favorites-section interactive-favorites-section-reels' });
+      section.appendChild(UI.el('div', {
+        className: 'interactive-favorites-section-title',
+        textContent: 'الريلز المحفوظة',
+      }));
+
+      const track = UI.el('div', { className: 'reels-track interactive-favorites-reels' });
+      spotlightItems.forEach((item) => {
+        const globalIndex = _favorites.indexOf(item);
+        track.appendChild(_buildFavoriteReel(item, globalIndex));
+      });
+      section.appendChild(track);
+      frag.appendChild(section);
+    }
+
+    if (otherItems.length) {
+      const section = UI.el('section', { className: 'interactive-favorites-section' });
+      if (spotlightItems.length) {
+        section.appendChild(UI.el('div', {
+          className: 'interactive-favorites-section-title',
+          textContent: 'الوسائط المحفوظة',
+        }));
+      }
+
+      const grid = UI.el('div', { className: 'interactive-favorites-grid' });
+      otherItems.forEach((item) => {
+        const globalIndex = _favorites.indexOf(item);
+        grid.appendChild(_buildFavoriteCard(item, globalIndex));
+      });
+      section.appendChild(grid);
+      frag.appendChild(section);
+    }
+
     container.appendChild(frag);
   }
 
+  function _buildFavoriteReel(item, index) {
+    const thumb = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
+    const mediaUrl = ApiClient.mediaUrl(item.file_url || '');
+    const isVideo = String(item.file_type || '').toLowerCase() === 'video' && !!mediaUrl;
+    const caption = (item.caption || '').trim() || (item.provider_display_name || 'لمحة');
+
+    const reel = UI.el('div', {
+      className: 'reel-item interactive-favorite-reel',
+      role: 'button',
+      tabindex: '0',
+    });
+
+    const ring = UI.el('div', { className: 'reel-ring' });
+    const inner = UI.el('div', { className: 'reel-inner' });
+
+    if (isVideo) {
+      const preview = document.createElement('video');
+      preview.className = 'reel-preview-video';
+      preview.preload = 'metadata';
+      preview.muted = true;
+      preview.defaultMuted = true;
+      preview.loop = true;
+      preview.playsInline = true;
+      preview.tabIndex = -1;
+      preview.setAttribute('aria-hidden', 'true');
+      preview.setAttribute('playsinline', '');
+      preview.setAttribute('webkit-playsinline', '');
+      preview.src = mediaUrl;
+      if (thumb) preview.poster = thumb;
+      preview.addEventListener('loadedmetadata', () => {
+        const playAttempt = preview.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      });
+      inner.appendChild(preview);
+    } else if (thumb) {
+      inner.appendChild(UI.lazyImg(thumb, caption));
+    } else {
+      inner.appendChild(UI.el('div', { className: 'reel-placeholder' }));
+    }
+
+    ring.appendChild(inner);
+    reel.appendChild(ring);
+    reel.appendChild(UI.el('div', { className: 'reel-caption', textContent: caption }));
+
+    reel.addEventListener('click', () => _openFavoriteViewer(index));
+    reel.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        _openFavoriteViewer(index);
+      }
+    });
+
+    return reel;
+  }
+
   function _buildFavoriteCard(item, index) {
-    const card = UI.el('article', { className: 'interactive-favorite-card', role: 'button', tabindex: '0' });
+    const imageUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
+    const mediaUrl = ApiClient.mediaUrl(item.file_url || '');
+    const isVideoCard = item.file_type === 'video' && !!mediaUrl;
+
+    const card = UI.el('article', {
+      className: 'interactive-favorite-card ' + (isVideoCard ? 'is-video' : 'is-image'),
+      role: 'button',
+      tabindex: '0',
+    });
     card.addEventListener('click', () => _openFavoriteViewer(index));
     card.addEventListener('keydown', (event) => {
       if (event.key === 'Enter' || event.key === ' ') {
@@ -471,11 +555,38 @@ const InteractivePage = (() => {
       }
     });
 
-    const media = UI.el('div', { className: 'interactive-favorite-media' });
-    const imageUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
-    if (imageUrl) {
+    const media = UI.el('div', { className: 'interactive-favorite-media ' + (isVideoCard ? 'is-video' : 'is-image') });
+    if (!isVideoCard && imageUrl) {
+      media.style.setProperty('--interactive-favorite-image', 'url("' + imageUrl.replace(/"/g, '\\"') + '")');
+    }
+
+    if (isVideoCard) {
+      const video = document.createElement('video');
+      video.className = 'interactive-favorite-thumb interactive-favorite-video';
+      video.src = mediaUrl;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.autoplay = true;
+      video.loop = true;
+      video.playsInline = true;
+      video.preload = 'metadata';
+      video.setAttribute('muted', 'muted');
+      video.setAttribute('autoplay', 'autoplay');
+      video.setAttribute('loop', 'loop');
+      video.setAttribute('playsinline', 'playsinline');
+      video.setAttribute('webkit-playsinline', 'webkit-playsinline');
+      if (imageUrl) video.poster = imageUrl;
+      video.addEventListener('loadedmetadata', () => {
+        const playAttempt = video.play();
+        if (playAttempt && typeof playAttempt.catch === 'function') playAttempt.catch(() => {});
+      });
+      video.addEventListener('error', () => {
+        video.classList.add('hidden');
+      }, { once: true });
+      media.appendChild(video);
+    } else if (imageUrl) {
       const img = UI.lazyImg(imageUrl, item.caption || '');
-      img.classList.add('interactive-favorite-thumb');
+      img.classList.add('interactive-favorite-thumb', 'interactive-favorite-image');
       img.setAttribute('loading', 'lazy');
       media.appendChild(img);
     } else {
@@ -484,7 +595,7 @@ const InteractivePage = (() => {
       media.appendChild(ph);
     }
 
-    if (item.file_type === 'video') {
+    if (isVideoCard) {
       const videoBadge = UI.el('div', { className: 'interactive-video-badge' });
       videoBadge.innerHTML = _miniIcon('play');
       media.appendChild(videoBadge);
@@ -546,6 +657,7 @@ const InteractivePage = (() => {
       SpotlightViewer.open(_favorites, index, {
         label: 'مفضلتي',
         modeContext: _mode || 'client',
+        immersive: true,
       });
       return;
     }

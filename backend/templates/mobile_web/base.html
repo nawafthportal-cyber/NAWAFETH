@@ -5,7 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#673AB7">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
-<title>{% block title %}نوافــذ{% endblock %}</title>
+<title>{% block title %}{{ page_meta_title|default:"نوافــذ" }}{% endblock %}</title>
+<meta id="meta-description" name="description" content="{{ page_meta_description|default:'منصة نوافــذ للخدمات الرقمية والمهنية.' }}">
+<meta id="meta-keywords" name="keywords" content="{{ page_meta_keywords|default:'' }}">
+<meta id="meta-robots" name="robots" content="{{ page_meta_robots|default:'index,follow' }}">
+<meta property="og:locale" content="ar_SA">
+<meta property="og:site_name" content="نوافــذ">
+<meta property="og:type" content="website">
+<meta id="meta-og-title" property="og:title" content="{{ page_meta_title|default:'نوافــذ' }}">
+<meta id="meta-og-description" property="og:description" content="{{ page_meta_description|default:'منصة نوافــذ للخدمات الرقمية والمهنية.' }}">
+<meta id="meta-og-url" property="og:url" content="{{ page_meta_url|default:'' }}">
+<meta id="meta-og-image" property="og:image" content="{{ page_meta_image|default:'' }}">
+<meta name="twitter:card" content="{% if page_meta_image %}summary_large_image{% else %}summary{% endif %}">
+<meta id="meta-twitter-title" name="twitter:title" content="{{ page_meta_title|default:'نوافــذ' }}">
+<meta id="meta-twitter-description" name="twitter:description" content="{{ page_meta_description|default:'منصة نوافــذ للخدمات الرقمية والمهنية.' }}">
+<meta id="meta-twitter-image" name="twitter:image" content="{{ page_meta_image|default:'' }}">
+{% if page_meta_canonical %}<link id="page-canonical" rel="canonical" href="{{ page_meta_canonical }}">{% endif %}
 <link rel="icon" href="/favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,7 +29,101 @@
 <link rel="stylesheet" href="{% static 'mobile_web/css/pages.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/desktop-parity.css' %}">
 <link rel="stylesheet" href="{% static 'mobile_web/css/new-pages.css' %}">
+<link rel="stylesheet" href="{% static 'mobile_web/css/pro-ui.css' %}?v=20260404-desktop-dock">
+{% if page_structured_data_json %}<script type="application/ld+json">{{ page_structured_data_json|safe }}</script>{% endif %}
 {% block extra_css %}{% endblock %}
+<style id="global-desktop-bottom-dock">
+@media (min-width: 769px) {
+  body.mobile-web-parity {
+    --desktop-bottom-dock-height: 74px;
+    --desktop-bottom-dock-offset: 18px;
+  }
+
+  body.mobile-web-parity #bottom-nav {
+    position: fixed;
+    left: 50%;
+    right: auto;
+    bottom: max(var(--desktop-bottom-dock-offset), env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    width: min(880px, calc(100vw - 56px));
+    height: var(--desktop-bottom-dock-height);
+    padding: 10px 14px;
+    border-radius: 24px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(247, 249, 255, 0.88)),
+      radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.1), transparent 48%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.14);
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    gap: 10px;
+    z-index: 120;
+  }
+
+  body.mobile-web-parity .bnav-item {
+    min-height: 52px;
+    border-radius: 14px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #4a5568;
+    letter-spacing: 0;
+  }
+
+  body.mobile-web-parity .bnav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  body.mobile-web-parity .bnav-item:hover {
+    color: #472f91;
+    background: rgba(111, 66, 193, 0.09);
+    transform: translateY(-1px);
+  }
+
+  body.mobile-web-parity .bnav-item.active {
+    color: #fff;
+    background: linear-gradient(135deg, #6f42c1 0%, #5b36ab 100%);
+    box-shadow: 0 10px 24px rgba(91, 54, 171, 0.28);
+  }
+
+  body.mobile-web-parity .bnav-fab {
+    width: 56px;
+    height: 56px;
+    margin-top: 0;
+    justify-self: center;
+    border: 1px solid rgba(255, 255, 255, 0.44);
+    box-shadow:
+      0 14px 28px rgba(91, 54, 171, 0.34),
+      inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  }
+
+  body.mobile-web-parity .bnav-fab:hover {
+    transform: translateY(-2px) scale(1.03);
+    box-shadow:
+      0 18px 34px rgba(91, 54, 171, 0.36),
+      inset 0 1px 0 rgba(255, 255, 255, 0.38);
+  }
+
+  body.mobile-web-parity .bnav-fab:active {
+    transform: translateY(0) scale(0.97);
+  }
+
+  body.mobile-web-parity main,
+  body.mobile-web-parity .page-content {
+    padding-bottom: calc(var(--desktop-bottom-dock-height) + var(--desktop-bottom-dock-offset) + 62px) !important;
+  }
+
+  body.mobile-web-parity #site-footer {
+    margin-bottom: calc(var(--desktop-bottom-dock-height) + var(--desktop-bottom-dock-offset) + 20px);
+  }
+}
+</style>
 </head>
 <body class="mobile-web-parity {% block body_class %}{% endblock %}">
 
@@ -112,10 +221,10 @@
 
     <div class="topbar-brand-wrap" id="topbar-brand-wrap">
       <a href="/" class="topbar-brand-link topbar-brand-face is-active" id="topbar-brand-face" aria-label="العودة إلى الرئيسية">
-        <span class="topbar-brand-mark" id="topbar-brand-mark" data-default-mark="ن" aria-hidden="true">ن</span>
+        <span class="topbar-brand-mark" id="topbar-brand-mark" data-default-mark="ن" aria-hidden="true">{% if site_public_content.brand.logo_url %}<img src="{{ site_public_content.brand.logo_url }}" alt="{{ site_public_content.brand.logo_alt }}">{% else %}ن{% endif %}</span>
         <span class="topbar-brand-copy">
-          <span class="topbar-brand-title">نوافــذ</span>
-          <span class="topbar-brand-subtitle">المنصة الرقمية للخدمات</span>
+          <span class="topbar-brand-title">{{ site_public_content.brand.topbar_title }}</span>
+          <span class="topbar-brand-subtitle">{{ site_public_content.brand.topbar_subtitle }}</span>
         </span>
       </a>
       <a class="topbar-sponsor topbar-brand-face topbar-brand-face-sponsor is-placeholder" id="topbar-sponsor" aria-label="الرعاية الحالية">
@@ -150,6 +259,51 @@
 </div>
 
 {% block content %}{% endblock %}
+
+<footer id="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href="/" class="footer-logo-link" aria-label="{{ site_public_content.brand.footer_title }}">
+        {% if site_public_content.brand.logo_url %}
+          <img class="footer-logo-image" src="{{ site_public_content.brand.logo_url }}" alt="{{ site_public_content.brand.logo_alt }}">
+        {% endif %}
+        <span class="footer-logo">{{ site_public_content.brand.footer_title }}</span>
+      </a>
+      <p class="footer-desc">{{ site_public_content.brand.footer_description }}</p>
+      {% if site_public_content.store_links %}
+        <div class="footer-store-links">
+          {% for item in site_public_content.store_links %}
+            {% if item.url %}
+              <a class="footer-store-link" href="{{ item.url }}" target="_blank" rel="noopener">{{ item.label }}</a>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% endif %}
+      {% if site_public_content.social_links %}
+        <div class="footer-social-row">
+          {% for item in site_public_content.social_links %}
+            <a class="footer-social-link" href="{{ item.url }}" {% if item.key != 'email' %}target="_blank" rel="noopener"{% endif %}>{{ item.label }}</a>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="footer-links">
+      <h4>المنصة</h4>
+      <a href="/">الرئيسية</a>
+      <a href="/search/">البحث</a>
+      <a href="/about/">من نحن</a>
+    </div>
+    <div class="footer-links">
+      <h4>الدعم</h4>
+      <a href="/contact/">تواصل معنا</a>
+      <a href="/terms/">الشروط والأحكام</a>
+      {% if site_public_content.links.website_url %}
+        <a href="{{ site_public_content.links.website_url }}" target="_blank" rel="noopener">الموقع الرسمي</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="footer-bottom">{{ site_public_content.brand.footer_copyright }}</div>
+</footer>
 
 <!-- ====== MOBILE BOTTOM NAV ====== -->
 <nav id="bottom-nav" aria-label="التنقل الرئيسي">

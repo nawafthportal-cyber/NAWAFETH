@@ -243,7 +243,7 @@ const PlansPage = (() => {
           <p class="plan-description">${_safeText(offer.description)}</p>
         </div>
         <div class="plan-price-chip">
-          <div class="plan-price-label">السعر السنوي</div>
+          <div class="plan-price-label">سعر الباقة</div>
           <div class="plan-price-value">${_safeText(offer.annual_price_label, 'مجانية')}</div>
         </div>
       </div>
@@ -251,7 +251,7 @@ const PlansPage = (() => {
         <div class="plan-features plan-features-list">${rows.map(_buildRow).join('')}</div>
       </div>
       <div class="plan-footer-row">
-        <p class="plan-effect-text">أثر الباقة على التوثيق: ${_safeText(offer.verification_effect_label)}</p>
+        <p class="plan-effect-text">أثر التوثيق: ${_safeText(offer.verification_effect_label)}</p>
         <button class="plan-cta-btn" ${isEnabled ? '' : 'disabled'}>${_safeText(buttonLabel)}</button>
       </div>
     `;

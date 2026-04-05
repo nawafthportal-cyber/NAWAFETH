@@ -318,7 +318,7 @@ var PromotionPage = (function () {
     if (!metaEl || !gridEl) return;
 
     var minHours = parseInt(String((data && data.min_campaign_hours) || "24"), 10);
-    if (!Number.isFinite(minHours) || minHours <= 0) minHours = 24;
+    if (!Number.isFinite(minHours) || minHours < 24) minHours = 24;
 
     var generatedAt = formatDateTime((data && data.generated_at) || "");
     var currencyLabel = String((data && data.currency_label) || "ريال سعودي").trim() || "ريال سعودي";
@@ -401,7 +401,7 @@ var PromotionPage = (function () {
     if (serviceType === "featured_specialists" || serviceType === "portfolio_showcase" || serviceType === "snapshots") {
       return [
         "أقل مدة للحملة " + minHours + " ساعة.",
-        "التكلفة اليومية تعتمد على معدل الظهور المختار."
+        "التكلفة اليومية تعتمد على نوع الخدمة المختارة."
       ];
     }
     if (serviceType === "search_results") {
@@ -429,8 +429,6 @@ var PromotionPage = (function () {
     if (!rule || typeof rule !== "object") return "";
     var displayKey = String(rule.display_key || "").trim();
     if (displayKey) return displayKey;
-    var frequencyLabel = String(rule.frequency_label || "").trim();
-    if (frequencyLabel) return frequencyLabel;
     var positionLabel = String(rule.search_position_label || "").trim();
     if (positionLabel) return positionLabel;
     var channelLabel = String(rule.message_channel_label || "").trim();
@@ -1040,7 +1038,6 @@ var PromotionPage = (function () {
     if (item.title) h += lineHtml("العنوان", item.title);
     if (item.start_at) h += lineHtml("بداية", formatDateTime(item.start_at));
     if (item.end_at) h += lineHtml("نهاية", formatDateTime(item.end_at));
-    if (item.frequency_label) h += lineHtml("معدل الظهور", item.frequency_label);
     if (item.search_scope_label) h += lineHtml("نطاق البحث", item.search_scope_label);
     if (item.search_position_label) h += lineHtml("ترتيب الظهور", item.search_position_label);
     if (item.target_category) h += lineHtml("التصنيف", item.target_category);
@@ -1688,7 +1685,7 @@ var PromotionPage = (function () {
       if (!body.start_at || !body.end_at) return "حدد البداية والنهاية لكل خدمة مختارة";
     }
     if (["featured_specialists", "portfolio_showcase", "snapshots"].indexOf(service) >= 0) {
-      body.frequency = valueOf(field("frequency")) || "60s";
+      body.title = body.title || (SERVICE_LABELS[service] || service);
     }
     if (service === "search_results") {
       body.search_scopes = checkedValues("search_scopes");

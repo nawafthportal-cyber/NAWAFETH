@@ -21,6 +21,7 @@
         </button>
         <h1 class="search-mobile-title">خريطة مزودي الخدمة</h1>
       </div>
+      <p class="providers-map-subtitle">استعرض المزوّدين على الخريطة، صفِّ النتائج حسب التخصص، وانتقل بسرعة إلى الأنسب لموقعك واحتياجك.</p>
 
       <div class="search-mobile-input-wrap">
         <span class="search-input-icon" aria-hidden="true">
@@ -33,13 +34,27 @@
   </section>
 
   <div class="container search-mobile-body providers-map-shell">
-    <div class="providers-map-toolbar">
-      <div class="filter-row" id="filter-row">
-        <button class="filter-chip active" data-cat-id="">الكل</button>
+    <section class="providers-map-hero">
+      <div class="providers-map-hero-copy">
+        <p class="providers-map-kicker">بحث مرئي احترافي</p>
+        <h2>لوحة واحدة تجمع الخريطة والقائمة والفرز</h2>
+        <p>ابحث بالاسم أو التخصص، بدّل بين الفئات بسرعة، ثم قارن المواقع والنتائج بدون مغادرة الصفحة.</p>
       </div>
-      <div class="search-mobile-sort-row">
-        <span class="results-count" id="results-count">0 نتيجة</span>
-        <div class="search-mobile-actions-row">
+      <div class="providers-map-hero-side">
+        <div class="providers-map-live-card">
+          <span>النتائج الحالية</span>
+          <strong id="results-count">0 نتيجة</strong>
+          <small>يتم تحديث العدد تلقائيًا عند تغيير البحث أو الفئة أو المدينة.</small>
+        </div>
+      </div>
+    </section>
+
+    <div class="providers-map-toolbar">
+      <div class="providers-map-toolbar-main">
+        <div class="filter-row" id="filter-row">
+          <button class="filter-chip active" data-cat-id="">الكل</button>
+        </div>
+        <div class="search-mobile-actions-row providers-map-actions-row">
           <a class="search-mobile-sort-btn" id="search-results-link" href="/search/">
             نتائج البحث
           </a>
@@ -57,6 +72,13 @@
 
     <section class="providers-map-layout">
       <aside class="providers-map-list-wrap">
+        <div class="providers-map-panel-head providers-map-list-head">
+          <div>
+            <p class="providers-map-panel-kicker">القائمة</p>
+            <h3>المزوّدون المطابقون</h3>
+            <p>اختر بطاقة لعرض الملف مباشرة، أو راقب موضعها الحالي على الخريطة المقابلة.</p>
+          </div>
+        </div>
         <div class="providers-list-compact" id="providers-list"></div>
         <div class="empty-state hidden" id="empty-state">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="#ccc"><circle cx="11" cy="11" r="8" fill="none" stroke="#ccc" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="#ccc" stroke-width="2"/></svg>
@@ -65,7 +87,12 @@
       </aside>
       <section class="providers-map-canvas-wrap">
         <div class="search-map-head providers-map-head">
-          <h3 id="search-map-title">خريطة المزوّدين</h3>
+          <div>
+            <p class="providers-map-panel-kicker">الخريطة</p>
+            <h3 id="search-map-title">خريطة المزوّدين</h3>
+            <p class="providers-map-head-copy">حرّك الخريطة أو استخدم زر موقعي لعرض الأقرب إليك بشكل أوضح.</p>
+          </div>
+          <span class="providers-map-legend"><span class="providers-map-legend-dot"></span>مزوّد خدمة</span>
         </div>
         <div id="search-map-canvas" class="search-map-canvas providers-map-canvas"></div>
       </section>

@@ -58,6 +58,16 @@ class InvoiceDetailSerializer(serializers.ModelSerializer):
 class InitPaymentSerializer(serializers.Serializer):
     provider = serializers.ChoiceField(choices=PaymentProvider.choices, default=PaymentProvider.MOCK)
     idempotency_key = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    payment_method = serializers.ChoiceField(
+        choices=(
+            ("apple_pay", "Apple Pay"),
+            ("mada", "مدى"),
+            ("visa", "Visa"),
+            ("mastercard", "Mastercard"),
+        ),
+        required=False,
+        allow_blank=True,
+    )
 
     def validate(self, attrs):
         # لا يوجد تحقق إضافي الآن
@@ -66,14 +76,32 @@ class InitPaymentSerializer(serializers.Serializer):
 
 class CompleteMockPaymentSerializer(serializers.Serializer):
     idempotency_key = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    payment_method = serializers.ChoiceField(
+        choices=(
+            ("apple_pay", "Apple Pay"),
+            ("mada", "مدى"),
+            ("visa", "Visa"),
+            ("mastercard", "Mastercard"),
+        ),
+        required=False,
+        allow_blank=True,
+    )
 
 
 class PaymentAttemptSerializer(serializers.ModelSerializer):
+    payment_method = serializers.SerializerMethodField()
+
+    def get_payment_method(self, obj: PaymentAttempt) -> str:
+        request_payload = obj.request_payload if isinstance(obj.request_payload, dict) else {}
+        response_payload = obj.response_payload if isinstance(obj.response_payload, dict) else {}
+        return str(response_payload.get("payment_method") or request_payload.get("payment_method") or "").strip()
+
     class Meta:
         model = PaymentAttempt
         fields = [
             "id", "provider", "status",
             "amount", "currency",
+            "payment_method",
             "checkout_url", "provider_reference",
             "created_at",
         ]
