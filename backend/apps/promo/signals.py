@@ -6,7 +6,7 @@ from django.dispatch import receiver
 from apps.billing.models import Invoice
 from .models import PromoAdPrice, PromoPricingRule, PromoRequest
 from .services import (
-    activate_after_payment,
+    apply_effective_payment,
     revoke_after_payment_reversal,
     sync_legacy_ad_price_from_pricing_rule,
     sync_pricing_rules_from_legacy_ad_type,
@@ -27,7 +27,7 @@ def activate_promo_on_invoice_paid(sender, instance: Invoice, created, **kwargs)
 
     try:
         if instance.is_payment_effective():
-            activate_after_payment(pr=pr)
+            apply_effective_payment(pr=pr)
         else:
             revoke_after_payment_reversal(pr=pr)
     except Exception:

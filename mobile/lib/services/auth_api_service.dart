@@ -22,17 +22,24 @@ class AuthApiService {
       body: {'phone': phone},
     );
 
+    final data = resp.dataAsMap;
+
     if (resp.isSuccess) {
-      final data = resp.dataAsMap;
       return OtpSendResult(
         success: true,
-        devCode: data?['dev_code'] as String?,
+        devCode: _readString(data?['dev_code']),
+        cooldownSeconds: _readInt(data?['cooldown_seconds']),
+        retryAfterSeconds: _readInt(data?['retry_after_seconds']),
+        retryAfterText: _readString(data?['retry_after_text']),
       );
     }
 
     return OtpSendResult(
       success: false,
       error: _extractError(resp),
+      cooldownSeconds: _readInt(data?['cooldown_seconds']),
+      retryAfterSeconds: _readInt(data?['retry_after_seconds']),
+      retryAfterText: _readString(data?['retry_after_text']),
     );
   }
 
@@ -289,6 +296,19 @@ class AuthApiService {
     }
     return errors.isNotEmpty ? errors : null;
   }
+
+  static int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  static String? _readString(dynamic value) {
+    if (value == null) return null;
+    final text = value.toString().trim();
+    return text.isEmpty ? null : text;
+  }
 }
 
 // ══════════════════════════════════════════
@@ -298,9 +318,19 @@ class AuthApiService {
 class OtpSendResult {
   final bool success;
   final String? devCode;
+  final int? cooldownSeconds;
+  final int? retryAfterSeconds;
+  final String? retryAfterText;
   final String? error;
 
-  OtpSendResult({required this.success, this.devCode, this.error});
+  OtpSendResult({
+    required this.success,
+    this.devCode,
+    this.cooldownSeconds,
+    this.retryAfterSeconds,
+    this.retryAfterText,
+    this.error,
+  });
 }
 
 class UsernameAvailabilityResult {

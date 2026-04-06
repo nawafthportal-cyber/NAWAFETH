@@ -17,12 +17,15 @@ class ThreadAdmin(admin.ModelAdmin):
         "id",
         "request",
         "is_direct",
+        "is_system_thread",
+        "system_thread_key",
         "participant_1",
         "participant_2",
+        "reply_restricted_to",
         "context_mode",
         "created_at",
     )
-    list_filter = ("is_direct", "context_mode")
+    list_filter = ("is_direct", "is_system_thread", "context_mode")
     search_fields = ("request__title", "participant_1__phone", "participant_2__phone")
     ordering = ("-id",)
     list_select_related = ("request", "participant_1", "participant_2")
@@ -31,8 +34,8 @@ class ThreadAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ("id", "thread", "sender", "attachment_type", "created_at")
-    list_filter = ("attachment_type",)
+    list_display = ("id", "thread", "sender", "is_system_generated", "sender_team_name", "attachment_type", "created_at")
+    list_filter = ("is_system_generated", "attachment_type")
     search_fields = ("body", "sender__phone", "sender__username")
     ordering = ("-id",)
     list_select_related = ("thread", "sender")

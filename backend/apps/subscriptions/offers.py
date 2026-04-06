@@ -29,13 +29,18 @@ SUBSCRIPTION_PRICE_INTERVAL_LABELS = {
     PlanPeriod.YEAR: "سنويًا",
     PlanPeriod.MONTH: "شهريًا",
 }
-SUBSCRIPTION_TAX_POLICY = "inclusive"
-SUBSCRIPTION_TAX_POLICY_LABEL = "شامل الضريبة"
-SUBSCRIPTION_ADDITIONAL_VAT_PERCENT = Decimal("0.00")
-SUBSCRIPTION_TAX_NOTE = (
-    "المبلغ المعروض هو الرسم السنوي النهائي للباقة، ولا تضاف ضريبة أو رسوم إضافية عند إنشاء "
-    "فاتورة الاشتراك."
-)
+SUBSCRIPTION_TAX_POLICY = "exclusive"
+SUBSCRIPTION_TAX_POLICY_LABEL = "تضاف الضريبة عند الفوترة"
+
+
+def _subscription_additional_vat_percent() -> Decimal:
+    from apps.billing.pricing import get_vat_percent
+
+    return _money(get_vat_percent("default"))
+
+
+def _subscription_tax_note() -> str:
+    return "يضاف على سعر الباقة ضريبة القيمة المضافة بحسب إعدادات المنصة عند إنشاء فاتورة الاشتراك."
 
 
 def _billing_cycle_payload(period: str) -> tuple[str, str, str]:
@@ -55,6 +60,7 @@ def _billing_cycle_payload(period: str) -> tuple[str, str, str]:
 def _offer_payload_for_plan(plan, *, canonical: str) -> dict[str, object]:
     template = template_subscription_plan_for_plan(plan, fallback_tier=canonical)
     price = _money(resolved_plan_decimal(plan, template, "price", default="0.00"))
+    additional_vat_percent = _subscription_additional_vat_percent()
     billing_cycle, billing_cycle_label, interval_label = _billing_cycle_payload(
         resolved_plan_string(plan, template, "period", default=PlanPeriod.YEAR)
     )
@@ -74,9 +80,9 @@ def _offer_payload_for_plan(plan, *, canonical: str) -> dict[str, object]:
         "billing_cycle_label": billing_cycle_label,
         "tax_policy": SUBSCRIPTION_TAX_POLICY,
         "tax_policy_label": SUBSCRIPTION_TAX_POLICY_LABEL,
-        "tax_included": True,
-        "additional_vat_percent": str(_money(SUBSCRIPTION_ADDITIONAL_VAT_PERCENT)),
-        "tax_note": SUBSCRIPTION_TAX_NOTE,
+        "tax_included": False,
+        "additional_vat_percent": str(additional_vat_percent),
+        "tax_note": _subscription_tax_note(),
         "final_payable_amount": str(price),
         "final_payable_label": "مجانية" if price <= Decimal("0.00") else f"{price} ر.س",
     }
@@ -160,15 +166,16 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
         Subscription.objects.filter(
             user=user,
             plan=plan,
-            status=SubscriptionStatus.PENDING_PAYMENT,
+            status__in=(SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.AWAITING_REVIEW),
         )
         .order_by("-id")
         .first()
     )
     if pending is not None:
+        pending_status = str(getattr(pending, "status", "") or "").strip().lower()
         return {
             "state": "pending",
-            "label": "قيد التفعيل",
+            "label": "بانتظار المراجعة" if pending_status == SubscriptionStatus.AWAITING_REVIEW else "قيد التفعيل",
             "enabled": False,
             "subscription_id": pending.id,
             "current_tier": target_tier,
@@ -310,11 +317,12 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
     return payload
 
 
-def subscription_offer_end_at(*, plan, start_at):
+def subscription_offer_end_at(*, plan, start_at, duration_count: int = 1):
     from apps.core.models import PlatformConfig
     config = PlatformConfig.load()
     template = template_subscription_plan_for_plan(plan, fallback_tier=CanonicalPlanTier.BASIC)
     period = resolved_plan_string(plan, template, "period", default=PlanPeriod.YEAR)
+    normalized_duration = max(1, int(duration_count or 1))
     if period == PlanPeriod.YEAR:
-        return start_at + timedelta(days=config.subscription_yearly_duration_days)
-    return start_at + timedelta(days=config.subscription_monthly_duration_days)
+        return start_at + timedelta(days=config.subscription_yearly_duration_days * normalized_duration)
+    return start_at + timedelta(days=config.subscription_monthly_duration_days * normalized_duration)

@@ -51,8 +51,9 @@
             </ul>
           {% endif %}
 
-          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}">
+          <form method="post" enctype="multipart/form-data" class="form-shell" id="promoModuleForm" data-module-key="{{ module_meta.key }}" data-single-submit-form="true">
             {% csrf_token %}
+            <input type="hidden" name="promo_module_form_token" value="{{ promo_module_form_token }}">
             <h3>{% if is_search_module %}إعداد بند الظهور في قوائم البحث{% else %}إضافة بند ترويجي على طلب قائم{% endif %}</h3>
 
             <div class="module-form-layout">
@@ -933,6 +934,7 @@
                   type="submit"
                   name="workflow_action"
                   value="approve_item"
+                  data-lock-on-submit="true"
                   {% if module_meta.key != "home_banner" and not is_featured_module and not is_portfolio_module and not is_snapshots_module and not is_search_module %}data-require-confirm="اعتماد هذا البند بشكل نهائي؟"{% endif %}
                 >
                   {% if module_meta.key == "home_banner" or is_featured_module or is_portfolio_module or is_snapshots_module or is_search_module %}حفظ{% elif is_module_review_flow %}اعتماد{% else %}حفظ واعتماد{% endif %}

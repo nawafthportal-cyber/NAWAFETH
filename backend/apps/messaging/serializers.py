@@ -112,6 +112,8 @@ class MessageListSerializer(serializers.ModelSerializer):
             "sender_name",
             "receiver_name",
             "body",
+            "is_system_generated",
+            "sender_team_name",
             "attachment_url",
             "attachment_type",
             "attachment_name",
@@ -129,7 +131,11 @@ class MessageListSerializer(serializers.ModelSerializer):
         return display_name_for_user(user)
 
     def get_sender_name(self, obj):
-        return display_name_for_user(getattr(obj, "sender", None), message_body=getattr(obj, "body", ""))
+        return display_name_for_user(
+            getattr(obj, "sender", None),
+            message_body=getattr(obj, "body", ""),
+            sender_team_name=getattr(obj, "sender_team_name", ""),
+        )
 
     def get_receiver_name(self, obj):
         try:
@@ -141,7 +147,7 @@ class MessageListSerializer(serializers.ModelSerializer):
                 peer = thread.participant_2
             else:
                 peer = thread.participant_1
-            return self._display_name_for_user(peer)
+            return display_name_for_user(peer, sender_team_name=getattr(thread, "system_sender_label", ""))
         except Exception:
             return ""
 

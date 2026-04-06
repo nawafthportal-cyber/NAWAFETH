@@ -36,6 +36,7 @@ from .otp import (
     otp_dev_test_code,
     otp_expiry,
 )
+from apps.core.throttling import build_cooldown_payload, throttled_response
 
 logger = logging.getLogger(__name__)
 
@@ -402,47 +403,66 @@ def otp_send(request):
 
     phone = _normalize_phone_local05(s.validated_data["phone"])
     client_ip = _client_ip(request)
+    now = timezone.now()
 
     # Basic cooldown to prevent spam (professional default)
     cooldown_seconds = int(getattr(settings, "OTP_COOLDOWN_SECONDS", 60))
     last = OTP.objects.filter(phone=phone).order_by("-id").first()
-    if last and (timezone.now() - last.created_at).total_seconds() < cooldown_seconds:
-        return Response(
-            {"detail": "يرجى الانتظار قبل إعادة إرسال الرمز"},
-            status=status.HTTP_429_TOO_MANY_REQUESTS,
-        )
+    if last:
+        remaining_cooldown = cooldown_seconds - (now - last.created_at).total_seconds()
+        if remaining_cooldown > 0:
+            return throttled_response(
+                "يرجى الانتظار قبل إعادة إرسال الرمز",
+                remaining_cooldown,
+                code="otp_cooldown",
+            )
 
     # Per-phone hourly limit
     phone_hourly_limit = int(getattr(settings, "OTP_PHONE_HOURLY_LIMIT", 0) or 0)
     if phone_hourly_limit > 0:
-        since = timezone.now() - timedelta(hours=1)
-        cnt = OTP.objects.filter(phone=phone, created_at__gte=since).count()
+        since = now - timedelta(hours=1)
+        phone_hourly_qs = OTP.objects.filter(phone=phone, created_at__gte=since).order_by("created_at")
+        cnt = phone_hourly_qs.count()
         if cnt >= phone_hourly_limit:
-            return Response(
-                {"detail": "تم تجاوز حد إرسال الرموز لهذا الرقم مؤقتًا"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            oldest = phone_hourly_qs.first()
+            retry_after = (
+                (oldest.created_at + timedelta(hours=1) - now).total_seconds() if oldest else 3600
+            )
+            return throttled_response(
+                "تم تجاوز حد إرسال الرموز لهذا الرقم مؤقتًا",
+                retry_after,
+                code="otp_phone_hourly_limit",
             )
 
     # Per-phone daily limit
     phone_daily_limit = int(getattr(settings, "OTP_PHONE_DAILY_LIMIT", 0) or 0)
     if phone_daily_limit > 0:
-        today_start = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0)
+        local_now = timezone.localtime(now)
+        today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
         cnt = OTP.objects.filter(phone=phone, created_at__gte=today_start).count()
         if cnt >= phone_daily_limit:
-            return Response(
-                {"detail": "تم تجاوز الحد اليومي لإرسال الرموز لهذا الرقم"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            next_reset = today_start + timedelta(days=1)
+            return throttled_response(
+                "تم تجاوز الحد اليومي لإرسال الرموز لهذا الرقم",
+                (next_reset - local_now).total_seconds(),
+                code="otp_phone_daily_limit",
             )
 
     # Per-IP hourly limit (best-effort)
     ip_hourly_limit = int(getattr(settings, "OTP_IP_HOURLY_LIMIT", 0) or 0)
     if ip_hourly_limit > 0 and client_ip:
-        since = timezone.now() - timedelta(hours=1)
-        cnt = OTP.objects.filter(ip_address=client_ip, created_at__gte=since).count()
+        since = now - timedelta(hours=1)
+        ip_hourly_qs = OTP.objects.filter(ip_address=client_ip, created_at__gte=since).order_by("created_at")
+        cnt = ip_hourly_qs.count()
         if cnt >= ip_hourly_limit:
-            return Response(
-                {"detail": "تم تجاوز حد إرسال الرموز من هذا الجهاز/الشبكة مؤقتًا"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            oldest = ip_hourly_qs.first()
+            retry_after = (
+                (oldest.created_at + timedelta(hours=1) - now).total_seconds() if oldest else 3600
+            )
+            return throttled_response(
+                "تم تجاوز حد إرسال الرموز من هذا الجهاز/الشبكة مؤقتًا",
+                retry_after,
+                code="otp_ip_hourly_limit",
             )
 
     # Generate a new code.
@@ -478,6 +498,7 @@ def otp_send(request):
         pass
 
     payload = {"ok": True}
+    payload.update(build_cooldown_payload(cooldown_seconds))
     if otp_dev_bypass_enabled():
         payload["dev_mode"] = True
         payload["dev_accept_any_4_digits"] = accept_any_otp_code()

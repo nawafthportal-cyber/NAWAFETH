@@ -245,23 +245,49 @@ class ProviderReviewChatThreadView(APIView):
 			else Thread.ContextMode.SHARED
 		)
 
-		thread = (
+		candidates = list(
 			Thread.objects.filter(is_direct=True)
 			.filter(
 				Q(participant_1_id=request.user.id, participant_2_id=review.client_id)
 				| Q(participant_1_id=review.client_id, participant_2_id=request.user.id)
 			)
-			.filter(context_mode__in=[desired_mode, Thread.ContextMode.SHARED])
 			.order_by("-id")
-			.first()
 		)
+		thread = None
+		for candidate in candidates:
+			if candidate.participant_mode_for_user(request.user) != Thread.ContextMode.PROVIDER:
+				continue
+			if candidate.participant_mode_for_user(review.client) != Thread.ContextMode.CLIENT:
+				continue
+			thread = candidate
+			break
+		if thread is None:
+			for candidate in candidates:
+				if candidate.context_mode in [desired_mode, Thread.ContextMode.SHARED]:
+					thread = candidate
+					break
 
-		if not thread:
+		if thread:
+			if thread.participant_1_id == request.user.id:
+				thread.set_participant_modes(
+					participant_1_mode=Thread.ContextMode.PROVIDER,
+					participant_2_mode=Thread.ContextMode.CLIENT,
+					save=True,
+				)
+			else:
+				thread.set_participant_modes(
+					participant_1_mode=Thread.ContextMode.CLIENT,
+					participant_2_mode=Thread.ContextMode.PROVIDER,
+					save=True,
+				)
+		else:
 			thread = Thread.objects.create(
 				is_direct=True,
 				context_mode=desired_mode,
 				participant_1=request.user,
 				participant_2=review.client,
+				participant_1_mode=Thread.ContextMode.PROVIDER,
+				participant_2_mode=Thread.ContextMode.CLIENT,
 			)
 
 		return Response(

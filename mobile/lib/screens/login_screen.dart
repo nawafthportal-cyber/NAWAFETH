@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:local_auth/local_auth.dart';
@@ -21,12 +23,14 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
+  Timer? _sendCooldownTimer;
   bool _isLoading = false;
   bool _isGuestLoading = false;
   bool _isFaceIdLoading = false;
   String? _errorMessage;
   AuthEntryContent _content = AuthEntryContent.loginDefault();
   bool _faceIdAvailable = false;
+  int _sendCooldownSeconds = 0;
 
   @override
   void initState() {
@@ -38,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _sendCooldownTimer?.cancel();
     _phoneController.dispose();
     super.dispose();
   }
@@ -78,6 +83,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   /// ✅ إرسال OTP عبر الـ API
   Future<void> _onSendOtp() async {
+    if (_sendCooldownSeconds > 0) {
+      setState(() => _errorMessage = 'يمكنك إعادة المحاولة بعد ${_formatWaitShort(_sendCooldownSeconds)}');
+      return;
+    }
+
     if (!_isPhoneValid) {
       setState(() => _errorMessage = 'الصيغة الصحيحة: 05XXXXXXXX');
       return;
@@ -115,12 +125,53 @@ class _LoginScreenState extends State<LoginScreen> {
           builder: (_) => TwoFAScreen(
             phone: phone,
             redirectTo: widget.redirectTo,
+            initialCooldownSeconds: result.cooldownSeconds ?? 60,
           ),
         ),
       );
     } else {
+      if ((result.retryAfterSeconds ?? 0) > 0) {
+        _startSendCooldown(result.retryAfterSeconds!);
+      }
       setState(() => _errorMessage = result.error ?? 'فشل إرسال الرمز');
     }
+  }
+
+  void _startSendCooldown(int seconds) {
+    _sendCooldownTimer?.cancel();
+    if (seconds <= 0) {
+      if (!mounted) return;
+      setState(() => _sendCooldownSeconds = 0);
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _sendCooldownSeconds = seconds);
+
+    _sendCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_sendCooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _sendCooldownSeconds = 0);
+        return;
+      }
+      setState(() => _sendCooldownSeconds -= 1);
+    });
+  }
+
+  String _formatWaitShort(int seconds) {
+    if (seconds < 60) return '$seconds ث';
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    if (minutes < 60) {
+      return remainingSeconds > 0 ? '$minutes د $remainingSeconds ث' : '$minutes د';
+    }
+    final hours = minutes ~/ 60;
+    final remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? '$hours س $remainingMinutes د' : '$hours س';
   }
 
   Future<void> _continueAsGuest() async {
@@ -309,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _onSendOtp,
+                    onPressed: (_isLoading || _sendCooldownSeconds > 0) ? null : _onSendOtp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.deepPurple,
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -327,7 +378,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         : Text(
-                            _content.submitLabel,
+                            _sendCooldownSeconds > 0
+                                ? 'أعد المحاولة بعد ${_formatWaitShort(_sendCooldownSeconds)}'
+                                : _content.submitLabel,
                             style: const TextStyle(
                               fontSize: 16,
                               fontFamily: 'Cairo',

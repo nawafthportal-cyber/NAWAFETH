@@ -9,7 +9,7 @@ from apps.billing.models import Invoice
 from apps.providers.models import ProviderProfile
 from .models import Subscription
 from .services import (
-    activate_subscription_after_payment,
+    apply_effective_payment,
     ensure_basic_subscription_entitlement,
     revoke_subscription_after_payment_reversal,
 )
@@ -35,7 +35,7 @@ def activate_subscription_on_paid(sender, instance: Invoice, created, **kwargs):
 
     try:
         if instance.is_payment_effective():
-            activate_subscription_after_payment(sub=sub)
+            apply_effective_payment(sub=sub)
         else:
             revoke_subscription_after_payment_reversal(sub=sub)
     except Exception:

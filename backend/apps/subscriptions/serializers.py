@@ -4,6 +4,8 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.billing.models import Invoice
+
 from .capabilities import plan_capabilities_for_plan
 from .offers import subscription_offer_for_plan
 from .tiering import canonical_tier_label
@@ -83,7 +85,67 @@ class PlanSerializer(serializers.ModelSerializer):
 
 class SubscriptionSerializer(serializers.ModelSerializer):
     plan = PlanSerializer(read_only=True)
+    provider_status_code = serializers.SerializerMethodField()
+    provider_status_label = serializers.SerializerMethodField()
+    duration_label = serializers.SerializerMethodField()
+    request_code = serializers.SerializerMethodField()
+    invoice_summary = serializers.SerializerMethodField()
+
+    def get_provider_status_code(self, obj: Subscription) -> str:
+        return str(getattr(obj, "status", "") or "").strip().lower()
+
+    def get_provider_status_label(self, obj: Subscription) -> str:
+        if obj.status == "awaiting_review":
+            return "بانتظار المراجعة"
+        return obj.get_status_display()
+
+    def get_duration_label(self, obj: Subscription) -> str:
+        duration_count = max(1, int(getattr(obj, "duration_count", 1) or 1))
+        period_label = getattr(getattr(obj, "plan", None), "get_period_display", lambda: "سنة")()
+        return f"{duration_count} {period_label}"
+
+    def get_request_code(self, obj: Subscription) -> str:
+        from apps.unified_requests.models import UnifiedRequest
+
+        request_row = UnifiedRequest.objects.filter(
+            source_app="subscriptions",
+            source_model="Subscription",
+            source_object_id=str(obj.id),
+        ).only("code").first()
+        return str(getattr(request_row, "code", "") or f"SD{obj.id:06d}")
+
+    def get_invoice_summary(self, obj: Subscription) -> dict | None:
+        invoice = getattr(obj, "invoice", None)
+        if not isinstance(invoice, Invoice):
+            return None
+        return {
+            "id": invoice.id,
+            "code": invoice.code,
+            "status": invoice.status,
+            "status_label": invoice.get_status_display(),
+            "subtotal": str(invoice.subtotal),
+            "vat": str(invoice.vat_amount),
+            "total": str(invoice.total),
+            "currency": invoice.currency,
+            "payment_effective": invoice.is_payment_effective(),
+        }
 
     class Meta:
         model = Subscription
-        fields = ["id", "plan", "status", "start_at", "end_at", "grace_end_at", "auto_renew", "invoice", "created_at"]
+        fields = [
+            "id",
+            "plan",
+            "status",
+            "provider_status_code",
+            "provider_status_label",
+            "duration_count",
+            "duration_label",
+            "request_code",
+            "start_at",
+            "end_at",
+            "grace_end_at",
+            "auto_renew",
+            "invoice",
+            "invoice_summary",
+            "created_at",
+        ]

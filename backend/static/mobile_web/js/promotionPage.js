@@ -28,6 +28,48 @@ var PromotionPage = (function () {
     "completed": "مكتمل"
   };
 
+  function resolveProviderStatusCode(row) {
+    if (row && row.provider_status_code) {
+      return String(row.provider_status_code || "").trim();
+    }
+
+    var status = String((row && row.status) || "").trim();
+    var opsStatus = String((row && row.ops_status) || "new").trim();
+    var paymentEffective = !!(row && row.payment_effective === true);
+
+    if (status === "rejected" || status === "cancelled" || status === "expired" || status === "completed") {
+      return status;
+    }
+    if (status === "active" || opsStatus === "completed") {
+      return "active";
+    }
+    if (paymentEffective) {
+      if (opsStatus === "in_progress") {
+        return "in_progress";
+      }
+      return "awaiting_review";
+    }
+    if (status === "quoted" || status === "pending_payment" || status === "in_review") {
+      return status;
+    }
+    return "new";
+  }
+
+  function resolveProviderStatusLabel(row) {
+    if (row && row.provider_status_label) {
+      return String(row.provider_status_label || "").trim();
+    }
+
+    var providerStatusCode = resolveProviderStatusCode(row);
+    if (providerStatusCode === "awaiting_review") {
+      return "بانتظار المراجعة";
+    }
+    if (providerStatusCode === "in_progress") {
+      return OPS_LABELS.in_progress;
+    }
+    return STATUS_LABELS[providerStatusCode] || OPS_LABELS[providerStatusCode] || providerStatusCode || "";
+  }
+
   var SERVICE_LABELS = {
     "home_banner": "بنر الصفحة الرئيسية",
     "featured_specialists": "شريط أبرز المختصين",
@@ -92,6 +134,7 @@ var PromotionPage = (function () {
     invoiceVat: 0,
     paymentMethod: "mada"
   };
+  var deepLinkedRequestId = 0;
   var homeBannerEditor = {
     previewUrl: ""
   };
@@ -101,6 +144,7 @@ var PromotionPage = (function () {
   };
 
   function init() {
+    deepLinkedRequestId = getDeepLinkedRequestId();
     bindTabs();
     bindModal();
 
@@ -1117,7 +1161,7 @@ var PromotionPage = (function () {
       var res = await ApiClient.get("/api/promo/requests/my/");
       loading.style.display = "none";
       if (!res.ok) {
-        listEl.innerHTML = '<p class="text-muted">تعذر تحميل الطلبات</p>';
+        listEl.innerHTML = '<div class="promo-inline-state promo-inline-state-error">تعذر تحميل الطلبات حالياً. حاول التحديث لاحقاً.</div>';
         return;
       }
       var rows = Array.isArray(res.data) ? res.data : ((res.data && res.data.results) || []);
@@ -1129,14 +1173,59 @@ var PromotionPage = (function () {
         if (row && row.id) requestsCache[row.id] = row;
       });
       listEl.innerHTML = renderRequestsTable(rows);
+      await maybeOpenDeepLinkedRequest();
     } catch (err) {
       loading.style.display = "none";
-      listEl.innerHTML = '<p class="text-muted">تعذر تحميل الطلبات</p>';
+      listEl.innerHTML = '<div class="promo-inline-state promo-inline-state-error">تعذر تحميل الطلبات حالياً. حاول التحديث لاحقاً.</div>';
     }
   }
 
+  function getDeepLinkedRequestId() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      var requestId = parseInt(params.get("request_id") || "0", 10);
+      return requestId > 0 ? requestId : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  function consumeDeepLinkedRequestId() {
+    if (!deepLinkedRequestId) return;
+    deepLinkedRequestId = 0;
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("request_id");
+      window.history.replaceState({}, "", url.pathname + (url.search || "") + (url.hash || ""));
+    } catch (_) {}
+  }
+
+  async function maybeOpenDeepLinkedRequest() {
+    if (!deepLinkedRequestId) return;
+
+    var request = requestsCache[deepLinkedRequestId];
+    if (!request) {
+      try {
+        var res = await ApiClient.get("/api/promo/requests/" + deepLinkedRequestId + "/");
+        if (res && res.ok && res.data && res.data.id) {
+          request = res.data;
+          requestsCache[request.id] = request;
+        }
+      } catch (_) {}
+    }
+
+    if (!request) {
+      consumeDeepLinkedRequestId();
+      return;
+    }
+
+    await showRequestDetails(request);
+    consumeDeepLinkedRequestId();
+  }
+
   function renderRequestsTable(rows) {
-    var html = '<div class="promo-requests-head">' +
+    var html = renderRequestsOverview(rows) +
+      '<div class="promo-requests-head">' +
       '<h3>قائمة طلبات الترويج</h3>' +
       '<span class="dot"></span>' +
       '</div>' +
@@ -1167,14 +1256,46 @@ var PromotionPage = (function () {
       || row.created_at
       || ""
     );
-    var status = escapeHtml(STATUS_LABELS[row.status] || row.status || "");
+    var status = escapeHtml(resolveProviderStatusLabel(row));
 
     return '<tr data-request-id="' + row.id + '">' +
-      '<td style="color:#663d90;font-weight:600">' + code + '</td>' +
-      '<td>' + (requestType || "—") + '</td>' +
-      '<td>' + approvedAt + '</td>' +
-      '<td>' + status + '</td>' +
+      '<td><span class="promo-request-code">' + code + '</span></td>' +
+      '<td><div class="promo-request-type">' + (requestType || "—") + '</div></td>' +
+      '<td><span class="promo-request-date">' + approvedAt + '</span></td>' +
+      '<td><span class="promo-status-pill ' + escapeHtml(resolveProviderStatusClass(row)) + '">' + status + '</span></td>' +
       '</tr>';
+  }
+
+  function renderRequestsOverview(rows) {
+    var reviewCount = 0;
+    var paymentCount = 0;
+    var activeCount = 0;
+
+    rows.forEach(function (row) {
+      var code = resolveProviderStatusCode(row);
+      if (code === "quoted" || code === "pending_payment") {
+        paymentCount += 1;
+        return;
+      }
+      if (code === "active" || code === "in_progress" || code === "completed") {
+        activeCount += 1;
+        return;
+      }
+      reviewCount += 1;
+    });
+
+    return '<div class="promo-requests-overview">'
+      + '<div class="promo-overview-chip is-primary"><span>إجمالي الطلبات</span><strong>' + rows.length + '</strong></div>'
+      + '<div class="promo-overview-chip is-accent"><span>تحت المتابعة</span><strong>' + reviewCount + '</strong></div>'
+      + '<div class="promo-overview-chip is-warning"><span>بانتظار الدفع</span><strong>' + paymentCount + '</strong></div>'
+      + '<div class="promo-overview-chip is-success"><span>مفعلة أو مكتملة</span><strong>' + activeCount + '</strong></div>'
+      + '</div>';
+  }
+
+  function resolveProviderStatusClass(row) {
+    var code = String(resolveProviderStatusCode(row) || "").trim().toLowerCase();
+    if (!code) return "status-default";
+    return "status-" + code.replace(/_/g, "-");
   }
 
   function resolveRequestTypeLabel(row) {
@@ -1264,7 +1385,7 @@ var PromotionPage = (function () {
     var parts = [
       '<div class="promo-modal-section">',
       lineHtml("رقم الطلب", row.code || ""),
-      lineHtml("الحالة", STATUS_LABELS[row.status] || row.status || ""),
+      lineHtml("الحالة", resolveProviderStatusLabel(row)),
       lineHtml("التنفيذ", OPS_LABELS[row.ops_status] || row.ops_status || ""),
       row.start_at ? lineHtml("بداية الحملة", formatDateTime(row.start_at)) : "",
       row.end_at ? lineHtml("نهاية الحملة", formatDateTime(row.end_at)) : "",

@@ -8,7 +8,7 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from apps.messaging.models import Message, Thread
+from apps.messaging.models import Thread, create_system_message
 from apps.notifications.services import create_notification
 from apps.providers.models import ProviderProfile
 
@@ -315,7 +315,7 @@ def _get_or_create_direct_thread(user_a, user_b):
     if not user_a or not user_b or user_a.id == user_b.id:
         return None
     thread = (
-        Thread.objects.filter(is_direct=True)
+        Thread.objects.filter(is_direct=True, is_system_thread=True, system_thread_key="excellence")
         .filter(
             Q(participant_1=user_a, participant_2=user_b)
             | Q(participant_1=user_b, participant_2=user_a)
@@ -327,6 +327,8 @@ def _get_or_create_direct_thread(user_a, user_b):
         return thread
     return Thread.objects.create(
         is_direct=True,
+        is_system_thread=True,
+        system_thread_key="excellence",
         context_mode=Thread.ContextMode.SHARED,
         participant_1=user_a,
         participant_2=user_b,
@@ -356,10 +358,14 @@ def send_award_celebration(award: ExcellenceBadgeAward, *, actor=None):
     thread = _get_or_create_direct_thread(actor, provider_user)
     if thread is None:
         return
-    Message.objects.create(
+    create_system_message(
         thread=thread,
         sender=actor,
         body=f"مبارك، تم منحك شارة {badge_name} ضمن نظام التميز في نوافذ.",
+        sender_team_name="فريق التميز",
+        system_thread_key="excellence",
+        reply_restricted_to=provider_user,
+        reply_restriction_reason="الردود مغلقة على الرسائل الآلية من فريق التميز.",
         created_at=timezone.now(),
     )
 

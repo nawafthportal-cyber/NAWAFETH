@@ -26,6 +26,8 @@ services:
         fromDatabase:
           name: nawafeth-db
           property: connectionString
+      - key: DB_CONN_MAX_AGE
+        value: "0"
       - key: REDIS_URL
         fromService:
           name: nawafeth-redis

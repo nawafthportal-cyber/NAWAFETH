@@ -137,6 +137,17 @@ def post_message(request, thread_id: int):
 		if _is_blocked_by_other(thread, user.id):
 			return JsonResponse({"ok": False, "error": "تم حظرك من الطرف الآخر"}, status=403)
 
+		if not thread.can_user_send(user):
+			label = (getattr(thread, "system_sender_label", "") or "").strip()
+			reason = (getattr(thread, "reply_restriction_reason", "") or "").strip()
+			return JsonResponse(
+				{
+					"ok": False,
+					"error": reason or (f"الردود مغلقة لهذه الرسائل من {label}." if label else "الردود مغلقة لهذه الرسائل الآلية."),
+				},
+				status=403,
+			)
+
 		# Accept form-encoded or JSON
 		text = ""
 		if (request.content_type or "").startswith("application/json"):

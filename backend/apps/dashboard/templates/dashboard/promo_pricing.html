@@ -26,8 +26,9 @@
           </ul>
         {% endif %}
 
-        <form method="post" class="stack promo-pricing-form" id="promoPricingForm">
+        <form method="post" class="stack promo-pricing-form" id="promoPricingForm" data-single-submit-form="true">
           {% csrf_token %}
+          <input type="hidden" name="promo_pricing_form_token" value="{{ promo_pricing_form_token }}">
 
           <section class="section-panel slide-up promo-pricing-tabs-panel">
             <div class="actions promo-pricing-top-tabs">
@@ -38,7 +39,7 @@
 
           <div class="actions pricing-actions">
             {% if can_write %}
-              <button type="submit" class="primary-btn">حفظ التسعيرات</button>
+              <button type="submit" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار حفظ التسعيرات...">حفظ التسعيرات</button>
               <span class="subtitle">سيتم اعتماد الأسعار الجديدة فور الحفظ.</span>
             {% else %}
               <span class="pill danger">وضع القراءة فقط</span>
@@ -277,7 +278,7 @@
 
           {% if can_write %}
             <div class="actions pricing-actions">
-              <button type="submit" class="primary-btn">حفظ التسعيرات</button>
+              <button type="submit" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار حفظ التسعيرات...">حفظ التسعيرات</button>
             </div>
           {% endif %}
         </form>

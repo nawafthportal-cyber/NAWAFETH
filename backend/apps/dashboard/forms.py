@@ -760,6 +760,109 @@ class PromoRequestActionForm(forms.Form):
         return (self.cleaned_data.get("ops_note") or "").strip()[:300]
 
 
+class SubscriptionInquiryActionForm(forms.Form):
+    STATUS_CHOICES = [
+        (SupportTicketStatus.NEW, "جديد"),
+        (SupportTicketStatus.IN_PROGRESS, "تحت المعالجة"),
+        (SupportTicketStatus.RETURNED, "معاد للعميل"),
+        (SupportTicketStatus.CLOSED, "مكتمل"),
+    ]
+
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    description = forms.CharField(
+        label="تفاصيل الطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 4,
+                "maxlength": 300,
+                "placeholder": "تفاصيل الطلب (300 حرف).",
+            }
+        ),
+    )
+    operator_comment = forms.CharField(
+        label="تعليق المكلف بالطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "تعليق داخلي (300 حرف).",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        super().__init__(*args, **kwargs)
+        if assignee_choices is None:
+            assignee_choices = []
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices)
+
+    def clean_description(self):
+        return (self.cleaned_data.get("description") or "").strip()[:300]
+
+    def clean_operator_comment(self):
+        return (self.cleaned_data.get("operator_comment") or "").strip()[:300]
+
+
+class SubscriptionRequestActionForm(forms.Form):
+    STATUS_CHOICES = [
+        ("new", "جديد"),
+        ("in_progress", "تحت المعالجة"),
+        ("closed", "مكتمل"),
+    ]
+
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    plan_id = forms.ChoiceField(
+        label="الباقة",
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    duration_count = forms.IntegerField(
+        label="مدة الاشتراك",
+        min_value=1,
+        max_value=10,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "input-control",
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "placeholder": "مثال: 1",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        plan_choices = kwargs.pop("plan_choices", None)
+        super().__init__(*args, **kwargs)
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices or [])
+        self.fields["plan_id"].choices = list(plan_choices or [])
+
+
 class VerificationInquiryActionForm(forms.Form):
     status = forms.ChoiceField(
         label="حالة الطلب",

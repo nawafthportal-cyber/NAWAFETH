@@ -94,6 +94,10 @@ class ThreadState {
   final String clientLabel;
   final bool isArchived;
   final bool isBlocked;
+  final bool replyRestrictedToMe;
+  final String replyRestrictionReason;
+  final String systemSenderLabel;
+  final bool isSystemThread;
 
   ThreadState({
     required this.threadId,
@@ -102,6 +106,10 @@ class ThreadState {
     required this.clientLabel,
     required this.isArchived,
     required this.isBlocked,
+    required this.replyRestrictedToMe,
+    required this.replyRestrictionReason,
+    required this.systemSenderLabel,
+    required this.isSystemThread,
   });
 
   factory ThreadState.fromJson(Map<String, dynamic> json) {
@@ -112,6 +120,10 @@ class ThreadState {
       clientLabel: (json['client_label'] ?? '') as String,
       isArchived: json['is_archived'] == true,
       isBlocked: json['is_blocked'] == true,
+      replyRestrictedToMe: json['reply_restricted_to_me'] == true,
+      replyRestrictionReason: (json['reply_restriction_reason'] ?? '') as String,
+      systemSenderLabel: (json['system_sender_label'] ?? '') as String,
+      isSystemThread: json['is_system_thread'] == true,
     );
   }
 }

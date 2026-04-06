@@ -14,9 +14,13 @@ def extract_platform_team_name(message_body: str | None) -> str:
     return (match.group(1) or "").strip()
 
 
-def display_name_for_user(user, *, message_body: str | None = None) -> str:
+def display_name_for_user(user, *, message_body: str | None = None, sender_team_name: str | None = None) -> str:
     if not user:
         return ""
+
+    explicit_team_name = str(sender_team_name or "").strip()
+    if explicit_team_name:
+        return explicit_team_name
 
     if getattr(user, "is_staff", False):
         return extract_platform_team_name(message_body) or "فريق المنصة"

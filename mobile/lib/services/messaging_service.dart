@@ -115,6 +115,14 @@ class MessagingService {
     );
   }
 
+  static Future<ThreadState?> fetchThreadState(int threadId) async {
+    final res = await ApiClient.get('/api/messaging/thread/$threadId/state/');
+    if (!res.isSuccess || res.dataAsMap == null) {
+      return null;
+    }
+    return ThreadState.fromJson(res.dataAsMap!);
+  }
+
   // ──────────────────────────────────────────
   //  إرسال رسالة
   // ──────────────────────────────────────────

@@ -8,7 +8,7 @@ from django.core.cache import cache
 from django.db import DatabaseError, OperationalError
 from django.db.models import Q
 
-from apps.messaging.models import Message, Thread
+from apps.messaging.models import Message, Thread, direct_thread_mode_q
 from apps.notifications.models import Notification
 from apps.notifications.selectors import (
     count_notifications_by_mode,
@@ -118,17 +118,7 @@ def _compute_unread_badges(*, user, mode: str):
 
 
 def _count_direct_messages(*, user, mode: str) -> int:
-    threads = Thread.objects.filter(is_direct=True).filter(
-        Q(participant_1=user) | Q(participant_2=user)
-    )
-    if mode == Thread.ContextMode.CLIENT:
-        threads = threads.filter(
-            context_mode__in=[Thread.ContextMode.CLIENT, Thread.ContextMode.SHARED]
-        )
-    elif mode == Thread.ContextMode.PROVIDER:
-        threads = threads.filter(
-            context_mode__in=[Thread.ContextMode.PROVIDER, Thread.ContextMode.SHARED]
-        )
+    threads = Thread.objects.filter(is_direct=True).filter(direct_thread_mode_q(user=user, mode=mode))
 
     return (
         Message.objects.filter(thread__in=threads)

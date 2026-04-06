@@ -1,5 +1,6 @@
 from rest_framework.permissions import BasePermission
 
+from apps.accounts.role_context import get_active_role
 from apps.marketplace.models import ServiceRequest
 
 from .models import Thread
@@ -23,11 +24,13 @@ class IsRequestParticipant(BasePermission):
         if not sr:
             return False
 
-        if sr.client_id == request.user.id:
+        active_mode = get_active_role(request, fallback="shared")
+
+        if sr.client_id == request.user.id and active_mode in {"shared", "client"}:
             return True
 
         # provider__user هو صاحب حساب مقدم الخدمة
-        if sr.provider and sr.provider.user_id == request.user.id:
+        if sr.provider and sr.provider.user_id == request.user.id and active_mode in {"shared", "provider"}:
             return True
 
         return False
@@ -48,5 +51,21 @@ class IsThreadParticipant(BasePermission):
         )
         if not thread:
             return False
+
+        active_mode = get_active_role(request, fallback="shared")
+
+        if thread.is_direct:
+            return bool(thread.is_participant(request.user) and thread.mode_matches_user(request.user, active_mode))
+
+        if active_mode == "client":
+            return bool(thread.request_id and thread.request and thread.request.client_id == request.user.id)
+
+        if active_mode == "provider":
+            return bool(
+                thread.request_id
+                and thread.request
+                and thread.request.provider_id
+                and thread.request.provider.user_id == request.user.id
+            )
 
         return bool(thread.is_participant(request.user))

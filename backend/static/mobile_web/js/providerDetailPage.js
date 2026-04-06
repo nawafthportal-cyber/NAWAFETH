@@ -33,6 +33,8 @@ const ProviderDetailPage = (() => {
     x: '',
     snapchat: '',
   };
+  let _currentProfile = null;
+  let _isOwnProviderProfile = false;
 
   function init() {
     const match = window.location.pathname.match(/\/provider\/(\d+)(?:\/[^/?#]+)?\/?/);
@@ -53,6 +55,7 @@ const ProviderDetailPage = (() => {
     _bindSpotlightSync();
     _bindPortfolioSync();
     _renderModeBadge();
+    _syncDirectChatAvailability();
     _loadAll();
   }
 
@@ -182,6 +185,12 @@ const ProviderDetailPage = (() => {
       return;
     }
 
+    await _syncDirectChatAvailability();
+    if (_isOwnProviderProfile) {
+      _showToast('لا يمكنك محادثة نفسك');
+      return;
+    }
+
     const providerId = _safeInt(_providerId);
     if (!providerId) {
       _showToast('تعذر فتح الرسائل: معرف المزود غير صالح');
@@ -199,6 +208,36 @@ const ProviderDetailPage = (() => {
     }
 
     _showToast((res.data && (res.data.detail || res.data.error)) || 'تعذر فتح الرسائل حالياً');
+  }
+
+  async function _syncDirectChatAvailability() {
+    _isOwnProviderProfile = false;
+    if (!Auth.isLoggedIn()) {
+      _applyDirectChatAvailability();
+      return;
+    }
+
+    try {
+      _currentProfile = await Auth.getProfile();
+    } catch (_) {
+      _currentProfile = null;
+    }
+
+    const currentProviderId = _safeInt(
+      _currentProfile && (_currentProfile.provider_profile_id || _currentProfile.provider_id)
+    );
+    _isOwnProviderProfile = !!currentProviderId && String(currentProviderId) === String(_providerId);
+    _applyDirectChatAvailability();
+  }
+
+  function _applyDirectChatAvailability() {
+    ['btn-message', 'pd-btn-chat'].forEach((id) => {
+      const button = document.getElementById(id);
+      if (!button) return;
+      button.disabled = _isOwnProviderProfile;
+      button.setAttribute('aria-disabled', _isOwnProviderProfile ? 'true' : 'false');
+      button.classList.toggle('hidden', _isOwnProviderProfile);
+    });
   }
 
   function _bindSpotlightSync() {

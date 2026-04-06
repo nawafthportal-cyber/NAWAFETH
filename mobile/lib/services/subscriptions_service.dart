@@ -39,8 +39,10 @@ class SubscriptionsService {
         return 0;
       case 'grace':
         return 1;
-      case 'pending_payment':
+      case 'awaiting_review':
         return 2;
+      case 'pending_payment':
+        return 3;
       default:
         return 9;
     }
@@ -51,9 +53,13 @@ class SubscriptionsService {
   ) {
     if (subscriptions.isEmpty) return null;
     var best = subscriptions.first;
-    var bestRank = _subscriptionRank(_asString(best['status']));
+    var bestRank = _subscriptionRank(
+      _asString(best['provider_status_code']) ?? _asString(best['status']),
+    );
     for (final sub in subscriptions) {
-      final rank = _subscriptionRank(_asString(sub['status']));
+      final rank = _subscriptionRank(
+        _asString(sub['provider_status_code']) ?? _asString(sub['status']),
+      );
       if (rank < bestRank) {
         best = sub;
         bestRank = rank;
@@ -84,6 +90,8 @@ class SubscriptionsService {
         return 'نشط';
       case 'grace':
         return 'فترة سماح';
+      case 'awaiting_review':
+        return 'بانتظار المراجعة';
       case 'pending_payment':
         return 'بانتظار الدفع';
       case 'expired':

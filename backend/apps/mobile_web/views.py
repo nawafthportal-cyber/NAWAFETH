@@ -1,7 +1,10 @@
 import json
+from urllib.parse import urlencode
 
+from django.urls import reverse
 from django.utils.text import slugify
 from django.views.generic import TemplateView
+from django.views.generic.base import RedirectView
 
 from apps.providers.models import ProviderProfile
 
@@ -177,6 +180,48 @@ class MobileWebChatDetailView(TemplateView):
     template_name = "mobile_web/chat_detail.html"
 
 
+class MobileWebLegacyThreadChatRedirectView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        thread_id = kwargs.get("thread_id")
+        target = reverse("chat_detail", kwargs={"thread_id": thread_id})
+        query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
+        if query_string:
+            return f"{target}?{query_string}"
+        return target
+
+
+class MobileWebLegacyRequestChatRedirectView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        request_id = kwargs.get("request_id")
+        mode = str(self.request.GET.get("mode") or "").strip().lower()
+        if mode == "provider":
+            target = reverse("provider_order_detail", kwargs={"request_id": request_id})
+        else:
+            target = reverse("order_detail", kwargs={"request_id": request_id})
+        query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
+        if query_string:
+            return f"{target}?{query_string}"
+        return target
+
+
+class MobileWebLegacyPromoRequestRedirectView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        request_id = kwargs.get("request_id")
+        query = self.request.GET.copy()
+        query["request_id"] = str(request_id)
+        encoded = query.urlencode()
+        target = "/promotion/"
+        if encoded:
+            return f"{target}?{encoded}"
+        return target
+
+
 class MobileWebAddServiceView(TemplateView):
     template_name = "mobile_web/add_service.html"
 
@@ -237,6 +282,10 @@ class MobileWebPlansView(TemplateView):
 
 class MobileWebPlanSummaryView(TemplateView):
     template_name = "mobile_web/plan_summary.html"
+
+
+class MobileWebSubscriptionPaymentView(TemplateView):
+    template_name = "mobile_web/subscription_payment.html"
 
 
 class MobileWebVerificationView(TemplateView):

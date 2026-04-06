@@ -118,7 +118,7 @@ def calculate_extras_price(sku: str) -> dict[str, Any]:
 def calculate_verification_price(badge_type: str) -> dict[str, Any]:
     """
     تسعير التوثيق: VerificationPricingRule → SubscriptionPlan fallback.
-    التوثيق tax-inclusive (vat_percent=0).
+    يطبق VAT من إعدادات المنصة على رسوم التوثيق.
     """
     from apps.verification.models import VerificationPricingRule, VerificationBadgeType
 
@@ -138,13 +138,13 @@ def calculate_verification_price(badge_type: str) -> dict[str, Any]:
     bt_label = dict(VerificationBadgeType.choices).get(badge_type, badge_type)
     return _pricing_result(
         subtotal=fee,
-        vat_percent=Decimal("0.00"),  # tax-inclusive
+        vat_percent=get_vat_percent("verification"),
         currency=currency,
         meta={
             "badge_type": badge_type,
             "badge_label": bt_label,
             "source": source,
-            "tax_policy": "inclusive",
+            "tax_policy": "exclusive",
         },
     )
 
@@ -192,5 +192,5 @@ def get_vat_percent(domain: str = "default") -> Decimal:
     if domain == "promo":
         return Decimal(str(cfg.promo_vat_percent))
     if domain == "verification":
-        return Decimal("0.00")
+        return Decimal(str(cfg.vat_percent))
     return Decimal(str(cfg.vat_percent))

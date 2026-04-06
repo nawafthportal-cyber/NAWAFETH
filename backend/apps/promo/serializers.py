@@ -606,6 +606,8 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
     invoice_code = serializers.SerializerMethodField()
     payment_required = serializers.SerializerMethodField()
     payment_effective = serializers.SerializerMethodField()
+    provider_status_code = serializers.SerializerMethodField()
+    provider_status_label = serializers.SerializerMethodField()
 
     class Meta:
         model = PromoRequest
@@ -641,6 +643,8 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "invoice_vat",
             "payment_required",
             "payment_effective",
+            "provider_status_code",
+            "provider_status_label",
             "reviewed_at",
             "activated_at",
             "ops_started_at",
@@ -670,6 +674,52 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
     def get_payment_effective(self, obj: PromoRequest):
         invoice = getattr(obj, "invoice", None)
         return bool(invoice and invoice.is_payment_effective())
+
+    def _provider_status_code(self, obj: PromoRequest) -> str:
+        payment_effective = self.get_payment_effective(obj)
+        request_status = str(obj.status or "").strip()
+        ops_status = str(obj.ops_status or PromoOpsStatus.NEW).strip()
+
+        if request_status in {
+            PromoRequestStatus.REJECTED,
+            PromoRequestStatus.CANCELLED,
+            PromoRequestStatus.EXPIRED,
+            PromoRequestStatus.COMPLETED,
+        }:
+            return request_status
+
+        if request_status == PromoRequestStatus.ACTIVE or ops_status == PromoOpsStatus.COMPLETED:
+            return PromoRequestStatus.ACTIVE
+
+        if payment_effective:
+            if ops_status == PromoOpsStatus.IN_PROGRESS:
+                return PromoOpsStatus.IN_PROGRESS
+            return "awaiting_review"
+
+        if request_status == PromoRequestStatus.IN_REVIEW:
+            return PromoRequestStatus.IN_REVIEW
+        if request_status in {PromoRequestStatus.QUOTED, PromoRequestStatus.PENDING_PAYMENT}:
+            return request_status
+        return PromoRequestStatus.NEW
+
+    def get_provider_status_code(self, obj: PromoRequest):
+        return self._provider_status_code(obj)
+
+    def get_provider_status_label(self, obj: PromoRequest):
+        provider_status_code = self._provider_status_code(obj)
+        return {
+            "awaiting_review": "بانتظار المراجعة",
+            PromoOpsStatus.IN_PROGRESS: "تحت المعالجة",
+            PromoRequestStatus.NEW: "جديد",
+            PromoRequestStatus.IN_REVIEW: "قيد المراجعة",
+            PromoRequestStatus.QUOTED: "تم التسعير",
+            PromoRequestStatus.PENDING_PAYMENT: "بانتظار الدفع",
+            PromoRequestStatus.ACTIVE: "مفعل",
+            PromoRequestStatus.COMPLETED: "مكتمل",
+            PromoRequestStatus.REJECTED: "مرفوض",
+            PromoRequestStatus.EXPIRED: "منتهي",
+            PromoRequestStatus.CANCELLED: "ملغي",
+        }.get(provider_status_code, provider_status_code)
 
 
 class PromoActivePlacementSerializer(serializers.Serializer):

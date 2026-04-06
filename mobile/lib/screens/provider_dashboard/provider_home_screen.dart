@@ -293,7 +293,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     setState(() {
       _subscriptionPlanName =
           SubscriptionsService.planTitleFromSubscription(selected);
-      _subscriptionStatus = selected?['status']?.toString();
+      _subscriptionStatus =
+        selected?['provider_status_code']?.toString() ?? selected?['status']?.toString();
       _subscriptionEndAt =
           SubscriptionsService.parseSubscriptionEndAt(selected);
     });

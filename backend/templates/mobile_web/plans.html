@@ -13,15 +13,19 @@
   </div>
 
   <div id="plans-content" class="hidden">
-    <div class="page-header">
-      <button class="btn-back" onclick="history.back()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <h1>باقات اشتراك مقدم الخدمة</h1>
-    </div>
+    <section class="subs-compare-head">
+      <div class="subs-compare-head-top">
+        <div class="subs-compare-page-pill">الصفحة التفصيلية لخيارات الاشتراك</div>
+        <div class="subs-compare-user-pill" id="plans-user-pill">جار تحميل الحساب...</div>
+      </div>
+      <div class="subs-compare-head-bottom">
+        <h1>الباقات</h1>
+        <p id="plans-page-note">اختر الباقة المناسبة، ثم انتقل إلى صفحة ملخص الطلب والرسوم لإكمال الترقية.</p>
+      </div>
+    </section>
 
     <div id="plans-loading" class="loading-center"><div class="spinner"></div></div>
-    <div id="plans-list" class="plans-grid hidden"></div>
+    <div id="plans-list" class="subs-compare-stage hidden"></div>
     <div id="plans-state" class="empty-state hidden">
       <p id="plans-state-message">لا توجد باقات متاحة حالياً</p>
       <button id="plans-retry" type="button" class="btn btn-primary plans-retry-btn">إعادة المحاولة</button>

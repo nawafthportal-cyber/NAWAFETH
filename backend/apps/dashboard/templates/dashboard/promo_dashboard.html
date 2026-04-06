@@ -168,11 +168,12 @@
               </div>
             </div>
 
-            <form method="post" enctype="multipart/form-data" id="promoInquiryForm">
+            <form method="post" enctype="multipart/form-data" id="promoInquiryForm" data-single-submit-form="true">
               {% csrf_token %}
               <input type="hidden" name="action" value="save_inquiry">
               <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
               <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+              <input type="hidden" name="promo_inquiry_form_token" value="{{ promo_inquiry_form_token }}">
               <input type="hidden" name="assigned_team" value="{{ promo_support_team.id|default:selected_inquiry.assigned_team_id|default:'' }}">
               <div class="support-meta-grid promo-inquiry-meta-grid">
                 <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
@@ -228,8 +229,8 @@
               </div>
               <div class="actions">
                 {% if can_write %}
-                  <button type="submit" name="action" value="save_inquiry" class="primary-btn">حفظ</button>
-                  <button type="submit" name="action" value="close_inquiry" class="ghost-btn">إغلاق</button>
+                  <button type="submit" name="action" value="save_inquiry" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار الحفظ...">حفظ</button>
+                  <button type="submit" name="action" value="close_inquiry" class="ghost-btn" data-lock-on-submit="true" data-pending-text="جار الإغلاق...">إغلاق</button>
                 {% else %}
                   <span class="pill danger">قراءة فقط</span>
                 {% endif %}
@@ -295,6 +296,7 @@
               {% csrf_token %}
               <input type="hidden" name="promo_request_id" value="{{ selected_request.id }}">
               <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+              <input type="hidden" name="promo_form_token" value="{{ promo_request_form_token }}">
               <div class="support-action-grid">
                 <div class="field">
                   <label for="{{ request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
@@ -470,7 +472,7 @@
 
             <div class="actions promo-request-actions">
               {% if selected_request_can_save %}
-                <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
+                <button type="submit" name="action" value="save_request" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار الحفظ...">حفظ</button>
               {% elif not can_write %}
                 <span class="pill danger">قراءة فقط</span>
               {% else %}

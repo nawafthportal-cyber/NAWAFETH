@@ -31,7 +31,7 @@ def _normalized_tier(value) -> str:
 
 def _visibility_label(hours: int) -> str:
     if int(hours or 0) <= 0:
-        return "فوري"
+        return "لحظياً"
     return f"بعد {int(hours)} ساعة"
 
 
@@ -46,17 +46,21 @@ def _direct_chat_label(quota: int) -> str:
     quota = int(quota or 0)
     if quota == 1:
         return "محادثة مباشرة واحدة"
-    return f"{quota} محادثات مباشرة"
+    if quota == 2:
+        return "محادثتان مباشرتان"
+    if 3 <= quota <= 10:
+        return f"{quota} محادثات مباشرة"
+    return f"{quota} محادثة مباشرة"
 
 
 def _reminders_label(schedule_hours: list[int]) -> str:
     if not schedule_hours:
         return "بدون رسائل تذكير"
     if len(schedule_hours) == 1:
-        return f"التذكير الأول بعد {schedule_hours[0]} ساعة"
+        return f"أول تنبيه بعد اكتمال الطلب بـ {schedule_hours[0]} ساعة"
     if len(schedule_hours) == 2:
-        return f"التذكير الأول ثم الثاني بعد {schedule_hours[-1]} ساعة"
-    return f"التذكير الأول والثاني والثالث حتى {schedule_hours[-1]} ساعة"
+        return f"أول تنبيه + إرسال ثاني تنبيه بعد اكتمال الطلب بـ {schedule_hours[-1]} ساعة"
+    return f"أول تنبيه + ثاني تنبيه + إرسال ثالث تنبيه بعد اكتمال الطلب بـ {schedule_hours[-1]} ساعة"
 
 
 def _support_sla_label(hours: int) -> str:
@@ -88,12 +92,10 @@ def _storage_label(*, policy: str, multiplier, upload_max_mb: int) -> str:
     if multiplier:
         multiplier = int(multiplier)
         if multiplier == 2:
-            return "ضعف السعة المجانية"
+            return "ضعف السعة المجانية المتاحة"
         if multiplier > 2:
-            return f"{multiplier}x السعة المجانية"
-    if upload_max_mb:
-        return f"حتى {int(upload_max_mb)} MB"
-    return "السعة المجانية الأساسية"
+            return f"{multiplier}x من السعة المجانية المتاحة"
+    return "السعة المجانية المتاحة"
 
 
 def _explicit_plan_string(plan: SubscriptionPlan | None, field_name: str) -> str:

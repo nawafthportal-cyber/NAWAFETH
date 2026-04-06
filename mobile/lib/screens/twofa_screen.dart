@@ -16,12 +16,14 @@ class TwoFAScreen extends StatefulWidget {
   final String phone;
   final Widget? redirectTo;
   final Widget? nextPage;
+  final int initialCooldownSeconds;
 
   const TwoFAScreen({
     super.key,
     required this.phone,
     this.redirectTo,
     this.nextPage,
+    this.initialCooldownSeconds = 60,
   });
 
   @override
@@ -53,7 +55,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
   void initState() {
     super.initState();
     _loadScreenContent();
-    _startCountdown();
+    _startCountdown(widget.initialCooldownSeconds);
     _checkFaceIdAvailability();
   }
 
@@ -120,10 +122,19 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     setState(() {});
   }
 
-  void _startCountdown() {
+  void _startCountdown([int seconds = 60]) {
     _countdownTimer?.cancel();
+
+    if (seconds <= 0) {
+      setState(() {
+        _resendCountdown = 0;
+        _canResend = true;
+      });
+      return;
+    }
+
     setState(() {
-      _resendCountdown = 60;
+      _resendCountdown = seconds;
       _canResend = false;
     });
 
@@ -204,7 +215,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
     setState(() => _isResending = false);
 
     if (result.success) {
-      _startCountdown();
+      _startCountdown(result.cooldownSeconds ?? widget.initialCooldownSeconds);
       final text = result.devCode != null
           ? '${_content.successResendLabel} - رمز التطوير: ${result.devCode}'
           : _content.successResendLabel;
@@ -218,7 +229,23 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
       return;
     }
 
+    if ((result.retryAfterSeconds ?? 0) > 0) {
+      _startCountdown(result.retryAfterSeconds!);
+    }
+
     _setError(result.error ?? 'فشل إعادة الإرسال');
+  }
+
+  String _formatWaitShort(int seconds) {
+    if (seconds < 60) return '$seconds ث';
+    final minutes = seconds ~/ 60;
+    final remainingSeconds = seconds % 60;
+    if (minutes < 60) {
+      return remainingSeconds > 0 ? '$minutes د $remainingSeconds ث' : '$minutes د';
+    }
+    final hours = minutes ~/ 60;
+    final remainingMinutes = minutes % 60;
+    return remainingMinutes > 0 ? '$hours س $remainingMinutes د' : '$hours س';
   }
 
   Future<void> _checkFaceIdAvailability() async {
@@ -621,7 +648,7 @@ class _TwoFAScreenState extends State<TwoFAScreen> {
                             borderRadius: BorderRadius.circular(999),
                           ),
                         child: Text(
-                            '${_content.resendLabel} بعد $_resendCountdown ثانية',
+                            '${_content.resendLabel} بعد ${_formatWaitShort(_resendCountdown)}',
                             style: const TextStyle(
                               fontFamily: 'Cairo',
                               fontSize: 11.5,

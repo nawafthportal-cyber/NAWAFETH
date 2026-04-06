@@ -49,6 +49,7 @@ class PlanTier(models.TextChoices):
 
 class SubscriptionStatus(models.TextChoices):
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
+    AWAITING_REVIEW = "awaiting_review", "بانتظار المراجعة"
     ACTIVE = "active", "نشط"
     GRACE = "grace", "فترة سماح"
     EXPIRED = "expired", "منتهي"
@@ -242,6 +243,8 @@ class Subscription(models.Model):
 
     status = models.CharField(max_length=20, choices=SubscriptionStatus.choices, default=SubscriptionStatus.PENDING_PAYMENT)
 
+    duration_count = models.PositiveIntegerField(default=1)
+
     start_at = models.DateTimeField(null=True, blank=True)
     end_at = models.DateTimeField(null=True, blank=True)
 
@@ -264,9 +267,27 @@ class Subscription(models.Model):
         from apps.core.models import PlatformConfig
 
         config = PlatformConfig.load()
+        duration_count = max(1, int(self.duration_count or 1))
         if self.plan.period == PlanPeriod.YEAR:
-            return start + timedelta(days=int(config.subscription_yearly_duration_days or 365))
-        return start + timedelta(days=int(config.subscription_monthly_duration_days or 30))
+            return start + timedelta(days=int(config.subscription_yearly_duration_days or 365) * duration_count)
+        return start + timedelta(days=int(config.subscription_monthly_duration_days or 30) * duration_count)
 
     def __str__(self):
         return f"SUB#{self.pk} {self.user_id} {self.plan.code} {self.status}"
+
+
+class SubscriptionInquiryProfile(models.Model):
+    ticket = models.OneToOneField(
+        "support.SupportTicket",
+        on_delete=models.CASCADE,
+        related_name="subscription_profile",
+    )
+    operator_comment = models.CharField(max_length=300, blank=True, default="")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "ملف استفسار الاشتراكات"
+        verbose_name_plural = "ملفات استفسارات الاشتراكات"
+
+    def __str__(self):
+        return f"Subscription inquiry profile #{self.pk}"

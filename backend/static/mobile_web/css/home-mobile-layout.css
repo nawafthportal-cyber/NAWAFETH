@@ -683,7 +683,7 @@ body.home-mobile-layout .reel-item:hover {
 .showcase-card {
   flex: 0 0 188px;
   width: 188px;
-  min-height: 204px;
+  min-height: 228px;
   border-radius: 18px;
   overflow: hidden;
   background: linear-gradient(180deg, #ffffff 0%, #faf8ff 100%);
@@ -695,15 +695,21 @@ body.home-mobile-layout .reel-item:hover {
 
 .showcase-media {
   position: relative;
-  height: 138px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 228px;
+  padding: 10px;
   background: linear-gradient(135deg, #8f6fd7, #c0b3f6);
 }
 
 .showcase-media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  object-position: center;
   display: block;
+  border-radius: 14px;
 }
 
 .showcase-chip,
@@ -733,55 +739,6 @@ body.home-mobile-layout .reel-item:hover {
   align-items: center;
   justify-content: center;
   background: rgba(17, 16, 25, 0.52);
-}
-
-.showcase-body {
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.showcase-provider-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: rgba(103, 58, 183, 0.12);
-  color: #673ab7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-}
-
-.showcase-provider-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.showcase-copy {
-  min-width: 0;
-  flex: 1;
-}
-
-.showcase-title {
-  font-size: 12px;
-  font-weight: 800;
-  color: #231942;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.showcase-provider {
-  margin-top: 2px;
-  font-size: 10px;
-  color: #667085;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* ── Sponsorship cards ── */
@@ -1584,12 +1541,12 @@ body.home-mobile-layout .section-reels {
 
   .showcase-card {
     width: auto;
-    min-height: 246px;
+    min-height: 288px;
     flex: none;
   }
 
   .showcase-media {
-    height: 168px;
+    height: 288px;
   }
 
   .sponsors-scroll {

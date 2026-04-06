@@ -44,13 +44,15 @@ const ProviderDashboardPage = (() => {
   }
 
   function _subscriptionRank(sub) {
-    switch (_statusCode(sub && sub.status)) {
+    switch (_statusCode((sub && (sub.provider_status_code || sub.status)) || '')) {
       case 'active':
         return 0;
       case 'grace':
         return 1;
-      case 'pending_payment':
+      case 'awaiting_review':
         return 2;
+      case 'pending_payment':
+        return 3;
       default:
         return 9;
     }
@@ -87,6 +89,8 @@ const ProviderDashboardPage = (() => {
         return 'نشط';
       case 'grace':
         return 'فترة سماح';
+      case 'awaiting_review':
+        return 'بانتظار المراجعة';
       case 'pending_payment':
         return 'بانتظار الدفع';
       case 'expired':
@@ -248,7 +252,9 @@ const ProviderDashboardPage = (() => {
       if (selected) {
         card.style.display = '';
         document.getElementById('plan-name').textContent = _planTitle(selected);
-        const metaParts = [`الحالة: ${_statusLabel(selected.status)}`];
+        const statusCode = selected.provider_status_code || selected.status;
+        const statusLabel = selected.provider_status_label || _statusLabel(statusCode);
+        const metaParts = [`الحالة: ${statusLabel}`];
         const endRaw = selected.end_at || selected.end_date;
         if (endRaw) {
           const endDate = new Date(endRaw);

@@ -6,11 +6,13 @@ from decimal import Decimal, InvalidOperation
 from datetime import date, datetime, time, timedelta
 from functools import wraps
 from io import StringIO
+from uuid import uuid4
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.db.models import Count, Prefetch, Q, Sum
 from django.http import Http404, HttpResponse, HttpResponseForbidden, JsonResponse, QueryDict
 from django.shortcuts import get_object_or_404, redirect, render
@@ -51,7 +53,18 @@ from apps.providers.models import (
 from apps.reviews.models import Review, ReviewModerationStatus
 from apps.reviews.services import sync_review_to_unified
 from apps.billing.models import Invoice, InvoiceLineItem, InvoiceStatus, PaymentAttempt, PaymentAttemptStatus
-from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
+from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
+from apps.subscriptions.models import SubscriptionInquiryProfile
+from apps.subscriptions.services import (
+    activate_subscription_after_payment,
+    apply_effective_payment,
+    normalize_subscription_duration_count,
+    plan_to_db_tier,
+    plan_to_tier,
+)
+from apps.unified_requests.models import UnifiedRequest, UnifiedRequestStatus, UnifiedRequestType
+from apps.unified_requests.services import upsert_unified_request
+from apps.unified_requests.workflows import canonical_status_for_workflow
 from apps.support.models import (
     SupportAttachment,
     SupportComment,
@@ -146,11 +159,19 @@ from .forms import (
     PromoInquiryActionForm,
     PromoModuleItemForm,
     PromoRequestActionForm,
+    SubscriptionInquiryActionForm,
+    SubscriptionRequestActionForm,
     SupportDashboardActionForm,
     VerificationInquiryActionForm,
     VerificationRequestActionForm,
 )
 from .security import is_safe_redirect_url
+
+
+PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_request_submit_tokens"
+PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_inquiry_submit_tokens"
+PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_module_submit_tokens"
+PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_pricing_submit_tokens"
 
 
 def _want_export(request, expected: str) -> bool:
@@ -168,6 +189,46 @@ def _want_xlsx(request) -> bool:
 
 def _want_pdf(request) -> bool:
     return _want_export(request, "pdf")
+
+
+def _issue_single_use_submit_token(request, session_key: str, *, limit: int = 20) -> str:
+    token = uuid4().hex
+    existing_tokens = request.session.get(session_key) or []
+    sanitized_tokens = [str(item).strip() for item in existing_tokens if str(item).strip()]
+    keep_count = max(0, int(limit or 20) - 1)
+    if keep_count:
+        sanitized_tokens = sanitized_tokens[-keep_count:]
+    else:
+        sanitized_tokens = []
+    sanitized_tokens.append(token)
+    request.session[session_key] = sanitized_tokens
+    return token
+
+
+def _consume_single_use_submit_token(request, session_key: str, token: str) -> bool:
+    submitted_token = str(token or "").strip()
+    if not submitted_token:
+        return False
+
+    existing_tokens = request.session.get(session_key) or []
+    sanitized_tokens = [str(item).strip() for item in existing_tokens if str(item).strip()]
+    if submitted_token not in sanitized_tokens:
+        return False
+
+    sanitized_tokens.remove(submitted_token)
+    request.session[session_key] = sanitized_tokens
+    return True
+
+
+def _promo_module_redirect_with_state(request, module_key: str, *, request_id: int | None = None):
+    query_params = request.GET.copy()
+    if request_id is not None:
+        query_params["request_id"] = str(request_id)
+    redirect_url = reverse("dashboard:promo_module", kwargs={"module_key": module_key})
+    encoded_query = query_params.urlencode()
+    if encoded_query:
+        redirect_url = f"{redirect_url}?{encoded_query}"
+    return redirect(redirect_url)
 
 
 def _csv_response(filename: str, headers: list[str], rows: list[list]) -> HttpResponse:
@@ -400,6 +461,8 @@ def dashboard_index(request):
         return redirect("dashboard:promo_dashboard")
     if dashboard_allowed(request.user, "verify"):
         return redirect("dashboard:verification_dashboard")
+    if dashboard_allowed(request.user, "subs"):
+        return redirect("dashboard:subscription_dashboard")
     if dashboard_allowed(request.user, "analytics"):
         return redirect("dashboard:analytics_insights")
     return HttpResponseForbidden("لا توجد لوحة متاحة لهذا الحساب.")
@@ -1230,6 +1293,189 @@ def _support_summary(tickets: list[SupportTicket]) -> dict:
     }
 
 
+def _subscription_inquiry_status_label(status_code: str) -> str:
+    return {
+        SupportTicketStatus.NEW: "جديد",
+        SupportTicketStatus.IN_PROGRESS: "تحت المعالجة",
+        SupportTicketStatus.RETURNED: "معاد للعميل",
+        SupportTicketStatus.CLOSED: "مكتمل",
+    }.get(str(status_code or "").strip(), "-")
+
+
+def _subscription_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
+    rows = _serialize_support_rows(tickets)
+    for row in rows:
+        row["status"] = _subscription_inquiry_status_label(row.get("status_code") or "")
+    return rows
+
+
+def _subscription_redirect_with_state(request, *, inquiry_id: int | None = None):
+    query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
+    base = reverse("dashboard:subscription_dashboard")
+    params = QueryDict(query, mutable=True)
+    if inquiry_id is not None:
+        params["inquiry"] = str(inquiry_id)
+
+    normalized_query = params.urlencode()
+    target = f"{base}?{normalized_query}" if normalized_query else base
+    return redirect(f"{target}#subscriptionInquiries")
+
+
+def _subscription_close_inquiry_url(request) -> str:
+    params = QueryDict(request.GET.urlencode(), mutable=True)
+    params.pop("inquiry", None)
+    params["tab"] = SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS
+    base = reverse("dashboard:subscription_dashboard")
+    normalized_query = params.urlencode()
+    target = f"{base}?{normalized_query}" if normalized_query else base
+    return f"{target}#subscriptionInquiries"
+
+
+SUBSCRIPTION_REQUEST_STATUS_CHOICES = [
+    (UnifiedRequestStatus.NEW, "جديد"),
+    (UnifiedRequestStatus.IN_PROGRESS, "تحت المعالجة"),
+    (UnifiedRequestStatus.CLOSED, "مكتمل"),
+]
+
+SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS = "operations"
+SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS = "subscriber_accounts"
+
+
+def _subscription_nav_items(active_key: str) -> list[dict]:
+    items = [
+        {
+            "key": SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS,
+            "label": "تفعيل الاشتراكات",
+            "description": "استفسارات الاشتراكات وطلبات التشغيل والتفعيل.",
+            "url": reverse("dashboard:subscription_dashboard"),
+        },
+        {
+            "key": SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+            "label": "بيانات حسابات المشتركين",
+            "description": "عرض حسابات المشتركين بعد التفعيل أو الترقية.",
+            "url": f"{reverse('dashboard:subscription_dashboard')}?tab={SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS}",
+        },
+    ]
+    for item in items:
+        item["active"] = item["key"] == active_key
+    return items
+
+
+def _subscription_dashboard_url_with_state(
+    request,
+    *,
+    request_id: int | None = None,
+    account_id: int | None = None,
+    anchor: str = "subscriptionRequests",
+    query: str = "",
+    tab: str | None = None,
+) -> str:
+    raw_query = str(query or request.GET.urlencode()).strip()
+    params = QueryDict(raw_query, mutable=True)
+    if tab:
+        params["tab"] = tab
+    if request_id is None:
+        params.pop("request", None)
+    else:
+        params["request"] = str(request_id)
+
+    if account_id is None:
+        params.pop("account", None)
+    else:
+        params["account"] = str(account_id)
+
+    base = reverse("dashboard:subscription_dashboard")
+    normalized_query = params.urlencode()
+    target = f"{base}?{normalized_query}" if normalized_query else base
+    return f"{target}#{anchor}" if anchor else target
+
+
+def _subscription_request_redirect_with_state(
+    request,
+    *,
+    request_id: int | None = None,
+    account_id: int | None = None,
+    anchor: str = "subscriptionRequests",
+    tab: str = SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS,
+):
+    query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
+    return redirect(
+        _subscription_dashboard_url_with_state(
+            request,
+            request_id=request_id,
+            account_id=account_id,
+            anchor=anchor,
+            query=query,
+            tab=tab,
+        )
+    )
+
+
+def _subscription_request_status_label(status_code: str) -> str:
+    normalized = str(status_code or "").strip().lower()
+    return {
+        UnifiedRequestStatus.NEW: "جديد",
+        UnifiedRequestStatus.IN_PROGRESS: "تحت المعالجة",
+        UnifiedRequestStatus.CLOSED: "مكتمل",
+    }.get(normalized, "جديد")
+
+
+def _subscription_request_operational_status(sub: Subscription | None, request_obj: UnifiedRequest | None) -> str:
+    normalized = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.SUBSCRIPTION,
+        status=getattr(request_obj, "status", ""),
+    )
+    if normalized in {UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS, UnifiedRequestStatus.CLOSED}:
+        return normalized
+    if sub is None:
+        return UnifiedRequestStatus.NEW
+    if sub.status == SubscriptionStatus.AWAITING_REVIEW:
+        return UnifiedRequestStatus.IN_PROGRESS
+    if sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE, SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELLED}:
+        return UnifiedRequestStatus.CLOSED
+    return UnifiedRequestStatus.NEW
+
+
+def _subscription_payment_status_label(sub: Subscription | None) -> str:
+    invoice = getattr(sub, "invoice", None)
+    if invoice is None:
+        return "لا توجد فاتورة"
+    if invoice.is_payment_effective():
+        return "مدفوع ومعتمد"
+    return invoice.get_status_display()
+
+
+def _subscription_request_content_text(sub: Subscription | None, request_obj: UnifiedRequest | None) -> str:
+    invoice = getattr(sub, "invoice", None)
+    invoice_description = str(getattr(invoice, "description", "") or "").strip()
+    summary = str(getattr(request_obj, "summary", "") or "").strip()
+    plan_title = getattr(getattr(sub, "plan", None), "title", "") or getattr(getattr(sub, "plan", None), "code", "") or "-"
+    duration_count = int(getattr(sub, "duration_count", 1) or 1)
+    payment_label = _subscription_payment_status_label(sub)
+
+    lines = [item for item in [summary, invoice_description] if item]
+    lines.append(f"نوع الاشتراك: {plan_title}")
+    lines.append(f"مدة الاشتراك: {duration_count}")
+    lines.append(f"حالة الدفع: {payment_label}")
+    return "\n".join(lines)
+
+
+def _subscription_request_plan_choices() -> list[tuple[str, str]]:
+    ordered_plans = [
+        plan
+        for plan in SubscriptionPlan.objects.filter(is_active=True).order_by("id")
+        if plan_to_db_tier(plan) in {PlanTier.BASIC, PlanTier.RIYADI, PlanTier.PRO}
+    ]
+    ordered_plans.sort(
+        key=lambda plan: (
+            _subscription_priority_number_for_plan(plan),
+            getattr(plan, "price", 0),
+            plan.id,
+        )
+    )
+    return [(str(plan.id), getattr(plan, "title", "") or getattr(plan, "code", "")) for plan in ordered_plans]
+
+
 def _resolve_selected_ticket(base_qs, request, ticket_id: int | None):
     selected_id = ticket_id
     if selected_id is None:
@@ -1457,6 +1703,692 @@ def support_dashboard(request, ticket_id: int | None = None):
             "team_assignee_map": assignee_choices_by_team,
         },
     )
+
+
+SUBSCRIPTION_PRIORITY_TO_NUMBER = {
+    "basic": 1,
+    "low": 1,
+    "normal": 1,
+    "riyadi": 2,
+    "leading": 2,
+    "pioneer": 2,
+    "pro": 3,
+    "professional": 3,
+    "high": 3,
+}
+
+
+def _subscription_priority_number(raw_value: str) -> int:
+    return int(SUBSCRIPTION_PRIORITY_TO_NUMBER.get(str(raw_value or "").strip().lower(), 1))
+
+
+def _subscription_priority_number_for_plan(plan: SubscriptionPlan | None) -> int:
+    if plan is None:
+        return 1
+    return _subscription_priority_number(plan_to_db_tier(plan))
+
+
+def _subscription_unified_priority_for_plan(plan: SubscriptionPlan | None) -> str:
+    normalized_tier = plan_to_db_tier(plan)
+    return {
+        PlanTier.BASIC: "basic",
+        PlanTier.RIYADI: "leading",
+        PlanTier.PRO: "professional",
+    }.get(normalized_tier, "basic")
+
+
+def _priority_row_class_from_number(priority_number: int) -> str:
+    if int(priority_number or 1) >= 3:
+        return "priority-3"
+    if int(priority_number or 1) == 2:
+        return "priority-2"
+    return "priority-1"
+
+
+def _subscription_unified_queryset_for_user(user):
+    qs = (
+        UnifiedRequest.objects.select_related("requester", "assigned_user", "metadata_record")
+        .filter(request_type=UnifiedRequestType.SUBSCRIPTION)
+        .order_by("-updated_at", "-id")
+    )
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        qs = qs.filter(Q(assigned_user=user) | Q(assigned_user__isnull=True))
+    return qs
+
+
+def _subscription_related_map(unified_requests: list[UnifiedRequest]) -> dict[int, Subscription]:
+    subscription_ids: list[int] = []
+    for row in unified_requests:
+        try:
+            subscription_ids.append(int(str(row.source_object_id or "").strip()))
+        except (TypeError, ValueError):
+            continue
+    if not subscription_ids:
+        return {}
+    return {
+        sub.id: sub
+        for sub in Subscription.objects.select_related("user", "plan", "invoice").filter(id__in=subscription_ids)
+    }
+
+
+def _subscription_accounts_queryset_for_user(user):
+    qs = Subscription.objects.select_related("user", "plan", "invoice").order_by("-updated_at", "-id")
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        allowed_ids: list[int] = []
+        for row in _subscription_unified_queryset_for_user(user):
+            try:
+                allowed_ids.append(int(str(row.source_object_id or "").strip()))
+            except (TypeError, ValueError):
+                continue
+        if not allowed_ids:
+            return qs.none()
+        qs = qs.filter(id__in=allowed_ids)
+    return qs
+
+
+def _subscription_request_assignee_label(request_obj: UnifiedRequest | None) -> str:
+    assignee = getattr(request_obj, "assigned_user", None)
+    if assignee is None:
+        return "غير مكلف"
+    return (getattr(assignee, "username", "") or getattr(assignee, "phone", "") or f"user-{assignee.id}").strip()
+
+
+def _subscription_request_status_details(sub: Subscription | None, request_obj: UnifiedRequest) -> tuple[str, str]:
+    normalized = _subscription_request_operational_status(sub, request_obj)
+    return normalized, _subscription_request_status_label(normalized)
+
+
+def _subscription_request_rows(subscription_requests: list[UnifiedRequest]) -> list[dict]:
+    subscriptions_map = _subscription_related_map(subscription_requests)
+    rows: list[dict] = []
+    for request_obj in subscription_requests:
+        try:
+            source_id = int(str(request_obj.source_object_id or "").strip())
+        except (TypeError, ValueError):
+            source_id = 0
+        sub = subscriptions_map.get(source_id)
+        request_status_code, request_status_label = _subscription_request_status_details(sub, request_obj)
+        priority_number = (
+            _subscription_priority_number_for_plan(getattr(sub, "plan", None))
+            if sub is not None
+            else _subscription_priority_number(request_obj.priority)
+        )
+        rows.append(
+            {
+                "id": request_obj.id,
+                "code": request_obj.code or f"SD{request_obj.id:06d}",
+                "requester": _promo_requester_label(request_obj.requester),
+                "priority_number": priority_number,
+                "priority_class": _priority_row_class_from_number(priority_number),
+                "approved_at": _format_dt(getattr(sub, "created_at", None) or request_obj.created_at),
+                "request_status_code": request_status_code,
+                "request_status": request_status_label,
+                "assignee": _subscription_request_assignee_label(request_obj),
+                "assigned_at": _format_dt(request_obj.assigned_at),
+                "plan_title": getattr(getattr(sub, "plan", None), "title", "") or "-",
+                "duration_count": int(getattr(sub, "duration_count", 1) or 1) if sub is not None else 1,
+                "subscription_status": sub.get_status_display() if sub is not None else "-",
+                "payment_status": _subscription_payment_status_label(sub),
+                "invoice_code": getattr(getattr(sub, "invoice", None), "code", "") or "-",
+                "subscription_id": getattr(sub, "id", None),
+                "can_activate": bool(
+                    sub is not None
+                    and sub.status == SubscriptionStatus.AWAITING_REVIEW
+                    and getattr(getattr(sub, "invoice", None), "is_payment_effective", lambda: False)()
+                ),
+            }
+        )
+    return rows
+
+
+def _subscription_account_rows(subscriptions: list[Subscription]) -> list[dict]:
+    unified_map: dict[int, UnifiedRequest] = {}
+    source_ids = [str(sub.id) for sub in subscriptions]
+    if source_ids:
+        for row in UnifiedRequest.objects.select_related("assigned_user").filter(
+            request_type=UnifiedRequestType.SUBSCRIPTION,
+            source_object_id__in=source_ids,
+        ):
+            try:
+                unified_map[int(str(row.source_object_id or "").strip())] = row
+            except (TypeError, ValueError):
+                continue
+
+    rows: list[dict] = []
+    for sub in subscriptions:
+        request_obj = unified_map.get(int(sub.id))
+        priority_number = _subscription_priority_number_for_plan(sub.plan)
+        rows.append(
+            {
+                "id": sub.id,
+                "request_code": (getattr(request_obj, "code", "") or f"SD{sub.id:06d}"),
+                "requester": _promo_requester_label(sub.user),
+                "priority_number": priority_number,
+                "priority_class": _priority_row_class_from_number(priority_number),
+                "plan_title": getattr(sub.plan, "title", "") or getattr(sub.plan, "code", "") or "-",
+                "tier_label": dict(PlanTier.choices).get(getattr(sub.plan, "tier", ""), getattr(sub.plan, "tier", "-") or "-"),
+                "status": sub.get_status_display(),
+                "invoice_code": getattr(getattr(sub, "invoice", None), "code", "") or "-",
+                "start_at": _format_dt(sub.start_at),
+                "end_at": _format_dt(sub.end_at),
+                "grace_end_at": _format_dt(sub.grace_end_at),
+                "updated_at": _format_dt(sub.updated_at),
+                "assignee": _subscription_request_assignee_label(request_obj),
+                "is_current": sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE},
+            }
+        )
+    return rows
+
+
+def _subscription_requests_summary(rows: list[dict]) -> dict:
+    by_status: dict[str, int] = {}
+    for row in rows:
+        key = str(row.get("request_status_code") or "").strip().lower()
+        by_status[key] = by_status.get(key, 0) + 1
+    return {
+        "total": len(rows),
+        "new": by_status.get(UnifiedRequestStatus.NEW, 0),
+        "in_progress": by_status.get(UnifiedRequestStatus.IN_PROGRESS, 0),
+        "completed": by_status.get(UnifiedRequestStatus.CLOSED, 0),
+    }
+
+
+def _subscription_accounts_summary(rows: list[Subscription]) -> dict:
+    by_status: dict[str, int] = {}
+    for row in rows:
+        key = str(row.status or "").strip().lower()
+        by_status[key] = by_status.get(key, 0) + 1
+    return {
+        "total": len(rows),
+        "pending_payment": by_status.get(SubscriptionStatus.PENDING_PAYMENT, 0),
+        "awaiting_review": by_status.get(SubscriptionStatus.AWAITING_REVIEW, 0),
+        "active": by_status.get(SubscriptionStatus.ACTIVE, 0),
+        "grace": by_status.get(SubscriptionStatus.GRACE, 0),
+        "expired": by_status.get(SubscriptionStatus.EXPIRED, 0),
+        "cancelled": by_status.get(SubscriptionStatus.CANCELLED, 0),
+    }
+
+
+@dashboard_staff_required
+@require_dashboard_access("subs")
+def subscription_dashboard(request):
+    subscription_team = (
+        SupportTeam.objects.filter(is_active=True, code__in=["subs", "finance"])
+        .order_by("sort_order", "id")
+        .first()
+    )
+    can_write = dashboard_allowed(request.user, "subs", write=True)
+    assignee_choices = _dashboard_assignee_choices("subs")
+    plan_choices = _subscription_request_plan_choices()
+    subscription_team_name = getattr(subscription_team, "name_ar", "فريق إدارة الاشتراكات")
+
+    if request.method == "POST":
+        if not can_write:
+            return HttpResponseForbidden("لا تملك صلاحية تعديل طلبات الاشتراكات.")
+
+        action = (request.POST.get("action") or "").strip()
+        redirect_query = (request.POST.get("redirect_query") or "").strip()
+        redirect_url = reverse("dashboard:subscription_dashboard")
+        if redirect_query:
+            redirect_url = f"{redirect_url}?{redirect_query}"
+
+        if action == "save_subscription_request":
+            raw_request_id = (request.POST.get("request_id") or "").strip()
+            if not raw_request_id.isdigit():
+                messages.error(request, "تعذر تحديد طلب الاشتراك المطلوب تحديثه.")
+                return _subscription_request_redirect_with_state(request)
+
+            target_request = (
+                _subscription_unified_queryset_for_user(request.user)
+                .filter(
+                    request_type=UnifiedRequestType.SUBSCRIPTION,
+                    source_app="subscriptions",
+                    source_model="Subscription",
+                    id=int(raw_request_id),
+                )
+                .select_related("requester", "assigned_user", "metadata_record")
+                .first()
+            )
+            if target_request is None:
+                messages.error(request, "طلب الاشتراك المحدد غير متاح لهذا الحساب.")
+                return _subscription_request_redirect_with_state(request)
+
+            raw_subscription_id = str(target_request.source_object_id or "").strip()
+            if not raw_subscription_id.isdigit():
+                messages.error(request, "تعذر تحديد سجل الاشتراك المرتبط بهذا الطلب.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            post_form = SubscriptionRequestActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+                plan_choices=plan_choices,
+            )
+            if not post_form.is_valid():
+                messages.error(request, "يرجى مراجعة حقول تفاصيل طلب الاشتراك.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            if not assigned_to_raw.isdigit():
+                messages.error(request, "يرجى اختيار المكلف بالطلب من فريق إدارة الاشتراكات.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            assigned_to_id = int(assigned_to_raw)
+            assignee = dashboard_assignee_user(assigned_to_id, "subs", write=True)
+            if assignee is None:
+                messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الاشتراكات.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            target_plan_id = str(post_form.cleaned_data.get("plan_id") or "").strip()
+            available_plan_ids = {plan_id for plan_id, _ in plan_choices}
+            if target_plan_id not in available_plan_ids:
+                messages.error(request, "الباقة المختارة غير متاحة داخل لوحة الاشتراكات.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            target_plan = SubscriptionPlan.objects.filter(pk=int(target_plan_id), is_active=True).first()
+            if target_plan is None:
+                messages.error(request, "تعذر العثور على الباقة المطلوبة.")
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            try:
+                duration_count = normalize_subscription_duration_count(post_form.cleaned_data.get("duration_count"))
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+            desired_status = str(post_form.cleaned_data.get("status") or UnifiedRequestStatus.NEW).strip().lower()
+            if desired_status not in {UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS, UnifiedRequestStatus.CLOSED}:
+                desired_status = UnifiedRequestStatus.NEW
+
+            with transaction.atomic():
+                sub = (
+                    Subscription.objects.select_for_update()
+                    .select_related("user", "plan", "invoice")
+                    .filter(pk=int(raw_subscription_id))
+                    .first()
+                )
+                if sub is None:
+                    messages.error(request, "الاشتراك المرتبط بطلب التشغيل غير موجود.")
+                    return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+                request_status_code = _subscription_request_operational_status(sub, target_request)
+                if request_status_code == UnifiedRequestStatus.CLOSED or sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+                    messages.warning(request, "هذا الطلب مكتمل بالفعل وتم نقل معالجته إلى بيانات حسابات المشتركين.")
+                    return _subscription_request_redirect_with_state(
+                        request,
+                        account_id=sub.id,
+                        anchor="subscriberAccounts",
+                        tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                    )
+
+                update_fields: list[str] = []
+                if sub.plan_id != target_plan.id:
+                    sub.plan = target_plan
+                    update_fields.append("plan")
+                if int(sub.duration_count or 1) != duration_count:
+                    sub.duration_count = duration_count
+                    update_fields.append("duration_count")
+                if update_fields:
+                    update_fields.append("updated_at")
+                    sub.save(update_fields=update_fields)
+
+                payment_effective = bool(sub.invoice and sub.invoice.is_payment_effective())
+                if desired_status == UnifiedRequestStatus.CLOSED and not payment_effective:
+                    messages.error(request, "لا يمكن إكمال طلب الاشتراك قبل اعتماد الدفع.")
+                    return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+                upsert_unified_request(
+                    request_type=UnifiedRequestType.SUBSCRIPTION,
+                    requester=sub.user,
+                    source_app="subscriptions",
+                    source_model="Subscription",
+                    source_object_id=sub.id,
+                    status=desired_status,
+                    priority=_subscription_unified_priority_for_plan(sub.plan),
+                    summary=f"اشتراك {getattr(sub.plan, 'title', getattr(sub.plan, 'code', ''))}".strip(),
+                    metadata={
+                        "subscription_id": sub.id,
+                        "plan_id": sub.plan_id,
+                        "plan_code": getattr(sub.plan, "code", "") or "",
+                        "subscription_status": sub.status,
+                        "invoice_id": sub.invoice_id,
+                        "duration_count": sub.duration_count,
+                        "start_at": sub.start_at.isoformat() if sub.start_at else None,
+                        "end_at": sub.end_at.isoformat() if sub.end_at else None,
+                        "grace_end_at": sub.grace_end_at.isoformat() if sub.grace_end_at else None,
+                    },
+                    assigned_team_code="subs",
+                    assigned_team_name=subscription_team_name,
+                    assigned_user=assignee,
+                    changed_by=request.user,
+                )
+
+                if desired_status == UnifiedRequestStatus.CLOSED:
+                    if sub.status != SubscriptionStatus.AWAITING_REVIEW:
+                        sub = apply_effective_payment(sub=sub)
+                    sub = activate_subscription_after_payment(
+                        sub=sub,
+                        changed_by=request.user,
+                        assigned_user=assignee,
+                    )
+                    messages.success(request, "تم حفظ تفاصيل الطلب وتفعيل الاشتراك بنجاح، وتم نقل الطلب إلى بيانات حسابات المشتركين.")
+                    return _subscription_request_redirect_with_state(
+                        request,
+                        account_id=sub.id,
+                        anchor="subscriberAccounts",
+                        tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                    )
+
+            messages.success(request, f"تم تحديث طلب الاشتراك {target_request.code or target_request.id} بنجاح.")
+            return _subscription_request_redirect_with_state(request, request_id=target_request.id)
+
+        if action == "save_subscription_inquiry":
+            raw_ticket_id = (request.POST.get("ticket_id") or "").strip()
+            if not raw_ticket_id.isdigit():
+                messages.error(request, "تعذر تحديد الاستفسار المطلوب تحديثه.")
+                return _subscription_redirect_with_state(request)
+
+            target_ticket = _support_queryset_for_user(request.user).filter(
+                ticket_type=SupportTicketType.SUBS,
+                id=int(raw_ticket_id),
+            ).first()
+            if target_ticket is None:
+                messages.error(request, "الاستفسار المحدد غير متاح لهذا الحساب.")
+                return _subscription_redirect_with_state(request)
+
+            access_profile = active_access_profile_for_user(request.user)
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_ticket.assigned_to_id and target_ticket.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: الاستفسار ليس ضمن المهام المكلف بها.")
+
+            post_form = SubscriptionInquiryActionForm(request.POST, assignee_choices=assignee_choices)
+            if not post_form.is_valid():
+                messages.error(request, "يرجى مراجعة حقول تفاصيل استفسار الاشتراك.")
+                return _subscription_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else target_ticket.assigned_to_id
+            if assigned_to_id is not None:
+                assignee = dashboard_assignee_user(assigned_to_id, "subs", write=True)
+                if assignee is None:
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الاشتراكات.")
+                    return _subscription_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            team_id = subscription_team.id if subscription_team is not None else target_ticket.assigned_team_id
+            note = post_form.cleaned_data.get("operator_comment") or ""
+            target_ticket = assign_ticket(
+                ticket=target_ticket,
+                team_id=team_id,
+                user_id=assigned_to_id,
+                by_user=request.user,
+                note=note,
+            )
+
+            new_description = post_form.cleaned_data.get("description") or target_ticket.description or ""
+            if new_description != (target_ticket.description or ""):
+                target_ticket.description = new_description
+                target_ticket.last_action_by = request.user
+                target_ticket.save(update_fields=["description", "last_action_by", "updated_at"])
+
+            desired_status = post_form.cleaned_data.get("status")
+            if desired_status and desired_status != target_ticket.status:
+                try:
+                    target_ticket = change_ticket_status(
+                        ticket=target_ticket,
+                        new_status=desired_status,
+                        by_user=request.user,
+                        note=note,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return _subscription_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            profile, _ = SubscriptionInquiryProfile.objects.get_or_create(ticket=target_ticket)
+            profile.operator_comment = note[:300]
+            profile.save(update_fields=["operator_comment", "updated_at"])
+
+            messages.success(request, f"تم تحديث استفسار الاشتراك {target_ticket.code or target_ticket.id} بنجاح.")
+            return _subscription_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+        if action == "activate_subscription_request":
+            raw_subscription_id = (request.POST.get("subscription_id") or "").strip()
+            if not raw_subscription_id.isdigit():
+                messages.error(request, "تعذر تحديد الاشتراك المطلوب تفعيله.")
+                return redirect(f"{redirect_url}#subscriptionRequests")
+
+            sub = Subscription.objects.select_related("invoice").filter(pk=int(raw_subscription_id)).first()
+            if sub is None:
+                messages.error(request, "الاشتراك المطلوب غير موجود.")
+                return redirect(f"{redirect_url}#subscriptionRequests")
+
+            visible_request = _subscription_unified_queryset_for_user(request.user).filter(
+                source_app="subscriptions",
+                source_model="Subscription",
+                source_object_id=str(sub.id),
+            ).exists()
+            if not visible_request:
+                messages.error(request, "هذا الطلب غير متاح لك.")
+                return redirect(f"{redirect_url}#subscriptionRequests")
+
+            try:
+                if sub.status != SubscriptionStatus.AWAITING_REVIEW:
+                    sub = apply_effective_payment(sub=sub)
+                activate_subscription_after_payment(
+                    sub=sub,
+                    changed_by=request.user,
+                    assigned_user=request.user,
+                )
+            except ValueError as exc:
+                messages.error(request, str(exc))
+            else:
+                messages.success(request, "تم اعتماد الطلب وتفعيل الاشتراك بنجاح.")
+
+            return redirect(
+                _subscription_dashboard_url_with_state(
+                    request,
+                    account_id=sub.id,
+                    anchor="subscriberAccounts",
+                    query=redirect_query,
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+            )
+
+    inquiry_q = (request.GET.get("inquiry_q") or "").strip()
+    request_q = (request.GET.get("request_q") or "").strip()
+    account_q = (request.GET.get("account_q") or "").strip()
+    requested_tab = (request.GET.get("tab") or "").strip().lower()
+    active_tab = (
+        requested_tab
+        if requested_tab in {SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS, SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS}
+        else SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS
+    )
+    request_status_filter = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.SUBSCRIPTION,
+        status=(request.GET.get("request_status") or "").strip(),
+    )
+    account_status_filter = (request.GET.get("account_status") or "").strip()
+    focused_account_id_raw = (request.GET.get("account") or "").strip()
+    focused_account_id = int(focused_account_id_raw) if focused_account_id_raw.isdigit() else None
+
+    subscription_inquiries_base_qs = _support_queryset_for_user(request.user).filter(ticket_type=SupportTicketType.SUBS)
+    selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
+    selected_inquiry = (
+        subscription_inquiries_base_qs.filter(id=int(selected_inquiry_id_raw)).first()
+        if selected_inquiry_id_raw.isdigit()
+        else None
+    )
+
+    subscription_inquiries_qs = subscription_inquiries_base_qs
+    if inquiry_q:
+        subscription_inquiries_qs = subscription_inquiries_qs.filter(
+            Q(code__icontains=inquiry_q)
+            | Q(description__icontains=inquiry_q)
+            | Q(requester__username__icontains=inquiry_q)
+            | Q(requester__phone__icontains=inquiry_q)
+        )
+    subscription_inquiries = list(subscription_inquiries_qs.order_by("-created_at", "-id"))
+    inquiry_profile = getattr(selected_inquiry, "subscription_profile", None) if selected_inquiry else None
+    inquiry_form = SubscriptionInquiryActionForm(
+        initial={
+            "status": selected_inquiry.status if selected_inquiry else SupportTicketStatus.NEW,
+            "assigned_to": str(selected_inquiry.assigned_to_id or "") if selected_inquiry else "",
+            "description": (selected_inquiry.description or "") if selected_inquiry else "",
+            "operator_comment": (inquiry_profile.operator_comment or "") if inquiry_profile else "",
+        },
+        assignee_choices=assignee_choices,
+    )
+
+    subscription_requests_base_qs = _subscription_unified_queryset_for_user(request.user).filter(
+        request_type=UnifiedRequestType.SUBSCRIPTION,
+        source_app="subscriptions",
+        source_model="Subscription",
+    )
+    selected_request_id_raw = (request.GET.get("request") or "").strip()
+    selected_request = (
+        subscription_requests_base_qs.filter(id=int(selected_request_id_raw)).first()
+        if selected_request_id_raw.isdigit()
+        else None
+    )
+
+    selected_request_subscription = None
+    if selected_request is not None:
+        raw_subscription_id = str(selected_request.source_object_id or "").strip()
+        if raw_subscription_id.isdigit():
+            selected_request_subscription = (
+                Subscription.objects.select_related("user", "plan", "invoice")
+                .filter(pk=int(raw_subscription_id))
+                .first()
+            )
+
+    selected_request_status_code = _subscription_request_operational_status(
+        selected_request_subscription,
+        selected_request,
+    ) if selected_request is not None else UnifiedRequestStatus.NEW
+    selected_request_is_completed = bool(
+        selected_request is not None
+        and (
+            selected_request_status_code == UnifiedRequestStatus.CLOSED
+            or getattr(selected_request_subscription, "status", None) in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}
+        )
+    )
+    selected_request_form = (
+        SubscriptionRequestActionForm(
+            initial={
+                "status": selected_request_status_code,
+                "assigned_to": str(getattr(selected_request, "assigned_user_id", "") or ""),
+                "plan_id": str(getattr(selected_request_subscription, "plan_id", "") or ""),
+                "duration_count": int(getattr(selected_request_subscription, "duration_count", 1) or 1),
+            },
+            assignee_choices=assignee_choices,
+            plan_choices=plan_choices,
+        )
+        if selected_request is not None and selected_request_subscription is not None
+        else None
+    )
+
+    request_query_params = request.GET.copy()
+    request_query_params.pop("request", None)
+    request_query_params.pop("account", None)
+    request_detail_base_query = request_query_params.urlencode()
+    close_request_url = _subscription_dashboard_url_with_state(
+        request,
+        request_id=None,
+        account_id=None,
+        anchor="subscriptionRequests",
+        tab=SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS,
+    )
+
+    subscription_requests_qs = subscription_requests_base_qs
+    if request_q:
+        subscription_requests_qs = subscription_requests_qs.filter(
+            Q(code__icontains=request_q)
+            | Q(summary__icontains=request_q)
+            | Q(requester__username__icontains=request_q)
+            | Q(requester__phone__icontains=request_q)
+        )
+    subscription_requests = list(subscription_requests_qs)
+    subscription_request_rows = _subscription_request_rows(subscription_requests)
+    if request_status_filter:
+        subscription_request_rows = [
+            row for row in subscription_request_rows if row.get("request_status_code") == request_status_filter
+        ]
+    for row in subscription_request_rows:
+        row["is_selected"] = bool(selected_request is not None and row.get("id") == selected_request.id)
+
+    subscription_accounts_qs = _subscription_accounts_queryset_for_user(request.user)
+    if account_q:
+        subscription_accounts_qs = subscription_accounts_qs.filter(
+            Q(user__username__icontains=account_q)
+            | Q(user__phone__icontains=account_q)
+            | Q(plan__title__icontains=account_q)
+            | Q(plan__code__icontains=account_q)
+            | Q(invoice__code__icontains=account_q)
+        )
+    if account_status_filter:
+        subscription_accounts_qs = subscription_accounts_qs.filter(status=account_status_filter)
+    subscription_accounts = list(subscription_accounts_qs)
+    subscription_account_rows = _subscription_account_rows(subscription_accounts)
+    for row in subscription_account_rows:
+        row["is_selected"] = bool(focused_account_id is not None and row.get("id") == focused_account_id)
+
+    latest_helpdesk_code = (
+        SupportTicket.objects.filter(ticket_type=SupportTicketType.SUBS)
+        .exclude(code="")
+        .order_by("-id")
+        .values_list("code", flat=True)
+        .first()
+        or "HD000001"
+    )
+
+    context = {
+        "hero_title": "لوحة فريق إدارة الاشتراكات",
+        "hero_subtitle": "تشغيل استفسارات الاشتراكات وطلبات الترقية والاشتراك من لوحة موحدة مع صفحة فرعية مستقلة لبيانات حسابات المشتركين.",
+        "can_write": can_write,
+        "nav_items": _subscription_nav_items(active_tab),
+        "subscription_team_label": subscription_team_name,
+        "subscription_inquiries": _subscription_inquiry_rows(subscription_inquiries),
+        "subscription_requests": subscription_request_rows,
+        "subscription_accounts": subscription_account_rows,
+        "selected_inquiry": selected_inquiry,
+        "selected_inquiry_status_label": _subscription_inquiry_status_label(
+            selected_inquiry.status if selected_inquiry else ""
+        ),
+        "selected_request": selected_request,
+        "selected_request_subscription": selected_request_subscription,
+        "selected_request_status_label": _subscription_request_status_label(selected_request_status_code),
+        "selected_request_form": selected_request_form,
+        "selected_request_can_save": bool(can_write and not selected_request_is_completed and selected_request_form is not None),
+        "selected_request_content_text": _subscription_request_content_text(selected_request_subscription, selected_request)
+        if selected_request is not None
+        else "",
+        "selected_request_payment_status_label": _subscription_payment_status_label(selected_request_subscription)
+        if selected_request is not None
+        else "",
+        "selected_request_close_url": close_request_url,
+        "request_detail_base_query": request_detail_base_query,
+        "inquiry_form": inquiry_form,
+        "close_inquiry_url": _subscription_close_inquiry_url(request),
+        "inquiry_summary": _support_summary(subscription_inquiries),
+        "request_summary": _subscription_requests_summary(subscription_request_rows),
+        "account_summary": _subscription_accounts_summary(subscription_accounts),
+        "request_codes": [
+            {"code": latest_helpdesk_code, "label": "استفسارات الاشتراكات"},
+            {"code": _latest_request_code("SD", request_type=UnifiedRequestType.SUBSCRIPTION), "label": "طلبات الترقية والاشتراكات"},
+        ],
+        "filters": {
+            "tab": active_tab,
+            "inquiry_q": inquiry_q,
+            "request_q": request_q,
+            "account_q": account_q,
+            "request_status": request_status_filter,
+            "account_status": account_status_filter,
+        },
+        "request_status_choices": SUBSCRIPTION_REQUEST_STATUS_CHOICES,
+        "account_status_choices": SubscriptionStatus.choices,
+        "redirect_query": request.GET.urlencode(),
+    }
+    return render(request, "dashboard/subscription_dashboard.html", context)
 
 
 PROMO_MODULE_DEFINITIONS = (
@@ -1755,8 +2687,10 @@ def _promo_quote_snapshot(promo_request: PromoRequest) -> dict | None:
         payload = calc_promo_request_quote(pr=promo_request)
     except ValueError:
         return None
+    from apps.billing.pricing import get_vat_percent
+
     subtotal = Decimal(str(payload.get("subtotal") or "0.00")).quantize(Decimal("0.01"))
-    vat_percent = Decimal(str(getattr(settings, "PROMO_VAT_PERCENT", 15)))
+    vat_percent = Decimal(str(get_vat_percent("promo"))).quantize(Decimal("0.01"))
     vat_amount = (subtotal * vat_percent / Decimal("100")).quantize(Decimal("0.01"))
     total = (subtotal + vat_amount).quantize(Decimal("0.01"))
     quote_items = []
@@ -1924,6 +2858,15 @@ def promo_dashboard(request, request_id: int | None = None):
                 if target_ticket.assigned_to_id and target_ticket.assigned_to_id != request.user.id:
                     return HttpResponseForbidden("غير مصرح: الاستفسار ليس ضمن المهام المكلف بها.")
 
+            submitted_form_token = (request.POST.get("promo_inquiry_form_token") or "").strip()
+            if not _consume_single_use_submit_token(
+                request,
+                PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY,
+                submitted_form_token,
+            ):
+                messages.warning(request, "تم تجاهل محاولة الإرسال المكررة للاستفسار. حدّث الصفحة قبل إعادة الحفظ.")
+                return _promo_redirect_with_state(request, inquiry_id=target_ticket.id)
+
             post_data = request.POST.copy()
             if promo_team is not None:
                 post_data["assigned_team"] = str(promo_team.id)
@@ -2053,6 +2996,16 @@ def promo_dashboard(request, request_id: int | None = None):
                 )
                 return _promo_redirect_with_state(request, request_id=target_request.id)
 
+            if action == "save_request":
+                submitted_form_token = (request.POST.get("promo_form_token") or "").strip()
+                if not _consume_single_use_submit_token(
+                    request,
+                    PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY,
+                    submitted_form_token,
+                ):
+                    messages.warning(request, "تم تجاهل محاولة الحفظ المكررة. حدّث الصفحة قبل إعادة الحفظ.")
+                    return _promo_redirect_with_state(request, request_id=target_request.id)
+
             if action == "save_request" and target_request.ops_status == PromoOpsStatus.COMPLETED:
                 messages.warning(request, "طلب الترويج المكتمل لا يقبل الحفظ مرة أخرى.")
                 return _promo_redirect_with_state(request, request_id=target_request.id)
@@ -2147,6 +3100,16 @@ def promo_dashboard(request, request_id: int | None = None):
     close_request_params.pop("request", None)
     close_request_query = close_request_params.urlencode()
     close_request_url = f"{request.path}?{close_request_query}" if close_request_query else request.path
+    promo_inquiry_form_token = (
+        _issue_single_use_submit_token(request, PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY)
+        if can_write and selected_inquiry is not None
+        else ""
+    )
+    promo_request_form_token = (
+        _issue_single_use_submit_token(request, PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY)
+        if can_write and selected_request is not None and selected_request.ops_status != PromoOpsStatus.COMPLETED
+        else ""
+    )
 
     context = _promo_base_context("home")
     context.update(
@@ -2169,6 +3132,8 @@ def promo_dashboard(request, request_id: int | None = None):
             "promo_support_team": promo_team,
             "selected_request_assets": selected_request_assets,
             "selected_request_quote": selected_request_quote,
+            "promo_inquiry_form_token": promo_inquiry_form_token,
+            "promo_request_form_token": promo_request_form_token,
             "selected_inquiry_attachments": selected_inquiry_attachments,
             "selected_inquiry_comments": selected_inquiry_comments,
             "inquiry_form": inquiry_form,
@@ -4071,6 +5036,16 @@ def promo_module(request, module_key: str):
         if not can_write:
             return HttpResponseForbidden("لا تملك صلاحية إدارة وحدات الترويج.")
         module_action = _promo_module_action(request)
+        if module_action == "approve_item":
+            submitted_form_token = (request.POST.get("promo_module_form_token") or "").strip()
+            if not _consume_single_use_submit_token(
+                request,
+                PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY,
+                submitted_form_token,
+            ):
+                messages.warning(request, "تم تجاهل محاولة الاعتماد المكررة. حدّث الصفحة قبل إعادة الحفظ.")
+                selected_request_id = int(posted_request_id_raw) if posted_request_id_raw.isdigit() else None
+                return _promo_module_redirect_with_state(request, module_key, request_id=selected_request_id)
         module_form = PromoModuleItemForm(request.POST, request.FILES, service_type=service_type)
         if module_form.is_valid():
             cleaned = module_form.cleaned_data
@@ -4328,6 +5303,11 @@ def promo_module(request, module_key: str):
                 "dashboard:promo_module_request_preview_api",
                 kwargs={"module_key": module_key},
             ),
+            "promo_module_form_token": (
+                _issue_single_use_submit_token(request, PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY)
+                if can_write
+                else ""
+            ),
         }
     )
     return render(request, "dashboard/promo_module.html", context)
@@ -4377,6 +5357,15 @@ def promo_pricing(request):
     if request.method == "POST":
         if not can_write:
             return HttpResponseForbidden("لا تملك صلاحية تعديل تسعيرات الترويج.")
+
+        submitted_form_token = (request.POST.get("promo_pricing_form_token") or "").strip()
+        if not _consume_single_use_submit_token(
+            request,
+            PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY,
+            submitted_form_token,
+        ):
+            messages.warning(request, "تم تجاهل محاولة حفظ التسعيرات المكررة. حدّث الصفحة قبل إعادة الحفظ.")
+            return redirect("dashboard:promo_pricing")
 
         validation_errors: list[str] = []
         parsed_amounts: dict[int, Decimal] = {}
@@ -4435,6 +5424,11 @@ def promo_pricing(request):
             "message_rules": by_service.get(PromoServiceType.PROMO_MESSAGES, []),
             "sponsorship_rules": by_service.get(PromoServiceType.SPONSORSHIP, []),
             "can_write": can_write,
+            "promo_pricing_form_token": (
+                _issue_single_use_submit_token(request, PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY)
+                if can_write
+                else ""
+            ),
         }
     )
     return render(request, "dashboard/promo_pricing.html", context)
@@ -4553,12 +5547,12 @@ def _dashboard_team_panels() -> list[dict]:
             "team": "فريق إدارة الترقية والاشتراكات",
             "summary": "إدارة طلبات الاشتراك والترقية وما يرتبط بها من فواتير تشغيلية.",
             "dashboards": [
-                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+                {"label": "لوحة فريق إدارة الاشتراكات", "url": reverse("dashboard:subscription_dashboard")},
             ],
             "worklists": [
                 "طلبات الترقية والاشتراكات",
                 "متابعة حالات السداد",
-                "إدارة التجديد والانتهاء",
+                "بيانات حسابات المشتركين والتجديد والانتهاء",
             ],
         },
         {

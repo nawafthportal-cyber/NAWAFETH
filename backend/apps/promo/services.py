@@ -214,6 +214,10 @@ def _promo_status_label(status: str) -> str:
     }.get(status, status)
 
 
+def _promo_request_web_url(pr: PromoRequest) -> str:
+    return f"/promotion/?request_id={pr.id}"
+
+
 def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) -> None:
     try:
         code_or_id = (pr.code or str(pr.id)).strip()
@@ -222,7 +226,7 @@ def _notify_promo_status_change(*, pr: PromoRequest, status: str, actor=None) ->
             title="تحديث حالة الترويج",
             body=f"تم تحديث حالة طلب الترويج ({code_or_id}) إلى {_promo_status_label(status)}.",
             kind="promo_status_change",
-            url=f"/promo/requests/{pr.id}/",
+            url=_promo_request_web_url(pr),
             actor=actor,
             event_type=EventType.STATUS_CHANGED,
             request_id=pr.id,
@@ -247,7 +251,7 @@ def _notify_promo_ops_completed(*, pr: PromoRequest, actor=None) -> None:
             title="اكتمل طلب الترويج",
             body=f"تم اكتمال تنفيذ طلب الترويج ({code_or_id}) بنجاح.",
             kind="promo_status_change",
-            url=f"/promo/requests/{pr.id}/",
+            url=_promo_request_web_url(pr),
             actor=actor,
             event_type=EventType.STATUS_CHANGED,
             request_id=pr.id,
@@ -907,7 +911,12 @@ def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
     if user_a.id == user_b.id:
         raise ValueError("cannot chat self")
     thread = (
-        Thread.objects.filter(is_direct=True, context_mode=context_mode)
+        Thread.objects.filter(
+            is_direct=True,
+            is_system_thread=True,
+            system_thread_key="promo_messages",
+            context_mode=context_mode,
+        )
         .filter(
             Q(participant_1=user_a, participant_2=user_b)
             | Q(participant_1=user_b, participant_2=user_a)
@@ -915,18 +924,27 @@ def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
         .first()
     )
     if thread:
+        thread.set_participant_modes(
+            participant_1_mode=context_mode,
+            participant_2_mode=context_mode,
+            save=True,
+        )
         return thread
     return Thread.objects.create(
         is_direct=True,
+        is_system_thread=True,
+        system_thread_key="promo_messages",
         context_mode=context_mode,
         participant_1=user_a,
         participant_2=user_b,
+        participant_1_mode=context_mode,
+        participant_2_mode=context_mode,
     )
 
 
 @transaction.atomic
 def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
-    from apps.messaging.models import Message, Thread
+    from apps.messaging.models import Thread, create_system_message
     from apps.messaging.views import _is_blocked_by_other, _unarchive_for_participants
     from apps.notifications.services import create_notification
 
@@ -961,6 +979,7 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
     title = str(item.message_title or item.request.message_title or "").strip()
     if not title:
         title = f"رسالة دعائية من {_promo_message_sender_label(pr=item.request)}"
+    sender_label = _promo_message_sender_label(pr=item.request)
     landing_url = _promo_message_default_url(item=item)
     assets = _item_assets(item)
     delivered_count = 0
@@ -994,18 +1013,26 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
             )
             if not _is_blocked_by_other(thread, sender_user.id):
                 if body:
-                    Message.objects.create(
+                    create_system_message(
                         thread=thread,
                         sender=sender_user,
                         body=body,
+                        sender_team_name=sender_label,
+                        system_thread_key="promo_messages",
+                        reply_restricted_to=recipient,
+                        reply_restriction_reason="الردود مغلقة على الرسائل الدعائية الآلية.",
                         created_at=now,
                     )
                     delivered = True
                 for asset in assets:
-                    Message.objects.create(
+                    create_system_message(
                         thread=thread,
                         sender=sender_user,
                         body="",
+                        sender_team_name=sender_label,
+                        system_thread_key="promo_messages",
+                        reply_restricted_to=recipient,
+                        reply_restriction_reason="الردود مغلقة على الرسائل الدعائية الآلية.",
                         attachment=asset.file,
                         attachment_type=_promo_message_attachment_type(asset.asset_type),
                         attachment_name=os.path.basename(getattr(asset.file, "name", "") or "").strip(),
@@ -1148,7 +1175,7 @@ def quote_and_create_invoice(*, pr: PromoRequest, by_user, quote_note: str = "")
                 "updated_at",
             ]
         )
-        activate_after_payment(pr=pr)
+        apply_effective_payment(pr=pr)
         pr.refresh_from_db()
     return pr
 
@@ -1166,8 +1193,8 @@ def reject_request(*, pr: PromoRequest, reason: str, by_user) -> PromoRequest:
 
 
 @transaction.atomic
-def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
-    pr = PromoRequest.objects.select_for_update().get(pk=pr.pk)
+def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
+    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
     if not pr.invoice:
         raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
     if not pr.invoice.is_payment_effective():
@@ -1181,6 +1208,51 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
         pr.save(update_fields=["status", "ops_status", "ops_completed_at", "updated_at"])
         _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
         _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=pr.requester)
+        return pr
+
+    if pr.status in {PromoRequestStatus.REJECTED, PromoRequestStatus.CANCELLED, PromoRequestStatus.COMPLETED}:
+        return pr
+
+    if pr.ops_status == PromoOpsStatus.COMPLETED:
+        return activate_after_payment(pr=pr)
+
+    update_fields = ["updated_at"]
+    status_changed = pr.status != PromoRequestStatus.NEW
+    if status_changed:
+        pr.status = PromoRequestStatus.NEW
+        update_fields.append("status")
+    if pr.activated_at is not None:
+        pr.activated_at = None
+        update_fields.append("activated_at")
+
+    if len(update_fields) > 1:
+        pr.save(update_fields=update_fields)
+        _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
+        if status_changed:
+            _notify_promo_status_change(pr=pr, status=PromoRequestStatus.NEW, actor=pr.requester)
+
+    return pr
+
+
+@transaction.atomic
+def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
+    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    if not pr.invoice:
+        raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
+    if not pr.invoice.is_payment_effective():
+        raise ValueError("الفاتورة غير مدفوعة بعد.")
+
+    now = timezone.now()
+    if pr.end_at and pr.end_at <= now:
+        pr.status = PromoRequestStatus.EXPIRED
+        pr.ops_status = PromoOpsStatus.COMPLETED
+        pr.ops_completed_at = pr.ops_completed_at or now
+        pr.save(update_fields=["status", "ops_status", "ops_completed_at", "updated_at"])
+        _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
+        _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=pr.requester)
+        return pr
+
+    if pr.status == PromoRequestStatus.ACTIVE and pr.activated_at is not None:
         return pr
 
     pr.status = PromoRequestStatus.ACTIVE
@@ -1242,7 +1314,7 @@ def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
 def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: str | None = None) -> PromoRequest:
     if new_status not in PromoOpsStatus.values:
         raise ValueError("حالة التنفيذ غير صحيحة.")
-    pr = PromoRequest.objects.select_for_update().get(pk=pr.pk)
+    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
     current_status = pr.ops_status or PromoOpsStatus.NEW
     if new_status == current_status:
         return pr
@@ -1255,6 +1327,10 @@ def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: st
     allowed_next = allowed_transitions.get(current_status)
     if allowed_next is not None and new_status not in allowed_next:
         raise ValueError("تسلسل حالة التنفيذ غير صحيح. الانتقال المسموح: جديد ← تحت المعالجة ← مكتمل.")
+
+    if new_status in {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED}:
+        if not pr.invoice or not pr.invoice.is_payment_effective():
+            raise ValueError("لا يمكن بدء أو إكمال تنفيذ طلب الترويج قبل اعتماد الدفع.")
 
     pr.ops_status = new_status
     now = timezone.now()
@@ -1271,6 +1347,10 @@ def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: st
             pr.quote_note = normalized_note
             update_fields.append("quote_note")
     pr.save(update_fields=update_fields)
+
+    if new_status == PromoOpsStatus.COMPLETED:
+        pr = activate_after_payment(pr=pr)
+
     _sync_promo_to_unified(pr=pr, changed_by=by_user)
     if new_status == PromoOpsStatus.COMPLETED:
         _notify_promo_ops_completed(pr=pr, actor=by_user)

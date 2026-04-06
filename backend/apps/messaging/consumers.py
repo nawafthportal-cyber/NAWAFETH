@@ -1,15 +1,17 @@
 import json
 import logging
+from urllib.parse import parse_qs
 
+from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.generic.websocket import AsyncJsonWebsocketConsumer
-from channels.db import database_sync_to_async
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 from django.utils.html import strip_tags
 
 from apps.marketplace.models import ServiceRequest
 from .models import Thread, Message, MessageRead, ThreadUserState
+from .display import display_name_for_user
 
 
 logger = logging.getLogger(__name__)
@@ -70,6 +72,8 @@ def create_message(thread: Thread, sender_id: int, body: str):
         other_ids = [pid for pid in participant_ids if pid and pid != sender_id]
         if other_ids and ThreadUserState.objects.filter(thread_id=t.id, user_id__in=other_ids, is_blocked=True).exists():
             raise ValueError("blocked")
+        if not t.can_user_send(sender_id):
+            raise ValueError("reply_locked")
 
     msg = Message.objects.create(thread=thread, sender_id=sender_id, body=body)
 
@@ -152,6 +156,8 @@ class RequestChatConsumer(AsyncWebsocketConsumer):
                 code = str(e)
                 if code == "blocked":
                     await self.send_json({"type": "error", "code": "blocked", "error": "تم حظرك من الطرف الآخر"})
+                elif code == "reply_locked":
+                    await self.send_json({"type": "error", "code": "reply_locked", "error": "الردود مغلقة لهذه الرسائل الآلية."})
                 else:
                     await self.send_json({"type": "error", "code": code})
                 return
@@ -227,7 +233,7 @@ def _get_thread_with_request(thread_id: int):
 
 
 @database_sync_to_async
-def _assert_thread_access(thread_id: int, user) -> Thread:
+def _assert_thread_access(thread_id: int, user, active_mode: str = "") -> Thread:
     if not user or user.is_anonymous:
         raise PermissionDenied("anon")
 
@@ -263,7 +269,7 @@ def _assert_thread_access(thread_id: int, user) -> Thread:
 
     # Direct thread: check participant_1 / participant_2
     if thread.is_direct:
-        if user.id in (thread.participant_1_id, thread.participant_2_id):
+        if user.id in (thread.participant_1_id, thread.participant_2_id) and thread.mode_matches_user(user, active_mode):
             return thread
         raise PermissionDenied("not_participant")
 
@@ -273,6 +279,10 @@ def _assert_thread_access(thread_id: int, user) -> Thread:
         raise PermissionDenied("not_participant")
     is_client = sr.client_id == user.id
     is_provider = bool(sr.provider_id) and sr.provider.user_id == user.id
+    if active_mode == "client":
+        is_provider = False
+    elif active_mode == "provider":
+        is_client = False
     if not (is_client or is_provider):
         raise PermissionDenied("not_participant")
 
@@ -306,6 +316,8 @@ def _create_message_for_thread(thread_id: int, sender_id: int, body: str) -> Mes
     other_ids = [pid for pid in participant_ids if pid and pid != sender_id]
     if other_ids and ThreadUserState.objects.filter(thread_id=thread.id, user_id__in=other_ids, is_blocked=True).exists():
         raise ValueError("blocked")
+    if not thread.can_user_send(sender_id):
+        raise ValueError("reply_locked")
 
     msg = Message.objects.create(thread=thread, sender_id=sender_id, body=body)
 
@@ -339,9 +351,12 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
         self.user = self.scope.get("user")
         self.thread_id = int(self.scope["url_route"]["kwargs"]["thread_id"])
         self.group_name = f"thread_{self.thread_id}"
+        query_string = (self.scope.get("query_string") or b"").decode("utf-8", errors="ignore")
+        query_params = parse_qs(query_string)
+        self.active_mode = str((query_params.get("mode") or [""])[0] or "").strip().lower()
 
         try:
-            await _assert_thread_access(self.thread_id, self.user)
+            await _assert_thread_access(self.thread_id, self.user, self.active_mode)
         except PermissionDenied as e:
             # Map common cases to codes
             if str(e) == "anon":
@@ -392,7 +407,7 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
             await self.send_json({"type": "error", "error": "حدث خطأ غير متوقع"})
 
     async def _handle_typing(self, content):
-        await _assert_thread_access(self.thread_id, self.user)
+        await _assert_thread_access(self.thread_id, self.user, self.active_mode)
         is_typing = bool(content.get("is_typing"))
         await self.channel_layer.group_send(
             self.group_name,
@@ -404,7 +419,7 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def _handle_read(self, content):
-        await _assert_thread_access(self.thread_id, self.user)
+        await _assert_thread_access(self.thread_id, self.user, self.active_mode)
         marked_ids = await _mark_thread_read_by_thread_id(self.thread_id, self.user.id)
         await self.channel_layer.group_send(
             self.group_name,
@@ -418,7 +433,7 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
         )
 
     async def _handle_message(self, content):
-        await _assert_thread_access(self.thread_id, self.user)
+        await _assert_thread_access(self.thread_id, self.user, self.active_mode)
 
         text = (content.get("text") or "").strip()
         client_id = content.get("client_id")  # قد يكون None
@@ -440,6 +455,17 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
                 await self.send_json({"type": "error", "error": "الرسالة طويلة جدًا"})
             elif code == "blocked":
                 await self.send_json({"type": "error", "code": "blocked", "error": "تم حظرك من الطرف الآخر"})
+            elif code == "reply_locked":
+                thread = await _assert_thread_access(self.thread_id, self.user, self.active_mode)
+                label = (getattr(thread, "system_sender_label", "") or "").strip()
+                reason = (getattr(thread, "reply_restriction_reason", "") or "").strip()
+                await self.send_json(
+                    {
+                        "type": "error",
+                        "code": "reply_locked",
+                        "error": reason or (f"الردود مغلقة لهذه الرسائل من {label}." if label else "الردود مغلقة لهذه الرسائل الآلية."),
+                    }
+                )
             else:
                 await self.send_json({"type": "error", "error": "بيانات غير صالحة"})
             return
@@ -453,7 +479,7 @@ class ThreadConsumer(AsyncJsonWebsocketConsumer):
             sender_name = get_full_name() or ""
         else:
             sender_name = ""
-        sender_name = sender_name or getattr(self.user, "phone", "") or str(self.user)
+        sender_name = sender_name or display_name_for_user(self.user, sender_team_name=getattr(msg, "sender_team_name", ""))
 
         payload = {
             "type": "broadcast.message",

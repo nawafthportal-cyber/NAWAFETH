@@ -27,7 +27,7 @@ from apps.providers.models import ProviderProfile
 from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
 
-from .models import Message, MessageRead, Thread, ThreadUserState
+from .models import Message, MessageRead, Thread, ThreadUserState, direct_thread_mode_q
 from .display import display_name_for_user
 from .pagination import MessagePagination
 from .permissions import IsRequestParticipant, IsThreadParticipant
@@ -79,6 +79,60 @@ def _provider_direct_chat_limit_exceeded(user) -> bool:
 	return _direct_threads_count_for_user(user) >= direct_chat_quota_for_user(user)
 
 
+def _apply_direct_thread_modes(*, thread: Thread, user_a, user_b, user_a_mode: str, user_b_mode: str) -> None:
+	if thread.participant_1_id == getattr(user_a, "id", None):
+		thread.set_participant_modes(
+			participant_1_mode=user_a_mode,
+			participant_2_mode=user_b_mode,
+			save=True,
+		)
+		return
+	if thread.participant_1_id == getattr(user_b, "id", None):
+		thread.set_participant_modes(
+			participant_1_mode=user_b_mode,
+			participant_2_mode=user_a_mode,
+			save=True,
+		)
+
+
+def _find_direct_thread_for_pair(*, user_a, user_b, user_a_mode: str, user_b_mode: str, legacy_context_mode: str = ""):
+	threads = list(
+		Thread.objects.filter(is_direct=True, is_system_thread=False)
+		.filter(
+			Q(participant_1=user_a, participant_2=user_b)
+			| Q(participant_1=user_b, participant_2=user_a)
+		)
+		.order_by("-id")
+	)
+	for thread in threads:
+		if thread.participant_mode_for_user(user_a) != user_a_mode:
+			continue
+		if thread.participant_mode_for_user(user_b) != user_b_mode:
+			continue
+		return thread
+	if legacy_context_mode:
+		for thread in threads:
+			if thread.context_mode == legacy_context_mode:
+				return thread
+	return None
+
+
+def _can_access_direct_thread_for_request(thread: Thread, request) -> bool:
+	if not thread.is_participant(request.user):
+		return False
+	return thread.mode_matches_user(request.user, _active_context_mode_from_request(request))
+
+
+def _reply_restricted_detail(thread: Thread) -> str:
+	label = (getattr(thread, "system_sender_label", "") or "").strip()
+	reason = (getattr(thread, "reply_restriction_reason", "") or "").strip()
+	if reason:
+		return reason
+	if label:
+		return f"الردود مغلقة لهذه الرسائل من {label}."
+	return "الردود مغلقة لهذه الرسائل الآلية."
+
+
 # ────────────────────────────────────────────────
 # Request-based messaging
 # ────────────────────────────────────────────────
@@ -122,6 +176,9 @@ class SendMessageView(APIView):
 
 		if _is_blocked_by_other(thread, request.user.id):
 			return Response({"detail": "تم حظرك من الطرف الآخر"}, status=status.HTTP_403_FORBIDDEN)
+
+		if not thread.can_user_send(request.user):
+			return Response({"detail": _reply_restricted_detail(thread)}, status=status.HTTP_403_FORBIDDEN)
 
 		serializer = MessageCreateSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
@@ -208,24 +265,28 @@ class DirectThreadGetOrCreateView(APIView):
 			if active_mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
 			else Thread.ContextMode.SHARED
 		)
+		recipient_mode = Thread.ContextMode.PROVIDER
 
 		if me.id == provider_user.id:
 			return Response({"error": "لا يمكنك محادثة نفسك"}, status=status.HTTP_400_BAD_REQUEST)
 
-		from django.db.models import Max
-		thread = (
-			Thread.objects.filter(is_direct=True)
-			.filter(
-				Q(participant_1=me, participant_2=provider_user)
-				| Q(participant_1=provider_user, participant_2=me)
-			)
-			.filter(context_mode=desired_mode)
-			.annotate(last_message_at=Max("messages__created_at"))
-			.order_by("-last_message_at", "-id")
-			.first()
+		thread = _find_direct_thread_for_pair(
+			user_a=me,
+			user_b=provider_user,
+			user_a_mode=desired_mode,
+			user_b_mode=recipient_mode,
+			legacy_context_mode=desired_mode,
 		)
 
-		if not thread:
+		if thread:
+			_apply_direct_thread_modes(
+				thread=thread,
+				user_a=me,
+				user_b=provider_user,
+				user_a_mode=desired_mode,
+				user_b_mode=recipient_mode,
+			)
+		else:
 			provider_users = [provider_user]
 			if getattr(me, "provider_profile", None) and me.id != provider_user.id:
 				provider_users.append(me)
@@ -240,6 +301,8 @@ class DirectThreadGetOrCreateView(APIView):
 				context_mode=desired_mode,
 				participant_1=me,
 				participant_2=provider_user,
+				participant_1_mode=desired_mode,
+				participant_2_mode=recipient_mode,
 			)
 			try:
 				from apps.analytics.tracking import safe_track_event
@@ -274,7 +337,7 @@ class DirectThreadMessagesListView(generics.ListAPIView):
 	def get_queryset(self):
 		thread_id = self.kwargs["thread_id"]
 		thread = get_object_or_404(Thread, id=thread_id, is_direct=True)
-		if not thread.is_participant(self.request.user):
+		if not _can_access_direct_thread_for_request(thread, self.request):
 			from rest_framework.exceptions import PermissionDenied
 			raise PermissionDenied("غير مصرح")
 		return (
@@ -292,11 +355,14 @@ class DirectThreadSendMessageView(APIView):
 
 	def post(self, request, thread_id):
 		thread = get_object_or_404(Thread, id=thread_id, is_direct=True)
-		if not thread.is_participant(request.user):
+		if not _can_access_direct_thread_for_request(thread, request):
 			return Response({"error": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
 		if _is_blocked_by_other(thread, request.user.id):
 			return Response({"detail": "تم حظرك من الطرف الآخر"}, status=status.HTTP_403_FORBIDDEN)
+
+		if not thread.can_user_send(request.user):
+			return Response({"detail": _reply_restricted_detail(thread)}, status=status.HTTP_403_FORBIDDEN)
 
 		serializer = MessageCreateSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
@@ -331,7 +397,7 @@ class DirectThreadMarkReadView(APIView):
 
 	def post(self, request, thread_id):
 		thread = get_object_or_404(Thread, id=thread_id, is_direct=True)
-		if not thread.is_participant(request.user):
+		if not _can_access_direct_thread_for_request(thread, request):
 			return Response({"error": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
 		message_ids = list(
@@ -364,21 +430,16 @@ class MyDirectThreadsListView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get(self, request):
-		from django.db.models import Q, Max
+		from django.db.models import Max
 		me = request.user
 		mode = _active_context_mode_from_request(request)
 		threads = (
 			Thread.objects.filter(is_direct=True)
-			.filter(Q(participant_1=me) | Q(participant_2=me))
+			.filter(direct_thread_mode_q(user=me, mode=mode))
 			.select_related("participant_1", "participant_2")
 			.annotate(last_message_at=Max("messages__created_at"))
 			.order_by("-last_message_at")
 		)
-
-		if mode == Thread.ContextMode.CLIENT:
-			threads = threads.filter(context_mode__in=[Thread.ContextMode.CLIENT, Thread.ContextMode.SHARED])
-		elif mode == Thread.ContextMode.PROVIDER:
-			threads = threads.filter(context_mode__in=[Thread.ContextMode.PROVIDER, Thread.ContextMode.SHARED])
 
 		result = []
 		for t in threads:
@@ -386,9 +447,11 @@ class MyDirectThreadsListView(APIView):
 			last_msg = t.messages.order_by("-id").first()
 			unread = t.messages.exclude(sender=me).exclude(reads__user=me).count()
 			peer_message_body = ""
+			peer_sender_team_name = ""
 			if getattr(peer, "is_staff", False):
 				last_peer_message = t.messages.filter(sender=peer).order_by("-id").first()
 				peer_message_body = getattr(last_peer_message, "body", "") or getattr(last_msg, "body", "") or ""
+				peer_sender_team_name = getattr(last_peer_message, "sender_team_name", "") or getattr(t, "system_sender_label", "") or ""
 
 			# Get provider profile for peer if exists
 			peer_provider = getattr(peer, "provider_profile", None)
@@ -400,6 +463,7 @@ class MyDirectThreadsListView(APIView):
 
 			result.append({
 				"thread_id": t.id,
+				"is_system_thread": bool(t.is_system_thread),
 				"peer_id": peer.id,
 				"peer_provider_id": getattr(peer_provider, "id", None),
 				"peer_profile_image": peer_profile_image,
@@ -409,8 +473,9 @@ class MyDirectThreadsListView(APIView):
 					else []
 				),
 				"peer_name": (
-					peer_provider.display_name if (peer_provider and not getattr(peer, "is_staff", False))
-					else display_name_for_user(peer, message_body=peer_message_body)
+					t.system_sender_label if (t.is_system_thread and (t.system_sender_label or "").strip())
+					else peer_provider.display_name if (peer_provider and not getattr(peer, "is_staff", False))
+					else display_name_for_user(peer, message_body=peer_message_body, sender_team_name=peer_sender_team_name)
 				),
 				"peer_first_name": getattr(peer, "first_name", "") or "",
 				"peer_last_name": getattr(peer, "last_name", "") or "",
@@ -419,6 +484,9 @@ class MyDirectThreadsListView(APIView):
 				"last_message": last_msg.body if last_msg else "",
 				"last_message_at": last_msg.created_at.isoformat() if last_msg else t.created_at.isoformat(),
 				"unread_count": unread,
+				"reply_restricted_to_me": t.reply_restricted_to_id == me.id,
+				"reply_restriction_reason": t.reply_restriction_reason,
+				"system_sender_label": t.system_sender_label,
 			})
 
 		return Response(result, status=status.HTTP_200_OK)
@@ -460,10 +528,7 @@ class MyThreadStatesListView(APIView):
 
 		q = Q()
 		if mode in {"client", "provider"}:
-			direct_q = (
-				(Q(is_direct=True, participant_1=me) | Q(is_direct=True, participant_2=me))
-				& Q(context_mode__in=[mode, Thread.ContextMode.SHARED])
-			)
+			direct_q = Q(is_direct=True) & direct_thread_mode_q(user=me, mode=mode)
 			q |= direct_q
 			if mode == "client":
 				q |= Q(request__client=me)
@@ -501,6 +566,10 @@ class ThreadStateDetailView(APIView):
 		)
 		data = ThreadUserStateSerializer(obj).data
 		data["blocked_by_other"] = bool(thread and _is_blocked_by_other(thread, request.user.id))
+		data["reply_restricted_to_me"] = bool(thread and thread.reply_restricted_to_id == request.user.id)
+		data["reply_restriction_reason"] = getattr(thread, "reply_restriction_reason", "") if thread else ""
+		data["system_sender_label"] = getattr(thread, "system_sender_label", "") if thread else ""
+		data["is_system_thread"] = bool(thread and thread.is_system_thread)
 		return Response(data, status=status.HTTP_200_OK)
 
 

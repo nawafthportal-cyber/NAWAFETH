@@ -108,6 +108,10 @@ def notify_new_message(sender, instance: Message, created, **kwargs):
         if not target:
             return
 
+        target_mode = thread.participant_mode_for_user(target)
+        if target_mode not in ("client", "provider"):
+            target_mode = _audience_mode_for_user(target, context_mode=thread.context_mode)
+
         create_notification(
             user=target,
             title="رسالة جديدة",
@@ -119,7 +123,7 @@ def notify_new_message(sender, instance: Message, created, **kwargs):
             pref_key="new_chat_message",
             message_id=instance.id,
             meta={"thread_id": thread.id, "is_direct": True},
-            audience_mode=_audience_mode_for_user(target, context_mode=thread.context_mode),
+            audience_mode=target_mode,
         )
         return
 

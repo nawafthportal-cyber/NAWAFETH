@@ -1011,6 +1011,7 @@ const HomePage = (() => {
     const frag = document.createDocumentFragment();
     items.forEach((item, index) => {
       const card = UI.el('div', { className: 'showcase-card', role: 'button', tabindex: '0' });
+      card.setAttribute('aria-label', item.provider_display_name || item.caption || 'فتح صفحة المزود');
       const media = UI.el('div', { className: 'showcase-media' });
       const thumbUrl = ApiClient.mediaUrl(item.thumbnail_url || item.file_url);
       if (thumbUrl) {
@@ -1023,24 +1024,6 @@ const HomePage = (() => {
         media.appendChild(UI.el('span', { className: 'showcase-video-badge', textContent: '▶' }));
       }
       card.appendChild(media);
-
-      const body = UI.el('div', { className: 'showcase-body' });
-      const avatar = UI.el('div', { className: 'showcase-provider-avatar' });
-      const profileImg = ApiClient.mediaUrl(item.provider_profile_image);
-      if (profileImg) {
-        const avatarImg = UI.el('img', { alt: item.provider_display_name || 'مقدم خدمة' });
-        avatarImg.src = profileImg;
-        avatar.appendChild(avatarImg);
-      } else {
-        avatar.textContent = (item.provider_display_name || '؟').charAt(0);
-      }
-      body.appendChild(avatar);
-
-      const copy = UI.el('div', { className: 'showcase-copy' });
-      copy.appendChild(UI.el('div', { className: 'showcase-title', textContent: item.caption || 'مشروع ممول' }));
-      copy.appendChild(UI.el('div', { className: 'showcase-provider', textContent: item.provider_display_name || 'مقدم خدمة' }));
-      body.appendChild(copy);
-      card.appendChild(body);
 
       const openProvider = () => {
         if (typeof NwAnalytics !== 'undefined') {
@@ -1055,10 +1038,6 @@ const HomePage = (() => {
               redirect_url: item.redirect_url || '',
             },
           });
-        }
-        if (item.redirect_url && /^https?:\/\//i.test(item.redirect_url)) {
-          window.open(item.redirect_url, '_blank', 'noopener');
-          return;
         }
         if (item.provider_id) {
           window.location.href = '/provider/' + encodeURIComponent(String(item.provider_id)) + '/';

@@ -38,6 +38,10 @@ const ChatDetailPage = (() => {
       is_archived: false,
       is_blocked: false,
       blocked_by_other: false,
+      reply_restricted_to_me: false,
+      reply_restriction_reason: '',
+      system_sender_label: '',
+      is_system_thread: false,
     },
   };
 
@@ -211,6 +215,10 @@ const ChatDetailPage = (() => {
     if (typeof thread.is_favorite === 'boolean') state.threadState.is_favorite = thread.is_favorite;
     if (typeof thread.is_archived === 'boolean') state.threadState.is_archived = thread.is_archived;
     if (typeof thread.is_blocked === 'boolean') state.threadState.is_blocked = thread.is_blocked;
+    if (typeof thread.reply_restricted_to_me === 'boolean') state.threadState.reply_restricted_to_me = thread.reply_restricted_to_me;
+    if (typeof thread.reply_restriction_reason === 'string') state.threadState.reply_restriction_reason = thread.reply_restriction_reason;
+    if (typeof thread.system_sender_label === 'string') state.threadState.system_sender_label = thread.system_sender_label;
+    if (typeof thread.is_system_thread === 'boolean') state.threadState.is_system_thread = thread.is_system_thread;
 
     _renderPeer();
     _renderThreadState();
@@ -244,6 +252,10 @@ const ChatDetailPage = (() => {
       is_archived: !!res.data.is_archived,
       is_blocked: !!res.data.is_blocked,
       blocked_by_other: !!res.data.blocked_by_other,
+      reply_restricted_to_me: !!res.data.reply_restricted_to_me,
+      reply_restriction_reason: _trim(res.data.reply_restriction_reason),
+      system_sender_label: _trim(res.data.system_sender_label),
+      is_system_thread: !!res.data.is_system_thread,
     };
 
     _renderThreadState();
@@ -305,9 +317,11 @@ const ChatDetailPage = (() => {
       id,
       senderId,
       senderName: _trim(raw.sender_name),
+      senderTeamName: _trim(raw.sender_team_name),
       text,
       createdAt,
       readByIds,
+      isSystemGenerated: !!raw.is_system_generated,
       attachmentUrl: _trim(raw.attachment_url),
       attachmentType: _trim(raw.attachment_type),
       attachmentName: _trim(raw.attachment_name),
@@ -410,6 +424,10 @@ const ChatDetailPage = (() => {
   }
 
   function _peerSubtitle() {
+    if (state.threadState.reply_restricted_to_me || state.threadState.is_system_thread) {
+      const label = _trim(state.threadState.system_sender_label) || _trim(state.peer.name) || 'الجهة المرسلة';
+      return 'رسائل آلية من ' + label;
+    }
     if (state.peer.kind === 'team') return 'رسائل فريق المنصة';
     if (state.peer.kind === 'provider') return 'مقدم خدمة على المنصة';
     if (state.peer.kind === 'client') return 'عميل على المنصة';
@@ -418,6 +436,10 @@ const ChatDetailPage = (() => {
 
   function _peerTags() {
     const tags = [];
+
+    if (state.threadState.is_system_thread) {
+      tags.push({ text: 'رسائل آلية', accent: 'violet' });
+    }
 
     if (state.peer.kind === 'team') {
       tags.push({ text: 'فريق المنصة', accent: 'violet' });
@@ -439,6 +461,9 @@ const ChatDetailPage = (() => {
   function _composerNote() {
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
       return 'الإرسال متوقف حتى يتم رفع الحظر.';
+    }
+    if (state.threadState.reply_restricted_to_me) {
+      return state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.';
     }
     if (state.peer.kind === 'team') {
       return 'يمكنك متابعة الرسائل مع فريق المنصة وإرسال المرفقات عند الحاجة.';
@@ -488,6 +513,11 @@ const ChatDetailPage = (() => {
     }
     if (state.threadState.is_blocked) {
       _showBanner('قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.', 'danger');
+      _setComposerDisabled(true);
+      return;
+    }
+    if (state.threadState.reply_restricted_to_me) {
+      _showBanner(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'info');
       _setComposerDisabled(true);
       return;
     }
@@ -606,7 +636,13 @@ const ChatDetailPage = (() => {
   function _buildMessageBadgeRow(msg, options) {
     const items = [];
 
-    if (options.kind === 'team' && !options.mine) {
+    if (!options.mine && msg.isSystemGenerated) {
+      items.push({
+        text: msg.senderTeamName || msg.senderName || state.threadState.system_sender_label || 'رسالة آلية',
+        accent: 'violet',
+      });
+      items.push({ text: 'رسالة آلية', accent: 'soft' });
+    } else if (options.kind === 'team' && !options.mine) {
       items.push({
         text: msg.senderName || 'فريق المنصة',
         accent: 'violet',
@@ -771,7 +807,8 @@ const ChatDetailPage = (() => {
     const hasText = !!_trim(dom.msgInput?.value);
     const hasAttachment = !!state.pendingAttachment;
     const blocked = !!state.threadState.is_blocked || !!state.threadState.blocked_by_other;
-    const disabled = state.isSending || blocked || (!hasText && !hasAttachment);
+    const replyLocked = !!state.threadState.reply_restricted_to_me;
+    const disabled = state.isSending || blocked || replyLocked || (!hasText && !hasAttachment);
 
     if (dom.btnSend) {
       dom.btnSend.disabled = disabled;
@@ -788,6 +825,10 @@ const ChatDetailPage = (() => {
 
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
       _showToast('لا يمكن الإرسال لأن هذه الرسائل محظورة.', 'error');
+      return;
+    }
+    if (state.threadState.reply_restricted_to_me) {
+      _showToast(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'warning');
       return;
     }
 
@@ -946,7 +987,8 @@ const ChatDetailPage = (() => {
 
   function _buildWsCandidates(token) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const path = '/ws/thread/' + state.threadId + '/?token=' + encodeURIComponent(token);
+    const mode = encodeURIComponent(_activeMode());
+    const path = '/ws/thread/' + state.threadId + '/?token=' + encodeURIComponent(token) + '&mode=' + mode;
     const urls = [];
 
     const addCandidate = (host) => {
@@ -1130,6 +1172,13 @@ const ChatDetailPage = (() => {
       state.threadState.blocked_by_other = true;
       _renderThreadState();
       _showToast('لا يمكنك المراسلة حالياً لأن الطرف الآخر قام بحظرك.', 'error');
+      return;
+    }
+
+    if (payload.type === 'error' && payload.code === 'reply_locked') {
+      state.threadState.reply_restricted_to_me = true;
+      _renderThreadState();
+      _showToast(payload.error || 'الردود مغلقة لهذه الرسائل الآلية.', 'warning');
       return;
     }
 

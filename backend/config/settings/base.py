@@ -437,6 +437,7 @@ REST_FRAMEWORK = {
 		"refresh": "60/min",
     },
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"],
+    "EXCEPTION_HANDLER": "apps.core.drf_exception_handler.api_exception_handler",
 }
 
 # ✅ JWT

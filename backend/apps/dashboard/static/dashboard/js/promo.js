@@ -76,6 +76,26 @@
         }
       });
     }
+
+    document.querySelectorAll("form[data-single-submit-form='true']").forEach((form) => {
+      form.addEventListener("submit", (event) => {
+        const submitter = event.submitter;
+        if (!submitter || submitter.dataset.lockOnSubmit !== "true") {
+          return;
+        }
+        if (submitter.dataset.submitting === "1") {
+          event.preventDefault();
+          return;
+        }
+
+        submitter.dataset.submitting = "1";
+        submitter.disabled = true;
+        const pendingText = submitter.getAttribute("data-pending-text") || "";
+        if (pendingText) {
+          submitter.textContent = pendingText;
+        }
+      });
+    });
   }
 
   function setupPromoLightbox() {

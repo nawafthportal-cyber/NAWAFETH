@@ -4,29 +4,85 @@
 
 {% block content %}
 <main
-  class="page-shell"
+  class="page-shell promo-page-shell"
   data-promo-new-request-url="{% url 'mobile_web:promotion_new_request' %}"
   data-promo-requests-url="{% url 'mobile_web:promotion' %}">
-  <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>إدارة الترويج</h1>
-  </div>
+  <section class="promo-page-hero">
+    <div class="detail-card promo-page-hero-main">
+      <div class="page-header promo-page-header">
+        <button class="btn-back" type="button" onclick="history.back()" aria-label="العودة"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+        <h1>إدارة الترويج</h1>
+      </div>
 
-  <div class="tabs-row" id="promo-tabs">
-    <button type="button" class="tab active" data-tab="requests">طلباتي</button>
-    <button type="button" class="tab" data-tab="new">طلب جديد</button>
-  </div>
+      <div class="promo-page-copy">
+        <span class="promo-page-kicker">لوحة متابعة الحملات</span>
+        <p class="promo-page-subtitle">تابع طلبات الترويج، راجع الحالات الحالية، وانتقل سريعًا إلى إنشاء طلب جديد من واجهة أوضح ومهيأة للديسكتوب.</p>
+      </div>
 
-  <section class="detail-card" style="margin-bottom:12px">
-    <h3 style="margin:0 0 8px;font-size:18px">طلبات الترويج</h3>
-    <p class="text-muted" style="margin:0">تابع طلباتك وتفاصيلها من هنا، وأنشئ طلبًا جديدًا من خيار <strong>طلب جديد</strong>.</p>
+      <div class="promo-page-highlights" aria-hidden="true">
+        <div class="promo-page-highlight">
+          <strong>متابعة مباشرة</strong>
+          <span>كل طلب ظاهر بحالته وتاريخه بوضوح.</span>
+        </div>
+        <div class="promo-page-highlight">
+          <strong>تنقل أسرع</strong>
+          <span>الوصول إلى إنشاء حملة جديدة بنقرة واحدة.</span>
+        </div>
+        <div class="promo-page-highlight">
+          <strong>تفاصيل فورية</strong>
+          <span>اضغط على أي صف لفتح تفاصيل الطلب مباشرة.</span>
+        </div>
+      </div>
+
+      <div class="tabs-row promo-tabs-row" id="promo-tabs">
+        <button type="button" class="tab active" data-tab="requests">طلباتي</button>
+        <button type="button" class="tab" data-tab="new">طلب جديد</button>
+      </div>
+    </div>
+
+    <aside class="detail-card promo-quick-card">
+      <span class="promo-quick-card-kicker">إجراء سريع</span>
+      <h2>ابدأ طلب ترويج جديد</h2>
+      <p>اختر خدمات الترويج المناسبة، ثم أكمل بيانات الحملة من الصفحة التفصيلية بخطوات مرتبة وواضحة.</p>
+      <div class="promo-quick-card-points">
+        <span>اختيار الخدمات</span>
+        <span>حساب تكلفة حي</span>
+        <span>متابعة لاحقة من نفس الصفحة</span>
+      </div>
+      <a href="{% url 'mobile_web:promotion_new_request' %}" class="btn btn-primary promo-quick-card-btn">ابدأ الآن</a>
+    </aside>
   </section>
 
-  <section class="tab-panel active" data-panel="requests">
-    <div id="promo-loading" class="loading-center"><div class="spinner"></div></div>
+  <section class="detail-card promo-page-summary">
+    <div class="promo-page-summary-copy">
+      <h3>طلبات الترويج</h3>
+      <p>تابع طلباتك وتفاصيلها من هنا، وأنشئ طلبًا جديدًا من خيار <strong>طلب جديد</strong>.</p>
+    </div>
+    <div class="promo-page-summary-note">
+      <strong>تلميح</strong>
+      <span>يمكنك الضغط على أي صف في الجدول لفتح التفاصيل أو متابعة الدفع إن كان الطلب بانتظار السداد.</span>
+    </div>
+  </section>
+
+  <section class="tab-panel active detail-card promo-requests-panel" data-panel="requests">
+    <div class="promo-requests-panel-head">
+      <div>
+        <h3>قائمة طلبات الترويج</h3>
+        <p>عرض مرتب للحالة، نوع الخدمة، ووقت آخر اعتماد أو تحديث مهم للطلب.</p>
+      </div>
+      <a href="{% url 'mobile_web:promotion_new_request' %}" class="btn btn-secondary promo-requests-new-link">طلب جديد</a>
+    </div>
+
+    <div id="promo-loading" class="loading-center promo-loading-state"><div class="spinner"></div></div>
     <div id="promo-list"></div>
-    <div id="promo-empty" class="empty-state" style="display:none">
+    <div id="promo-empty" class="empty-state promo-empty-state" style="display:none">
+      <div class="promo-empty-visual" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
       <p>لا توجد طلبات ترويج حتى الآن</p>
+      <small>ابدأ أول حملة ترويجية ليظهر سجل الطلبات هنا بشكل منظم مع الحالة والتفاصيل.</small>
       <button class="btn btn-primary" id="btn-go-new">ابدأ طلب جديد</button>
     </div>
   </section>
@@ -60,6 +116,43 @@
 </div>
 
 <style>
+  .promo-page-shell{display:grid;gap:18px}
+  .promo-page-hero{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(280px,.72fr);gap:18px;align-items:stretch}
+  .promo-page-hero-main{position:relative;overflow:hidden;padding:22px;border:1px solid #dde7f3;background:linear-gradient(135deg,#fff 0%,#fbfcff 44%,#f6f1ff 100%);box-shadow:0 18px 42px rgba(15,23,42,.06)}
+  .promo-page-hero-main::before{content:"";position:absolute;top:-120px;left:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(47,125,30,.13),rgba(47,125,30,0));pointer-events:none}
+  .promo-page-hero-main::after{content:"";position:absolute;left:18px;bottom:-110px;width:260px;height:220px;border-radius:50%;background:radial-gradient(circle,rgba(102,61,144,.14),rgba(102,61,144,0));pointer-events:none}
+  .promo-page-header{position:relative;z-index:1;margin-bottom:14px}
+  .promo-page-copy{position:relative;z-index:1;display:grid;gap:10px;margin-bottom:18px}
+  .promo-page-kicker{display:inline-flex;align-items:center;justify-content:center;width:max-content;max-width:100%;padding:7px 14px;border-radius:999px;background:#ecf8ef;color:#2f7d1e;font-size:12px;font-weight:800}
+  .promo-page-subtitle{margin:0;max-width:66ch;color:#52606d;line-height:1.95;font-size:14px}
+  .promo-page-highlights{position:relative;z-index:1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+  .promo-page-highlight{padding:14px;border-radius:18px;border:1px solid rgba(215,226,238,.9);background:rgba(255,255,255,.84);backdrop-filter:blur(8px);box-shadow:inset 0 1px 0 rgba(255,255,255,.75)}
+  .promo-page-highlight strong{display:block;margin-bottom:4px;color:#213547;font-size:14px}
+  .promo-page-highlight span{display:block;color:#64748b;font-size:12px;line-height:1.8}
+  .promo-tabs-row{position:relative;z-index:1;margin:0;padding:8px;border-radius:18px;background:rgba(255,255,255,.78);border:1px solid rgba(219,228,238,.92);width:max-content;max-width:100%}
+
+  .promo-quick-card{display:flex;flex-direction:column;gap:12px;justify-content:center;padding:22px;border:1px solid #dbe7e0;background:linear-gradient(180deg,#ffffff 0%,#f7fff6 62%,#f9fcff 100%);box-shadow:0 18px 40px rgba(15,23,42,.06)}
+  .promo-quick-card-kicker{display:inline-flex;align-items:center;justify-content:center;width:max-content;padding:6px 12px;border-radius:999px;background:#163126;color:#fff;font-size:11px;font-weight:800}
+  .promo-quick-card h2{margin:0;color:#17352a;font-size:28px;line-height:1.35}
+  .promo-quick-card p{margin:0;color:#5a6b60;line-height:1.9;font-size:14px}
+  .promo-quick-card-points{display:flex;flex-wrap:wrap;gap:8px}
+  .promo-quick-card-points span{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border-radius:999px;background:#fff;border:1px solid #d9e7db;color:#2f7d1e;font-size:12px;font-weight:700}
+  .promo-quick-card-btn{width:100%;justify-content:center;min-height:48px}
+
+  .promo-page-summary{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 20px;border:1px solid #e3eaf4;background:linear-gradient(135deg,#fff 0%,#f9fbff 100%)}
+  .promo-page-summary-copy h3{margin:0 0 8px;font-size:20px;color:#213547}
+  .promo-page-summary-copy p{margin:0;color:#64748b;line-height:1.85;font-size:13px}
+  .promo-page-summary-note{display:grid;gap:4px;min-width:280px;padding:12px 14px;border-radius:16px;background:#f8f5ff;border:1px solid #e5daf7;color:#5b2f91}
+  .promo-page-summary-note strong{font-size:13px}
+  .promo-page-summary-note span{font-size:12px;line-height:1.8}
+
+  .promo-requests-panel{padding:20px}
+  .promo-requests-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px}
+  .promo-requests-panel-head h3{margin:0 0 6px;font-size:21px;color:#213547}
+  .promo-requests-panel-head p{margin:0;color:#64748b;line-height:1.8;font-size:13px;max-width:64ch}
+  .promo-requests-new-link{min-height:42px;white-space:nowrap}
+  .promo-loading-state{min-height:160px;align-items:center;justify-content:center}
+
   .promo-modal{position:fixed;inset:0;z-index:1500}
   .promo-modal-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px)}
   .promo-modal-card{position:relative;z-index:1;max-width:560px;margin:8vh auto 0;background:#fff;border-radius:22px;padding:18px;box-shadow:0 20px 40px rgba(15,23,42,.18)}
@@ -80,16 +173,66 @@
   .success-message-box strong{display:block;font-size:17px;margin:0 0 4px}
   .success-message-box p{margin:0;color:#6b7280}
 
+  .promo-requests-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 14px}
+  .promo-overview-chip{padding:14px 16px;border-radius:18px;border:1px solid #e1e8f4;background:linear-gradient(180deg,#fff 0%,#fbfdff 100%);box-shadow:0 10px 24px rgba(15,23,42,.04)}
+  .promo-overview-chip span{display:block;color:#64748b;font-size:12px;margin-bottom:6px}
+  .promo-overview-chip strong{display:block;color:#213547;font-size:26px;line-height:1.2}
+  .promo-overview-chip.is-primary{background:linear-gradient(180deg,#ffffff 0%,#f4f9ff 100%)}
+  .promo-overview-chip.is-success{background:linear-gradient(180deg,#ffffff 0%,#f5fff2 100%)}
+  .promo-overview-chip.is-warning{background:linear-gradient(180deg,#ffffff 0%,#fff9ef 100%)}
+  .promo-overview-chip.is-accent{background:linear-gradient(180deg,#ffffff 0%,#faf6ff 100%)}
+
   .promo-requests-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px}
   .promo-requests-head h3{margin:0;font-size:16px;color:#663d90;font-weight:700}
   .promo-requests-head .dot{width:10px;height:10px;background:#663d90;border-radius:50%}
-  .promo-requests-table-wrap{overflow-x:auto;margin:0 0 8px}
-  .promo-requests-table{width:100%;border-collapse:collapse;border:1px solid #d6c8ef;font-size:13px}
-  .promo-requests-table thead th{background:#f3edfc;color:#663d90;padding:10px 12px;text-align:right;white-space:nowrap;font-weight:700}
-  .promo-requests-table tbody td{padding:10px 12px;border:1px solid #e8e0f5;white-space:nowrap}
-  .promo-requests-table tbody tr:hover{background:#faf7ff;cursor:pointer}
+  .promo-requests-table-wrap{overflow-x:auto;margin:0}
+  .promo-requests-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+  .promo-requests-table thead th{position:sticky;top:0;background:#f5f7ff;color:#5b6280;padding:14px 14px;text-align:right;white-space:nowrap;font-weight:800;border-bottom:1px solid #dde5f1}
+  .promo-requests-table thead th:first-child{border-top-right-radius:16px}
+  .promo-requests-table thead th:last-child{border-top-left-radius:16px}
+  .promo-requests-table tbody td{padding:16px 14px;border-bottom:1px solid #edf1f6;vertical-align:middle;white-space:nowrap;background:#fff}
+  .promo-requests-table tbody tr:last-child td{border-bottom:0}
+  .promo-requests-table tbody tr:hover td{background:#fafcff;cursor:pointer}
+  .promo-request-code{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:999px;background:#f5efff;color:#663d90;font-weight:800;border:1px solid #e4d5fb}
+  .promo-request-type{display:-webkit-box;max-width:360px;white-space:normal;line-height:1.8;color:#243b53;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .promo-request-date{color:#52606d;font-weight:700}
+  .promo-status-pill{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent}
+  .promo-status-pill.status-new,.promo-status-pill.status-awaiting-review,.promo-status-pill.status-in-review{background:#eef4ff;border-color:#d4dff7;color:#3056a5}
+  .promo-status-pill.status-quoted,.promo-status-pill.status-pending-payment{background:#fff7ed;border-color:#fed7aa;color:#b45309}
+  .promo-status-pill.status-active,.promo-status-pill.status-in-progress{background:#f0fdf4;border-color:#bbf7d0;color:#166534}
+  .promo-status-pill.status-completed{background:#ecfeff;border-color:#bae6fd;color:#0f766e}
+  .promo-status-pill.status-rejected,.promo-status-pill.status-cancelled,.promo-status-pill.status-expired{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
+  .promo-inline-state{padding:16px 18px;border-radius:16px;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;font-size:13px;line-height:1.8}
+  .promo-inline-state-error{background:#fff5f5;border-color:#fecaca;color:#b91c1c}
+
+  .promo-empty-state{display:grid;place-items:center;text-align:center;gap:12px;min-height:240px;padding:28px 18px;border:1px dashed #d9e2ec;background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);border-radius:22px}
+  .promo-empty-state p{margin:0;color:#213547;font-size:18px;font-weight:800}
+  .promo-empty-state small{display:block;max-width:460px;color:#64748b;line-height:1.9;font-size:13px}
+  .promo-empty-visual{position:relative;width:90px;height:68px}
+  .promo-empty-visual span{position:absolute;display:block;border-radius:18px;background:linear-gradient(180deg,#ffffff 0%,#f2ecff 100%);border:1px solid #e5daf7;box-shadow:0 14px 30px rgba(102,61,144,.08)}
+  .promo-empty-visual span:nth-child(1){inset:12px 0 0 22px}
+  .promo-empty-visual span:nth-child(2){width:58px;height:42px;top:0;right:8px}
+  .promo-empty-visual span:nth-child(3){width:58px;height:42px;bottom:0;left:0}
+
+  @media (max-width:1024px){
+    .promo-page-hero{grid-template-columns:1fr}
+    .promo-page-highlights{grid-template-columns:1fr}
+    .promo-page-summary{flex-direction:column}
+    .promo-page-summary-note{min-width:0;width:100%}
+    .promo-requests-overview{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .promo-requests-panel-head{flex-direction:column;align-items:stretch}
+    .promo-requests-new-link{width:100%;justify-content:center}
+  }
 
   @media (max-width:640px){
+    .promo-page-hero-main,.promo-quick-card,.promo-requests-panel{padding:16px}
+    .promo-tabs-row{width:100%}
+    .promo-tabs-row .tab{flex:1}
+    .promo-page-highlights,.promo-requests-overview{grid-template-columns:1fr}
+    .promo-page-summary-copy h3{font-size:18px}
+    .promo-quick-card h2{font-size:22px}
+    .promo-requests-table thead th,.promo-requests-table tbody td{padding:12px 10px}
+    .promo-request-type{max-width:none}
     .promo-modal-card{margin:0;height:100%;max-width:none;border-radius:0;padding:16px}
     .promo-modal-body{max-height:calc(100vh - 170px)}
   }

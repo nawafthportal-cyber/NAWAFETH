@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceStatus
@@ -22,21 +22,34 @@ CURRENT_SUBSCRIPTION_STATUSES = (
     SubscriptionStatus.GRACE,
 )
 
+MAX_SUBSCRIPTION_DURATION_COUNT = 10
+
 
 def _subscription_status_to_unified(status: str) -> str:
-    if status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+    if status == SubscriptionStatus.AWAITING_REVIEW:
         return "in_progress"
+    if status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+        return "completed"
     if status in {SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELLED}:
         return "completed"
     return "new"
 
 
-def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None):
+def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None, assigned_user=None):
     try:
         from apps.unified_requests.services import upsert_unified_request
-        from apps.unified_requests.models import UnifiedRequestType
+        from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
     except Exception:
         return
+
+    existing_request = UnifiedRequest.objects.filter(
+        source_app="subscriptions",
+        source_model="Subscription",
+        source_object_id=str(sub.id),
+    ).select_related("assigned_user").first()
+    assigned_user = assigned_user if assigned_user is not None else getattr(existing_request, "assigned_user", None)
+    assigned_team_code = getattr(existing_request, "assigned_team_code", "") or "subs"
+    assigned_team_name = getattr(existing_request, "assigned_team_name", "") or "الاشتراكات"
 
     upsert_unified_request(
         request_type=UnifiedRequestType.SUBSCRIPTION,
@@ -57,16 +70,126 @@ def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None):
             "end_at": sub.end_at.isoformat() if sub.end_at else None,
             "grace_end_at": sub.grace_end_at.isoformat() if sub.grace_end_at else None,
         },
-        assigned_team_code="subs",
-        assigned_team_name="الاشتراكات",
-        assigned_user=None,
+        assigned_team_code=assigned_team_code,
+        assigned_team_name=assigned_team_name,
+        assigned_user=assigned_user,
         changed_by=changed_by,
     )
+
+
+def _delete_subscription_unified_request(*, sub: Subscription) -> None:
+    try:
+        from apps.unified_requests.models import UnifiedRequest
+    except Exception:
+        return
+
+    UnifiedRequest.objects.filter(
+        source_app="subscriptions",
+        source_model="Subscription",
+        source_object_id=str(sub.id),
+    ).delete()
 
 
 def _grace_days() -> int:
     from apps.core.models import PlatformConfig
     return PlatformConfig.load().subscription_grace_days
+
+
+def _subscription_duration_text(*, plan: SubscriptionPlan | None, duration_count: int) -> str:
+    normalized_duration = max(1, int(duration_count or 1))
+    period = getattr(plan, "period", "year")
+    if period == "month":
+        if normalized_duration == 1:
+            return "لمدة شهر واحد"
+        if normalized_duration == 2:
+            return "لمدة شهرين"
+        if 3 <= normalized_duration <= 10:
+            return f"لمدة {normalized_duration} أشهر"
+        return f"لمدة {normalized_duration} شهرًا"
+
+    if normalized_duration == 1:
+        return "لمدة سنة واحدة"
+    if normalized_duration == 2:
+        return "لمدة سنتين"
+    if 3 <= normalized_duration <= 10:
+        return f"لمدة {normalized_duration} سنوات"
+    return f"لمدة {normalized_duration} سنة"
+
+
+def _get_or_create_subscription_direct_thread(*, user_a, user_b):
+    from apps.messaging.models import Thread
+
+    if not user_a or not user_b or user_a.id == user_b.id:
+        return None
+
+    thread = (
+        Thread.objects.filter(
+            is_direct=True,
+            is_system_thread=True,
+            system_thread_key="subscriptions",
+            context_mode=Thread.ContextMode.PROVIDER,
+        )
+        .filter(
+            Q(participant_1=user_a, participant_2=user_b)
+            | Q(participant_1=user_b, participant_2=user_a)
+        )
+        .order_by("-id")
+        .first()
+    )
+    if thread is not None:
+        thread.set_participant_modes(
+            participant_1_mode=Thread.ContextMode.PROVIDER,
+            participant_2_mode=Thread.ContextMode.PROVIDER,
+            save=True,
+        )
+        return thread
+
+    return Thread.objects.create(
+        is_direct=True,
+        is_system_thread=True,
+        system_thread_key="subscriptions",
+        context_mode=Thread.ContextMode.PROVIDER,
+        participant_1=user_a,
+        participant_2=user_b,
+        participant_1_mode=Thread.ContextMode.PROVIDER,
+        participant_2_mode=Thread.ContextMode.PROVIDER,
+    )
+
+
+def _send_subscription_activation_system_message(*, sub: Subscription, sender, is_upgrade: bool) -> None:
+    if not sender or getattr(sender, "id", None) == getattr(sub.user, "id", None):
+        return
+
+    try:
+        from apps.messaging.models import create_system_message
+        from apps.messaging.views import _unarchive_for_participants
+    except Exception:
+        return
+
+    thread = _get_or_create_subscription_direct_thread(user_a=sender, user_b=sub.user)
+    if thread is None:
+        return
+
+    duration_text = _subscription_duration_text(plan=sub.plan, duration_count=sub.duration_count)
+    plan_name = getattr(sub.plan, "title", "") or getattr(sub.plan, "code", "") or "الباقة المختارة"
+    completion_text = "ترقية اشتراكك" if is_upgrade else "تفعيل اشتراكك"
+    end_at_text = timezone.localtime(sub.end_at).strftime("%d/%m/%Y") if sub.end_at else ""
+    body = f"مبارك، تم إكمال {completion_text} إلى باقة {plan_name} {duration_text}."
+    if end_at_text:
+        body += f" يستمر الاشتراك حتى {end_at_text}."
+    body += " أصبحت مزايا الباقة مفعلة على حسابك الآن."
+
+    create_system_message(
+        thread=thread,
+        sender=sender,
+        body=body,
+        sender_team_name="فريق إدارة الاشتراكات",
+        system_thread_key="subscriptions",
+        reply_restricted_to=sub.user,
+        reply_restriction_reason="الردود مغلقة على الرسائل الآلية من فريق إدارة الاشتراكات.",
+        created_at=timezone.now(),
+    )
+    _unarchive_for_participants(thread)
 
 
 def is_current_subscription_status(status: str) -> bool:
@@ -86,7 +209,13 @@ def _subscription_sort_timestamp(sub: Subscription) -> float:
 def _subscription_priority(sub: Subscription) -> tuple[int, int, float, int, int]:
     tier = plan_to_tier(getattr(sub, "plan", None))
     is_paid = tier != CanonicalPlanTier.BASIC
-    status_priority = 2 if getattr(sub, "status", None) == SubscriptionStatus.ACTIVE else 1
+    status_value = getattr(sub, "status", None)
+    if status_value == SubscriptionStatus.ACTIVE:
+        status_priority = 3
+    elif status_value == SubscriptionStatus.AWAITING_REVIEW:
+        status_priority = 2
+    else:
+        status_priority = 1
     return (
         1 if is_paid else 0,
         status_priority,
@@ -334,12 +463,78 @@ def backfill_provider_basic_entitlements(*, dry_run: bool = False) -> dict[str, 
     return summary
 
 
+def normalize_subscription_duration_count(value) -> int:
+    try:
+        duration_count = int(value or 1)
+    except (TypeError, ValueError):
+        raise ValueError("مدة الاشتراك غير صالحة.")
+
+    if duration_count < 1:
+        raise ValueError("مدة الاشتراك يجب أن تكون 1 أو أكثر.")
+    if duration_count > MAX_SUBSCRIPTION_DURATION_COUNT:
+        raise ValueError(f"مدة الاشتراك القصوى هي {MAX_SUBSCRIPTION_DURATION_COUNT}.")
+    return duration_count
+
+
+def _subscription_checkout_amounts(*, offer: dict | None, plan: SubscriptionPlan, duration_count: int) -> tuple[Decimal, Decimal]:
+    payload = offer or {}
+    base_amount = Decimal(str(payload.get("final_payable_amount", getattr(plan, "price", "0.00")) or "0.00"))
+    vat_percent = Decimal(str(payload.get("additional_vat_percent", "0.00") or "0.00"))
+    return (base_amount * duration_count, vat_percent)
+
+
+def _subscription_invoice_description(*, offer: dict | None, plan: SubscriptionPlan, duration_count: int) -> str:
+    payload = offer or {}
+    plan_name = str(payload.get("plan_name") or getattr(plan, "title", "") or getattr(plan, "code", "") or "الباقة").strip()
+    billing_cycle_label = str(payload.get("billing_cycle_label") or getattr(plan, "get_period_display", lambda: "سنوي")()).strip() or "سنوي"
+    if duration_count <= 1:
+        return f"اشتراك باقة {plan_name} ({billing_cycle_label})"
+    return f"اشتراك باقة {plan_name} ({duration_count} × {billing_cycle_label})"
+
+
+def _update_pending_subscription_checkout(*, sub: Subscription, duration_count: int, offer: dict | None = None) -> Subscription:
+    normalized_duration = normalize_subscription_duration_count(duration_count)
+    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+    if sub.status != SubscriptionStatus.PENDING_PAYMENT:
+        return sub
+
+    offer = offer or subscription_offer_for_plan(sub.plan, user=sub.user)
+    amount, vat_percent = _subscription_checkout_amounts(
+        offer=offer,
+        plan=sub.plan,
+        duration_count=normalized_duration,
+    )
+    description = _subscription_invoice_description(
+        offer=offer,
+        plan=sub.plan,
+        duration_count=normalized_duration,
+    )
+
+    update_fields: list[str] = []
+    if sub.duration_count != normalized_duration:
+        sub.duration_count = normalized_duration
+        update_fields.extend(["duration_count", "updated_at"])
+    if update_fields:
+        sub.save(update_fields=update_fields)
+
+    if sub.invoice_id:
+        invoice = sub.invoice
+        invoice.description = description
+        invoice.subtotal = amount
+        invoice.vat_percent = vat_percent
+        invoice.save(update_fields=["description", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
+
+    _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
+    return sub
+
+
 @transaction.atomic
-def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription:
+def start_subscription_checkout(*, user, plan: SubscriptionPlan, duration_count: int = 1) -> Subscription:
     """
     إنشاء اشتراك + فاتورة تلقائيًا
     """
     ensure_provider_access(user)
+    duration_count = normalize_subscription_duration_count(duration_count)
     offer = subscription_offer_for_plan(plan, user=user)
     action = offer.get("cta") or {}
     action_state = str(action.get("state") or "").strip().lower()
@@ -356,7 +551,11 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription
             .first()
         )
         if existing is not None:
-            return existing
+            return _update_pending_subscription_checkout(
+                sub=existing,
+                duration_count=duration_count,
+                offer=offer,
+            )
         raise ValueError("يوجد طلب ترقية قيد التفعيل لهذه الباقة.")
 
     if action_state == "unavailable":
@@ -374,24 +573,35 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan) -> Subscription
     if action_state == "current":
         raise ValueError("هذه هي باقتك الحالية بالفعل.")
 
-    return _create_pending_subscription_checkout(user=user, plan=plan, offer=offer)
+    return _create_pending_subscription_checkout(user=user, plan=plan, offer=offer, duration_count=duration_count)
 
 
-def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer: dict | None = None) -> Subscription:
+def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer: dict | None = None, duration_count: int = 1) -> Subscription:
     offer = offer or subscription_offer_for_plan(plan, user=user)
+    duration_count = normalize_subscription_duration_count(duration_count)
+    amount, vat_percent = _subscription_checkout_amounts(
+        offer=offer,
+        plan=plan,
+        duration_count=duration_count,
+    )
 
     sub = Subscription.objects.create(
         user=user,
         plan=plan,
         status=SubscriptionStatus.PENDING_PAYMENT,
+        duration_count=duration_count,
     )
 
     inv = Invoice.objects.create(
         user=user,
         title="فاتورة اشتراك",
-        description=f"اشتراك باقة {offer.get('plan_name', plan.title)} ({offer.get('billing_cycle_label', 'سنوي')})",
-        subtotal=Decimal(str(offer.get("final_payable_amount", sub.plan.price))),
-        vat_percent=Decimal(str(offer.get("additional_vat_percent", "0.00"))),
+        description=_subscription_invoice_description(
+            offer=offer,
+            plan=plan,
+            duration_count=duration_count,
+        ),
+        subtotal=amount,
+        vat_percent=vat_percent,
         reference_type="subscription",
         reference_id=str(sub.pk),
         status=InvoiceStatus.DRAFT,
@@ -419,11 +629,62 @@ def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer
                 "plan_code": plan.code,
                 "invoice_id": inv.id,
                 "status": sub.status,
+                "duration_count": sub.duration_count,
             },
         )
     except Exception:
         pass
     return sub
+
+
+@transaction.atomic
+def cancel_pending_subscription_checkout(*, sub: Subscription, changed_by=None) -> dict[str, object]:
+    sub = Subscription.objects.select_for_update().select_related("plan", "invoice", "user").get(pk=sub.pk)
+
+    if sub.status != SubscriptionStatus.PENDING_PAYMENT:
+        raise ValueError("لا يمكن إلغاء هذا الطلب من صفحة الدفع بعد الآن.")
+
+    invoice = getattr(sub, "invoice", None)
+    if invoice is not None and invoice.is_payment_effective():
+        raise ValueError("لا يمكن إلغاء طلب تم سداد فاتورته.")
+
+    plan_id = sub.plan_id
+    subscription_id = sub.id
+    invoice_id = sub.invoice_id
+
+    if invoice is not None:
+        if invoice.status not in {InvoiceStatus.DRAFT, InvoiceStatus.PENDING, InvoiceStatus.FAILED, InvoiceStatus.CANCELLED}:
+            raise ValueError("لا يمكن إلغاء الطلب لأن حالة الفاتورة الحالية لا تسمح بذلك.")
+        invoice.mark_cancelled(force=True)
+        invoice.save(update_fields=["status", "cancelled_at", "subtotal", "vat_percent", "vat_amount", "total", "updated_at"])
+        invoice.delete()
+
+    _delete_subscription_unified_request(sub=sub)
+    sub.delete()
+
+    try:
+        from apps.audit.models import AuditAction
+        from apps.audit.services import log_action
+
+        log_action(
+            actor=changed_by or getattr(sub, "user", None),
+            action=AuditAction.SUBSCRIPTION_ACCOUNT_CANCELLED,
+            reference_type="subscription",
+            reference_id=str(subscription_id),
+            extra={
+                "reason": "pending_checkout_cancelled_by_requester",
+                "plan_id": plan_id,
+                "invoice_id": invoice_id,
+            },
+        )
+    except Exception:
+        pass
+
+    return {
+        "plan_id": plan_id,
+        "subscription_id": subscription_id,
+        "invoice_id": invoice_id,
+    }
 
 
 def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subscription:
@@ -437,7 +698,7 @@ def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subs
         Subscription.objects.filter(
             user=user,
             plan=plan,
-            status=SubscriptionStatus.PENDING_PAYMENT,
+            status__in=(SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.AWAITING_REVIEW),
         )
         .select_related("plan", "invoice")
         .order_by("-id")
@@ -451,26 +712,74 @@ def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subs
 
 
 @transaction.atomic
-def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
-    """
-    تفعيل الاشتراك بعد الدفع
-    """
-    sub = Subscription.objects.select_for_update().select_related("plan").get(pk=sub.pk)
+def apply_effective_payment(*, sub: Subscription) -> Subscription:
+    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
 
     if not sub.invoice or not sub.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
 
+    if sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE, SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELLED}:
+        return sub
+
+    if sub.status != SubscriptionStatus.AWAITING_REVIEW:
+        sub.status = SubscriptionStatus.AWAITING_REVIEW
+        sub.save(update_fields=["status", "updated_at"])
+
+    try:
+        from apps.audit.services import log_action
+        from apps.audit.models import AuditAction
+
+        log_action(
+            actor=sub.user,
+            action=AuditAction.SUBSCRIPTION_PAYMENT_COMPLETED,
+            reference_type="subscription",
+            reference_id=str(sub.pk),
+            extra={
+                "plan": getattr(sub.plan, "code", ""),
+                "invoice_id": sub.invoice_id,
+            },
+        )
+    except Exception:
+        pass
+
+    _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
+    return sub
+
+
+@transaction.atomic
+def activate_subscription_after_payment(*, sub: Subscription, changed_by=None, assigned_user=None) -> Subscription:
+    """
+    تفعيل الاشتراك بعد اعتماد فريق الاشتراكات
+    """
+    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+
+    if not sub.invoice or not sub.invoice.is_payment_effective():
+        raise ValueError("الفاتورة غير مدفوعة بعد.")
+
+    if sub.status not in {SubscriptionStatus.AWAITING_REVIEW, SubscriptionStatus.ACTIVE}:
+        raise ValueError("لا يمكن تفعيل الاشتراك قبل اكتمال الدفع ووصوله إلى انتظار المراجعة.")
+
+    was_already_active = sub.status == SubscriptionStatus.ACTIVE
+    had_other_current_subscription = Subscription.objects.filter(
+        user=sub.user,
+        status__in=CURRENT_SUBSCRIPTION_STATUSES,
+    ).exclude(pk=sub.pk).exists()
+
     now = timezone.now()
     if sub.status != SubscriptionStatus.ACTIVE:
         sub.start_at = now
-        sub.end_at = subscription_offer_end_at(plan=sub.plan, start_at=now)
+        sub.end_at = subscription_offer_end_at(
+            plan=sub.plan,
+            start_at=now,
+            duration_count=sub.duration_count,
+        )
         sub.grace_end_at = sub.end_at + timedelta(days=_grace_days())
         sub.status = SubscriptionStatus.ACTIVE
         sub.save(update_fields=["start_at", "end_at", "grace_end_at", "status", "updated_at"])
     normalize_user_current_subscriptions(
         user=sub.user,
         preferred_subscription_id=sub.id,
-        changed_by=sub.user,
+        changed_by=changed_by or sub.user,
     )
 
     # Audit
@@ -479,7 +788,7 @@ def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
         from apps.audit.models import AuditAction
 
         log_action(
-            actor=sub.user,
+            actor=changed_by or sub.user,
             action=AuditAction.SUBSCRIPTION_ACTIVE,
             reference_type="subscription",
             reference_id=str(sub.pk),
@@ -488,7 +797,11 @@ def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
     except Exception:
         pass
 
-    _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
+    _sync_subscription_to_unified(
+        sub=sub,
+        changed_by=changed_by or sub.user,
+        assigned_user=assigned_user,
+    )
     try:
         from apps.analytics.tracking import safe_track_event
 
@@ -510,6 +823,13 @@ def activate_subscription_after_payment(*, sub: Subscription) -> Subscription:
         )
     except Exception:
         pass
+
+    if not was_already_active:
+        _send_subscription_activation_system_message(
+            sub=sub,
+            sender=changed_by,
+            is_upgrade=had_other_current_subscription,
+        )
     return sub
 
 
@@ -518,6 +838,12 @@ def revoke_subscription_after_payment_reversal(*, sub: Subscription) -> Subscrip
     sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
 
     if not sub.invoice or sub.invoice.is_payment_effective():
+        return sub
+
+    if sub.status == SubscriptionStatus.AWAITING_REVIEW:
+        sub.status = SubscriptionStatus.PENDING_PAYMENT
+        sub.save(update_fields=["status", "updated_at"])
+        _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
         return sub
 
     if sub.status not in (SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE):
@@ -564,7 +890,7 @@ def refresh_subscription_status(*, sub: Subscription) -> Subscription:
     sub = Subscription.objects.select_for_update().get(pk=sub.pk)
     now = timezone.now()
 
-    if sub.status in (SubscriptionStatus.CANCELLED, SubscriptionStatus.PENDING_PAYMENT):
+    if sub.status in (SubscriptionStatus.CANCELLED, SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.AWAITING_REVIEW):
         return sub
 
     if sub.end_at and now > sub.end_at and sub.status == SubscriptionStatus.ACTIVE:

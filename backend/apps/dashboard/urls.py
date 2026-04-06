@@ -14,6 +14,7 @@ urlpatterns = [
     path("admin-control/", views.admin_control_home, name="admin_control_home"),
     path("support/", views.support_dashboard, name="support_dashboard"),
     path("support/<int:ticket_id>/", views.support_dashboard, name="support_ticket_detail"),
+    path("subscriptions/", views.subscription_dashboard, name="subscription_dashboard"),
     path("promo/", views.promo_dashboard, name="promo_dashboard"),
     path("promo/<int:request_id>/", views.promo_dashboard, name="promo_request_detail"),
     path("verification/", views.verification_dashboard, name="verification_dashboard"),

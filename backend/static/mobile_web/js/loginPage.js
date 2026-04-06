@@ -9,6 +9,9 @@ const LoginPage = (() => {
   const FACE_ID_PHONE_KEY = 'nw_faceid_phone';
   const FACE_ID_DEVICE_TOKEN_KEY = 'nw_faceid_device_token';
   const FACE_ID_CRED_ID_KEY = 'nw_faceid_cred_id';
+  let _sendCooldownTimer = null;
+  let _sendCooldownSeconds = 0;
+  let _sendOtpDefaultLabel = 'إرسال رمز التحقق';
 
   function init() {
     if (Auth.isLoggedIn()) {
@@ -52,8 +55,10 @@ const LoginPage = (() => {
     _setText('login-title', _resolveTitle(blocks.login_title, 'تسجيل الدخول'));
     _setText('login-desc', _resolveTitle(blocks.login_description, 'أدخل رقم الجوال وسنرسل لك رمز تحقق لإكمال الدخول بأمان.'));
     _setText('login-phone-hint', _resolveTitle(blocks.login_phone_hint, 'الصيغة المعتمدة: 05XXXXXXXX'));
-    _setText('send-otp-text', _resolveTitle(blocks.login_submit_label, 'إرسال رمز التحقق'));
+    _sendOtpDefaultLabel = _resolveTitle(blocks.login_submit_label, 'إرسال رمز التحقق');
+    _setText('send-otp-text', _sendOtpDefaultLabel);
     _setText('btn-guest', _resolveTitle(blocks.login_guest_label, 'المتابعة كضيف'));
+    _syncSendOtpButton();
   }
 
   function _sanitizePhoneInput(value) {
@@ -66,6 +71,10 @@ const LoginPage = (() => {
   }
 
   async function _sendOTP(phoneInput) {
+    if (_sendCooldownSeconds > 0) {
+      return;
+    }
+
     const rawPhone = phoneInput.value.trim();
     const normalizedPhone = _sanitizePhoneInput(rawPhone);
     const errEl = document.getElementById('phone-error');
@@ -89,6 +98,10 @@ const LoginPage = (() => {
     _setLoading(false);
 
     if (!res.ok) {
+      const retryAfterSeconds = _readPositiveInt(res.data && res.data.retry_after_seconds);
+      if (retryAfterSeconds > 0) {
+        _startSendCooldown(retryAfterSeconds);
+      }
       const msg = (res.data && (res.data.detail || res.data.error)) || 'فشل إرسال الرمز';
       _showError(errEl, msg);
       return;
@@ -96,6 +109,12 @@ const LoginPage = (() => {
 
     try {
       sessionStorage.setItem('nw_auth_phone', normalizedPhone);
+      const cooldownSeconds = _readPositiveInt(res.data && res.data.cooldown_seconds);
+      if (cooldownSeconds > 0) {
+        sessionStorage.setItem('nw_auth_otp_cooldown', String(cooldownSeconds));
+      } else {
+        sessionStorage.removeItem('nw_auth_otp_cooldown');
+      }
       if (res.data && res.data.dev_code) {
         sessionStorage.setItem('nw_auth_dev_code', String(res.data.dev_code));
       } else {
@@ -183,9 +202,65 @@ const LoginPage = (() => {
     const btn = document.getElementById('btn-send-otp');
     const txt = document.getElementById('send-otp-text');
     const spin = document.getElementById('send-otp-spinner');
-    if (btn) btn.disabled = loading;
+    if (btn) btn.disabled = loading || _sendCooldownSeconds > 0;
     if (txt) txt.classList.toggle('hidden', loading);
     if (spin) spin.classList.toggle('hidden', !loading);
+    if (!loading) _syncSendOtpButton();
+  }
+
+  function _startSendCooldown(seconds) {
+    const nextSeconds = _readPositiveInt(seconds);
+    if (nextSeconds <= 0) return;
+
+    if (_sendCooldownTimer) {
+      clearInterval(_sendCooldownTimer);
+      _sendCooldownTimer = null;
+    }
+
+    _sendCooldownSeconds = nextSeconds;
+    _syncSendOtpButton();
+
+    _sendCooldownTimer = setInterval(() => {
+      _sendCooldownSeconds -= 1;
+      if (_sendCooldownSeconds <= 0) {
+        _sendCooldownSeconds = 0;
+        clearInterval(_sendCooldownTimer);
+        _sendCooldownTimer = null;
+      }
+      _syncSendOtpButton();
+    }, 1000);
+  }
+
+  function _syncSendOtpButton() {
+    const btn = document.getElementById('btn-send-otp');
+    const txt = document.getElementById('send-otp-text');
+    const spin = document.getElementById('send-otp-spinner');
+    const loading = !!(spin && !spin.classList.contains('hidden'));
+
+    if (btn) btn.disabled = loading || _sendCooldownSeconds > 0;
+    if (txt && !loading) {
+      txt.textContent = _sendCooldownSeconds > 0
+        ? 'أعد المحاولة بعد ' + _formatWaitShort(_sendCooldownSeconds)
+        : _sendOtpDefaultLabel;
+    }
+  }
+
+  function _formatWaitShort(seconds) {
+    const total = _readPositiveInt(seconds);
+    if (total < 60) return total + ' ث';
+    const minutes = Math.floor(total / 60);
+    const remainingSeconds = total % 60;
+    if (minutes < 60) {
+      return remainingSeconds ? (minutes + ' د ' + remainingSeconds + ' ث') : (minutes + ' د');
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? (hours + ' س ' + remainingMinutes + ' د') : (hours + ' س');
+  }
+
+  function _readPositiveInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
   function _showError(el, msg) {

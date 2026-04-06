@@ -92,13 +92,8 @@ VERIFICATION_BILLING_CYCLE = "yearly"
 VERIFICATION_BILLING_CYCLE_LABEL = "سنوي"
 VERIFICATION_CHARGE_MODEL = "per_verification"
 VERIFICATION_CHARGE_MODEL_LABEL = "لكل طلب توثيق"
-VERIFICATION_TAX_POLICY = "inclusive"
-VERIFICATION_TAX_POLICY_LABEL = "شامل الضريبة"
-VERIFICATION_ADDITIONAL_VAT_PERCENT = Decimal("0.00")
-VERIFICATION_PRICE_NOTE = (
-    "الرسوم السنوية المعروضة هي المبلغ النهائي لكل طلب توثيق، ولا تضاف عليها "
-    "ضريبة أو رسوم إضافية عند إصدار الفاتورة."
-)
+VERIFICATION_TAX_POLICY = "exclusive"
+VERIFICATION_TAX_POLICY_LABEL = "تضاف الضريبة عند الفوترة"
 VERIFICATION_BLOCKING_REQUEST_STATUSES = (
     VerificationStatus.NEW,
     VerificationStatus.IN_REVIEW,
@@ -106,6 +101,16 @@ VERIFICATION_BLOCKING_REQUEST_STATUSES = (
     VerificationStatus.PENDING_PAYMENT,
     VerificationStatus.ACTIVE,
 )
+
+
+def _verification_additional_vat_percent() -> Decimal:
+    from apps.billing.pricing import get_vat_percent
+
+    return Decimal(str(get_vat_percent("verification"))).quantize(Decimal("0.01"))
+
+
+def _verification_price_note() -> str:
+    return "يضاف على رسوم التوثيق ضريبة القيمة المضافة بحسب إعدادات المنصة عند إصدار الفاتورة."
 
 
 def get_public_badge_detail(badge_type: str):
@@ -335,6 +340,7 @@ def _fee_for_badge(badge_type: str) -> Decimal:
 
 
 def verification_billing_policy() -> dict[str, object]:
+    additional_vat_percent = _verification_additional_vat_percent()
     return {
         "currency": _get_verification_currency() or VERIFICATION_PRICING_CURRENCY,
         "billing_cycle": VERIFICATION_BILLING_CYCLE,
@@ -343,11 +349,9 @@ def verification_billing_policy() -> dict[str, object]:
         "charge_model_label": VERIFICATION_CHARGE_MODEL_LABEL,
         "tax_policy": VERIFICATION_TAX_POLICY,
         "tax_policy_label": VERIFICATION_TAX_POLICY_LABEL,
-        "tax_included": True,
-        "additional_vat_percent": str(
-            VERIFICATION_ADDITIONAL_VAT_PERCENT.quantize(Decimal("0.01"))
-        ),
-        "price_note": VERIFICATION_PRICE_NOTE,
+        "tax_included": False,
+        "additional_vat_percent": str(additional_vat_percent),
+        "price_note": _verification_price_note(),
     }
 
 
@@ -783,7 +787,12 @@ def _get_or_create_provider_direct_thread(*, user_a, user_b):
         return None
 
     thread = (
-        Thread.objects.filter(is_direct=True, context_mode=Thread.ContextMode.PROVIDER)
+        Thread.objects.filter(
+            is_direct=True,
+            is_system_thread=True,
+            system_thread_key="verification",
+            context_mode=Thread.ContextMode.PROVIDER,
+        )
         .filter(
             Q(participant_1=user_a, participant_2=user_b)
             | Q(participant_1=user_b, participant_2=user_a)
@@ -792,28 +801,41 @@ def _get_or_create_provider_direct_thread(*, user_a, user_b):
         .first()
     )
     if thread is not None:
+        thread.set_participant_modes(
+            participant_1_mode=Thread.ContextMode.PROVIDER,
+            participant_2_mode=Thread.ContextMode.PROVIDER,
+            save=True,
+        )
         return thread
 
     return Thread.objects.create(
         is_direct=True,
+        is_system_thread=True,
+        system_thread_key="verification",
         context_mode=Thread.ContextMode.PROVIDER,
         participant_1=user_a,
         participant_2=user_b,
+        participant_1_mode=Thread.ContextMode.PROVIDER,
+        participant_2_mode=Thread.ContextMode.PROVIDER,
     )
 
 
 def _send_verification_system_message(*, vr: VerificationRequest, sender, body: str):
-    from apps.messaging.models import Message
+    from apps.messaging.models import create_system_message
     from apps.messaging.views import _unarchive_for_participants
 
     thread = _get_or_create_provider_direct_thread(user_a=sender, user_b=vr.requester)
     if thread is None:
         return None
 
-    Message.objects.create(
+    create_system_message(
         thread=thread,
         sender=sender,
         body=(body or "")[:2000],
+        sender_team_name="فريق التوثيق",
+        system_thread_key="verification",
+        reply_restricted_to=vr.requester,
+        reply_restriction_reason="الردود مغلقة على الرسائل الآلية من فريق التوثيق.",
         created_at=timezone.now(),
     )
     _unarchive_for_participants(thread)
@@ -1079,7 +1101,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
             title="رسوم التوثيق",
             description="رسوم التوثيق السنوية",
             subtotal=Decimal("0.00"),
-            vat_percent=VERIFICATION_ADDITIONAL_VAT_PERCENT,
+            vat_percent=_verification_additional_vat_percent(),
             reference_type="verify_request",
             reference_id=vr.code,
             status=InvoiceStatus.DRAFT,

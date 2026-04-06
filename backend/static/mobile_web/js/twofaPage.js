@@ -58,7 +58,9 @@ const TwofaPage = (() => {
     const devCode = _sessionGet('nw_auth_dev_code');
     if (/^\d{4}$/.test(devCode || '')) _fillCode(String(devCode));
 
-    _startResendTimer();
+    const initialCooldown = _readPositiveInt(_sessionGet('nw_auth_otp_cooldown')) || 60;
+    _sessionRemove('nw_auth_otp_cooldown');
+    _startResendTimer(initialCooldown);
   }
 
   function _sessionGet(key) {
@@ -210,6 +212,7 @@ const TwofaPage = (() => {
     _hideError();
 
     let success = false;
+    let nextCooldownSeconds = _resendSeconds > 0 ? _resendSeconds : 60;
     try {
       const res = await ApiClient.request('/api/accounts/otp/send/', {
         method: 'POST',
@@ -217,9 +220,16 @@ const TwofaPage = (() => {
       });
 
       if (!res.ok) {
+        const retryAfterSeconds = _readPositiveInt(res.data && res.data.retry_after_seconds);
+        if (retryAfterSeconds > 0) {
+          nextCooldownSeconds = retryAfterSeconds;
+          _startResendTimer(retryAfterSeconds);
+        }
         _showError(_extractError(res, 'فشل إعادة الإرسال'));
         return;
       }
+
+      nextCooldownSeconds = _readPositiveInt(res.data && res.data.cooldown_seconds) || 60;
 
       const message = res.data && res.data.dev_code
         ? _content.successResendLabel + ' - رمز التطوير: ' + String(res.data.dev_code)
@@ -242,7 +252,7 @@ const TwofaPage = (() => {
       _setResending(false);
     }
 
-    if (success) _startResendTimer();
+    if (success) _startResendTimer(nextCooldownSeconds);
   }
 
   async function _loadContent() {
@@ -269,10 +279,15 @@ const TwofaPage = (() => {
     _updateResendCountdownText();
   }
 
-  function _startResendTimer() {
+  function _startResendTimer(seconds) {
     if (_resendTimer) clearInterval(_resendTimer);
 
-    _resendSeconds = 60;
+    _resendSeconds = _readPositiveInt(seconds) || 0;
+    if (_resendSeconds <= 0) {
+      _setResendAvailability(true);
+      _updateResendCountdownText();
+      return;
+    }
     _setResendAvailability(false);
     _updateResendCountdownText();
 
@@ -313,7 +328,25 @@ const TwofaPage = (() => {
       _setText('resend-countdown-text', '');
       return;
     }
-    _setText('resend-countdown-text', _content.resendLabel + ' بعد ' + _resendSeconds + ' ثانية');
+    _setText('resend-countdown-text', _content.resendLabel + ' بعد ' + _formatWaitShort(_resendSeconds));
+  }
+
+  function _formatWaitShort(seconds) {
+    const total = _readPositiveInt(seconds);
+    if (total < 60) return total + ' ث';
+    const minutes = Math.floor(total / 60);
+    const remainingSeconds = total % 60;
+    if (minutes < 60) {
+      return remainingSeconds ? (minutes + ' د ' + remainingSeconds + ' ث') : (minutes + ' د');
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return remainingMinutes ? (hours + ' س ' + remainingMinutes + ' د') : (hours + ' س');
+  }
+
+  function _readPositiveInt(value) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
   }
 
   function _setLoading(loading) {

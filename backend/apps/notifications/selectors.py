@@ -168,12 +168,7 @@ def _match_thread_bound_notifications(*, matched_ids: set[int], thread_to_notifi
             matched_ids.update(notification_ids)
             continue
         if thread.is_direct:
-            # Respect thread context_mode for role isolation
-            ctx = (thread.context_mode or "").strip().lower()
-            if ctx in ("client", "provider"):
-                if ctx == mode and user.id in {thread.participant_1_id, thread.participant_2_id}:
-                    matched_ids.update(notification_ids)
-            elif user.id in {thread.participant_1_id, thread.participant_2_id}:
+            if thread.mode_matches_user(user, mode):
                 matched_ids.update(notification_ids)
             continue
         service_request = thread.request

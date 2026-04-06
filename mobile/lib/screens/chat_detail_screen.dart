@@ -74,6 +74,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool _isReconnecting = false;
   bool _isProviderAccount = false;
   int? _myProviderProfileId;
+  bool _replyRestrictedToMe = false;
+  bool _isSystemThread = false;
+  String _replyRestrictionReason = '';
+  String _systemSenderLabel = '';
+  String _peerNameOverride = '';
   int _notificationUnread = 0;
   ValueListenable<UnreadBadges>? _badgeHandle;
   static final RegExp _serviceRequestUrlRegex = RegExp(
@@ -92,8 +97,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool get _canShowProviderClientActions =>
       _isProviderAccount && _isChatWithClient && (widget.peerId ?? 0) > 0;
 
+  bool get _isReplyRestricted => _replyRestrictedToMe;
+
+  String get _replyRestrictionMessage {
+    final reason = _replyRestrictionReason.trim();
+    if (reason.isNotEmpty) return reason;
+    final label = _systemSenderLabel.trim();
+    if (label.isNotEmpty) {
+      return 'الردود مغلقة لهذه الرسائل من $label.';
+    }
+    return 'الردود مغلقة لهذه الرسائل الآلية.';
+  }
+
   String get _memberName {
-    final value = widget.peerName.trim();
+    final value = _peerNameOverride.trim().isNotEmpty
+        ? _peerNameOverride.trim()
+        : widget.peerName.trim();
     return value.isNotEmpty ? value : 'عضو';
   }
 
@@ -176,8 +195,43 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       return;
     }
 
+    await _loadThreadState();
     await _loadMessages();
     _startLiveSync();
+  }
+
+  Future<void> _loadThreadState() async {
+    final threadId = _resolvedThreadId;
+    if (threadId == null) return;
+
+    try {
+      final threadState = await MessagingService.fetchThreadState(threadId);
+      if (!mounted || threadState == null) return;
+      setState(() {
+        _replyRestrictedToMe = threadState.replyRestrictedToMe;
+        _replyRestrictionReason = threadState.replyRestrictionReason;
+        _systemSenderLabel = threadState.systemSenderLabel;
+        _isSystemThread = threadState.isSystemThread;
+        if (_systemSenderLabel.trim().isNotEmpty) {
+          _peerNameOverride = _systemSenderLabel.trim();
+        }
+      });
+    } catch (_) {}
+  }
+
+  void _syncPeerLabelFromMessages(List<ChatMessage> messages) {
+    for (final message in messages.reversed) {
+      if (message.senderId == _myUserId) continue;
+      final teamName = message.senderTeamName.trim();
+      final senderName = message.senderName.trim();
+      final nextName = teamName.isNotEmpty ? teamName : senderName;
+      if (nextName.isEmpty) continue;
+      _peerNameOverride = nextName;
+      return;
+    }
+    if (_systemSenderLabel.trim().isNotEmpty) {
+      _peerNameOverride = _systemSenderLabel.trim();
+    }
   }
 
   void _startLiveSync() {
@@ -207,9 +261,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     try {
       final page = await MessagingService.fetchMessages(_resolvedThreadId!);
       if (!mounted) return;
+      final normalizedMessages = page.messages.reversed.toList();
+      _syncPeerLabelFromMessages(normalizedMessages);
       setState(() {
         // الرسائل تأتي مرتبة من الأحدث — نعكسها للعرض
-        _messages = page.messages.reversed.toList();
+        _messages = normalizedMessages;
         _hasMore = page.hasMore;
         _isLoading = false;
         _isChatConnected = true;
@@ -251,8 +307,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
 
     if (!mounted) return;
+    final olderMessages = page.messages.reversed.toList();
     setState(() {
-      _messages.insertAll(0, page.messages.reversed.toList());
+      _messages.insertAll(0, olderMessages);
       _hasMore = page.hasMore;
       _isLoadingMore = false;
     });
@@ -281,6 +338,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
     if (text.isEmpty && !hasPendingFile) return;
     if (_resolvedThreadId == null) return;
+    if (_isReplyRestricted) {
+      _snack(_replyRestrictionMessage, backgroundColor: Colors.orange);
+      return;
+    }
 
     setState(() => _isSending = true);
 
@@ -320,6 +381,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       // إعادة تحميل الرسائل لجلب الرسالة الجديدة من السيرفر
       await _refreshMessages(forceScroll: true);
     } else {
+      final errorText = result.error ?? 'فشل إرسال الرسالة';
+      if (errorText.contains('الردود مغلقة')) {
+        setState(() {
+          _replyRestrictedToMe = true;
+          _replyRestrictionReason = errorText;
+        });
+      }
       if (mounted) {
         setState(() {
           _isChatConnected = false;
@@ -329,7 +397,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.error ?? 'فشل إرسال الرسالة',
+            errorText,
             style: const TextStyle(fontFamily: 'Cairo'),
           ),
           backgroundColor: Colors.red,
@@ -365,6 +433,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           updatedMessages.isNotEmpty ? updatedMessages.last.id : null;
       final hasNewMessages = updatedMessages.length != previousCount ||
           updatedLastId != previousLastId;
+        _syncPeerLabelFromMessages(updatedMessages);
 
       setState(() {
         _messages = updatedMessages;
@@ -469,6 +538,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // ✅ التسجيل الصوتي
   Future<void> _startRecording() async {
     if (_isRecording) return;
+    if (_isReplyRestricted) {
+      _snack(_replyRestrictionMessage, backgroundColor: Colors.orange);
+      return;
+    }
     final isRecorderReady = await _ensureRecorderReady();
     if (!isRecorderReady || !mounted) return;
 
@@ -641,6 +714,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   // ✅ خيارات المرفقات
   void _showAttachmentOptions() {
+    if (_isReplyRestricted) {
+      _snack(_replyRestrictionMessage, backgroundColor: Colors.orange);
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -958,6 +1035,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // ✅ إرسال رابط طلب خدمة من المزوّد إلى العميل
   Future<void> _sendServiceRequestLink() async {
     if (_isSending) return;
+    if (_isReplyRestricted) {
+      _snack(_replyRestrictionMessage, backgroundColor: Colors.orange);
+      return;
+    }
     if (!_canShowProviderClientActions) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1487,6 +1568,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   // ✅ فقاعة الرسائل
   Widget _buildMessageBubble(ChatMessage msg) {
     final isMe = msg.senderId == _myUserId;
+    final systemLabel = msg.senderTeamName.trim().isNotEmpty
+        ? msg.senderTeamName.trim()
+        : msg.senderName.trim();
 
     Color bubbleColor = isMe ? Colors.deepPurple : Colors.grey.shade200;
     Color textColor = isMe ? Colors.white : Colors.black87;
@@ -1655,6 +1739,27 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             crossAxisAlignment:
                 isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
             children: [
+              if (!isMe && msg.isSystemGenerated) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    systemLabel.isNotEmpty
+                        ? '$systemLabel • رسالة آلية'
+                        : 'رسالة آلية',
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.deepPurple,
+                    ),
+                  ),
+                ),
+              ],
               content,
               const SizedBox(height: 5),
               Row(
@@ -1784,9 +1889,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     } else {
       return TextField(
         controller: _controller,
+        enabled: !_isReplyRestricted,
         style: const TextStyle(fontFamily: "Cairo"),
-        decoration: const InputDecoration(
-            hintText: "اكتب رسالة...", border: InputBorder.none),
+        decoration: InputDecoration(
+            hintText: _isReplyRestricted ? _replyRestrictionMessage : "اكتب رسالة...",
+            border: InputBorder.none),
         onChanged: (_) => setState(() => _pendingType = "text"),
       );
     }
@@ -1959,6 +2066,28 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ],
             ),
           ),
+
+          if (_isReplyRestricted)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF4E5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFFFC266)),
+              ),
+              child: Text(
+                _replyRestrictionMessage,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF9A5A00),
+                ),
+              ),
+            ),
+
           // ✅ الرسائل
           Expanded(
             child: _isLoading
@@ -2055,7 +2184,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   IconButton(
                     icon:
                         const Icon(Icons.attach_file, color: Colors.deepPurple),
-                    onPressed: _showAttachmentOptions,
+                    onPressed: _isReplyRestricted ? null : _showAttachmentOptions,
                   ),
                   Expanded(
                     child: Container(
@@ -2096,15 +2225,17 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     )
                   else
                     CircleAvatar(
-                      backgroundColor: Colors.deepPurple,
+                      backgroundColor:
+                          _isReplyRestricted ? Colors.grey : Colors.deepPurple,
                       child: IconButton(
                         icon: const Icon(Icons.mic, color: Colors.white),
-                        onPressed: _startRecording,
+                        onPressed: _isReplyRestricted ? null : _startRecording,
                       ),
                     ),
                   const SizedBox(width: 8),
                   CircleAvatar(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor:
+                        _isReplyRestricted ? Colors.grey : Colors.deepPurple,
                     child: _isSending
                         ? const Padding(
                             padding: EdgeInsets.all(10),
@@ -2113,7 +2244,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           )
                         : IconButton(
                             icon: const Icon(Icons.send, color: Colors.white),
-                            onPressed: _sendMessage,
+                            onPressed: _isReplyRestricted ? null : _sendMessage,
                           ),
                   ),
                 ],
