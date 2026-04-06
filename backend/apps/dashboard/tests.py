@@ -17,6 +17,7 @@ from apps.providers.models import ProviderProfile
 from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionInquiryProfile, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportPriority, SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketStatus, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
+from apps.verification.models import VerificationRequest
 
 from .views import _promo_quote_snapshot
 
@@ -163,6 +164,112 @@ class PromoVatSnapshotTests(TestCase):
         expected_vat = (snapshot["subtotal"] * Decimal("18.00") / Decimal("100")).quantize(Decimal("0.01"))
         self.assertEqual(snapshot["vat_amount"], expected_vat)
         self.assertEqual(snapshot["total"], (snapshot["subtotal"] + expected_vat).quantize(Decimal("0.01")))
+
+
+class PromoDashboardStatusDisplayTests(TestCase):
+    def setUp(self):
+        self.staff_user = get_user_model().objects.create_user(
+            phone="0500000250",
+            password="secret",
+            is_staff=True,
+        )
+        UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
+
+        self.requester = get_user_model().objects.create_user(phone="0500000251", password="secret")
+        self.invoice = Invoice.objects.create(
+            user=self.requester,
+            title="فاتورة ترويج",
+            reference_type="promo_request",
+            subtotal=Decimal("1000.00"),
+            vat_percent=Decimal("15.00"),
+        )
+        self.promo_request = PromoRequest.objects.create(
+            requester=self.requester,
+            title="طلب ترويج مدفوع",
+            ad_type=PromoAdType.FEATURED_TOP5,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=5),
+            status=PromoRequestStatus.PENDING_PAYMENT,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=self.invoice,
+        )
+        self.invoice.reference_id = self.promo_request.code
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="promo-dashboard-test",
+            event_id=f"promo-dashboard-{self.promo_request.pk}",
+            amount=Decimal("1150.00"),
+            currency="SAR",
+        )
+        self.invoice.save()
+
+        self.client.force_login(self.staff_user)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_paid_promo_request_shows_awaiting_review_in_dashboard_detail(self):
+        response = self.client.get(reverse("dashboard:promo_request_detail", kwargs={"request_id": self.promo_request.id}))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "حالة الطلب: بانتظار المراجعة")
+        self.assertNotContains(response, "حالة الطلب: بانتظار الدفع")
+
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class VerificationDashboardStatusDisplayTests(TestCase):
+    def setUp(self):
+        self.staff_user = get_user_model().objects.create_user(
+            phone="0500000260",
+            password="secret",
+            is_staff=True,
+        )
+        UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
+
+        self.requester = get_user_model().objects.create_user(phone="0500000261", password="secret")
+        self.support_team = SupportTeam.objects.create(code="verify", name_ar="فريق التوثيق", is_active=True)
+        self.invoice = Invoice.objects.create(
+            user=self.requester,
+            title="فاتورة توثيق",
+            reference_type="verify_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("15.00"),
+        )
+        self.verification_request = VerificationRequest.objects.create(
+            requester=self.requester,
+            assigned_to=self.staff_user,
+            assigned_at=timezone.now(),
+            status="pending_payment",
+            invoice=self.invoice,
+        )
+        self.invoice.reference_id = self.verification_request.code
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="verification-dashboard-test",
+            event_id=f"verification-dashboard-{self.verification_request.pk}",
+            amount=Decimal("115.00"),
+            currency="SAR",
+        )
+        self.invoice.save()
+
+        self.client.force_login(self.staff_user)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_paid_verification_request_does_not_render_pending_payment_label(self):
+        response = self.client.get(
+            f"{reverse('dashboard:verification_dashboard')}?request={self.verification_request.id}&request_stage=review"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "الحالة الحالية: مكتمل")
+        self.assertNotContains(response, "الحالة الحالية: بانتظار الدفع")
 
 
 @override_settings(

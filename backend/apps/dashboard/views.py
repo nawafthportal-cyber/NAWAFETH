@@ -2546,9 +2546,7 @@ def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
     rows: list[dict] = []
     for promo_request in requests:
         priority = support_priority(promo_request.requester)
-        ops_status_label = promo_request.get_ops_status_display()
-        if promo_request.status == PromoRequestStatus.EXPIRED:
-            ops_status_label = promo_request.get_status_display()
+        ops_status_label = _promo_request_ops_status_label(promo_request)
         rows.append(
             {
                 "id": promo_request.id,
@@ -2558,7 +2556,7 @@ def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
                 "priority_class": _support_priority_row_class(priority),
                 "created_at": _format_dt(promo_request.created_at),
                 "approved_at": _format_dt(promo_request.reviewed_at or promo_request.created_at),
-                "request_status": promo_request.get_status_display(),
+                "request_status": _promo_request_operational_status_label(promo_request),
                 "ops_status": ops_status_label,
                 "team": "إدارة الترويج",
                 "assignee": _promo_assignee_label(promo_request),
@@ -2600,6 +2598,62 @@ def _promo_requests_summary(requests: list[PromoRequest]) -> dict:
         "invoice_pending": invoice_pending,
         "active_campaigns": active_campaigns,
     }
+
+
+def _promo_request_operational_status_code(promo_request: PromoRequest | None) -> str:
+    if promo_request is None:
+        return PromoRequestStatus.NEW
+
+    payment_effective = bool(promo_request.invoice and promo_request.invoice.is_payment_effective())
+    request_status = str(promo_request.status or "").strip()
+    ops_status = str(promo_request.ops_status or PromoOpsStatus.NEW).strip()
+
+    if request_status in {
+        PromoRequestStatus.REJECTED,
+        PromoRequestStatus.CANCELLED,
+        PromoRequestStatus.EXPIRED,
+        PromoRequestStatus.COMPLETED,
+    }:
+        return request_status
+
+    if request_status == PromoRequestStatus.ACTIVE or ops_status == PromoOpsStatus.COMPLETED:
+        return PromoRequestStatus.ACTIVE
+
+    if payment_effective:
+        if ops_status == PromoOpsStatus.IN_PROGRESS:
+            return PromoOpsStatus.IN_PROGRESS
+        return "awaiting_review"
+
+    if request_status == PromoRequestStatus.IN_REVIEW:
+        return PromoRequestStatus.IN_REVIEW
+    if request_status in {PromoRequestStatus.QUOTED, PromoRequestStatus.PENDING_PAYMENT}:
+        return request_status
+    return PromoRequestStatus.NEW
+
+
+def _promo_request_operational_status_label(promo_request: PromoRequest | None) -> str:
+    status_code = _promo_request_operational_status_code(promo_request)
+    return {
+        "awaiting_review": "بانتظار المراجعة",
+        PromoOpsStatus.IN_PROGRESS: "تحت المعالجة",
+        PromoRequestStatus.NEW: "جديد",
+        PromoRequestStatus.IN_REVIEW: "قيد المراجعة",
+        PromoRequestStatus.QUOTED: "تم التسعير",
+        PromoRequestStatus.PENDING_PAYMENT: "بانتظار الدفع",
+        PromoRequestStatus.ACTIVE: "مفعل",
+        PromoRequestStatus.COMPLETED: "مكتمل",
+        PromoRequestStatus.REJECTED: "مرفوض",
+        PromoRequestStatus.EXPIRED: "منتهي",
+        PromoRequestStatus.CANCELLED: "ملغي",
+    }.get(status_code, status_code or "-")
+
+
+def _promo_request_ops_status_label(promo_request: PromoRequest | None) -> str:
+    if promo_request is None:
+        return "-"
+    if promo_request.status == PromoRequestStatus.EXPIRED:
+        return promo_request.get_status_display()
+    return promo_request.get_ops_status_display()
 
 
 def _promo_inquiry_export_rows(tickets: list[SupportTicket]) -> tuple[list[str], list[list]]:
@@ -3128,6 +3182,8 @@ def promo_dashboard(request, request_id: int | None = None):
             "request_summary": _promo_requests_summary(promo_requests),
             "selected_inquiry": selected_inquiry,
             "selected_request": selected_request,
+            "selected_request_status_label": _promo_request_operational_status_label(selected_request),
+            "selected_request_ops_status_label": _promo_request_ops_status_label(selected_request),
             "selected_request_items": selected_request_items,
             "promo_support_team": promo_team,
             "selected_request_assets": selected_request_assets,
