@@ -95,6 +95,10 @@ var PromotionPage = (function () {
   var homeBannerEditor = {
     previewUrl: ""
   };
+  var portfolioPickerState = {
+    portfolio_showcase: { loaded: false, loading: false, items: [], selectedId: 0 },
+    snapshots: { loaded: false, loading: false, items: [], selectedId: 0 }
+  };
 
   function init() {
     bindTabs();
@@ -115,6 +119,7 @@ var PromotionPage = (function () {
       bindServicePicks();
       bindAttachmentPolicyHints();
       bindHomeBannerEditor();
+      bindPortfolioPicker();
       bindForm();
       bindLiveQuote();
       bindPreviewButtons();
@@ -413,7 +418,7 @@ var PromotionPage = (function () {
     if (serviceType === "promo_messages") {
       return [
         "يتم التسعير لكل حملة بحسب قناة الإرسال.",
-        "يمكن اختيار التنبيهات أو المحادثات أو كلاهما."
+        "يمكن اختيار التنبيهات أو الرسائل أو كلاهما."
       ];
     }
     if (serviceType === "sponsorship") {
@@ -634,6 +639,272 @@ var PromotionPage = (function () {
     });
   }
 
+  function bindPortfolioPicker() {
+    document.querySelectorAll("[data-portfolio-picker]").forEach(function (root) {
+      root.addEventListener("click", function (event) {
+        var card = event.target.closest(".portfolio-picker-card");
+        if (!card) return;
+        var service = String(root.dataset.portfolioPicker || "").trim();
+        var itemId = parseInt(String(card.dataset.itemId || "0"), 10);
+        if (!service || !itemId) return;
+        selectPortfolioItem(service, itemId);
+        scheduleLiveQuote();
+      });
+    });
+  }
+
+  function getGalleryPickerRoot(service) {
+    return document.querySelector('[data-portfolio-picker="' + service + '"]');
+  }
+
+  function pickerStateForService(service) {
+    if (!portfolioPickerState[service]) {
+      portfolioPickerState[service] = { loaded: false, loading: false, items: [], selectedId: 0 };
+    }
+    return portfolioPickerState[service];
+  }
+
+  function pickerFieldNameForService(service) {
+    return service === "snapshots" ? "target_spotlight_item_id" : "target_portfolio_item_id";
+  }
+
+  function pickerEndpointForService(service) {
+    return service === "snapshots" ? "/api/providers/me/spotlights/" : "/api/providers/me/portfolio/";
+  }
+
+  function getGalleryPickerElements(service) {
+    var root = getGalleryPickerRoot(service);
+    if (!root) return null;
+    return {
+      root: root,
+      loading: root.querySelector("[data-picker-loading]"),
+      error: root.querySelector("[data-picker-error]"),
+      empty: root.querySelector("[data-picker-empty]"),
+      grid: root.querySelector("[data-picker-grid]"),
+      selection: root.querySelector("[data-picker-selection]"),
+      previewWrap: root.querySelector("[data-picker-preview-wrap]"),
+      previewEmpty: root.querySelector("[data-picker-preview-empty]"),
+      previewImage: root.querySelector("[data-picker-preview-image]"),
+      previewVideo: root.querySelector("[data-picker-preview-video]"),
+      previewCaption: root.querySelector("[data-picker-preview-caption]"),
+      hiddenInput: document.querySelector('[data-service-block="' + service + '"] [data-field="' + pickerFieldNameForService(service) + '"]')
+    };
+  }
+
+  function setHiddenState(element, hidden) {
+    if (!element) return;
+    element.hidden = !!hidden;
+    if (element.classList) {
+      element.classList.toggle("hidden", !!hidden);
+    }
+  }
+
+  function portfolioItemsForService(service) {
+    return (pickerStateForService(service).items || []).filter(function (item) {
+      if (!item) return false;
+      var fileType = String(item.file_type || "").toLowerCase();
+      var hasMedia = !!(item.file_url || item.thumbnail_url);
+      if (!hasMedia) return false;
+      if (service === "snapshots") {
+        return fileType === "image" || fileType === "video";
+      }
+      return fileType === "image";
+    });
+  }
+
+  function selectedPortfolioIdForService(service) {
+    return Number(pickerStateForService(service).selectedId || 0);
+  }
+
+  function selectedPortfolioItemForService(service) {
+    var selectedId = selectedPortfolioIdForService(service);
+    if (!selectedId) return null;
+    return portfolioItemsForService(service).find(function (item) {
+      return Number(item.id) === selectedId;
+    }) || null;
+  }
+
+  function selectionLabelForService(service) {
+    return service === "snapshots"
+      ? "الريل المختار لشريط اللمحات: "
+      : "الصورة المختارة للترويج: ";
+  }
+
+  function previewCaptionForService(service, selected) {
+    if (!selected) {
+      return service === "snapshots"
+        ? "المعاينة ستتحدث فور اختيار الريل، وهو نفسه الذي سيظهر داخل شريط اللمحات."
+        : "المعاينة ستتحدث فور اختيار الصورة، وهي نفسها التي ستظهر داخل شريط البنرات والمشاريع.";
+    }
+    return service === "snapshots"
+      ? "هذا هو الريل الذي سيستخدم داخل شريط اللمحات عند تفعيل الحملة."
+      : "هذه هي الصورة التي ستستخدم داخل شريط البنرات والمشاريع عند تفعيل الحملة.";
+  }
+
+  function renderGalleryPickerPreview(service) {
+    var elements = getGalleryPickerElements(service);
+    if (!elements || !elements.previewWrap || !elements.previewEmpty || !elements.previewImage || !elements.previewCaption) {
+      return;
+    }
+    var selected = selectedPortfolioItemForService(service);
+    var mediaUrl = selected ? resolveMediaUrl(selected.file_url || selected.thumbnail_url || "") : "";
+    var fileType = String((selected && selected.file_type) || "image").toLowerCase();
+    setHiddenState(elements.previewWrap, false);
+    if (!selected || !mediaUrl) {
+      setHiddenState(elements.previewEmpty, false);
+      setHiddenState(elements.previewImage, true);
+      elements.previewImage.removeAttribute("src");
+      if (elements.previewVideo) {
+        setHiddenState(elements.previewVideo, true);
+        elements.previewVideo.pause();
+        elements.previewVideo.removeAttribute("src");
+        elements.previewVideo.load();
+      }
+      elements.previewCaption.textContent = previewCaptionForService(service, null);
+      return;
+    }
+
+    setHiddenState(elements.previewEmpty, true);
+    if (fileType === "video" && elements.previewVideo) {
+      setHiddenState(elements.previewImage, true);
+      elements.previewImage.removeAttribute("src");
+      setHiddenState(elements.previewVideo, false);
+      elements.previewVideo.src = mediaUrl;
+      if (selected.thumbnail_url) {
+        elements.previewVideo.poster = resolveMediaUrl(selected.thumbnail_url);
+      } else {
+        elements.previewVideo.removeAttribute("poster");
+      }
+      elements.previewVideo.muted = true;
+      elements.previewVideo.play().catch(function () {});
+    } else {
+      if (elements.previewVideo) {
+        setHiddenState(elements.previewVideo, true);
+        elements.previewVideo.pause();
+        elements.previewVideo.removeAttribute("src");
+        elements.previewVideo.removeAttribute("poster");
+        elements.previewVideo.load();
+      }
+      setHiddenState(elements.previewImage, false);
+      elements.previewImage.src = mediaUrl;
+      elements.previewImage.alt = String(selected.caption || "صورة مختارة من معرض الأعمال").trim() || "صورة مختارة من معرض الأعمال";
+    }
+    elements.previewCaption.textContent = previewCaptionForService(service, selected);
+  }
+
+  async function ensurePortfolioPickerLoaded(service) {
+    var state = pickerStateForService(service);
+    if (state.loaded || state.loading) return;
+    var elements = getGalleryPickerElements(service);
+    if (elements && elements.loading) setHiddenState(elements.loading, false);
+    if (elements && elements.error) {
+      setHiddenState(elements.error, true);
+      elements.error.textContent = "";
+    }
+    if (elements && elements.empty) setHiddenState(elements.empty, true);
+    if (elements && elements.grid) {
+      setHiddenState(elements.grid, true);
+      elements.grid.innerHTML = "";
+    }
+
+    state.loading = true;
+    try {
+      var res = await ApiClient.get(pickerEndpointForService(service));
+      if (!res.ok || !res.data) {
+        throw new Error(extractError(res, service === "snapshots" ? "تعذر تحميل الريلز" : "تعذر تحميل معرض الأعمال"));
+      }
+      var rows = Array.isArray(res.data) ? res.data : ((res.data && res.data.results) || []);
+      state.items = rows.filter(function (item) {
+        var fileType = String((item && item.file_type) || "").toLowerCase();
+        return !!item && (fileType === "image" || fileType === "video") && (item.thumbnail_url || item.file_url);
+      });
+      state.loaded = true;
+      renderPortfolioPicker(service);
+    } catch (err) {
+      if (elements && elements.error) {
+        elements.error.textContent = err && err.message ? err.message : (service === "snapshots" ? "تعذر تحميل الريلز حالياً." : "تعذر تحميل وسائط معرض الأعمال حالياً.");
+        setHiddenState(elements.error, false);
+      }
+    } finally {
+      state.loading = false;
+      if (elements && elements.loading) setHiddenState(elements.loading, true);
+    }
+  }
+
+  function renderPortfolioPicker(service) {
+    var elements = getGalleryPickerElements(service);
+    if (!elements || !elements.grid || !elements.empty || !elements.selection || !elements.hiddenInput) return;
+    var gridEl = elements.grid;
+    var emptyEl = elements.empty;
+    var selectionEl = elements.selection;
+    var hiddenInput = elements.hiddenInput;
+    var selectedId = selectedPortfolioIdForService(service);
+
+    var serviceItems = portfolioItemsForService(service);
+
+    if (!serviceItems.length) {
+      setHiddenState(gridEl, true);
+      gridEl.innerHTML = "";
+      setHiddenState(emptyEl, false);
+      hiddenInput.value = "";
+      setHiddenState(selectionEl, true);
+      selectionEl.textContent = "";
+      renderGalleryPickerPreview(service);
+      return;
+    }
+
+    setHiddenState(emptyEl, true);
+    setHiddenState(gridEl, false);
+    gridEl.innerHTML = serviceItems.map(function (item) {
+      var fileType = String(item.file_type || "image").toLowerCase();
+      var caption = String(item.caption || (service === "snapshots" ? (fileType === "video" ? "ريل فيديو" : "ريل صورة") : (fileType === "video" ? "فيديو من معرض الأعمال" : "صورة من معرض الأعمال"))).trim() || (service === "snapshots" ? "ريل منشور" : "عنصر من معرض الأعمال");
+      var mediaUrl = resolveMediaUrl(item.thumbnail_url || item.file_url || "");
+      var dateText = formatDateTime(item.created_at || "") || (service === "snapshots" ? "من اللمحات" : "من معرض الأعمال");
+      var selectedClass = Number(item.id) === selectedId ? " is-selected" : "";
+      var mediaHtml = fileType === "video"
+        ? '<video src="' + escapeHtml(resolveMediaUrl(item.file_url || item.thumbnail_url || "")) + '" preload="metadata" muted playsinline' + (item.thumbnail_url ? ' poster="' + escapeHtml(resolveMediaUrl(item.thumbnail_url)) + '"' : '') + '></video>'
+        : '<img src="' + escapeHtml(mediaUrl) + '" alt="' + escapeHtml(caption) + '">';
+      var badgeHtml = service === "snapshots"
+        ? '<span class="portfolio-picker-type-badge">' + escapeHtml(fileType === "video" ? "فيديو" : "صورة") + '</span>'
+        : '';
+      return ''
+        + '<button type="button" class="portfolio-picker-card' + selectedClass + '" data-item-id="' + escapeHtml(String(item.id || "")) + '">'
+        + '  <div class="portfolio-picker-media">'
+        + mediaHtml
+        + badgeHtml
+        + '    <span class="portfolio-picker-check" aria-hidden="true">✓</span>'
+        + '  </div>'
+        + '  <div class="portfolio-picker-meta">'
+        + '    <p class="portfolio-picker-caption">' + escapeHtml(caption) + '</p>'
+        + '    <span class="portfolio-picker-date">' + escapeHtml(dateText) + '</span>'
+        + '  </div>'
+        + '</button>';
+    }).join("");
+
+    hiddenInput.value = selectedId ? String(selectedId) : "";
+    renderPortfolioSelectionSummary(service);
+    renderGalleryPickerPreview(service);
+  }
+
+  function selectPortfolioItem(service, itemId) {
+    pickerStateForService(service).selectedId = Number(itemId) || 0;
+    renderPortfolioPicker(service);
+  }
+
+  function renderPortfolioSelectionSummary(service) {
+    var elements = getGalleryPickerElements(service);
+    var selectionEl = elements && elements.selection ? elements.selection : null;
+    if (!selectionEl) return;
+    var selected = selectedPortfolioItemForService(service);
+    if (!selected) {
+      setHiddenState(selectionEl, true);
+      selectionEl.textContent = "";
+      return;
+    }
+    setHiddenState(selectionEl, false);
+    selectionEl.textContent = selectionLabelForService(service) + (String(selected.caption || (service === "snapshots" ? "ريل منشور" : (String(selected.file_type || "").toLowerCase() === "video" ? "فيديو من معرض الأعمال" : "صورة من معرض الأعمال"))).trim() || "عنصر مختار");
+  }
+
   function renderHomeBannerPreview(file) {
     var editor = document.getElementById("home-banner-editor");
     var wrap = document.getElementById("home-banner-preview-media-wrap");
@@ -692,7 +963,7 @@ var PromotionPage = (function () {
         dims.textContent = "تعذر معاينة الفيديو المختار";
       };
       wrap.appendChild(video);
-      note.textContent = "الفيديو يُرفع كما هو، لذلك يفضّل استخدام ملف MP4 واضح وصالح للعرض.";
+      note.textContent = "سيقوم النظام بضبط الفيديو تلقائياً إلى المقاس المعتمد 1920x840 عند الرفع.";
       return;
     }
 
@@ -825,6 +1096,10 @@ var PromotionPage = (function () {
     var previewBtn = block.querySelector(".btn-preview-service");
     if (previewBtn) {
       previewBtn.hidden = !show;
+    }
+
+    if ((service === "portfolio_showcase" || service === "snapshots") && show) {
+      ensurePortfolioPickerLoaded(service);
     }
   }
 
@@ -1048,7 +1323,7 @@ var PromotionPage = (function () {
     if (item.message_body) h += lineHtml("نص الرسالة", item.message_body);
     if (item.operator_note) h += lineHtml("تعليق المكلف", item.operator_note);
     if (item.use_notification_channel) h += '<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:10px;font-size:.8rem;margin-inline-end:4px">إشعار</span>';
-    if (item.use_chat_channel) h += '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:.8rem">محادثة</span>';
+    if (item.use_chat_channel) h += '<span style="background:#e3f2fd;color:#1565c0;padding:2px 8px;border-radius:10px;font-size:.8rem">رسائل</span>';
     if (item.sponsor_name) h += lineHtml("اسم الراعي", item.sponsor_name);
     if (item.sponsor_url) h += lineHtml("رابط الراعي", '<a href="' + escapeHtml(item.sponsor_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.sponsor_url) + '</a>');
     if (item.sponsorship_months) h += lineHtml("مدة الرعاية", item.sponsorship_months + " شهر");
@@ -1593,7 +1868,7 @@ var PromotionPage = (function () {
       return "بنر الصفحة الرئيسية يدعم الفيديو بصيغة MP4 فقط.";
     }
 
-    if (assetType === "image" && homeBannerAutoFitEnabled()) {
+    if (homeBannerAutoFitEnabled()) {
       return "";
     }
 
@@ -1719,7 +1994,45 @@ var PromotionPage = (function () {
       body.attachment_specs = valueOf(field("attachment_specs"));
       if (!body.asset_count) return "أضف مرفقات البانر قبل المتابعة";
     }
+    if (service === "portfolio_showcase" || service === "snapshots") {
+      var targetFieldName = service === "snapshots" ? "target_spotlight_item_id" : "target_portfolio_item_id";
+      body[targetFieldName] = parseInt(valueOf(field(targetFieldName)) || "0", 10);
+      if (!body[targetFieldName]) {
+        return service === "snapshots"
+          ? "اختر ريلًا واحدًا من اللمحات لشريط اللمحات"
+          : "اختر صورة واحدة من معرض الأعمال لهذا الشريط";
+      }
+      body.asset_count = 0;
+    }
     return body;
+  }
+
+  function buildSelectedGalleryPreviewHtml(service) {
+    if (service !== "portfolio_showcase" && service !== "snapshots") {
+      return "";
+    }
+    var selected = selectedPortfolioItemForService(service);
+    if (!selected) {
+      return "";
+    }
+    var mediaUrl = resolveMediaUrl(selected.file_url || selected.thumbnail_url || "");
+    if (!mediaUrl) {
+      return "";
+    }
+    var fileType = String(selected.file_type || "image").toLowerCase();
+    var caption = String(selected.caption || (fileType === "video" ? "فيديو من معرض الأعمال" : "صورة من معرض الأعمال")).trim() || "عنصر من معرض الأعمال";
+    var title = service === "snapshots" ? "الريل المختار لشريط اللمحات" : "الصورة المختارة لشريط البنرات والمشاريع";
+    var mediaHtml = fileType === "video"
+      ? '<video src="' + escapeHtml(resolveMediaUrl(selected.file_url || selected.thumbnail_url || "")) + '" controls playsinline preload="metadata"' + (selected.thumbnail_url ? ' poster="' + escapeHtml(resolveMediaUrl(selected.thumbnail_url)) + '"' : '') + '></video>'
+      : '<img src="' + escapeHtml(mediaUrl) + '" alt="' + escapeHtml(caption) + '">';
+    return ''
+      + '<div class="promo-modal-section promo-modal-selected-media">'
+      + '  <h4>' + escapeHtml(title) + '</h4>'
+      + '  <div class="promo-modal-selected-media-frame">'
+      + mediaHtml
+      + '  </div>'
+      + '  <div class="promo-modal-selected-media-caption">' + escapeHtml(caption) + '</div>'
+      + '</div>';
   }
 
   function buildQuotePreviewHtml(preview) {
@@ -1810,6 +2123,8 @@ var PromotionPage = (function () {
       try { URL.revokeObjectURL(homeBannerEditor.previewUrl); } catch (e) {}
     }
     homeBannerEditor.previewUrl = "";
+    portfolioPickerState.portfolio_showcase = { loaded: false, loading: false, items: [], selectedId: 0 };
+    portfolioPickerState.snapshots = { loaded: false, loading: false, items: [], selectedId: 0 };
 
     document.getElementById("promo-form").reset();
     selectedServices = [];
@@ -1851,6 +2166,41 @@ var PromotionPage = (function () {
     if (mediaWrap) mediaWrap.innerHTML = "";
     if (empty) empty.hidden = false;
     if (dims) dims.textContent = "لم يتم اختيار ملف بعد";
+    ["portfolio_showcase", "snapshots"].forEach(function (service) {
+      var elements = getGalleryPickerElements(service);
+      if (!elements) return;
+      if (elements.grid) {
+        elements.grid.innerHTML = "";
+        elements.grid.hidden = true;
+      }
+      if (elements.loading) elements.loading.hidden = true;
+      if (elements.error) {
+        elements.error.hidden = true;
+        elements.error.textContent = "";
+      }
+      if (elements.empty) elements.empty.hidden = true;
+      if (elements.selection) {
+        elements.selection.hidden = true;
+        elements.selection.textContent = "";
+      }
+      if (elements.hiddenInput) elements.hiddenInput.value = "";
+      if (elements.previewWrap) elements.previewWrap.hidden = true;
+      if (elements.previewImage) {
+        elements.previewImage.hidden = true;
+        elements.previewImage.removeAttribute("src");
+      }
+      if (elements.previewVideo) {
+        elements.previewVideo.hidden = true;
+        elements.previewVideo.pause();
+        elements.previewVideo.removeAttribute("src");
+        elements.previewVideo.removeAttribute("poster");
+        elements.previewVideo.load();
+      }
+      if (elements.previewEmpty) elements.previewEmpty.hidden = false;
+      if (elements.previewCaption) {
+        elements.previewCaption.textContent = previewCaptionForService(service, null);
+      }
+    });
   }
 
   function valueOf(element) {
@@ -1883,6 +2233,15 @@ var PromotionPage = (function () {
     var allowed = SERVICE_ALLOWED_EXTENSIONS[service] || [];
     if (!allowed.length) return "غير محدد";
     return allowed.map(function (ext) { return ext.toUpperCase().replace(".", ""); }).join(", ");
+  }
+
+  function resolveMediaUrl(url) {
+    var value = String(url || "").trim();
+    if (!value) return "";
+    if (window.ApiClient && typeof window.ApiClient.mediaUrl === "function") {
+      return window.ApiClient.mediaUrl(value);
+    }
+    return value;
   }
 
   function isMp4File(file) {
@@ -2107,6 +2466,7 @@ var PromotionPage = (function () {
         lineHtml("VAT", money(data.vat_amount) + " ريال") +
         lineHtml("الإجمالي النهائي", money(data.total) + " ريال") +
       '</div>' +
+      buildSelectedGalleryPreviewHtml(service) +
       '<p class="promo-note">تم احتساب السعر حسب قواعد صفحة الأسعار الحالية لكل بند.</p>';
 
     await openModal({

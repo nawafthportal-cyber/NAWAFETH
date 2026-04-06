@@ -32,6 +32,22 @@ def is_home_banner_dimensions_error(exc: Exception) -> bool:
     return "الأبعاد المعتمدة" in text and "بنر الصفحة الرئيسية" in text
 
 
+def resolve_ffmpeg_binary() -> str:
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if ffmpeg_bin:
+        return ffmpeg_bin
+
+    try:
+        from imageio_ffmpeg import get_ffmpeg_exe
+    except Exception:
+        return ""
+
+    try:
+        return str(get_ffmpeg_exe() or "")
+    except Exception:
+        return ""
+
+
 def transcode_home_banner_image_to_required_dims(file_obj):
     source_name = str(getattr(file_obj, "name", "banner-image") or "banner-image")
     required_width, required_height = home_banner_required_dimensions()
@@ -95,11 +111,11 @@ def transcode_home_banner_image_to_required_dims(file_obj):
 
 
 def transcode_home_banner_video_to_required_dims(file_obj):
-    ffmpeg_bin = shutil.which("ffmpeg")
+    ffmpeg_bin = resolve_ffmpeg_binary()
     if not ffmpeg_bin:
         raise ValidationError(
-            "لا يمكن معالجة فيديو البنر تلقائياً لأن ffmpeg غير متوفر على الخادم. "
-            "يرجى رفع فيديو MP4 بالأبعاد المعتمدة 1920x840 أو تفعيل ffmpeg على بيئة التشغيل."
+            "لا يمكن معالجة فيديو البنر تلقائياً لأن ffmpeg غير متوفر على بيئة التشغيل. "
+            "يرجى رفع فيديو MP4 بالأبعاد المعتمدة 1920x840 أو تثبيت ffmpeg."
         )
 
     source_name = str(getattr(file_obj, "name", "banner-video.mp4") or "banner-video.mp4")

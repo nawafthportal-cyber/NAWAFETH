@@ -30,8 +30,7 @@
       <div class="promo-provider-copy">
         <span class="promo-meta-label">اسم مزود الخدمة</span>
         <strong id="promo-provider-display">{{ promo_provider_display_name|default:"مزود الخدمة" }}</strong>
-        <small>يتم جلب الاسم تلقائيًا من الحساب النشط، ويمكنك التحقق منه قبل إرسال الطلب.</small>
-      </div>
+       </div>
       <div class="promo-provider-field">
         <label class="promo-meta-label" for="promo-provider-name">الحقل المرجعي للاسم</label>
         <input id="promo-provider-name" type="text" class="form-input" value="{{ promo_provider_display_name|default:'مزود الخدمة' }}" readonly>
@@ -98,9 +97,32 @@
             </label>
           </div>
           <div class="service-body" hidden>
+            <input data-field="target_spotlight_item_id" type="hidden">
             <div class="form-row">
               <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
               <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <div class="portfolio-picker" data-portfolio-picker="snapshots">
+              <div class="portfolio-picker-head">
+                <div>
+                  <label class="form-label portfolio-picker-label">اختر ريلًا من اللمحات المنشورة</label>
+                  <p class="portfolio-picker-help">سيتم استخدام هذا الريل نفسه داخل شريط اللمحات وفي المعاينة قبل إرسال الطلب.</p>
+                </div>
+                <a class="portfolio-picker-link" href="/provider-dashboard/">إدارة الريلز</a>
+              </div>
+              <div class="portfolio-picker-state" data-picker-loading hidden>جاري تحميل الريلز...</div>
+              <div class="portfolio-picker-state portfolio-picker-state-error" data-picker-error hidden></div>
+              <div class="portfolio-picker-state portfolio-picker-state-empty" data-picker-empty hidden>لا توجد ريلز منشورة حالياً. أضف ريلًا واحدًا على الأقل ثم عد لاختيار الريل المراد ترويجه.</div>
+              <div class="portfolio-picker-grid" data-picker-grid hidden></div>
+              <div class="portfolio-picker-selection" data-picker-selection hidden></div>
+              <div class="portfolio-picker-preview" data-picker-preview-wrap hidden>
+                <div class="portfolio-picker-preview-frame">
+                  <div class="portfolio-picker-preview-empty" data-picker-preview-empty>اختر ريلًا من اللمحات ليظهر هنا داخل معاينة شريط اللمحات.</div>
+                  <img data-picker-preview-image alt="معاينة الصورة المختارة" hidden>
+                  <video data-picker-preview-video hidden controls playsinline preload="metadata"></video>
+                </div>
+                <div class="portfolio-picker-preview-caption" data-picker-preview-caption>المعاينة ستتحدث فور اختيار الريل.</div>
+              </div>
             </div>
             <button type="button" class="btn-preview-service" data-preview-service="snapshots">معاينة</button>
           </div>
@@ -118,9 +140,31 @@
             </label>
           </div>
           <div class="service-body" hidden>
+            <input data-field="target_portfolio_item_id" type="hidden">
             <div class="form-row">
               <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
               <div class="form-group half"><label class="form-label">نهاية الحملة</label><input data-field="end_at" type="datetime-local" class="form-input"></div>
+            </div>
+            <div class="portfolio-picker" data-portfolio-picker="portfolio_showcase">
+              <div class="portfolio-picker-head">
+                <div>
+                  <label class="form-label portfolio-picker-label">اختر صورة من معرض الأعمال</label>
+                  <p class="portfolio-picker-help">سيتم اعتماد هذه الصورة لعرضها داخل شريط البنرات والمشاريع في الصفحة الرئيسية.</p>
+                </div>
+                <a class="portfolio-picker-link" href="/provider-portfolio/">إدارة المعرض</a>
+              </div>
+              <div class="portfolio-picker-state" data-picker-loading hidden>جاري تحميل صور معرض الأعمال...</div>
+              <div class="portfolio-picker-state portfolio-picker-state-error" data-picker-error hidden></div>
+              <div class="portfolio-picker-state portfolio-picker-state-empty" data-picker-empty hidden>لا توجد صور في معرض الأعمال حالياً. أضف صورة واحدة على الأقل ثم عد لاختيار الصورة المراد ترويجها.</div>
+              <div class="portfolio-picker-grid" data-picker-grid hidden></div>
+              <div class="portfolio-picker-selection" data-picker-selection hidden></div>
+              <div class="portfolio-picker-preview" data-picker-preview-wrap hidden>
+                <div class="portfolio-picker-preview-frame">
+                  <div class="portfolio-picker-preview-empty" data-picker-preview-empty>اختر صورة من المعرض لتظهر هنا داخل معاينة هذا الشريط.</div>
+                  <img data-picker-preview-image alt="معاينة الصورة المختارة" hidden>
+                </div>
+                <div class="portfolio-picker-preview-caption" data-picker-preview-caption>المعاينة ستتحدث فور اختيار الصورة.</div>
+              </div>
             </div>
             <button type="button" class="btn-preview-service" data-preview-service="portfolio_showcase">معاينة</button>
           </div>
@@ -160,9 +204,9 @@
           <div class="service-body" hidden>
             <div class="attachment-guide">
               <strong>قبل رفع مرفقات البنر:</strong>
-              <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840، وأي صورة يتم تجهيزها تلقائيًا وفق هذا المقاس عند الرفع.</p>
+              <p style="margin:6px 0 0">الأنواع المدعومة: صور أو فيديو MP4 فقط. المقاس المعتمد 1920x840، وأي صورة أو فيديو MP4 يتم تجهيزه تلقائيًا وفق هذا المقاس عند الرفع.</p>
             </div>
-            <div class="form-group"><label class="form-label">رفع التصميم</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4"><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4. يتم ضبط الصورة تلقائيًا قبل اعتمادها إذا لزم الأمر.</small></div>
+            <div class="form-group"><label class="form-label">رفع التصميم</label><input data-field="files" type="file" class="form-input" accept=".jpg,.jpeg,.png,.mp4"><small class="text-muted">الملفات المدعومة: JPG, JPEG, PNG, MP4. يتم ضبط الصورة أو الفيديو تلقائيًا قبل اعتماده إذا لزم الأمر.</small></div>
             <div class="form-group"><label class="form-label">مواصفات الملف المرفوع</label><input data-field="attachment_specs" type="text" class="form-input"></div>
             <div class="form-row">
               <div class="form-group half"><label class="form-label">بداية الحملة</label><input data-field="start_at" type="datetime-local" class="form-input"></div>
@@ -220,7 +264,7 @@
           <div class="service-block-header">
             <div class="service-block-title">
               <h4>الرسائل الدعائية</h4>
-              <p>إرسال محتوى ترويجي عبر الإشعارات أو المحادثات مع مرفقات ورسالة مخصصة.</p>
+              <p>إرسال محتوى ترويجي عبر الإشعارات أو الرسائل مع مرفقات ورسالة مخصصة.</p>
             </div>
             <label class="service-toggle-label">
               <input type="checkbox" class="service-toggle-input" data-service-toggle="promo_messages">
@@ -230,11 +274,11 @@
           <div class="service-body" hidden>
             <div class="attachment-guide">
               <strong>قبل رفع مرفقات الرسائل:</strong>
-              <p style="margin:6px 0 0">يمكنك الإرسال بنص فقط أو بمرفق فقط أو بكليهما. عند استخدام مرفقات، استخدم ملفات خفيفة وواضحة لتسهيل التسليم في التنبيهات والمحادثات.</p>
+              <p style="margin:6px 0 0">يمكنك الإرسال بنص فقط أو بمرفق فقط أو بكليهما. عند استخدام مرفقات، استخدم ملفات خفيفة وواضحة لتسهيل التسليم في التنبيهات والرسائل.</p>
             </div>
             <div class="check-row">
               <label><input data-field="use_notification_channel" type="checkbox" checked> رسائل التنبيه الدعائية</label>
-              <label><input data-field="use_chat_channel" type="checkbox"> رسائل المحادثات الدعائية</label>
+              <label><input data-field="use_chat_channel" type="checkbox"> الرسائل الدعائية المباشرة</label>
             </div>
             <div class="form-group"><label class="form-label">وقت الإرسال</label><input data-field="send_at" type="datetime-local" class="form-input"></div>
             <div class="form-group"><label class="form-label">نص الرسالة الترويجية</label><textarea data-field="message_body" class="form-input" rows="4"></textarea></div>
@@ -508,6 +552,33 @@
   .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
   .form-row .half,.form-group.half{min-width:0}
   .promo-service-block .form-input[type="datetime-local"]{min-width:0}
+  .portfolio-picker{margin-top:8px;padding:14px;border:1px solid #dce7dd;border-radius:16px;background:linear-gradient(180deg,#fcfffc 0%,#f6fbf6 100%)}
+  .portfolio-picker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .portfolio-picker-label{margin:0}
+  .portfolio-picker-help{margin:4px 0 0;color:#5a6b60;font-size:12px;line-height:1.7}
+  .portfolio-picker-link{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:999px;border:1px solid #c8b3ea;background:#faf7ff;color:#663d90;text-decoration:none;font-size:12px;font-weight:700;white-space:nowrap}
+  .portfolio-picker-link:hover{background:#efe7fb}
+  .portfolio-picker-state{padding:12px 14px;border-radius:14px;background:#fff;color:#51606c;font-size:12px;line-height:1.8;border:1px dashed #d8e1eb}
+  .portfolio-picker-state-error{background:#fff6f6;color:#a33c3c;border-color:#efc4c4}
+  .portfolio-picker-state-empty{background:#fffef7;color:#7a6840;border-color:#eadba5}
+  .portfolio-picker-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:12px}
+  .portfolio-picker-card{border:1px solid #dfe8f4;border-radius:16px;padding:8px;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,.05);cursor:pointer;transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;text-align:right}
+  .portfolio-picker-card:hover{transform:translateY(-1px);border-color:#c3d9c7;box-shadow:0 14px 28px rgba(34,88,49,.08)}
+  .portfolio-picker-card.is-selected{border-color:#2f7d1e;box-shadow:0 0 0 3px rgba(47,125,30,.12),0 14px 28px rgba(47,125,30,.10);background:linear-gradient(180deg,#ffffff 0%,#f7fff6 100%)}
+  .portfolio-picker-media{position:relative;overflow:hidden;border-radius:12px;background:#eef3f7;aspect-ratio:1 / 1}
+  .portfolio-picker-media img,.portfolio-picker-media video{display:block;width:100%;height:100%;object-fit:cover}
+  .portfolio-picker-type-badge{position:absolute;inset-inline-start:8px;bottom:8px;display:inline-flex;align-items:center;justify-content:center;padding:4px 8px;border-radius:999px;background:rgba(15,23,42,.78);color:#fff;font-size:10px;font-weight:800;letter-spacing:.2px}
+  .portfolio-picker-check{position:absolute;top:8px;inset-inline-end:8px;width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid rgba(47,125,30,.18);display:flex;align-items:center;justify-content:center;color:#2f7d1e;box-shadow:0 8px 18px rgba(15,23,42,.12);opacity:0;transform:scale(.9);transition:opacity .18s ease,transform .18s ease}
+  .portfolio-picker-card.is-selected .portfolio-picker-check{opacity:1;transform:scale(1)}
+  .portfolio-picker-meta{padding:8px 2px 2px}
+  .portfolio-picker-caption{margin:0;color:#163126;font-size:12px;font-weight:800;line-height:1.6;display:-webkit-box;line-clamp:2;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .portfolio-picker-date{display:block;margin-top:4px;color:#7b8794;font-size:11px}
+  .portfolio-picker-selection{margin-top:12px;padding:10px 12px;border-radius:14px;background:#ffffff;border:1px solid #d9ead7;color:#215832;font-size:12px;font-weight:700}
+  .portfolio-picker-preview{margin-top:12px;display:grid;gap:10px}
+  .portfolio-picker-preview-frame{position:relative;overflow:hidden;border-radius:18px;background:linear-gradient(135deg,#10231c 0%,#1f3a2f 55%,#274236 100%);min-height:220px;border:1px solid rgba(47,125,30,.16);display:flex;align-items:center;justify-content:center;padding:10px}
+  .portfolio-picker-preview-frame img,.portfolio-picker-preview-frame video{display:block;width:100%;height:100%;max-height:260px;object-fit:contain;border-radius:14px;background:rgba(255,255,255,.06)}
+  .portfolio-picker-preview-empty{color:#e5efe8;font-size:12px;line-height:1.8;text-align:center;max-width:240px}
+  .portfolio-picker-preview-caption{padding:10px 12px;border-radius:14px;background:#fff;border:1px solid #dce7dd;color:#36513f;font-size:12px;line-height:1.8}
 
   .check-row{display:flex;gap:12px;flex-wrap:wrap;margin:8px 0 12px}
   .check-row label{font-size:13px;color:#374151;line-height:1.7}
@@ -595,6 +666,7 @@
   .promo-line{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #f1f0f6}
   .promo-line:last-child{border-bottom:0}
   .promo-line span:first-child{color:#6b7280}
+  .promo-modal-selected-media-frame img,.promo-modal-selected-media-frame video{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:16px;background:#f5f7fb}
 
   .promo-success-card{max-width:420px;text-align:center;padding:28px 24px}
   .success-code-badge{display:inline-block;border:2px solid #2f7d1e;color:#2f7d1e;border-radius:8px;padding:8px 24px;font-weight:700;font-size:15px;margin:0 0 18px}
@@ -622,6 +694,8 @@
     .form-row{grid-template-columns:1fr}
     .service-block-header{flex-direction:column;align-items:stretch}
     .service-toggle-label{justify-content:center}
+    .portfolio-picker-head{flex-direction:column;align-items:stretch}
+    .portfolio-picker-link{width:100%}
     .promo-composer-intro-note{max-width:none;width:100%}
     .promo-submit-actions .btn{width:100%}
     .promo-summary-head-badge{font-size:18px;padding:10px 14px}

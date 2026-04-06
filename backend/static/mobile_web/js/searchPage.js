@@ -948,7 +948,7 @@ const SearchPage = (() => {
       waHref
         ? ('<a class="map-provider-action" href="' + waHref + '" target="_blank" rel="noopener">واتس اب</a>')
         : '<span class="map-provider-action is-disabled">واتس اب</span>',
-      '<a class="map-provider-action" href="' + chatHref + '">محادثة</a>',
+      '<a class="map-provider-action" href="' + chatHref + '">رسائل</a>',
       '</div>',
       '</div>',
     ].join('');

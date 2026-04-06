@@ -171,6 +171,12 @@ def _resolve_target_portfolio_item(*, promo_request: PromoRequest, item: PromoRe
     return getattr(promo_request, "target_portfolio_item", None)
 
 
+def _resolve_target_spotlight_item(*, promo_request: PromoRequest, item: PromoRequestItem | None = None):
+    if item is not None and getattr(item, "target_spotlight_item", None) is not None:
+        return item.target_spotlight_item
+    return getattr(promo_request, "target_spotlight_item", None)
+
+
 def _resolve_assets(*, promo_request: PromoRequest, item: PromoRequestItem | None = None):
     if item is not None:
         item_assets = list(item.assets.all())
@@ -218,6 +224,7 @@ def _build_request_placement(pr: PromoRequest) -> dict:
         "attachment_specs": "",
         "target_provider": _resolve_target_provider(promo_request=pr),
         "target_portfolio_item": _resolve_target_portfolio_item(promo_request=pr),
+        "target_spotlight_item": _resolve_target_spotlight_item(promo_request=pr),
         "assets": _resolve_assets(promo_request=pr),
         "_sort_rank": _position_rank_value(position),
         "_sort_order": 0,
@@ -253,6 +260,7 @@ def _build_item_placement(item: PromoRequestItem) -> dict:
         "attachment_specs": item.attachment_specs or "",
         "target_provider": _resolve_target_provider(promo_request=pr, item=item),
         "target_portfolio_item": _resolve_target_portfolio_item(promo_request=pr, item=item),
+        "target_spotlight_item": _resolve_target_spotlight_item(promo_request=pr, item=item),
         "assets": _resolve_assets(promo_request=pr, item=item),
         "_sort_rank": _position_rank_value(position),
         "_sort_order": int(item.sort_order or 0),
@@ -313,8 +321,10 @@ def _public_active_bundle_item_queryset():
             "request__requester__provider_profile",
             "request__target_provider",
             "request__target_portfolio_item",
+            "request__target_spotlight_item",
             "target_provider",
             "target_portfolio_item",
+            "target_spotlight_item",
         )
         .prefetch_related("assets", "request__assets")
         .defer(*_PUBLIC_ITEM_DEFERRED_FIELDS)

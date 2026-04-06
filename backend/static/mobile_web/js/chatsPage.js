@@ -1,5 +1,5 @@
 /* ===================================================================
-   chatsPage.js — Chat threads list controller
+  chatsPage.js — Messages threads list controller
    GET /api/messaging/direct/threads/
    =================================================================== */
 'use strict';
@@ -196,7 +196,7 @@ const ChatsPage = (() => {
       if (!threadsRes.ok || !threadsRes.data) {
         _threads = [];
         _render();
-        _setError(_extractError(threadsRes, 'تعذر تحميل المحادثات حالياً.'));
+        _setError(_extractError(threadsRes, 'تعذر تحميل الرسائل حالياً.'));
         return;
       }
 
@@ -212,7 +212,7 @@ const ChatsPage = (() => {
     } catch (_) {
       _threads = [];
       _render();
-      _setError('حدث خطأ غير متوقع أثناء تحميل المحادثات. حاول مرة أخرى.');
+      _setError('حدث خطأ غير متوقع أثناء تحميل الرسائل. حاول مرة أخرى.');
     } finally {
       _setLoading(false);
     }
@@ -387,15 +387,15 @@ const ChatsPage = (() => {
 
     switch (_activeFilter) {
       case 'unread':
-        return 'لا توجد محادثات غير مقروءة.';
+        return 'لا توجد رسائل غير مقروءة.';
       case 'favorite':
-        return 'لا توجد محادثات مفضلة.';
+        return 'لا توجد رسائل مفضلة.';
       case 'clients':
-        return 'لا توجد محادثات عملاء حالياً.';
+        return 'لا توجد رسائل عملاء حالياً.';
       case 'recent':
-        return 'لا توجد محادثات حديثة حالياً.';
+        return 'لا توجد رسائل حديثة حالياً.';
       default:
-        return 'لا توجد محادثات بعد.';
+        return 'لا توجد رسائل بعد.';
     }
   }
 
@@ -412,9 +412,12 @@ const ChatsPage = (() => {
     const threadId = _threadId(thread);
     const unreadCount = Math.max(0, Number(thread.unread_count) || 0);
     const lastMessage = _threadPreviewText(thread.last_message_text || thread.last_message || '');
+    const kind = _threadKind(thread, displayName);
+    const previewTone = _threadPreviewTone(thread, lastMessage, kind);
 
     const card = UI.el('article', {
       className: 'chat-thread-card'
+        + ' kind-' + kind
         + (unreadCount > 0 ? ' unread' : '')
         + (thread.is_favorite ? ' favorite' : ''),
     });
@@ -428,7 +431,7 @@ const ChatsPage = (() => {
     });
 
     const avatarWrap = UI.el('div', { className: 'thread-avatar-wrap' });
-    const avatar = UI.el('div', { className: 'thread-avatar' });
+    const avatar = UI.el('div', { className: 'thread-avatar kind-' + kind });
 
     const peerImage = thread.peer_image || thread.peer_profile_image;
     if (peerImage) {
@@ -465,8 +468,17 @@ const ChatsPage = (() => {
     if (inlineExcellence) nameWrap.appendChild(inlineExcellence);
     titleWrap.appendChild(nameWrap);
 
-    if (thread.peer_provider_id) {
-      titleWrap.appendChild(UI.el('span', { className: 'thread-role-chip', textContent: 'مزود خدمة' }));
+    const roleLabel = _threadRoleLabel(kind);
+    if (roleLabel) {
+      titleWrap.appendChild(UI.el('span', {
+        className: 'thread-role-chip kind-' + kind,
+        textContent: roleLabel,
+      }));
+    }
+
+    const subtitle = _threadSubtitle(thread, kind);
+    if (subtitle) {
+      content.appendChild(UI.el('div', { className: 'thread-subtitle', textContent: subtitle }));
     }
 
     topRow.appendChild(titleWrap);
@@ -482,7 +494,17 @@ const ChatsPage = (() => {
     topRow.appendChild(trailing);
 
     content.appendChild(topRow);
-    content.appendChild(UI.el('p', { className: 'thread-last-msg', textContent: lastMessage }));
+
+    const previewRow = UI.el('div', { className: 'thread-preview-row' });
+    const previewLabel = _threadPreviewLabel(previewTone, kind);
+    if (previewLabel) {
+      previewRow.appendChild(UI.el('span', {
+        className: 'thread-preview-pill accent-' + previewLabel.accent,
+        textContent: previewLabel.text,
+      }));
+    }
+    previewRow.appendChild(UI.el('p', { className: 'thread-last-msg', textContent: lastMessage }));
+    content.appendChild(previewRow);
 
     const metaRow = UI.el('div', { className: 'thread-meta-row' });
 
@@ -507,9 +529,16 @@ const ChatsPage = (() => {
       }));
     }
 
+    if (_meaningfulValue(thread.peer_city)) {
+      metaRow.appendChild(UI.el('span', {
+        className: 'thread-label-chip city-chip',
+        textContent: String(thread.peer_city).trim(),
+      }));
+    }
+
     const openHint = UI.el('span', {
       className: 'thread-open-hint',
-      textContent: 'فتح المحادثة',
+      textContent: 'فتح الرسائل',
     });
     metaRow.appendChild(openHint);
 
@@ -527,8 +556,8 @@ const ChatsPage = (() => {
     const menuBtn = UI.el('button', {
       type: 'button',
       className: 'chats-thread-menu-btn',
-      title: 'خيارات المحادثة',
-      ariaLabel: 'خيارات المحادثة',
+      title: 'خيارات الرسائل',
+      ariaLabel: 'خيارات الرسائل',
     });
     menuBtn.innerHTML = [
       '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
@@ -645,7 +674,7 @@ const ChatsPage = (() => {
     _threads[index].unread_count = 0;
     _render();
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    _showToast('تم تحديد المحادثة كمقروءة', 'success');
+    _showToast('تم تحديد الرسائل كمقروءة', 'success');
   }
 
   async function _markThreadUnread(threadId) {
@@ -663,7 +692,7 @@ const ChatsPage = (() => {
     _threads[index].unread_count = Math.max(1, Number(_threads[index].unread_count) || 0);
     _render();
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    _showToast('تم تحديد المحادثة كغير مقروءة', 'success');
+    _showToast('تم تحديد الرسائل كغير مقروءة', 'success');
   }
 
   async function _toggleFavoriteState(threadId) {
@@ -682,14 +711,14 @@ const ChatsPage = (() => {
     _threads[index].is_favorite = !!res.data?.is_favorite;
     _threads[index].favorite_label = String(res.data?.favorite_label || _threads[index].favorite_label || '').trim();
     _render();
-    _showToast(remove ? 'تمت إزالة المحادثة من المفضلة' : 'تمت إضافة المحادثة للمفضلة', 'success');
+    _showToast(remove ? 'تمت إزالة الرسائل من المفضلة' : 'تمت إضافة الرسائل للمفضلة', 'success');
   }
 
   async function _toggleArchiveState(threadId) {
     const index = _findThreadIndex(threadId);
     if (index < 0) return;
     const remove = !!_threads[index].is_archived;
-    if (!remove && !window.confirm('أرشفة هذه المحادثة؟ سيتم إخفاؤها من قائمة المحادثات.')) return;
+    if (!remove && !window.confirm('أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.')) return;
 
     const res = await ApiClient.request(_withMode('/api/messaging/thread/' + threadId + '/archive/'), {
       method: 'POST',
@@ -702,7 +731,7 @@ const ChatsPage = (() => {
 
     _threads[index].is_archived = !!res.data?.is_archived;
     _render();
-    _showToast(remove ? 'تم إلغاء أرشفة المحادثة' : 'تمت أرشفة المحادثة', 'success');
+    _showToast(remove ? 'تم إلغاء أرشفة الرسائل' : 'تمت أرشفة الرسائل', 'success');
   }
 
   async function _toggleBlockState(threadId) {
@@ -746,9 +775,9 @@ const ChatsPage = (() => {
     const dialog = UI.el('div', { className: 'chats-report-dialog' });
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.setAttribute('aria-label', 'إبلاغ عن محادثة');
+    dialog.setAttribute('aria-label', 'إبلاغ عن الرسائل');
 
-    dialog.appendChild(UI.el('h3', { textContent: 'إبلاغ عن محادثة' }));
+    dialog.appendChild(UI.el('h3', { textContent: 'إبلاغ عن الرسائل' }));
     const peerInfo = UI.el('div', { className: 'chats-report-peer', textContent: displayName || 'مستخدم' });
     dialog.appendChild(peerInfo);
 
@@ -858,6 +887,44 @@ const ChatsPage = (() => {
     return (thread.peer_phone || '').trim();
   }
 
+  function _threadKind(thread, displayName) {
+    if (_isPlatformTeamName(displayName)) return 'team';
+    if (Number(thread.peer_provider_id) > 0) return 'provider';
+    if (_isProviderMode) return 'client';
+    return 'member';
+  }
+
+  function _threadRoleLabel(kind) {
+    if (kind === 'team') return 'فريق المنصة';
+    if (kind === 'provider') return 'مزود خدمة';
+    if (kind === 'client') return 'عميل';
+    return '';
+  }
+
+  function _threadSubtitle(thread, kind) {
+    if (kind === 'team') return 'متابعة مباشرة مع فريق المنصة';
+    if (kind === 'provider') return _meaningfulValue(thread.peer_city)
+      ? 'مقدم خدمة في ' + String(thread.peer_city).trim()
+      : 'مقدم خدمة على المنصة';
+    if (kind === 'client') return _meaningfulValue(thread.client_label)
+      ? String(thread.client_label).trim()
+      : 'عميل يتابع معك مباشرة';
+    return 'رسائل مباشرة داخل نوافذ';
+  }
+
+  function _threadPreviewTone(thread, previewText, kind) {
+    if (kind === 'team') return 'team';
+    if ((previewText || '').indexOf('🛠️') === 0) return 'service';
+    return 'default';
+  }
+
+  function _threadPreviewLabel(previewTone, kind) {
+    if (previewTone === 'team') return { text: 'رسالة فريق', accent: 'violet' };
+    if (previewTone === 'service') return { text: 'طلب خدمة', accent: 'amber' };
+    if (kind === 'provider') return { text: 'مباشر', accent: 'blue' };
+    return null;
+  }
+
   function _threadPreviewText(rawText) {
     const text = (rawText || '').toString().trim();
     if (!text) return 'لا توجد رسائل بعد';
@@ -871,6 +938,14 @@ const ChatsPage = (() => {
     }
 
     return text;
+  }
+
+  function _meaningfulValue(value) {
+    return String(value || '').trim().length > 0;
+  }
+
+  function _isPlatformTeamName(name) {
+    return String(name || '').trim().startsWith('فريق ');
   }
 
   function _relativeTime(dateStr) {

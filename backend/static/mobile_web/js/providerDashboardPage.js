@@ -201,6 +201,9 @@ const ProviderDashboardPage = (() => {
     if (hasExcellenceBadges) labels.push('شارة تميز');
     if (verifiedRow) {
       verifiedRow.style.display = labels.length ? '' : 'none';
+      verifiedRow.classList.toggle('is-blue', isVerifiedBlue);
+      verifiedRow.classList.toggle('is-green', !isVerifiedBlue && isVerifiedGreen);
+      verifiedRow.classList.toggle('is-excellence', !isVerifiedBlue && !isVerifiedGreen && hasExcellenceBadges);
     }
     if (verifiedLabel) {
       verifiedLabel.textContent = labels.join(' • ');

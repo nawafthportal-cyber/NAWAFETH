@@ -494,15 +494,15 @@ var ProviderReviewsPage = (function () {
           method: 'POST'
         }).then(function (resp) {
           if (!resp || !resp.ok) {
-            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر فتح المحادثة'));
+            throw new Error(apiErrorMessage(resp ? resp.data : null, 'تعذر فتح الرسائل'));
           }
           var threadId = resp.data && resp.data.thread_id;
           if (!threadId) {
-            throw new Error('تعذر فتح المحادثة');
+            throw new Error('تعذر فتح الرسائل');
           }
           window.location.href = '/chat/' + threadId + '/';
         }).catch(function (err) {
-          alert((err && err.message) ? err.message : 'تعذر فتح المحادثة');
+          alert((err && err.message) ? err.message : 'تعذر فتح الرسائل');
           button.disabled = false;
         });
       });

@@ -249,7 +249,11 @@
                     <span>اسم المختص</span>
                     <strong id="portfolioShowcaseProviderName">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
-                  <div class="portfolio-showcase-layout">
+                  <div
+                    class="portfolio-showcase-layout"
+                    id="portfolioShowcaseModule"
+                    data-preview-api-url="{{ module_preview_api_url }}"
+                  >
                     <div class="portfolio-showcase-form-panel">
                       <div class="form-grid portfolio-showcase-form-grid">
                         <div class="field full">
@@ -350,11 +354,15 @@
                     <span>اسم المختص</span>
                     <strong id="snapshotsProviderName">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
-                  <div class="snapshots-layout">
+                  <div
+                    class="snapshots-layout"
+                    id="snapshotsModule"
+                    data-preview-api-url="{{ module_preview_api_url }}"
+                  >
                     <div class="snapshots-form-panel">
                       <div class="form-grid snapshots-form-grid">
                         <div class="field full">
-                          <small>يتم ترويج لمحات المزود داخل الشريط الدائري، وفي الواجهة العامة يظهر معه أيضًا ما أضيف حديثًا خلال اليوم حسب تدفق العرض المعتمد.</small>
+                          <small>اختر ريلًا واحدًا من لمحات المزود المنشورة ليظهر داخل شريط اللمحات، مع الحفاظ على فترة التفعيل حسب بداية ونهاية الحملة.</small>
                         </div>
                         <div class="field">
                           <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
@@ -386,18 +394,25 @@
                           {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field full">
+                          {{ module_form.target_spotlight_item_id }}
+                          {% for err in module_form.target_spotlight_item_id.errors %}<small>{{ err }}</small>{% endfor %}
                           <div class="snapshots-gallery-shell">
                             <div class="snapshots-gallery-head">
-                              <h5>معاينة لمحات المزود</h5>
-                              <span class="pill accent" id="snapshotsGalleryCount">0 لمحة</span>
+                              <h5>الريلز المتاحة</h5>
+                              <span class="pill accent" id="snapshotsGalleryCount">0 ريل</span>
                             </div>
                             <p class="snapshots-gallery-status" id="snapshotsGalleryStatus">
-                              أدخل معرف المزود ليتم جلب اللمحات من الـ API.
+                              أدخل معرف المزود ليتم جلب الريلز المنشورة من الـ API.
                             </p>
                             <div
                               class="snapshots-gallery"
                               id="snapshotsGallery"
                               data-api-template="{{ provider_spotlights_api_template }}"
+                              data-selected-item-id="{{ selected_spotlight_item_data.id|default:'' }}"
+                              data-selected-item-file="{{ selected_spotlight_item_data.file_url|default:selected_spotlight_item_data.thumbnail_url }}"
+                              data-selected-item-thumbnail="{{ selected_spotlight_item_data.thumbnail_url|default:'' }}"
+                              data-selected-item-type="{{ selected_spotlight_item_data.file_type|default:'' }}"
+                              data-selected-item-caption="{{ selected_spotlight_item_data.caption|default:'' }}"
                             ></div>
                           </div>
                         </div>
@@ -411,14 +426,35 @@
                           <div class="snapshots-phone-title">موضع شريط اللمحات</div>
                           <div class="snapshots-phone-strip" id="snapshotsPhoneStrip"></div>
                           <div class="snapshots-phone-viewer" id="snapshotsPhoneViewer">
-                            <div class="snapshots-phone-empty" id="snapshotsPhoneEmpty">
-                              سيتم عرض معاينة أول لمحة للمزود هنا.
+                              <div class="snapshots-phone-empty" id="snapshotsPhoneEmpty" {% if selected_spotlight_item_data.file_url or selected_spotlight_item_data.thumbnail_url %}hidden{% endif %}>
+                                اختر ريلًا من اللمحات لعرضه هنا.
                             </div>
+                              {% if selected_spotlight_item_data.file_type == 'video' and selected_spotlight_item_data.file_url %}
+                                <video
+                                  src="{{ selected_spotlight_item_data.file_url }}"
+                                  {% if selected_spotlight_item_data.thumbnail_url %}poster="{{ selected_spotlight_item_data.thumbnail_url }}"{% endif %}
+                                  controls
+                                  preload="metadata"
+                                  muted
+                                  playsinline
+                                ></video>
+                              {% elif selected_spotlight_item_data.file_url or selected_spotlight_item_data.thumbnail_url %}
+                                <img
+                                  src="{{ selected_spotlight_item_data.file_url|default:selected_spotlight_item_data.thumbnail_url }}"
+                                  alt="{{ selected_spotlight_item_data.caption|default:'الريل المختار' }}"
+                                >
+                              {% endif %}
                           </div>
                         </div>
                       </div>
                       <p class="snapshots-phone-meta" id="snapshotsPreviewCaption">
-                        اللمحات تظهر بشكل دائري، وعند فتحها تعرض المحتوى بشكل رأسي شبيه بتجربة المقاطع القصيرة.
+                          {% if selected_spotlight_item_data.caption %}
+                            {{ selected_spotlight_item_data.caption }}
+                          {% elif selected_spotlight_item_data.file_url or selected_spotlight_item_data.thumbnail_url %}
+                            تم اختيار ريل محفوظ سابقًا لهذا البند.
+                          {% else %}
+                            المعاينة ستظهر بعد اختيار ريل من اللمحات.
+                          {% endif %}
                       </p>
                     </div>
                   </div>

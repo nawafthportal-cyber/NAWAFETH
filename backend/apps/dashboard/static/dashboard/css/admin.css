@@ -447,6 +447,14 @@ body.dashboard-body {
   margin-block-start: var(--space-sm);
 }
 
+.side-card + .promo-request-actions {
+  margin-block-start: var(--space-md);
+}
+
+.promo-request-actions {
+  justify-content: flex-end;
+}
+
 .single-col-grid {
   grid-template-columns: 1fr;
 }

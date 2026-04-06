@@ -7,7 +7,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from apps.providers.models import ProviderProfile, ProviderPortfolioItem
+from apps.providers.models import ProviderProfile, ProviderPortfolioItem, ProviderSpotlightItem
 from apps.support.models import SupportTicket
 
 from .home_banner_media import normalize_home_banner_media_upload
@@ -159,6 +159,13 @@ class PromoRequest(models.Model):
         blank=True,
         related_name="promo_requests",
     )
+    target_spotlight_item = models.ForeignKey(
+        ProviderSpotlightItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_requests",
+    )
 
     # Promo message/push payload (optional)
     message_title = models.CharField(max_length=160, blank=True, default="")
@@ -248,6 +255,13 @@ class PromoRequestItem(models.Model):
     )
     target_portfolio_item = models.ForeignKey(
         ProviderPortfolioItem,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="promo_request_items",
+    )
+    target_spotlight_item = models.ForeignKey(
+        ProviderSpotlightItem,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

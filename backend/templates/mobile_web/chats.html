@@ -1,7 +1,7 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 
-{% block title %}نوافــذ — المحادثات{% endblock %}
+{% block title %}نوافــذ — الرسائل{% endblock %}
 {% block sidebar_chats %}active{% endblock %}
 {% block body_class %}page-chats{% endblock %}
 
@@ -18,7 +18,7 @@
           <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
         </svg>
       </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض المحادثات</h2>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض الرسائل</h2>
       <p class="auth-gate-unified-desc">يمكنك التواصل مع مقدمي الخدمات بعد تسجيل الدخول</p>
       <a href="/login/?next=/chats/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
@@ -26,8 +26,13 @@
     <div id="chats-content" class="hidden chats-shell">
       <header class="chats-page-top">
         <div class="chats-page-title-wrap">
-          <h1>المحادثات</h1>
-          <p>تابع محادثاتك مع مزودي الخدمة واطلع على أحدث الرسائل بسرعة.</p>
+          <h1>الرسائل</h1>
+          <p>تابع رسائلك مع مزودي الخدمة واطلع على أحدث الرسائل بسهولة.</p>
+          <div class="chats-page-hero-tags" aria-hidden="true">
+            <span class="chats-page-hero-tag">رسائل مباشرة</span>
+            <span class="chats-page-hero-tag">فرق المنصة</span>
+            <span class="chats-page-hero-tag">مرفقات آمنة</span>
+          </div>
         </div>
         <div class="chats-top-counters">
           <span id="chats-total-count" class="chats-total-badge">0</span>
@@ -37,7 +42,7 @@
 
       <section class="chats-control-panel">
         <div class="chats-filter-head">
-          <h3>قائمة المحادثات</h3>
+          <h3>قائمة الرسائل</h3>
           <span id="chats-results-count" class="chats-results-count">0 نتيجة</span>
         </div>
 
@@ -69,7 +74,7 @@
             <circle cx="11" cy="11" r="8"/>
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" id="chat-search" class="chats-search-input" placeholder="ابحث عن محادثة..." autocomplete="off">
+          <input type="text" id="chat-search" class="chats-search-input" placeholder="ابحث في الرسائل..." autocomplete="off">
           <button type="button" id="chat-search-clear" class="chats-search-clear hidden" aria-label="مسح البحث">✕</button>
         </div>
       </section>
@@ -88,7 +93,7 @@
 
         <div id="chats-empty" class="empty-hint hidden">
           <div class="empty-icon">💬</div>
-          <p id="chats-empty-text">لا توجد محادثات بعد</p>
+          <p id="chats-empty-text">لا توجد رسائل بعد</p>
         </div>
       </section>
     </div>

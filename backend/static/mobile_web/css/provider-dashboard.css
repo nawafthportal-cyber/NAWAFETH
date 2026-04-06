@@ -33,6 +33,20 @@ body.page-provider-dashboard #dashboard-content {
 body.page-provider-dashboard #pd-cover {
   background-size: cover;
   background-position: center;
+  box-shadow: inset 0 -28px 42px rgba(17, 17, 31, 0.14);
+}
+
+body.page-provider-dashboard .provider-hero .pv2-cover-bar {
+  top: 14px;
+  inset-inline-end: 14px;
+  gap: 9px;
+}
+
+body.page-provider-dashboard .provider-hero .pv2-mini-btn {
+  box-shadow: 0 10px 24px rgba(15, 12, 31, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 body.page-provider-dashboard .provider-avatar-wrap {
@@ -40,6 +54,7 @@ body.page-provider-dashboard .provider-avatar-wrap {
   width: 86px;
   height: 86px;
   margin-inline: auto;
+  filter: drop-shadow(0 14px 22px rgba(16, 11, 33, 0.14));
 }
 
 body.page-provider-dashboard .provider-avatar {
@@ -48,6 +63,7 @@ body.page-provider-dashboard .provider-avatar {
   color: var(--color-text-tertiary);
   font-size: 28px;
   font-weight: 800;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.96);
 }
 
 body.page-provider-dashboard .provider-avatar-upload {
@@ -63,33 +79,37 @@ body.page-provider-dashboard .provider-avatar-upload {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.16);
+  box-shadow: 0 10px 18px rgba(33, 23, 58, 0.2);
 }
 
 body.page-provider-dashboard .provider-avatar-badge {
   position: absolute;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid #fff;
+  width: 24px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.24));
   z-index: 2;
 }
 
+body.page-provider-dashboard .provider-avatar-badge svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 body.page-provider-dashboard .provider-avatar-badge-blue {
-  inset-inline-end: -2px;
-  bottom: 18px;
-  background: #2196f3;
+  inset-inline-end: -3px;
+  bottom: 15px;
+  color: #2196f3;
 }
 
 body.page-provider-dashboard .provider-avatar-badge-green {
-  inset-inline-start: -2px;
-  top: -2px;
-  background: #2e7d32;
+  inset-inline-start: -3px;
+  top: -4px;
+  color: #2e7d32;
 }
 
 body.page-provider-dashboard .provider-avatar-badge-excellence {
@@ -99,7 +119,7 @@ body.page-provider-dashboard .provider-avatar-badge-excellence {
 }
 
 body.page-provider-dashboard .provider-verified-badge {
-  margin: 6px auto 0;
+  margin: 10px auto 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -109,15 +129,40 @@ body.page-provider-dashboard .provider-verified-badge {
   background: rgba(103, 58, 183, 0.08);
   border: 1px solid rgba(103, 58, 183, 0.18);
   border-radius: 999px;
-  padding: 3px 10px;
+  padding: 5px 12px;
+  box-shadow: 0 10px 18px rgba(35, 24, 61, 0.08);
+}
+
+body.page-provider-dashboard .provider-verified-badge.is-blue {
+  color: #1565c0;
+  background: rgba(33, 150, 243, 0.12);
+  border-color: rgba(33, 150, 243, 0.24);
+}
+
+body.page-provider-dashboard .provider-verified-badge.is-green {
+  color: #2e7d32;
+  background: rgba(46, 125, 50, 0.12);
+  border-color: rgba(46, 125, 50, 0.24);
+}
+
+body.page-provider-dashboard .provider-verified-badge.is-excellence {
+  color: #b26a00;
+  background: rgba(249, 168, 37, 0.14);
+  border-color: rgba(249, 168, 37, 0.28);
+}
+
+body.page-provider-dashboard .provider-verified-badge svg {
+  display: block;
+  flex: 0 0 auto;
 }
 
 body.page-provider-dashboard .provider-stats {
-  margin-top: 12px;
+  margin: 16px 14px 0;
+  box-shadow: 0 14px 28px rgba(20, 20, 38, 0.07);
 }
 
 body.page-provider-dashboard .provider-mode-toggle {
-  margin-inline: 40px;
+  margin: 12px 34px 0;
 }
 
 body.page-provider-dashboard .provider-dashboard-strip {
@@ -476,6 +521,16 @@ body.page-provider-dashboard .btn {
     overflow: hidden;
   }
 
+  body.page-provider-dashboard .provider-hero .pv2-cover-bar {
+    top: 18px;
+    inset-inline-end: 18px;
+    gap: 10px;
+  }
+
+  body.page-provider-dashboard .provider-hero .pv2-mini-btn {
+    box-shadow: 0 14px 28px rgba(15, 12, 31, 0.18);
+  }
+
   body.page-provider-dashboard .pv2-name {
     font-size: 28px;
     font-weight: 900;
@@ -486,7 +541,8 @@ body.page-provider-dashboard .btn {
   }
 
   body.page-provider-dashboard .provider-stats {
-    box-shadow: 0 14px 28px rgba(20, 20, 38, 0.07);
+    margin-top: 18px;
+    box-shadow: 0 18px 34px rgba(20, 20, 38, 0.08);
   }
 
   body.page-provider-dashboard .provider-dashboard-strip {

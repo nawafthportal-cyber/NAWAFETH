@@ -1,5 +1,5 @@
 /* ===================================================================
-   chatDetailPage.js — Modernized direct thread detail
+  chatDetailPage.js — Direct messages detail
    =================================================================== */
 'use strict';
 
@@ -26,6 +26,7 @@ const ChatDetailPage = (() => {
       avatar: '',
       id: null,
       providerId: null,
+      kind: 'member',
     },
     account: {
       mode: 'client',
@@ -61,7 +62,6 @@ const ChatDetailPage = (() => {
 
     _cacheDom();
     _bindEvents();
-    _setConnectionStatus('offline');
     _renderPeer();
     _updateSendButtonState();
     _boot();
@@ -76,19 +76,22 @@ const ChatDetailPage = (() => {
     ]);
 
     _markRead();
-    _connectWebSocket();
     _startPollingFallback();
   }
 
   function _cacheDom() {
     dom.peerAvatar = document.getElementById('peer-avatar');
     dom.peerName = document.getElementById('peer-name');
-    dom.peerStatus = document.getElementById('peer-status');
+    dom.peerSubtitle = document.getElementById('peer-subtitle');
+    dom.peerTags = document.getElementById('peer-tags');
     dom.peerCardName = document.getElementById('peer-card-name');
     dom.peerCardPhone = document.getElementById('peer-card-phone');
     dom.peerCardCity = document.getElementById('peer-card-city');
+    dom.peerCardPhoneRow = document.getElementById('peer-card-phone-row');
+    dom.peerCardCityRow = document.getElementById('peer-card-city-row');
     dom.favoriteIndicator = document.getElementById('chat-favorite-indicator');
     dom.banner = document.getElementById('chat-thread-banner');
+    dom.composerNote = document.getElementById('chat-composer-note');
 
     dom.btnFavorite = document.getElementById('btn-chat-fav');
     dom.btnOptions = document.getElementById('btn-chat-options');
@@ -228,6 +231,7 @@ const ChatDetailPage = (() => {
     if (res.ok && res.data) {
       state.account.providerProfileId = _toInt(res.data.provider_profile_id);
     }
+    _renderPeer();
     _renderProviderClientActions();
   }
 
@@ -300,6 +304,7 @@ const ChatDetailPage = (() => {
     return {
       id,
       senderId,
+      senderName: _trim(raw.sender_name),
       text,
       createdAt,
       readByIds,
@@ -336,6 +341,38 @@ const ChatDetailPage = (() => {
     if (dom.peerCardPhone) dom.peerCardPhone.textContent = state.peer.phone || 'غير متوفر';
     if (dom.peerCardCity) dom.peerCardCity.textContent = state.peer.city || 'غير متوفر';
 
+    state.peer.kind = _derivePeerKind();
+
+    if (dom.peerSubtitle) {
+      const subtitle = _peerSubtitle();
+      dom.peerSubtitle.textContent = subtitle;
+      dom.peerSubtitle.classList.toggle('hidden', !subtitle);
+    }
+
+    if (dom.peerTags) {
+      const tags = _peerTags();
+      dom.peerTags.innerHTML = '';
+      dom.peerTags.classList.toggle('hidden', tags.length === 0);
+      tags.forEach((tag) => {
+        const chip = UI.el('span', {
+          className: 'chat-peer-tag' + (tag.accent ? ' accent-' + tag.accent : ''),
+          textContent: tag.text,
+        });
+        dom.peerTags.appendChild(chip);
+      });
+    }
+
+    if (dom.peerCardPhoneRow) {
+      dom.peerCardPhoneRow.classList.toggle('hidden', !_hasMeaningfulValue(state.peer.phone));
+    }
+    if (dom.peerCardCityRow) {
+      dom.peerCardCityRow.classList.toggle('hidden', !_hasMeaningfulValue(state.peer.city));
+    }
+
+    if (dom.composerNote) {
+      dom.composerNote.textContent = _composerNote();
+    }
+
     if (!dom.peerAvatar) return;
     dom.peerAvatar.innerHTML = '';
     if (state.peer.avatar) {
@@ -365,10 +402,71 @@ const ChatDetailPage = (() => {
     }
   }
 
+  function _derivePeerKind() {
+    if (_isPlatformTeamName(state.peer.name)) return 'team';
+    if (Number.isFinite(state.peer.providerId) && state.peer.providerId > 0) return 'provider';
+    if (state.account.isProviderMode) return 'client';
+    return 'member';
+  }
+
+  function _peerSubtitle() {
+    if (state.peer.kind === 'team') return 'رسائل فريق المنصة';
+    if (state.peer.kind === 'provider') return 'مقدم خدمة على المنصة';
+    if (state.peer.kind === 'client') return 'عميل على المنصة';
+    return 'رسائل مباشرة داخل نوافذ';
+  }
+
+  function _peerTags() {
+    const tags = [];
+
+    if (state.peer.kind === 'team') {
+      tags.push({ text: 'فريق المنصة', accent: 'violet' });
+    } else if (state.peer.kind === 'provider') {
+      tags.push({ text: 'مزود خدمة', accent: 'blue' });
+    } else if (state.peer.kind === 'client') {
+      tags.push({ text: 'عميل', accent: 'amber' });
+    }
+
+    tags.push({ text: 'رسائل مباشرة' });
+
+    if (_hasMeaningfulValue(state.peer.city)) {
+      tags.push({ text: state.peer.city, accent: 'slate' });
+    }
+
+    return tags.slice(0, 3);
+  }
+
+  function _composerNote() {
+    if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
+      return 'الإرسال متوقف حتى يتم رفع الحظر.';
+    }
+    if (state.peer.kind === 'team') {
+      return 'يمكنك متابعة الرسائل مع فريق المنصة وإرسال المرفقات عند الحاجة.';
+    }
+    if (state.peer.kind === 'provider') {
+      return 'أرسل تفاصيلك أو مرفقاتك مباشرة إلى مقدم الخدمة.';
+    }
+    if (state.peer.kind === 'client') {
+      return 'تابع مع العميل وأرسل التفاصيل أو الملفات المطلوبة.';
+    }
+    return 'يمكنك إرسال نصوص ومرفقات بشكل مباشر.';
+  }
+
+  function _hasMeaningfulValue(value) {
+    const normalized = _trim(value);
+    return !!normalized && normalized !== 'غير متوفر';
+  }
+
+  function _isPlatformTeamName(name) {
+    const normalized = _trim(name);
+    return normalized.startsWith('فريق ');
+  }
+
   function _renderThreadState() {
     const isFavorite = !!state.threadState.is_favorite;
     dom.btnFavorite?.classList.toggle('active', isFavorite);
     dom.favoriteIndicator?.classList.toggle('hidden', !isFavorite);
+    if (dom.composerNote) dom.composerNote.textContent = _composerNote();
 
     if (dom.actionFavorite) {
       const label = dom.actionFavorite.querySelector('span');
@@ -376,7 +474,7 @@ const ChatDetailPage = (() => {
     }
     if (dom.actionArchive) {
       const label = dom.actionArchive.querySelector('span');
-      if (label) label.textContent = state.threadState.is_archived ? 'إلغاء الأرشفة' : 'أرشفة المحادثة';
+      if (label) label.textContent = state.threadState.is_archived ? 'إلغاء الأرشفة' : 'أرشفة الرسائل';
     }
     if (dom.actionBlock) {
       const label = dom.actionBlock.querySelector('span');
@@ -389,11 +487,11 @@ const ChatDetailPage = (() => {
       return;
     }
     if (state.threadState.is_blocked) {
-      _showBanner('قمت بحظر هذا العضو. أزل الحظر من خيارات المحادثة للمتابعة.', 'danger');
+      _showBanner('قمت بحظر هذا العضو. أزل الحظر من خيارات الرسائل للمتابعة.', 'danger');
       _setComposerDisabled(true);
       return;
     }
-    if (state.threadState.is_archived) _showBanner('هذه المحادثة مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.', 'info');
+    if (state.threadState.is_archived) _showBanner('هذه الرسائل مؤرشفة وستعود تلقائياً عند إرسال رسالة جديدة.', 'info');
     else _hideBanner();
 
     _setComposerDisabled(false);
@@ -459,15 +557,29 @@ const ChatDetailPage = (() => {
 
   function _buildMessageNode(msg, prev, next) {
     const mine = msg.senderId === state.myUserId;
-    const row = UI.el('div', { className: 'msg-row ' + (mine ? 'mine' : 'theirs') });
-    const bubble = UI.el('div', { className: 'msg-bubble ' + (mine ? 'mine' : 'theirs') });
+    const kind = _messageKind(msg, mine);
+    const attachmentTone = _attachmentTone(msg);
+    const row = UI.el('div', {
+      className: 'msg-row '
+        + (mine ? 'mine' : 'theirs')
+        + (kind === 'team' ? ' is-team' : '')
+        + (attachmentTone ? ' has-attachment' : ''),
+    });
+    const bubble = UI.el('div', {
+      className: 'msg-bubble '
+        + (mine ? 'mine' : 'theirs')
+        + (kind === 'team' ? ' kind-team' : '')
+        + (attachmentTone ? ' has-attachment attachment-' + attachmentTone : ''),
+    });
 
     bubble.classList.toggle('group-prev', _canGroup(prev, msg));
     bubble.classList.toggle('group-next', _canGroup(msg, next));
 
     const attachmentNode = _buildAttachmentNode(msg);
-    if (attachmentNode) bubble.appendChild(attachmentNode);
     const serviceRequestCta = _parseServiceRequestCTA(msg.text);
+    const badgeRow = _buildMessageBadgeRow(msg, { mine, kind, attachmentTone, serviceRequestCta });
+    if (badgeRow) bubble.appendChild(badgeRow);
+    if (attachmentNode) bubble.appendChild(attachmentNode);
     if (serviceRequestCta && serviceRequestCta.helperText) {
       bubble.appendChild(UI.el('div', { className: 'msg-text', textContent: serviceRequestCta.helperText }));
     }
@@ -488,6 +600,39 @@ const ChatDetailPage = (() => {
     }
     bubble.appendChild(meta);
     row.appendChild(bubble);
+    return row;
+  }
+
+  function _buildMessageBadgeRow(msg, options) {
+    const items = [];
+
+    if (options.kind === 'team' && !options.mine) {
+      items.push({
+        text: msg.senderName || 'فريق المنصة',
+        accent: 'violet',
+      });
+    }
+
+    if (options.attachmentTone) {
+      items.push({
+        text: _attachmentLabel(msg.attachmentType || 'file'),
+        accent: options.mine ? 'soft' : 'slate',
+      });
+    }
+
+    if (options.serviceRequestCta) {
+      items.push({ text: 'طلب خدمة', accent: 'amber' });
+    }
+
+    if (!items.length) return null;
+
+    const row = UI.el('div', { className: 'msg-badge-row' });
+    items.forEach((item) => {
+      row.appendChild(UI.el('span', {
+        className: 'msg-kind-badge accent-' + item.accent,
+        textContent: item.text,
+      }));
+    });
     return row;
   }
 
@@ -573,6 +718,18 @@ const ChatDetailPage = (() => {
     return fileLink;
   }
 
+  function _messageKind(msg, mine) {
+    if (!mine && (_isPlatformTeamName(msg.senderName) || state.peer.kind === 'team')) return 'team';
+    return 'member';
+  }
+
+  function _attachmentTone(msg) {
+    if (!msg.attachmentUrl) return '';
+    if (msg.attachmentType === 'image') return 'image';
+    if (msg.attachmentType === 'audio') return 'audio';
+    return 'file';
+  }
+
   function _isReadByPeer(msg) {
     if (!Array.isArray(msg.readByIds)) return false;
     return msg.readByIds.some((id) => Number.isFinite(id) && id !== state.myUserId);
@@ -630,7 +787,7 @@ const ChatDetailPage = (() => {
     if (!text && !attachment) return;
 
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
-      _showToast('لا يمكن الإرسال لأن هذه المحادثة محظورة.', 'error');
+      _showToast('لا يمكن الإرسال لأن هذه الرسائل محظورة.', 'error');
       return;
     }
 
@@ -654,6 +811,7 @@ const ChatDetailPage = (() => {
     state.messages.push({
       id: tempId,
       senderId: state.myUserId,
+      senderName: '',
       text,
       createdAt: new Date().toISOString(),
       readByIds: [],
@@ -663,23 +821,11 @@ const ChatDetailPage = (() => {
     });
     _renderMessages({ forceScroll: true });
 
-    let sentViaWs = false;
-    if (state.wsConnected && state.ws && state.ws.readyState === WebSocket.OPEN) {
-      try {
-        state.ws.send(JSON.stringify({ type: 'message', text, client_id: clientId }));
-        sentViaWs = true;
-      } catch (_) {
-        sentViaWs = false;
-      }
-    }
-
-    if (!sentViaWs) {
-      const sent = await _sendTextFallback(text, tempId, clientId);
-      if (!sent) {
-        state.messages = state.messages.filter((m) => m.id !== tempId);
-        state.pendingByClientId.delete(clientId);
-        _renderMessages({ forceScroll: true });
-      }
+    const sent = await _sendTextFallback(text, tempId, clientId);
+    if (!sent) {
+      state.messages = state.messages.filter((m) => m.id !== tempId);
+      state.pendingByClientId.delete(clientId);
+      _renderMessages({ forceScroll: true });
     }
 
     state.isSending = false;
@@ -786,16 +932,16 @@ const ChatDetailPage = (() => {
     );
     if (!res.ok) return;
     window.dispatchEvent(new Event('nw:badge-refresh'));
-    if (withToast) _showToast('تم تمييز المحادثة كمقروءة', 'success');
+    if (withToast) _showToast('تم تمييز الرسائل كمقروءة', 'success');
   }
 
   function _startPollingFallback() {
     if (state.pollTimer) clearInterval(state.pollTimer);
     state.pollTimer = setInterval(() => {
-      if (!state.wsConnected && !state.isLoading && !document.hidden) {
+      if (!state.isLoading && !document.hidden) {
         _loadMessages();
       }
-    }, 2000);
+    }, 15000);
   }
 
   function _buildWsCandidates(token) {
@@ -1007,6 +1153,7 @@ const ChatDetailPage = (() => {
       const mapped = {
         id: incomingId,
         senderId: _toInt(payload.sender_id),
+        senderName: _trim(payload.sender_name),
         text: (payload.text || '').toString(),
         createdAt: payload.sent_at || new Date().toISOString(),
         readByIds: [],
@@ -1026,6 +1173,7 @@ const ChatDetailPage = (() => {
     state.messages.push({
       id: incomingId,
       senderId: _toInt(payload.sender_id),
+      senderName: _trim(payload.sender_name),
       text: (payload.text || '').toString(),
       createdAt: payload.sent_at || new Date().toISOString(),
       readByIds: [],
@@ -1068,7 +1216,7 @@ const ChatDetailPage = (() => {
 
   function _openClientRequestsSheet() {
     if (!_canShowProviderClientActions()) {
-      _showToast('هذا الإجراء متاح فقط في محادثة المزوّد مع العميل', 'error');
+      _showToast('هذا الإجراء متاح فقط في رسائل المزوّد مع العميل', 'error');
       return;
     }
     if (!Number.isFinite(state.peer.id) || state.peer.id <= 0) {
@@ -1243,7 +1391,7 @@ const ChatDetailPage = (() => {
 
   async function _sendServiceRequestLink() {
     if (!_canShowProviderClientActions()) {
-      _showToast('هذا الإجراء متاح فقط في محادثة المزوّد مع العميل', 'error');
+      _showToast('هذا الإجراء متاح فقط في رسائل المزوّد مع العميل', 'error');
       return;
     }
     const providerId = _toInt(state.account.providerProfileId);
@@ -1312,12 +1460,12 @@ const ChatDetailPage = (() => {
 
     state.threadState.is_favorite = !!res.data?.is_favorite;
     _renderThreadState();
-    _showToast(remove ? 'تمت إزالة المحادثة من المفضلة' : 'تمت إضافة المحادثة للمفضلة', 'success');
+    _showToast(remove ? 'تمت إزالة الرسائل من المفضلة' : 'تمت إضافة الرسائل للمفضلة', 'success');
   }
 
   async function _toggleArchive() {
     const remove = !!state.threadState.is_archived;
-    if (!remove && !window.confirm('أرشفة هذه المحادثة؟ سيتم إخفاؤها من قائمة المحادثات.')) return;
+    if (!remove && !window.confirm('أرشفة هذه الرسائل؟ سيتم إخفاؤها من قائمة الرسائل.')) return;
 
     const res = await ApiClient.request('/api/messaging/thread/' + state.threadId + '/archive/', {
       method: 'POST',
@@ -1327,7 +1475,7 @@ const ChatDetailPage = (() => {
 
     state.threadState.is_archived = !!res.data?.is_archived;
     _renderThreadState();
-    _showToast(remove ? 'تم إلغاء أرشفة المحادثة' : 'تمت أرشفة المحادثة', 'success');
+    _showToast(remove ? 'تم إلغاء أرشفة الرسائل' : 'تمت أرشفة الرسائل', 'success');
   }
 
   async function _toggleBlock() {

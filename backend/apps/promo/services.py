@@ -626,6 +626,7 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
                 target_city=pr.target_city or "",
                 target_provider=validated_data.get("target_provider"),
                 target_portfolio_item=validated_data.get("target_portfolio_item"),
+                target_spotlight_item=validated_data.get("target_spotlight_item"),
                 redirect_url=pr.redirect_url or "",
                 message_title=validated_data.get("message_title") or "",
                 message_body=validated_data.get("message_body") or "",

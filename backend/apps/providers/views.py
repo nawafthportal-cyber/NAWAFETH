@@ -36,6 +36,7 @@ from .models import (
 from .serializers import (
 	CategorySerializer,
 	MyProviderSubcategoriesSerializer,
+	ProviderFollowerSerializer,
 	SubCategoryWithCategorySerializer,
 	ProviderServicePublicDetailSerializer,
 	ProviderServicePublicSerializer,
@@ -560,10 +561,16 @@ class ProviderSpotlightFeedView(generics.ListAPIView):
 			start_at__lte=now,
 			end_at__gte=now,
 		).filter(
-			Q(target_provider_id=OuterRef("provider_id"))
-			| Q(
-				target_provider__isnull=True,
-				request__requester__provider_profile__id=OuterRef("provider_id"),
+			Q(target_spotlight_item_id=OuterRef("pk"))
+			| (
+				Q(target_spotlight_item__isnull=True)
+				& (
+					Q(target_provider_id=OuterRef("provider_id"))
+					| Q(
+						target_provider__isnull=True,
+						request__requester__provider_profile__id=OuterRef("provider_id"),
+					)
+				)
 			)
 		)
 		qs = qs.annotate(_promo_snapshot=Exists(active_snapshot_promos))
@@ -841,23 +848,18 @@ class MyLikedProvidersView(generics.ListAPIView):
 
 class MyProviderFollowersView(generics.ListAPIView):
 	"""Users who follow the current user's provider profile (if exists)."""
-	serializer_class = UserPublicSerializer
+	serializer_class = ProviderFollowerSerializer
 	permission_classes = [IsAtLeastProvider]
 
 	def get_queryset(self):
 		provider_profile = getattr(self.request.user, "provider_profile", None)
 		if not provider_profile:
-			return User.objects.none()
+			return ProviderFollow.objects.none()
 
-		user_ids = (
-			ProviderFollow.objects.filter(provider=provider_profile)
-			.values_list("user_id", flat=True)
-			.distinct()
-		)
 		return (
-			User.objects.filter(id__in=user_ids)
-			.select_related("provider_profile")
-			.order_by("-id")
+			ProviderFollow.objects.filter(provider=provider_profile)
+			.select_related("user", "user__provider_profile")
+			.order_by("-created_at", "-id")
 		)
 
 

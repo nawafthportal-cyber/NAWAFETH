@@ -96,6 +96,7 @@ const HomePage = (() => {
     _loadData(!seeded);
     _startBannerSyncTimer();
 
+
     // Pull-to-refresh
     _initPullToRefresh();
     window.addEventListener('beforeunload', () => {
@@ -503,7 +504,7 @@ const HomePage = (() => {
     if (_isLoading) return;
     _isLoading = true;
 
-    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, popupRes, promoMessageRes] = await Promise.allSettled([
+    const [contentRes, catsRes, provsRes, promoBansRes, carouselRes, reelsRes, featuredRes, portfolioRes, snapshotPromoRes, popupRes, promoMessageRes] = await Promise.allSettled([
       ApiClient.get('/api/content/public/'),
       ApiClient.get('/api/providers/categories/'),
       ApiClient.get('/api/providers/list/?page_size=10'),
@@ -512,6 +513,7 @@ const HomePage = (() => {
       ApiClient.get('/api/providers/spotlights/feed/?limit=16'),
       ApiClient.get('/api/promo/active/?service_type=featured_specialists&limit=10'),
       ApiClient.get('/api/promo/active/?service_type=portfolio_showcase&limit=10'),
+      ApiClient.get('/api/promo/active/?service_type=snapshots&limit=16'),
       ApiClient.get('/api/promo/active/?ad_type=popup_home&limit=1'),
       ApiClient.get('/api/promo/active/?service_type=promo_messages&limit=1'),
     ]);
@@ -597,9 +599,16 @@ const HomePage = (() => {
 
     // Spotlights (reels)
     if (reelsRes.status === 'fulfilled' && reelsRes.value.ok && reelsRes.value.data) {
-      const list = Array.isArray(reelsRes.value.data)
+      const feedList = Array.isArray(reelsRes.value.data)
         ? reelsRes.value.data
         : (reelsRes.value.data.results || []);
+      const promoSnapshotPlacements = (snapshotPromoRes.status === 'fulfilled' && snapshotPromoRes.value.ok && snapshotPromoRes.value.data)
+        ? (Array.isArray(snapshotPromoRes.value.data) ? snapshotPromoRes.value.data : (snapshotPromoRes.value.data.results || []))
+        : [];
+      const promoSnapshotItems = promoSnapshotPlacements
+        .map(_normalizeSnapshotPromoItem)
+        .filter(Boolean);
+      const list = _mergeReelsLists(promoSnapshotItems, feedList, 16);
       NwCache.set(CACHE_SPOTLIGHTS, list, TTL);
       if (list.length) {
         _reelsData = list;
@@ -930,6 +939,61 @@ const HomePage = (() => {
       is_saved: !!(nested && nested.is_saved),
       source: 'portfolio',
     };
+  }
+
+  function _normalizeSnapshotPromoItem(rawPromo) {
+    if (!rawPromo || typeof rawPromo !== 'object') return null;
+    const nested = rawPromo.spotlight_item && typeof rawPromo.spotlight_item === 'object'
+      ? rawPromo.spotlight_item
+      : null;
+    const fileUrl = _readBannerString(
+      nested ? nested.file_url : rawPromo.target_spotlight_item_file
+    );
+    if (!fileUrl) return null;
+    return {
+      id: _readBannerInt(nested ? nested.id : rawPromo.target_spotlight_item_id),
+      provider_id: _readBannerInt(nested ? nested.provider_id : rawPromo.target_provider_id),
+      provider_display_name: _readBannerString(
+        nested ? nested.provider_display_name : rawPromo.target_provider_display_name
+      ) || 'مقدم خدمة',
+      provider_profile_image: _readBannerString(
+        nested ? nested.provider_profile_image : rawPromo.target_provider_profile_image
+      ),
+      file_type: _readBannerString(
+        nested ? nested.file_type : rawPromo.target_spotlight_item_file_type
+      ) || 'image',
+      file_url: fileUrl,
+      thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : ''),
+      caption: _readBannerString(nested ? nested.caption : rawPromo.title) || 'لمحة ممولة',
+      likes_count: _readBannerInt(nested ? nested.likes_count : 0),
+      saves_count: _readBannerInt(nested ? nested.saves_count : 0),
+      is_liked: !!(nested && nested.is_liked),
+      is_saved: !!(nested && nested.is_saved),
+      section_title: 'ترويج ممول',
+      source: 'spotlight',
+    };
+  }
+
+  function _mergeReelsLists(promoItems, feedItems, limit) {
+    const merged = [];
+    const seenKeys = new Set();
+    const maxItems = Math.max(1, Number(limit) || 16);
+
+    function pushItem(item) {
+      if (!item || typeof item !== 'object') return;
+      const key = [
+        String(item.provider_id || ''),
+        String(item.file_url || item.thumbnail_url || ''),
+        String(item.source || 'spotlight'),
+      ].join('|');
+      if (!key || seenKeys.has(key)) return;
+      seenKeys.add(key);
+      merged.push(item);
+    }
+
+    (Array.isArray(promoItems) ? promoItems : []).forEach(pushItem);
+    (Array.isArray(feedItems) ? feedItems : []).forEach(pushItem);
+    return merged.slice(0, maxItems);
   }
 
   function _renderPortfolioShowcase(placements) {

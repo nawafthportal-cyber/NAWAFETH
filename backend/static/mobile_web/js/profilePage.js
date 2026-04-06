@@ -194,13 +194,7 @@ const ProfilePage = (() => {
         <label class="pv2-mini-btn" title="تغيير الغلاف">
           <input type="file" accept="image/*" id="input-cover-upload" hidden>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 15.2l3.2-3.2H14V8h-4v4H8.8L12 15.2zM20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h4.05l1.83-2h4.24l1.83 2H20v12z"/><circle cx="12" cy="12" r="3.2"/></svg>
-        </label>
-        <a href="/chats/" class="pv2-mini-btn" title="المحادثات">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z"/></svg>
-        </a>
-        <a href="/notifications/" class="pv2-mini-btn" title="الإشعارات">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-        </a>`;
+        </label>`;
       coverEl.appendChild(bar);
       // Re-bind file input
       const newCoverInput = bar.querySelector('#input-cover-upload');
@@ -266,8 +260,7 @@ const ProfilePage = (() => {
   /* ──────── Quick actions render ──────── */
   function _renderQuickActions() {
     _setAction('action-orders', 'action-orders-label', '/orders/', 'طلباتي');
-    _setAction('action-chats', 'action-chats-label', '/chats/', 'محادثاتي');
-    _setAction('action-notifications', 'action-notifications-label', '/notifications/', 'الإشعارات');
+    _setAction('action-saved', 'action-saved-label', '/interactive/?tab=favorites', 'محفوظاتي');
     _setAction('action-interactive', 'action-interactive-label', '/interactive/', 'تفاعلي');
   }
 
@@ -293,12 +286,6 @@ const ProfilePage = (() => {
       badge.textContent = String(count);
       badge.classList.remove('hidden');
     }
-
-    const verificationTile = document.getElementById('btn-provider-verification');
-    const verificationDivider = document.getElementById('provider-verification-divider');
-    const canVerify = _canSwitchToProvider();
-    if (verificationTile) verificationTile.classList.toggle('hidden', !canVerify);
-    if (verificationDivider) verificationDivider.classList.toggle('hidden', !canVerify);
   }
 
   /* ──────── Provider CTA (for non-providers) ──────── */

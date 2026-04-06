@@ -2053,6 +2053,10 @@ def promo_dashboard(request, request_id: int | None = None):
                 )
                 return _promo_redirect_with_state(request, request_id=target_request.id)
 
+            if action == "save_request" and target_request.ops_status == PromoOpsStatus.COMPLETED:
+                messages.warning(request, "طلب الترويج المكتمل لا يقبل الحفظ مرة أخرى.")
+                return _promo_redirect_with_state(request, request_id=target_request.id)
+
             post_form = PromoRequestActionForm(
                 request.POST,
                 assignee_choices=assignee_choices,
@@ -2150,6 +2154,11 @@ def promo_dashboard(request, request_id: int | None = None):
             "hero_title": "لوحة فريق إدارة الترويج",
             "hero_subtitle": "إدارة الاستفسارات، تحويلها لطلبات ترويج، تشغيل التنفيذ، ومتابعة التسعير والفوترة.",
             "can_write": can_write,
+            "selected_request_can_save": bool(
+                can_write
+                and selected_request is not None
+                and selected_request.ops_status != PromoOpsStatus.COMPLETED
+            ),
             "inquiries": _promo_inquiry_rows(inquiries),
             "promo_requests": _promo_request_rows(promo_requests),
             "inquiry_summary": _promo_inquiry_summary(inquiries),
@@ -3695,6 +3704,11 @@ def _promo_module_initial_data_from_request(
             or getattr(selected_request, "target_portfolio_item_id", None)
             or ""
         ),
+        "target_spotlight_item_id": (
+            getattr(selected_item, "target_spotlight_item_id", None)
+            or getattr(selected_request, "target_spotlight_item_id", None)
+            or ""
+        ),
         "target_category": (
             (selected_item.target_category if selected_item else "")
             or selected_request.target_category
@@ -3756,6 +3770,30 @@ def _promo_module_selected_portfolio_item_data(
         "id": int(target_item.id),
         "file_url": getattr(file_field, "url", "") if file_field else "",
         "thumbnail_url": getattr(thumb_field, "url", "") if thumb_field else "",
+        "file_type": str(getattr(target_item, "file_type", "") or "").strip().lower(),
+        "caption": str(getattr(target_item, "caption", "") or "").strip(),
+    }
+
+
+def _promo_module_selected_spotlight_item_data(
+    *,
+    selected_request: PromoRequest | None,
+    selected_item: PromoRequestItem | None,
+) -> dict:
+    target_item = None
+    if selected_item is not None and getattr(selected_item, "target_spotlight_item", None) is not None:
+        target_item = selected_item.target_spotlight_item
+    elif selected_request is not None and getattr(selected_request, "target_spotlight_item", None) is not None:
+        target_item = selected_request.target_spotlight_item
+    if target_item is None:
+        return {}
+    file_field = getattr(target_item, "file", None)
+    thumb_field = getattr(target_item, "thumbnail", None)
+    return {
+        "id": int(target_item.id),
+        "file_url": getattr(file_field, "url", "") if file_field else "",
+        "thumbnail_url": getattr(thumb_field, "url", "") if thumb_field else "",
+        "file_type": str(getattr(target_item, "file_type", "") or "").strip().lower(),
         "caption": str(getattr(target_item, "caption", "") or "").strip(),
     }
 
@@ -3795,9 +3833,43 @@ def _promo_module_request_preview_payload(
 ) -> dict:
     if selected_request is None:
         return {
-            "request": {"id": "", "code": "", "requester_label": ""},
+            "request": {
+                "id": "",
+                "code": "",
+                "requester_label": "",
+                "target_provider_id": "",
+                "target_provider_label": "",
+            },
             "asset": {"url": "", "type": "", "name": ""},
+            "portfolio_item": {},
+            "spotlight_item": {},
         }
+
+    selected_item = _promo_selected_request_item_for_service(
+        selected_request,
+        service_type=service_type,
+    )
+    target_provider_id = (
+        getattr(selected_item, "target_provider_id", None)
+        or getattr(selected_request, "target_provider_id", None)
+        or getattr(getattr(selected_request.requester, "provider_profile", None), "id", None)
+        or ""
+    )
+    target_provider = None
+    if selected_item is not None and getattr(selected_item, "target_provider", None) is not None:
+        target_provider = selected_item.target_provider
+    elif getattr(selected_request, "target_provider", None) is not None:
+        target_provider = selected_request.target_provider
+    elif getattr(selected_request.requester, "provider_profile", None) is not None:
+        target_provider = selected_request.requester.provider_profile
+
+    target_provider_label = ""
+    if target_provider is not None:
+        target_provider_label = (
+            str(getattr(target_provider, "display_name", "") or "").strip()
+            or str(getattr(getattr(target_provider, "user", None), "username", "") or "").strip()
+            or _promo_requester_label(getattr(target_provider, "user", None))
+        )
 
     assets = _promo_module_assets_for_selected_request(
         selected_request=selected_request,
@@ -3820,12 +3892,22 @@ def _promo_module_request_preview_payload(
             "id": str(selected_request.id or ""),
             "code": selected_request.code or f"MD{selected_request.id:06d}",
             "requester_label": _promo_requester_label(selected_request.requester),
+            "target_provider_id": str(target_provider_id or ""),
+            "target_provider_label": target_provider_label,
         },
         "asset": {
             "url": asset_url,
             "type": asset_type,
             "name": asset_name,
         },
+        "portfolio_item": _promo_module_selected_portfolio_item_data(
+            selected_request=selected_request,
+            selected_item=selected_item,
+        ),
+        "spotlight_item": _promo_module_selected_spotlight_item_data(
+            selected_request=selected_request,
+            selected_item=selected_item,
+        ),
     }
 
 
@@ -3898,6 +3980,10 @@ def promo_module(request, module_key: str):
         selected_request=selected_request,
         selected_item=selected_request_item,
     )
+    selected_spotlight_item_data = _promo_module_selected_spotlight_item_data(
+        selected_request=selected_request,
+        selected_item=selected_request_item,
+    )
     selected_request_module_assets = _promo_module_assets_for_selected_request(
         selected_request=selected_request,
         service_type=service_type,
@@ -3958,6 +4044,10 @@ def promo_module(request, module_key: str):
                 selected_request=selected_request,
                 selected_item=selected_request_item,
             )
+            selected_spotlight_item_data = _promo_module_selected_spotlight_item_data(
+                selected_request=selected_request,
+                selected_item=selected_request_item,
+            )
             selected_request_module_assets = _promo_module_assets_for_selected_request(
                 selected_request=selected_request,
                 service_type=service_type,
@@ -4006,13 +4096,37 @@ def promo_module(request, module_key: str):
                 )
                 if target_portfolio_item is None:
                     module_form.add_error("target_portfolio_item_id", "الصورة المختارة من معرض الأعمال غير متاحة.")
-                elif str(getattr(target_portfolio_item, "file_type", "")).lower() != "image":
-                    module_form.add_error("target_portfolio_item_id", "يمكن اختيار الصور فقط لهذا الشريط.")
                 else:
-                    if target_provider is not None and target_portfolio_item.provider_id != target_provider.id:
-                        module_form.add_error("target_portfolio_item_id", "الصورة المختارة لا تتبع مزود الخدمة المحدد.")
-                    elif target_provider is None:
-                        target_provider = target_portfolio_item.provider
+                    target_media_type = str(getattr(target_portfolio_item, "file_type", "") or "").lower()
+                    if service_type == PromoServiceType.PORTFOLIO_SHOWCASE and target_media_type != "image":
+                        module_form.add_error("target_portfolio_item_id", "يمكن اختيار الصور فقط لهذا الشريط.")
+                    elif service_type == PromoServiceType.SNAPSHOTS and target_media_type not in {"image", "video"}:
+                        module_form.add_error("target_portfolio_item_id", "يمكن اختيار صورة أو فيديو فقط لشريط اللمحات.")
+                    else:
+                        if target_provider is not None and target_portfolio_item.provider_id != target_provider.id:
+                            module_form.add_error("target_portfolio_item_id", "الوسيط المختار لا يتبع مزود الخدمة المحدد.")
+                        elif target_provider is None:
+                            target_provider = target_portfolio_item.provider
+
+            target_spotlight_item = None
+            target_spotlight_item_id = cleaned.get("target_spotlight_item_id")
+            if target_spotlight_item_id:
+                target_spotlight_item = (
+                    ProviderSpotlightItem.objects.select_related("provider", "provider__user")
+                    .filter(id=int(target_spotlight_item_id))
+                    .first()
+                )
+                if target_spotlight_item is None:
+                    module_form.add_error("target_spotlight_item_id", "الريل المختار من اللمحات غير متاح.")
+                else:
+                    target_media_type = str(getattr(target_spotlight_item, "file_type", "") or "").lower()
+                    if service_type == PromoServiceType.SNAPSHOTS and target_media_type not in {"image", "video"}:
+                        module_form.add_error("target_spotlight_item_id", "يمكن اختيار ريل صورة أو فيديو فقط لشريط اللمحات.")
+                    else:
+                        if target_provider is not None and target_spotlight_item.provider_id != target_provider.id:
+                            module_form.add_error("target_spotlight_item_id", "الريل المختار لا يتبع مزود الخدمة المحدد.")
+                        elif target_provider is None:
+                            target_provider = target_spotlight_item.provider
 
             if (
                 target_provider is None
@@ -4021,13 +4135,6 @@ def promo_module(request, module_key: str):
                 and service_type in PROMO_TARGETED_SERVICE_TYPES
             ):
                 target_provider = promo_request.requester.provider_profile
-
-            if (
-                service_type == PromoServiceType.SNAPSHOTS
-                and target_provider is not None
-                and not ProviderSpotlightItem.objects.filter(provider=target_provider).exists()
-            ):
-                module_form.add_error("target_provider_id", "لا توجد لمحات منشورة لهذا المزود حتى الآن.")
 
             if module_form.errors:
                 messages.error(request, "يرجى مراجعة الحقول المحددة.")
@@ -4074,6 +4181,7 @@ def promo_module(request, module_key: str):
                                 search_position=cleaned.get("search_position") or "",
                                 target_provider=target_provider,
                                 target_portfolio_item=target_portfolio_item,
+                                target_spotlight_item=target_spotlight_item,
                                 target_category=cleaned.get("target_category") or "",
                                 target_city=(
                                     ""
@@ -4126,6 +4234,8 @@ def promo_module(request, module_key: str):
                         promo_request.target_provider = first_item.target_provider
                     if not promo_request.target_portfolio_item_id and first_item.target_portfolio_item_id:
                         promo_request.target_portfolio_item = first_item.target_portfolio_item
+                    if not promo_request.target_spotlight_item_id and first_item.target_spotlight_item_id:
+                        promo_request.target_spotlight_item = first_item.target_spotlight_item
                     if not promo_request.target_category and first_item.target_category:
                         promo_request.target_category = first_item.target_category
                     if (
@@ -4142,6 +4252,7 @@ def promo_module(request, module_key: str):
                             "end_at",
                             "target_provider",
                             "target_portfolio_item",
+                            "target_spotlight_item",
                             "target_category",
                             "target_city",
                             "redirect_url",
@@ -4185,6 +4296,7 @@ def promo_module(request, module_key: str):
             "selected_requester_label": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_item": selected_request_item,
             "selected_portfolio_item_data": selected_portfolio_item_data,
+            "selected_spotlight_item_data": selected_spotlight_item_data,
             "selected_request_module_assets": selected_request_module_assets,
             "selected_home_banner_asset": selected_home_banner_asset,
             "selected_message_asset": selected_message_asset,

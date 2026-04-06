@@ -4,7 +4,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
-from apps.providers.serializers import ProviderPortfolioItemSerializer
+from apps.providers.serializers import ProviderPortfolioItemSerializer, ProviderSpotlightItemSerializer
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
     promotional_notification_controls_enabled_for_user,
@@ -147,6 +147,20 @@ class PromoAssetSerializer(serializers.ModelSerializer):
 
 class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
     asset_count = serializers.IntegerField(required=False, min_value=0, write_only=True)
+    target_portfolio_item_id = serializers.PrimaryKeyRelatedField(
+        source="target_portfolio_item",
+        queryset=ProviderPortfolioItem.objects.select_related("provider", "provider__user"),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
+    target_spotlight_item_id = serializers.PrimaryKeyRelatedField(
+        source="target_spotlight_item",
+        queryset=ProviderSpotlightItem.objects.select_related("provider", "provider__user"),
+        required=False,
+        allow_null=True,
+        write_only=True,
+    )
     search_scopes = serializers.ListField(
         child=serializers.ChoiceField(choices=PromoSearchScope.choices),
         required=False,
@@ -168,7 +182,8 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             "target_category",
             "target_city",
             "target_provider",
-            "target_portfolio_item",
+            "target_portfolio_item_id",
+            "target_spotlight_item_id",
             "redirect_url",
             "message_title",
             "message_body",
@@ -245,13 +260,28 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
             PromoServiceType.PORTFOLIO_SHOWCASE,
             PromoServiceType.SNAPSHOTS,
             PromoServiceType.SEARCH_RESULTS,
-        } and not attrs.get("target_provider") and not attrs.get("target_portfolio_item") and requester_provider is None:
+        } and not attrs.get("target_provider") and not attrs.get("target_portfolio_item") and not attrs.get("target_spotlight_item") and requester_provider is None:
             raise serializers.ValidationError("مقدم الخدمة المستهدف مطلوب لهذا النوع من الترويج.")
 
+        target_portfolio_item = attrs.get("target_portfolio_item")
+        target_spotlight_item = attrs.get("target_spotlight_item")
+        if service_type == PromoServiceType.PORTFOLIO_SHOWCASE:
+            if not target_portfolio_item:
+                raise serializers.ValidationError("اختر صورة واحدة من معرض الأعمال لهذا النوع من الترويج.")
+            if str(getattr(target_portfolio_item, "file_type", "") or "").lower() != "image":
+                raise serializers.ValidationError("خدمة شريط البنرات والمشاريع تقبل الصور فقط من معرض الأعمال.")
+
         if service_type == PromoServiceType.SNAPSHOTS:
-            spotlight_provider = attrs.get("target_provider") or requester_provider
-            if spotlight_provider is not None and not ProviderSpotlightItem.objects.filter(provider=spotlight_provider).exists():
-                raise serializers.ValidationError("لا يمكن تفعيل شريط اللمحات لمزود لا يملك لمحات منشورة.")
+            if not target_spotlight_item:
+                raise serializers.ValidationError("اختر ريلًا واحدًا من اللمحات لهذا النوع من الترويج.")
+            if str(getattr(target_spotlight_item, "file_type", "") or "").lower() not in {"image", "video"}:
+                raise serializers.ValidationError("شريط اللمحات يقبل ريل صورة أو فيديو فقط.")
+
+        target_provider = attrs.get("target_provider")
+        if target_provider and target_portfolio_item and getattr(target_portfolio_item, "provider_id", None) != target_provider.id:
+            raise serializers.ValidationError("العنصر المختار من المعرض لا يتبع مزود الخدمة المستهدف.")
+        if target_provider and target_spotlight_item and getattr(target_spotlight_item, "provider_id", None) != target_provider.id:
+            raise serializers.ValidationError("الريل المختار لا يتبع مزود الخدمة المستهدف.")
 
         if service_type == PromoServiceType.PROMO_MESSAGES:
             if not send_at:
@@ -296,6 +326,7 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "target_city",
             "target_provider",
             "target_portfolio_item",
+            "target_spotlight_item",
             "redirect_url",
             "message_title",
             "message_body",
@@ -340,6 +371,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             "target_city",
             "target_provider",
             "target_portfolio_item",
+            "target_spotlight_item",
             "message_title",
             "message_body",
             "redirect_url",
@@ -449,6 +481,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
                 "target_city",
                 "target_provider",
                 "target_portfolio_item",
+                "target_spotlight_item",
                 "redirect_url",
                 "mobile_scale",
                 "tablet_scale",
@@ -588,6 +621,7 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "target_city",
             "target_provider",
             "target_portfolio_item",
+            "target_spotlight_item",
             "message_title",
             "message_body",
             "redirect_url",
@@ -675,7 +709,11 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     target_portfolio_item_id = serializers.IntegerField(source="target_portfolio_item.id", read_only=True)
     target_portfolio_item_file = serializers.FileField(source="target_portfolio_item.file", read_only=True)
     target_portfolio_item_file_type = serializers.CharField(source="target_portfolio_item.file_type", read_only=True)
+    target_spotlight_item_id = serializers.IntegerField(source="target_spotlight_item.id", read_only=True)
+    target_spotlight_item_file = serializers.FileField(source="target_spotlight_item.file", read_only=True)
+    target_spotlight_item_file_type = serializers.CharField(source="target_spotlight_item.file_type", read_only=True)
     portfolio_item = serializers.SerializerMethodField()
+    spotlight_item = serializers.SerializerMethodField()
 
     def _target_provider(self, obj):
         if isinstance(obj, dict):
@@ -713,6 +751,14 @@ class PromoActivePlacementSerializer(serializers.Serializer):
         if target_item is None:
             return None
         return ProviderPortfolioItemSerializer(target_item, context=self.context).data
+
+    def get_spotlight_item(self, obj):
+        if not isinstance(obj, dict):
+            return None
+        target_item = obj.get("target_spotlight_item")
+        if target_item is None:
+            return None
+        return ProviderSpotlightItemSerializer(target_item, context=self.context).data
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

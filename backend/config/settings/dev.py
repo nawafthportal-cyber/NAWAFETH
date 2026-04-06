@@ -8,8 +8,8 @@ OTP_DEV_ACCEPT_ANY_4_DIGITS = True
 OTP_DEV_TEST_CODE = "0000"
 OTP_DEV_ACCEPT_ANY_CODE = True
 
-# Keep local development lightweight unless explicitly enabled.
-PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", False)
+# Enable automatic home-banner video fitting in local development by default.
+PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", True)
 
 # Default to local media storage during development. This avoids admin/forms
 # touching remote R2 objects and failing on HeadObject/HeadBucket permission

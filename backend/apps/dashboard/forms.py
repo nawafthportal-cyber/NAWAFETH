@@ -980,6 +980,12 @@ class PromoModuleItemForm(forms.Form):
         min_value=1,
         widget=forms.HiddenInput(),
     )
+    target_spotlight_item_id = forms.IntegerField(
+        label="الريل المختار",
+        required=False,
+        min_value=1,
+        widget=forms.HiddenInput(),
+    )
     target_category = forms.CharField(
         label="التصنيف المستهدف",
         required=False,
@@ -1182,6 +1188,9 @@ class PromoModuleItemForm(forms.Form):
 
         if service_type == PromoServiceType.PORTFOLIO_SHOWCASE and not cleaned.get("target_portfolio_item_id"):
             self.add_error("target_portfolio_item_id", "اختر صورة واحدة من معرض أعمال المزود.")
+
+        if service_type == PromoServiceType.SNAPSHOTS and not cleaned.get("target_spotlight_item_id"):
+            self.add_error("target_spotlight_item_id", "اختر ريلًا واحدًا من لمحات مزود الخدمة.")
 
         if service_type == PromoServiceType.SEARCH_RESULTS:
             cleaned["target_city"] = ""

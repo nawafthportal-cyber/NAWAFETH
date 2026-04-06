@@ -147,11 +147,70 @@ const InteractivePage = (() => {
 
   function _renderLoading(container, message) {
     if (!container) return;
+    const targetId = String(container.id || '');
+    if (targetId === 'favorites-list') {
+      container.innerHTML = _favoritesSkeletonMarkup();
+      return;
+    }
+    if (targetId === 'following-list' || targetId === 'followers-list') {
+      container.innerHTML = _peopleSkeletonMarkup();
+      return;
+    }
+
     container.innerHTML = '';
     const state = UI.el('div', { className: 'interactive-state' });
     state.appendChild(UI.el('div', { className: 'spinner' }));
     state.appendChild(UI.el('p', { className: 'interactive-state-text', textContent: message }));
     container.appendChild(state);
+  }
+
+  function _peopleSkeletonMarkup() {
+    return [
+      '<div class="interactive-skeleton-grid">',
+      '  <article class="interactive-skeleton-card nw-skeleton-surface">',
+      '    <span class="interactive-skeleton-avatar nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line short nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-button nw-skeleton-block"></span>',
+      '  </article>',
+      '  <article class="interactive-skeleton-card nw-skeleton-surface">',
+      '    <span class="interactive-skeleton-avatar nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line short nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-button nw-skeleton-block"></span>',
+      '  </article>',
+      '  <article class="interactive-skeleton-card nw-skeleton-surface">',
+      '    <span class="interactive-skeleton-avatar nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-line short nw-skeleton-block"></span>',
+      '    <span class="interactive-skeleton-button nw-skeleton-block"></span>',
+      '  </article>',
+      '</div>'
+    ].join('');
+  }
+
+  function _favoritesSkeletonMarkup() {
+    return [
+      '<section class="interactive-skeleton-favorites">',
+      '  <div class="interactive-skeleton-reels">',
+      '    <span class="interactive-skeleton-reel nw-skeleton-surface"></span>',
+      '    <span class="interactive-skeleton-reel nw-skeleton-surface"></span>',
+      '    <span class="interactive-skeleton-reel nw-skeleton-surface"></span>',
+      '  </div>',
+      '  <div class="interactive-skeleton-grid compact">',
+      '    <article class="interactive-skeleton-card nw-skeleton-surface">',
+      '      <span class="interactive-skeleton-media nw-skeleton-block"></span>',
+      '      <span class="interactive-skeleton-line nw-skeleton-block"></span>',
+      '      <span class="interactive-skeleton-line short nw-skeleton-block"></span>',
+      '    </article>',
+      '    <article class="interactive-skeleton-card nw-skeleton-surface">',
+      '      <span class="interactive-skeleton-media nw-skeleton-block"></span>',
+      '      <span class="interactive-skeleton-line nw-skeleton-block"></span>',
+      '      <span class="interactive-skeleton-line short nw-skeleton-block"></span>',
+      '    </article>',
+      '  </div>',
+      '</section>'
+    ].join('');
   }
 
   function _renderEmpty(container, iconName, message) {
@@ -229,7 +288,7 @@ const InteractivePage = (() => {
   function _buildFollowingCard(provider) {
     const providerId = encodeURIComponent(String(provider.id));
     const card = UI.el('article', {
-      className: 'interactive-following-card interactive-following-card-clean',
+      className: 'interactive-following-card interactive-person-card',
       role: 'button',
       tabindex: '0',
     });
@@ -245,7 +304,9 @@ const InteractivePage = (() => {
       }
     });
 
-    const header = UI.el('div', { className: 'interactive-following-head' });
+    card.appendChild(UI.el('div', { className: 'interactive-person-accent' }));
+
+    const header = UI.el('div', { className: 'interactive-person-head interactive-following-head' });
     const avatarWrap = UI.el('div', { className: 'interactive-following-avatar-wrap' });
     const avatar = UI.el('div', { className: 'interactive-following-avatar' });
     const profileUrl = ApiClient.mediaUrl(provider.profile_image || '');
@@ -262,7 +323,11 @@ const InteractivePage = (() => {
     avatarWrap.appendChild(avatar);
     header.appendChild(avatarWrap);
 
-    const meta = UI.el('div', { className: 'interactive-following-meta' });
+    const meta = UI.el('div', { className: 'interactive-person-meta interactive-following-meta' });
+    meta.appendChild(UI.el('span', {
+      className: 'interactive-person-kicker',
+      textContent: provider.provider_type_label || 'مزود خدمة',
+    }));
     const nameRow = UI.el('div', { className: 'interactive-following-name-row' });
     nameRow.appendChild(UI.el('span', {
       className: 'interactive-following-name',
@@ -290,8 +355,15 @@ const InteractivePage = (() => {
     const cityText = String(provider.city || '').trim() || 'غير محدد';
     const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
     const ratingText = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : '0.0';
+    const categoryText = String(provider.primary_category_name || '').trim();
+    const subcategoryText = String(provider.primary_subcategory_name || '').trim();
+    const subtitleParts = [categoryText, subcategoryText || cityText].filter(Boolean);
+    meta.appendChild(UI.el('p', {
+      className: 'interactive-person-subtitle',
+      textContent: subtitleParts.join(' • ') || cityText,
+    }));
 
-    const metaRow = UI.el('div', { className: 'interactive-following-meta-row' });
+    const metaRow = UI.el('div', { className: 'interactive-following-meta-row interactive-person-chip-row' });
     metaRow.appendChild(UI.el('span', {
       className: 'interactive-following-pill city',
       textContent: cityText,
@@ -299,17 +371,31 @@ const InteractivePage = (() => {
     const ratingPill = UI.el('span', { className: 'interactive-following-pill rating' });
     ratingPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('star') + '</span><span>' + ratingText + '</span>';
     metaRow.appendChild(ratingPill);
+    const followersPill = UI.el('span', { className: 'interactive-following-pill stat' });
+    followersPill.innerHTML = '<span class="interactive-following-pill-icon">' + _miniIcon('people') + '</span><span>' + _toInt(provider.followers_count || 0) + ' متابع</span>';
+    metaRow.appendChild(followersPill);
+    const completed = _toInt(provider.completed_requests || 0);
+    if (completed > 0) {
+      const completedPill = UI.el('span', { className: 'interactive-following-pill stat soft' });
+      completedPill.innerHTML = '<span>' + completed + ' مكتمل</span>';
+      metaRow.appendChild(completedPill);
+    }
 
     meta.appendChild(metaRow);
     header.appendChild(meta);
     card.appendChild(header);
 
-    return card;
-  }
+    const footer = UI.el('div', { className: 'interactive-person-footer' });
+    footer.appendChild(UI.el('span', {
+      className: 'interactive-person-footnote',
+      textContent: 'عرض الملف والتفاصيل الكاملة',
+    }));
+    const arrow = UI.el('span', { className: 'interactive-person-arrow', 'aria-hidden': 'true' });
+    arrow.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    footer.appendChild(arrow);
+    card.appendChild(footer);
 
-  function _openProviderChat(providerId) {
-    if (!providerId) return;
-    window.location.href = '/chats/?start=' + encodeURIComponent(String(providerId));
+    return card;
   }
 
   async function _fetchFollowers() {
@@ -333,42 +419,65 @@ const InteractivePage = (() => {
     }
 
     container.innerHTML = '';
-    const frag = document.createDocumentFragment();
+    const fragment = document.createDocumentFragment();
     list.forEach((user) => {
       if (!user || !user.id) return;
-      frag.appendChild(_buildFollowerTile(user));
+      fragment.appendChild(_buildFollowerTile(user));
     });
-    container.appendChild(frag);
+    container.appendChild(fragment);
   }
 
   function _buildFollowerTile(user) {
-    const tile = UI.el('div', { className: 'interactive-follower-tile' });
+    const followRole = String(user.follow_role_context || user.followRoleContext || 'client').trim().toLowerCase();
+    const isProviderFollower = followRole === 'provider';
+    const providerId = isProviderFollower ? _toInt(user.provider_id || user.providerId) : 0;
+    const tile = UI.el('article', {
+      className: 'interactive-follower-tile interactive-person-card interactive-follower-card'
+        + (isProviderFollower ? ' is-provider-follower' : ' is-client-follower')
+        + (providerId > 0 ? ' is-clickable' : ''),
+    });
+    if (providerId > 0) {
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('tabindex', '0');
+      const openProvider = () => {
+        window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+      };
+      tile.addEventListener('click', openProvider);
+      tile.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          openProvider();
+        }
+      });
+    }
+
+    tile.appendChild(UI.el('div', { className: 'interactive-person-accent' + (isProviderFollower ? '' : ' muted') }));
+
+    const header = UI.el('div', { className: 'interactive-person-head' });
 
     const avatar = UI.el('div', { className: 'interactive-follower-avatar' });
     const displayName = String(user.display_name || user.name || user.username || 'مستخدم').trim() || 'مستخدم';
     avatar.appendChild(UI.text(displayName.charAt(0) || '؟'));
-    tile.appendChild(avatar);
+    header.appendChild(avatar);
 
-    const meta = UI.el('div', { className: 'interactive-follower-meta' });
+    const meta = UI.el('div', { className: 'interactive-person-meta interactive-follower-meta' });
     meta.appendChild(UI.el('strong', { className: 'interactive-follower-name', textContent: displayName }));
     const handle = String(user.username_display || user.username || '').trim();
     meta.appendChild(UI.el('span', { className: 'interactive-follower-handle', textContent: handle || '@-' }));
-    tile.appendChild(meta);
+    header.appendChild(meta);
+    tile.appendChild(header);
 
-    const action = UI.el('button', {
-      type: 'button',
-      className: 'interactive-follower-chat-btn',
-    });
-    action.innerHTML = '<span class="interactive-follower-chat-icon">' + _chatIcon() + '</span><span>مراسلة</span>';
-    action.addEventListener('click', () => {
-      const providerId = _toInt(user.provider_id || user.providerId);
-      if (providerId > 0) {
-        _openProviderChat(providerId);
-      } else {
-        _toast('لا يمكن مراسلة هذا المستخدم — ليس لديه ملف مزود خدمة', 'warn');
-      }
-    });
-    tile.appendChild(action);
+    if (providerId > 0) {
+      const footer = UI.el('div', { className: 'interactive-person-footer' });
+      footer.appendChild(UI.el('span', {
+        className: 'interactive-person-footnote',
+        textContent: 'فتح الملف',
+      }));
+      const arrow = UI.el('span', { className: 'interactive-person-arrow', 'aria-hidden': 'true' });
+      arrow.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      footer.appendChild(arrow);
+      tile.appendChild(footer);
+    }
     return tile;
   }
 
@@ -722,10 +831,6 @@ const InteractivePage = (() => {
     if (kind === 'person-off') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M12 12c2.21 0 4-1.79 4-4 0-.9-.3-1.73-.8-2.4L8.6 12.2c.67.5 1.5.8 2.4.8zm0 2c-2.67 0-8 1.34-8 4v2h12.78l-5-5H12zM1.41 1.69 0 3.1l4.05 4.05A3.9 3.9 0 0 0 4 8c0 2.21 1.79 4 4 4 .3 0 .59-.03.87-.1L21 24l1.41-1.41z"/></svg>';
     if (kind === 'bookmark') return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M17 3H7a2 2 0 0 0-2 2v16l7-3 7 3V5a2 2 0 0 0-2-2z"/></svg>';
     return '<svg width="38" height="38" viewBox="0 0 24 24" fill="#C4C4CF"><path d="M21 5v14H3V5h18zm0-2H3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2z"/></svg>';
-  }
-
-  function _chatIcon() {
-    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>';
   }
 
   function _miniIcon(kind) {

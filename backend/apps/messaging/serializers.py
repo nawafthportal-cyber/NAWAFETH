@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import Message, Thread, ThreadUserState
+from .display import display_name_for_user
 from apps.uploads.validators import (
     AUDIO_EXTENSIONS,
     AUDIO_MIME_TYPES,
@@ -125,20 +126,10 @@ class MessageListSerializer(serializers.ModelSerializer):
             return []
 
     def _display_name_for_user(self, user):
-        if not user:
-            return ""
-        first = (getattr(user, "first_name", "") or "").strip()
-        last = (getattr(user, "last_name", "") or "").strip()
-        full = ("%s %s" % (first, last)).strip()
-        if full:
-            return full
-        username = (getattr(user, "username", "") or "").strip()
-        if username:
-            return username
-        return getattr(user, "phone", "") or str(user)
+        return display_name_for_user(user)
 
     def get_sender_name(self, obj):
-        return self._display_name_for_user(getattr(obj, "sender", None))
+        return display_name_for_user(getattr(obj, "sender", None), message_body=getattr(obj, "body", ""))
 
     def get_receiver_name(self, obj):
         try:

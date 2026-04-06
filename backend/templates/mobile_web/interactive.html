@@ -24,9 +24,33 @@
       </section>
 
       <div id="interactive-loading" class="interactive-loading">
-        <div class="interactive-state">
-          <div class="spinner"></div>
-          <p class="interactive-state-text">جاري تحميل الصفحة...</p>
+        <div class="interactive-loading-shell nw-skeleton-surface" aria-hidden="true">
+          <div class="interactive-loading-head">
+            <span class="interactive-loading-line lg nw-skeleton-block"></span>
+            <span class="interactive-loading-line sm nw-skeleton-block"></span>
+          </div>
+          <div class="interactive-loading-tabs">
+            <span class="interactive-loading-chip nw-skeleton-block"></span>
+            <span class="interactive-loading-chip nw-skeleton-block"></span>
+            <span class="interactive-loading-chip nw-skeleton-block"></span>
+          </div>
+          <div class="interactive-loading-grid">
+            <div class="interactive-loading-card nw-skeleton-surface">
+              <span class="interactive-loading-avatar nw-skeleton-block"></span>
+              <span class="interactive-loading-line nw-skeleton-block"></span>
+              <span class="interactive-loading-line short nw-skeleton-block"></span>
+            </div>
+            <div class="interactive-loading-card nw-skeleton-surface">
+              <span class="interactive-loading-avatar nw-skeleton-block"></span>
+              <span class="interactive-loading-line nw-skeleton-block"></span>
+              <span class="interactive-loading-line short nw-skeleton-block"></span>
+            </div>
+            <div class="interactive-loading-card nw-skeleton-surface">
+              <span class="interactive-loading-avatar nw-skeleton-block"></span>
+              <span class="interactive-loading-line nw-skeleton-block"></span>
+              <span class="interactive-loading-line short nw-skeleton-block"></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -46,8 +70,7 @@
           <div class="interactive-tabs-heading">
             <div class="interactive-tabs-copy">
               <span class="interactive-tabs-kicker">إدارة التفاعل</span>
-              <h2 class="interactive-tabs-title">كل ما يخص حضورك وتفضيلاتك</h2>
-            </div>
+             </div>
             <p class="interactive-tabs-note">بدّل بين الأقسام للوصول السريع إلى الأشخاص والوسائط التي تهمك.</p>
           </div>
 
@@ -61,8 +84,7 @@
           <div class="interactive-panel-head">
             <div>
               <h3 class="interactive-panel-title">من أتابع</h3>
-              <p class="interactive-panel-subtitle">المزودون والحسابات التي اخترت البقاء قريبًا منها.</p>
-            </div>
+             </div>
           </div>
           <div class="interactive-following-grid" id="following-list"></div>
         </section>
@@ -72,7 +94,6 @@
           <div class="interactive-panel-head">
             <div>
               <h3 class="interactive-panel-title">متابعيني</h3>
-              <p class="interactive-panel-subtitle">الأشخاص الذين يتابعون نشاطك ويهتمون بعروضك ومحتواك.</p>
             </div>
           </div>
           <div class="interactive-followers-list" id="followers-list"></div>

@@ -679,8 +679,10 @@
       return;
     }
 
+    const root = document.getElementById("portfolioShowcaseModule");
+    const requestInput = moduleForm.querySelector("input[name='request_id']");
     const providerInput = moduleForm.querySelector("input[name='target_provider_id']");
-    const selectedItemInput = moduleForm.querySelector("input[name='target_portfolio_item_id']");
+    const selectedItemInput = moduleForm.querySelector("input[name='target_spotlight_item_id']");
     const gallery = document.getElementById("portfolioShowcaseGallery");
     const galleryStatus = document.getElementById("portfolioShowcaseGalleryStatus");
     const galleryCount = document.getElementById("portfolioShowcaseGalleryCount");
@@ -688,21 +690,52 @@
     const preview = document.getElementById("portfolioShowcasePhonePreview");
     const previewEmpty = document.getElementById("portfolioShowcasePhoneEmpty");
     const previewCaption = document.getElementById("portfolioShowcasePreviewCaption");
-    if (!providerInput || !selectedItemInput || !gallery || !galleryStatus || !galleryCount || !preview || !previewEmpty) {
+    if (
+      !requestInput ||
+      !providerInput ||
+      !selectedItemInput ||
+      !gallery ||
+      !galleryStatus ||
+      !galleryCount ||
+      !preview ||
+      !previewEmpty
+    ) {
       return;
     }
 
     const apiTemplate = String(gallery.dataset.apiTemplate || "");
+    const previewApiUrl = String((root && root.dataset.previewApiUrl) || "").trim();
     const initialSelection = {
       id: Number(gallery.dataset.selectedItemId || 0),
       file_url: gallery.dataset.selectedItemFile || "",
       thumbnail_url: gallery.dataset.selectedItemThumbnail || "",
+      file_type: gallery.dataset.selectedItemType || "",
       caption: gallery.dataset.selectedItemCaption || "",
+    };
+    const selectionState = {
+      id: initialSelection.id,
+      file_url: initialSelection.file_url,
+      thumbnail_url: initialSelection.thumbnail_url,
+      file_type: initialSelection.file_type,
+      caption: initialSelection.caption,
     };
 
     let items = [];
     let requestToken = 0;
     let fetchTimer = 0;
+    let requestPreviewToken = 0;
+    let requestPreviewTimer = 0;
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function updateProviderLabel(text) {
+      if (!providerName) {
+        return;
+      }
+      providerName.textContent = cleanText(text) || "-";
+    }
 
     function clearNode(node) {
       while (node.firstChild) {
@@ -721,6 +754,13 @@
 
     function findItemById(itemId) {
       return items.find((item) => Number(item.id) === Number(itemId)) || null;
+    }
+
+    function setSelectionState(item) {
+      selectionState.id = item && item.id ? Number(item.id) : 0;
+      selectionState.file_url = item ? item.file_url || "" : "";
+      selectionState.thumbnail_url = item ? item.thumbnail_url || "" : "";
+      selectionState.caption = item ? item.caption || "" : "";
     }
 
     function renderPreview(item) {
@@ -758,11 +798,13 @@
     function selectItem(item) {
       if (!item || !item.id) {
         selectedItemInput.value = "";
+        setSelectionState(null);
         updateSelectionVisuals();
         renderPreview(null);
         return;
       }
       selectedItemInput.value = String(item.id);
+      setSelectionState(item);
       updateSelectionVisuals();
       renderPreview(item);
       setStatus("تم اختيار صورة المعرض لهذا البند الترويجي.", "success");
@@ -811,6 +853,11 @@
 
       if (!items.length) {
         selectedItemInput.value = "";
+        if (selectionState.id && (selectionState.file_url || selectionState.thumbnail_url)) {
+          renderPreview(selectionState);
+          setStatus("لا توجد صور أخرى متاحة لهذا المزود حاليًا، وتم الاحتفاظ بالصورة المرتبطة بالطلب.", "warning");
+          return;
+        }
         renderPreview(null);
         setStatus("لا توجد صور متاحة في معرض أعمال هذا المزود حاليًا.", "warning");
         return;
@@ -820,7 +867,7 @@
         gallery.appendChild(buildCard(item));
       });
 
-      const selectedId = Number(selectedItemInput.value || initialSelection.id || 0);
+      const selectedId = Number(selectedItemInput.value || selectionState.id || initialSelection.id || 0);
       const matchedItem = selectedId ? findItemById(selectedId) : null;
       if (matchedItem) {
         selectItem(matchedItem);
@@ -842,13 +889,110 @@
       return rows.filter((item) => String(item.file_type || "").toLowerCase() === "image");
     }
 
+    function clearRequestContext(message, tone) {
+      providerInput.value = "";
+      selectedItemInput.value = "";
+      setSelectionState(null);
+      clearNode(gallery);
+      setCount(0);
+      updateProviderLabel("");
+      renderPreview(null);
+      setStatus(message, tone || "neutral");
+    }
+
+    function applyRequestPreviewPayload(payload) {
+      const requestPayload = payload && payload.request ? payload.request : {};
+      const portfolioItem = payload && payload.portfolio_item ? payload.portfolio_item : {};
+      const nextProviderId = cleanText(requestPayload.target_provider_id);
+      const nextProviderLabel = cleanText(requestPayload.target_provider_label || requestPayload.requester_label);
+
+      providerInput.value = nextProviderId;
+      updateProviderLabel(nextProviderLabel);
+
+      if (portfolioItem && portfolioItem.id) {
+        selectedItemInput.value = String(portfolioItem.id);
+        setSelectionState(portfolioItem);
+        renderPreview(selectionState);
+      } else {
+        selectedItemInput.value = "";
+        setSelectionState(null);
+        renderPreview(null);
+      }
+
+      if (!nextProviderId) {
+        clearNode(gallery);
+        setCount(0);
+        setStatus("الطلب المحدد غير مرتبط بمزود خدمة يمكن عرض معرض أعماله.", "warning");
+        return;
+      }
+
+      scheduleLoad();
+    }
+
+    function loadRequestPreview() {
+      const requestId = cleanText(requestInput.value);
+      if (!requestId) {
+        clearRequestContext("اختر رقم طلب الترويج ليتم جلب مزود الخدمة وصور معرض أعماله.", "neutral");
+        return;
+      }
+      if (!previewApiUrl) {
+        scheduleLoad();
+        return;
+      }
+
+      const currentToken = requestPreviewToken + 1;
+      requestPreviewToken = currentToken;
+      setStatus("جارٍ تحميل بيانات الطلب والمزود من الباكند...", "loading");
+
+      window
+        .fetch(previewApiUrl + "?request_id=" + encodeURIComponent(requestId), {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        })
+        .then((response) =>
+          response
+            .json()
+            .catch(() => ({}))
+            .then((payload) => ({ response, payload }))
+        )
+        .then(({ response, payload }) => {
+          if (currentToken !== requestPreviewToken) {
+            return;
+          }
+          if (!response.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) || "تعذر جلب بيانات الطلب.");
+          }
+          applyRequestPreviewPayload(payload);
+        })
+        .catch((error) => {
+          if (currentToken !== requestPreviewToken) {
+            return;
+          }
+          clearRequestContext(
+            error && error.message ? error.message : "تعذر جلب بيانات الطلب الآن.",
+            "error",
+          );
+        });
+    }
+
+    function scheduleRequestPreviewLoad() {
+      if (requestPreviewTimer) {
+        window.clearTimeout(requestPreviewTimer);
+      }
+      requestPreviewTimer = window.setTimeout(loadRequestPreview, 240);
+    }
+
     function loadPortfolioItems() {
-      const providerId = String(providerInput.value || "").trim();
+      const providerId = cleanText(providerInput.value);
       if (!providerId || !/^[0-9]+$/.test(providerId) || !apiTemplate) {
         clearNode(gallery);
         setCount(0);
         selectedItemInput.value = "";
-        renderPreview(initialSelection.id ? initialSelection : null);
+        renderPreview(selectionState.id ? selectionState : null);
         setStatus("أدخل معرف مزود خدمة صحيح ليتم جلب صور معرض الأعمال.", "neutral");
         return;
       }
@@ -901,13 +1045,19 @@
     providerInput.addEventListener("input", scheduleLoad);
     providerInput.addEventListener("change", scheduleLoad);
     providerInput.addEventListener("blur", scheduleLoad);
+    requestInput.addEventListener("input", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("change", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("blur", scheduleRequestPreviewLoad);
 
-    if (initialSelection.id && (initialSelection.file_url || initialSelection.thumbnail_url)) {
-      renderPreview(initialSelection);
+    if (selectionState.id && (selectionState.file_url || selectionState.thumbnail_url)) {
+      renderPreview(selectionState);
     } else {
       renderPreview(null);
     }
-    if ((providerInput.value || "").trim()) {
+    updateProviderLabel(providerName && providerName.textContent ? providerName.textContent : "");
+    if (cleanText(requestInput.value)) {
+      loadRequestPreview();
+    } else if (cleanText(providerInput.value)) {
       loadPortfolioItems();
     }
   }
@@ -922,7 +1072,10 @@
       return;
     }
 
+    const root = document.getElementById("snapshotsModule");
+    const requestInput = moduleForm.querySelector("input[name='request_id']");
     const providerInput = moduleForm.querySelector("input[name='target_provider_id']");
+    const selectedItemInput = moduleForm.querySelector("input[name='target_portfolio_item_id']");
     const gallery = document.getElementById("snapshotsGallery");
     const galleryStatus = document.getElementById("snapshotsGalleryStatus");
     const galleryCount = document.getElementById("snapshotsGalleryCount");
@@ -931,14 +1084,52 @@
     const phoneViewer = document.getElementById("snapshotsPhoneViewer");
     const phoneEmpty = document.getElementById("snapshotsPhoneEmpty");
     const previewCaption = document.getElementById("snapshotsPreviewCaption");
-    if (!providerInput || !gallery || !galleryStatus || !galleryCount || !phoneStrip || !phoneViewer || !phoneEmpty) {
+    if (
+      !requestInput ||
+      !providerInput ||
+      !selectedItemInput ||
+      !gallery ||
+      !galleryStatus ||
+      !galleryCount ||
+      !phoneStrip ||
+      !phoneViewer ||
+      !phoneEmpty
+    ) {
       return;
     }
 
     const apiTemplate = String(gallery.dataset.apiTemplate || "");
+    const previewApiUrl = String((root && root.dataset.previewApiUrl) || "").trim();
+    const initialSelection = {
+      id: Number(gallery.dataset.selectedItemId || 0),
+      file_url: gallery.dataset.selectedItemFile || "",
+      thumbnail_url: gallery.dataset.selectedItemThumbnail || "",
+      file_type: gallery.dataset.selectedItemType || "",
+      caption: gallery.dataset.selectedItemCaption || "",
+    };
+    const selectionState = {
+      id: initialSelection.id,
+      file_url: initialSelection.file_url,
+      thumbnail_url: initialSelection.thumbnail_url,
+      file_type: initialSelection.file_type,
+      caption: initialSelection.caption,
+    };
     let items = [];
     let requestToken = 0;
     let fetchTimer = 0;
+    let requestPreviewToken = 0;
+    let requestPreviewTimer = 0;
+
+    function cleanText(value) {
+      return String(value || "").trim();
+    }
+
+    function updateProviderLabel(text) {
+      if (!providerName) {
+        return;
+      }
+      providerName.textContent = cleanText(text) || "-";
+    }
 
     function clearNode(node) {
       while (node.firstChild) {
@@ -952,7 +1143,15 @@
     }
 
     function setCount(count) {
-      galleryCount.textContent = String(count || 0) + " لمحة";
+      galleryCount.textContent = String(count || 0) + " ريل";
+    }
+
+    function setSelectionState(item) {
+      selectionState.id = item && item.id ? Number(item.id) : 0;
+      selectionState.file_url = item ? item.file_url || "" : "";
+      selectionState.thumbnail_url = item ? item.thumbnail_url || "" : "";
+      selectionState.file_type = item ? item.file_type || "" : "";
+      selectionState.caption = item ? item.caption || "" : "";
     }
 
     function buildMediaNode(item, muted) {
@@ -990,7 +1189,7 @@
         phoneEmpty.hidden = false;
         phoneViewer.appendChild(phoneEmpty);
         if (previewCaption) {
-          previewCaption.textContent = "اللمحات تظهر بشكل دائري، وعند فتحها تعرض المحتوى بشكل رأسي شبيه بتجربة المقاطع القصيرة.";
+          previewCaption.textContent = "اختر ريلًا من اللمحات ليظهر هنا داخل معاينة شريط اللمحات.";
         }
         return;
       }
@@ -1004,7 +1203,7 @@
         phoneEmpty.hidden = false;
       }
       if (previewCaption) {
-        previewCaption.textContent = item.caption || "تم تجهيز معاينة اللمحة الحالية.";
+        previewCaption.textContent = item.caption || "تم تجهيز معاينة الريل المختار لشريط اللمحات.";
       }
     }
 
@@ -1021,13 +1220,17 @@
 
     function activateItem(item) {
       if (!item || !item.id) {
+        selectedItemInput.value = "";
+        setSelectionState(null);
         updateActiveStates(0);
         renderPhonePreview(null);
         return;
       }
+      selectedItemInput.value = String(item.id);
+      setSelectionState(item);
       updateActiveStates(item.id);
       renderPhonePreview(item);
-      setStatus("تم تحميل لمحات المزود. الحفظ سيعتمد ربط الحملة بالمزود نفسه.", "success");
+      setStatus("تم اختيار ريل اللمحات لهذا الشريط.", "success");
     }
 
     function buildGalleryCard(item) {
@@ -1051,10 +1254,10 @@
       body.className = "snapshots-card-body";
       const title = document.createElement("strong");
       title.className = "snapshots-card-title";
-      title.textContent = item.caption || "لمحة بدون وصف";
+      title.textContent = item.caption || "عنصر بدون وصف";
       const meta = document.createElement("span");
       meta.className = "snapshots-card-meta";
-      meta.textContent = "رقم اللمحة #" + String(item.id || "");
+      meta.textContent = "رقم العنصر #" + String(item.id || "");
       body.appendChild(title);
       body.appendChild(meta);
 
@@ -1078,7 +1281,15 @@
     }
 
     function normalizeItems(payload) {
-      return Array.isArray(payload) ? payload : Array.isArray(payload && payload.results) ? payload.results : [];
+      const rows = Array.isArray(payload) ? payload : Array.isArray(payload && payload.results) ? payload.results : [];
+      return rows.filter((item) => {
+        const type = String(item.file_type || "").toLowerCase();
+        return type === "image" || type === "video";
+      });
+    }
+
+    function findItemById(itemId) {
+      return items.find((item) => Number(item.id) === Number(itemId)) || null;
     }
 
     function renderItems(nextItems) {
@@ -1088,8 +1299,13 @@
       setCount(items.length);
 
       if (!items.length) {
+        if (selectionState.id && (selectionState.file_url || selectionState.thumbnail_url)) {
+          renderPhonePreview(selectionState);
+          setStatus("لا توجد ريلز أخرى متاحة لهذا المزود حاليًا، وتم الاحتفاظ بالريل المرتبط بالطلب.", "warning");
+          return;
+        }
         activateItem(null);
-        setStatus("لا توجد لمحات منشورة لهذا المزود حاليًا.", "warning");
+        setStatus("لا توجد ريلز منشورة لهذا المزود حاليًا.", "warning");
         return;
       }
 
@@ -1102,23 +1318,133 @@
       if (providerLabel && providerName) {
         providerName.textContent = providerLabel;
       }
-      activateItem(items[0]);
+
+      const selectedId = Number(selectedItemInput.value || selectionState.id || initialSelection.id || 0);
+      const matchedItem = selectedId ? findItemById(selectedId) : null;
+      if (matchedItem) {
+        activateItem(matchedItem);
+      } else {
+        selectedItemInput.value = "";
+        setSelectionState(null);
+        updateActiveStates(0);
+        renderPhonePreview(null);
+        setStatus("تم جلب الريلز بنجاح. اختر ريلًا واحدًا لاعتماده داخل شريط اللمحات.", "neutral");
+      }
+    }
+
+    function clearRequestContext(message, tone) {
+      providerInput.value = "";
+      selectedItemInput.value = "";
+      setSelectionState(null);
+      clearNode(gallery);
+      clearNode(phoneStrip);
+      setCount(0);
+      updateProviderLabel("");
+      renderPhonePreview(null);
+      setStatus(message, tone || "neutral");
+    }
+
+    function applyRequestPreviewPayload(payload) {
+      const requestPayload = payload && payload.request ? payload.request : {};
+      const spotlightItem = payload && payload.spotlight_item ? payload.spotlight_item : {};
+      const nextProviderId = cleanText(requestPayload.target_provider_id);
+      const nextProviderLabel = cleanText(requestPayload.target_provider_label || requestPayload.requester_label);
+
+      providerInput.value = nextProviderId;
+      updateProviderLabel(nextProviderLabel);
+
+      if (spotlightItem && spotlightItem.id) {
+        selectedItemInput.value = String(spotlightItem.id);
+        setSelectionState(spotlightItem);
+        renderPhonePreview(selectionState);
+      } else {
+        selectedItemInput.value = "";
+        setSelectionState(null);
+        renderPhonePreview(null);
+      }
+
+      if (!nextProviderId) {
+        clearNode(gallery);
+        clearNode(phoneStrip);
+        setCount(0);
+        setStatus("الطلب المحدد غير مرتبط بمزود خدمة يمكن عرض ريلاته.", "warning");
+        return;
+      }
+
+      scheduleLoad();
+    }
+
+    function loadRequestPreview() {
+      const requestId = cleanText(requestInput.value);
+      if (!requestId) {
+        clearRequestContext("اختر رقم طلب الترويج ليتم جلب مزود الخدمة والريلز المنشورة له.", "neutral");
+        return;
+      }
+      if (!previewApiUrl) {
+        scheduleLoad();
+        return;
+      }
+
+      const currentToken = requestPreviewToken + 1;
+      requestPreviewToken = currentToken;
+      setStatus("جارٍ تحميل بيانات الطلب والمزود من الباكند...", "loading");
+
+      window
+        .fetch(previewApiUrl + "?request_id=" + encodeURIComponent(requestId), {
+          method: "GET",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "X-Requested-With": "XMLHttpRequest",
+          },
+        })
+        .then((response) =>
+          response
+            .json()
+            .catch(() => ({}))
+            .then((payload) => ({ response, payload }))
+        )
+        .then(({ response, payload }) => {
+          if (currentToken !== requestPreviewToken) {
+            return;
+          }
+          if (!response.ok || !payload || payload.ok !== true) {
+            throw new Error((payload && payload.error) || "تعذر جلب بيانات الطلب.");
+          }
+          applyRequestPreviewPayload(payload);
+        })
+        .catch((error) => {
+          if (currentToken !== requestPreviewToken) {
+            return;
+          }
+          clearRequestContext(
+            error && error.message ? error.message : "تعذر جلب بيانات الطلب الآن.",
+            "error",
+          );
+        });
+    }
+
+    function scheduleRequestPreviewLoad() {
+      if (requestPreviewTimer) {
+        window.clearTimeout(requestPreviewTimer);
+      }
+      requestPreviewTimer = window.setTimeout(loadRequestPreview, 240);
     }
 
     function loadSpotlights() {
-      const providerId = String(providerInput.value || "").trim();
+      const providerId = cleanText(providerInput.value);
       if (!providerId || !/^[0-9]+$/.test(providerId) || !apiTemplate) {
         clearNode(gallery);
         clearNode(phoneStrip);
         setCount(0);
-        activateItem(null);
-        setStatus("أدخل معرف مزود خدمة صحيح ليتم جلب اللمحات.", "neutral");
+        renderPhonePreview(selectionState.id ? selectionState : null);
+        setStatus("أدخل معرف مزود خدمة صحيح ليتم جلب الريلز المنشورة.", "neutral");
         return;
       }
 
       const currentToken = requestToken + 1;
       requestToken = currentToken;
-      setStatus("جار جلب لمحات المزود من الباكند...", "loading");
+      setStatus("جار جلب ريلز المزود من الباكند...", "loading");
 
       window
         .fetch(apiTemplate.replace("__provider_id__", providerId), {
@@ -1148,8 +1474,8 @@
           clearNode(gallery);
           clearNode(phoneStrip);
           setCount(0);
-          activateItem(null);
-          setStatus("تعذر تحميل اللمحات الآن. حاول مرة أخرى.", "error");
+          renderPhonePreview(null);
+          setStatus("تعذر تحميل ريلز المزود الآن. حاول مرة أخرى.", "error");
         });
     }
 
@@ -1163,9 +1489,19 @@
     providerInput.addEventListener("input", scheduleLoad);
     providerInput.addEventListener("change", scheduleLoad);
     providerInput.addEventListener("blur", scheduleLoad);
+    requestInput.addEventListener("input", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("change", scheduleRequestPreviewLoad);
+    requestInput.addEventListener("blur", scheduleRequestPreviewLoad);
 
-    activateItem(null);
-    if ((providerInput.value || "").trim()) {
+    if (selectionState.id && (selectionState.file_url || selectionState.thumbnail_url)) {
+      renderPhonePreview(selectionState);
+    } else {
+      renderPhonePreview(null);
+    }
+    updateProviderLabel(providerName && providerName.textContent ? providerName.textContent : "");
+    if (cleanText(requestInput.value)) {
+      loadRequestPreview();
+    } else if (cleanText(providerInput.value)) {
       loadSpotlights();
     }
   }

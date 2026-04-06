@@ -24,6 +24,58 @@
 
 {% block content %}
 <main class="page-content pd-page">
+  <div id="pd-loading-shell" class="pd-loading-shell" aria-hidden="true">
+    <div class="pd-loading-hero nw-skeleton-surface">
+      <div class="pd-loading-cover nw-skeleton-block"></div>
+      <div class="pd-loading-avatar nw-skeleton-block"></div>
+      <div class="pd-loading-identity">
+        <span class="pd-loading-line lg nw-skeleton-block"></span>
+        <span class="pd-loading-line sm nw-skeleton-block"></span>
+        <span class="pd-loading-line md nw-skeleton-block"></span>
+      </div>
+    </div>
+    <div class="container">
+      <div class="pd-loading-overview">
+        <div class="pd-loading-overview-card nw-skeleton-surface"><span class="nw-skeleton-block"></span><span class="nw-skeleton-block short"></span></div>
+        <div class="pd-loading-overview-card nw-skeleton-surface"><span class="nw-skeleton-block"></span><span class="nw-skeleton-block short"></span></div>
+        <div class="pd-loading-overview-card nw-skeleton-surface"><span class="nw-skeleton-block"></span><span class="nw-skeleton-block short"></span></div>
+      </div>
+      <div class="pd-loading-stats nw-skeleton-surface">
+        <span class="nw-skeleton-block tall"></span>
+        <span class="nw-skeleton-block tall"></span>
+        <span class="nw-skeleton-block tall"></span>
+        <span class="nw-skeleton-block tall"></span>
+      </div>
+      <div class="pd-loading-actions">
+        <span class="nw-skeleton-block action wide"></span>
+        <span class="nw-skeleton-block action"></span>
+        <span class="nw-skeleton-block action"></span>
+        <span class="nw-skeleton-block action"></span>
+      </div>
+      <div class="pd-loading-tabs">
+        <span class="nw-skeleton-block tab"></span>
+        <span class="nw-skeleton-block tab"></span>
+        <span class="nw-skeleton-block tab"></span>
+        <span class="nw-skeleton-block tab"></span>
+      </div>
+      <div class="pd-loading-cards">
+        <div class="pd-loading-card nw-skeleton-surface">
+          <span class="nw-skeleton-block title"></span>
+          <span class="nw-skeleton-block"></span>
+          <span class="nw-skeleton-block"></span>
+          <span class="nw-skeleton-block short"></span>
+        </div>
+        <div class="pd-loading-card nw-skeleton-surface">
+          <span class="nw-skeleton-block title"></span>
+          <span class="nw-skeleton-block"></span>
+          <span class="nw-skeleton-block"></span>
+          <span class="nw-skeleton-block short"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pd-content-shell" class="pd-content-shell hidden" aria-busy="true">
   <!-- ═══ HERO — cover + centered avatar + info ═══ -->
   <div class="pd-hero">
     <div class="pd-cover" id="pd-cover">
@@ -47,12 +99,17 @@
     <!-- Centered avatar -->
     <div class="pd-avatar-wrap">
       <div class="pd-avatar" id="pd-avatar"></div>
-      <span class="pd-online-dot" id="pd-online-dot"></span>
       <span class="pd-avatar-badge pd-avatar-badge-blue hidden" id="pd-verified-badge-blue" aria-label="توثيق أزرق">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.55 17.2L4.9 12.54l1.42-1.41 3.23 3.24 8.14-8.15 1.41 1.42z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
+          <path d="M10.1 14.8L7.2 11.9l-1.4 1.4 4.3 4.3 8.1-8.1-1.4-1.4z" fill="#fff"/>
+        </svg>
       </span>
       <span class="pd-avatar-badge pd-avatar-badge-green hidden" id="pd-verified-badge-green" aria-label="توثيق أخضر">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9.55 17.2L4.9 12.54l1.42-1.41 3.23 3.24 8.14-8.15 1.41 1.42z"/></svg>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/>
+          <path d="M10.1 14.8L7.2 11.9l-1.4 1.4 4.3 4.3 8.1-8.1-1.4-1.4z" fill="#fff"/>
+        </svg>
       </span>
     </div>
   </div>
@@ -289,10 +346,22 @@
           </div>
           <div class="pd-services-hero-copy">
             <h3>خدمات مرتبة وواضحة قبل بدء التواصل</h3>
-            <p>راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى المحادثة أو طلب التنفيذ.</p>
+            <p>راجع ما يقدمه المزوّد، نطاق التسعير، ووصف كل خدمة قبل الانتقال إلى الرسائل أو طلب التنفيذ.</p>
           </div>
           <div class="pd-services-hero-count" id="pd-services-count">0 خدمة</div>
         </section>
+        <div class="pd-tab-loading-shell" id="pd-services-loading" aria-hidden="true">
+          <div class="pd-list-skeleton-card nw-skeleton-surface">
+            <span class="nw-skeleton-block title"></span>
+            <span class="nw-skeleton-block"></span>
+            <span class="nw-skeleton-block short"></span>
+          </div>
+          <div class="pd-list-skeleton-card nw-skeleton-surface">
+            <span class="nw-skeleton-block title"></span>
+            <span class="nw-skeleton-block"></span>
+            <span class="nw-skeleton-block short"></span>
+          </div>
+        </div>
         <div class="pd-services-grid" id="pd-services-list"></div>
         <div class="pd-empty hidden" id="pd-services-empty">
           <div class="pd-empty-icon">📋</div>
@@ -317,6 +386,11 @@
             <span class="pd-portfolio-hero-metric" id="pd-portfolio-sections-total">0 قسم</span>
           </div>
         </section>
+        <div class="pd-tab-loading-shell pd-reel-loading-shell" id="pd-portfolio-loading" aria-hidden="true">
+          <div class="pd-reel-skeleton-card nw-skeleton-surface"></div>
+          <div class="pd-reel-skeleton-card nw-skeleton-surface"></div>
+          <div class="pd-reel-skeleton-card nw-skeleton-surface"></div>
+        </div>
         <div id="pd-portfolio-sections"></div>
         <div class="pd-empty hidden" id="pd-portfolio-empty">
           <div class="pd-empty-icon">🖼️</div>
@@ -327,6 +401,14 @@
 
       <!-- Reviews Tab -->
       <div id="tab-reviews" class="pd-panel">
+        <div class="pd-tab-loading-shell" id="pd-reviews-loading" aria-hidden="true">
+          <div class="pd-review-skeleton-summary nw-skeleton-surface">
+            <span class="nw-skeleton-block rating"></span>
+            <span class="nw-skeleton-block short"></span>
+          </div>
+          <div class="pd-review-skeleton-row nw-skeleton-surface"></div>
+          <div class="pd-review-skeleton-row nw-skeleton-surface"></div>
+        </div>
         <div class="pd-rating-summary" id="pd-rating-summary"></div>
         <div class="pd-reviews-list" id="pd-reviews-list"></div>
         <div class="pd-empty hidden" id="pd-reviews-empty">
@@ -336,6 +418,7 @@
       </div>
     </div>
   </div>
+</div>
 </main>
 {% endblock %}
 

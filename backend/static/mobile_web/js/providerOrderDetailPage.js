@@ -20,7 +20,7 @@ const ProviderOrderDetailPage = (() => {
     if (!m) return showError('رابط غير صحيح');
     state.id = Number(m[1]);
     const chat = byId('pod-chat-btn');
-    if (chat) chat.addEventListener('click', () => toast('سيتم فتح المحادثة مع العميل قريباً'));
+    if (chat) chat.addEventListener('click', () => toast('سيتم فتح الرسائل مع العميل قريباً'));
     loadDetail();
   }
 

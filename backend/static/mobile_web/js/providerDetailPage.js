@@ -71,6 +71,21 @@ const ProviderDetailPage = (() => {
     });
   }
 
+  function _setInitialShellLoading(loading) {
+    const loadingShell = document.getElementById('pd-loading-shell');
+    const contentShell = document.getElementById('pd-content-shell');
+    if (loadingShell) loadingShell.classList.toggle('hidden', !loading);
+    if (contentShell) {
+      contentShell.classList.toggle('hidden', !!loading);
+      contentShell.setAttribute('aria-busy', loading ? 'true' : 'false');
+    }
+  }
+
+  function _setTabLoadingState(sectionName, loading) {
+    const loadingEl = document.getElementById('pd-' + sectionName + '-loading');
+    if (loadingEl) loadingEl.classList.toggle('hidden', !loading);
+  }
+
   /* ── Action buttons ── */
   function _bindActions() {
     document.getElementById('btn-follow').addEventListener('click', _toggleFollow);
@@ -169,7 +184,7 @@ const ProviderDetailPage = (() => {
 
     const providerId = _safeInt(_providerId);
     if (!providerId) {
-      _showToast('تعذر فتح المحادثة: معرف المزود غير صالح');
+      _showToast('تعذر فتح الرسائل: معرف المزود غير صالح');
       return;
     }
 
@@ -183,7 +198,7 @@ const ProviderDetailPage = (() => {
       return;
     }
 
-    _showToast((res.data && (res.data.detail || res.data.error)) || 'تعذر فتح المحادثة حالياً');
+    _showToast((res.data && (res.data.detail || res.data.error)) || 'تعذر فتح الرسائل حالياً');
   }
 
   function _bindSpotlightSync() {
@@ -290,6 +305,7 @@ const ProviderDetailPage = (() => {
 
   /* ── Load all data ── */
   async function _loadAll() {
+    _setInitialShellLoading(true);
     const providerPath = _withMode('/api/providers/' + _providerId + '/');
     const statsPath = _withMode('/api/providers/' + _providerId + '/stats/');
     const [provRes, statsRes] = await Promise.all([
@@ -317,6 +333,7 @@ const ProviderDetailPage = (() => {
         );
       }
     }
+    _setInitialShellLoading(false);
     _syncFollowState();
 
     // Parallel: services, portfolio, reviews, spotlights
@@ -1048,13 +1065,18 @@ const ProviderDetailPage = (() => {
     const container = document.getElementById('pd-services-list');
     const emptyEl = document.getElementById('pd-services-empty');
     const countEl = document.getElementById('pd-services-count');
+    _setTabLoadingState('services', true);
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
-    if (!res.ok) return;
+    if (!res.ok) {
+      _setTabLoadingState('services', false);
+      return;
+    }
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
     _refreshDerivedCategories(list);
     _syncCategoryViews();
     container.textContent = '';
     if (emptyEl) emptyEl.classList.add('hidden');
+    _setTabLoadingState('services', false);
     if (countEl) {
       countEl.textContent = _serviceCountLabel(list.length);
     }
@@ -1180,8 +1202,12 @@ const ProviderDetailPage = (() => {
     const container = document.getElementById('pd-portfolio-sections');
     const emptyEl = document.getElementById('pd-portfolio-empty');
     if (!container) return;
+    _setTabLoadingState('portfolio', true);
     const res = await ApiClient.get(_withMode('/api/providers/' + _providerId + '/portfolio/'));
-    if (!res.ok) return;
+    if (!res.ok) {
+      _setTabLoadingState('portfolio', false);
+      return;
+    }
     const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
 
     container.textContent = '';
@@ -1190,6 +1216,7 @@ const ProviderDetailPage = (() => {
 
     if (!list.length) {
       if (emptyEl) emptyEl.classList.remove('hidden');
+      _setTabLoadingState('portfolio', false);
       _syncPortfolioPreviewPlayback();
       return;
     }
@@ -1360,6 +1387,7 @@ const ProviderDetailPage = (() => {
     if (!container.children.length && emptyEl) {
       emptyEl.classList.remove('hidden');
     }
+    _setTabLoadingState('portfolio', false);
     _setupPortfolioPreviewObserver();
     _syncPortfolioPreviewPlayback();
   }
@@ -1665,6 +1693,7 @@ const ProviderDetailPage = (() => {
     const summaryEl = document.getElementById('pd-rating-summary');
     const listEl = document.getElementById('pd-reviews-list');
     const emptyEl = document.getElementById('pd-reviews-empty');
+    _setTabLoadingState('reviews', true);
 
     const [ratingRes, reviewsRes] = await Promise.all([
       ApiClient.get('/api/reviews/providers/' + _providerId + '/rating/'),
@@ -1715,6 +1744,7 @@ const ProviderDetailPage = (() => {
     if (listEl) listEl.textContent = '';
 
     if (!reviews.length) {
+      _setTabLoadingState('reviews', false);
       if (emptyEl) emptyEl.classList.remove('hidden');
       return;
     }
@@ -1741,6 +1771,7 @@ const ProviderDetailPage = (() => {
     track.appendChild(groupB);
     marquee.appendChild(track);
     listEl.appendChild(marquee);
+    _setTabLoadingState('reviews', false);
   }
 
   /* ═══ Helpers ═══ */

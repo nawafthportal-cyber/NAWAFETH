@@ -10,7 +10,7 @@ const NotificationSettingsPage = (() => {
     basic: {
       key: 'basic',
       label: 'الباقة الأساسية',
-      description: 'تنبيهات التشغيل الأساسية المرتبطة بالطلبات والمحادثات والتحديثات العامة.',
+      description: 'تنبيهات التشغيل الأساسية المرتبطة بالطلبات والرسائل والتحديثات العامة.',
       mountId: 'notif-basic-section',
       className: 'notif-tier-basic',
       items: [

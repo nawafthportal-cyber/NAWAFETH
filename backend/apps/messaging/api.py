@@ -12,8 +12,6 @@ from django.db import DatabaseError, OperationalError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
-from asgiref.sync import async_to_sync
-from channels.layers import get_channel_layer
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
@@ -30,6 +28,7 @@ from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
 
 from .models import Message, MessageRead, Thread, ThreadUserState
+from .display import display_name_for_user
 from .pagination import MessagePagination
 from .permissions import IsRequestParticipant, IsThreadParticipant
 from .serializers import (
@@ -51,18 +50,6 @@ from .views import (
 
 
 logger = logging.getLogger(__name__)
-
-
-def _display_name_for_user(user) -> str:
-	first = (getattr(user, "first_name", None) or "").strip()
-	last = (getattr(user, "last_name", None) or "").strip()
-	full = ("%s %s" % (first, last)).strip()
-	if full:
-		return full
-	username = (getattr(user, "username", None) or "").strip()
-	if username:
-		return username
-	return getattr(user, "phone", "") or str(user)
 
 
 def _invalidate_direct_thread_badges(thread: Thread) -> None:
@@ -398,6 +385,10 @@ class MyDirectThreadsListView(APIView):
 			peer = t.participant_2 if t.participant_1_id == me.id else t.participant_1
 			last_msg = t.messages.order_by("-id").first()
 			unread = t.messages.exclude(sender=me).exclude(reads__user=me).count()
+			peer_message_body = ""
+			if getattr(peer, "is_staff", False):
+				last_peer_message = t.messages.filter(sender=peer).order_by("-id").first()
+				peer_message_body = getattr(last_peer_message, "body", "") or getattr(last_msg, "body", "") or ""
 
 			# Get provider profile for peer if exists
 			peer_provider = getattr(peer, "provider_profile", None)
@@ -418,8 +409,8 @@ class MyDirectThreadsListView(APIView):
 					else []
 				),
 				"peer_name": (
-					peer_provider.display_name if peer_provider
-					else _display_name_for_user(peer)
+					peer_provider.display_name if (peer_provider and not getattr(peer, "is_staff", False))
+					else display_name_for_user(peer, message_body=peer_message_body)
 				),
 				"peer_first_name": getattr(peer, "first_name", "") or "",
 				"peer_last_name": getattr(peer, "last_name", "") or "",
@@ -550,7 +541,6 @@ class ThreadBlockView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly, IsThreadParticipant]
 
 	def post(self, request, thread_id: int):
-		channel_layer = get_channel_layer()
 		action = (request.data.get("action") or "").strip().lower()
 		obj, _ = ThreadUserState.objects.get_or_create(thread_id=thread_id, user=request.user)
 
@@ -562,32 +552,6 @@ class ThreadBlockView(APIView):
 			obj.blocked_at = timezone.now()
 
 		obj.save(update_fields=["is_blocked", "blocked_at", "updated_at"])
-
-		# Notify any active WS connections for this thread
-		try:
-			if channel_layer is not None:
-				group = f"thread_{thread_id}"
-				if obj.is_blocked:
-					async_to_sync(channel_layer.group_send)(
-						group,
-						{
-							"type": "broadcast.blocked",
-							"thread_id": thread_id,
-							"blocked_by": request.user.id,
-						},
-					)
-				else:
-					async_to_sync(channel_layer.group_send)(
-						group,
-						{
-							"type": "broadcast.unblocked",
-							"thread_id": thread_id,
-							"unblocked_by": request.user.id,
-						},
-					)
-		except Exception:
-			# Best-effort only
-			pass
 		return Response({"ok": True, "is_blocked": obj.is_blocked}, status=status.HTTP_200_OK)
 
 
@@ -737,22 +701,6 @@ class ThreadDeleteMessageView(APIView):
 		message.delete()
 		if thread.is_direct:
 			_invalidate_direct_thread_badges(thread)
-
-		# Best-effort realtime sync for active chat screens.
-		try:
-			channel_layer = get_channel_layer()
-			if channel_layer is not None:
-				async_to_sync(channel_layer.group_send)(
-					f"thread_{thread_id}",
-					{
-						"type": "broadcast.message_deleted",
-						"thread_id": thread_id,
-						"message_id": message_id,
-						"deleted_by": request.user.id,
-					},
-				)
-		except Exception:
-			pass
 
 		return Response(
 			{"ok": True, "thread_id": thread_id, "message_id": message_id},

@@ -7,6 +7,7 @@ from apps.accounts.role_context import get_active_role
 
 from .models import (
     Category,
+    ProviderFollow,
     ProviderCategory,
     ProviderPortfolioItem,
     ProviderProfile,
@@ -625,6 +626,48 @@ class UserPublicSerializer(serializers.ModelSerializer):
 
     def get_provider_id(self, obj: User):
         profile = getattr(obj, "provider_profile", None)
+        return profile.id if profile else None
+
+
+class ProviderFollowerSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(source="user.id", read_only=True)
+    username = serializers.CharField(source="user.username", read_only=True)
+    display_name = serializers.SerializerMethodField()
+    provider_id = serializers.SerializerMethodField()
+    follow_role_context = serializers.CharField(source="role_context", read_only=True)
+
+    class Meta:
+        model = ProviderFollow
+        fields = (
+            "id",
+            "username",
+            "display_name",
+            "provider_id",
+            "follow_role_context",
+            "created_at",
+        )
+
+    def get_display_name(self, obj: ProviderFollow) -> str:
+        user = getattr(obj, "user", None)
+        if user is None:
+            return "مستخدم"
+        if getattr(obj, "role_context", "") == "provider":
+            profile = getattr(user, "provider_profile", None)
+            provider_name = (getattr(profile, "display_name", "") or "").strip() if profile is not None else ""
+            if provider_name:
+                return provider_name
+        first = (getattr(user, "first_name", "") or "").strip()
+        last = (getattr(user, "last_name", "") or "").strip()
+        if first or last:
+            return (f"{first} {last}").strip()
+        username = (getattr(user, "username", "") or "").strip()
+        return username or "مستخدم"
+
+    def get_provider_id(self, obj: ProviderFollow):
+        if getattr(obj, "role_context", "") != "provider":
+            return None
+        user = getattr(obj, "user", None)
+        profile = getattr(user, "provider_profile", None) if user is not None else None
         return profile.id if profile else None
 
 

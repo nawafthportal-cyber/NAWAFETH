@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import logging
+
+from django.db import DatabaseError
 from django.utils.html import strip_tags
 
 from .models import SiteContentBlock, SiteLegalDocument, SiteLinks
+
+
+logger = logging.getLogger(__name__)
 
 
 def sanitize_text(value: str) -> str:
@@ -22,6 +28,46 @@ DEFAULT_TOPBAR_BRAND_SUBTITLE = "المنصة الرقمية للخدمات"
 DEFAULT_FOOTER_BRAND_TITLE = "نوافــذ"
 DEFAULT_FOOTER_BRAND_DESCRIPTION = "منصة تجمعك بالمختصين والعروض والخدمات في تجربة أوضح وأسرع على الويب."
 DEFAULT_FOOTER_COPYRIGHT = "جميع الحقوق محفوظة لمنصة نوافــذ"
+
+
+def default_site_links_payload() -> dict[str, str]:
+    return {
+        "x_url": "",
+        "instagram_url": "",
+        "snapchat_url": "",
+        "tiktok_url": "",
+        "youtube_url": "",
+        "whatsapp_url": "",
+        "email": "",
+        "android_store": "",
+        "ios_store": "",
+        "website_url": "",
+    }
+
+
+def _social_links_payload(links: dict[str, str]) -> list[dict[str, str]]:
+    social_links = [
+        {"key": "x", "label": "X", "url": links["x_url"]},
+        {"key": "instagram", "label": "Instagram", "url": links["instagram_url"]},
+        {"key": "snapchat", "label": "Snapchat", "url": links["snapchat_url"]},
+        {"key": "tiktok", "label": "TikTok", "url": links["tiktok_url"]},
+        {"key": "youtube", "label": "YouTube", "url": links["youtube_url"]},
+        {"key": "whatsapp", "label": "WhatsApp", "url": links["whatsapp_url"]},
+        {"key": "email", "label": "Email", "url": f"mailto:{links['email']}" if links["email"] else ""},
+    ]
+    return [item for item in social_links if item["url"]]
+
+
+def _store_links_payload(links: dict[str, str]) -> list[dict[str, str]]:
+    store_links = [
+        {"key": "android", "label": "Google Play", "url": links["android_store"]},
+        {"key": "ios", "label": "App Store", "url": links["ios_store"]},
+    ]
+    return [item for item in store_links if item["url"]]
+
+
+def _log_public_content_fallback() -> None:
+    logger.warning("Site public content unavailable; using default payloads instead.", exc_info=True)
 
 
 def _block_payloads() -> dict[str, dict]:
@@ -104,37 +150,37 @@ def public_branding_payload(blocks: dict[str, dict] | None = None) -> dict[str, 
 
 
 def template_site_payload() -> dict[str, object]:
-    blocks = _block_payloads()
-    links = _site_links_payload()
+    try:
+        blocks = _block_payloads()
+        links = _site_links_payload()
+    except DatabaseError:
+        _log_public_content_fallback()
+        blocks = {}
+        links = default_site_links_payload()
+
     branding = public_branding_payload(blocks)
-    social_links = [
-        {"key": "x", "label": "X", "url": links["x_url"]},
-        {"key": "instagram", "label": "Instagram", "url": links["instagram_url"]},
-        {"key": "snapchat", "label": "Snapchat", "url": links["snapchat_url"]},
-        {"key": "tiktok", "label": "TikTok", "url": links["tiktok_url"]},
-        {"key": "youtube", "label": "YouTube", "url": links["youtube_url"]},
-        {"key": "whatsapp", "label": "WhatsApp", "url": links["whatsapp_url"]},
-        {"key": "email", "label": "Email", "url": f"mailto:{links['email']}" if links["email"] else ""},
-    ]
-    store_links = [
-        {"key": "android", "label": "Google Play", "url": links["android_store"]},
-        {"key": "ios", "label": "App Store", "url": links["ios_store"]},
-    ]
     return {
         "brand": branding,
         "links": links,
-        "social_links": [item for item in social_links if item["url"]],
-        "store_links": [item for item in store_links if item["url"]],
+        "social_links": _social_links_payload(links),
+        "store_links": _store_links_payload(links),
     }
 
 
 def public_content_payload() -> dict:
-    blocks = _block_payloads()
-    links_payload = _site_links_payload()
+    try:
+        blocks = _block_payloads()
+        documents = _latest_legal_documents()
+        links_payload = _site_links_payload()
+    except DatabaseError:
+        _log_public_content_fallback()
+        blocks = {}
+        documents = {}
+        links_payload = default_site_links_payload()
 
     return {
         "blocks": blocks,
-        "documents": _latest_legal_documents(),
+        "documents": documents,
         "links": links_payload,
         "branding": public_branding_payload(blocks),
     }

@@ -1,14 +1,14 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 
-{% block title %}نوافــذ — محادثة{% endblock %}
+{% block title %}نوافــذ — الرسائل{% endblock %}
 {% block sidebar_chats %}active{% endblock %}
 {% block body_class %}page-chat-detail{% endblock %}
 
 {% block content %}
 <main class="chat-detail-page">
   <header class="chat-header" id="chat-header">
-    <a href="/chats/" class="chat-back-btn" aria-label="العودة لقائمة المحادثات">
+    <a href="/chats/" class="chat-back-btn" aria-label="العودة لقائمة الرسائل">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
         <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
       </svg>
@@ -21,10 +21,8 @@
             <h1 class="chat-peer-name" id="peer-name">...</h1>
             <span class="chat-favorite-indicator hidden" id="chat-favorite-indicator">مفضلة</span>
           </div>
-          <div class="chat-peer-status-wrap">
-            <span class="chat-peer-status-dot" id="peer-status-dot"></span>
-            <span class="chat-peer-status is-offline" id="peer-status">غير متصل</span>
-          </div>
+          <p class="chat-peer-subtitle hidden" id="peer-subtitle"></p>
+          <div class="chat-peer-tags hidden" id="peer-tags"></div>
         </div>
       </div>
       <div class="chat-header-actions">
@@ -46,7 +44,7 @@
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
           </svg>
         </button>
-        <button class="chat-header-btn" id="btn-chat-options" title="خيارات المحادثة" aria-label="خيارات المحادثة" type="button">
+        <button class="chat-header-btn" id="btn-chat-options" title="خيارات الرسائل" aria-label="خيارات الرسائل" type="button">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="5" r="2"></circle>
             <circle cx="12" cy="12" r="2"></circle>
@@ -58,7 +56,7 @@
   </header>
 
   <section class="chat-member-card" id="chat-member-card">
-    <div class="chat-member-row">
+    <div class="chat-member-row chat-member-row-identity" id="peer-card-name-row">
       <div class="chat-member-icon" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 12c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0 2c-3.33 0-10 1.67-10 5v1h20v-1c0-3.33-6.67-5-10-5z"/>
@@ -77,7 +75,7 @@
         </svg>
       </button>
     </div>
-    <div class="chat-member-row">
+    <div class="chat-member-row" id="peer-card-phone-row">
       <div class="chat-member-icon" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M6.62 10.79a15.053 15.053 0 006.59 6.59l2.2-2.2a.996.996 0 011.01-.24c1.12.37 2.33.57 3.58.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C10.85 21 3 13.15 3 3c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.46.57 3.58.11.35.03.74-.25 1.01l-2.2 2.2z"/>
@@ -88,7 +86,7 @@
         <div class="chat-member-value" id="peer-card-phone">غير متوفر</div>
       </div>
     </div>
-    <div class="chat-member-row">
+    <div class="chat-member-row" id="peer-card-city-row">
       <div class="chat-member-icon" aria-hidden="true">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 119.5 9 2.5 2.5 0 0112 11.5z"/>
@@ -118,13 +116,14 @@
     <div id="messages-empty" class="chat-state chat-state-empty hidden">
       <div class="chat-empty-icon">💬</div>
       <p>لا توجد رسائل بعد</p>
-      <small>ابدأ المحادثة بإرسال رسالة.</small>
+      <small>ابدأ بإرسال رسالة.</small>
     </div>
     <div class="chat-messages hidden" id="chat-messages" aria-live="polite"></div>
   </section>
 
   <div class="chat-input-wrap" id="chat-input-wrap">
     <div class="chat-attachment-preview hidden" id="chat-attachment-preview"></div>
+    <div class="chat-composer-note" id="chat-composer-note">يمكنك إرسال نصوص ومرفقات بشكل مباشر.</div>
     <div class="chat-input-bar">
       <button class="chat-attach-btn" id="btn-attach" type="button" aria-label="إضافة مرفق" title="إضافة مرفق">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -144,9 +143,9 @@
   <div class="chat-toast" id="chat-toast" aria-live="polite"></div>
 
   <div class="chat-sheet-backdrop hidden" id="chat-sheet-backdrop"></div>
-  <div class="chat-sheet hidden" id="chat-options-sheet" role="dialog" aria-modal="true" aria-label="خيارات المحادثة">
+  <div class="chat-sheet hidden" id="chat-options-sheet" role="dialog" aria-modal="true" aria-label="خيارات الرسائل">
     <div class="chat-sheet-handle" aria-hidden="true"></div>
-    <h3 class="chat-sheet-title">خيارات المحادثة</h3>
+    <h3 class="chat-sheet-title">خيارات الرسائل</h3>
     <button class="chat-sheet-option" type="button" data-chat-action="read">
       <span>اجعلها مقروءة</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5L4 14.2l5 5 11-11-1.5-1.5z"/></svg>
@@ -160,18 +159,18 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm7.05 6.95L8.95 19.05a8 8 0 0110.1-10.1zM4.95 15.05L15.05 4.95a8 8 0 01-10.1 10.1z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="report">
-      <span>الإبلاغ عن المحادثة</span>
+      <span>الإبلاغ عن الرسائل</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16l4-4h10a2 2 0 002-2V8l-6-6zm1 7V3.5L19.5 9H15z"/></svg>
     </button>
     <button class="chat-sheet-option" type="button" data-chat-action="archive" id="chat-action-archive">
-      <span>أرشفة المحادثة</span>
+      <span>أرشفة الرسائل</span>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.54 5.23L19.15 3.5A2 2 0 0017.59 3H6.41a2 2 0 00-1.56.5L3.46 5.23A2 2 0 003 6.5V8a2 2 0 002 2h14a2 2 0 002-2V6.5a2 2 0 00-.46-1.27zM12 17l-4-4h3v-3h2v3h3l-4 4z"/></svg>
     </button>
   </div>
 
   <div class="chat-report-backdrop hidden" id="chat-report-backdrop"></div>
-  <div class="chat-report-dialog hidden" id="chat-report-dialog" role="dialog" aria-modal="true" aria-label="الإبلاغ عن المحادثة">
-    <h3>إبلاغ عن المحادثة</h3>
+  <div class="chat-report-dialog hidden" id="chat-report-dialog" role="dialog" aria-modal="true" aria-label="الإبلاغ عن الرسائل">
+    <h3>إبلاغ عن الرسائل</h3>
     <label for="chat-report-reason">سبب الإبلاغ</label>
     <select id="chat-report-reason">
       <option value="">اختر السبب</option>

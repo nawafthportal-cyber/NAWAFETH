@@ -21,6 +21,7 @@ from apps.accounts.role_context import get_active_role
 from apps.marketplace.models import ServiceRequest
 
 from .models import Message, Thread, ThreadUserState
+from .display import display_name_for_user
 
 
 def _active_context_mode_from_request(request) -> str:
@@ -161,7 +162,7 @@ def post_message(request, thread_id: int):
 			sender_name = get_full_name() or ""
 		else:
 			sender_name = ""
-		sender_name = sender_name or getattr(user, "phone", "") or str(user)
+		sender_name = sender_name or display_name_for_user(user, message_body=text)
 
 		return JsonResponse(
 			{

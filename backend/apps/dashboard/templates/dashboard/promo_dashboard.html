@@ -310,16 +310,6 @@
                 </div>
               </div>
 
-              <div class="actions">
-                {% if can_write %}
-                  <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
-                {% else %}
-                  <span class="pill danger">قراءة فقط</span>
-                {% endif %}
-                <a href="{{ close_request_url }}" class="ghost-btn">إغلاق</a>
-              </div>
-            </form>
-
             {% if selected_request_items %}
             <div class="side-card">
               <h4>تفاصيل الخدمات المطلوبة</h4>
@@ -477,6 +467,18 @@
                 </div>
               </div>
             {% endif %}
+
+            <div class="actions promo-request-actions">
+              {% if selected_request_can_save %}
+                <button type="submit" name="action" value="save_request" class="primary-btn">حفظ</button>
+              {% elif not can_write %}
+                <span class="pill danger">قراءة فقط</span>
+              {% else %}
+                <span class="pill mint">الطلب مكتمل</span>
+              {% endif %}
+              <a href="{{ close_request_url }}" class="ghost-btn">إغلاق</a>
+            </div>
+            </form>
           </section>
         {% endif %}
       </section>
