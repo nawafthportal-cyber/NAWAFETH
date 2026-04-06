@@ -135,6 +135,7 @@ var PromotionPage = (function () {
     paymentMethod: "mada"
   };
   var deepLinkedRequestId = 0;
+  var paymentReturnNotice = null;
   var homeBannerEditor = {
     previewUrl: ""
   };
@@ -145,6 +146,7 @@ var PromotionPage = (function () {
 
   function init() {
     deepLinkedRequestId = getDeepLinkedRequestId();
+    paymentReturnNotice = getPaymentReturnNotice();
     bindTabs();
     bindModal();
 
@@ -188,8 +190,93 @@ var PromotionPage = (function () {
     return (shell && shell.dataset && shell.dataset.promoNewRequestUrl) || "/mobile-web/promotion/new/";
   }
 
+  function getPaymentPageUrl() {
+    var shell = getMainShell();
+    return (shell && shell.dataset && shell.dataset.promoPaymentUrl) || "/promotion/payment/";
+  }
+
+  function buildPromotionPaymentUrl(requestId, invoiceId) {
+    var base = getPaymentPageUrl();
+    var params = [];
+    if (requestId > 0) {
+      params.push("request_id=" + encodeURIComponent(String(requestId)));
+    }
+    if (invoiceId > 0) {
+      params.push("invoice_id=" + encodeURIComponent(String(invoiceId)));
+    }
+    return base + (params.length ? ((base.indexOf("?") === -1 ? "?" : "&") + params.join("&")) : "");
+  }
+
+  function goToPromotionPaymentPage(requestId, invoiceId) {
+    var nextUrl = buildPromotionPaymentUrl(requestId, invoiceId);
+    window.location.href = nextUrl;
+  }
+
   function goToRequestsPage() {
     window.location.href = getRequestsUrl();
+  }
+
+  function getPaymentReturnNotice() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      var payment = String(params.get("payment") || "").trim().toLowerCase();
+      var invoice = String(params.get("invoice") || "").trim();
+      if (!payment) return null;
+      return { payment: payment, invoice: invoice };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function consumePaymentReturnNotice() {
+    if (!paymentReturnNotice) return;
+    paymentReturnNotice = null;
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      url.searchParams.delete("invoice");
+      window.history.replaceState({}, "", url.pathname + (url.search || "") + (url.hash || ""));
+    } catch (_) {}
+  }
+
+  function buildPromoCheckoutNextPath(requestId) {
+    try {
+      var base = new URL(getRequestsUrl(), window.location.origin);
+      if (requestId > 0) base.searchParams.set("request_id", String(requestId));
+      return base.pathname + (base.search || "");
+    } catch (_) {
+      return requestId > 0 ? (getRequestsUrl() + "?request_id=" + encodeURIComponent(String(requestId))) : getRequestsUrl();
+    }
+  }
+
+  function checkoutUrlWithNext(rawCheckoutUrl, requestId) {
+    var checkout = String(rawCheckoutUrl || "").trim();
+    if (!checkout) return "";
+    try {
+      var url = new URL(checkout, window.location.origin);
+      url.searchParams.set("next", buildPromoCheckoutNextPath(requestId));
+      return url.toString();
+    } catch (_) {
+      return checkout;
+    }
+  }
+
+  function maybeShowPaymentReturnNotice() {
+    if (!paymentReturnNotice) return;
+    var notice = paymentReturnNotice;
+    consumePaymentReturnNotice();
+
+    if (notice.payment === "success") {
+      alert("تم سداد الفاتورة بنجاح. الطلب الآن بانتظار مراجعة فريق الترويج، ولا يتم تفعيل الحملة إلا بعد اكتمال التنفيذ واعتماد الطلب.");
+      return;
+    }
+    if (notice.payment === "cancelled") {
+      alert("تم إلغاء عملية الدفع. الحملة ما زالت غير مفعلة ويمكنك العودة لإتمام السداد لاحقًا.");
+      return;
+    }
+    if (notice.payment === "failed") {
+      alert("فشل سداد الفاتورة. لم يتم تفعيل الحملة ويمكنك إعادة محاولة الدفع.");
+    }
   }
 
   function goToNewRequestPage() {
@@ -1174,6 +1261,7 @@ var PromotionPage = (function () {
       });
       listEl.innerHTML = renderRequestsTable(rows);
       await maybeOpenDeepLinkedRequest();
+      maybeShowPaymentReturnNotice();
     } catch (err) {
       loading.style.display = "none";
       listEl.innerHTML = '<div class="promo-inline-state promo-inline-state-error">تعذر تحميل الطلبات حالياً. حاول التحديث لاحقاً.</div>';
@@ -1506,8 +1594,10 @@ var PromotionPage = (function () {
         return;
       }
       if (pendingPayment.requestId && pendingPayment.invoiceId) {
-        renderPaymentView();
-        switchComposerScreen("payment");
+        goToPromotionPaymentPage(
+          parseInt(String(pendingPayment.requestId || "0"), 10) || 0,
+          parseInt(String(pendingPayment.invoiceId || "0"), 10) || 0
+        );
         return;
       }
       var defaultText = confirmBtn.textContent || "استمرار";
@@ -1584,16 +1674,8 @@ var PromotionPage = (function () {
       backBtn.disabled = true;
       try {
         payBtn.textContent = "جاري تنفيذ الدفع...";
-        var paid = await payPreparedInvoice();
-        if (!paid) return;
-        var requestCode = pendingPayment.requestCode || "—";
-        clearPaymentCardFields();
-        resetForm();
-        showSuccessDialog(requestCode, {
-          title: "تمت عملية الدفع بنجاح",
-          message: "سيتم التواصل معكم لتنفيذ طلبكم",
-          onClose: goToRequestsPage
-        });
+        var redirected = await payPreparedInvoice();
+        if (!redirected) return;
       } finally {
         payBtn.disabled = false;
         backBtn.disabled = false;
@@ -1845,8 +1927,7 @@ var PromotionPage = (function () {
       pendingPayment.invoiceTotal = Number(prepared.invoice_total != null ? prepared.invoice_total : (pendingSummary.preview && pendingSummary.preview.total));
       pendingPayment.invoiceVat = Number(prepared.invoice_vat != null ? prepared.invoice_vat : 0);
       pendingPayment.paymentMethod = pendingPayment.paymentMethod || "mada";
-      renderPaymentView();
-      switchComposerScreen("payment");
+      goToPromotionPaymentPage(createResult.requestId, invoiceId);
       return true;
     } catch (err) {
       console.error("Submit flow failed", err);
@@ -1938,20 +2019,19 @@ var PromotionPage = (function () {
     var idempotencyKey = "promo-checkout-" + requestId + "-" + invoiceId;
     var initRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/init-payment/", {
       method: "POST",
-      body: { provider: "mock", idempotency_key: idempotencyKey }
+      body: { provider: "mock", idempotency_key: idempotencyKey, payment_method: pendingPayment.paymentMethod || "mada" }
     });
     if (!initRes.ok) {
       alert(extractError(initRes, "تعذر فتح صفحة الدفع"));
       return false;
     }
-    var payRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/complete-mock-payment/", {
-      method: "POST",
-      body: { idempotency_key: idempotencyKey }
-    });
-    if (!payRes.ok) {
-      alert(extractError(payRes, "تعذر إتمام الدفع"));
+    var attempt = initRes.data || {};
+    var checkoutUrl = checkoutUrlWithNext(attempt.checkout_url, requestId);
+    if (!checkoutUrl) {
+      alert("تعذر تحويلك إلى صفحة الدفع الفعلية.");
       return false;
     }
+    window.location.href = checkoutUrl;
     return true;
   }
 
@@ -2189,41 +2269,13 @@ var PromotionPage = (function () {
   }
 
   async function startPayment(row) {
+    var requestId = parseInt(String((row && row.id) || ""), 10);
     var invoiceId = parseInt(String((row && row.invoice) || ""), 10);
-    if (!invoiceId) {
-      alert("لا توجد فاتورة مرتبطة بهذا الطلب");
+    if (!requestId && !invoiceId) {
+      alert("لا توجد فاتورة أو طلب صالح لإتمام الدفع");
       return;
     }
-
-    var idempotencyKey = "promo-" + invoiceId;
-    var initRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/init-payment/", {
-      method: "POST",
-      body: { provider: "mock", idempotency_key: idempotencyKey }
-    });
-    if (!initRes.ok) {
-      alert(extractError(initRes, "تعذر فتح صفحة الدفع"));
-      return;
-    }
-
-    var attempt = initRes.data || {};
-    var confirmed = await openModal({
-      title: "صفحة دفع الترويج",
-      bodyHtml: buildPaymentHtml(row, attempt),
-      confirmText: "تأكيد الدفع",
-      cancelText: "إلغاء"
-    });
-    if (!confirmed) return;
-
-    var payRes = await ApiClient.request("/api/billing/invoices/" + invoiceId + "/complete-mock-payment/", {
-      method: "POST",
-      body: { idempotency_key: idempotencyKey }
-    });
-    if (!payRes.ok) {
-      alert(extractError(payRes, "تعذر إتمام الدفع"));
-      return;
-    }
-    await loadRequests();
-    alert("تم سداد الفاتورة وتفعيل العرض الترويجي");
+    goToPromotionPaymentPage(requestId || 0, invoiceId || 0);
   }
 
   function buildPaymentHtml(row, attempt) {
@@ -2235,7 +2287,7 @@ var PromotionPage = (function () {
         (row.invoice_vat != null ? lineHtml("VAT", money(row.invoice_vat) + " ريال") : "") +
         (attempt && attempt.provider_reference ? lineHtml("مرجع الدفع", attempt.provider_reference) : "") +
       '</div>' +
-      '<p class="promo-note">سيتم تنفيذ السداد التجريبي ثم تفعيل الحملة مباشرة بعد تأكيد الدفع.</p>'
+      '<p class="promo-note">سيتم تحويلك إلى صفحة الدفع لإتمام السداد. بعد نجاح الدفع لا يتم تفعيل الحملة مباشرة، بل تبقى بانتظار مراجعة واعتماد فريق الترويج حتى تكون حالة الفاتورة مدفوعة وحالة الطلب مكتملة.</p>'
     );
   }
 

@@ -7,6 +7,7 @@
   class="page-shell"
   data-promo-new-request-url="{% url 'mobile_web:promotion_new_request' %}"
   data-promo-requests-url="{% url 'mobile_web:promotion' %}"
+  data-promo-payment-url="{% url 'mobile_web:promotion_payment' %}"
   data-provider-display-name="{{ promo_provider_display_name|default:'' }}">
   <div class="page-header">
     <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
@@ -453,7 +454,7 @@
 
     <div class="promo-payment-actions">
       <button type="button" class="btn btn-secondary" id="promo-payment-back">رجوع</button>
-      <button type="button" class="btn btn-primary" id="promo-payment-submit">دفع</button>
+      <button type="button" class="btn btn-primary" id="promo-payment-submit">المتابعة إلى صفحة الدفع</button>
     </div>
   </section>
 </main>
