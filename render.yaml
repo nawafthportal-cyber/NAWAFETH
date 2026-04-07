@@ -5,7 +5,7 @@ services:
     plan: free
     rootDir: backend
     buildCommand: bash scripts/render_build.sh
-    preDeployCommand: python manage.py migrate --noinput && python manage.py collectstatic --clear --noinput && python scripts/startup_smoke.py
+    preDeployCommand: bash scripts/render_migrate.sh && python manage.py collectstatic --clear --noinput && python scripts/startup_smoke.py
     startCommand: bash scripts/render_start.sh
     autoDeployTrigger: commit
     healthCheckPath: /healthz/
@@ -28,6 +28,8 @@ services:
           property: connectionString
       - key: DB_CONN_MAX_AGE
         value: "0"
+      - key: DB_CONNECT_TIMEOUT
+        value: "15"
       - key: REDIS_URL
         fromService:
           name: nawafeth-redis
@@ -37,6 +39,10 @@ services:
         value: "1"
       - key: MIGRATION_TIMEOUT_SECONDS
         value: "300"
+      - key: MIGRATION_RETRY_ATTEMPTS
+        value: "6"
+      - key: MIGRATION_RETRY_DELAY_SECONDS
+        value: "10"
       - key: RUN_COLLECTSTATIC_ON_START
         value: "0"
       - key: RUN_COLLECTSTATIC_RECOVERY_ON_START

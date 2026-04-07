@@ -48,8 +48,8 @@ run_with_timeout() {
 
 # ── Migrations (optional, blocking) ─────────────────────────────────
 if [ "${RUN_MIGRATIONS_ON_START}" = "1" ]; then
-	echo "[start] Running migrations before startup (timeout ${MIGRATION_TIMEOUT_SECONDS}s)..."
-	if ! run_with_timeout "${MIGRATION_TIMEOUT_SECONDS}" python manage.py migrate --noinput 2>&1; then
+	echo "[start] Running migrations before startup with retry support..."
+	if ! bash scripts/render_migrate.sh 2>&1; then
 		echo "[start] ERROR: migrate failed or timed out; refusing to start with a potentially stale schema."
 		exit 1
 	fi
