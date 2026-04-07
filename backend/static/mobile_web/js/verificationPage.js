@@ -633,8 +633,8 @@ const VerificationPage = (() => {
     const phone = String((me && me.phone) || '').trim();
 
     _provider = {
-      displayName: displayName || fullName || username || phone || 'مزود خدمة',
-      username: username || phone || 'provider',
+      displayName: displayName || fullName || username || 'مزود خدمة',
+      username: username || '',
     };
   }
 
@@ -855,9 +855,9 @@ const VerificationPage = (() => {
     const handleNode = document.getElementById('verify-provider-handle');
     const summaryHandleNode = document.getElementById('verifySummaryProviderHandle');
     if (nameNode) nameNode.textContent = (_provider && _provider.displayName) || 'مزود خدمة';
-    const handle = '@' + (((_provider && _provider.username) || 'provider').replace(/^@+/, ''));
+    const handle = (_provider && _provider.username) ? ('@' + _provider.username.replace(/^@+/, '')) : '';
     if (handleNode) handleNode.textContent = handle;
-    if (summaryHandleNode) summaryHandleNode.textContent = handle;
+    if (summaryHandleNode) summaryHandleNode.textContent = (_provider && _provider.displayName) || handle || 'مزود خدمة';
   }
 
   function _setBadgeType(nextType) {

@@ -1,5 +1,5 @@
 {% extends "mobile_web/base.html" %}{% load static %}
-{% block title %}الصفحة التفصيلية لخيارات الترويج — نوافــذ{% endblock %}
+{% block title %}طلب ترويج جديد — نوافــذ{% endblock %}
 {% block body_class %}page-promotion-new{% endblock %}
 
 {% block content %}
@@ -11,30 +11,28 @@
   data-provider-display-name="{{ promo_provider_display_name|default:'' }}">
   <div class="page-header">
     <a href="{% url 'mobile_web:promotion' %}" class="btn-back"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></a>
-    <h1>الصفحة التفصيلية لخيارات الترويج</h1>
+    <h1>طلب ترويج جديد</h1>
   </div>
 
   <section class="detail-card promo-top-shell">
     <div class="promo-top-copy">
       <span class="promo-top-kicker">إعداد حملة ترويجية</span>
-      <h2>نسّق طلب الترويج بصورة احترافية وواضحة</h2>
-      <p>اختر الخدمات التي تحتاجها فقط، ثم أكمل تفاصيل كل خدمة داخل بطاقة مستقلة ومساحة مريحة للقراءة والإدخال.</p>
+      <h2>اختر خدمات الترويج وأكمل التفاصيل</h2>
+      <p>فعّل الخدمات المطلوبة فقط وأكمل بيانات كل خدمة، ثم راجع التكلفة قبل الإرسال.</p>
     </div>
     <div class="promo-top-toolbar">
       <div class="promo-top-actions">
         <button type="button" class="promo-nav-pill active" data-promo-view="composer">إعداد الترويج</button>
-        <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار الفعلية</button>
+        <button type="button" class="promo-nav-pill" data-promo-view="pricing">الأسعار</button>
       </div>
-      <div class="promo-page-badge">الصفحة التفصيلية لخيارات الترويج</div>
     </div>
     <div class="promo-provider-panel">
       <div class="promo-provider-copy">
-        <span class="promo-meta-label">اسم مزود الخدمة</span>
-        <strong id="promo-provider-display">{{ promo_provider_display_name|default:"مزود الخدمة" }}</strong>
-       </div>
-      <div class="promo-provider-field">
-        <label class="promo-meta-label" for="promo-provider-name">الحقل المرجعي للاسم</label>
-        <input id="promo-provider-name" type="text" class="form-input" value="{{ promo_provider_display_name|default:'مزود الخدمة' }}" readonly>
+        <svg class="promo-provider-avatar" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2f7d1e" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+        <div>
+          <span class="promo-meta-label">مقدّم الطلب</span>
+          <strong id="promo-provider-display">{{ promo_provider_display_name|default:"مزود الخدمة" }}</strong>
+        </div>
       </div>
     </div>
   </section>
@@ -66,18 +64,11 @@
 
   <section id="promo-composer-view">
     <form id="promo-form" class="detail-card">
-      <div class="attachment-guide" style="margin-bottom:12px">
-        <strong>سياسة وشروط الإرفاق (مزود الخدمة)</strong>
-        <p style="margin:6px 0 0">يرجى رفع ملفات مرخصة وواضحة وخالية من أي حقوق غير مصرح بها. أي ملف غير مدعوم أو غير مطابق لنوع الخدمة أو مخالف للسياسات سيتم رفضه تلقائيًا ولن يتم إرسال الطلب حتى التصحيح.</p>
-        <p style="margin:6px 0 0">سيظهر تنبيه مباشر عند اختيار ملف غير مدعوم مع عرض الامتدادات المسموحة لكل خدمة.</p>
-      </div>
-
       <div class="promo-composer-intro">
         <div>
           <strong>خيارات الترويج المتاحة</strong>
-          <p>كل خدمة أدناه أصبحت ضمن بطاقة مستقلة بعرض أوسع حتى تظهر جميع الحقول بوضوح ودون تزاحم.</p>
+          <p>فعّل الخدمات المطلوبة وأكمل التفاصيل. الملفات المرفقة يجب أن تكون مرخصة وواضحة.</p>
         </div>
-        <div class="promo-composer-intro-note">فعّل فقط الخدمات المطلوبة، وستتوسع البطاقة الخاصة بها تلقائيًا لإظهار تفاصيلها.</div>
       </div>
 
       <div class="form-group">
@@ -407,8 +398,6 @@
       <strong id="promo-payment-total">0.00 ريال</strong>
     </div>
 
-    <div class="promo-payment-brand-box" aria-hidden="true">Apple Pay</div>
-
     <div class="promo-payment-methods" role="radiogroup" aria-label="خيارات الدفع">
       <label class="promo-payment-method-option">
         <input type="radio" name="promo-payment-method" value="mada" checked>
@@ -487,23 +476,20 @@
 </div>
 
 <style>
-  .promo-top-shell{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.95fr);gap:18px;align-items:start;margin-bottom:16px;padding:18px;border:1px solid #e3edf2;background:linear-gradient(135deg,#fcfffd 0%,#f3faf6 42%,#f9f6ff 100%);box-shadow:0 16px 40px rgba(15,23,42,.06)}
-  .promo-top-copy h2{margin:6px 0 8px;font-size:26px;line-height:1.35;color:#163126}
-  .promo-top-copy p{margin:0;max-width:62ch;color:#4b5563;line-height:1.9;font-size:14px}
-  .promo-top-kicker{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#e9f7ec;color:#2f7d1e;font-size:12px;font-weight:800}
-  .promo-top-toolbar{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;align-items:center}
-  .promo-top-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
-  .promo-nav-pill{border:1px solid #cfe4d4;background:#fff;color:#225d2a;border-radius:999px;padding:10px 18px;font:inherit;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(34,93,42,.08);transition:all .18s ease}
-  .promo-nav-pill:hover{transform:translateY(-1px);border-color:#2f7d1e}
-  .promo-nav-pill.active{background:#2f7d1e;color:#fff;border-color:#2f7d1e;box-shadow:0 12px 24px rgba(47,125,30,.22)}
-  .promo-meta-label{font-size:12px;color:#5b6572;font-weight:800;white-space:nowrap;letter-spacing:.01em}
-  .promo-page-badge{display:inline-flex;align-items:center;justify-content:center;background:#163126;color:#fff;padding:12px 16px;border-radius:12px;font-weight:800;text-align:center;min-height:46px}
-  .promo-provider-panel{display:grid;grid-template-columns:minmax(0,1fr) minmax(240px,320px);gap:14px;grid-column:1/-1;padding:16px;border-radius:16px;background:#fff;border:1px solid #deebe1;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
-  .promo-provider-copy{display:flex;flex-direction:column;gap:6px;min-width:0}
-  .promo-provider-copy strong{font-size:22px;line-height:1.4;color:#1f2937;word-break:break-word}
-  .promo-provider-copy small{color:#64748b;line-height:1.7;font-size:12px}
-  .promo-provider-field{display:flex;flex-direction:column;gap:8px;min-width:0}
-  .promo-provider-field .form-input{min-width:0;height:48px;border-radius:12px;border:1px solid #cfe4d4;background:#f8fcf9;color:#163126;font-weight:700;box-shadow:none}
+  .promo-top-shell{display:flex;flex-direction:column;gap:16px;margin-bottom:16px;padding:20px;border:1px solid #e3edf2;background:linear-gradient(135deg,#fcfffd 0%,#f3faf6 42%,#f9f6ff 100%);box-shadow:0 4px 16px rgba(15,23,42,.04);border-radius:18px}
+  .promo-top-copy h2{margin:6px 0 8px;font-size:22px;line-height:1.4;color:#163126}
+  .promo-top-copy p{margin:0;max-width:62ch;color:#4b5563;line-height:1.8;font-size:13.5px}
+  .promo-top-kicker{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#e9f7ec;color:#2f7d1e;font-size:12px;font-weight:700}
+  .promo-top-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap}
+  .promo-nav-pill{border:1px solid #cfe4d4;background:#fff;color:#225d2a;border-radius:999px;padding:9px 20px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s ease}
+  .promo-nav-pill:hover{border-color:#2f7d1e;background:#f5fbf6}
+  .promo-nav-pill.active{background:#2f7d1e;color:#fff;border-color:#2f7d1e;box-shadow:0 4px 12px rgba(47,125,30,.18)}
+  .promo-meta-label{font-size:11.5px;color:#6b7280;font-weight:600;letter-spacing:.01em}
+  .promo-provider-panel{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:#fff;border:1px solid #deebe1}
+  .promo-provider-copy{display:flex;align-items:center;gap:12px;min-width:0}
+  .promo-provider-avatar{flex-shrink:0}
+  .promo-provider-copy strong{font-size:17px;line-height:1.4;color:#1f2937;word-break:break-word}
 
   .promo-pricing-view{background:linear-gradient(180deg,#fff 0,#fbf8ff 100%)}
   .pricing-guide-head h3{margin:0 0 6px;color:#2f7d1e}
@@ -534,10 +520,9 @@
   .attachment-guide{border:1px solid #ece6f8;background:#faf7ff;border-radius:12px;padding:10px 12px;color:#4b2d73;font-size:13px;line-height:1.7;margin:0 0 10px}
   .attachment-guide strong{display:block;font-weight:700}
 
-  .promo-composer-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:14px 16px;margin:0 0 14px;border-radius:14px;background:linear-gradient(135deg,#f8fdf9 0%,#f9f7ff 100%);border:1px solid #e2ece6}
-  .promo-composer-intro strong{display:block;margin-bottom:4px;color:#17352a;font-size:16px}
-  .promo-composer-intro p{margin:0;color:#52606d;line-height:1.8;font-size:13px}
-  .promo-composer-intro-note{padding:10px 12px;border-radius:12px;background:#fff;border:1px solid #dce9df;color:#2f7d1e;font-size:12px;font-weight:700;max-width:320px;line-height:1.8}
+  .promo-composer-intro{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:12px 16px;margin:0 0 14px;border-radius:14px;background:#f8fdf9;border:1px solid #e2ece6}
+  .promo-composer-intro strong{display:block;margin-bottom:2px;color:#17352a;font-size:15px}
+  .promo-composer-intro p{margin:0;color:#52606d;line-height:1.7;font-size:12.5px}
 
   .promo-services-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start}
   .promo-service-block{border:1px solid #dfe8f4;border-radius:18px;padding:18px;background:linear-gradient(180deg,#fff 0%,#fcfcff 100%);box-shadow:0 14px 34px rgba(15,23,42,.05);transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease;min-height:100%}
@@ -614,27 +599,28 @@
   .promo-submit-actions .btn{min-height:42px}
 
   .promo-summary-view{max-width:760px;margin:0 auto}
-  .promo-summary-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:800;padding:12px 24px;border-radius:6px;margin:0 auto 14px;font-size:22px}
-  .promo-summary-provider-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;color:#5b2f91;font-weight:700}
-  .promo-summary-provider-row strong{display:inline-block;border:2px solid #a12d9d;padding:4px 12px;min-width:140px;text-align:center;border-radius:4px;background:#fff}
-  .promo-summary-note{margin:0 0 10px;text-align:center;font-size:22px;color:#111827;line-height:1.6}
-  .promo-summary-table-wrap{border:2px solid #a12d9d;border-bottom:0}
+  .promo-summary-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:700;padding:10px 20px;border-radius:10px;margin:0 auto 14px;font-size:16px}
+  .promo-summary-provider-row{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px;color:#5b2f91;font-weight:700;font-size:14px}
+  .promo-summary-provider-row strong{display:inline-block;border:1px solid #d9c4eb;padding:6px 16px;min-width:140px;text-align:center;border-radius:10px;background:#faf7ff}
+  .promo-summary-note{margin:0 0 10px;text-align:center;font-size:14px;color:#4b5563;line-height:1.7}
+  .promo-summary-table-wrap{border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
   .promo-summary-table{width:100%;border-collapse:collapse}
-  .promo-summary-table thead th{background:#a12d9d;color:#fff;font-size:30px;padding:10px;border:2px solid #a12d9d}
-  .promo-summary-table tbody td,.promo-summary-table tbody th{border:2px solid #a12d9d;padding:12px;font-size:30px;text-align:center;background:#fff}
-  .promo-summary-table tbody td[colspan="2"]{font-size:24px;color:#6b7280}
+  .promo-summary-table thead th{background:#2f7d1e;color:#fff;font-size:14px;padding:12px 14px;border:none;font-weight:700}
+  .promo-summary-table tbody td,.promo-summary-table tbody th{border-bottom:1px solid #f1f5f9;padding:12px 14px;font-size:14px;text-align:center;background:#fff}
+  .promo-summary-table tbody tr:last-child td,.promo-summary-table tbody tr:last-child th{border-bottom:none}
+  .promo-summary-table tbody td[colspan="2"]{font-size:13px;color:#6b7280}
   .promo-summary-totals-wrap{margin-top:8px}
-  .promo-summary-totals tbody th{background:#f3e5f5;font-weight:800}
-  .promo-summary-totals tbody td{font-weight:700}
+  .promo-summary-totals tbody th{background:#f8fdf9;font-weight:700;font-size:14px}
+  .promo-summary-totals tbody td{font-weight:700;font-size:14px}
   .promo-summary-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px}
   .promo-summary-actions .btn{min-width:160px;min-height:44px}
 
   .promo-payment-view{max-width:560px;margin:0 auto}
-  .promo-payment-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:800;padding:10px 22px;border-radius:6px;margin:0 auto 14px;font-size:24px}
+  .promo-payment-head-badge{display:inline-flex;align-items:center;justify-content:center;background:#2f7d1e;color:#fff;font-weight:700;padding:10px 20px;border-radius:10px;margin:0 auto 14px;font-size:16px}
   .promo-payment-request-row,.promo-payment-amount-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 12px;border:1px solid #d9c4eb;border-radius:8px;background:#fff;margin-bottom:10px}
   .promo-payment-request-row span,.promo-payment-amount-row span{color:#6b7280;font-weight:700}
   .promo-payment-request-row strong,.promo-payment-amount-row strong{color:#2f7d1e;font-weight:800}
-  .promo-payment-brand-box{margin:14px auto 12px;max-width:320px;padding:20px 12px;border:2px dashed #d9c4eb;border-radius:14px;background:#fff;text-align:center;font-size:54px;line-height:1;font-weight:800;letter-spacing:1px;color:#111}
+
   .promo-payment-methods{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:12px}
   .promo-payment-method-option{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #d9c4eb;border-radius:999px;padding:8px;background:#fff;color:#4b2d73;font-weight:700;cursor:pointer}
   .promo-payment-method-option.is-selected{border-color:#2f7d1e;box-shadow:0 0 0 2px rgba(47,125,30,.12);background:#f5fff2}
@@ -676,21 +662,16 @@
   .success-message-box p{margin:0;color:#6b7280}
 
   @media (max-width:1024px){
-    .promo-top-shell{grid-template-columns:1fr}
-    .promo-top-toolbar{justify-content:flex-start}
-    .promo-top-actions{justify-content:flex-start}
-    .promo-provider-panel{grid-template-columns:1fr}
     .pricing-guide-instructions{grid-template-columns:1fr}
     .pricing-grid{grid-template-columns:1fr}
   }
 
   @media (max-width:640px){
     .promo-top-shell{padding:14px}
-    .promo-top-copy h2{font-size:22px}
+    .promo-top-copy h2{font-size:18px}
     .promo-nav-pill{width:100%;justify-content:center}
     .promo-top-actions{width:100%}
-    .promo-page-badge{width:100%}
-    .promo-provider-copy strong{font-size:18px}
+    .promo-provider-copy strong{font-size:15px}
     .promo-services-grid{grid-template-columns:1fr}
     .form-row{grid-template-columns:1fr}
     .service-block-header{flex-direction:column;align-items:stretch}
@@ -699,13 +680,12 @@
     .portfolio-picker-link{width:100%}
     .promo-composer-intro-note{max-width:none;width:100%}
     .promo-submit-actions .btn{width:100%}
-    .promo-summary-head-badge{font-size:18px;padding:10px 14px}
-    .promo-summary-note{font-size:16px}
-    .promo-summary-table thead th{font-size:18px}
-    .promo-summary-table tbody td,.promo-summary-table tbody th{font-size:18px;padding:10px}
+    .promo-summary-head-badge{font-size:15px;padding:8px 12px}
+    .promo-summary-note{font-size:13px}
+    .promo-summary-table thead th{font-size:13px}
+    .promo-summary-table tbody td,.promo-summary-table tbody th{font-size:13px;padding:10px}
     .promo-summary-actions .btn{width:100%}
-    .promo-payment-head-badge{font-size:20px}
-    .promo-payment-brand-box{font-size:42px}
+    .promo-payment-head-badge{font-size:14px}
     .promo-payment-methods{grid-template-columns:1fr}
     .promo-payment-card-grid{grid-template-columns:1fr}
     .promo-payment-card-grid .form-group,.promo-payment-card-grid .form-group.half{grid-column:span 1}

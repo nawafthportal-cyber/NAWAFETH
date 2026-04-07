@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
@@ -131,6 +132,68 @@ class PromoPaymentWorkflowTests(TestCase):
         self.assertEqual(data["provider_status_code"], PromoOpsStatus.IN_PROGRESS)
         self.assertEqual(data["provider_status_label"], "تحت المعالجة")
 
+    def test_late_payment_does_not_override_rejected_request(self):
+        invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة ترويج",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="طلب مرفوض",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() - timezone.timedelta(days=4),
+            end_at=timezone.now() - timezone.timedelta(days=1),
+            status=PromoRequestStatus.REJECTED,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=invoice,
+            reject_reason="مرفوض إداريًا",
+        )
+        Invoice.objects.filter(pk=invoice.pk).update(reference_id=request_obj.code)
+        invoice.refresh_from_db()
+
+        invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="promo-late-payment",
+            event_id=f"promo-late-{request_obj.pk}",
+            amount=Decimal("100.00"),
+            currency="SAR",
+        )
+        invoice.save()
+        request_obj.refresh_from_db()
+
+        self.assertEqual(request_obj.status, PromoRequestStatus.REJECTED)
+        self.assertEqual(request_obj.reject_reason, "مرفوض إداريًا")
+
+    def test_unpaid_invoice_save_does_not_reopen_cancelled_request(self):
+        invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة ترويج",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="طلب ملغي",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=7),
+            status=PromoRequestStatus.CANCELLED,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=invoice,
+        )
+        Invoice.objects.filter(pk=invoice.pk).update(reference_id=request_obj.code)
+        invoice.refresh_from_db()
+
+        invoice.description = "updated"
+        invoice.save(update_fields=["description", "updated_at"])
+        request_obj.refresh_from_db()
+
+        self.assertEqual(request_obj.status, PromoRequestStatus.CANCELLED)
+
     def test_locked_request_query_avoids_nullable_invoice_join(self):
         request_obj = self._create_request()
 
@@ -213,6 +276,36 @@ class PromoInvoiceLineItemCodeTests(TestCase):
         self.assertGreaterEqual(InvoiceLineItem._meta.get_field("item_code").max_length, 35)
         self.assertEqual(len(line_items), 1)
         self.assertEqual(line_items[0].item_code, "messages_notification+messages_chat")
+
+    def test_quote_and_create_invoice_falls_back_to_service_type_for_legacy_db_limit(self):
+        request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="حملة رسائل دعائية",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+        request_obj.items.create(
+            service_type="promo_messages",
+            title="الرسائل الدعائية",
+            send_at=timezone.now() + timezone.timedelta(days=1, minutes=5),
+            use_notification_channel=True,
+            use_chat_channel=True,
+            message_body="رسالة دعائية تجريبية",
+            pricing_rule_code="messages_notification+messages_chat",
+            subtotal=Decimal("1600.00"),
+            duration_days=1,
+        )
+
+        with patch("apps.promo.services._invoice_line_item_code_db_max_length", return_value=20):
+            request_obj = quote_and_create_invoice(pr=request_obj, by_user=self.staff, quote_note="")
+
+        line_items = list(InvoiceLineItem.objects.filter(invoice=request_obj.invoice).order_by("sort_order", "id"))
+
+        self.assertEqual(len(line_items), 1)
+        self.assertEqual(line_items[0].item_code, "promo_messages")
 
 
 class PromoRequestProviderDisplayNameTests(TestCase):

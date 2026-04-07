@@ -5,6 +5,7 @@ import os
 from decimal import Decimal
 
 from django.conf import settings
+from django.db import connections
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -165,6 +166,13 @@ PROMO_RULE_CODE_TO_LEGACY_AD_TYPE: dict[str, str] = {
 _ASSET_REQUIRED_SERVICE_TYPES = {
     PromoServiceType.HOME_BANNER,
     PromoServiceType.SPONSORSHIP,
+}
+
+_PAYMENT_IMMUTABLE_REQUEST_STATUSES = {
+    PromoRequestStatus.REJECTED,
+    PromoRequestStatus.CANCELLED,
+    PromoRequestStatus.COMPLETED,
+    PromoRequestStatus.EXPIRED,
 }
 
 
@@ -812,6 +820,38 @@ def _invoice_title_for_request(pr: PromoRequest) -> str:
     return f"فاتورة طلب الترويج {pr.code or pr.id}"
 
 
+def _invoice_line_item_code_db_max_length(*, using: str = "default") -> int:
+    field = InvoiceLineItem._meta.get_field("item_code")
+    default_max_length = int(getattr(field, "max_length", 50) or 50)
+    try:
+        connection = connections[using]
+        with connection.cursor() as cursor:
+            description = connection.introspection.get_table_description(cursor, InvoiceLineItem._meta.db_table)
+        for column in description:
+            if getattr(column, "name", "") != field.column:
+                continue
+            internal_size = getattr(column, "internal_size", None)
+            if isinstance(internal_size, int) and internal_size > 0:
+                return internal_size
+            break
+    except Exception:
+        pass
+    return default_max_length
+
+
+def _invoice_line_item_code(*, item: PromoRequestItem, using: str = "default") -> str:
+    max_length = _invoice_line_item_code_db_max_length(using=using)
+    raw_code = str(item.pricing_rule_code or item.service_type or "").strip()
+    if len(raw_code) <= max_length:
+        return raw_code
+
+    fallback_code = str(item.service_type or "").strip()
+    if fallback_code and len(fallback_code) <= max_length:
+        return fallback_code
+
+    return raw_code[:max_length]
+
+
 def _sync_invoice_from_items(*, pr: PromoRequest) -> Invoice:
     q = calc_promo_request_quote(pr=pr)
     subtotal = money_round(q["subtotal"])
@@ -838,12 +878,13 @@ def _sync_invoice_from_items(*, pr: PromoRequest) -> Invoice:
         inv.lines.all().delete()
 
     line_rows = []
+    using = getattr(inv._state, "db", None) or "default"
     for idx, row in enumerate(q.get("items", []), start=1):
         item = row["item"]
         line_rows.append(
             InvoiceLineItem(
                 invoice=inv,
-                item_code=item.pricing_rule_code or item.service_type,
+                item_code=_invoice_line_item_code(item=item, using=using),
                 title=item.title or item.get_service_type_display(),
                 amount=item.subtotal,
                 sort_order=idx * 10,
@@ -1223,6 +1264,9 @@ def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
     if not pr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
 
+    if pr.status in _PAYMENT_IMMUTABLE_REQUEST_STATUSES:
+        return pr
+
     now = timezone.now()
     if pr.end_at and pr.end_at <= now:
         pr.status = PromoRequestStatus.EXPIRED
@@ -1231,9 +1275,6 @@ def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
         pr.save(update_fields=["status", "ops_status", "ops_completed_at", "updated_at"])
         _sync_promo_to_unified(pr=pr, changed_by=pr.requester)
         _notify_promo_status_change(pr=pr, status=PromoRequestStatus.EXPIRED, actor=pr.requester)
-        return pr
-
-    if pr.status in {PromoRequestStatus.REJECTED, PromoRequestStatus.CANCELLED, PromoRequestStatus.COMPLETED}:
         return pr
 
     if pr.ops_status == PromoOpsStatus.COMPLETED:
@@ -1264,6 +1305,9 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
         raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
     if not pr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
+
+    if pr.status in _PAYMENT_IMMUTABLE_REQUEST_STATUSES:
+        return pr
 
     now = timezone.now()
     if pr.end_at and pr.end_at <= now:
@@ -1323,6 +1367,9 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
 def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
     pr = _get_locked_promo_request(pr=pr)
     if not pr.invoice or pr.invoice.is_payment_effective():
+        return pr
+
+    if pr.status in _PAYMENT_IMMUTABLE_REQUEST_STATUSES:
         return pr
 
     pr.status = PromoRequestStatus.PENDING_PAYMENT

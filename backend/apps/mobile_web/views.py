@@ -329,19 +329,29 @@ class MobileWebPromotionNewRequestView(TemplateView):
         provider_name = ""
 
         if user is not None and getattr(user, "is_authenticated", False):
-            provider_profile = getattr(user, "provider_profile", None)
-            first_name = str(getattr(user, "first_name", "") or "").strip()
-            last_name = str(getattr(user, "last_name", "") or "").strip()
-            full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+            try:
+                provider_profile = user.provider_profile
+            except Exception:
+                provider_profile = None
 
-            provider_name = (
-                str(getattr(provider_profile, "display_name", "") or "").strip()
-                or full_name
-                or str(getattr(user, "username", "") or "").strip()
-                or str(getattr(user, "phone", "") or "").strip()
-            )
+            if provider_profile is not None:
+                provider_name = str(
+                    getattr(provider_profile, "display_name", "") or ""
+                ).strip()
 
-        context["promo_provider_display_name"] = provider_name
+            if not provider_name:
+                first_name = str(getattr(user, "first_name", "") or "").strip()
+                last_name = str(getattr(user, "last_name", "") or "").strip()
+                provider_name = " ".join(
+                    part for part in [first_name, last_name] if part
+                ).strip()
+
+            if not provider_name:
+                provider_name = str(
+                    getattr(user, "username", "") or ""
+                ).strip()
+
+        context["promo_provider_display_name"] = provider_name or ""
         return context
 
 

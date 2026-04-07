@@ -230,9 +230,11 @@ const PlansPage = (() => {
 
     try {
       const profile = await Auth.getProfile();
-      const username = _valueToText(profile && profile.username);
-      const phone = _valueToText(profile && profile.phone);
-      userPill.textContent = username ? ('@' + username) : (phone || 'حساب مقدم الخدمة');
+      const displayName = _valueToText(profile && profile.display_name)
+        || _valueToText(profile && profile.provider_display_name)
+        || _valueToText(profile && profile.username)
+        || 'حساب مقدم الخدمة';
+      userPill.textContent = displayName;
     } catch (_) {
       userPill.textContent = 'حساب مقدم الخدمة';
     }
