@@ -82,6 +82,14 @@ BADGE_PUBLIC_DEFINITIONS: dict[str, dict[str, str]] = {
 }
 
 
+def _locked_verification_request_queryset():
+    return VerificationRequest.objects.select_for_update().select_related("requester")
+
+
+def _get_locked_verification_request(*, vr: VerificationRequest) -> VerificationRequest:
+    return _locked_verification_request_queryset().get(pk=vr.pk)
+
+
 def _get_verification_currency():
     from apps.core.models import PlatformConfig
     return PlatformConfig.load().verification_currency
@@ -1142,7 +1150,7 @@ def activate_after_payment(*, vr: VerificationRequest, notify_requester: bool = 
     - إنشاء VerifiedBadge
     - تحديث flags على ProviderProfile إن وجد
     """
-    vr = VerificationRequest.objects.select_for_update().select_related("requester").get(pk=vr.pk)
+    vr = _get_locked_verification_request(vr=vr)
 
     if not vr.invoice or not vr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
@@ -1210,7 +1218,7 @@ def activate_after_payment(*, vr: VerificationRequest, notify_requester: bool = 
 
 @transaction.atomic
 def revoke_after_payment_reversal(*, vr: VerificationRequest):
-    vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
+    vr = _get_locked_verification_request(vr=vr)
 
     if not vr.invoice or vr.invoice.is_payment_effective():
         return vr

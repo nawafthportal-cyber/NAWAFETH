@@ -2004,7 +2004,6 @@ def subscription_dashboard(request):
             with transaction.atomic():
                 sub = (
                     Subscription.objects.select_for_update()
-                    .select_related("user", "plan", "invoice")
                     .filter(pk=int(raw_subscription_id))
                     .first()
                 )
@@ -2656,6 +2655,20 @@ def _promo_request_ops_status_label(promo_request: PromoRequest | None) -> str:
     return promo_request.get_ops_status_display()
 
 
+def _promo_request_payment_status_label(promo_request: PromoRequest | None) -> str:
+    if promo_request is None:
+        return ""
+
+    invoice = getattr(promo_request, "invoice", None)
+    if invoice is not None:
+        return "مدفوعة" if invoice.is_payment_effective() else "بانتظار الدفع"
+
+    if promo_request.status in {PromoRequestStatus.QUOTED, PromoRequestStatus.PENDING_PAYMENT}:
+        return "بانتظار الدفع"
+
+    return ""
+
+
 def _promo_inquiry_export_rows(tickets: list[SupportTicket]) -> tuple[list[str], list[list]]:
     headers = [
         "رقم الطلب",
@@ -3184,6 +3197,7 @@ def promo_dashboard(request, request_id: int | None = None):
             "selected_request": selected_request,
             "selected_request_status_label": _promo_request_operational_status_label(selected_request),
             "selected_request_ops_status_label": _promo_request_ops_status_label(selected_request),
+            "selected_request_payment_status_label": _promo_request_payment_status_label(selected_request),
             "selected_request_items": selected_request_items,
             "promo_support_team": promo_team,
             "selected_request_assets": selected_request_assets,
@@ -5333,6 +5347,7 @@ def promo_module(request, module_key: str):
             "selected_message_asset": selected_message_asset,
             "selected_sponsorship_asset": selected_sponsorship_asset,
             "selected_request_quote": _promo_quote_snapshot(selected_request) if selected_request else None,
+            "selected_request_payment_status_label": _promo_request_payment_status_label(selected_request),
             "preview_payload": preview_payload,
             "is_featured_module": service_type == PromoServiceType.FEATURED_SPECIALISTS,
             "is_portfolio_module": service_type == PromoServiceType.PORTFOLIO_SHOWCASE,

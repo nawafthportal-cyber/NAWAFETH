@@ -25,6 +25,14 @@ CURRENT_SUBSCRIPTION_STATUSES = (
 MAX_SUBSCRIPTION_DURATION_COUNT = 10
 
 
+def _locked_subscription_queryset():
+    return Subscription.objects.select_for_update()
+
+
+def _get_locked_subscription(*, sub: Subscription) -> Subscription:
+    return _locked_subscription_queryset().get(pk=sub.pk)
+
+
 def _subscription_status_to_unified(status: str) -> str:
     if status == SubscriptionStatus.AWAITING_REVIEW:
         return "in_progress"
@@ -494,7 +502,7 @@ def _subscription_invoice_description(*, offer: dict | None, plan: SubscriptionP
 
 def _update_pending_subscription_checkout(*, sub: Subscription, duration_count: int, offer: dict | None = None) -> Subscription:
     normalized_duration = normalize_subscription_duration_count(duration_count)
-    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+    sub = _get_locked_subscription(sub=sub)
     if sub.status != SubscriptionStatus.PENDING_PAYMENT:
         return sub
 
@@ -639,7 +647,7 @@ def _create_pending_subscription_checkout(*, user, plan: SubscriptionPlan, offer
 
 @transaction.atomic
 def cancel_pending_subscription_checkout(*, sub: Subscription, changed_by=None) -> dict[str, object]:
-    sub = Subscription.objects.select_for_update().select_related("plan", "invoice", "user").get(pk=sub.pk)
+    sub = _get_locked_subscription(sub=sub)
 
     if sub.status != SubscriptionStatus.PENDING_PAYMENT:
         raise ValueError("لا يمكن إلغاء هذا الطلب من صفحة الدفع بعد الآن.")
@@ -713,7 +721,7 @@ def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subs
 
 @transaction.atomic
 def apply_effective_payment(*, sub: Subscription) -> Subscription:
-    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+    sub = _get_locked_subscription(sub=sub)
 
     if not sub.invoice or not sub.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
@@ -751,7 +759,7 @@ def activate_subscription_after_payment(*, sub: Subscription, changed_by=None, a
     """
     تفعيل الاشتراك بعد اعتماد فريق الاشتراكات
     """
-    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+    sub = _get_locked_subscription(sub=sub)
 
     if not sub.invoice or not sub.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
@@ -835,7 +843,7 @@ def activate_subscription_after_payment(*, sub: Subscription, changed_by=None, a
 
 @transaction.atomic
 def revoke_subscription_after_payment_reversal(*, sub: Subscription) -> Subscription:
-    sub = Subscription.objects.select_for_update().select_related("plan", "invoice").get(pk=sub.pk)
+    sub = _get_locked_subscription(sub=sub)
 
     if not sub.invoice or sub.invoice.is_payment_effective():
         return sub

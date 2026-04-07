@@ -3,12 +3,13 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
+from apps.billing.models import Invoice
 from apps.core.models import PlatformConfig
 from apps.subscriptions.configuration import canonical_subscription_plan_for_tier
 from apps.subscriptions.tiering import CanonicalPlanTier
 
 from .models import VerificationBadgeType, VerificationRequest, VerificationRequirement
-from .services import verification_billing_policy, verification_invoice_preview_for_request
+from .services import _locked_verification_request_queryset, verification_billing_policy, verification_invoice_preview_for_request
 
 
 class VerificationVatPricingTests(TestCase):
@@ -52,3 +53,11 @@ class VerificationVatPricingTests(TestCase):
         self.assertEqual(preview["subtotal"], Decimal("300.00"))
         self.assertEqual(preview["vat_amount"], Decimal("37.50"))
         self.assertEqual(preview["total"], Decimal("337.50"))
+
+    def test_locked_verification_query_avoids_nullable_invoice_join(self):
+        request = VerificationRequest.objects.create(requester=self.user)
+
+        sql = str(_locked_verification_request_queryset().filter(pk=request.pk).query).upper()
+
+        self.assertNotIn("LEFT OUTER JOIN", sql)
+        self.assertNotIn(Invoice._meta.db_table.upper(), sql)

@@ -465,6 +465,9 @@
                   <div class="quick-stat"><span>المجموع</span><strong>{{ selected_request_quote.subtotal }} SAR</strong></div>
                   <div class="quick-stat"><span>VAT ({{ selected_request_quote.vat_percent }}%)</span><strong>{{ selected_request_quote.vat_amount }} SAR</strong></div>
                   <div class="quick-stat"><span>الإجمالي</span><strong>{{ selected_request_quote.total }} SAR</strong></div>
+                  {% if selected_request_payment_status_label %}
+                    <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
+                  {% endif %}
                   <div class="quick-stat"><span>مدة الحملة</span><strong>{{ selected_request_quote.days }} يوم</strong></div>
                 </div>
               </div>

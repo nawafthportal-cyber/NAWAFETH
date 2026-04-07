@@ -11,7 +11,7 @@ from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest
 
 from .models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
-from .services import activate_subscription_after_payment, start_subscription_checkout
+from .services import _locked_subscription_queryset, activate_subscription_after_payment, start_subscription_checkout
 
 
 class SubscriptionPaymentReviewWorkflowTests(TestCase):
@@ -155,6 +155,11 @@ class SubscriptionPaymentReviewWorkflowTests(TestCase):
 
         self.assertEqual(self.subscription.status, SubscriptionStatus.PENDING_PAYMENT)
         self.assertEqual(request_row.status, "new")
+
+    def test_locked_subscription_query_avoids_nullable_invoice_join(self):
+        sql = str(_locked_subscription_queryset().filter(pk=self.subscription.pk).query).upper()
+
+        self.assertNotIn("JOIN", sql)
 
 
 class SubscriptionEntitlementApiRecoveryTests(TestCase):
