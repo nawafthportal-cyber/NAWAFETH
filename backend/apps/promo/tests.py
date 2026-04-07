@@ -3,13 +3,13 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
-from django.test import SimpleTestCase, TestCase
+from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
 from apps.providers.models import ProviderProfile
-from apps.promo.serializers import PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
+from apps.promo.serializers import PromoRequestCreateSerializer, PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
 from apps.promo.services import (
     _locked_promo_request_queryset,
     calculate_sponsorship_end_at,
@@ -239,6 +239,39 @@ class PromoSponsorshipScheduleTests(SimpleTestCase):
         )
 
 
+class PromoRequestTitleInputRemovalTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000090", password="secret")
+        self.request_factory = RequestFactory()
+
+    def test_bundle_create_serializer_ignores_client_request_title(self):
+        request = self.request_factory.post("/api/promo/requests/create/")
+        request.user = self.user
+        start_at = timezone.now() + timezone.timedelta(days=1)
+        end_at = start_at + timezone.timedelta(days=1)
+
+        serializer = PromoRequestCreateSerializer(
+            data={
+                "title": "عنوان من العميل يجب تجاهله",
+                "items": [
+                    {
+                        "service_type": "home_banner",
+                        "start_at": start_at.isoformat(),
+                        "end_at": end_at.isoformat(),
+                        "asset_count": 1,
+                    }
+                ],
+            },
+            context={"request": request},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        request_obj = serializer.save()
+
+        self.assertNotEqual(request_obj.title, "عنوان من العميل يجب تجاهله")
+        self.assertEqual(request_obj.title, "بنر الصفحة الرئيسية")
+
+
 class PromoInvoiceLineItemCodeTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(phone="0500000003", password="secret")
@@ -330,3 +363,9 @@ class PromoRequestProviderDisplayNameTests(TestCase):
         data = PromoRequestDetailSerializer(request_obj).data
 
         self.assertEqual(data["provider_display_name"], "اسم مزود الخدمة الصحيح")
+
+        
+
+        
+
+        

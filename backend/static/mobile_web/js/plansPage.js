@@ -230,9 +230,14 @@ const PlansPage = (() => {
 
     try {
       const profile = await Auth.getProfile();
-      const displayName = _valueToText(profile && profile.display_name)
-        || _valueToText(profile && profile.provider_display_name)
-        || _valueToText(profile && profile.username)
+      function _looksLikePhone(v) {
+        var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+        return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+      }
+      function _safeName(v) { var s = _valueToText(v); return (s && !_looksLikePhone(s)) ? s : ''; }
+      const displayName = _safeName(profile && profile.display_name)
+        || _safeName(profile && profile.provider_display_name)
+        || _safeName(profile && profile.username)
         || 'حساب مقدم الخدمة';
       userPill.textContent = displayName;
     } catch (_) {

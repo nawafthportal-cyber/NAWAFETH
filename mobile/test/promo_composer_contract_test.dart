@@ -97,7 +97,6 @@ void main() {
       );
 
       final response = await PromoService.createBundleRequest(
-        title: 'طلب ترويج',
         mobileScale: 95,
         tabletScale: 105,
         desktopScale: 110,
@@ -118,6 +117,7 @@ void main() {
       expect(capturedBody!['mobile_scale'], 95);
       expect(capturedBody!['tablet_scale'], 105);
       expect(capturedBody!['desktop_scale'], 110);
+      expect(capturedBody!.containsKey('title'), isFalse);
       final items = List<Map<String, dynamic>>.from(capturedBody!['items'] as List);
       expect(items.first['search_scopes'], <String>['default', 'main_results']);
     });
@@ -142,7 +142,6 @@ void main() {
       );
 
       final response = await PromoService.previewBundleRequest(
-        title: 'معاينة طلب',
         mobileScale: 90,
         tabletScale: 100,
         desktopScale: 120,
@@ -160,6 +159,7 @@ void main() {
       expect(capturedBody!['mobile_scale'], 90);
       expect(capturedBody!['tablet_scale'], 100);
       expect(capturedBody!['desktop_scale'], 120);
+      expect(capturedBody!.containsKey('title'), isFalse);
       expect(capturedBody!['items'], isA<List<dynamic>>());
     });
   });

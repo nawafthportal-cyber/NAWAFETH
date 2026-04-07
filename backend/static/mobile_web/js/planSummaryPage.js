@@ -122,14 +122,19 @@ const PlanSummaryPage = (() => {
     return String(period || '').trim().toLowerCase() === 'month' ? 'شهر' : 'سنة';
   }
 
+  function _looksLikePhone(v) {
+    var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+    return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+  }
+
   function currentHandle() {
     const profile = state.profile || {};
     const username = asText(profile.username);
-    if (username) return `@${username.replace(/^@+/, '')}`;
-    const phone = asText(profile.phone);
-    if (phone) return phone;
+    if (username && !_looksLikePhone(username)) return `@${username.replace(/^@+/, '')}`;
+    const provider_display_name = asText(profile.provider_display_name);
+    if (provider_display_name) return provider_display_name;
     const fullName = [asText(profile.first_name), asText(profile.last_name)].filter(Boolean).join(' ').trim();
-    if (fullName) return fullName;
+    if (fullName && !_looksLikePhone(fullName)) return fullName;
     return 'الحساب الحالي';
   }
 

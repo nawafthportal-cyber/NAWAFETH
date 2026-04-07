@@ -627,14 +627,19 @@ const VerificationPage = (() => {
 
     const me = meResponse && meResponse.ok ? meResponse.data : null;
     const providerProfile = providerResponse && providerResponse.ok ? providerResponse.data : null;
-    const fullName = [me && me.first_name, me && me.last_name].filter(Boolean).join(' ').trim();
-    const displayName = String((providerProfile && providerProfile.display_name) || '').trim();
-    const username = String((me && me.username) || '').trim();
+    function _looksLikePhone(v) {
+      var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+      return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+    }
+    function _safeName(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
+    const fullName = _safeName([me && me.first_name, me && me.last_name].filter(Boolean).join(' ').trim());
+    const displayName = _safeName(providerProfile && providerProfile.display_name);
+    const username = _safeName(me && me.username);
     const phone = String((me && me.phone) || '').trim();
 
     _provider = {
       displayName: displayName || fullName || username || 'مزود خدمة',
-      username: username || '',
+      username: (!_looksLikePhone(me && me.username)) ? (String((me && me.username) || '').trim()) : '',
     };
   }
 

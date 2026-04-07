@@ -728,7 +728,7 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
     }
     pr = PromoRequest(
         requester=requester,
-        title=(validated_data.get("title") or "طلب ترويج متعدد الخدمات")[:160],
+        title="طلب ترويج متعدد الخدمات",
         ad_type=PromoAdType.BUNDLE,
         start_at=timezone.now(),
         end_at=timezone.now(),
@@ -803,8 +803,14 @@ def preview_promo_request(*, requester, validated_data: dict) -> dict:
     subtotal = money_round(subtotal)
     vat_amount = money_round((subtotal * vat_percent) / Decimal("100"))
     total = money_round(subtotal + vat_amount)
+    summary_labels: list[str] = []
+    for row in preview_items:
+        label = str(row.get("service_type_label") or "").strip()
+        if label and label not in summary_labels:
+            summary_labels.append(label)
+    request_title = (" + ".join(summary_labels) or "طلب ترويج متعدد الخدمات")[:160]
     return {
-        "title": pr.title,
+        "title": request_title,
         "ad_type": pr.ad_type,
         "subtotal": subtotal,
         "vat_percent": vat_percent,

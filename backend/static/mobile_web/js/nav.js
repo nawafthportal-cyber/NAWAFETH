@@ -588,7 +588,12 @@ const Nav = (() => {
     _setOrdersNavVisibility(effectiveMode);
     _setModeAwareOrdersHref(effectiveMode);
 
-    const display = profile.display_name || profile.first_name || profile.username || 'مستخدم';
+    function _looksLikePhone(v) {
+      var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+      return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+    }
+    function _safeVal(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
+    const display = _safeVal(profile.display_name) || _safeVal(profile.provider_display_name) || _safeVal(profile.first_name) || _safeVal(profile.username) || 'مستخدم';
     const role = profile.role_state === 'provider'
       ? 'مقدم خدمة'
       : profile.role_state === 'client'

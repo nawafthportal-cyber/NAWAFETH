@@ -1063,7 +1063,6 @@ class _PromoComposer extends StatefulWidget {
 }
 
 class _PromoComposerState extends State<_PromoComposer> {
-  final _title = TextEditingController();
   bool _showPricing = false;
   late final Map<String, _PromoDraft> _drafts;
   final List<String> _selected = [];
@@ -1103,7 +1102,6 @@ class _PromoComposerState extends State<_PromoComposer> {
   @override
   void dispose() {
     _quoteDebounce?.cancel();
-    _title.dispose();
     for (final draft in _drafts.values) {
       draft.dispose();
     }
@@ -1133,7 +1131,7 @@ class _PromoComposerState extends State<_PromoComposer> {
 
   Future<void> _calculateLiveQuote() async {
     if (!mounted || _showPricing) return;
-    if (_title.text.trim().isEmpty || _selected.isEmpty) {
+    if (_selected.isEmpty) {
       if (!mounted) return;
       setState(() {
         _quoteLoading = false;
@@ -1164,7 +1162,6 @@ class _PromoComposerState extends State<_PromoComposer> {
 
     setState(() => _quoteLoading = true);
     final previewRes = await PromoService.previewBundleRequest(
-      title: _title.text.trim(),
       items: items,
       mobileScale: _homeBannerDraft == null ? null : 100,
       tabletScale: _homeBannerDraft == null ? null : 100,
@@ -1355,16 +1352,7 @@ class _PromoComposerState extends State<_PromoComposer> {
                 fontSize: 18,
               ),
             ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _title,
-              onChanged: (_) {
-                setState(() {});
-                _scheduleLiveQuote();
-              },
-              decoration: _decoration('عنوان الطلب', Icons.title_rounded),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             _buildServiceSelectionCard(),
             const SizedBox(height: 16),
             for (int i = 0; i < _selected.length; i++) ...[
@@ -2482,11 +2470,7 @@ class _PromoComposerState extends State<_PromoComposer> {
       return;
     }
 
-    final title = _title.text.trim().isEmpty
-        ? 'معاينة ${draft.service.label}'
-        : _title.text.trim();
     final previewRes = await PromoService.previewBundleRequest(
-      title: title,
       items: [draft.toPayload(sortOrder)],
       mobileScale: draft.service.type == 'home_banner' ? 100 : null,
       tabletScale: draft.service.type == 'home_banner' ? 100 : null,
@@ -2630,10 +2614,6 @@ class _PromoComposerState extends State<_PromoComposer> {
   }
 
   Future<void> _submit() async {
-    if (_title.text.trim().isEmpty) {
-      _snack('أدخل عنوان الطلب', true);
-      return;
-    }
     if (_selected.isEmpty) {
       _snack('اختر خدمة واحدة على الأقل', true);
       return;
@@ -2652,7 +2632,6 @@ class _PromoComposerState extends State<_PromoComposer> {
 
     setState(() => _sending = true);
     final previewRes = await PromoService.previewBundleRequest(
-      title: _title.text.trim(),
       items: items,
       mobileScale: _homeBannerDraft == null ? null : 100,
       tabletScale: _homeBannerDraft == null ? null : 100,
@@ -2675,7 +2654,6 @@ class _PromoComposerState extends State<_PromoComposer> {
     }
 
     final createRes = await PromoService.createBundleRequest(
-      title: _title.text.trim(),
       items: items,
       mobileScale: _homeBannerDraft == null ? null : 100,
       tabletScale: _homeBannerDraft == null ? null : 100,
@@ -2791,7 +2769,6 @@ class _PromoComposerState extends State<_PromoComposer> {
         ? 'تمت عملية الدفع، لكن فشل رفع ${uploadFailures.length} ملف.'
         : 'تمت عملية الدفع بنجاح\nسيتم التواصل معكم لتنفيذ طلبكم';
 
-    _title.clear();
     for (final draft in _drafts.values) {
       draft.reset();
     }

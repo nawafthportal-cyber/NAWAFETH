@@ -597,6 +597,16 @@ var PromotionPage = (function () {
     return "";
   }
 
+  function looksLikePhone(val) {
+    var s = String(val || "").replace(/[\s\-\+\(\)@]/g, "");
+    return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+  }
+
+  function safeDisplayValue(val) {
+    var s = String(val == null ? "" : val).trim();
+    return (s && !looksLikePhone(s)) ? s : "";
+  }
+
   function resolveProviderDisplayName(profile, fallback) {
     var safeProfile = profile && typeof profile === "object" ? profile : {};
     var nestedUser = safeProfile.user && typeof safeProfile.user === "object" ? safeProfile.user : {};
@@ -604,27 +614,29 @@ var PromotionPage = (function () {
       ? safeProfile.provider
       : (safeProfile.provider_profile && typeof safeProfile.provider_profile === "object" ? safeProfile.provider_profile : {});
 
-    var firstName = firstNonEmptyText([safeProfile.first_name, nestedUser.first_name]);
-    var lastName = firstNonEmptyText([safeProfile.last_name, nestedUser.last_name]);
+    var firstName = safeDisplayValue(firstNonEmptyText([safeProfile.first_name, nestedUser.first_name]));
+    var lastName = safeDisplayValue(firstNonEmptyText([safeProfile.last_name, nestedUser.last_name]));
     var fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
     var username = firstNonEmptyText([safeProfile.username, nestedUser.username]);
-    if (username && username.charAt(0) !== "@") {
-      username = "@" + username;
+    if (username && !looksLikePhone(username)) {
+      if (username.charAt(0) !== "@") username = "@" + username;
+    } else {
+      username = "";
     }
 
     return firstNonEmptyText([
-      safeProfile.display_name,
-      safeProfile.provider_display_name,
-      safeProfile.name,
-      safeProfile.full_name,
-      safeProfile.provider_name,
-      nestedProvider.display_name,
-      nestedProvider.provider_display_name,
-      nestedProvider.name,
-      nestedProvider.business_name,
-      nestedUser.display_name,
-      nestedUser.name,
-      nestedUser.full_name,
+      safeDisplayValue(safeProfile.display_name),
+      safeDisplayValue(safeProfile.provider_display_name),
+      safeDisplayValue(safeProfile.name),
+      safeDisplayValue(safeProfile.full_name),
+      safeDisplayValue(safeProfile.provider_name),
+      safeDisplayValue(nestedProvider.display_name),
+      safeDisplayValue(nestedProvider.provider_display_name),
+      safeDisplayValue(nestedProvider.name),
+      safeDisplayValue(nestedProvider.business_name),
+      safeDisplayValue(nestedUser.display_name),
+      safeDisplayValue(nestedUser.name),
+      safeDisplayValue(nestedUser.full_name),
       fullName,
       username,
       fallback
@@ -1940,12 +1952,6 @@ var PromotionPage = (function () {
         return;
       }
 
-      var title = valueOf(document.getElementById("promo-title"));
-      if (!title) {
-        alert("أدخل عنوان الطلب");
-        return;
-      }
-
       var mediaValidationError = await validateSelectedServiceFiles();
       if (mediaValidationError) {
         alert(mediaValidationError);
@@ -1980,7 +1986,7 @@ var PromotionPage = (function () {
         var defaultPaymentMethod = document.querySelector('input[name="promo-payment-method"][value="mada"]');
         if (defaultPaymentMethod) defaultPaymentMethod.checked = true;
         updatePaymentMethodSelectionUi();
-        var requestBody = Object.assign({ title: title, items: items }, collectHomeBannerScalePayload());
+        var requestBody = Object.assign({ items: items }, collectHomeBannerScalePayload());
 
         var previewRes = await ApiClient.request("/api/promo/requests/preview/", {
           method: "POST",
@@ -2608,8 +2614,7 @@ var PromotionPage = (function () {
     var breakdownEl = document.getElementById("promo-live-breakdown");
     var spinnerEl = document.getElementById("promo-live-spinner");
 
-    var title = valueOf(document.getElementById("promo-title"));
-    if (!title || !selectedServices.length) {
+    if (!selectedServices.length) {
       if (totalEl) totalEl.hidden = true;
       if (breakdownEl) {
         breakdownEl.innerHTML = "";
@@ -2638,7 +2643,7 @@ var PromotionPage = (function () {
     if (spinnerEl) spinnerEl.hidden = false;
 
     try {
-      var requestBody = Object.assign({ title: title, items: items }, collectHomeBannerScalePayload());
+      var requestBody = Object.assign({ items: items }, collectHomeBannerScalePayload());
       var res = await ApiClient.request("/api/promo/requests/preview/", {
         method: "POST",
         body: requestBody
@@ -2732,14 +2737,13 @@ var PromotionPage = (function () {
       return;
     }
 
-    var title = valueOf(document.getElementById("promo-title")) || "معاينة " + (SERVICE_LABELS[service] || service);
     var payload = buildServicePayload(service, block, idx);
     if (typeof payload === "string") {
       alert(SERVICE_LABELS[service] + ": " + payload);
       return;
     }
 
-    var requestBody = Object.assign({ title: title, items: [payload] }, collectHomeBannerScalePayload());
+    var requestBody = Object.assign({ items: [payload] }, collectHomeBannerScalePayload());
     var res = await ApiClient.request("/api/promo/requests/preview/", {
       method: "POST",
       body: requestBody

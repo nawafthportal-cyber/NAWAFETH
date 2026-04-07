@@ -406,6 +406,8 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         self._normalize_home_banner_scales(attrs)
 
         if items:
+            # Multi-service requests use a backend-generated summary title.
+            attrs.pop("title", None)
             has_notification = any(item.get("use_notification_channel") for item in items)
             has_chat = any(item.get("use_chat_channel") for item in items)
             if user is not None and user.is_authenticated and not getattr(user, "is_staff", False):
@@ -475,6 +477,9 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
         attrs["mobile_scale"] = scale
         attrs["tablet_scale"] = scale
         attrs["desktop_scale"] = scale
+
+    def _default_request_title(self, ad_type: str) -> str:
+        return str(dict(PromoAdType.choices).get(ad_type, "طلب ترويج") or "طلب ترويج")
 
     def create(self, validated_data):
         request = self.context["request"]
@@ -563,7 +568,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             }
             pr = PromoRequest.objects.create(
                 requester=user,
-                title=(validated_data.get("title") or "طلب ترويج متعدد الخدمات")[:160],
+                title="طلب ترويج متعدد الخدمات",
                 ad_type=PromoAdType.BUNDLE,
                 start_at=request_start,
                 end_at=request_end,
@@ -578,6 +583,9 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
             pr.save(update_fields=["title", "updated_at"])
             _sync_promo_to_unified(pr=pr, changed_by=user)
             return pr
+
+        if not str(validated_data.get("title") or "").strip():
+            validated_data["title"] = self._default_request_title(validated_data.get("ad_type"))[:160]
 
         pr = PromoRequest.objects.create(
             requester=user,

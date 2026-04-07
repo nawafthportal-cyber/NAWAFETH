@@ -134,21 +134,27 @@ const MyQrPage = (() => {
     await _copyLink();
   }
 
+  function _looksLikePhone(v) {
+    var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+    return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+  }
+  function _safeText(v) { var s = _pickFirstText([v]); return (s && !_looksLikePhone(s)) ? s : ''; }
+
   function _subtitleFromCurrent(current) {
     const provider = current && current.providerProfile ? current.providerProfile : null;
     const me = current && current.me ? current.me : null;
     const subtitle = _pickFirstText([
-      provider && provider.displayName,
-      provider && provider.display_name,
-      provider && provider.businessName,
-      provider && provider.business_name,
-      provider && provider.name,
-      me && me.displayName,
-      me && me.display_name,
-      me && me.fullName,
-      me && me.full_name,
-      me && me.name,
-      me && me.username,
+      _safeText(provider && provider.displayName),
+      _safeText(provider && provider.display_name),
+      _safeText(provider && provider.businessName),
+      _safeText(provider && provider.business_name),
+      _safeText(provider && provider.name),
+      _safeText(me && me.displayName),
+      _safeText(me && me.display_name),
+      _safeText(me && me.fullName),
+      _safeText(me && me.full_name),
+      _safeText(me && me.name),
+      _safeText(me && me.username),
     ]);
     return subtitle || 'حسابك في نوافذ';
   }

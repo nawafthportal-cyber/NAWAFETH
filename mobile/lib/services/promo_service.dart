@@ -9,7 +9,7 @@ class PromoService {
   /// يدعم المسار الجديد متعدد البنود عبر [items]،
   /// ويحتفظ بالتوافق مع الطلب الأحادي القديم عند عدم تمرير البنود.
   static Future<ApiResponse> createRequest({
-    required String title,
+    String? title,
     String? adType,
     String? startAt,
     String? endAt,
@@ -26,7 +26,7 @@ class PromoService {
     int? desktopScale,
     List<Map<String, dynamic>>? items,
   }) async {
-    final body = <String, dynamic>{'title': title};
+    final body = <String, dynamic>{};
     if (items != null && items.isNotEmpty) {
       body['items'] = items;
       if (mobileScale != null) {
@@ -39,6 +39,10 @@ class PromoService {
         body['desktop_scale'] = desktopScale;
       }
       return ApiClient.post('/api/promo/requests/create/', body: body);
+    }
+    final normalizedTitle = (title ?? '').trim();
+    if (normalizedTitle.isNotEmpty) {
+      body['title'] = normalizedTitle;
     }
     body.addAll({
       'ad_type': adType,
@@ -78,14 +82,12 @@ class PromoService {
   }
 
   static Future<ApiResponse> createBundleRequest({
-    required String title,
     required List<Map<String, dynamic>> items,
     int? mobileScale,
     int? tabletScale,
     int? desktopScale,
   }) {
     return createRequest(
-      title: title,
       items: items,
       mobileScale: mobileScale,
       tabletScale: tabletScale,
@@ -94,7 +96,7 @@ class PromoService {
   }
 
   static Future<ApiResponse> previewRequest({
-    required String title,
+    String? title,
     List<Map<String, dynamic>>? items,
     String? adType,
     String? startAt,
@@ -111,7 +113,7 @@ class PromoService {
     int? tabletScale,
     int? desktopScale,
   }) async {
-    final body = <String, dynamic>{'title': title};
+    final body = <String, dynamic>{};
     if (items != null && items.isNotEmpty) {
       body['items'] = items;
       if (mobileScale != null) {
@@ -124,6 +126,10 @@ class PromoService {
         body['desktop_scale'] = desktopScale;
       }
       return ApiClient.post('/api/promo/requests/preview/', body: body);
+    }
+    final normalizedTitle = (title ?? '').trim();
+    if (normalizedTitle.isNotEmpty) {
+      body['title'] = normalizedTitle;
     }
     body.addAll({
       'ad_type': adType,
@@ -163,14 +169,12 @@ class PromoService {
   }
 
   static Future<ApiResponse> previewBundleRequest({
-    required String title,
     required List<Map<String, dynamic>> items,
     int? mobileScale,
     int? tabletScale,
     int? desktopScale,
   }) {
     return previewRequest(
-      title: title,
       items: items,
       mobileScale: mobileScale,
       tabletScale: tabletScale,

@@ -34,6 +34,18 @@ void main() {
           return http.Response('[]', 200, headers: jsonHeaders);
         }
 
+        if (request.url.path == '/api/promo/pricing/guide/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'generated_at': '2026-04-08T10:00:00Z',
+              'min_campaign_hours': 24,
+              'services': <Map<String, dynamic>>[],
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+
         if (request.url.path == '/api/promo/requests/preview/') {
           previewBody = Map<String, dynamic>.from(
             jsonDecode(request.body) as Map<String, dynamic>,
@@ -78,6 +90,60 @@ void main() {
           );
         }
 
+        if (request.url.path == '/api/promo/requests/9001/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'id': 9001,
+              'code': 'M0001',
+              'items': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'id': 3001,
+                  'service_type': 'promo_messages',
+                  'sort_order': 0,
+                },
+              ],
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+
+        if (request.url.path == '/api/promo/requests/9001/prepare-payment/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'id': 9001,
+              'code': 'M0001',
+              'invoice': 7001,
+              'invoice_code': 'INV-7001',
+              'invoice_total': '115.00',
+              'invoice_vat': '15.00',
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+
+        if (request.url.path == '/api/billing/invoices/7001/init-payment/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'provider_reference': 'mock-init-1',
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+
+        if (request.url.path ==
+            '/api/billing/invoices/7001/complete-mock-payment/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'status': 'paid',
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
+
         return http.Response('not found', 404);
       }),
     );
@@ -90,9 +156,6 @@ void main() {
 
     await tester.tap(find.text('الرسائل الدعائية'));
     await tester.pumpAndSettle();
-
-    final titleField = find.byType(TextField).first;
-    await tester.enterText(titleField, 'حملة رسائل دعائية');
 
     final messageField = find.byWidgetPredicate(
       (widget) =>
@@ -117,7 +180,7 @@ void main() {
 
     final submitButton = find.widgetWithText(
       ElevatedButton,
-      'معاينة التسعير ثم الإرسال',
+      'استمرار',
     );
     expect(submitButton, findsOneWidget);
     await tester.ensureVisible(submitButton);
@@ -131,16 +194,49 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('شاشة الدفع'), findsOneWidget);
-    await tester.tap(find.text('دفع'));
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'اسم حامل البطاقة',
+      ),
+      'Test User',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'رقم البطاقة',
+      ),
+      '4242 4242 4242 4242',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'تاريخ الانتهاء MM/YY',
+      ),
+      '12/40',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.decoration?.labelText == 'CVV',
+      ),
+      '123',
+    );
+    final payButton = find.text('دفع');
+    await tester.ensureVisible(payButton);
+    await tester.tap(payButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
 
-    expect(find.text('تمت عملية الدفع بنجاح'), findsOneWidget);
+    expect(find.textContaining('تمت عملية الدفع بنجاح'), findsOneWidget);
 
     expect(previewBody, isNotNull);
     expect(createBody, isNotNull);
-    expect(previewBody!['title'], 'حملة رسائل دعائية');
-    expect(createBody!['title'], 'حملة رسائل دعائية');
+    expect(previewBody!.containsKey('title'), isFalse);
+    expect(createBody!.containsKey('title'), isFalse);
 
     final previewItems = List<Map<String, dynamic>>.from(
       previewBody!['items'] as List,
@@ -167,6 +263,44 @@ void main() {
         if (request.url.path == '/api/promo/requests/my/') {
           return http.Response('[]', 200, headers: jsonHeaders);
         }
+        if (request.url.path == '/api/promo/pricing/guide/') {
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'generated_at': '2026-04-08T10:00:00Z',
+              'min_campaign_hours': 24,
+              'services': <Map<String, dynamic>>[
+                <String, dynamic>{
+                  'service_type': 'home_banner',
+                  'rules': <Map<String, dynamic>>[
+                    <String, dynamic>{
+                      'code': 'home_banner_daily',
+                      'title': 'بنر الصفحة الرئيسية - لكل 24 ساعة',
+                      'display_key': 'بنر الصفحة الرئيسية',
+                      'amount': '1000.00',
+                      'unit': 'day',
+                      'unit_label': 'لكل يوم',
+                    },
+                  ],
+                },
+                <String, dynamic>{
+                  'service_type': 'search_results',
+                  'rules': <Map<String, dynamic>>[
+                    <String, dynamic>{
+                      'code': 'search_top10',
+                      'title': 'الظهور في قوائم البحث - ضمن أول عشرة أسماء',
+                      'display_key': 'من أول عشرة أسماء',
+                      'amount': '1200.00',
+                      'unit': 'day',
+                      'unit_label': 'لكل يوم',
+                    },
+                  ],
+                },
+              ],
+            }),
+            200,
+            headers: jsonHeaders,
+          );
+        }
         return http.Response('not found', 404);
       }),
     );
@@ -177,14 +311,14 @@ void main() {
     await tester.tap(find.text('طلب جديد'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('مزود الخدمة:'), findsOneWidget);
+    expect(find.textContaining('اسم المختص'), findsOneWidget);
 
     await tester.tap(find.text('الأسعار'));
     await tester.pumpAndSettle();
 
-    expect(find.text('بنر الصفحة الرئيسية'), findsOneWidget);
-    expect(find.text('الظهور في قوائم البحث'), findsOneWidget);
-    expect(find.text('مرة كل 10 ثواني'), findsOneWidget);
+    expect(find.text('دليل الأسعار الفعلي'), findsOneWidget);
+    expect(find.text('بنر الصفحة الرئيسية'), findsWidgets);
+    expect(find.text('الظهور في قوائم البحث'), findsWidgets);
   });
 
   testWidgets('shows per-service preview dialog and live total section', (
@@ -227,9 +361,6 @@ void main() {
 
     await tester.tap(find.text('الرسائل الدعائية'));
     await tester.pumpAndSettle();
-
-    final titleField = find.byType(TextField).first;
-    await tester.enterText(titleField, 'معاينة بند دعائي');
 
     final messageField = find.byWidgetPredicate(
       (widget) => widget is TextField && widget.decoration?.labelText == 'نص الرسالة الترويجية',

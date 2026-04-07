@@ -209,6 +209,12 @@ const ProviderDashboardPage = (() => {
       coverEl.style.backgroundImage = '';
     }
 
+    function _looksLikePhone(v) {
+      var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+      return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+    }
+    function _safeName(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
+
     // Avatar
     const avatarEl = document.getElementById('pd-avatar');
     const img = p.profile_image || u.profile_image;
@@ -217,12 +223,12 @@ const ProviderDashboardPage = (() => {
       avatarEl.style.backgroundImage = `url('${ApiClient.mediaUrl(img)}')`;
     } else {
       avatarEl.style.backgroundImage = '';
-      avatarEl.textContent = (p.display_name || u.first_name || '؟')[0];
+      avatarEl.textContent = (_safeName(p.display_name) || _safeName(u.first_name) || '؟')[0];
     }
 
     // Name
-    document.getElementById('pd-name').textContent = p.display_name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'مقدم خدمة';
-    document.getElementById('pd-handle').textContent = u.username ? `@${u.username}` : '';
+    document.getElementById('pd-name').textContent = _safeName(p.display_name) || _safeName(`${u.first_name || ''} ${u.last_name || ''}`.trim()) || 'مقدم خدمة';
+    document.getElementById('pd-handle').textContent = (u.username && !_looksLikePhone(u.username)) ? `@${u.username}` : '';
 
     // Avatar badge overlays
     const blueBadge = document.getElementById('pd-avatar-badge-blue');

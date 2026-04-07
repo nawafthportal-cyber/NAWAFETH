@@ -237,7 +237,8 @@ const ProfilePage = (() => {
     }
 
     _setText('profile-name', name);
-    _setText('profile-username', _profile.username ? '@' + _profile.username : '');
+    var safeUsername = (_profile.username && !_looksLikePhone(_profile.username)) ? ('@' + _profile.username) : '';
+    _setText('profile-username', safeUsername);
   }
 
   /* ──────── Stats render ──────── */
@@ -317,9 +318,17 @@ const ProfilePage = (() => {
     _setText(labelId, label);
   }
 
+  function _looksLikePhone(v) {
+    var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+    return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+  }
+  function _safeName(v) { var s = String(v || '').trim(); return (s && !_looksLikePhone(s)) ? s : ''; }
+
   function _displayName(profile) {
-    return [profile.first_name || '', profile.last_name || ''].join(' ').trim()
-      || profile.username || profile.phone || 'مستخدم';
+    return _safeName([profile.first_name || '', profile.last_name || ''].join(' ').trim())
+      || _safeName(profile.provider_display_name)
+      || _safeName(profile.username)
+      || 'مستخدم';
   }
 
   function _canSwitchToProvider() {

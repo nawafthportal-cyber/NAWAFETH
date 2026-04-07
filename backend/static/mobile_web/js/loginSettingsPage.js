@@ -323,7 +323,12 @@ const LoginSettingsPage = (() => {
       return;
     }
 
-    const displayName = _norm(_profile && _profile.username) || "مستخدم";
+    function _looksLikePhone(v) {
+      var s = String(v || '').replace(/[\s\-\+\(\)@]/g, '');
+      return /^0[0-9]{8,12}$/.test(s) || /^9665[0-9]{8}$/.test(s) || /^5[0-9]{8}$/.test(s);
+    }
+    var _rawUsername = _norm(_profile && _profile.username);
+    const displayName = (_rawUsername && !_looksLikePhone(_rawUsername)) ? _rawUsername : "مستخدم";
     const btn = document.getElementById("ls-action-faceid");
     if (btn) btn.disabled = true;
 
