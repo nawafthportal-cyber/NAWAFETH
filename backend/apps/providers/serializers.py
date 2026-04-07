@@ -572,6 +572,18 @@ class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if user is not None:
+            from apps.subscriptions.services import user_has_active_subscription
+
+            if not user_has_active_subscription(user):
+                raise serializers.ValidationError(
+                    {
+                        "detail": "رفع الريلز والأضواء يتطلب اشتراكًا فعالًا في إحدى الباقات.",
+                        "code": "subscription_required",
+                    }
+                )
         upload = attrs.get("file")
         file_type = (attrs.get("file_type") or "").strip().lower()
 

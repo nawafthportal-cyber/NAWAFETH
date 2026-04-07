@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import timedelta
 
 from django.utils import timezone
@@ -14,6 +15,9 @@ from .configuration import (
 )
 from .models import SubscriptionPlan
 from .tiering import CanonicalPlanTier, canonical_tier_from_value
+
+
+PROVIDER_UNSUBSCRIBED_SUPPORT_SLA_HOURS = 24 * 5
 
 
 SUBSCRIPTION_FEATURE_FLAGS = {
@@ -265,6 +269,38 @@ def plan_capabilities_for_tier(value) -> dict:
     return plan_capabilities_for_plan(configured_subscription_plan_for_tier(value))
 
 
+def provider_unsubscribed_capabilities() -> dict:
+    caps = deepcopy(plan_capabilities_for_tier(CanonicalPlanTier.BASIC))
+    caps["competitive_requests"] = {
+        "enabled": False,
+        "visibility_delay_hours": 0,
+        "visibility_label": "غير متاحة قبل تفعيل الاشتراك",
+    }
+    caps["urgent_requests"] = {
+        "enabled": False,
+        "label": "غير متاحة قبل تفعيل الاشتراك",
+    }
+    caps["banner_images"] = {
+        "limit": 0,
+        "label": "غير متاح قبل تفعيل الاشتراك",
+    }
+    caps["reminders"] = {
+        "schedule_hours": [],
+        "label": "بدون رسائل تذكير",
+    }
+    caps["support"] = {
+        "priority": "low",
+        "is_priority": False,
+        "sla_hours": PROVIDER_UNSUBSCRIBED_SUPPORT_SLA_HOURS,
+        "sla_label": "خلال 5 أيام عمل",
+    }
+    caps["tier"] = "unsubscribed"
+    caps["tier_label"] = "بدون اشتراك"
+    caps["has_active_subscription"] = False
+    caps["subscription_state"] = "unsubscribed"
+    return caps
+
+
 def plan_capabilities_for_user(user) -> dict:
     if not user or not getattr(user, "is_authenticated", False):
         return plan_capabilities_for_tier(CanonicalPlanTier.BASIC)
@@ -273,8 +309,33 @@ def plan_capabilities_for_user(user) -> dict:
 
     active_sub = get_effective_active_subscription(user)
     if active_sub is None:
+        if getattr(user, "provider_profile", None) is not None:
+            return provider_unsubscribed_capabilities()
         return plan_capabilities_for_tier(CanonicalPlanTier.BASIC)
-    return plan_capabilities_for_plan(getattr(active_sub, "plan", None))
+    caps = plan_capabilities_for_plan(getattr(active_sub, "plan", None))
+    caps["urgent_requests"] = {
+        "enabled": True,
+        "label": "متاحة حسب أولوية الباقة",
+    }
+    caps["has_active_subscription"] = True
+    caps["subscription_state"] = "active"
+    return caps
+
+
+def competitive_requests_enabled_for_user(user) -> bool:
+    caps = plan_capabilities_for_user(user)
+    competitive = caps.get("competitive_requests") or {}
+    if "enabled" in competitive:
+        return bool(competitive.get("enabled"))
+    return True
+
+
+def urgent_requests_enabled_for_user(user) -> bool:
+    caps = plan_capabilities_for_user(user)
+    urgent = caps.get("urgent_requests") or {}
+    if "enabled" in urgent:
+        return bool(urgent.get("enabled"))
+    return True
 
 
 def subscription_feature_flag_for_user(user, feature_key: str) -> bool | None:

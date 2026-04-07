@@ -101,12 +101,12 @@
                 </thead>
                 <tbody>
                   {% for row in inquiries %}
-                    <tr class="support-row {{ row.priority_class }} {% if selected_inquiry and selected_inquiry.id == row.id %}active-ticket{% endif %}">
+                    <tr id="verification-inquiry-{{ row.id }}" class="support-row {{ row.priority_class }} {% if selected_inquiry and selected_inquiry.id == row.id %}active-ticket{% endif %}">
                       <td>
                         <a
                           class="ticket-link"
                           data-toggle-state="{% if selected_inquiry and selected_inquiry.id == row.id %}close{% else %}open{% endif %}"
-                          href="{% url 'dashboard:verification_dashboard' %}?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}{% if selected_request %}&request={{ selected_request.id }}{% endif %}{% if not selected_inquiry or selected_inquiry.id != row.id %}&inquiry={{ row.id }}#verificationInquiryForm{% endif %}"
+                          href="{% url 'dashboard:verification_dashboard' %}?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}{% if selected_request %}&request={{ selected_request.id }}{% endif %}{% if not selected_inquiry or selected_inquiry.id != row.id %}&inquiry={{ row.id }}#verificationInquiryForm{% else %}#verification-inquiry-{{ row.id }}{% endif %}"
                         >
                           {{ row.code }}
                         </a>
@@ -120,6 +120,82 @@
                       <td>{{ row.assignee }}</td>
                       <td>{{ row.assigned_at }}</td>
                     </tr>
+                    {% if selected_inquiry and selected_inquiry.id == row.id %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="9">
+                          <div class="dash-inline-detail-shell support-detail-shell">
+                            <div class="title-row">
+                              <h2>تفاصيل الطلب</h2>
+                              <div class="actions">
+                                <span class="pill brand">{{ selected_inquiry.get_ticket_type_display }}</span>
+                                <span class="pill info">{{ selected_inquiry.code }}</span>
+                              </div>
+                            </div>
+
+                            <form method="post" enctype="multipart/form-data" id="verificationInquiryForm">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="save_inquiry">
+                              <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
+                              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+                              {{ inquiry_form.assigned_team }}
+                              {{ inquiry_form.linked_request_id }}
+                              {{ inquiry_form.detailed_request_url }}
+
+                              <div class="support-action-grid">
+                                <div class="field full">
+                                  <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الطلب</label>
+                                  {{ inquiry_form.description }}
+                                </div>
+                                <div class="field full">
+                                  <label for="{{ inquiry_form.attachment.id_for_label }}">المرفقات</label>
+                                  {{ inquiry_form.attachment }}
+                                  <div class="verification-inline-attachments">
+                                    {% for file in selected_inquiry_attachments %}
+                                      <article class="verification-inline-attachment">
+                                        <strong title="{{ file.file.name|default:'مرفق' }}">{{ file.file.name|default:'مرفق' }}</strong>
+                                        <span>{{ file.created_at|date:"d/m/Y - H:i" }}</span>
+                                        <div class="actions">
+                                          <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض</a>
+                                          <a class="ghost-btn" href="{{ file.file.url }}" download>تنزيل</a>
+                                        </div>
+                                      </article>
+                                    {% empty %}
+                                      <p class="subtitle">لا توجد مرفقات مضافة حتى الآن.</p>
+                                    {% endfor %}
+                                  </div>
+                                </div>
+                                <div class="field">
+                                  <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
+                                  {{ inquiry_form.status }}
+                                </div>
+                                <div class="field">
+                                  <label>الفريق المكلف</label>
+                                  <div class="input-control static-field"><strong>{{ verification_support_team.name_ar|default:'فريق التوثيق' }}</strong></div>
+                                </div>
+                                <div class="field">
+                                  <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                  {{ inquiry_form.assigned_to }}
+                                </div>
+                                <div class="field full">
+                                  <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
+                                  {{ inquiry_form.operator_comment }}
+                                  <p class="field-hint">اكتب طلب معلومات إضافية من العميل أو ألصق رابط صفحة طلب التوثيق داخل التعليق.</p>
+                                </div>
+                              </div>
+
+                              <div class="actions">
+                                {% if can_write %}
+                                  <button type="submit" name="action" value="save_inquiry" class="primary-btn">حفظ</button>
+                                  <a id="closeInquiryDetailLink" href="{{ close_inquiry_url }}#verification-inquiry-{{ row.id }}" class="ghost-btn">إغلاق</a>
+                                {% else %}
+                                  <span class="pill danger">قراءة فقط</span>
+                                {% endif %}
+                              </div>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
                   {% empty %}
                     <tr><td colspan="9">لا توجد استفسارات توثيق مطابقة للفلاتر.</td></tr>
                   {% endfor %}
@@ -164,12 +240,12 @@
                 </thead>
                 <tbody>
                   {% for row in verification_requests %}
-                    <tr class="support-row {{ row.priority_class }} {% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
+                    <tr id="verification-request-{{ row.id }}" class="support-row {{ row.priority_class }} {% if selected_request and selected_request.id == row.id %}active-ticket{% endif %}">
                       <td>
                         <a
                           class="ticket-link"
                           data-toggle-state="{% if selected_request and selected_request.id == row.id %}close{% else %}open{% endif %}"
-                          href="{% url 'dashboard:verification_dashboard' %}?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}{% if selected_inquiry %}&inquiry={{ selected_inquiry.id }}{% endif %}{% if not selected_request or selected_request.id != row.id %}&request={{ row.id }}&request_stage=review#verificationRequestActionForm{% endif %}"
+                          href="{% url 'dashboard:verification_dashboard' %}?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}{% if selected_inquiry %}&inquiry={{ selected_inquiry.id }}{% endif %}{% if not selected_request or selected_request.id != row.id %}&request={{ row.id }}&request_stage=review#verificationRequestActionForm{% else %}#verification-request-{{ row.id }}{% endif %}"
                         >
                           {{ row.code }}
                         </a>
@@ -181,6 +257,328 @@
                       <td>{{ row.assignee }}</td>
                       <td>{{ row.assigned_at }}</td>
                     </tr>
+                    {% if selected_request and selected_request.id == row.id %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="7">
+                          <div class="dash-inline-detail-shell support-detail-shell">
+                            <div class="title-row">
+                              <h2>{% if request_stage == 'summary' %}ملخص اعتماد طلب التوثيق{% else %}مراجعة بنود طلب التوثيق{% endif %}: {{ selected_request.code }}</h2>
+                              <div class="actions">
+                                <span class="pill brand">الحالة الحالية: {{ selected_request_status_label }}</span>
+                                {% for label in selected_request_badge_labels %}
+                                  <span class="pill {% if label == 'شارة خضراء' %}mint{% else %}info{% endif %}">{{ label }}</span>
+                                {% endfor %}
+                              </div>
+                            </div>
+
+                            <div class="support-meta-grid">
+                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
+                              <div class="quick-stat"><span>تاريخ الطلب</span><strong>{{ selected_request.requested_at|date:"d/m/Y - H:i" }}</strong></div>
+                              <div class="quick-stat"><span>الفاتورة</span><strong>{{ selected_request.invoice.code|default:"لم تصدر بعد" }}</strong></div>
+                            </div>
+
+                            <form method="post" id="verificationRequestActionForm">
+                              {% csrf_token %}
+                              <input type="hidden" name="verification_request_id" value="{{ selected_request.id }}">
+                              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+                              <input type="hidden" name="request_stage" value="{{ request_stage }}">
+
+                              <div class="support-action-grid verification-request-ops-grid">
+                                <div class="field">
+                                  <label>فريق التوثيق</label>
+                                  <div class="input-control static-field"><strong>{{ verification_support_team.name_ar|default:"فريق التوثيق" }}</strong></div>
+                                </div>
+                                <div class="field">
+                                  <label for="{{ request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                  {{ request_form.assigned_to }}
+                                </div>
+                                <div class="field">
+                                  <label for="{{ request_form.status.id_for_label }}">حالة الطلب</label>
+                                  {% if can_write and selected_request_is_editable %}
+                                    {{ request_form.status }}
+                                  {% else %}
+                                    <div class="input-control static-field"><strong>{{ selected_request_status_label }}</strong></div>
+                                  {% endif %}
+                                </div>
+                                <div class="field full">
+                                  <label for="{{ request_form.admin_note.id_for_label }}">تعليق فريق التوثيق</label>
+                                  {{ request_form.admin_note }}
+                                </div>
+                              </div>
+
+                              {% if request_stage == 'review' %}
+                                <div class="verification-stage-banner">
+                                  <span class="pill accent">المرحلة الأولى: مراجعة البنود والمرفقات</span>
+                                  {% if selected_request_review.all_decided %}
+                                    <span class="pill mint">جميع البنود تم اتخاذ قرار بشأنها</span>
+                                  {% else %}
+                                    <span class="pill danger">هناك بنود بانتظار قرار المراجع</span>
+                                  {% endif %}
+                                </div>
+
+                                {% if selected_request_review.blue_rows %}
+                                  <section class="verification-review-card is-blue">
+                                    <div class="verification-review-head">
+                                      <h3>الشارة الزرقاء</h3>
+                                      <span class="pill brand">اعتماد هوية أو صفة تجارية</span>
+                                    </div>
+
+                                    {% if selected_request_review.blue_profile %}
+                                      <div class="verification-blue-summary-grid">
+                                        <div class="quick-stat"><span>نوع المسار</span><strong>{{ selected_request_review.blue_profile.subject_type_display }}</strong></div>
+                                        <div class="quick-stat"><span>الاسم المعتمد</span><strong>{{ selected_request_review.blue_profile.verified_name }}</strong></div>
+                                        <div class="quick-stat"><span>{{ selected_request_review.blue_profile.official_number_label|default:"رقم الإثبات" }}</span><strong>{{ selected_request_review.blue_profile.official_number }}</strong></div>
+                                        <div class="quick-stat"><span>{{ selected_request_review.blue_profile.official_date_label|default:"التاريخ المرجعي" }}</span><strong>{{ selected_request_review.blue_profile.official_date|date:"d/m/Y" }}</strong></div>
+                                      </div>
+                                    {% endif %}
+
+                                    <div class="table-wrap">
+                                      <table class="dash-table verification-review-table">
+                                        <thead>
+                                          <tr>
+                                            <th>رمز التوثيق</th>
+                                            <th>رفض</th>
+                                            <th>اعتماد</th>
+                                            <th>البند</th>
+                                            <th>المرفقات</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {% for review_row in selected_request_review.blue_rows %}
+                                            <tr>
+                                              <td><strong>{{ review_row.code }}</strong></td>
+                                              <td class="choice-cell">
+                                                <label>
+                                                  <input type="radio" name="decision_{{ review_row.id }}" value="reject" {% if review_row.decision_value == 'reject' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
+                                                  <span>رفض</span>
+                                                </label>
+                                              </td>
+                                              <td class="choice-cell">
+                                                <label>
+                                                  <input type="radio" name="decision_{{ review_row.id }}" value="approve" {% if review_row.decision_value == 'approve' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
+                                                  <span>اعتماد</span>
+                                                </label>
+                                              </td>
+                                              <td><div class="verification-item-title">{{ review_row.title }}</div></td>
+                                              <td>
+                                                <div class="verification-attachment-meta">{{ review_row.attachment_count }} مرفق</div>
+                                                {% for attachment in review_row.attachments|slice:":2" %}
+                                                  <a class="ticket-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">ملف {{ forloop.counter }}</a>{% if not forloop.last %}<br>{% endif %}
+                                                {% empty %}
+                                                  <span class="subtitle">لا توجد مرفقات بعد</span>
+                                                {% endfor %}
+                                              </td>
+                                            </tr>
+                                          {% endfor %}
+                                        </tbody>
+                                      </table>
+                                    </div>
+
+                                    {% if selected_request_review.blue_documents %}
+                                      <div class="verification-inline-attachments">
+                                        {% for document in selected_request_review.blue_documents %}
+                                          <article class="verification-inline-attachment">
+                                            <strong>{{ document.title|default:"مرفق داعم للشارة الزرقاء" }}</strong>
+                                            <span>{{ document.get_doc_type_display }} - {{ document.uploaded_at|date:"d/m/Y - H:i" }}</span>
+                                            <div class="actions">
+                                              <a class="ticket-link" href="{{ document.file.url }}" target="_blank" rel="noopener">فتح</a>
+                                              <a class="ghost-btn" href="{{ document.file.url }}" download>تنزيل</a>
+                                            </div>
+                                          </article>
+                                        {% endfor %}
+                                      </div>
+                                    {% endif %}
+                                  </section>
+                                {% endif %}
+
+                                {% if selected_request_review.green_rows %}
+                                  <section class="verification-review-card is-green">
+                                    <div class="verification-review-head">
+                                      <h3>الشارة الخضراء</h3>
+                                      <span class="pill mint">فحص كل بند على حدة</span>
+                                    </div>
+
+                                    <div class="table-wrap">
+                                      <table class="dash-table verification-review-table is-green">
+                                        <thead>
+                                          <tr>
+                                            <th>رمز التوثيق</th>
+                                            <th>رفض</th>
+                                            <th>اعتماد</th>
+                                            <th>تاريخ نهاية المستند المقدم</th>
+                                            <th>البند</th>
+                                            <th>المرفقات</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {% for review_row in selected_request_review.green_rows %}
+                                            <tr>
+                                              <td><strong>{{ review_row.code }}</strong></td>
+                                              <td class="choice-cell">
+                                                <label>
+                                                  <input type="radio" name="decision_{{ review_row.id }}" value="reject" {% if review_row.decision_value == 'reject' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
+                                                  <span>رفض</span>
+                                                </label>
+                                              </td>
+                                              <td class="choice-cell">
+                                                <label>
+                                                  <input type="radio" name="decision_{{ review_row.id }}" value="approve" {% if review_row.decision_value == 'approve' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
+                                                  <span>اعتماد</span>
+                                                </label>
+                                              </td>
+                                              <td>
+                                                {% if can_write and selected_request_is_editable %}
+                                                  <input class="input-control verification-date-input" type="datetime-local" name="evidence_expires_at_{{ review_row.id }}" value="{{ review_row.evidence_expires_at_value }}">
+                                                {% else %}
+                                                  <span>{{ review_row.evidence_expires_at_label|default:"-" }}</span>
+                                                {% endif %}
+                                              </td>
+                                              <td><div class="verification-item-title">{{ review_row.title }}</div></td>
+                                              <td>
+                                                <div class="verification-attachment-meta">{{ review_row.attachment_count }} مرفق</div>
+                                                {% for attachment in review_row.attachments|slice:":2" %}
+                                                  <a class="ticket-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">ملف {{ forloop.counter }}</a>{% if not forloop.last %}<br>{% endif %}
+                                                {% empty %}
+                                                  <span class="subtitle">لا توجد مرفقات بعد</span>
+                                                {% endfor %}
+                                              </td>
+                                            </tr>
+                                          {% endfor %}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </section>
+                                {% endif %}
+
+                                <div class="actions verification-review-actions">
+                                  {% if can_write and selected_request_is_editable %}
+                                    <button type="submit" name="action" value="save_request" class="ghost-btn">حفظ</button>
+                                    <button type="submit" name="action" value="continue_request_review" class="primary-btn">استمرار</button>
+                                  {% else %}
+                                    <span class="pill danger">قراءة فقط</span>
+                                  {% endif %}
+                                  <a id="closeRequestDetailLink" href="{{ close_request_url }}#verification-request-{{ row.id }}" class="ghost-btn">إغلاق</a>
+                                </div>
+                              {% else %}
+                                <div class="verification-stage-banner">
+                                  <span class="pill accent">المرحلة الثانية: ملخص القرار النهائي</span>
+                                  {% if selected_request_financial_summary %}
+                                    <span class="pill info">الإجمالي: {{ selected_request_financial_summary.total }} {{ selected_request_financial_summary.currency }}</span>
+                                  {% endif %}
+                                </div>
+
+                                <section class="side-card verification-summary-card">
+                                  <h4>بنود التوثيق المعتمدة</h4>
+                                  <div class="table-wrap">
+                                    <table class="dash-table verification-final-summary-table">
+                                      <thead>
+                                        <tr>
+                                          <th>بنود التوثيق المعتمدة</th>
+                                          <th>رمز التوثيق</th>
+                                          <th>نوع شارة التوثيق</th>
+                                          <th>التكلفة (ريال سعودي)</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {% for summary_row in selected_request_decision_summary.approved %}
+                                          <tr>
+                                            <td>{{ summary_row.title }}</td>
+                                            <td>{{ summary_row.code }}</td>
+                                            <td>{{ summary_row.badge_label }}</td>
+                                            <td>{{ summary_row.amount|default:"0.00" }}</td>
+                                          </tr>
+                                        {% empty %}
+                                          <tr><td colspan="4">لا توجد بنود معتمدة لهذا الطلب.</td></tr>
+                                        {% endfor %}
+                                        {% if selected_request_financial_summary %}
+                                          <tr class="summary-total-row">
+                                            <td colspan="3">المجموع</td>
+                                            <td>{{ selected_request_financial_summary.subtotal }}</td>
+                                          </tr>
+                                          <tr class="summary-total-row">
+                                            <td colspan="3">VAT</td>
+                                            <td>{{ selected_request_financial_summary.vat_amount }}</td>
+                                          </tr>
+                                          <tr class="summary-total-row">
+                                            <td colspan="3">المجموع مع الضريبة</td>
+                                            <td>{{ selected_request_financial_summary.total }}</td>
+                                          </tr>
+                                        {% endif %}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </section>
+
+                                <section class="side-card verification-summary-card">
+                                  <h4>بنود التوثيق المرفوضة</h4>
+                                  <div class="table-wrap">
+                                    <table class="dash-table verification-final-summary-table">
+                                      <thead>
+                                        <tr>
+                                          <th>بنود التوثيق المرفوضة</th>
+                                          <th>نوع شارة التوثيق</th>
+                                          <th>سبب الرفض</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {% for summary_row in selected_request_decision_summary.rejected %}
+                                          <tr>
+                                            <td>{{ summary_row.title }}</td>
+                                            <td>{{ summary_row.badge_label }}</td>
+                                            <td>
+                                              {% if can_write and selected_request_is_editable %}
+                                                <textarea class="input-control verification-reject-reason" name="reject_reason_{{ summary_row.id }}" rows="2" maxlength="300" placeholder="سبب الرفض الذي سيظهر للعميل">{{ summary_row.decision_note }}</textarea>
+                                              {% else %}
+                                                <span>{{ summary_row.decision_note|default:"-" }}</span>
+                                              {% endif %}
+                                            </td>
+                                          </tr>
+                                        {% empty %}
+                                          <tr><td colspan="3">لا توجد بنود مرفوضة في هذا الطلب.</td></tr>
+                                        {% endfor %}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </section>
+
+                                <div class="verification-summary-hints">
+                                  <p><strong>في حالة الاعتماد يتم بشكل آلي:</strong></p>
+                                  <p>✓ إرسال رسالة تهنئة للعميل في حالة اعتماد أي طلب توثيق.</p>
+                                  <p>✓ رابط دفع رسوم التوثيق مع بيان تفاصيل الرسوم.</p>
+                                  <p>✓ بعد إتمام عملية سداد الرسوم يتم إظهار علامات التوثيق المناسبة في حساب العميل حسب ما تم اعتماده.</p>
+                                  <p>✓ يتم إضافة بيانات التوثيق في قائمة البيانات الموثقة.</p>
+                                  <p>✓ رسالة للعميل ببنود التوثيق المرفوضة وسبب الرفض.</p>
+                                  {% if selected_request_invoice_summary %}
+                                    <p>حالة الفاتورة الحالية: <strong>{{ selected_request_invoice_summary.status }}</strong></p>
+                                  {% endif %}
+                                </div>
+
+                                <div class="actions verification-review-actions">
+                                  <a href="{{ request_review_url }}" class="ghost-btn">إلغاء</a>
+                                  {% if can_write and selected_request_is_editable %}
+                                    <button type="submit" name="action" value="finalize_request" class="primary-btn">اعتماد</button>
+                                  {% endif %}
+                                </div>
+                              {% endif %}
+                            </form>
+
+                            {% if linked_inquiries_for_request %}
+                              <div class="side-card">
+                                <h4>الاستفسارات المرتبطة بهذا الطلب</h4>
+                                <div class="actions verification-linked-inquiries">
+                                  {% for profile in linked_inquiries_for_request %}
+                                    <a class="ghost-btn" href="{% url 'dashboard:verification_dashboard' %}?tab=verification&request={{ selected_request.id }}&request_stage={{ request_stage }}&inquiry={{ profile.ticket.id }}#verificationInquiryForm">
+                                      {{ profile.ticket.code }}
+                                    </a>
+                                  {% endfor %}
+                                </div>
+                              </div>
+                            {% endif %}
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
                   {% empty %}
                     <tr><td colspan="7">لا توجد طلبات توثيق حالياً.</td></tr>
                   {% endfor %}
@@ -223,13 +621,13 @@
                 </thead>
                 <tbody>
                   {% for row in verified_accounts %}
-                    <tr class="{% if selected_verified_badge and selected_verified_badge.id == row.id %}active-ticket{% endif %}">
+                    <tr id="verified-account-{{ row.id }}" class="{% if selected_verified_badge and selected_verified_badge.id == row.id %}active-ticket{% endif %}">
                       <td>{{ row.requester_name }}</td>
                       <td>
                         <a
                           class="ticket-link"
                           data-toggle-state="{% if selected_verified_badge and selected_verified_badge.id == row.id %}close{% else %}open{% endif %}"
-                          href="{% url 'dashboard:verification_dashboard' %}?tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}{% if not selected_verified_badge or selected_verified_badge.id != row.id %}&verified_badge={{ row.id }}#verifiedAccountDetailCard{% endif %}"
+                          href="{% url 'dashboard:verification_dashboard' %}?tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}{% if not selected_verified_badge or selected_verified_badge.id != row.id %}&verified_badge={{ row.id }}#verifiedAccountDetailCard{% else %}#verified-account-{{ row.id }}{% endif %}"
                         >
                           {{ row.verification_code }}
                         </a>
@@ -256,500 +654,111 @@
                         </form>
                       </td>
                     </tr>
+                    {% if selected_verified_badge and selected_verified_badge.id == row.id and selected_verified_badge_detail %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="7">
+                          <div class="dash-inline-detail-shell support-detail-shell verified-account-detail-shell" id="verifiedAccountDetailCard">
+                            <div class="title-row">
+                              <h2>تفاصيل التوثيق</h2>
+                              <div class="actions">
+                                <span class="pill info">{{ selected_verified_badge_detail.verification_code }}</span>
+                                <span class="pill {% if selected_verified_badge_detail.badge_type == 'blue' %}brand{% else %}mint{% endif %}">{{ selected_verified_badge_detail.badge_type_label }}</span>
+                              </div>
+                            </div>
+
+                            <div class="verification-blue-summary-grid verified-account-summary-grid">
+                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_verified_badge_detail.requester_name }}</strong></div>
+                              <div class="quick-stat"><span>رمز التوثيق</span><strong>{{ selected_verified_badge_detail.verification_code }}</strong></div>
+                              <div class="quick-stat"><span>نوع شارة التوثيق</span><strong>{{ selected_verified_badge_detail.badge_type_label }}</strong></div>
+                              <div class="quick-stat"><span>تاريخ تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.activated_at_label }}</strong></div>
+                              <div class="quick-stat"><span>تاريخ نهاية تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.expires_at_label }}</strong></div>
+                              <div class="quick-stat"><span>رقم طلب التوثيق المصدر</span><strong>{{ selected_verified_badge_detail.request_code|default:"-" }}</strong></div>
+                            </div>
+
+                            <div class="field full verified-account-name-field">
+                              <label>اسم العميل أو المنشأة الموثق</label>
+                              <div class="input-control static-field"><strong>{{ selected_verified_badge_detail.verified_name }}</strong></div>
+                            </div>
+
+                            <div class="verified-account-detail-grid">
+                              <section class="side-card verified-account-docs-card">
+                                <div class="title-row compact">
+                                  <h4>مستندات التوثيق المرفوعة</h4>
+                                  <span class="pill light">{{ selected_verified_badge_detail.documents|length }} ملف</span>
+                                </div>
+                                <div class="verification-inline-attachments">
+                                  {% for document in selected_verified_badge_detail.documents %}
+                                    <article class="verification-inline-attachment">
+                                      <strong>{{ document.title }}</strong>
+                                      <span>{{ document.label }} - {{ document.uploaded_at_label }}</span>
+                                      <div class="actions">
+                                        <a class="ticket-link" href="{{ document.url }}" target="_blank" rel="noopener">فتح</a>
+                                        <a class="ghost-btn" href="{{ document.url }}" download>تنزيل</a>
+                                      </div>
+                                    </article>
+                                  {% empty %}
+                                    <p class="subtitle">لا توجد ملفات مرتبطة بهذا السجل حاليًا.</p>
+                                  {% endfor %}
+                                </div>
+                              </section>
+
+                              <section class="side-card verified-account-meta-card">
+                                <h4>بيانات التوثيق</h4>
+                                <div class="stack">
+                                  <div class="quick-stat"><span>البند المعتمد</span><strong>{{ selected_verified_badge_detail.verification_title }}</strong></div>
+                                  <div class="quick-stat"><span>تاريخ نهاية المستند المرجعي</span><strong>{{ selected_verified_badge_detail.evidence_expires_at_label }}</strong></div>
+                                  {% if selected_verified_badge_detail.request_code %}
+                                    <div class="quick-stat">
+                                      <span>العودة إلى الطلب</span>
+                                      <strong>
+                                        <a class="ticket-link" href="{% url 'dashboard:verification_dashboard' %}?tab=verification&request={{ selected_verified_badge_detail.request_id }}&request_stage=summary#verificationRequestActionForm">{{ selected_verified_badge_detail.request_code }}</a>
+                                      </strong>
+                                    </div>
+                                  {% endif %}
+                                </div>
+
+                                {% if selected_verified_badge_detail.last_payment %}
+                                  <div class="verification-summary-hints verified-account-payment-note">
+                                    <p>{{ selected_verified_badge_detail.last_payment.message }}</p>
+                                    <p>رقم الفاتورة: <strong>{{ selected_verified_badge_detail.last_payment.invoice_code }}</strong></p>
+                                  </div>
+                                {% else %}
+                                  <div class="verification-summary-hints verified-account-payment-note">
+                                    <p>لا توجد عملية سداد ناجحة مرتبطة بهذا السجل حتى الآن.</p>
+                                  </div>
+                                {% endif %}
+                              </section>
+                            </div>
+
+                            <div class="actions verification-review-actions">
+                              {% if can_write %}
+                                <form method="post" class="inline-action-form">
+                                  {% csrf_token %}
+                                  <input type="hidden" name="action" value="renew_verified_badge">
+                                  <input type="hidden" name="verified_badge_id" value="{{ selected_verified_badge_detail.id }}">
+                                  <input type="hidden" name="redirect_query" value="tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}&verified_badge={{ selected_verified_badge_detail.id }}">
+                                  <button type="submit" class="primary-btn light" data-confirm-message="سيتم إنشاء طلب تجديد جديد لهذا السجل والانتقال إلى صفحة طلبات التوثيق. هل تريد المتابعة؟">تجديد</button>
+                                </form>
+                                <form method="post" class="inline-action-form">
+                                  {% csrf_token %}
+                                  <input type="hidden" name="action" value="delete_verified_badge">
+                                  <input type="hidden" name="verified_badge_id" value="{{ selected_verified_badge_detail.id }}">
+                                  <input type="hidden" name="redirect_query" value="tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}&verified_badge={{ selected_verified_badge_detail.id }}">
+                                  <button type="submit" class="ghost-btn danger" data-confirm-message="سيتم حذف تفعيل هذا السجل من الحساب الموثق. هل أنت متأكد؟">حذف</button>
+                                </form>
+                              {% endif %}
+                              <a href="{{ close_verified_badge_url }}#verified-account-{{ row.id }}" class="ghost-btn">إغلاق</a>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
                   {% empty %}
                     <tr><td colspan="7">لا توجد حسابات موثقة مطابقة للبحث الحالي.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
             </div>
-          </section>
-
-          {% if selected_verified_badge and selected_verified_badge_detail %}
-            <section class="section-panel slide-up support-detail-shell verified-account-detail-shell" id="verifiedAccountDetailCard">
-              <div class="title-row">
-                <h2>تفاصيل التوثيق</h2>
-                <div class="actions">
-                  <span class="pill info">{{ selected_verified_badge_detail.verification_code }}</span>
-                  <span class="pill {% if selected_verified_badge_detail.badge_type == 'blue' %}brand{% else %}mint{% endif %}">{{ selected_verified_badge_detail.badge_type_label }}</span>
-                </div>
-              </div>
-
-              <div class="verification-blue-summary-grid verified-account-summary-grid">
-                <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_verified_badge_detail.requester_name }}</strong></div>
-                <div class="quick-stat"><span>رمز التوثيق</span><strong>{{ selected_verified_badge_detail.verification_code }}</strong></div>
-                <div class="quick-stat"><span>نوع شارة التوثيق</span><strong>{{ selected_verified_badge_detail.badge_type_label }}</strong></div>
-                <div class="quick-stat"><span>تاريخ تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.activated_at_label }}</strong></div>
-                <div class="quick-stat"><span>تاريخ نهاية تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.expires_at_label }}</strong></div>
-                <div class="quick-stat"><span>رقم طلب التوثيق المصدر</span><strong>{{ selected_verified_badge_detail.request_code|default:"-" }}</strong></div>
-              </div>
-
-              <div class="field full verified-account-name-field">
-                <label>اسم العميل أو المنشأة الموثق</label>
-                <div class="input-control static-field"><strong>{{ selected_verified_badge_detail.verified_name }}</strong></div>
-              </div>
-
-              <div class="verified-account-detail-grid">
-                <section class="side-card verified-account-docs-card">
-                  <div class="title-row compact">
-                    <h4>مستندات التوثيق المرفوعة</h4>
-                    <span class="pill light">{{ selected_verified_badge_detail.documents|length }} ملف</span>
-                  </div>
-                  <div class="verification-inline-attachments">
-                    {% for document in selected_verified_badge_detail.documents %}
-                      <article class="verification-inline-attachment">
-                        <strong>{{ document.title }}</strong>
-                        <span>{{ document.label }} - {{ document.uploaded_at_label }}</span>
-                        <div class="actions">
-                          <a class="ticket-link" href="{{ document.url }}" target="_blank" rel="noopener">فتح</a>
-                          <a class="ghost-btn" href="{{ document.url }}" download>تنزيل</a>
-                        </div>
-                      </article>
-                    {% empty %}
-                      <p class="subtitle">لا توجد ملفات مرتبطة بهذا السجل حاليًا.</p>
-                    {% endfor %}
-                  </div>
-                </section>
-
-                <section class="side-card verified-account-meta-card">
-                  <h4>بيانات التوثيق</h4>
-                  <div class="stack">
-                    <div class="quick-stat"><span>البند المعتمد</span><strong>{{ selected_verified_badge_detail.verification_title }}</strong></div>
-                    <div class="quick-stat"><span>تاريخ نهاية المستند المرجعي</span><strong>{{ selected_verified_badge_detail.evidence_expires_at_label }}</strong></div>
-                    {% if selected_verified_badge_detail.request_code %}
-                      <div class="quick-stat">
-                        <span>العودة إلى الطلب</span>
-                        <strong>
-                          <a class="ticket-link" href="{% url 'dashboard:verification_dashboard' %}?tab=verification&request={{ selected_verified_badge_detail.request_id }}&request_stage=summary#verificationRequestActionForm">{{ selected_verified_badge_detail.request_code }}</a>
-                        </strong>
-                      </div>
-                    {% endif %}
-                  </div>
-
-                  {% if selected_verified_badge_detail.last_payment %}
-                    <div class="verification-summary-hints verified-account-payment-note">
-                      <p>{{ selected_verified_badge_detail.last_payment.message }}</p>
-                      <p>رقم الفاتورة: <strong>{{ selected_verified_badge_detail.last_payment.invoice_code }}</strong></p>
-                    </div>
-                  {% else %}
-                    <div class="verification-summary-hints verified-account-payment-note">
-                      <p>لا توجد عملية سداد ناجحة مرتبطة بهذا السجل حتى الآن.</p>
-                    </div>
-                  {% endif %}
-                </section>
-              </div>
-
-              <div class="actions verification-review-actions">
-                {% if can_write %}
-                  <form method="post" class="inline-action-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="renew_verified_badge">
-                    <input type="hidden" name="verified_badge_id" value="{{ selected_verified_badge_detail.id }}">
-                    <input type="hidden" name="redirect_query" value="tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}&verified_badge={{ selected_verified_badge_detail.id }}">
-                    <button type="submit" class="primary-btn light" data-confirm-message="سيتم إنشاء طلب تجديد جديد لهذا السجل والانتقال إلى صفحة طلبات التوثيق. هل تريد المتابعة؟">تجديد</button>
-                  </form>
-                  <form method="post" class="inline-action-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="action" value="delete_verified_badge">
-                    <input type="hidden" name="verified_badge_id" value="{{ selected_verified_badge_detail.id }}">
-                    <input type="hidden" name="redirect_query" value="tab=verified_accounts&accounts_q={{ filters.accounts_q|urlencode }}&verified_badge={{ selected_verified_badge_detail.id }}">
-                    <button type="submit" class="ghost-btn danger" data-confirm-message="سيتم حذف تفعيل هذا السجل من الحساب الموثق. هل أنت متأكد؟">حذف</button>
-                  </form>
-                {% endif %}
-                <a href="{{ close_verified_badge_url }}" class="ghost-btn">إغلاق</a>
-              </div>
-            </section>
-          {% endif %}
-        {% endif %}
-
-        {% if selected_inquiry and filters.tab == 'verification' %}
-          <section class="section-panel slide-up support-detail-shell">
-            <div class="title-row">
-              <h2>تفاصيل الطلب</h2>
-              <div class="actions">
-                <span class="pill brand">{{ selected_inquiry.get_ticket_type_display }}</span>
-                <span class="pill info">{{ selected_inquiry.code }}</span>
-              </div>
-            </div>
-
-            <form method="post" enctype="multipart/form-data" id="verificationInquiryForm">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save_inquiry">
-              <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
-              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-              {{ inquiry_form.assigned_team }}
-              {{ inquiry_form.linked_request_id }}
-              {{ inquiry_form.detailed_request_url }}
-
-              <div class="support-action-grid">
-                <div class="field full">
-                  <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الطلب</label>
-                  {{ inquiry_form.description }}
-                </div>
-                <div class="field full">
-                  <label for="{{ inquiry_form.attachment.id_for_label }}">المرفقات</label>
-                  {{ inquiry_form.attachment }}
-                  <div class="verification-inline-attachments">
-                    {% for file in selected_inquiry_attachments %}
-                      <article class="verification-inline-attachment">
-                        <strong title="{{ file.file.name|default:'مرفق' }}">{{ file.file.name|default:'مرفق' }}</strong>
-                        <span>{{ file.created_at|date:"d/m/Y - H:i" }}</span>
-                        <div class="actions">
-                          <a class="ticket-link" href="{{ file.file.url }}" target="_blank" rel="noopener">عرض</a>
-                          <a class="ghost-btn" href="{{ file.file.url }}" download>تنزيل</a>
-                        </div>
-                      </article>
-                    {% empty %}
-                      <p class="subtitle">لا توجد مرفقات مضافة حتى الآن.</p>
-                    {% endfor %}
-                  </div>
-                </div>
-                <div class="field">
-                  <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
-                  {{ inquiry_form.status }}
-                </div>
-                <div class="field">
-                  <label>الفريق المكلف</label>
-                  <div class="input-control static-field"><strong>{{ verification_support_team.name_ar|default:'فريق التوثيق' }}</strong></div>
-                </div>
-                <div class="field">
-                  <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                  {{ inquiry_form.assigned_to }}
-                </div>
-                <div class="field full">
-                  <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
-                  {{ inquiry_form.operator_comment }}
-                  <p class="field-hint">اكتب طلب معلومات إضافية من العميل أو ألصق رابط صفحة طلب التوثيق داخل التعليق.</p>
-                </div>
-              </div>
-
-              <div class="actions">
-                {% if can_write %}
-                  <button type="submit" name="action" value="save_inquiry" class="primary-btn">حفظ</button>
-                  <a id="closeInquiryDetailLink" href="{{ close_inquiry_url }}" class="ghost-btn">إغلاق</a>
-                {% else %}
-                  <span class="pill danger">قراءة فقط</span>
-                {% endif %}
-              </div>
-            </form>
-          </section>
-        {% endif %}
-
-        {% if selected_request and filters.tab == 'verification' %}
-          <section class="section-panel slide-up support-detail-shell">
-            <div class="title-row">
-              <h2>{% if request_stage == 'summary' %}ملخص اعتماد طلب التوثيق{% else %}مراجعة بنود طلب التوثيق{% endif %}: {{ selected_request.code }}</h2>
-              <div class="actions">
-                <span class="pill brand">الحالة الحالية: {{ selected_request_status_label }}</span>
-                {% for label in selected_request_badge_labels %}
-                  <span class="pill {% if label == 'شارة خضراء' %}mint{% else %}info{% endif %}">{{ label }}</span>
-                {% endfor %}
-              </div>
-            </div>
-
-            <div class="support-meta-grid">
-              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
-              <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
-              <div class="quick-stat"><span>تاريخ الطلب</span><strong>{{ selected_request.requested_at|date:"d/m/Y - H:i" }}</strong></div>
-              <div class="quick-stat"><span>الفاتورة</span><strong>{{ selected_request.invoice.code|default:"لم تصدر بعد" }}</strong></div>
-            </div>
-
-            <form method="post" id="verificationRequestActionForm">
-              {% csrf_token %}
-              <input type="hidden" name="verification_request_id" value="{{ selected_request.id }}">
-              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-              <input type="hidden" name="request_stage" value="{{ request_stage }}">
-
-              <div class="support-action-grid verification-request-ops-grid">
-                <div class="field">
-                  <label>فريق التوثيق</label>
-                  <div class="input-control static-field"><strong>{{ verification_support_team.name_ar|default:"فريق التوثيق" }}</strong></div>
-                </div>
-                <div class="field">
-                  <label for="{{ request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                  {{ request_form.assigned_to }}
-                </div>
-                <div class="field">
-                  <label for="{{ request_form.status.id_for_label }}">حالة الطلب</label>
-                  {% if can_write and selected_request_is_editable %}
-                    {{ request_form.status }}
-                  {% else %}
-                    <div class="input-control static-field"><strong>{{ selected_request_status_label }}</strong></div>
-                  {% endif %}
-                </div>
-                <div class="field full">
-                  <label for="{{ request_form.admin_note.id_for_label }}">تعليق فريق التوثيق</label>
-                  {{ request_form.admin_note }}
-                </div>
-              </div>
-
-              {% if request_stage == 'review' %}
-                <div class="verification-stage-banner">
-                  <span class="pill accent">المرحلة الأولى: مراجعة البنود والمرفقات</span>
-                  {% if selected_request_review.all_decided %}
-                    <span class="pill mint">جميع البنود تم اتخاذ قرار بشأنها</span>
-                  {% else %}
-                    <span class="pill danger">هناك بنود بانتظار قرار المراجع</span>
-                  {% endif %}
-                </div>
-
-                {% if selected_request_review.blue_rows %}
-                  <section class="verification-review-card is-blue">
-                    <div class="verification-review-head">
-                      <h3>الشارة الزرقاء</h3>
-                      <span class="pill brand">اعتماد هوية أو صفة تجارية</span>
-                    </div>
-
-                    {% if selected_request_review.blue_profile %}
-                      <div class="verification-blue-summary-grid">
-                        <div class="quick-stat"><span>نوع المسار</span><strong>{{ selected_request_review.blue_profile.subject_type_display }}</strong></div>
-                        <div class="quick-stat"><span>الاسم المعتمد</span><strong>{{ selected_request_review.blue_profile.verified_name }}</strong></div>
-                        <div class="quick-stat"><span>{{ selected_request_review.blue_profile.official_number_label|default:"رقم الإثبات" }}</span><strong>{{ selected_request_review.blue_profile.official_number }}</strong></div>
-                        <div class="quick-stat"><span>{{ selected_request_review.blue_profile.official_date_label|default:"التاريخ المرجعي" }}</span><strong>{{ selected_request_review.blue_profile.official_date|date:"d/m/Y" }}</strong></div>
-                      </div>
-                    {% endif %}
-
-                    <div class="table-wrap">
-                      <table class="dash-table verification-review-table">
-                        <thead>
-                          <tr>
-                            <th>رمز التوثيق</th>
-                            <th>رفض</th>
-                            <th>اعتماد</th>
-                            <th>البند</th>
-                            <th>المرفقات</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {% for row in selected_request_review.blue_rows %}
-                            <tr>
-                              <td><strong>{{ row.code }}</strong></td>
-                              <td class="choice-cell">
-                                <label>
-                                  <input type="radio" name="decision_{{ row.id }}" value="reject" {% if row.decision_value == 'reject' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
-                                  <span>رفض</span>
-                                </label>
-                              </td>
-                              <td class="choice-cell">
-                                <label>
-                                  <input type="radio" name="decision_{{ row.id }}" value="approve" {% if row.decision_value == 'approve' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
-                                  <span>اعتماد</span>
-                                </label>
-                              </td>
-                              <td><div class="verification-item-title">{{ row.title }}</div></td>
-                              <td>
-                                <div class="verification-attachment-meta">{{ row.attachment_count }} مرفق</div>
-                                {% for attachment in row.attachments|slice:":2" %}
-                                  <a class="ticket-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">ملف {{ forloop.counter }}</a>{% if not forloop.last %}<br>{% endif %}
-                                {% empty %}
-                                  <span class="subtitle">لا توجد مرفقات بعد</span>
-                                {% endfor %}
-                              </td>
-                            </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {% if selected_request_review.blue_documents %}
-                      <div class="verification-inline-attachments">
-                        {% for document in selected_request_review.blue_documents %}
-                          <article class="verification-inline-attachment">
-                            <strong>{{ document.title|default:"مرفق داعم للشارة الزرقاء" }}</strong>
-                            <span>{{ document.get_doc_type_display }} - {{ document.uploaded_at|date:"d/m/Y - H:i" }}</span>
-                            <div class="actions">
-                              <a class="ticket-link" href="{{ document.file.url }}" target="_blank" rel="noopener">فتح</a>
-                              <a class="ghost-btn" href="{{ document.file.url }}" download>تنزيل</a>
-                            </div>
-                          </article>
-                        {% endfor %}
-                      </div>
-                    {% endif %}
-                  </section>
-                {% endif %}
-
-                {% if selected_request_review.green_rows %}
-                  <section class="verification-review-card is-green">
-                    <div class="verification-review-head">
-                      <h3>الشارة الخضراء</h3>
-                      <span class="pill mint">فحص كل بند على حدة</span>
-                    </div>
-
-                    <div class="table-wrap">
-                      <table class="dash-table verification-review-table is-green">
-                        <thead>
-                          <tr>
-                            <th>رمز التوثيق</th>
-                            <th>رفض</th>
-                            <th>اعتماد</th>
-                            <th>تاريخ نهاية المستند المقدم</th>
-                            <th>البند</th>
-                            <th>المرفقات</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {% for row in selected_request_review.green_rows %}
-                            <tr>
-                              <td><strong>{{ row.code }}</strong></td>
-                              <td class="choice-cell">
-                                <label>
-                                  <input type="radio" name="decision_{{ row.id }}" value="reject" {% if row.decision_value == 'reject' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
-                                  <span>رفض</span>
-                                </label>
-                              </td>
-                              <td class="choice-cell">
-                                <label>
-                                  <input type="radio" name="decision_{{ row.id }}" value="approve" {% if row.decision_value == 'approve' %}checked{% endif %} {% if not can_write or not selected_request_is_editable %}disabled{% endif %}>
-                                  <span>اعتماد</span>
-                                </label>
-                              </td>
-                              <td>
-                                {% if can_write and selected_request_is_editable %}
-                                  <input class="input-control verification-date-input" type="datetime-local" name="evidence_expires_at_{{ row.id }}" value="{{ row.evidence_expires_at_value }}">
-                                {% else %}
-                                  <span>{{ row.evidence_expires_at_label|default:"-" }}</span>
-                                {% endif %}
-                              </td>
-                              <td><div class="verification-item-title">{{ row.title }}</div></td>
-                              <td>
-                                <div class="verification-attachment-meta">{{ row.attachment_count }} مرفق</div>
-                                {% for attachment in row.attachments|slice:":2" %}
-                                  <a class="ticket-link" href="{{ attachment.file.url }}" target="_blank" rel="noopener">ملف {{ forloop.counter }}</a>{% if not forloop.last %}<br>{% endif %}
-                                {% empty %}
-                                  <span class="subtitle">لا توجد مرفقات بعد</span>
-                                {% endfor %}
-                              </td>
-                            </tr>
-                          {% endfor %}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                {% endif %}
-
-                <div class="actions verification-review-actions">
-                  {% if can_write and selected_request_is_editable %}
-                    <button type="submit" name="action" value="save_request" class="ghost-btn">حفظ</button>
-                    <button type="submit" name="action" value="continue_request_review" class="primary-btn">استمرار</button>
-                  {% else %}
-                    <span class="pill danger">قراءة فقط</span>
-                  {% endif %}
-                  <a id="closeRequestDetailLink" href="{{ close_request_url }}" class="ghost-btn">إغلاق</a>
-                </div>
-              {% else %}
-                <div class="verification-stage-banner">
-                  <span class="pill accent">المرحلة الثانية: ملخص القرار النهائي</span>
-                  {% if selected_request_financial_summary %}
-                    <span class="pill info">الإجمالي: {{ selected_request_financial_summary.total }} {{ selected_request_financial_summary.currency }}</span>
-                  {% endif %}
-                </div>
-
-                <section class="side-card verification-summary-card">
-                  <h4>بنود التوثيق المعتمدة</h4>
-                  <div class="table-wrap">
-                    <table class="dash-table verification-final-summary-table">
-                      <thead>
-                        <tr>
-                          <th>بنود التوثيق المعتمدة</th>
-                          <th>رمز التوثيق</th>
-                          <th>نوع شارة التوثيق</th>
-                          <th>التكلفة (ريال سعودي)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for row in selected_request_decision_summary.approved %}
-                          <tr>
-                            <td>{{ row.title }}</td>
-                            <td>{{ row.code }}</td>
-                            <td>{{ row.badge_label }}</td>
-                            <td>{{ row.amount|default:"0.00" }}</td>
-                          </tr>
-                        {% empty %}
-                          <tr><td colspan="4">لا توجد بنود معتمدة لهذا الطلب.</td></tr>
-                        {% endfor %}
-                        {% if selected_request_financial_summary %}
-                          <tr class="summary-total-row">
-                            <td colspan="3">المجموع</td>
-                            <td>{{ selected_request_financial_summary.subtotal }}</td>
-                          </tr>
-                          <tr class="summary-total-row">
-                            <td colspan="3">VAT</td>
-                            <td>{{ selected_request_financial_summary.vat_amount }}</td>
-                          </tr>
-                          <tr class="summary-total-row">
-                            <td colspan="3">المجموع مع الضريبة</td>
-                            <td>{{ selected_request_financial_summary.total }}</td>
-                          </tr>
-                        {% endif %}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-
-                <section class="side-card verification-summary-card">
-                  <h4>بنود التوثيق المرفوضة</h4>
-                  <div class="table-wrap">
-                    <table class="dash-table verification-final-summary-table">
-                      <thead>
-                        <tr>
-                          <th>بنود التوثيق المرفوضة</th>
-                          <th>نوع شارة التوثيق</th>
-                          <th>سبب الرفض</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {% for row in selected_request_decision_summary.rejected %}
-                          <tr>
-                            <td>{{ row.title }}</td>
-                            <td>{{ row.badge_label }}</td>
-                            <td>
-                              {% if can_write and selected_request_is_editable %}
-                                <textarea class="input-control verification-reject-reason" name="reject_reason_{{ row.id }}" rows="2" maxlength="300" placeholder="سبب الرفض الذي سيظهر للعميل">{{ row.decision_note }}</textarea>
-                              {% else %}
-                                <span>{{ row.decision_note|default:"-" }}</span>
-                              {% endif %}
-                            </td>
-                          </tr>
-                        {% empty %}
-                          <tr><td colspan="3">لا توجد بنود مرفوضة في هذا الطلب.</td></tr>
-                        {% endfor %}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-
-                <div class="verification-summary-hints">
-                  <p><strong>في حالة الاعتماد يتم بشكل آلي:</strong></p>
-                  <p>✓ إرسال رسالة تهنئة للعميل في حالة اعتماد أي طلب توثيق.</p>
-                  <p>✓ رابط دفع رسوم التوثيق مع بيان تفاصيل الرسوم.</p>
-                  <p>✓ بعد إتمام عملية سداد الرسوم يتم إظهار علامات التوثيق المناسبة في حساب العميل حسب ما تم اعتماده.</p>
-                  <p>✓ يتم إضافة بيانات التوثيق في قائمة البيانات الموثقة.</p>
-                  <p>✓ رسالة للعميل ببنود التوثيق المرفوضة وسبب الرفض.</p>
-                  {% if selected_request_invoice_summary %}
-                    <p>حالة الفاتورة الحالية: <strong>{{ selected_request_invoice_summary.status }}</strong></p>
-                  {% endif %}
-                </div>
-
-                <div class="actions verification-review-actions">
-                  <a href="{{ request_review_url }}" class="ghost-btn">إلغاء</a>
-                  {% if can_write and selected_request_is_editable %}
-                    <button type="submit" name="action" value="finalize_request" class="primary-btn">اعتماد</button>
-                  {% endif %}
-                </div>
-              {% endif %}
-            </form>
-
-            {% if linked_inquiries_for_request %}
-              <div class="side-card">
-                <h4>الاستفسارات المرتبطة بهذا الطلب</h4>
-                <div class="actions verification-linked-inquiries">
-                  {% for profile in linked_inquiries_for_request %}
-                    <a class="ghost-btn" href="{% url 'dashboard:verification_dashboard' %}?tab=verification&request={{ selected_request.id }}&request_stage={{ request_stage }}&inquiry={{ profile.ticket.id }}#verificationInquiryForm">
-                      {{ profile.ticket.code }}
-                    </a>
-                  {% endfor %}
-                </div>
-              </div>
-            {% endif %}
           </section>
         {% endif %}
       </section>

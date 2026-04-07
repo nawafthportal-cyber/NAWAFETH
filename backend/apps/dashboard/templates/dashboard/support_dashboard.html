@@ -84,11 +84,11 @@
               </thead>
               <tbody>
                 {% for row in tickets %}
-                  <tr class="support-row {{ row.priority_class }} {% if selected_ticket and selected_ticket.id == row.id %}active-ticket{% endif %}">
+                  <tr id="support-ticket-{{ row.id }}" class="support-row {{ row.priority_class }} {% if selected_ticket and selected_ticket.id == row.id %}active-ticket{% endif %}">
                     <td>
                       <a
                         class="ticket-link"
-                        href="{% if selected_ticket and selected_ticket.id == row.id %}{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}{% else %}{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&ticket={{ row.id }}#supportActionForm{% endif %}"
+                        href="{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}{% if not selected_ticket or selected_ticket.id != row.id %}&ticket={{ row.id }}#supportActionForm{% else %}#support-ticket-{{ row.id }}{% endif %}"
                       >
                         {{ row.code }}
                       </a>
@@ -102,6 +102,107 @@
                     <td>{{ row.assignee }}</td>
                     <td>{{ row.assigned_at }}</td>
                   </tr>
+                  {% if selected_ticket and selected_ticket.id == row.id %}
+                    <tr class="dash-inline-detail-row">
+                      <td colspan="9">
+                        <div class="dash-inline-detail-shell support-detail-shell">
+                          <div class="title-row">
+                            <h2>تفاصيل الطلب: {{ selected_ticket.code }}</h2>
+                            <span class="pill brand">{{ selected_ticket.get_ticket_type_display }}</span>
+                          </div>
+
+                          <div class="support-meta-grid">
+                            <div class="quick-stat"><span>اسم العميل</span><strong>{% if selected_ticket.requester.username %}@{{ selected_ticket.requester.username }}{% else %}@{{ selected_ticket.requester.phone }}{% endif %}</strong></div>
+                            <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
+                            <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
+                            <div class="quick-stat"><span>فريق الدعم الحالي</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
+                          </div>
+
+                          <section class="support-attachments-view" aria-label="مرفقات الطلب">
+                            <div class="title-row">
+                              <h2>مرفقات الطلب</h2>
+                              <span class="pill info">{{ selected_ticket_attachments|length }} مرفق</span>
+                            </div>
+                            {% if selected_ticket_attachments %}
+                              <div class="support-attachments-grid">
+                                {% for attachment in selected_ticket_attachments %}
+                                  <article class="attachment-card">
+                                    {% if attachment.is_image and attachment.url %}
+                                      <a class="attachment-preview" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                                        <img src="{{ attachment.url }}" alt="{{ attachment.name }}">
+                                      </a>
+                                    {% else %}
+                                      <a class="attachment-preview attachment-preview-file" href="{{ attachment.url }}" target="_blank" rel="noopener">
+                                        <span>📎</span>
+                                      </a>
+                                    {% endif %}
+                                    <div class="attachment-body">
+                                      <h4 title="{{ attachment.name }}">{{ attachment.name }}</h4>
+                                      <p>
+                                        <span>النوع: {{ attachment.ext|default:"-"|upper }}</span>
+                                        <span>رفع بواسطة: {{ attachment.uploaded_by }}</span>
+                                        <span>تاريخ الرفع: {{ attachment.created_at }}</span>
+                                      </p>
+                                      <div class="actions">
+                                        <a class="ghost-btn export-btn" href="{{ attachment.url }}" target="_blank" rel="noopener">فتح</a>
+                                        <a class="ghost-btn" href="{{ attachment.url }}" download>تنزيل</a>
+                                      </div>
+                                    </div>
+                                  </article>
+                                {% endfor %}
+                              </div>
+                            {% else %}
+                              <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب حتى الآن.</div>
+                            {% endif %}
+                          </section>
+
+                          <form method="post" enctype="multipart/form-data" id="supportActionForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="ticket_id" value="{{ selected_ticket.id }}">
+                            <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+
+                            <div class="support-action-grid">
+                              <div class="field">
+                                <label for="{{ support_form.status.id_for_label }}">حالة الطلب</label>
+                                {{ support_form.status }}
+                              </div>
+                              <div class="field">
+                                <label for="{{ support_form.assigned_team.id_for_label }}">فريق الدعم</label>
+                                {{ support_form.assigned_team }}
+                              </div>
+                              <div class="field">
+                                <label for="{{ support_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                {{ support_form.assigned_to }}
+                              </div>
+                              <div class="field full">
+                                <label for="{{ support_form.description.id_for_label }}">تفاصيل الطلب (300 حرف)</label>
+                                {{ support_form.description }}
+                              </div>
+                              <div class="field full">
+                                <label for="{{ support_form.assignee_comment.id_for_label }}">تعليق المكلف بالطلب (300 حرف)</label>
+                                {{ support_form.assignee_comment }}
+                              </div>
+                              <div class="field full">
+                                <label for="{{ support_form.attachment.id_for_label }}">المرفقات</label>
+                                {{ support_form.attachment }}
+                              </div>
+                            </div>
+
+                            <div class="actions">
+                              {% if can_write %}
+                                <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
+                                <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق</button>
+                                <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
+                                <a class="ghost-btn" href="{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}#support-ticket-{{ row.id }}">إغلاق العرض</a>
+                              {% else %}
+                                <span class="pill danger">وضع قراءة فقط (QA)</span>
+                              {% endif %}
+                            </div>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endif %}
                 {% empty %}
                   <tr>
                     <td colspan="9">لا توجد طلبات مطابقة للفلاتر الحالية.</td>
@@ -111,103 +212,6 @@
             </table>
           </div>
         </section>
-
-        {% if selected_ticket %}
-          <section class="section-panel slide-up support-detail-shell">
-            <div class="title-row">
-              <h2>تفاصيل الطلب: {{ selected_ticket.code }}</h2>
-              <span class="pill brand">{{ selected_ticket.get_ticket_type_display }}</span>
-            </div>
-
-            <div class="support-meta-grid">
-              <div class="quick-stat"><span>اسم العميل</span><strong>{% if selected_ticket.requester.username %}@{{ selected_ticket.requester.username }}{% else %}@{{ selected_ticket.requester.phone }}{% endif %}</strong></div>
-              <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
-              <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
-              <div class="quick-stat"><span>فريق الدعم الحالي</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
-            </div>
-
-            <section class="support-attachments-view" aria-label="مرفقات الطلب">
-              <div class="title-row">
-                <h2>مرفقات الطلب</h2>
-                <span class="pill info">{{ selected_ticket_attachments|length }} مرفق</span>
-              </div>
-              {% if selected_ticket_attachments %}
-                <div class="support-attachments-grid">
-                  {% for attachment in selected_ticket_attachments %}
-                    <article class="attachment-card">
-                      {% if attachment.is_image and attachment.url %}
-                        <a class="attachment-preview" href="{{ attachment.url }}" target="_blank" rel="noopener">
-                          <img src="{{ attachment.url }}" alt="{{ attachment.name }}">
-                        </a>
-                      {% else %}
-                        <a class="attachment-preview attachment-preview-file" href="{{ attachment.url }}" target="_blank" rel="noopener">
-                          <span>📎</span>
-                        </a>
-                      {% endif %}
-                      <div class="attachment-body">
-                        <h4 title="{{ attachment.name }}">{{ attachment.name }}</h4>
-                        <p>
-                          <span>النوع: {{ attachment.ext|default:"-"|upper }}</span>
-                          <span>رفع بواسطة: {{ attachment.uploaded_by }}</span>
-                          <span>تاريخ الرفع: {{ attachment.created_at }}</span>
-                        </p>
-                        <div class="actions">
-                          <a class="ghost-btn export-btn" href="{{ attachment.url }}" target="_blank" rel="noopener">فتح</a>
-                          <a class="ghost-btn" href="{{ attachment.url }}" download>تنزيل</a>
-                        </div>
-                      </div>
-                    </article>
-                  {% endfor %}
-                </div>
-              {% else %}
-                <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب حتى الآن.</div>
-              {% endif %}
-            </section>
-
-            <form method="post" enctype="multipart/form-data" id="supportActionForm">
-              {% csrf_token %}
-              <input type="hidden" name="ticket_id" value="{{ selected_ticket.id }}">
-              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-
-              <div class="support-action-grid">
-                <div class="field">
-                  <label for="{{ support_form.status.id_for_label }}">حالة الطلب</label>
-                  {{ support_form.status }}
-                </div>
-                <div class="field">
-                  <label for="{{ support_form.assigned_team.id_for_label }}">فريق الدعم</label>
-                  {{ support_form.assigned_team }}
-                </div>
-                <div class="field">
-                  <label for="{{ support_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                  {{ support_form.assigned_to }}
-                </div>
-                <div class="field full">
-                  <label for="{{ support_form.description.id_for_label }}">تفاصيل الطلب (300 حرف)</label>
-                  {{ support_form.description }}
-                </div>
-                <div class="field full">
-                  <label for="{{ support_form.assignee_comment.id_for_label }}">تعليق المكلف بالطلب (300 حرف)</label>
-                  {{ support_form.assignee_comment }}
-                </div>
-                <div class="field full">
-                  <label for="{{ support_form.attachment.id_for_label }}">المرفقات</label>
-                  {{ support_form.attachment }}
-                </div>
-              </div>
-
-              <div class="actions">
-                {% if can_write %}
-                  <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
-                  <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق</button>
-                  <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
-                {% else %}
-                  <span class="pill danger">وضع قراءة فقط (QA)</span>
-                {% endif %}
-              </div>
-            </form>
-          </section>
-        {% endif %}
       </section>
 
       <aside class="panel side-panel">

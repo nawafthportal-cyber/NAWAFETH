@@ -9,15 +9,8 @@ from django.shortcuts import get_object_or_404
 from .models import SubscriptionPlan, Subscription
 from .permissions import IsOwnerOrBackofficeSubscriptions
 from .serializers import PlanSerializer, SubscriptionSerializer
-from .services import cancel_pending_subscription_checkout, ensure_basic_subscription_entitlement, start_subscription_checkout
+from .services import cancel_pending_subscription_checkout, start_subscription_checkout
 from .tiering import canonical_tier_order
-
-
-def _ensure_provider_basic_subscription_for_request(request) -> None:
-    user = getattr(request, "user", None)
-    if not getattr(user, "is_authenticated", False):
-        return
-    ensure_basic_subscription_entitlement(user=user)
 
 
 class PlansListView(generics.ListAPIView):
@@ -25,7 +18,6 @@ class PlansListView(generics.ListAPIView):
     serializer_class = PlanSerializer
 
     def get_queryset(self):
-        _ensure_provider_basic_subscription_for_request(self.request)
         plans = list(SubscriptionPlan.objects.filter(is_active=True))
         plans.sort(key=lambda plan: (canonical_tier_order(plan.normalized_tier()), plan.price, plan.id))
         return plans
@@ -36,7 +28,6 @@ class MySubscriptionsView(generics.ListAPIView):
     serializer_class = SubscriptionSerializer
 
     def get_queryset(self):
-        _ensure_provider_basic_subscription_for_request(self.request)
         return Subscription.objects.filter(user=self.request.user).select_related("plan", "invoice").order_by("-id")
 
 

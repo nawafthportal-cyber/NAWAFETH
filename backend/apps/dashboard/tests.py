@@ -1,8 +1,13 @@
 from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import OperationalError
 from django.test import Client
-from django.test import TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -13,13 +18,71 @@ from apps.core.models import PlatformConfig
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.messaging.models import Message
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus
-from apps.providers.models import ProviderProfile
+from apps.providers.models import ProviderProfile, ProviderSpotlightItem
 from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionInquiryProfile, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportPriority, SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketStatus, SupportTicketType
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 from apps.verification.models import VerificationRequest
 
-from .views import _promo_quote_snapshot
+from .views import (
+    PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY,
+    _consume_single_use_submit_token,
+    _issue_single_use_submit_token,
+    _promo_quote_snapshot,
+)
+
+
+class DashboardNavAccessResilienceTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+
+    def test_non_dashboard_paths_skip_nav_access_lookup(self):
+        request = self.factory.get("/provider-dashboard/")
+        request.user = SimpleNamespace(is_authenticated=True)
+
+        with patch("apps.dashboard.context_processors.dashboard_allowed", side_effect=AssertionError("should not be called")):
+            from .context_processors import dashboard_nav_access
+
+            payload = dashboard_nav_access(request)
+
+        self.assertEqual(payload, {"dashboard_nav_access": {}, "dashboard_main_nav_items": []})
+
+
+class DashboardSingleUseSubmitTokenTests(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.session_middleware = SessionMiddleware(lambda request: None)
+
+    def _build_request(self):
+        request = self.factory.post("/dashboard/promo/modules/snapshots/")
+        self.session_middleware.process_request(request)
+        request.session.save()
+        return request
+
+    def test_cache_claim_rejects_token_already_claimed_by_parallel_submit(self):
+        request = self._build_request()
+        token = _issue_single_use_submit_token(request, PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY)
+
+        with patch("apps.dashboard.views.cache.add", return_value=False):
+            consumed = _consume_single_use_submit_token(
+                request,
+                PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY,
+                token,
+            )
+
+        self.assertFalse(consumed)
+        self.assertNotIn(token, request.session.get(PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY, []))
+
+    def test_dashboard_paths_fall_back_when_database_is_unavailable(self):
+        request = self.factory.get("/dashboard/verification/")
+        request.user = SimpleNamespace(is_authenticated=True)
+
+        with patch("apps.dashboard.context_processors.dashboard_allowed", side_effect=OperationalError("db down")):
+            from .context_processors import dashboard_nav_access
+
+            payload = dashboard_nav_access(request)
+
+        self.assertEqual(payload, {"dashboard_nav_access": {}, "dashboard_main_nav_items": []})
 
 
 class PromoDashboardDuplicateSaveTests(TestCase):
@@ -72,6 +135,12 @@ class PromoDashboardDuplicateSaveTests(TestCase):
         self.assertTrue(any("تم تجاهل محاولة الحفظ المكررة" in message for message in second_messages))
 
 
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
 class PromoModuleDuplicateSubmitTests(TestCase):
     def setUp(self):
         self.staff_user = get_user_model().objects.create_user(
@@ -91,6 +160,12 @@ class PromoModuleDuplicateSubmitTests(TestCase):
             provider_type="individual",
             display_name="مختص تجريبي",
             bio="نبذة مختصرة",
+        )
+        self.spotlight_item = ProviderSpotlightItem.objects.create(
+            provider=self.provider_profile,
+            file_type="image",
+            file=SimpleUploadedFile("spotlight.jpg", b"spotlight-image", content_type="image/jpeg"),
+            caption="لمحة تجريبية",
         )
         self.promo_request = PromoRequest.objects.create(
             requester=self.requester,
@@ -129,7 +204,7 @@ class PromoModuleDuplicateSubmitTests(TestCase):
 
         second_response = self.client.post(module_url, payload, follow=True)
         second_messages = [str(message) for message in second_response.context["messages"]]
-        self.assertTrue(any("تم تجاهل محاولة الاعتماد المكررة" in message for message in second_messages))
+        self.assertTrue(any("تم تجاهل محاولة" in message for message in second_messages))
 
         self.assertEqual(
             PromoRequestItem.objects.filter(
@@ -138,6 +213,38 @@ class PromoModuleDuplicateSubmitTests(TestCase):
             ).count(),
             1,
         )
+
+    def test_duplicate_snapshots_save_creates_single_item(self):
+        module_url = reverse("dashboard:promo_module", kwargs={"module_key": "snapshots"})
+        response = self.client.get(f"{module_url}?request_id={self.promo_request.id}")
+        self.assertEqual(response.status_code, 200)
+
+        form_token = response.context["promo_module_form_token"]
+        payload = {
+            "workflow_action": "approve_item",
+            "promo_module_form_token": form_token,
+            "request_id": str(self.promo_request.id),
+            "title": "شريط اللمحات",
+            "start_at": timezone.localtime(self.promo_request.start_at).strftime("%Y-%m-%dT%H:%M"),
+            "end_at": timezone.localtime(self.promo_request.end_at).strftime("%Y-%m-%dT%H:%M"),
+            "target_provider_id": str(self.provider_profile.id),
+            "target_spotlight_item_id": str(self.spotlight_item.id),
+        }
+
+        first_response = self.client.post(module_url, payload, follow=True)
+        first_messages = [str(message) for message in first_response.context["messages"]]
+        self.assertTrue(any("تم اعتماد" in message for message in first_messages))
+
+        second_response = self.client.post(module_url, payload, follow=True)
+        second_messages = [str(message) for message in second_response.context["messages"]]
+        self.assertTrue(any("تم تجاهل محاولة" in message for message in second_messages))
+
+        created_items = PromoRequestItem.objects.filter(
+            request=self.promo_request,
+            service_type="snapshots",
+        )
+        self.assertEqual(created_items.count(), 1)
+        self.assertEqual(created_items.first().target_spotlight_item_id, self.spotlight_item.id)
 
 
 class PromoVatSnapshotTests(TestCase):
@@ -216,6 +323,68 @@ class PromoDashboardStatusDisplayTests(TestCase):
         self.assertNotContains(response, "حالة الطلب: بانتظار الدفع")
 
 
+class DashboardInlineDetailRenderingTests(TestCase):
+    def setUp(self):
+        self.staff_user = get_user_model().objects.create_user(
+            phone="0500000255",
+            password="secret",
+            is_staff=True,
+        )
+        UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
+
+        self.requester = get_user_model().objects.create_user(phone="0500000256", password="secret")
+        self.support_team, _ = SupportTeam.objects.get_or_create(
+            code="support",
+            defaults={"name_ar": "الدعم والمساعدة", "is_active": True},
+        )
+
+        self.support_ticket = SupportTicket.objects.create(
+            requester=self.requester,
+            ticket_type=SupportTicketType.TECH,
+            status=SupportTicketStatus.IN_PROGRESS,
+            priority=SupportPriority.NORMAL,
+            entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM,
+            description="تذكرة دعم لاختبار العرض المضمن",
+            assigned_team=self.support_team,
+            assigned_to=self.staff_user,
+            assigned_at=timezone.now(),
+        )
+        self.promo_request = PromoRequest.objects.create(
+            requester=self.requester,
+            assigned_to=self.staff_user,
+            assigned_at=timezone.now(),
+            title="طلب ترويج لاختبار العرض المضمن",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=3),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+
+        self.client.force_login(self.staff_user)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def test_support_dashboard_renders_selected_ticket_details_inline(self):
+        response = self.client.get(f"{reverse('dashboard:support_dashboard')}?ticket={self.support_ticket.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="support-ticket-{self.support_ticket.id}"', html=False)
+        self.assertContains(response, "dash-inline-detail-row", html=False)
+        self.assertContains(response, f"تفاصيل الطلب: {self.support_ticket.code}")
+        self.assertContains(response, "إغلاق العرض")
+
+    def test_promo_dashboard_renders_selected_request_details_inline(self):
+        response = self.client.get(f"{reverse('dashboard:promo_dashboard')}?request={self.promo_request.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="promo-request-{self.promo_request.id}"', html=False)
+        self.assertContains(response, "dash-inline-detail-row", html=False)
+        self.assertContains(response, f"تفاصيل طلب الترويج: {self.promo_request.code}")
+        self.assertContains(response, "حالة التنفيذ")
+
+
 @override_settings(
     STORAGES={
         "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
@@ -270,6 +439,17 @@ class VerificationDashboardStatusDisplayTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "الحالة الحالية: مكتمل")
         self.assertNotContains(response, "الحالة الحالية: بانتظار الدفع")
+
+    def test_verification_dashboard_renders_selected_request_details_inline(self):
+        response = self.client.get(
+            f"{reverse('dashboard:verification_dashboard')}?request={self.verification_request.id}&request_stage=review"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="verification-request-{self.verification_request.id}"', html=False)
+        self.assertContains(response, "dash-inline-detail-row", html=False)
+        self.assertContains(response, self.verification_request.code)
+        self.assertContains(response, "مراجعة بنود طلب التوثيق")
 
 
 @override_settings(
@@ -388,7 +568,13 @@ class SubscriptionDashboardTests(TestCase):
         )
         UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
 
-        self.requester = get_user_model().objects.create_user(phone="0500000301", password="secret")
+        self.requester = get_user_model().objects.create_user(phone="0500000301", password="secret", role_state="provider")
+        ProviderProfile.objects.create(
+            user=self.requester,
+            provider_type="individual",
+            display_name="مزود اشتراك تجريبي",
+            bio="نبذة مختصرة",
+        )
         self.plan = SubscriptionPlan.objects.create(
             code="riyadi_month",
             tier=PlanTier.RIYADI,
@@ -460,6 +646,142 @@ class SubscriptionDashboardTests(TestCase):
         self.assertContains(response, self.plan.title)
         self.assertNotContains(response, "قائمة طلبات الاشتراكات")
 
+    def test_subscription_dashboard_accounts_tab_toggles_selected_account_details(self):
+        base_url = f"{reverse('dashboard:subscription_dashboard')}?tab=subscriber_accounts"
+
+        collapsed_response = self.client.get(base_url)
+        self.assertEqual(collapsed_response.status_code, 200)
+        self.assertNotContains(collapsed_response, "اسم مزود الخدمة")
+
+        expanded_response = self.client.get(f"{base_url}&account={self.subscription.id}")
+        self.assertEqual(expanded_response.status_code, 200)
+        self.assertContains(expanded_response, "اسم مزود الخدمة")
+        self.assertContains(expanded_response, "مزود اشتراك تجريبي")
+        self.assertContains(expanded_response, "تجديد الباقة")
+        self.assertContains(expanded_response, "حذف الباقة")
+
+    def test_subscription_dashboard_accounts_tab_shows_fallback_end_date_and_payment_details(self):
+        self.subscription.end_at = None
+        self.subscription.grace_end_at = None
+        self.subscription.invoice = None
+        self.subscription.save(update_fields=["end_at", "grace_end_at", "invoice", "updated_at"])
+
+        fallback_invoice = Invoice.objects.create(
+            user=self.requester,
+            title="فاتورة اشتراك سابقة",
+            subtotal="199.00",
+            vat_percent="0.00",
+            reference_type="subscription",
+            reference_id="99999",
+            status=InvoiceStatus.PAID,
+            payment_confirmed=True,
+            payment_confirmed_at=timezone.now(),
+        )
+
+        response = self.client.get(
+            f"{reverse('dashboard:subscription_dashboard')}?tab=subscriber_accounts&account={self.subscription.id}"
+        )
+
+        expected_end_at = timezone.localtime(self.subscription.calc_end_date(self.subscription.start_at)).strftime("%d/%m/%Y - %H:%M")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, expected_end_at)
+        self.assertContains(response, "تمت عملية السداد بنجاح")
+        self.assertContains(response, str(fallback_invoice.total))
+        self.assertContains(response, "SAR")
+
+    def test_subscription_dashboard_can_start_subscription_renewal_from_account_details(self):
+        response = self.client.post(
+            reverse("dashboard:subscription_dashboard"),
+            {
+                "action": "renew_subscription_account",
+                "subscription_id": str(self.subscription.id),
+                "redirect_query": f"tab=subscriber_accounts&account={self.subscription.id}",
+            },
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("#subscriptionRequests", response["Location"])
+
+        renewal_sub = (
+            Subscription.objects.filter(
+                user=self.requester,
+                plan=self.plan,
+                status=SubscriptionStatus.PENDING_PAYMENT,
+            )
+            .exclude(pk=self.subscription.id)
+            .order_by("-id")
+            .first()
+        )
+        self.assertIsNotNone(renewal_sub)
+
+        renewal_request = UnifiedRequest.objects.filter(
+            request_type=UnifiedRequestType.SUBSCRIPTION,
+            source_app="subscriptions",
+            source_model="Subscription",
+            source_object_id=str(renewal_sub.id),
+        ).first()
+        self.assertIsNotNone(renewal_request)
+        self.assertIn(f"request={renewal_request.id}", response["Location"])
+
+    def test_subscription_dashboard_can_delete_pending_subscription_from_account_details(self):
+        pending_sub = Subscription.objects.create(
+            user=self.requester,
+            plan=self.plan,
+            status=SubscriptionStatus.PENDING_PAYMENT,
+        )
+        invoice = Invoice.objects.create(
+            user=self.requester,
+            title="فاتورة اشتراك معلقة",
+            subtotal="199.00",
+            vat_percent="0.00",
+            reference_type="subscription",
+            reference_id=str(pending_sub.id),
+            status=InvoiceStatus.DRAFT,
+        )
+        pending_sub.invoice = invoice
+        pending_sub.save(update_fields=["invoice", "updated_at"])
+        pending_request = UnifiedRequest.objects.create(
+            request_type=UnifiedRequestType.SUBSCRIPTION,
+            requester=self.requester,
+            status="new",
+            priority="normal",
+            source_app="subscriptions",
+            source_model="Subscription",
+            source_object_id=str(pending_sub.id),
+            summary="طلب اشتراك معلق",
+        )
+
+        response = self.client.post(
+            reverse("dashboard:subscription_dashboard"),
+            {
+                "action": "delete_subscription_account",
+                "subscription_id": str(pending_sub.id),
+                "redirect_query": f"tab=subscriber_accounts&account={pending_sub.id}",
+            },
+            follow=False,
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(Subscription.objects.filter(pk=pending_sub.id).exists())
+        self.assertFalse(Invoice.objects.filter(pk=invoice.id).exists())
+        self.assertFalse(UnifiedRequest.objects.filter(pk=pending_request.id).exists())
+
+    def test_subscription_dashboard_blocks_deleting_active_subscription_from_account_details(self):
+        response = self.client.post(
+            reverse("dashboard:subscription_dashboard"),
+            {
+                "action": "delete_subscription_account",
+                "subscription_id": str(self.subscription.id),
+                "redirect_query": f"tab=subscriber_accounts&account={self.subscription.id}",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Subscription.objects.filter(pk=self.subscription.id).exists())
+        self.assertContains(response, "لا يمكن حذف اشتراك نشط أو ضمن فترة السماح")
+
     def test_subscription_dashboard_can_activate_paid_subscription_after_review(self):
         invoice = Invoice.objects.create(
             user=self.requester,
@@ -498,7 +820,7 @@ class SubscriptionDashboardTests(TestCase):
             {
                 "action": "save_subscription_inquiry",
                 "ticket_id": str(self.subscription_inquiry.id),
-                "redirect_query": "inquiry_q=test",
+                "redirect_query": f"inquiry={self.subscription_inquiry.id}",
                 "status": SupportTicketStatus.IN_PROGRESS,
                 "assigned_to": str(self.staff_user.id),
                 "description": "تفاصيل محدثة لطلب الاشتراك",
@@ -517,6 +839,17 @@ class SubscriptionDashboardTests(TestCase):
         self.assertEqual(self.subscription_inquiry.assigned_to_id, self.staff_user.id)
         self.assertEqual(profile.operator_comment, "تمت مراجعة الاستفسار وتحويله للمعالجة.")
         self.assertContains(response, "تفاصيل الاستفسار")
+
+    def test_subscription_dashboard_renders_selected_request_details_inline(self):
+        response = self.client.get(
+            f"{reverse('dashboard:subscription_dashboard')}?request={self.subscription_request.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, f'id="subscription-request-{self.subscription_request.id}"', html=False)
+        self.assertContains(response, "dash-inline-detail-row", html=False)
+        self.assertContains(response, f"تفاصيل الطلب: {self.subscription_request.code}")
+        self.assertNotContains(response, 'id="subscriptionRequestDetails"', html=False)
 
     def test_subscription_dashboard_save_request_details_activates_and_redirects_to_accounts(self):
         invoice = Invoice.objects.create(

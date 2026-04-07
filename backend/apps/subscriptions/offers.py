@@ -183,7 +183,17 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
         }
 
     current = get_effective_active_subscription(user)
-    current_tier = plan_to_tier(getattr(current, "plan", None)) if current is not None else CanonicalPlanTier.BASIC
+    if current is None:
+        return {
+            "state": "upgrade",
+            "label": "اشترك مجانًا" if target_tier == CanonicalPlanTier.BASIC else "اشترك الآن",
+            "enabled": True,
+            "current_tier": "unsubscribed",
+            "current_plan_name": "بدون اشتراك فعال",
+            "has_active_subscription": False,
+        }
+
+    current_tier = plan_to_tier(getattr(current, "plan", None))
     current_plan_name = official_plan_name_for_tier(current_tier)
 
     if target_tier == current_tier:
@@ -196,6 +206,7 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
             "subscription_id": getattr(current, "id", None),
             "current_status": getattr(current, "status", None),
             "current_status_label": getattr(current, "get_status_display", lambda: None)(),
+            "has_active_subscription": True,
         }
 
     if canonical_tier_order(target_tier) > canonical_tier_order(current_tier):
@@ -208,6 +219,7 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
             "subscription_id": getattr(current, "id", None),
             "current_status": getattr(current, "status", None),
             "current_status_label": getattr(current, "get_status_display", lambda: None)(),
+            "has_active_subscription": True,
         }
 
     return {
@@ -219,6 +231,7 @@ def subscription_plan_action_for_user(plan, user) -> dict[str, object]:
         "subscription_id": getattr(current, "id", None),
         "current_status": getattr(current, "status", None),
         "current_status_label": getattr(current, "get_status_display", lambda: None)(),
+        "has_active_subscription": True,
     }
 
 

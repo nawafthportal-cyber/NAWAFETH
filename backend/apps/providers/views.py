@@ -1,7 +1,7 @@
 import logging
 
 from rest_framework import generics, permissions, status
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Count, Exists, F, Max, OuterRef, Q
@@ -15,7 +15,6 @@ from apps.accounts.models import User
 from apps.accounts.models import UserRole
 from apps.accounts.permissions import IsAtLeastClient, IsAtLeastPhoneOnly, IsAtLeastProvider
 from apps.accounts.role_context import get_active_role
-from apps.subscriptions.services import ensure_basic_subscription_entitlement
 
 from .models import (
 	Category,
@@ -279,9 +278,6 @@ class ProviderCreateView(generics.CreateAPIView):
 			if not getattr(user, "is_staff", False) and getattr(user, "role_state", None) != UserRole.PROVIDER:
 				user.role_state = UserRole.PROVIDER
 				user.save(update_fields=["role_state"])
-			entitlement, _ = ensure_basic_subscription_entitlement(user=user)
-			if entitlement is None:
-				raise ValidationError({"detail": "تعذر تفعيل الاستحقاق الأساسي لمقدم الخدمة."})
 		return profile
 
 

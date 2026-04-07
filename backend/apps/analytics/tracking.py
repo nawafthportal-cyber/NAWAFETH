@@ -15,6 +15,8 @@ EVENT_TAXONOMY: tuple[str, ...] = (
     "messaging.thread_report_created",
     "promo.request_quoted",
     "promo.request_activated",
+    "promo.featured_specialist_click",
+    "promo.portfolio_showcase_click",
     "subscriptions.checkout_created",
     "subscriptions.activated",
     "extras.checkout_created",

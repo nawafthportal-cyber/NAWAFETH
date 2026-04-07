@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import calendar
 import os
 from decimal import Decimal
 
@@ -123,6 +124,20 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
         "sort_order": 70,
     },
 )
+
+
+def calculate_sponsorship_end_at(*, start_at, months: int):
+    if start_at is None:
+        return None
+    month_count = int(months or 0)
+    if month_count <= 0:
+        return None
+
+    target_month_index = (start_at.month - 1) + month_count
+    target_year = start_at.year + (target_month_index // 12)
+    target_month = (target_month_index % 12) + 1
+    target_day = min(start_at.day, calendar.monthrange(target_year, target_month)[1])
+    return start_at.replace(year=target_year, month=target_month, day=target_day)
 
 
 def _locked_promo_request_queryset():

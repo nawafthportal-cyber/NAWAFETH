@@ -298,6 +298,55 @@ body.page-provider-dashboard .provider-panel-desc {
   color: var(--color-text-secondary);
 }
 
+body.page-provider-dashboard #subscription-card.is-unsubscribed {
+  border-color: rgba(202, 138, 4, 0.26);
+  background:
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(255, 251, 235, 0.94) 0%, #fff 100%);
+  box-shadow: 0 16px 34px rgba(161, 98, 7, 0.08);
+}
+
+body.page-provider-dashboard #subscription-card.is-unsubscribed .provider-panel-head h3 {
+  color: #92400e;
+}
+
+body.page-provider-dashboard .provider-plan-highlights {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+body.page-provider-dashboard .provider-plan-highlights li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+body.page-provider-dashboard .provider-plan-highlights li::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #b45309);
+  flex: 0 0 auto;
+}
+
+body.page-provider-dashboard .pd-reel-add.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-style: dashed;
+  background: linear-gradient(180deg, rgba(241, 245, 249, 0.9) 0%, #fff 100%);
+}
+
+body.page-provider-dashboard .pd-reel-add.is-disabled svg {
+  fill: #94a3b8;
+}
+
 body.page-provider-dashboard .pd-reels-row {
   margin-top: 10px;
   display: flex;

@@ -273,18 +273,32 @@ const Nav = (() => {
 
   function _openTopbarSponsorDialog(payload) {
     const modal = document.getElementById('topbar-sponsor-modal');
+    const media = document.getElementById('topbar-sponsor-modal-media');
     const title = document.getElementById('topbar-sponsor-modal-title');
     const body = document.getElementById('topbar-sponsor-modal-body');
     const link = document.getElementById('topbar-sponsor-modal-link');
-    if (!modal || !title || !body || !link) return;
+    if (!modal || !media || !title || !body || !link) return;
 
     const safePayload = payload && typeof payload === 'object' ? payload : {};
     const sponsorName = String(safePayload.name || '').trim() || 'الراعي الرسمي';
     const sponsorMessage = String(safePayload.message || '').trim() || 'لم يتم إضافة رسالة للرعاية بعد.';
     const sponsorHref = String(safePayload.href || '').trim();
+    const sponsorAssetUrl = String(safePayload.assetUrl || '').trim();
 
     title.textContent = sponsorName;
     body.textContent = sponsorMessage;
+    media.innerHTML = '';
+    if (sponsorAssetUrl) {
+      const img = document.createElement('img');
+      img.src = sponsorAssetUrl;
+      img.alt = sponsorName;
+      media.appendChild(img);
+    } else {
+      const fallback = document.createElement('span');
+      fallback.className = 'topbar-sponsor-modal-placeholder';
+      fallback.textContent = sponsorName.charAt(0) || 'ر';
+      media.appendChild(fallback);
+    }
     if (sponsorHref) {
       link.classList.remove('hidden');
       link.setAttribute('href', sponsorHref);

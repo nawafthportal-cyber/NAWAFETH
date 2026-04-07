@@ -219,6 +219,15 @@ class VerificationRequestCreateSerializer(serializers.ModelSerializer):
                 ensure_provider_access(request.user)
             except ProviderAccessError as exc:
                 raise serializers.ValidationError({"detail": exc.detail, "code": exc.code})
+            from apps.subscriptions.services import user_has_active_subscription
+
+            if not user_has_active_subscription(request.user):
+                raise serializers.ValidationError(
+                    {
+                        "detail": "يتطلب طلب التوثيق اشتراكًا فعالًا في الباقة الأساسية أو الريادية أو الاحترافية.",
+                        "code": "verification_subscription_required",
+                    }
+                )
         badge_type = attrs.get("badge_type")
         requirements = attrs.get("requirements") or []
         includes_blue = badge_type == VerificationBadgeType.BLUE or any(

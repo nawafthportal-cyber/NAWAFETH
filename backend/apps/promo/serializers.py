@@ -209,7 +209,7 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
         message_body = str(attrs.get("message_body") or "").strip()
         attrs["message_title"] = message_title
         attrs["message_body"] = message_body
-        from .services import promo_min_campaign_hours, promo_min_campaign_message
+        from .services import calculate_sponsorship_end_at, promo_min_campaign_hours, promo_min_campaign_message
 
         request = self.context.get("request")
         user = getattr(request, "user", None)
@@ -230,6 +230,18 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("لا يمكن بدء حملة بتاريخ ماض.")
             if (end_at - start_at).total_seconds() < promo_min_campaign_hours() * 60 * 60:
                 raise serializers.ValidationError(promo_min_campaign_message())
+
+        if service_type == PromoServiceType.SPONSORSHIP:
+            months = int(attrs.get("sponsorship_months") or 0)
+            if not start_at:
+                raise serializers.ValidationError("تاريخ البداية مطلوب لخدمة الرعاية.")
+            if start_at < timezone.now():
+                raise serializers.ValidationError("لا يمكن بدء الرعاية بتاريخ ماض.")
+            if months <= 0:
+                raise serializers.ValidationError("مدة الرعاية بالأشهر مطلوبة.")
+            attrs["end_at"] = calculate_sponsorship_end_at(start_at=start_at, months=months)
+            if not attrs.get("end_at") or attrs["end_at"] <= start_at:
+                raise serializers.ValidationError("تعذر احتساب نهاية الرعاية تلقائيًا.")
 
         if service_type == PromoServiceType.SEARCH_RESULTS:
             scopes = [str(scope).strip() for scope in (attrs.get("search_scopes") or []) if str(scope).strip()]
@@ -292,9 +304,6 @@ class PromoRequestItemCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("اختر قناة إرسال واحدة على الأقل.")
             if not message_body and int(attrs.get("asset_count") or 0) <= 0:
                 raise serializers.ValidationError("أدخل نص الرسالة أو أرفق مادة دعائية واحدة على الأقل.")
-
-        if service_type == PromoServiceType.SPONSORSHIP and int(attrs.get("sponsorship_months") or 0) <= 0:
-            raise serializers.ValidationError("مدة الرعاية بالأشهر مطلوبة.")
 
         if service_type in _ASSET_REQUIRED_SERVICE_TYPES and asset_count <= 0:
             raise serializers.ValidationError("يجب إضافة مرفق واحد على الأقل لهذا النوع من الخدمات.")

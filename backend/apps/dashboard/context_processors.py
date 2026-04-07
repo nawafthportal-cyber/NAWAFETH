@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+import logging
+
+from django.db import DatabaseError, OperationalError, close_old_connections
 from django.urls import reverse
 
 from .access import dashboard_allowed
+
+
+logger = logging.getLogger(__name__)
 
 
 MAIN_DASHBOARD_NAV = (
@@ -23,34 +29,45 @@ def _is_menu_active(request_path: str, target_url: str) -> bool:
 
 
 def dashboard_nav_access(request):
-    user = getattr(request, "user", None)
-    if not user or not getattr(user, "is_authenticated", False):
+    request_path = getattr(request, "path", "") or ""
+    if not request_path.startswith("/dashboard"):
         return {"dashboard_nav_access": {}, "dashboard_main_nav_items": []}
 
-    access = {
-        "admin_control": dashboard_allowed(user, "admin_control"),
-        "support": dashboard_allowed(user, "support"),
-        "content": dashboard_allowed(user, "content"),
-        "promo": dashboard_allowed(user, "promo"),
-        "verify": dashboard_allowed(user, "verify"),
-        "subs": dashboard_allowed(user, "subs"),
-        "analytics": dashboard_allowed(user, "analytics"),
-    }
+    try:
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return {"dashboard_nav_access": {}, "dashboard_main_nav_items": []}
 
-    main_nav_items = []
-    request_path = getattr(request, "path", "") or ""
-    for code, label, route_name in MAIN_DASHBOARD_NAV:
-        if not access.get(code):
-            continue
-        url = reverse(route_name)
-        main_nav_items.append(
-            {
-                "key": code,
-                "label": label,
-                "url": url,
-                "active": _is_menu_active(request_path, url),
-            }
+        access = {
+            "admin_control": dashboard_allowed(user, "admin_control"),
+            "support": dashboard_allowed(user, "support"),
+            "content": dashboard_allowed(user, "content"),
+            "promo": dashboard_allowed(user, "promo"),
+            "verify": dashboard_allowed(user, "verify"),
+            "subs": dashboard_allowed(user, "subs"),
+            "analytics": dashboard_allowed(user, "analytics"),
+        }
+
+        main_nav_items = []
+        for code, label, route_name in MAIN_DASHBOARD_NAV:
+            if not access.get(code):
+                continue
+            url = reverse(route_name)
+            main_nav_items.append(
+                {
+                    "key": code,
+                    "label": label,
+                    "url": url,
+                    "active": _is_menu_active(request_path, url),
+                }
+            )
+    except (OperationalError, DatabaseError):
+        close_old_connections()
+        logger.warning(
+            "Dashboard navigation unavailable; returning empty navigation.",
+            extra={"request_path": request_path, "log_category": "database"},
         )
+        return {"dashboard_nav_access": {}, "dashboard_main_nav_items": []}
 
     return {
         "dashboard_nav_access": access,

@@ -1,13 +1,19 @@
+from datetime import datetime
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
-from apps.billing.models import Invoice
+from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
-from apps.promo.serializers import PromoRequestDetailSerializer
-from apps.promo.services import _locked_promo_request_queryset, set_promo_ops_status
+from apps.promo.serializers import PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
+from apps.promo.services import (
+    _locked_promo_request_queryset,
+    calculate_sponsorship_end_at,
+    quote_and_create_invoice,
+    set_promo_ops_status,
+)
 
 
 class PromoPaymentWorkflowTests(TestCase):
@@ -138,3 +144,71 @@ class PromoLegacyWebRedirectTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response["Location"], "/promotion/?mode=provider&request_id=24")
+
+
+class PromoSponsorshipScheduleTests(SimpleTestCase):
+    def test_calculate_sponsorship_end_at_clamps_to_last_day_of_target_month(self):
+        start_at = timezone.make_aware(datetime(2026, 1, 31, 9, 30))
+
+        end_at = calculate_sponsorship_end_at(start_at=start_at, months=1)
+
+        self.assertEqual(end_at, timezone.make_aware(datetime(2026, 2, 28, 9, 30)))
+
+    def test_sponsorship_item_serializer_auto_populates_end_at_from_months(self):
+        start_at = timezone.now() + timezone.timedelta(days=2)
+        serializer = PromoRequestItemCreateSerializer(
+            data={
+                "service_type": "sponsorship",
+                "title": "رعاية شهرية",
+                "start_at": start_at.isoformat(),
+                "sponsor_name": "شركة تجريبية",
+                "message_body": "رسالة الرعاية",
+                "sponsorship_months": 2,
+                "asset_count": 1,
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.validated_data["end_at"],
+            calculate_sponsorship_end_at(start_at=serializer.validated_data["start_at"], months=2),
+        )
+
+
+class PromoInvoiceLineItemCodeTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000003", password="secret")
+        self.staff = get_user_model().objects.create_user(
+            phone="0500000004",
+            password="secret",
+            is_staff=True,
+        )
+
+    def test_quote_and_create_invoice_accepts_long_pricing_rule_codes(self):
+        request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="حملة رسائل دعائية",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+        request_obj.items.create(
+            service_type="promo_messages",
+            title="الرسائل الدعائية",
+            send_at=timezone.now() + timezone.timedelta(days=1, minutes=5),
+            use_notification_channel=True,
+            use_chat_channel=True,
+            message_body="رسالة دعائية تجريبية",
+            pricing_rule_code="messages_notification+messages_chat",
+            subtotal=Decimal("1600.00"),
+            duration_days=1,
+        )
+
+        request_obj = quote_and_create_invoice(pr=request_obj, by_user=self.staff, quote_note="")
+        line_items = list(InvoiceLineItem.objects.filter(invoice=request_obj.invoice).order_by("sort_order", "id"))
+
+        self.assertGreaterEqual(InvoiceLineItem._meta.get_field("item_code").max_length, 35)
+        self.assertEqual(len(line_items), 1)
+        self.assertEqual(line_items[0].item_code, "messages_notification+messages_chat")

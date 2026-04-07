@@ -165,6 +165,7 @@ var PromotionPage = (function () {
       bindServicePicks();
       bindAttachmentPolicyHints();
       bindHomeBannerEditor();
+      bindSponsorshipAutoEnd();
       bindPortfolioPicker();
       bindForm();
       bindLiveQuote();
@@ -1229,9 +1230,109 @@ var PromotionPage = (function () {
       previewBtn.hidden = !show;
     }
 
+    if (service === "sponsorship" && show) {
+      refreshSponsorshipSchedule(block);
+    }
+
     if ((service === "portfolio_showcase" || service === "snapshots") && show) {
       ensurePortfolioPickerLoaded(service);
     }
+  }
+
+  function parseLocalDateTimeValue(rawValue) {
+    var value = String(rawValue || "").trim();
+    if (!value) return null;
+    var parsed = new Date(value);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function formatLocalDateTimeInput(dateValue) {
+    if (!dateValue || isNaN(dateValue.getTime())) return "";
+    var yy = String(dateValue.getFullYear());
+    var mm = String(dateValue.getMonth() + 1).padStart(2, "0");
+    var dd = String(dateValue.getDate()).padStart(2, "0");
+    var hh = String(dateValue.getHours()).padStart(2, "0");
+    var mi = String(dateValue.getMinutes()).padStart(2, "0");
+    return yy + "-" + mm + "-" + dd + "T" + hh + ":" + mi;
+  }
+
+  function addMonthsClamped(dateValue, monthsCount) {
+    if (!dateValue || isNaN(dateValue.getTime())) return null;
+    var months = parseInt(String(monthsCount || "0"), 10);
+    if (!months || months < 1) return null;
+    var targetMonthIndex = dateValue.getMonth() + months;
+    var targetYear = dateValue.getFullYear() + Math.floor(targetMonthIndex / 12);
+    var targetMonth = targetMonthIndex % 12;
+    var lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+    var targetDay = Math.min(dateValue.getDate(), lastDayOfMonth);
+    return new Date(
+      targetYear,
+      targetMonth,
+      targetDay,
+      dateValue.getHours(),
+      dateValue.getMinutes(),
+      dateValue.getSeconds(),
+      dateValue.getMilliseconds()
+    );
+  }
+
+  function calculateSponsorshipEndDate(startValue, monthsValue) {
+    var startDate = parseLocalDateTimeValue(startValue);
+    if (!startDate) return null;
+    return addMonthsClamped(startDate, monthsValue);
+  }
+
+  function calculateSponsorshipEndIso(startValue, monthsValue) {
+    var endDate = calculateSponsorshipEndDate(startValue, monthsValue);
+    return endDate ? endDate.toISOString() : "";
+  }
+
+  function refreshSponsorshipSchedule(block) {
+    var sponsorshipBlock = block || document.querySelector('[data-service-block="sponsorship"]');
+    if (!sponsorshipBlock) return;
+    var startInput = sponsorshipBlock.querySelector('[data-field="start_at"]');
+    var monthsInput = sponsorshipBlock.querySelector('[data-field="sponsorship_months"]');
+    var endInput = sponsorshipBlock.querySelector('[data-field="end_at"]');
+    var note = sponsorshipBlock.querySelector('[data-sponsorship-end-note]');
+    if (!startInput || !monthsInput || !endInput) return;
+
+    var computedEndDate = calculateSponsorshipEndDate(startInput.value, monthsInput.value);
+    if (!computedEndDate) {
+      endInput.value = "";
+      if (note) {
+        note.textContent = "يتم تحديدها تلقائيًا بعد اختيار البداية وعدد الأشهر.";
+      }
+      return;
+    }
+
+    endInput.value = formatLocalDateTimeInput(computedEndDate);
+    if (note) {
+      note.textContent = "النهاية المتوقعة: " + formatDateTime(computedEndDate.toISOString());
+    }
+  }
+
+  function bindSponsorshipAutoEnd() {
+    var block = document.querySelector('[data-service-block="sponsorship"]');
+    if (!block) return;
+    var startInput = block.querySelector('[data-field="start_at"]');
+    var monthsInput = block.querySelector('[data-field="sponsorship_months"]');
+    if (startInput) {
+      startInput.addEventListener("input", function () {
+        refreshSponsorshipSchedule(block);
+      });
+      startInput.addEventListener("change", function () {
+        refreshSponsorshipSchedule(block);
+      });
+    }
+    if (monthsInput) {
+      monthsInput.addEventListener("input", function () {
+        refreshSponsorshipSchedule(block);
+      });
+      monthsInput.addEventListener("change", function () {
+        refreshSponsorshipSchedule(block);
+      });
+    }
+    refreshSponsorshipSchedule(block);
   }
 
   async function loadRequests() {
@@ -2143,6 +2244,12 @@ var PromotionPage = (function () {
       var val = valueOf(field(name));
       return val ? new Date(val).toISOString() : "";
     }
+    function localDate(name) {
+      var val = valueOf(field(name));
+      if (!val) return null;
+      var parsed = new Date(val);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
     function fileCount() {
       var input = field("files");
       return input && input.files ? input.files.length : 0;
@@ -2155,7 +2262,7 @@ var PromotionPage = (function () {
 
     body.asset_count = fileCount();
 
-    if (["home_banner", "featured_specialists", "portfolio_showcase", "snapshots", "search_results", "sponsorship"].indexOf(service) >= 0) {
+    if (["home_banner", "featured_specialists", "portfolio_showcase", "snapshots", "search_results"].indexOf(service) >= 0) {
       body.start_at = localIso("start_at");
       body.end_at = localIso("end_at");
       if (!body.start_at || !body.end_at) return "حدد البداية والنهاية لكل خدمة مختارة";
@@ -2171,8 +2278,12 @@ var PromotionPage = (function () {
       body.target_category = valueOf(field("target_category"));
     }
     if (service === "promo_messages") {
-      body.send_at = localIso("send_at");
+      var sendAtDate = localDate("send_at");
+      body.send_at = sendAtDate ? sendAtDate.toISOString() : "";
       if (!body.send_at) return "حدد وقت الإرسال للرسائل الدعائية";
+      if (sendAtDate.getTime() <= Date.now()) {
+        return "وقت إرسال الرسائل الدعائية يجب أن يكون في المستقبل.";
+      }
       body.use_notification_channel = !!(field("use_notification_channel") && field("use_notification_channel").checked);
       body.use_chat_channel = !!(field("use_chat_channel") && field("use_chat_channel").checked);
       if (!body.use_notification_channel && !body.use_chat_channel) return "اختر قناة واحدة على الأقل للرسائل الدعائية";
@@ -2181,11 +2292,15 @@ var PromotionPage = (function () {
       body.attachment_specs = valueOf(field("attachment_specs"));
     }
     if (service === "sponsorship") {
+      body.start_at = localIso("start_at");
       body.sponsor_name = valueOf(field("sponsor_name"));
       body.sponsorship_months = parseInt(valueOf(field("sponsorship_months")) || "0", 10);
+      body.end_at = calculateSponsorshipEndIso(valueOf(field("start_at")), body.sponsorship_months);
       body.redirect_url = valueOf(field("redirect_url"));
       body.message_body = valueOf(field("message_body"));
       body.attachment_specs = valueOf(field("attachment_specs"));
+      refreshSponsorshipSchedule(block);
+      if (!body.start_at || !body.end_at) return "حدد تاريخ بداية الرعاية ومدة الأشهر ليتم احتساب النهاية تلقائيًا";
       if (!body.sponsor_name || body.sponsorship_months <= 0) return "أكمل بيانات الرعاية";
       if (!body.message_body) return "اكتب نص رسالة الرعاية";
       if (!body.asset_count) return "أضف شعار الراعي أو ملفات الرعاية";

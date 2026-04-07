@@ -9,6 +9,7 @@ const ProviderDashboardPage = (() => {
   let _providerProfile = null;
   let _providerStats = null;
   let _favoritesCount = 0;
+  let _subscriptionPlans = [];
 
   function _apiErrorMessage(response, fallback) {
     const data = response && response.data ? response.data : null;
@@ -83,6 +84,37 @@ const ProviderDashboardPage = (() => {
     );
   }
 
+  function _planTier(plan) {
+    return String(
+      (plan && (plan.canonical_tier || plan.tier || plan.code)) || ''
+    ).trim().toLowerCase();
+  }
+
+  function _basicPlanActionUrl() {
+    const basicPlan = _subscriptionPlans.find((plan) => _planTier(plan) === 'basic');
+    if (basicPlan && basicPlan.id) {
+      return `/plans/summary/?plan_id=${encodeURIComponent(String(basicPlan.id))}`;
+    }
+    return '/plans/';
+  }
+
+  function _setSpotlightSubscriptionLock(isLocked) {
+    const input = document.getElementById('spotlight-upload');
+    const trigger = document.getElementById('spotlight-upload-trigger');
+    const note = document.getElementById('spotlight-note');
+    if (input) input.disabled = !!isLocked;
+    if (trigger) {
+      trigger.classList.toggle('is-disabled', !!isLocked);
+      trigger.title = isLocked ? 'يتطلب رفع الأضواء اشتراكًا فعالًا' : 'إضافة فيديو';
+    }
+    if (note) {
+      note.classList.toggle('hidden', !isLocked);
+      note.textContent = isLocked
+        ? 'رفع الريلز والأضواء متاح بعد تفعيل إحدى الباقات. الباقة الأساسية المجانية كافية لتفعيل هذه الميزة.'
+        : '';
+    }
+  }
+
   function _statusLabel(status) {
     switch (_statusCode(status)) {
       case 'active':
@@ -116,11 +148,12 @@ const ProviderDashboardPage = (() => {
 
   async function _loadData() {
     // Parallel fetch
-    const [profRes, provRes, subRes, urgentRes, competitiveRes, assignedRes, spotsRes] =
+    const [profRes, provRes, subRes, plansRes, urgentRes, competitiveRes, assignedRes, spotsRes] =
       await Promise.allSettled([
         ApiClient.get('/api/accounts/me/'),
         ApiClient.get('/api/providers/me/profile/'),
         ApiClient.get('/api/subscriptions/my/'),
+        ApiClient.get('/api/subscriptions/plans/'),
         ApiClient.get('/api/marketplace/provider/urgent/available/'),
         ApiClient.get('/api/marketplace/provider/competitive/available/'),
         ApiClient.get('/api/marketplace/provider/requests/?status_group=new'),
@@ -132,6 +165,9 @@ const ProviderDashboardPage = (() => {
     }
     if (provRes.status === 'fulfilled' && provRes.value.ok) {
       _providerProfile = provRes.value.data;
+    }
+    if (plansRes.status === 'fulfilled' && plansRes.value.ok) {
+      _subscriptionPlans = _extractList(plansRes.value.data);
     }
 
     if (!_providerProfile || !_providerProfile.id) {
@@ -246,12 +282,20 @@ const ProviderDashboardPage = (() => {
 
   function _renderSubscription(subRes) {
     const card = document.getElementById('subscription-card');
+    const titleNode = document.getElementById('plan-name');
+    const metaNode = document.getElementById('plan-expiry');
+    const descNode = document.getElementById('plan-description');
+    const highlightsNode = document.getElementById('plan-highlights');
+    const actionNode = document.getElementById('plan-action-link');
+    if (!card || !titleNode || !metaNode || !descNode || !highlightsNode || !actionNode) return;
+
     if (subRes.status === 'fulfilled' && subRes.value.ok && subRes.value.data) {
       const subs = _extractList(subRes.value.data);
       const selected = _pickPreferredSubscription(subs);
       if (selected) {
         card.style.display = '';
-        document.getElementById('plan-name').textContent = _planTitle(selected);
+        card.classList.remove('is-unsubscribed');
+        titleNode.textContent = _planTitle(selected);
         const statusCode = selected.provider_status_code || selected.status;
         const statusLabel = selected.provider_status_label || _statusLabel(statusCode);
         const metaParts = [`الحالة: ${statusLabel}`];
@@ -262,9 +306,35 @@ const ProviderDashboardPage = (() => {
             metaParts.push(`ينتهي: ${endDate.toLocaleDateString('ar-SA')}`);
           }
         }
-        document.getElementById('plan-expiry').textContent = metaParts.join(' • ');
+        metaNode.textContent = metaParts.join(' • ');
+        descNode.classList.add('hidden');
+        descNode.textContent = '';
+        highlightsNode.classList.add('hidden');
+        highlightsNode.innerHTML = '';
+        actionNode.href = '/plans/';
+        actionNode.textContent = 'إدارة الباقات';
+        _setSpotlightSubscriptionLock(false);
+        return;
       }
     }
+
+    card.style.display = '';
+    card.classList.add('is-unsubscribed');
+    titleNode.textContent = 'فعّل باقتك الأساسية المجانية';
+    metaNode.textContent = 'حسابك حاليًا بدون اشتراك فعال، لذلك تعمل أدوات المزود بصلاحيات محدودة حتى التفعيل.';
+    descNode.classList.remove('hidden');
+    descNode.textContent = 'فعّل الباقة الأساسية المجانية الآن لتفتح أدوات الظهور والتوثيق والطلبات المخصصة للمزودين بشكل احترافي ومنظم.';
+    highlightsNode.classList.remove('hidden');
+    highlightsNode.innerHTML = [
+      'الطلبات العاجلة والتنافسية متوقفة حتى تفعيل الاشتراك.',
+      'رفع الريلز والأضواء وصور شعار المنصة غير متاح قبل الاشتراك.',
+      'رسائل التذكير للعملاء متوقفة حاليًا حتى تفعيل الباقة.',
+      'طلب التوثيق يتطلب اشتراكًا فعالًا في الباقة الأساسية أو الأعلى.',
+      'ستحتفظ بسعة التخزين المجانية الأساسية، والدعم يتم خلال 5 أيام عمل.',
+    ].map((line) => `<li>${line}</li>`).join('');
+    actionNode.href = _basicPlanActionUrl();
+    actionNode.textContent = 'تفعيل الباقة الأساسية المجانية';
+    _setSpotlightSubscriptionLock(true);
   }
 
   function _hasText(value) {

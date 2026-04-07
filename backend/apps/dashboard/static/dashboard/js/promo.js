@@ -243,6 +243,11 @@
         return;
       }
 
+      if (moduleForm.dataset.submitting === "1") {
+        event.preventDefault();
+        return;
+      }
+
       const confirmMessage = submitter.getAttribute("data-require-confirm") || "";
       if (confirmMessage && !window.confirm(confirmMessage)) {
         event.preventDefault();
@@ -251,6 +256,10 @@
 
       const value = (submitter.value || "").toLowerCase();
       const originalText = submitter.textContent;
+      moduleForm.dataset.submitting = "1";
+      moduleForm.querySelectorAll("button[type='submit']").forEach((button) => {
+        button.disabled = true;
+      });
       submitter.disabled = true;
       submitter.dataset.submitting = "1";
       if (value === "preview_item") {
@@ -269,7 +278,10 @@
 
       window.setTimeout(() => {
         if (submitter.dataset.submitting === "1") {
-          submitter.disabled = false;
+          delete moduleForm.dataset.submitting;
+          moduleForm.querySelectorAll("button[type='submit']").forEach((button) => {
+            button.disabled = false;
+          });
           submitter.textContent = originalText;
           delete submitter.dataset.submitting;
         }

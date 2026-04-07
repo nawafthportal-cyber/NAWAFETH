@@ -10,6 +10,7 @@ from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest
 
+from .bootstrap import ensure_basic_subscription_plan
 from .models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from .services import _locked_subscription_queryset, activate_subscription_after_payment, start_subscription_checkout
 
@@ -175,24 +176,52 @@ class SubscriptionEntitlementApiRecoveryTests(TestCase):
         self.api_client = APIClient()
         self.api_client.force_authenticate(user=self.user)
 
-    def test_my_subscriptions_api_recreates_basic_entitlement(self):
+    def test_my_subscriptions_api_does_not_recreate_basic_entitlement(self):
         response = self.api_client.get("/api/subscriptions/my/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(Subscription.objects.filter(user=self.user, status=SubscriptionStatus.ACTIVE).count(), 1)
-        self.assertEqual(len(response.json()), 1)
-        self.assertEqual(response.json()[0]["plan"]["canonical_tier"], PlanTier.BASIC)
+        self.assertEqual(Subscription.objects.filter(user=self.user).count(), 0)
+        self.assertEqual(response.json(), [])
 
-    def test_plans_api_recreates_basic_entitlement_before_offer_render(self):
+    def test_plans_api_marks_basic_plan_as_manual_free_subscription(self):
         response = self.api_client.get("/api/subscriptions/plans/")
 
         self.assertEqual(response.status_code, 200)
-        current = Subscription.objects.filter(user=self.user, status=SubscriptionStatus.ACTIVE).first()
-        self.assertIsNotNone(current)
+        self.assertEqual(Subscription.objects.filter(user=self.user).count(), 0)
         plans = response.json()
         basic_plan = next((plan for plan in plans if plan["canonical_tier"] == PlanTier.BASIC), None)
         self.assertIsNotNone(basic_plan)
-        self.assertEqual(basic_plan["provider_offer"]["cta"]["state"], "current")
+        self.assertEqual(basic_plan["provider_offer"]["cta"]["state"], "upgrade")
+        self.assertEqual(basic_plan["provider_offer"]["cta"]["label"], "اشترك مجانًا")
+
+    def test_subscribe_basic_plan_creates_active_subscription_only_when_requested(self):
+        basic_plan = ensure_basic_subscription_plan()
+
+        response = self.api_client.post(
+            f"/api/subscriptions/subscribe/{basic_plan.id}/",
+            {"duration_count": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        current = Subscription.objects.filter(user=self.user, status=SubscriptionStatus.ACTIVE).first()
+        self.assertIsNotNone(current)
+        self.assertEqual(current.plan_id, basic_plan.id)
+
+    def test_subscribe_basic_plan_returns_active_subscription_without_payment_invoice(self):
+        basic_plan = ensure_basic_subscription_plan()
+
+        response = self.api_client.post(
+            f"/api/subscriptions/subscribe/{basic_plan.id}/",
+            {"duration_count": 1},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["provider_status_code"], SubscriptionStatus.ACTIVE)
+        self.assertIsNone(payload["invoice_summary"])
+        self.assertTrue(str(payload["request_code"]).startswith("SD"))
 
 
 class SubscriptionCheckoutDurationTests(TestCase):

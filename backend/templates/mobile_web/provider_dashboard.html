@@ -137,7 +137,9 @@
               <p id="plan-expiry" class="provider-panel-meta"></p>
             </div>
           </div>
-          <a href="/plans/" class="pv2-cta-btn provider-inline-btn">ترقية الباقة</a>
+          <p id="plan-description" class="provider-panel-desc hidden"></p>
+          <ul id="plan-highlights" class="provider-plan-highlights hidden"></ul>
+          <a href="/plans/" class="pv2-cta-btn provider-inline-btn" id="plan-action-link">ترقية الباقة</a>
         </section>
 
         <section class="provider-panel" id="completion-card">
@@ -156,11 +158,12 @@
             <h3>الريلز والأضواء</h3>
           </div>
           <div class="pd-reels-row" id="reels-row">
-            <label class="pd-reel-add" title="إضافة فيديو">
+            <label class="pd-reel-add" id="spotlight-upload-trigger" title="إضافة فيديو">
               <input type="file" accept="video/*" id="spotlight-upload" hidden>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="#663D90"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </label>
           </div>
+          <p id="spotlight-note" class="provider-panel-desc hidden"></p>
         </section>
       </div>
 

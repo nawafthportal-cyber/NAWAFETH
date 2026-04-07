@@ -40,6 +40,16 @@ const PlanSummaryPage = (() => {
     return `${base}?subscription_id=${encodeURIComponent(String(subscriptionId || '0'))}`;
   }
 
+  function requestCodeFromSubscription(subscription) {
+    const requestCode = asText(subscription && subscription.request_code);
+    if (requestCode) return requestCode;
+    const subscriptionId = Number(subscription && subscription.id);
+    if (Number.isFinite(subscriptionId) && subscriptionId > 0) {
+      return 'SD' + String(subscriptionId).padStart(6, '0');
+    }
+    return '—';
+  }
+
   function plansPageUrl() {
     const node = shell();
     return (node && node.dataset && node.dataset.plansPageUrl) || '/plans/';
@@ -101,6 +111,11 @@ const PlanSummaryPage = (() => {
   function money(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed.toFixed(2) : '0.00';
+  }
+
+  function moneyNumber(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
 
   function periodUnit(period) {
@@ -329,6 +344,71 @@ const PlanSummaryPage = (() => {
     }, 2600);
   }
 
+  function requiresPayment(subscription) {
+    if (!subscription || typeof subscription !== 'object') return false;
+    const invoiceSummary = subscription.invoice_summary || {};
+    const invoiceId = Number(subscription.invoice || invoiceSummary.id || 0);
+    const requestStatus = asText(subscription.provider_status_code || subscription.status).toLowerCase();
+    const invoiceStatus = asText(invoiceSummary.status).toLowerCase();
+    const invoicePaid = invoiceStatus === 'paid' || invoiceSummary.payment_effective === true;
+    const total = moneyNumber(invoiceSummary.total);
+
+    return invoiceId > 0 && requestStatus === 'pending_payment' && !invoicePaid && total > 0;
+  }
+
+  function successDialogCopy(subscription) {
+    const statusCode = asText(subscription && (subscription.provider_status_code || subscription.status)).toLowerCase();
+    if (statusCode === 'active') {
+      return {
+        title: 'تم تسجيل الاشتراك بنجاح',
+        lines: [
+          'تم تفعيل الباقة الأساسية المجانية على حسابكم.',
+          'يمكنك الآن العودة إلى صفحة الباقات ومتابعة استخدام المزايا المتاحة.',
+        ],
+      };
+    }
+
+    return {
+      title: 'تمت العملية بنجاح',
+      lines: [
+        'تم تسجيل الطلب بدون الحاجة إلى دفع إضافي.',
+        'سيتم إشعاركم بتفعيل الاشتراك بعد مراجعة فريق الاشتراكات.',
+      ],
+    };
+  }
+
+  function showSuccessDialog(subscription) {
+    const existing = document.getElementById('subpay-result-backdrop');
+    if (existing) existing.remove();
+
+    const copy = successDialogCopy(subscription);
+    const backdrop = document.createElement('div');
+    backdrop.id = 'subpay-result-backdrop';
+    backdrop.className = 'subpay-result-backdrop';
+    backdrop.innerHTML = `
+      <div class="subpay-result-dialog" role="dialog" aria-modal="true" aria-label="${safeText(copy.title)}">
+        <div class="subpay-result-code">رقم الطلب: ${safeText(requestCodeFromSubscription(subscription))}</div>
+        <div class="subpay-result-body">
+          ${copy.lines.map((line) => `<p>${safeText(line)}</p>`).join('')}
+        </div>
+        <button type="button" class="subpay-result-close">إغلاق</button>
+      </div>
+    `;
+    document.body.appendChild(backdrop);
+
+    return new Promise((resolve) => {
+      const closeButton = backdrop.querySelector('.subpay-result-close');
+      const close = () => {
+        backdrop.remove();
+        resolve();
+      };
+      if (closeButton) closeButton.addEventListener('click', close);
+      backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) close();
+      });
+    });
+  }
+
   async function submit() {
     if (!state.plan || state.submitting || !canContinue(state.plan)) return;
     const planId = Number(state.plan.id || 0);
@@ -346,6 +426,12 @@ const PlanSummaryPage = (() => {
 
       if (!response.ok || !response.data || !response.data.id) {
         showToast(extractError(response, SUBMIT_FALLBACK_ERROR), 'error');
+        return;
+      }
+
+      if (!requiresPayment(response.data)) {
+        await showSuccessDialog(response.data);
+        window.location.href = plansPageUrl();
         return;
       }
 

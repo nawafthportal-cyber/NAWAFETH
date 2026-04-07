@@ -8,7 +8,7 @@ from django.utils import timezone
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
 from apps.providers.models import ProviderCategory, ProviderProfile
-from apps.subscriptions.services import get_effective_active_subscriptions_map, plan_to_tier
+from apps.subscriptions.services import get_effective_active_subscriptions_map, plan_to_tier, user_has_active_subscription
 from apps.subscriptions.tiering import CanonicalPlanTier
 
 from ..models import (
@@ -53,15 +53,14 @@ def _provider_dispatch_tiers(user_ids: list[int]) -> dict[int, str]:
     for user_id, subscription in subscriptions_by_user.items():
         tier_by_user_id[subscription.user_id] = _plan_tier_to_dispatch_tier(plan_to_tier(subscription.plan))
 
-    for user_id in user_ids:
-        tier_by_user_id.setdefault(user_id, DispatchTier.BASIC)
-
     return tier_by_user_id
 
 
 def provider_dispatch_tier(provider: ProviderProfile) -> str:
     if not getattr(provider, "user_id", None):
-        return DispatchTier.BASIC
+        return ""
+    if not user_has_active_subscription(provider.user):
+        return ""
     plan_tier = CanonicalPlanTier.BASIC
     try:
         from apps.subscriptions.services import user_plan_tier
@@ -179,7 +178,10 @@ def dispatch_window(window_id: int, *, now=None) -> dict[str, int | str]:
             user_id = getattr(provider, "user_id", None)
             if not user_id:
                 continue
-            provider_tier = _normalize_dispatch_tier(tier_by_user_id.get(user_id, DispatchTier.BASIC))
+            provider_tier_value = tier_by_user_id.get(user_id)
+            if not provider_tier_value:
+                continue
+            provider_tier = _normalize_dispatch_tier(provider_tier_value)
             if provider_tier != window.dispatch_tier:
                 continue
             if _event_already_sent(user_id=user_id, request_id=request.id):

@@ -421,6 +421,9 @@ const VerificationPage = (() => {
   function _accessIssueAction(issue) {
     const code = String(issue && issue.code || '').trim();
     const message = String(issue && issue.message || '').trim();
+    if (code === 'verification_subscription_required' || code === 'subscription_required') {
+      return { href: '/plans/', label: 'تفعيل الاشتراك' };
+    }
     if (code === 'provider_profile_required') {
       return { href: '/provider-register/', label: 'استكمال الملف' };
     }
@@ -557,6 +560,11 @@ const VerificationPage = (() => {
       _refreshStatusState();
       return 'هذه الخدمة متاحة فقط لمقدمي الخدمات المسجلين.';
     }
+    if (code === 'verification_subscription_required') {
+      _setAccessIssue('يتطلب طلب التوثيق اشتراكًا فعالًا في الباقة الأساسية أو الريادية أو الاحترافية.', code);
+      _refreshStatusState();
+      return 'يتطلب طلب التوثيق اشتراكًا فعالًا في الباقة الأساسية أو الريادية أو الاحترافية.';
+    }
     if (response && response.status === 0) {
       return 'تعذر الاتصال بالخادم حاليًا. تحقق من الشبكة ثم أعد المحاولة.';
     }
@@ -634,6 +642,12 @@ const VerificationPage = (() => {
     const response = await ApiClient.get('/api/verification/pricing/my/');
     if (response && response.ok && response.data) {
       _pricing = response.data;
+      if (_pricing.has_active_subscription !== true) {
+        _setAccessIssue(
+          'يتطلب التوثيق اشتراكًا فعالًا في الباقة الأساسية أو الريادية أو الاحترافية. فعّل الاشتراك أولًا ثم أعد المحاولة.',
+          'verification_subscription_required',
+        );
+      }
       return;
     }
     if (response && (response.status === 401 || response.status === 403)) {

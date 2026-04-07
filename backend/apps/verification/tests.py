@@ -2,9 +2,11 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from rest_framework.test import APIClient
 
 from apps.billing.models import Invoice
 from apps.core.models import PlatformConfig
+from apps.providers.models import ProviderProfile
 from apps.subscriptions.configuration import canonical_subscription_plan_for_tier
 from apps.subscriptions.tiering import CanonicalPlanTier
 
@@ -61,3 +63,27 @@ class VerificationVatPricingTests(TestCase):
 
         self.assertNotIn("LEFT OUTER JOIN", sql)
         self.assertNotIn(Invoice._meta.db_table.upper(), sql)
+
+
+class VerificationSubscriptionRequirementTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000501", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود بلا اشتراك",
+            bio="نبذة مختصرة",
+        )
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.user)
+
+    def test_create_verification_request_requires_active_subscription(self):
+        response = self.api_client.post(
+            "/api/verification/requests/create/",
+            {"badge_type": VerificationBadgeType.BLUE},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["code"][0], "verification_subscription_required")
+        self.assertEqual(VerificationRequest.objects.filter(requester=self.user).count(), 0)

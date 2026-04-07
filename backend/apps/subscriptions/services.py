@@ -256,6 +256,10 @@ def get_effective_active_subscription(user) -> Subscription | None:
     return pick_effective_current_subscription(subscriptions)
 
 
+def user_has_active_subscription(user) -> bool:
+    return get_effective_active_subscription(user) is not None
+
+
 def get_effective_active_subscriptions_map(user_ids: list[int]) -> dict[int, Subscription]:
     if not user_ids:
         return {}
@@ -720,6 +724,72 @@ def start_subscription_renewal_checkout(*, user, plan: SubscriptionPlan) -> Subs
 
 
 @transaction.atomic
+def delete_subscription_account_for_dashboard(*, sub: Subscription, changed_by=None) -> dict[str, object]:
+    sub = _get_locked_subscription(sub=sub)
+    invoice = getattr(sub, "invoice", None)
+
+    if sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+        raise ValueError("لا يمكن حذف اشتراك نشط أو ضمن فترة السماح من بيانات حسابات المشتركين.")
+
+    if invoice is not None and (
+        invoice.is_payment_effective()
+        or invoice.status in {InvoiceStatus.PAID, InvoiceStatus.REFUNDED}
+    ):
+        raise ValueError("لا يمكن حذف اشتراك تمت تسوية سداده أو استرجاعه من بيانات حسابات المشتركين.")
+
+    if sub.status in {SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.AWAITING_REVIEW}:
+        return cancel_pending_subscription_checkout(sub=sub, changed_by=changed_by)
+
+    subscription_id = sub.id
+    plan_id = sub.plan_id
+    invoice_id = sub.invoice_id
+    user = sub.user
+
+    if invoice is not None:
+        if invoice.status != InvoiceStatus.CANCELLED:
+            invoice.mark_cancelled(force=True)
+            invoice.save(
+                update_fields=[
+                    "status",
+                    "cancelled_at",
+                    "subtotal",
+                    "vat_percent",
+                    "vat_amount",
+                    "total",
+                    "updated_at",
+                ]
+            )
+        invoice.delete()
+
+    _delete_subscription_unified_request(sub=sub)
+    sub.delete()
+
+    try:
+        from apps.audit.models import AuditAction
+        from apps.audit.services import log_action
+
+        log_action(
+            actor=changed_by or user,
+            action=AuditAction.SUBSCRIPTION_ACCOUNT_CANCELLED,
+            reference_type="subscription",
+            reference_id=str(subscription_id),
+            extra={
+                "reason": "dashboard_account_deleted",
+                "plan_id": plan_id,
+                "invoice_id": invoice_id,
+            },
+        )
+    except Exception:
+        pass
+
+    return {
+        "plan_id": plan_id,
+        "subscription_id": subscription_id,
+        "invoice_id": invoice_id,
+    }
+
+
+@transaction.atomic
 def apply_effective_payment(*, sub: Subscription) -> Subscription:
     sub = _get_locked_subscription(sub=sub)
 
@@ -881,8 +951,6 @@ def revoke_subscription_after_payment_reversal(*, sub: Subscription) -> Subscrip
     except Exception:
         pass
 
-    if plan_to_tier(getattr(sub, "plan", None)) != CanonicalPlanTier.BASIC:
-        ensure_basic_subscription_entitlement(user=sub.user)
     normalize_user_current_subscriptions(user=sub.user, changed_by=sub.user)
 
     _sync_subscription_to_unified(sub=sub, changed_by=sub.user)
@@ -911,8 +979,6 @@ def refresh_subscription_status(*, sub: Subscription) -> Subscription:
     if sub.grace_end_at and now > sub.grace_end_at and sub.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE):
         sub.status = SubscriptionStatus.EXPIRED
         sub.save(update_fields=["status", "updated_at"])
-        if plan_to_tier(getattr(sub, "plan", None)) != CanonicalPlanTier.BASIC:
-            ensure_basic_subscription_entitlement(user=sub.user)
         normalize_user_current_subscriptions(user=sub.user)
         _sync_subscription_to_unified(sub=sub, changed_by=None)
         return sub

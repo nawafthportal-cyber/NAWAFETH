@@ -11,6 +11,7 @@ from uuid import uuid4
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import authenticate, get_user_model, login, logout
+from django.core.cache import cache
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q, Sum
@@ -56,8 +57,10 @@ from apps.billing.models import Invoice, InvoiceLineItem, InvoiceStatus, Payment
 from apps.subscriptions.models import PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.subscriptions.models import SubscriptionInquiryProfile
 from apps.subscriptions.services import (
+    delete_subscription_account_for_dashboard,
     activate_subscription_after_payment,
     apply_effective_payment,
+    start_subscription_renewal_checkout,
     normalize_subscription_duration_count,
     plan_to_db_tier,
     plan_to_tier,
@@ -172,6 +175,7 @@ PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_request_submit_tokens
 PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_inquiry_submit_tokens"
 PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_module_submit_tokens"
 PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_pricing_submit_tokens"
+SINGLE_USE_SUBMIT_TOKEN_CACHE_TIMEOUT = 15 * 60
 
 
 def _want_export(request, expected: str) -> bool:
@@ -205,6 +209,10 @@ def _issue_single_use_submit_token(request, session_key: str, *, limit: int = 20
     return token
 
 
+def _single_use_submit_token_cache_key(session_key: str, token: str) -> str:
+    return f"dashboard:single-submit:{session_key}:{token}"
+
+
 def _consume_single_use_submit_token(request, session_key: str, token: str) -> bool:
     submitted_token = str(token or "").strip()
     if not submitted_token:
@@ -213,6 +221,20 @@ def _consume_single_use_submit_token(request, session_key: str, token: str) -> b
     existing_tokens = request.session.get(session_key) or []
     sanitized_tokens = [str(item).strip() for item in existing_tokens if str(item).strip()]
     if submitted_token not in sanitized_tokens:
+        return False
+
+    try:
+        token_claimed = cache.add(
+            _single_use_submit_token_cache_key(session_key, submitted_token),
+            "1",
+            timeout=SINGLE_USE_SUBMIT_TOKEN_CACHE_TIMEOUT,
+        )
+    except Exception:
+        token_claimed = True
+
+    if not token_claimed:
+        sanitized_tokens.remove(submitted_token)
+        request.session[session_key] = sanitized_tokens
         return False
 
     sanitized_tokens.remove(submitted_token)
@@ -1445,6 +1467,140 @@ def _subscription_payment_status_label(sub: Subscription | None) -> str:
     return invoice.get_status_display()
 
 
+def _subscription_duration_label(plan_obj: SubscriptionPlan | None, duration_count: int) -> str:
+    normalized_duration = max(1, int(duration_count or 1))
+    period = getattr(plan_obj, "period", "year")
+    if period == "month":
+        if normalized_duration == 1:
+            return "لمدة شهر واحد"
+        if normalized_duration == 2:
+            return "لمدة شهرين"
+        if 3 <= normalized_duration <= 10:
+            return f"لمدة {normalized_duration} أشهر"
+        return f"لمدة {normalized_duration} شهرًا"
+
+    if normalized_duration == 1:
+        return "لمدة سنة واحدة"
+    if normalized_duration == 2:
+        return "لمدة سنتين"
+    if 3 <= normalized_duration <= 10:
+        return f"لمدة {normalized_duration} سنوات"
+    return f"لمدة {normalized_duration} سنة"
+
+
+def _subscription_provider_name(sub: Subscription) -> str:
+    provider_profile = getattr(getattr(sub, "user", None), "provider_profile", None)
+    display_name = str(getattr(provider_profile, "display_name", "") or "").strip()
+    if display_name:
+        return display_name
+    return _promo_requester_label(getattr(sub, "user", None))
+
+
+def _subscription_payment_amount_text(invoice: Invoice | None) -> str:
+    if invoice is None:
+        return "-"
+    raw_amount = getattr(invoice, "payment_amount", None)
+    if raw_amount in {None, "", 0, Decimal("0.00")}:
+        raw_amount = getattr(invoice, "total", None)
+    try:
+        amount_text = f"{Decimal(raw_amount):.2f}"
+    except (InvalidOperation, TypeError, ValueError):
+        return "-"
+    currency = str(getattr(invoice, "payment_currency", "") or getattr(invoice, "currency", "") or "").strip().upper()
+    return f"{amount_text} {currency}".strip()
+
+
+def _subscription_payment_message(sub: Subscription, invoice: Invoice | None = None) -> str:
+    invoice = invoice if invoice is not None else getattr(sub, "invoice", None)
+    if invoice is None:
+        return "لا توجد فاتورة مرتبطة بهذا الاشتراك حتى الآن."
+
+    if invoice.is_payment_effective():
+        payment_date = getattr(invoice, "payment_confirmed_at", None) or getattr(invoice, "paid_at", None)
+        amount_text = _subscription_payment_amount_text(invoice)
+        if payment_date and amount_text != "-":
+            return f"تمت عملية السداد بنجاح في تاريخ {_format_dt(payment_date)} بقيمة {amount_text}."
+        if payment_date:
+            return f"تمت عملية السداد بنجاح في تاريخ {_format_dt(payment_date)}."
+        if amount_text != "-":
+            return f"تمت عملية السداد بنجاح بقيمة {amount_text}."
+        return "تمت عملية السداد بنجاح."
+
+    if invoice.status == InvoiceStatus.REFUNDED:
+        return "تم استرجاع قيمة هذه الفاتورة، لذلك لا توجد عملية سداد فعالة حاليًا."
+    return f"حالة السداد الحالية: {invoice.get_status_display()}."
+
+
+def _subscription_account_delete_disabled_reason(sub: Subscription) -> str:
+    if sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+        return "لا يمكن حذف اشتراك نشط أو ضمن فترة السماح."
+
+    invoice = getattr(sub, "invoice", None)
+    if invoice is not None and (
+        invoice.is_payment_effective()
+        or invoice.status in {InvoiceStatus.PAID, InvoiceStatus.REFUNDED}
+    ):
+        return "لا يمكن حذف اشتراك تمت تسوية سداده أو استرجاعه."
+    return ""
+
+
+def _resolved_subscription_end_at(sub: Subscription):
+    if getattr(sub, "end_at", None):
+        return sub.end_at
+    start_at = getattr(sub, "start_at", None)
+    if not start_at:
+        return None
+    try:
+        return sub.calc_end_date(start_at)
+    except Exception:
+        return None
+
+
+def _subscription_invoice_fallback_maps(subscriptions: list[Subscription]) -> tuple[dict[int, Invoice], dict[int, Invoice]]:
+    subscription_ids = [sub.id for sub in subscriptions if getattr(sub, "id", None)]
+    user_ids = [sub.user_id for sub in subscriptions if getattr(sub, "user_id", None)]
+    if not subscription_ids and not user_ids:
+        return {}, {}
+
+    invoices = list(
+        Invoice.objects.filter(reference_type="subscription")
+        .filter(
+            Q(reference_id__in=[str(sub_id) for sub_id in subscription_ids])
+            | Q(user_id__in=user_ids)
+        )
+        .order_by("-payment_confirmed_at", "-paid_at", "-id")
+    )
+
+    exact_map: dict[int, Invoice] = {}
+    latest_effective_by_user: dict[int, Invoice] = {}
+    for invoice in invoices:
+        reference_id = str(getattr(invoice, "reference_id", "") or "").strip()
+        if reference_id.isdigit():
+            sub_id = int(reference_id)
+            if sub_id in subscription_ids and sub_id not in exact_map:
+                exact_map[sub_id] = invoice
+
+        if invoice.user_id and invoice.user_id not in latest_effective_by_user and invoice.is_payment_effective():
+            latest_effective_by_user[invoice.user_id] = invoice
+
+    return exact_map, latest_effective_by_user
+
+
+def _resolved_subscription_invoice(
+    sub: Subscription,
+    *,
+    exact_invoice_map: dict[int, Invoice],
+    latest_effective_by_user: dict[int, Invoice],
+) -> Invoice | None:
+    direct_invoice = getattr(sub, "invoice", None)
+    if direct_invoice is not None:
+        return direct_invoice
+    exact_invoice = exact_invoice_map.get(sub.id)
+    if exact_invoice is not None:
+        return exact_invoice
+    return latest_effective_by_user.get(getattr(sub, "user_id", None))
+
+
 def _subscription_request_content_text(sub: Subscription | None, request_obj: UnifiedRequest | None) -> str:
     invoice = getattr(sub, "invoice", None)
     invoice_description = str(getattr(invoice, "description", "") or "").strip()
@@ -1773,7 +1929,7 @@ def _subscription_related_map(unified_requests: list[UnifiedRequest]) -> dict[in
 
 
 def _subscription_accounts_queryset_for_user(user):
-    qs = Subscription.objects.select_related("user", "plan", "invoice").order_by("-updated_at", "-id")
+    qs = Subscription.objects.select_related("user", "user__provider_profile", "plan", "invoice").order_by("-updated_at", "-id")
     access_profile = active_access_profile_for_user(user)
     if access_profile and access_profile.level == AccessLevel.USER:
         allowed_ids: list[int] = []
@@ -1856,26 +2012,47 @@ def _subscription_account_rows(subscriptions: list[Subscription]) -> list[dict]:
             except (TypeError, ValueError):
                 continue
 
+    exact_invoice_map, latest_effective_by_user = _subscription_invoice_fallback_maps(subscriptions)
+
     rows: list[dict] = []
     for sub in subscriptions:
         request_obj = unified_map.get(int(sub.id))
         priority_number = _subscription_priority_number_for_plan(sub.plan)
+        invoice = _resolved_subscription_invoice(
+            sub,
+            exact_invoice_map=exact_invoice_map,
+            latest_effective_by_user=latest_effective_by_user,
+        )
+        resolved_end_at = _resolved_subscription_end_at(sub)
+        delete_disabled_reason = _subscription_account_delete_disabled_reason(sub)
+        provider_profile = getattr(getattr(sub, "user", None), "provider_profile", None)
         rows.append(
             {
                 "id": sub.id,
+                "request_id": getattr(request_obj, "id", None),
                 "request_code": (getattr(request_obj, "code", "") or f"SD{sub.id:06d}"),
                 "requester": _promo_requester_label(sub.user),
+                "provider_name": _subscription_provider_name(sub),
                 "priority_number": priority_number,
                 "priority_class": _priority_row_class_from_number(priority_number),
                 "plan_title": getattr(sub.plan, "title", "") or getattr(sub.plan, "code", "") or "-",
+                "plan_code": getattr(sub.plan, "code", "") or "-",
                 "tier_label": dict(PlanTier.choices).get(getattr(sub.plan, "tier", ""), getattr(sub.plan, "tier", "-") or "-"),
+                "duration_count": int(getattr(sub, "duration_count", 1) or 1),
+                "duration_label": _subscription_duration_label(getattr(sub, "plan", None), getattr(sub, "duration_count", 1)),
                 "status": sub.get_status_display(),
-                "invoice_code": getattr(getattr(sub, "invoice", None), "code", "") or "-",
+                "invoice_code": getattr(invoice, "code", "") or "-",
                 "start_at": _format_dt(sub.start_at),
-                "end_at": _format_dt(sub.end_at),
+                "end_at": _format_dt(resolved_end_at),
                 "grace_end_at": _format_dt(sub.grace_end_at),
                 "updated_at": _format_dt(sub.updated_at),
                 "assignee": _subscription_request_assignee_label(request_obj),
+                "payment_effective": bool(invoice is not None and invoice.is_payment_effective()),
+                "payment_message": _subscription_payment_message(sub, invoice=invoice),
+                "can_renew": provider_profile is not None,
+                "renew_disabled_reason": "" if provider_profile is not None else "لا يمكن إنشاء طلب تجديد قبل اكتمال ملف مزود الخدمة.",
+                "can_delete": delete_disabled_reason == "",
+                "delete_disabled_reason": delete_disabled_reason,
                 "is_current": sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE},
             }
         )
@@ -2150,6 +2327,101 @@ def subscription_dashboard(request):
             messages.success(request, f"تم تحديث استفسار الاشتراك {target_ticket.code or target_ticket.id} بنجاح.")
             return _subscription_redirect_with_state(request, inquiry_id=target_ticket.id)
 
+        if action == "renew_subscription_account":
+            raw_subscription_id = (request.POST.get("subscription_id") or "").strip()
+            if not raw_subscription_id.isdigit():
+                messages.error(request, "تعذر تحديد الاشتراك المطلوب تجديده.")
+                return _subscription_request_redirect_with_state(
+                    request,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            target_sub = _subscription_accounts_queryset_for_user(request.user).filter(pk=int(raw_subscription_id)).first()
+            if target_sub is None:
+                messages.error(request, "الاشتراك المطلوب غير متاح لك.")
+                return _subscription_request_redirect_with_state(
+                    request,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            try:
+                renewal_sub = start_subscription_renewal_checkout(user=target_sub.user, plan=target_sub.plan)
+            except PermissionError as exc:
+                messages.error(request, str(exc))
+                return _subscription_request_redirect_with_state(
+                    request,
+                    account_id=target_sub.id,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            renewal_request = (
+                UnifiedRequest.objects.filter(
+                    request_type=UnifiedRequestType.SUBSCRIPTION,
+                    source_app="subscriptions",
+                    source_model="Subscription",
+                    source_object_id=str(renewal_sub.id),
+                )
+                .order_by("-id")
+                .first()
+            )
+
+            if renewal_sub.id == target_sub.id and renewal_sub.status in {SubscriptionStatus.PENDING_PAYMENT, SubscriptionStatus.AWAITING_REVIEW}:
+                messages.info(request, "يوجد طلب تجديد قائم بالفعل لهذه الباقة.")
+            else:
+                messages.success(request, "تم إنشاء طلب تجديد الباقة بنجاح.")
+
+            return redirect(
+                _subscription_dashboard_url_with_state(
+                    request,
+                    request_id=getattr(renewal_request, "id", None),
+                    account_id=None,
+                    anchor="subscriptionRequests",
+                    query=redirect_query,
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS,
+                )
+            )
+
+        if action == "delete_subscription_account":
+            raw_subscription_id = (request.POST.get("subscription_id") or "").strip()
+            if not raw_subscription_id.isdigit():
+                messages.error(request, "تعذر تحديد الباقة المطلوب حذفها.")
+                return _subscription_request_redirect_with_state(
+                    request,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            target_sub = _subscription_accounts_queryset_for_user(request.user).filter(pk=int(raw_subscription_id)).first()
+            if target_sub is None:
+                messages.error(request, "الباقة المطلوبة غير متاحة لك.")
+                return _subscription_request_redirect_with_state(
+                    request,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            try:
+                delete_subscription_account_for_dashboard(sub=target_sub, changed_by=request.user)
+            except ValueError as exc:
+                messages.error(request, str(exc))
+                return _subscription_request_redirect_with_state(
+                    request,
+                    account_id=target_sub.id,
+                    anchor="subscriberAccounts",
+                    tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                )
+
+            messages.success(request, "تم حذف الباقة من بيانات حسابات المشتركين.")
+            return _subscription_request_redirect_with_state(
+                request,
+                account_id=None,
+                anchor="subscriberAccounts",
+                tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+            )
+
         if action == "activate_subscription_request":
             raw_subscription_id = (request.POST.get("subscription_id") or "").strip()
             if not raw_subscription_id.isdigit():
@@ -2297,6 +2569,16 @@ def subscription_dashboard(request):
         anchor="subscriptionRequests",
         tab=SUBSCRIPTION_DASHBOARD_TAB_OPERATIONS,
     )
+    account_query_params = request.GET.copy()
+    account_query_params.pop("account", None)
+    account_detail_base_query = account_query_params.urlencode()
+    close_account_url = _subscription_dashboard_url_with_state(
+        request,
+        request_id=selected_request.id if selected_request is not None else None,
+        account_id=None,
+        anchor="subscriberAccounts",
+        tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+    )
 
     subscription_requests_qs = subscription_requests_base_qs
     if request_q:
@@ -2366,6 +2648,8 @@ def subscription_dashboard(request):
         else "",
         "selected_request_close_url": close_request_url,
         "request_detail_base_query": request_detail_base_query,
+        "selected_account_close_url": close_account_url,
+        "account_detail_base_query": account_detail_base_query,
         "inquiry_form": inquiry_form,
         "close_inquiry_url": _subscription_close_inquiry_url(request),
         "inquiry_summary": _support_summary(subscription_inquiries),
@@ -4792,13 +5076,20 @@ def _promo_module_selected_portfolio_item_data(
     selected_request: PromoRequest | None,
     selected_item: PromoRequestItem | None,
 ) -> dict:
+    empty_item_data = {
+        "id": "",
+        "file_url": "",
+        "thumbnail_url": "",
+        "file_type": "",
+        "caption": "",
+    }
     target_item = None
     if selected_item is not None and getattr(selected_item, "target_portfolio_item", None) is not None:
         target_item = selected_item.target_portfolio_item
     elif selected_request is not None and getattr(selected_request, "target_portfolio_item", None) is not None:
         target_item = selected_request.target_portfolio_item
     if target_item is None:
-        return {}
+        return empty_item_data
     file_field = getattr(target_item, "file", None)
     thumb_field = getattr(target_item, "thumbnail", None)
     return {
@@ -4815,13 +5106,20 @@ def _promo_module_selected_spotlight_item_data(
     selected_request: PromoRequest | None,
     selected_item: PromoRequestItem | None,
 ) -> dict:
+    empty_item_data = {
+        "id": "",
+        "file_url": "",
+        "thumbnail_url": "",
+        "file_type": "",
+        "caption": "",
+    }
     target_item = None
     if selected_item is not None and getattr(selected_item, "target_spotlight_item", None) is not None:
         target_item = selected_item.target_spotlight_item
     elif selected_request is not None and getattr(selected_request, "target_spotlight_item", None) is not None:
         target_item = selected_request.target_spotlight_item
     if target_item is None:
-        return {}
+        return empty_item_data
     file_field = getattr(target_item, "file", None)
     thumb_field = getattr(target_item, "thumbnail", None)
     return {
@@ -5106,14 +5404,14 @@ def promo_module(request, module_key: str):
         if not can_write:
             return HttpResponseForbidden("لا تملك صلاحية إدارة وحدات الترويج.")
         module_action = _promo_module_action(request)
-        if module_action == "approve_item":
+        if module_action != "preview_item":
             submitted_form_token = (request.POST.get("promo_module_form_token") or "").strip()
             if not _consume_single_use_submit_token(
                 request,
                 PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY,
                 submitted_form_token,
             ):
-                messages.warning(request, "تم تجاهل محاولة الاعتماد المكررة. حدّث الصفحة قبل إعادة الحفظ.")
+                messages.warning(request, "تم تجاهل محاولة الحفظ المكررة لهذه الوحدة. حدّث الصفحة قبل إعادة الإرسال.")
                 selected_request_id = int(posted_request_id_raw) if posted_request_id_raw.isdigit() else None
                 return _promo_module_redirect_with_state(request, module_key, request_id=selected_request_id)
         module_form = PromoModuleItemForm(request.POST, request.FILES, service_type=service_type)

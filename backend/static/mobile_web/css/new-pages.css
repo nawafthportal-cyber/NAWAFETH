@@ -2355,6 +2355,7 @@ body.page-plan-summary .subsum-toast.show {
   transform: translate(-50%, 0);
 }
 
+body.page-plan-summary .subpay-result-backdrop,
 body.page-subscription-payment .subpay-result-backdrop {
   position: fixed;
   inset: 0;
@@ -2366,6 +2367,7 @@ body.page-subscription-payment .subpay-result-backdrop {
   z-index: 1300;
 }
 
+body.page-plan-summary .subpay-result-dialog,
 body.page-subscription-payment .subpay-result-dialog {
   width: min(100%, 340px);
   background: #fff;
@@ -2376,6 +2378,7 @@ body.page-subscription-payment .subpay-result-dialog {
   text-align: center;
 }
 
+body.page-plan-summary .subpay-result-code,
 body.page-subscription-payment .subpay-result-code {
   background: #fbbf24;
   padding: 10px 12px;
@@ -2384,6 +2387,7 @@ body.page-subscription-payment .subpay-result-code {
   font-size: 20px;
 }
 
+body.page-plan-summary .subpay-result-body,
 body.page-subscription-payment .subpay-result-body {
   border: 2px solid #15803d;
   padding: 14px 10px;
@@ -2393,10 +2397,12 @@ body.page-subscription-payment .subpay-result-body {
   line-height: 1.5;
 }
 
+body.page-plan-summary .subpay-result-body p,
 body.page-subscription-payment .subpay-result-body p {
   margin: 0;
 }
 
+body.page-plan-summary .subpay-result-close,
 body.page-subscription-payment .subpay-result-close {
   border: 0;
   border-radius: 999px;
@@ -2420,6 +2426,9 @@ body.page-subscription-payment .subpay-result-close {
   body.page-plan-summary .subsum-total-row span,
   body.page-plan-summary .subsum-total-row strong,
   body.page-plan-summary .subsum-btn,
+  body.page-plan-summary .subpay-result-body,
+  body.page-plan-summary .subpay-result-code,
+  body.page-plan-summary .subpay-result-close,
   body.page-subscription-payment .subpay-result-body,
   body.page-subscription-payment .subpay-result-code,
   body.page-subscription-payment .subpay-result-close {

@@ -22,9 +22,12 @@ from apps.providers.models import ProviderCategory, ProviderProfile
 from apps.notifications.models import EventType
 from apps.notifications.services import create_notification
 from apps.subscriptions.capabilities import (
+	competitive_requests_enabled_for_user,
 	competitive_request_delay_for_user,
 	competitive_request_is_visible,
+	urgent_requests_enabled_for_user,
 )
+from apps.subscriptions.services import user_has_active_subscription
 
 from apps.accounts.permissions import IsAtLeastClient
 
@@ -95,6 +98,8 @@ def _request_subcategory_ids(service_request: ServiceRequest) -> list[int]:
 
 
 def _provider_can_access_competitive_request(provider: ProviderProfile, service_request: ServiceRequest, *, now=None) -> bool:
+	if not competitive_requests_enabled_for_user(provider.user):
+		return False
 	return competitive_request_is_visible(
 		user=provider.user,
 		created_at=getattr(service_request, "created_at", None),
@@ -319,6 +324,11 @@ class UrgentRequestAcceptView(APIView):
 					{"detail": "هذا المزود لا يقبل الطلبات العاجلة"},
 					status=status.HTTP_403_FORBIDDEN,
 				)
+			if not urgent_requests_enabled_for_user(request.user):
+				return Response(
+					{"detail": "الطلبات العاجلة تتطلب اشتراكًا فعالًا في إحدى الباقات."},
+					status=status.HTTP_403_FORBIDDEN,
+				)
 			if (service_request.city or "").strip() and (provider.city or "").strip() and service_request.city.strip() != provider.city.strip():
 				return Response(
 					{"detail": "هذا الطلب خارج نطاق مدينتك"},
@@ -369,10 +379,12 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 	def get_queryset(self):
 		_expire_urgent_requests()
 		provider = self.request.user.provider_profile
+		if not user_has_active_subscription(self.request.user):
+			return ServiceRequest.objects.none()
 		now = timezone.now()
 		dispatch_ready_urgent_windows(now=now, limit=200)
 
-		if not provider.accepts_urgent:
+		if not provider.accepts_urgent or not urgent_requests_enabled_for_user(self.request.user):
 			return ServiceRequest.objects.none()
 
 		provider_tier = provider_dispatch_tier(provider)
@@ -417,7 +429,11 @@ class AvailableCompetitiveRequestsView(generics.ListAPIView):
 
 	def get_queryset(self):
 		provider = self.request.user.provider_profile
+		if not user_has_active_subscription(self.request.user):
+			return ServiceRequest.objects.none()
 		now = timezone.now()
+		if not competitive_requests_enabled_for_user(self.request.user):
+			return ServiceRequest.objects.none()
 
 		provider_subcats = ProviderCategory.objects.filter(provider=provider).values_list(
 			"subcategory_id",
@@ -507,7 +523,11 @@ class ProviderRequestDetailView(generics.RetrieveAPIView):
 
 		if obj.request_type == RequestType.URGENT and not provider.accepts_urgent:
 			raise PermissionDenied("غير مصرح")
+		if obj.request_type == RequestType.URGENT and not user_has_active_subscription(self.request.user):
+			raise PermissionDenied("غير مصرح")
 		if obj.request_type == RequestType.URGENT and not provider_can_access_urgent_request(provider, obj):
+			raise PermissionDenied("غير مصرح")
+		if obj.request_type == RequestType.COMPETITIVE and not user_has_active_subscription(self.request.user):
 			raise PermissionDenied("غير مصرح")
 		if obj.request_type == RequestType.COMPETITIVE and not _provider_can_access_competitive_request(provider, obj):
 			raise PermissionDenied("غير مصرح")

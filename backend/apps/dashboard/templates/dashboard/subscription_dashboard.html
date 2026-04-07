@@ -70,8 +70,8 @@
               </thead>
               <tbody>
                 {% for row in subscription_inquiries %}
-                  <tr class="support-row {{ row.priority_class }}">
-                    <td><a class="ticket-link" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&account_q={{ filters.account_q|urlencode }}&request_status={{ filters.request_status|urlencode }}&account_status={{ filters.account_status|urlencode }}&inquiry={{ row.id }}#subscriptionInquiries">{{ row.code }}</a></td>
+                  <tr id="subscription-inquiry-{{ row.id }}" class="support-row {{ row.priority_class }}{% if selected_inquiry and selected_inquiry.id == row.id %} active-ticket{% endif %}">
+                    <td><a class="ticket-link" href="{% if selected_inquiry and selected_inquiry.id == row.id %}{{ close_inquiry_url }}#subscription-inquiry-{{ row.id }}{% else %}?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&account_q={{ filters.account_q|urlencode }}&request_status={{ filters.request_status|urlencode }}&account_status={{ filters.account_status|urlencode }}&inquiry={{ row.id }}#subscriptionInquiryForm{% endif %}">{{ row.code }}</a></td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.priority_number }}</td>
                     <td>{{ row.ticket_type }}</td>
@@ -81,68 +81,71 @@
                     <td>{{ row.assignee }}</td>
                     <td>{{ row.assigned_at }}</td>
                   </tr>
+                  {% if selected_inquiry and selected_inquiry.id == row.id %}
+                    <tr class="dash-inline-detail-row">
+                      <td colspan="9">
+                        <div class="dash-inline-detail-shell support-detail-shell">
+                          <div class="title-row">
+                            <h2>تفاصيل الاستفسار: {{ selected_inquiry.code }}</h2>
+                            <div class="actions">
+                              <span class="pill brand">{{ subscription_team_label }}</span>
+                              <span class="pill accent">{{ selected_inquiry_status_label }}</span>
+                            </div>
+                          </div>
+
+                          <form method="post" id="subscriptionInquiryForm" data-single-submit-form="true">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="save_subscription_inquiry">
+                            <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
+                            <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+
+                            <div class="support-meta-grid promo-inquiry-meta-grid">
+                              <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
+                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
+                              <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
+                            </div>
+
+                            <div class="support-action-grid">
+                              <div class="field full">
+                                <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الطلب</label>
+                                {{ inquiry_form.description }}
+                              </div>
+                              <div class="field">
+                                <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
+                                {{ inquiry_form.status }}
+                              </div>
+                              <div class="field">
+                                <label>فريق الدعم</label>
+                                <div class="input-control static-field"><strong>{{ subscription_team_label }}</strong></div>
+                              </div>
+                              <div class="field">
+                                <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                {{ inquiry_form.assigned_to }}
+                              </div>
+                              <div class="field full">
+                                <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
+                                {{ inquiry_form.operator_comment }}
+                              </div>
+                            </div>
+
+                            <div class="actions">
+                              {% if can_write %}
+                                <button type="submit" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار الحفظ...">حفظ</button>
+                              {% endif %}
+                              <a class="ghost-btn" href="{{ close_inquiry_url }}#subscription-inquiry-{{ row.id }}">إغلاق</a>
+                            </div>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endif %}
                 {% empty %}
                   <tr><td colspan="9">لا توجد استفسارات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-
-          {% if selected_inquiry %}
-            <section class="section-panel slide-up" id="subscriptionInquiryDetails">
-              <div class="title-row">
-                <h2>تفاصيل الاستفسار: {{ selected_inquiry.code }}</h2>
-                <div class="actions">
-                  <span class="pill brand">{{ subscription_team_label }}</span>
-                  <span class="pill accent">{{ selected_inquiry_status_label }}</span>
-                </div>
-              </div>
-
-              <form method="post" id="subscriptionInquiryForm" data-single-submit-form="true">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="save_subscription_inquiry">
-                <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
-                <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-
-                <div class="support-meta-grid promo-inquiry-meta-grid">
-                  <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
-                  <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
-                  <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
-                  <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
-                </div>
-
-                <div class="support-action-grid">
-                  <div class="field full">
-                    <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الطلب</label>
-                    {{ inquiry_form.description }}
-                  </div>
-                  <div class="field">
-                    <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
-                    {{ inquiry_form.status }}
-                  </div>
-                  <div class="field">
-                    <label>فريق الدعم</label>
-                    <div class="input-control static-field"><strong>{{ subscription_team_label }}</strong></div>
-                  </div>
-                  <div class="field">
-                    <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                    {{ inquiry_form.assigned_to }}
-                  </div>
-                  <div class="field full">
-                    <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
-                    {{ inquiry_form.operator_comment }}
-                  </div>
-                </div>
-
-                <div class="actions">
-                  {% if can_write %}
-                    <button type="submit" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار الحفظ...">حفظ</button>
-                  {% endif %}
-                  <a class="ghost-btn" href="{{ close_inquiry_url }}">إغلاق</a>
-                </div>
-              </form>
-            </section>
-          {% endif %}
         </section>
 
         <section class="section-panel slide-up" id="subscriptionRequests">
@@ -188,9 +191,9 @@
               </thead>
               <tbody>
                 {% for row in subscription_requests %}
-                  <tr class="support-row {{ row.priority_class }}{% if row.is_selected %} subs-account-current{% endif %}">
+                  <tr id="subscription-request-{{ row.id }}" class="support-row {{ row.priority_class }}{% if row.is_selected %} subs-account-current active-ticket{% endif %}">
                     <td>
-                      <a class="ticket-link" href="{% if row.is_selected %}{{ selected_request_close_url }}{% else %}{% url 'dashboard:subscription_dashboard' %}?{% if request_detail_base_query %}{{ request_detail_base_query }}&{% endif %}request={{ row.id }}#subscriptionRequests{% endif %}">{{ row.code }}</a>
+                      <a class="ticket-link" href="{% if row.is_selected %}{{ selected_request_close_url }}#subscription-request-{{ row.id }}{% else %}{% url 'dashboard:subscription_dashboard' %}?{% if request_detail_base_query %}{{ request_detail_base_query }}&{% endif %}request={{ row.id }}#subscriptionRequestForm{% endif %}">{{ row.code }}</a>
                     </td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.priority_number }}</td>
@@ -199,82 +202,85 @@
                     <td>{{ row.assignee }}</td>
                     <td>{{ row.assigned_at }}</td>
                   </tr>
+                  {% if row.is_selected and selected_request and selected_request_subscription %}
+                    <tr class="dash-inline-detail-row">
+                      <td colspan="7">
+                        <div class="dash-inline-detail-shell support-detail-shell">
+                          <div class="title-row">
+                            <h2>تفاصيل الطلب: {{ selected_request.code }}</h2>
+                            <div class="actions">
+                              <span class="pill brand">{{ subscription_team_label }}</span>
+                              <span class="pill accent">{{ selected_request_status_label }}</span>
+                            </div>
+                          </div>
+
+                          <form method="post" id="subscriptionRequestForm">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="save_subscription_request">
+                            <input type="hidden" name="request_id" value="{{ selected_request.id }}">
+                            <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+
+                            <div class="support-meta-grid promo-inquiry-meta-grid">
+                              <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
+                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>نوع الاشتراك</span><strong>{{ selected_request_subscription.plan.title|default:'-' }}</strong></div>
+                              <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
+                              <div class="quick-stat"><span>مدة الاشتراك الحالية</span><strong>{{ selected_request_subscription.duration_count }}</strong></div>
+                              <div class="quick-stat"><span>رقم الفاتورة</span><strong>{{ selected_request_subscription.invoice.code|default:'-' }}</strong></div>
+                            </div>
+
+                            <div class="support-action-grid">
+                              <div class="field full">
+                                <label>محتوى الطلب بالكامل</label>
+                                <div class="input-control static-field" style="white-space: pre-wrap; line-height: 1.8;">{{ selected_request_content_text }}</div>
+                              </div>
+                              <div class="field">
+                                <label>اسم العميل</label>
+                                <div class="input-control static-field"><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                              </div>
+                              <div class="field">
+                                <label for="{{ selected_request_form.status.id_for_label }}">حالة الطلب</label>
+                                {{ selected_request_form.status }}
+                              </div>
+                              <div class="field">
+                                <label>فريق الدعم</label>
+                                <div class="input-control static-field"><strong>{{ subscription_team_label }}</strong></div>
+                              </div>
+                              <div class="field">
+                                <label for="{{ selected_request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                {{ selected_request_form.assigned_to }}
+                              </div>
+                              <div class="field">
+                                <label for="{{ selected_request_form.plan_id.id_for_label }}">الباقة</label>
+                                {{ selected_request_form.plan_id }}
+                              </div>
+                              <div class="field">
+                                <label for="{{ selected_request_form.duration_count.id_for_label }}">مدة الاشتراك</label>
+                                {{ selected_request_form.duration_count }}
+                              </div>
+                            </div>
+
+                            <div class="actions">
+                              {% if selected_request_can_save %}
+                                <button type="submit" class="primary-btn">حفظ</button>
+                              {% elif can_write %}
+                                <span class="subtitle">هذا الطلب مكتمل بالفعل وتم نقله إلى بيانات حسابات المشتركين.</span>
+                              {% else %}
+                                <span class="pill danger">قراءة فقط</span>
+                              {% endif %}
+                              <a class="ghost-btn" href="{{ selected_request_close_url }}#subscription-request-{{ row.id }}">إغلاق</a>
+                            </div>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  {% endif %}
                 {% empty %}
                   <tr><td colspan="7">لا توجد طلبات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
-
-          {% if selected_request and selected_request_subscription %}
-            <section class="section-panel slide-up" id="subscriptionRequestDetails">
-              <div class="title-row">
-                <h2>تفاصيل الطلب: {{ selected_request.code }}</h2>
-                <div class="actions">
-                  <span class="pill brand">{{ subscription_team_label }}</span>
-                  <span class="pill accent">{{ selected_request_status_label }}</span>
-                </div>
-              </div>
-
-              <form method="post" id="subscriptionRequestForm">
-                {% csrf_token %}
-                <input type="hidden" name="action" value="save_subscription_request">
-                <input type="hidden" name="request_id" value="{{ selected_request.id }}">
-                <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
-
-                <div class="support-meta-grid promo-inquiry-meta-grid">
-                  <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
-                  <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
-                  <div class="quick-stat"><span>نوع الاشتراك</span><strong>{{ selected_request_subscription.plan.title|default:'-' }}</strong></div>
-                  <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
-                  <div class="quick-stat"><span>مدة الاشتراك الحالية</span><strong>{{ selected_request_subscription.duration_count }}</strong></div>
-                  <div class="quick-stat"><span>رقم الفاتورة</span><strong>{{ selected_request_subscription.invoice.code|default:'-' }}</strong></div>
-                </div>
-
-                <div class="support-action-grid">
-                  <div class="field full">
-                    <label>محتوى الطلب بالكامل</label>
-                    <div class="input-control static-field" style="white-space: pre-wrap; line-height: 1.8;">{{ selected_request_content_text }}</div>
-                  </div>
-                  <div class="field">
-                    <label>اسم العميل</label>
-                    <div class="input-control static-field"><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
-                  </div>
-                  <div class="field">
-                    <label for="{{ selected_request_form.status.id_for_label }}">حالة الطلب</label>
-                    {{ selected_request_form.status }}
-                  </div>
-                  <div class="field">
-                    <label>فريق الدعم</label>
-                    <div class="input-control static-field"><strong>{{ subscription_team_label }}</strong></div>
-                  </div>
-                  <div class="field">
-                    <label for="{{ selected_request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
-                    {{ selected_request_form.assigned_to }}
-                  </div>
-                  <div class="field">
-                    <label for="{{ selected_request_form.plan_id.id_for_label }}">الباقة</label>
-                    {{ selected_request_form.plan_id }}
-                  </div>
-                  <div class="field">
-                    <label for="{{ selected_request_form.duration_count.id_for_label }}">مدة الاشتراك</label>
-                    {{ selected_request_form.duration_count }}
-                  </div>
-                </div>
-
-                <div class="actions">
-                  {% if selected_request_can_save %}
-                    <button type="submit" class="primary-btn">حفظ</button>
-                  {% elif can_write %}
-                    <span class="subtitle">هذا الطلب مكتمل بالفعل وتم نقله إلى بيانات حسابات المشتركين.</span>
-                  {% else %}
-                    <span class="pill danger">قراءة فقط</span>
-                  {% endif %}
-                  <a class="ghost-btn" href="{{ selected_request_close_url }}">إغلاق</a>
-                </div>
-              </form>
-            </section>
-          {% endif %}
         </section>
         {% else %}
 
@@ -325,7 +331,9 @@
               <tbody>
                 {% for row in subscription_accounts %}
                   <tr id="subscription-account-{{ row.id }}" class="support-row {{ row.priority_class }}{% if row.is_current or row.is_selected %} subs-account-current{% endif %}">
-                    <td><span class="ticket-link">{{ row.request_code }}</span></td>
+                    <td>
+                      <a class="ticket-link" href="{% if row.is_selected %}{{ selected_account_close_url }}{% else %}{% url 'dashboard:subscription_dashboard' %}?{% if account_detail_base_query %}{{ account_detail_base_query }}&{% endif %}account={{ row.id }}#subscriberAccounts{% endif %}">{{ row.request_code }}</a>
+                    </td>
                     <td>{{ row.requester }}</td>
                     <td>{{ row.priority_number }}</td>
                     <td>
@@ -338,6 +346,80 @@
                     <td>{{ row.end_at }}</td>
                     <td>{{ row.invoice_code }}</td>
                   </tr>
+                  {% if row.is_selected %}
+                    <tr class="subs-account-detail-row">
+                      <td colspan="9">
+                        <div class="support-detail-shell subs-account-detail-shell">
+                          <div class="title-row subs-account-inline-title">
+                            <h2>تفاصيل الطلب: {{ row.request_code }}</h2>
+                            <div class="actions">
+                              <span class="pill brand">{{ row.provider_name }}</span>
+                              <span class="pill accent">{{ row.status }}</span>
+                            </div>
+                          </div>
+
+                          <div class="support-meta-grid subs-account-meta-grid">
+                            <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ row.provider_name }}</strong></div>
+                            <div class="quick-stat"><span>نوع الباقة</span><strong>{{ row.tier_label }}</strong></div>
+                            <div class="quick-stat"><span>رمز الباقة</span><strong>{{ row.plan_code }}</strong></div>
+                            <div class="quick-stat"><span>مدة الاشتراك</span><strong>{{ row.duration_label }}</strong></div>
+                            <div class="quick-stat"><span>تاريخ تفعيل الاشتراك</span><strong>{{ row.start_at }}</strong></div>
+                            <div class="quick-stat"><span>تاريخ نهاية الاشتراك</span><strong>{{ row.end_at }}</strong></div>
+                          </div>
+
+                          <div class="subs-payment-note{% if row.payment_effective %} is-paid{% endif %}">{{ row.payment_message }}</div>
+
+                          {% if can_write %}
+                            <div class="subs-account-actions">
+                              <form method="post" class="subs-account-action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="renew_subscription_account">
+                                <input type="hidden" name="subscription_id" value="{{ row.id }}">
+                                <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+                                <button
+                                  type="submit"
+                                  class="subs-account-action-btn"
+                                  title="تجديد الباقة"
+                                  aria-label="تجديد الباقة"
+                                  {% if not row.can_renew %}disabled{% endif %}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M20 11a8 8 0 0 0-14.9-3H2.5A.5.5 0 0 1 2 7.5v-4A.5.5 0 0 1 2.5 3h4a.5.5 0 0 1 0 1H4.3A9 9 0 0 1 21 11a.5.5 0 0 1-1 0Zm1.5 5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1 0-1h2.2A9 9 0 0 1 3 13a.5.5 0 0 1 1 0 8 8 0 0 0 14.9 3H21.5Z" fill="currentColor"></path>
+                                  </svg>
+                                </button>
+                              </form>
+
+                              <form method="post" class="subs-account-action-form">
+                                {% csrf_token %}
+                                <input type="hidden" name="action" value="delete_subscription_account">
+                                <input type="hidden" name="subscription_id" value="{{ row.id }}">
+                                <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+                                <button
+                                  type="submit"
+                                  class="subs-account-action-btn is-danger"
+                                  title="حذف الباقة"
+                                  aria-label="حذف الباقة"
+                                  onclick="return confirm('هل تريد حذف هذه الباقة من بيانات حسابات المشتركين؟')"
+                                  {% if not row.can_delete %}disabled{% endif %}
+                                >
+                                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                    <path d="M9 3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V4h4a.5.5 0 0 1 0 1h-1.1l-.8 13.3A2 2 0 0 1 15.1 20H8.9a2 2 0 0 1-2-1.7L6.1 5H5a.5.5 0 0 1 0-1h4v-.5Zm1 0V4h4v-.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5ZM8.1 5l.8 13.2a1 1 0 0 0 1 .8h5.2a1 1 0 0 0 1-.8L16.9 5H8.1ZM10.5 8a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Zm3 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Z" fill="currentColor"></path>
+                                  </svg>
+                                </button>
+                              </form>
+                            </div>
+
+                            {% if not row.can_renew and row.renew_disabled_reason %}
+                              <div class="subtitle">{{ row.renew_disabled_reason }}</div>
+                            {% endif %}
+                            {% if not row.can_delete and row.delete_disabled_reason %}
+                              <div class="subtitle">{{ row.delete_disabled_reason }}</div>
+                            {% endif %}
+                          {% endif %}
+                        </div>
+                      </td>
+                    </tr>
+                  {% endif %}
                 {% empty %}
                   <tr><td colspan="9">لا توجد حسابات اشتراك مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
