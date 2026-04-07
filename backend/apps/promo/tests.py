@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.billing.models import Invoice
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
 from apps.promo.serializers import PromoRequestDetailSerializer
-from apps.promo.services import set_promo_ops_status
+from apps.promo.services import _locked_promo_request_queryset, set_promo_ops_status
 
 
 class PromoPaymentWorkflowTests(TestCase):
@@ -123,6 +123,13 @@ class PromoPaymentWorkflowTests(TestCase):
         self.assertEqual(data["ops_status"], PromoOpsStatus.IN_PROGRESS)
         self.assertEqual(data["provider_status_code"], PromoOpsStatus.IN_PROGRESS)
         self.assertEqual(data["provider_status_label"], "تحت المعالجة")
+
+    def test_locked_request_query_avoids_nullable_invoice_join(self):
+        request_obj = self._create_request()
+
+        sql = str(_locked_promo_request_queryset().filter(pk=request_obj.pk).query).upper()
+
+        self.assertNotIn("JOIN", sql)
 
 
 class PromoLegacyWebRedirectTests(SimpleTestCase):

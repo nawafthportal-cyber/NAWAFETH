@@ -1142,7 +1142,7 @@ def activate_after_payment(*, vr: VerificationRequest, notify_requester: bool = 
     - إنشاء VerifiedBadge
     - تحديث flags على ProviderProfile إن وجد
     """
-    vr = VerificationRequest.objects.select_for_update().select_related("invoice", "requester").get(pk=vr.pk)
+    vr = VerificationRequest.objects.select_for_update().select_related("requester").get(pk=vr.pk)
 
     if not vr.invoice or not vr.invoice.is_payment_effective():
         raise ValueError("الفاتورة غير مدفوعة بعد.")
@@ -1210,7 +1210,7 @@ def activate_after_payment(*, vr: VerificationRequest, notify_requester: bool = 
 
 @transaction.atomic
 def revoke_after_payment_reversal(*, vr: VerificationRequest):
-    vr = VerificationRequest.objects.select_for_update().select_related("invoice").get(pk=vr.pk)
+    vr = VerificationRequest.objects.select_for_update().get(pk=vr.pk)
 
     if not vr.invoice or vr.invoice.is_payment_effective():
         return vr

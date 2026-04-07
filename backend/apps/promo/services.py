@@ -124,6 +124,14 @@ DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     },
 )
 
+
+def _locked_promo_request_queryset():
+    return PromoRequest.objects.select_for_update()
+
+
+def _get_locked_promo_request(*, pr: PromoRequest) -> PromoRequest:
+    return _locked_promo_request_queryset().get(pk=pr.pk)
+
 PROMO_LEGACY_AD_TYPE_TO_RULE_CODES: dict[str, tuple[str, ...]] = {
     # Direct semantic mapping between legacy ad types and dynamic pricing rules.
     PromoAdType.BANNER_HOME: ("home_banner_daily",),
@@ -1194,7 +1202,7 @@ def reject_request(*, pr: PromoRequest, reason: str, by_user) -> PromoRequest:
 
 @transaction.atomic
 def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
-    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    pr = _get_locked_promo_request(pr=pr)
     if not pr.invoice:
         raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
     if not pr.invoice.is_payment_effective():
@@ -1236,7 +1244,7 @@ def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
 
 @transaction.atomic
 def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
-    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    pr = _get_locked_promo_request(pr=pr)
     if not pr.invoice:
         raise ValueError("لا توجد فاتورة مرتبطة بالطلب.")
     if not pr.invoice.is_payment_effective():
@@ -1298,7 +1306,7 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
 
 @transaction.atomic
 def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
-    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    pr = _get_locked_promo_request(pr=pr)
     if not pr.invoice or pr.invoice.is_payment_effective():
         return pr
 
@@ -1314,7 +1322,7 @@ def revoke_after_payment_reversal(*, pr: PromoRequest) -> PromoRequest:
 def set_promo_ops_status(*, pr: PromoRequest, new_status: str, by_user, note: str | None = None) -> PromoRequest:
     if new_status not in PromoOpsStatus.values:
         raise ValueError("حالة التنفيذ غير صحيحة.")
-    pr = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    pr = _get_locked_promo_request(pr=pr)
     current_status = pr.ops_status or PromoOpsStatus.NEW
     if new_status == current_status:
         return pr
