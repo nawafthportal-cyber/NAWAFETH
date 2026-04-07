@@ -136,6 +136,7 @@ var PromotionPage = (function () {
   };
   var deepLinkedRequestId = 0;
   var paymentReturnNotice = null;
+  var preferredProviderIdentityName = "";
   var homeBannerEditor = {
     previewUrl: ""
   };
@@ -637,7 +638,7 @@ var PromotionPage = (function () {
     var display = document.getElementById("promo-provider-display");
     if (!input && !display) return;
 
-    var finalName = firstNonEmptyText([chosen, fallback]);
+    var finalName = firstNonEmptyText([preferredProviderIdentityName, chosen, fallback]);
     if (input) {
       input.value = finalName;
       input.title = finalName;
@@ -646,6 +647,13 @@ var PromotionPage = (function () {
       display.textContent = finalName;
       display.title = finalName;
     }
+  }
+
+  function preferProviderIdentityFromRequest(row) {
+    var chosen = resolveProviderDisplayName(row, "");
+    if (!chosen) return;
+    preferredProviderIdentityName = chosen;
+    applyProviderIdentityName(chosen, getServerRenderedProviderName() || "مزود الخدمة");
   }
 
   function getServerRenderedProviderName() {
@@ -1408,6 +1416,7 @@ var PromotionPage = (function () {
       return;
     }
 
+    preferProviderIdentityFromRequest(request);
     await showRequestDetails(request);
     consumeDeepLinkedRequestId();
   }
@@ -1557,6 +1566,7 @@ var PromotionPage = (function () {
       var res = await ApiClient.get("/api/promo/requests/" + row.id + "/");
       if (res && res.ok && res.data && res.data.id) detailRow = res.data;
     } catch (_) {}
+    preferProviderIdentityFromRequest(detailRow);
     var confirmed = await openModal({
       title: detailRow.title || "طلب ترويج",
       bodyHtml: buildRequestDetailsHtml(detailRow),

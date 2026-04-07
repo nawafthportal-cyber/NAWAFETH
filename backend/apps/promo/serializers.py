@@ -609,6 +609,7 @@ class PromoRequestCreateSerializer(serializers.ModelSerializer):
 class PromoRequestDetailSerializer(serializers.ModelSerializer):
     assets = PromoAssetSerializer(many=True, read_only=True)
     items = PromoRequestItemDetailSerializer(many=True, read_only=True)
+    provider_display_name = serializers.SerializerMethodField()
     invoice_total = serializers.SerializerMethodField()
     invoice_vat = serializers.SerializerMethodField()
     invoice_status = serializers.SerializerMethodField()
@@ -643,6 +644,7 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "ops_status",
             "subtotal",
             "total_days",
+            "provider_display_name",
             "quote_note",
             "reject_reason",
             "invoice",
@@ -663,6 +665,29 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "items",
             "assets",
         ]
+
+    def get_provider_display_name(self, obj: PromoRequest) -> str:
+        provider = getattr(getattr(obj, "requester", None), "provider_profile", None)
+        display_name = str(getattr(provider, "display_name", "") or "").strip()
+        if display_name:
+            return display_name
+
+        requester = getattr(obj, "requester", None)
+        if requester is None:
+            return "مزود الخدمة"
+
+        first_name = str(getattr(requester, "first_name", "") or "").strip()
+        last_name = str(getattr(requester, "last_name", "") or "").strip()
+        full_name = " ".join(part for part in [first_name, last_name] if part).strip()
+        if full_name:
+            return full_name
+
+        username = str(getattr(requester, "username", "") or "").strip()
+        if username:
+            return username
+
+        phone = str(getattr(requester, "phone", "") or "").strip()
+        return phone or "مزود الخدمة"
 
     def get_invoice_total(self, obj: PromoRequest):
         return getattr(getattr(obj, "invoice", None), "total", None)

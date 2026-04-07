@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
+from apps.providers.models import ProviderProfile
 from apps.promo.serializers import PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
 from apps.promo.services import (
     _locked_promo_request_queryset,
@@ -212,3 +213,27 @@ class PromoInvoiceLineItemCodeTests(TestCase):
         self.assertGreaterEqual(InvoiceLineItem._meta.get_field("item_code").max_length, 35)
         self.assertEqual(len(line_items), 1)
         self.assertEqual(line_items[0].item_code, "messages_notification+messages_chat")
+
+
+class PromoRequestProviderDisplayNameTests(TestCase):
+    def test_detail_serializer_prefers_requester_provider_display_name(self):
+        requester = get_user_model().objects.create_user(phone="0537720207", password="secret")
+        ProviderProfile.objects.create(
+            user=requester,
+            provider_type="individual",
+            display_name="اسم مزود الخدمة الصحيح",
+            bio="نبذة مختصرة",
+        )
+        request_obj = PromoRequest.objects.create(
+            requester=requester,
+            title="طلب ترويج لاختبار الاسم",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+
+        data = PromoRequestDetailSerializer(request_obj).data
+
+        self.assertEqual(data["provider_display_name"], "اسم مزود الخدمة الصحيح")

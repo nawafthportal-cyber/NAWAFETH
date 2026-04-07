@@ -610,7 +610,8 @@ class MyPromoRequestsListView(generics.ListAPIView):
 
     def get_queryset(self):
         return (
-            PromoRequest.objects.filter(requester=self.request.user)
+            PromoRequest.objects.select_related("requester", "requester__provider_profile", "invoice")
+            .filter(requester=self.request.user)
             .prefetch_related("items", "items__assets", "assets")
             .order_by("-updated_at", "-id")
         )
@@ -619,7 +620,7 @@ class MyPromoRequestsListView(generics.ListAPIView):
 class PromoRequestDetailView(generics.RetrieveAPIView):
     permission_classes = [IsOwnerOrBackofficePromo]
     serializer_class = PromoRequestDetailSerializer
-    queryset = PromoRequest.objects.prefetch_related("items", "items__assets", "assets").all()
+    queryset = PromoRequest.objects.select_related("requester", "requester__provider_profile", "invoice").prefetch_related("items", "items__assets", "assets").all()
 
     def get_object(self):
         obj = super().get_object()
