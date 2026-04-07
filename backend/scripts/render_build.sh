@@ -36,6 +36,8 @@ fi
 python -m pip install --upgrade pip
 pip install -r requirements/prod.txt
 
+echo "[build] Running database migrations..."
+python manage.py migrate --noinput
 
 echo "[build] Running collectstatic (--clear to remove stale files)..."
 python manage.py collectstatic --clear --noinput

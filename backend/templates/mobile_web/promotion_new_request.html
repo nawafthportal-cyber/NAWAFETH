@@ -27,11 +27,12 @@
       </div>
     </div>
     <div class="promo-provider-panel">
+      <input type="hidden" id="promo-provider-name" value="{{ promo_provider_display_name|default:'' }}">
       <div class="promo-provider-copy">
         <svg class="promo-provider-avatar" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2f7d1e" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
         <div>
           <span class="promo-meta-label">مقدّم الطلب</span>
-          <strong id="promo-provider-display">{{ promo_provider_display_name|default:"مزود الخدمة" }}</strong>
+          <strong id="promo-provider-display">جارٍ التحميل...</strong>
         </div>
       </div>
     </div>
@@ -340,8 +341,8 @@
   <section id="promo-summary-view" class="detail-card promo-summary-view" hidden>
     <div class="promo-summary-head-badge">ملخص طلب الترويج والتكلفة</div>
     <div class="promo-summary-provider-row">
-      <span>اسم المختص</span>
-      <strong id="promo-summary-provider">@---</strong>
+      <span>مقدّم الطلب</span>
+      <strong id="promo-summary-provider">...</strong>
     </div>
     <p class="promo-summary-note">عرض البنود التي تم اختيارها من الصفحة السابقة وتكلفة كل بند</p>
 
@@ -476,17 +477,18 @@
 </div>
 
 <style>
-  .promo-top-shell{display:flex;flex-direction:column;gap:16px;margin-bottom:16px;padding:20px;border:1px solid #e3edf2;background:linear-gradient(135deg,#fcfffd 0%,#f3faf6 42%,#f9f6ff 100%);box-shadow:0 4px 16px rgba(15,23,42,.04);border-radius:18px}
+  .promo-top-shell{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:12px 24px;margin-bottom:18px;padding:24px 28px;border:1px solid #e3edf2;background:linear-gradient(135deg,#fcfffd 0%,#f3faf6 42%,#f9f6ff 100%);box-shadow:0 4px 16px rgba(15,23,42,.04);border-radius:18px}
+  .promo-top-copy{grid-column:1;grid-row:1}
   .promo-top-copy h2{margin:6px 0 8px;font-size:22px;line-height:1.4;color:#163126}
   .promo-top-copy p{margin:0;max-width:62ch;color:#4b5563;line-height:1.8;font-size:13.5px}
   .promo-top-kicker{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:#e9f7ec;color:#2f7d1e;font-size:12px;font-weight:700}
-  .promo-top-toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .promo-top-toolbar{grid-column:2;grid-row:1;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:flex-end}
   .promo-top-actions{display:flex;gap:8px;flex-wrap:wrap}
   .promo-nav-pill{border:1px solid #cfe4d4;background:#fff;color:#225d2a;border-radius:999px;padding:9px 20px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s ease}
   .promo-nav-pill:hover{border-color:#2f7d1e;background:#f5fbf6}
   .promo-nav-pill.active{background:#2f7d1e;color:#fff;border-color:#2f7d1e;box-shadow:0 4px 12px rgba(47,125,30,.18)}
   .promo-meta-label{font-size:11.5px;color:#6b7280;font-weight:600;letter-spacing:.01em}
-  .promo-provider-panel{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:#fff;border:1px solid #deebe1}
+  .promo-provider-panel{grid-column:1/-1;grid-row:2;display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:#fff;border:1px solid #deebe1}
   .promo-provider-copy{display:flex;align-items:center;gap:12px;min-width:0}
   .promo-provider-avatar{flex-shrink:0}
   .promo-provider-copy strong{font-size:17px;line-height:1.4;color:#1f2937;word-break:break-word}
@@ -662,15 +664,25 @@
   .success-message-box p{margin:0;color:#6b7280}
 
   @media (max-width:1024px){
+    .promo-top-shell{grid-template-columns:1fr;gap:14px}
+    .promo-top-toolbar{justify-content:flex-start}
     .pricing-guide-instructions{grid-template-columns:1fr}
     .pricing-grid{grid-template-columns:1fr}
   }
 
+  @media (min-width:1025px){
+    .promo-services-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .promo-service-block.is-active{grid-column:1/-1}
+    .promo-summary-view{max-width:800px;margin-inline:auto}
+    .promo-payment-view{max-width:620px;margin-inline:auto}
+  }
+
   @media (max-width:640px){
-    .promo-top-shell{padding:14px}
+    .promo-top-shell{grid-template-columns:1fr;padding:14px;gap:10px}
     .promo-top-copy h2{font-size:18px}
     .promo-nav-pill{width:100%;justify-content:center}
     .promo-top-actions{width:100%}
+    .promo-top-toolbar{justify-content:stretch}
     .promo-provider-copy strong{font-size:15px}
     .promo-services-grid{grid-template-columns:1fr}
     .form-row{grid-template-columns:1fr}

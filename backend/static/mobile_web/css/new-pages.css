@@ -3235,6 +3235,7 @@ body.page-provider-reviews .rv-report-text {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 5;
+  line-clamp: 5;
   overflow: hidden;
 }
 
@@ -4901,6 +4902,7 @@ body.page-provider-portfolio .pf-item-caption {
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
   z-index: 3;
 }

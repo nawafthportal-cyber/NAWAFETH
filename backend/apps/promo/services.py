@@ -822,7 +822,7 @@ def _invoice_title_for_request(pr: PromoRequest) -> str:
 
 def _invoice_line_item_code_db_max_length(*, using: str = "default") -> int:
     field = InvoiceLineItem._meta.get_field("item_code")
-    default_max_length = int(getattr(field, "max_length", 50) or 50)
+    model_max = int(getattr(field, "max_length", 50) or 50)
     try:
         connection = connections[using]
         with connection.cursor() as cursor:
@@ -830,13 +830,16 @@ def _invoice_line_item_code_db_max_length(*, using: str = "default") -> int:
         for column in description:
             if getattr(column, "name", "") != field.column:
                 continue
-            internal_size = getattr(column, "internal_size", None)
-            if isinstance(internal_size, int) and internal_size > 0:
-                return internal_size
+            for attr in ("internal_size", "display_size"):
+                size = getattr(column, attr, None)
+                if isinstance(size, int) and size > 0:
+                    return size
             break
     except Exception:
         pass
-    return default_max_length
+    # Conservative fallback: column may still be varchar(20) if billing
+    # migration 0005 has not been applied yet.
+    return min(model_max, 20)
 
 
 def _invoice_line_item_code(*, item: PromoRequestItem, using: str = "default") -> str:

@@ -4208,6 +4208,118 @@ body.page-profile .profile-guest-highlight span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Inline links inside message text ── */
+.msg-inline-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin: 2px 0;
+  transition: background .15s ease, box-shadow .15s ease;
+  word-break: break-all;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+.msg-inline-link.mine {
+  color: #fff;
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.30);
+}
+.msg-inline-link.mine:hover {
+  background: rgba(255,255,255,.28);
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+.msg-inline-link.theirs {
+  color: #5e35b1;
+  background: rgba(103,58,183,.08);
+  border: 1px solid rgba(103,58,183,.18);
+}
+.msg-inline-link.theirs:hover {
+  background: rgba(103,58,183,.14);
+  box-shadow: 0 2px 8px rgba(103,58,183,.12);
+}
+.msg-inline-link-icon {
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+.msg-inline-link-text {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+/* ── Payment CTA card inside message ── */
+.msg-payment-cta {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-decoration: none;
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.msg-payment-cta.mine {
+  background: linear-gradient(135deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.08) 100%);
+  border-color: rgba(255,255,255,.32);
+  color: #fff;
+}
+.msg-payment-cta.theirs {
+  background: linear-gradient(135deg, rgba(34,197,94,.06) 0%, rgba(103,58,183,.06) 100%);
+  border-color: rgba(34,197,94,.22);
+  color: #15803d;
+}
+.msg-payment-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.10);
+}
+.msg-payment-cta-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+.msg-payment-cta.mine .msg-payment-cta-icon {
+  background: rgba(255,255,255,.20);
+}
+.msg-payment-cta.theirs .msg-payment-cta-icon {
+  background: rgba(34,197,94,.12);
+}
+.msg-payment-cta-body {
+  min-width: 0;
+  flex: 1;
+}
+.msg-payment-cta-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+.msg-payment-cta-sub {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  opacity: .78;
+  margin-top: 2px;
+}
+.msg-payment-cta-arrow {
+  font-size: 18px;
+  line-height: 1;
+  opacity: .80;
+  flex: 0 0 auto;
+}
+
 .chat-input-wrap {
   margin: 10px 14px 14px;
   border: 1px solid rgba(103,58,183,.12);

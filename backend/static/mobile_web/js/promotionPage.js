@@ -627,8 +627,6 @@ var PromotionPage = (function () {
       nestedUser.full_name,
       fullName,
       username,
-      safeProfile.phone,
-      nestedUser.phone,
       fallback
     ]);
   }

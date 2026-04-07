@@ -616,7 +616,7 @@ const ChatDetailPage = (() => {
     if (serviceRequestCta) {
       bubble.appendChild(_buildServiceRequestNode(serviceRequestCta, mine));
     } else if (msg.text) {
-      bubble.appendChild(UI.el('div', { className: 'msg-text', textContent: msg.text }));
+      bubble.appendChild(_buildRichTextNode(msg.text, mine));
     }
 
     const meta = UI.el('div', { className: 'msg-meta' });
@@ -687,6 +687,100 @@ const ChatDetailPage = (() => {
 
     node.appendChild(UI.el('span', { className: 'msg-service-cta-arrow', textContent: '‹' }));
     return node;
+  }
+
+  /* ── Safe URL linkifier (DOM-only, no innerHTML) ── */
+  const _URL_RE = /(?:https?:\/\/[^\s<>"""'']+|(?:^|\s)(\/(?:promotion|promo-payment|verification|service-request|provider|provider-orders|subscription|chats|chat)(?:\/[^\s<>"""'']*)?(?:\?[^\s<>"""'']*)?))(?=[.,;:!?)'"»\u200F]*(?:\s|$)|$)/gi;
+
+  function _buildRichTextNode(text, mine) {
+    const container = UI.el('div', { className: 'msg-text' });
+    _URL_RE.lastIndex = 0;
+    let cursor = 0;
+    let match;
+
+    while ((match = _URL_RE.exec(text)) !== null) {
+      const rawUrl = (match[1] || match[0]).trim();
+      const matchStart = match.index + (match[0].length - match[0].trimStart().length);
+      const matchEnd = match.index + match[0].trimEnd().length;
+
+      // Text before this URL
+      if (matchStart > cursor) {
+        container.appendChild(document.createTextNode(text.slice(cursor, matchStart)));
+      }
+
+      // Determine href
+      let href = rawUrl;
+      if (href.startsWith('/')) {
+        // Relative path — keep as-is
+      } else {
+        // Validate full URL
+        try { new URL(href); } catch (_) { href = ''; }
+      }
+
+      if (href) {
+        const isPayment = /\/(promotion|promo-payment|subscription)/.test(href) || /prepare-payment|init-payment|payment/.test(href);
+        const linkNode = _buildInlineLink(href, rawUrl, mine, isPayment);
+        container.appendChild(linkNode);
+      } else {
+        container.appendChild(document.createTextNode(rawUrl));
+      }
+      cursor = matchEnd;
+    }
+
+    // Remaining text
+    if (cursor < text.length) {
+      container.appendChild(document.createTextNode(text.slice(cursor)));
+    }
+
+    // If no links were found at all, just use plain textContent (faster)
+    if (!container.querySelector('a')) {
+      container.textContent = text;
+    }
+    return container;
+  }
+
+  function _buildInlineLink(href, displayText, mine, isPayment) {
+    if (isPayment) {
+      // Render rich payment CTA card
+      const card = UI.el('a', {
+        className: 'msg-payment-cta ' + (mine ? 'mine' : 'theirs'),
+        href: href,
+      });
+      card.appendChild(UI.el('span', { className: 'msg-payment-cta-icon', textContent: '💳' }));
+      const body = UI.el('span', { className: 'msg-payment-cta-body' });
+      body.appendChild(UI.el('strong', { className: 'msg-payment-cta-title', textContent: 'صفحة الدفع' }));
+      body.appendChild(UI.el('small', { className: 'msg-payment-cta-sub', textContent: 'اضغط هنا للانتقال إلى صفحة الدفع' }));
+      card.appendChild(body);
+      card.appendChild(UI.el('span', { className: 'msg-payment-cta-arrow', textContent: '‹' }));
+      return card;
+    }
+
+    // Plain inline link
+    const link = UI.el('a', {
+      className: 'msg-inline-link ' + (mine ? 'mine' : 'theirs'),
+      href: href,
+      target: '_self',
+      rel: 'noopener',
+    });
+    // Try human-friendly display
+    let label = displayText;
+    try {
+      const u = new URL(displayText, window.location.origin);
+      const path = u.pathname.replace(/\/+$/, '');
+      const LABELS = {
+        '/promotion': 'صفحة الترويج',
+        '/verification': 'صفحة التوثيق',
+        '/service-request': 'طلب خدمة',
+        '/provider-orders': 'طلبات المزوّد',
+        '/subscription': 'الاشتراك',
+        '/chats': 'الرسائل',
+      };
+      const found = Object.entries(LABELS).find(([k]) => path === k || path.startsWith(k + '/'));
+      if (found) label = found[1];
+    } catch (_) { /* keep raw */ }
+    link.appendChild(UI.el('span', { className: 'msg-inline-link-icon', textContent: '🔗' }));
+    link.appendChild(UI.el('span', { className: 'msg-inline-link-text', textContent: label }));
+    return link;
   }
 
   function _parseServiceRequestCTA(text) {
