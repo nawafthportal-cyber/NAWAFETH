@@ -17,7 +17,7 @@ from apps.billing.models import Invoice, InvoiceStatus
 from apps.core.models import PlatformConfig
 from apps.dashboard.auth import SESSION_OTP_VERIFIED_KEY
 from apps.messaging.models import Message
-from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus
+from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.providers.models import ProviderProfile, ProviderSpotlightItem
 from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionInquiryProfile, SubscriptionPlan, SubscriptionStatus
 from apps.support.models import SupportPriority, SupportTeam, SupportTicket, SupportTicketEntrypoint, SupportTicketStatus, SupportTicketType
@@ -901,3 +901,211 @@ class SubscriptionDashboardTests(TestCase):
                 thread__participant_2=self.requester,
             ).exists()
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression tests: promo status-guard protection against double-creation
+# ---------------------------------------------------------------------------
+
+@override_settings(
+    STORAGES={
+        "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+)
+class PromoModuleTerminalStatusGuardTests(TestCase):
+    """Verify that the promo_module view rejects item creation on terminal-state requests."""
+
+    def setUp(self):
+        self.staff_user = get_user_model().objects.create_user(
+            phone="0500000300", password="secret", is_staff=True,
+        )
+        UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
+
+        self.requester = get_user_model().objects.create_user(
+            phone="0500000301", password="secret", role_state="provider",
+        )
+        self.provider_profile = ProviderProfile.objects.create(
+            user=self.requester,
+            provider_type="individual",
+            display_name="مختص حماية",
+            bio="نبذة",
+        )
+        self.spotlight_item = ProviderSpotlightItem.objects.create(
+            provider=self.provider_profile,
+            file_type="image",
+            file=SimpleUploadedFile("guard.jpg", b"img", content_type="image/jpeg"),
+            caption="لمحة",
+        )
+
+        self.client.force_login(self.staff_user)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def _make_request(self, status, ops_status=PromoOpsStatus.NEW):
+        return PromoRequest.objects.create(
+            requester=self.requester,
+            title="طلب حماية",
+            ad_type=PromoAdType.FEATURED_TOP5,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=5),
+            status=status,
+            ops_status=ops_status,
+        )
+
+    def _post_approve(self, promo_request, module_key="featured_specialists"):
+        module_url = reverse("dashboard:promo_module", kwargs={"module_key": module_key})
+        response = self.client.get(f"{module_url}?request_id={promo_request.id}")
+        form_token = response.context.get("promo_module_form_token", "")
+        payload = {
+            "workflow_action": "approve_item",
+            "promo_module_form_token": form_token,
+            "request_id": str(promo_request.id),
+            "title": "بند جديد",
+            "start_at": timezone.localtime(promo_request.start_at).strftime("%Y-%m-%dT%H:%M"),
+            "end_at": timezone.localtime(promo_request.end_at).strftime("%Y-%m-%dT%H:%M"),
+            "target_provider_id": str(self.provider_profile.id),
+        }
+        return self.client.post(module_url, payload, follow=True)
+
+    def test_module_rejects_item_creation_on_active_request(self):
+        pr = self._make_request(PromoRequestStatus.ACTIVE)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_on_completed_request(self):
+        pr = self._make_request(PromoRequestStatus.COMPLETED)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_on_expired_request(self):
+        pr = self._make_request(PromoRequestStatus.EXPIRED)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_on_cancelled_request(self):
+        pr = self._make_request(PromoRequestStatus.CANCELLED)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_on_rejected_request(self):
+        pr = self._make_request(PromoRequestStatus.REJECTED)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_when_ops_in_progress(self):
+        pr = self._make_request(PromoRequestStatus.NEW, ops_status=PromoOpsStatus.IN_PROGRESS)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_rejects_item_creation_when_ops_completed(self):
+        pr = self._make_request(PromoRequestStatus.NEW, ops_status=PromoOpsStatus.COMPLETED)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 0)
+
+    def test_module_allows_item_creation_on_new_request(self):
+        pr = self._make_request(PromoRequestStatus.NEW)
+        self._post_approve(pr)
+        self.assertEqual(PromoRequestItem.objects.filter(request=pr).count(), 1)
+
+    def test_candidate_queryset_excludes_terminal_requests(self):
+        from apps.dashboard.views import _promo_module_request_candidates_queryset
+
+        new_pr = self._make_request(PromoRequestStatus.NEW)
+        active_pr = self._make_request(PromoRequestStatus.ACTIVE)
+        completed_pr = self._make_request(PromoRequestStatus.COMPLETED)
+
+        # Attach items so the filter query can match
+        for pr in [new_pr, active_pr, completed_pr]:
+            PromoRequestItem.objects.create(
+                request=pr,
+                service_type=PromoServiceType.FEATURED_SPECIALISTS,
+                title="بند",
+                start_at=pr.start_at,
+                end_at=pr.end_at,
+            )
+
+        base_qs = PromoRequest.objects.all()
+        candidates = _promo_module_request_candidates_queryset(
+            base_qs, service_type=PromoServiceType.FEATURED_SPECIALISTS,
+        )
+        candidate_ids = set(candidates.values_list("id", flat=True))
+        self.assertIn(new_pr.id, candidate_ids)
+        self.assertNotIn(active_pr.id, candidate_ids)
+        self.assertNotIn(completed_pr.id, candidate_ids)
+
+
+class PromoDashboardSaveTerminalGuardTests(TestCase):
+    """Verify that the promo_dashboard save_request blocks saves on terminal-state requests."""
+
+    def setUp(self):
+        self.staff_user = get_user_model().objects.create_user(
+            phone="0500000310", password="secret", is_staff=True,
+        )
+        UserAccessProfile.objects.create(user=self.staff_user, level=AccessLevel.ADMIN)
+
+        self.requester = get_user_model().objects.create_user(phone="0500000311", password="secret")
+
+        self.client.force_login(self.staff_user)
+        session = self.client.session
+        session[SESSION_OTP_VERIFIED_KEY] = True
+        session.save()
+
+    def _make_request(self, status, ops_status=PromoOpsStatus.NEW):
+        return PromoRequest.objects.create(
+            requester=self.requester,
+            title="طلب حماية حفظ",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=5),
+            status=status,
+            ops_status=ops_status,
+        )
+
+    def _post_save(self, promo_request):
+        detail_url = reverse("dashboard:promo_request_detail", kwargs={"request_id": promo_request.id})
+        response = self.client.get(detail_url)
+        form_token = response.context.get("promo_request_form_token", "")
+        payload = {
+            "action": "save_request",
+            "promo_request_id": str(promo_request.id),
+            "promo_form_token": form_token,
+            "assigned_to": "",
+            "ops_status": promo_request.ops_status,
+            "ops_note": "",
+            "redirect_query": f"request={promo_request.id}",
+        }
+        return self.client.post(detail_url, payload, follow=True)
+
+    def test_save_blocked_on_active_request(self):
+        pr = self._make_request(PromoRequestStatus.ACTIVE)
+        resp = self._post_save(pr)
+        msgs = [str(m) for m in resp.context["messages"]]
+        # Blocked either by token guard (no token issued) or status guard
+        self.assertFalse(any("تم تحديث طلب الترويج" in m for m in msgs))
+
+    def test_save_blocked_on_completed_request(self):
+        pr = self._make_request(PromoRequestStatus.COMPLETED)
+        resp = self._post_save(pr)
+        msgs = [str(m) for m in resp.context["messages"]]
+        self.assertFalse(any("تم تحديث طلب الترويج" in m for m in msgs))
+
+    def test_save_blocked_on_ops_completed(self):
+        pr = self._make_request(PromoRequestStatus.NEW, ops_status=PromoOpsStatus.COMPLETED)
+        resp = self._post_save(pr)
+        msgs = [str(m) for m in resp.context["messages"]]
+        self.assertFalse(any("تم تحديث طلب الترويج" in m for m in msgs))
+
+    def test_save_allowed_on_new_request(self):
+        pr = self._make_request(PromoRequestStatus.NEW)
+        resp = self._post_save(pr)
+        msgs = [str(m) for m in resp.context["messages"]]
+        self.assertTrue(any("تم تحديث طلب الترويج" in m for m in msgs))
+
+    def test_form_token_not_issued_for_terminal_request(self):
+        pr = self._make_request(PromoRequestStatus.COMPLETED)
+        detail_url = reverse("dashboard:promo_request_detail", kwargs={"request_id": pr.id})
+        response = self.client.get(detail_url)
+        self.assertEqual(response.context.get("promo_request_form_token"), "")
+        self.assertFalse(response.context.get("selected_request_can_save"))

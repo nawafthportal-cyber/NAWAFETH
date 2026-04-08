@@ -654,7 +654,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
               );
             },
             child: const Text(
-              "ترقية",
+              "ترقية الباقة",
               style: TextStyle(
                 fontFamily: "Cairo",
                 fontSize: 12,
@@ -693,7 +693,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             Row(
               children: [
                 const Text(
-                  "اكتمال الملف",
+                  "اكتمال الملف التعريفي",
                   style: TextStyle(
                     fontFamily: "Cairo",
                     fontWeight: FontWeight.bold,
@@ -1222,7 +1222,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                           border: Border.all(color: Colors.blue.shade300),
                         ),
                         child: Text(
-                          "$_competitiveOrdersCount عروض",
+                          "$_competitiveOrdersCount عروض أسعار",
                           style: TextStyle(
                             color: Colors.blue.shade800,
                             fontSize: 11,
@@ -1717,7 +1717,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                                           const SizedBox(width: 6),
                                           _statItem(
                                             icon: Icons.qr_code,
-                                            label: "QR",
+                                            label: "QR نافذتي",
                                             value: "",
                                             onTap: _openMyQrScreen,
                                           ),

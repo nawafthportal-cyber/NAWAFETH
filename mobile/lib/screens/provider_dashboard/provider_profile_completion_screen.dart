@@ -591,7 +591,7 @@ class _BasicInfoDetailsScreenState extends State<_BasicInfoDetailsScreen> {
       case 'individual':
         return 'فرد';
       case 'company':
-        return 'مؤسسة';
+        return 'منشأة';
       case 'freelancer':
         return 'مستقل';
       default:

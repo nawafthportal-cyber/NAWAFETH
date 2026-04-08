@@ -27,7 +27,7 @@
               <div class="chat-peer-tags hidden" id="peer-tags"></div>
             </div>
           </div>
-          <div class="chat-header-actions">
+          <div class="chat-header-actions" id="chat-header-actions">
             <button class="chat-header-btn hidden" id="btn-client-requests" title="طلبات العميل" aria-label="طلبات العميل" type="button">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="4" y="3" width="16" height="18" rx="2"></rect>
@@ -65,7 +65,7 @@
             </svg>
           </div>
           <div class="chat-member-meta">
-            <div class="chat-member-label">العضو</div>
+            <div class="chat-member-label" id="peer-card-name-label">العضو</div>
             <div class="chat-member-value" id="peer-card-name">...</div>
           </div>
           <button class="chat-member-action hidden" id="btn-client-requests-card" type="button" title="طلبات العميل" aria-label="طلبات العميل">
@@ -99,6 +99,17 @@
             <div class="chat-member-value" id="peer-card-city">غير متوفر</div>
           </div>
         </div>
+        <div class="chat-member-row chat-member-row-note hidden" id="peer-card-system-row">
+          <div class="chat-member-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2l7 4v6c0 5-3.4 9.74-7 11-3.6-1.26-7-6-7-11V6l7-4zm0 5a1 1 0 00-1 1v4.59l-1.3 1.29a1 1 0 101.42 1.42l1.59-1.59A1 1 0 0013 13V8a1 1 0 00-1-1z"/>
+            </svg>
+          </div>
+          <div class="chat-member-meta">
+            <div class="chat-member-label">نوع الرسالة</div>
+            <div class="chat-member-value" id="peer-card-system-value">رسائل آلية من المنصة</div>
+          </div>
+        </div>
       </section>
 
       <div class="chat-thread-banner hidden" id="chat-thread-banner"></div>
@@ -129,7 +140,7 @@
         <div class="chat-input-wrap" id="chat-input-wrap">
           <div class="chat-attachment-preview hidden" id="chat-attachment-preview"></div>
           <div class="chat-composer-note" id="chat-composer-note">يمكنك إرسال نصوص ومرفقات بشكل مباشر.</div>
-          <div class="chat-input-bar">
+          <div class="chat-input-bar" id="chat-input-bar">
             <button class="chat-attach-btn" id="btn-attach" type="button" aria-label="إضافة مرفق" title="إضافة مرفق">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M16.5 6.5l-7.8 7.79a3 3 0 104.24 4.24l8.49-8.49a5 5 0 10-7.07-7.07L5.5 11.83a7 7 0 109.9 9.9l7.07-7.07-1.41-1.41-7.07 7.07a5 5 0 11-7.07-7.07l8.86-8.86a3 3 0 114.24 4.24l-8.48 8.49a1 1 0 11-1.42-1.42l7.78-7.78-1.4-1.42z"/>

@@ -633,7 +633,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ],
                         ),
                       )
-                    : RefreshIndicator(
+                    : Column(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                            child: Text(
+                              'تابع آخر التحديثات والعروض والرسائل في مكان واحد.',
+                              style: TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 13,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: RefreshIndicator(
                         onRefresh: _loadNotifications,
                         color: Colors.deepPurple,
                         child: ListView.builder(
@@ -655,6 +669,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 _notifications[index], index);
                           },
                         ),
+                      ),
+                          ),
+                        ],
                       ),
       ),
     );

@@ -246,7 +246,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
 
   String _formatMoney(double? value) {
     if (value == null) return '-';
-    return '${value.toStringAsFixed(0)} (SR)';
+    return '${value.toStringAsFixed(0)} ر.س';
   }
 
   void _openChat() {
@@ -907,7 +907,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
               ? '-'
               : _formatDateOnly(order.deliveredAt!)),
           const SizedBox(height: 10),
-          _infoLabel('قيمة الخدمة الفعلية (SR)'),
+          _infoLabel('قيمة الخدمة الفعلية'),
           _infoRow(_formatMoney(order.actualAmount)),
           const SizedBox(height: 12),
           SizedBox(
@@ -944,11 +944,11 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                 value: _ratingResponseSpeed,
                 onChanged: (v) => setState(() => _ratingResponseSpeed = v)),
             _ratingRow(
-                label: 'التكلفة مقابل الخدمة',
+                label: 'القيمة مقابل السعر',
                 value: _ratingCostValue,
                 onChanged: (v) => setState(() => _ratingCostValue = v)),
             _ratingRow(
-                label: 'جودة الخدمة',
+                label: 'جودة العمل',
                 value: _ratingQuality,
                 onChanged: (v) => setState(() => _ratingQuality = v)),
             _ratingRow(
@@ -956,11 +956,11 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                 value: _ratingCredibility,
                 onChanged: (v) => setState(() => _ratingCredibility = v)),
             _ratingRow(
-                label: 'وقت الإنجاز',
+                label: 'الالتزام بالموعد',
                 value: _ratingOnTime,
                 onChanged: (v) => setState(() => _ratingOnTime = v)),
             const SizedBox(height: 12),
-            const Text('تعليق على الخدمة المقدمة (300 حرف)',
+            const Text('تعليقك',
                 style: TextStyle(
                     fontFamily: 'Cairo',
                     fontSize: 13,
@@ -976,7 +976,11 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                   null,
               minLines: 3,
               maxLines: 5,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'اكتب تعليقًا مختصرًا عن التجربة',
+                hintStyle: TextStyle(fontFamily: 'Cairo', fontSize: 13),
+              ),
               style: const TextStyle(fontFamily: 'Cairo'),
             ),
             const SizedBox(height: 10),
@@ -995,7 +999,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white),
                       )
-                    : const Text('إرسال التقييم والمراجعة',
+                    : const Text('إرسال التقييم',
                         style: TextStyle(
                             fontFamily: 'Cairo',
                             fontWeight: FontWeight.bold,
@@ -1025,13 +1029,13 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
               ? '-'
               : _formatDateOnly(order.expectedDeliveryAt!)),
           const SizedBox(height: 10),
-          _infoLabel('قيمة الخدمة المقدرة (SR)'),
+          _infoLabel('قيمة الخدمة المقدرة'),
           _infoRow(_formatMoney(order.estimatedAmount)),
           const SizedBox(height: 10),
-          _infoLabel('المبلغ المستلم (SR)'),
+          _infoLabel('المبلغ المستلم'),
           _infoRow(_formatMoney(order.receivedAmt)),
           const SizedBox(height: 10),
-          _infoLabel('المبلغ المتبقي (SR)'),
+          _infoLabel('المبلغ المتبقي'),
           _infoRow(_formatMoney(order.remainingAmt)),
           if (order.providerInputsApproved != null) ...[
             const SizedBox(height: 12),
@@ -1075,13 +1079,13 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
               ? '-'
               : _formatDateOnly(order.expectedDeliveryAt!)),
           const SizedBox(height: 10),
-          _infoLabel('قيمة الخدمة المقدرة (SR)'),
+          _infoLabel('قيمة الخدمة المقدرة'),
           _infoRow(_formatMoney(order.estimatedAmount)),
           const SizedBox(height: 10),
-          _infoLabel('المبلغ المستلم (SR)'),
+          _infoLabel('المبلغ المستلم'),
           _infoRow(_formatMoney(order.receivedAmt)),
           const SizedBox(height: 10),
-          _infoLabel('المبلغ المتبقي (SR)'),
+          _infoLabel('المبلغ المتبقي'),
           _infoRow(_formatMoney(order.remainingAmt)),
           if (rejected && decisionNote.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -1095,7 +1099,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
               minLines: 2,
               maxLines: 4,
               decoration: const InputDecoration(
-                labelText: 'سبب الرفض (مطلوب عند الرفض)',
+                labelText: 'سبب الرفض عند الحاجة',
                 border: OutlineInputBorder(),
               ),
               style: const TextStyle(fontFamily: 'Cairo'),

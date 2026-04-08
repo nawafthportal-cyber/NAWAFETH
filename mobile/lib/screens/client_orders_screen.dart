@@ -261,10 +261,57 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
   }
 
   Widget _buildBody({required bool isDark}) {
+    final totalCount = _orders.length;
+    final activeCount = _orders.where((o) =>
+        o.statusGroup == 'new' || o.statusGroup == 'in_progress').length;
+
     return Column(
       children: [
+        // ── لوحة الطلبات ──
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isDark ? Colors.deepPurple.shade900.withAlpha(60) : Colors.deepPurple.shade50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark ? Colors.deepPurple.shade700.withAlpha(60) : Colors.deepPurple.shade100,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'لوحة الطلبات',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      'متابعة سريعة لحالة كل طلب',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10,
+                        color: isDark ? Colors.white54 : Colors.black45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _heroStat(totalCount.toString(), 'إجمالي الطلبات', isDark),
+              const SizedBox(width: 14),
+              _heroStat(activeCount.toString(), 'طلبات نشطة', isDark),
+            ],
+          ),
+        ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
           child: Column(
             children: [
               // حقل البحث
@@ -508,6 +555,30 @@ class _ClientOrdersScreenState extends State<ClientOrdersScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _heroStat(String value, String label, bool isDark) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.deepPurple,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Cairo',
+            fontSize: 9,
+            color: isDark ? Colors.white54 : Colors.black45,
+          ),
+        ),
+      ],
     );
   }
 }

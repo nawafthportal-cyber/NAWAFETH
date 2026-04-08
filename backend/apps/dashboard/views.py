@@ -3357,6 +3357,19 @@ def promo_dashboard(request, request_id: int | None = None):
                     messages.warning(request, "تم تجاهل محاولة الحفظ المكررة. حدّث الصفحة قبل إعادة الحفظ.")
                     return _promo_redirect_with_state(request, request_id=target_request.id)
 
+            _save_blocked_statuses = {
+                PromoRequestStatus.ACTIVE,
+                PromoRequestStatus.COMPLETED,
+                PromoRequestStatus.EXPIRED,
+                PromoRequestStatus.CANCELLED,
+                PromoRequestStatus.REJECTED,
+            }
+            if action == "save_request" and target_request.status in _save_blocked_statuses:
+                messages.warning(
+                    request,
+                    f"لا يمكن تعديل طلب ترويج بحالة «{target_request.get_status_display()}».",
+                )
+                return _promo_redirect_with_state(request, request_id=target_request.id)
             if action == "save_request" and target_request.ops_status == PromoOpsStatus.COMPLETED:
                 messages.warning(request, "طلب الترويج المكتمل لا يقبل الحفظ مرة أخرى.")
                 return _promo_redirect_with_state(request, request_id=target_request.id)
@@ -3456,9 +3469,21 @@ def promo_dashboard(request, request_id: int | None = None):
         if can_write and selected_inquiry is not None
         else ""
     )
+    _request_terminal_statuses = {
+        PromoRequestStatus.ACTIVE,
+        PromoRequestStatus.COMPLETED,
+        PromoRequestStatus.EXPIRED,
+        PromoRequestStatus.CANCELLED,
+        PromoRequestStatus.REJECTED,
+    }
+    _selected_request_is_mutable = bool(
+        selected_request is not None
+        and selected_request.status not in _request_terminal_statuses
+        and selected_request.ops_status != PromoOpsStatus.COMPLETED
+    )
     promo_request_form_token = (
         _issue_single_use_submit_token(request, PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY)
-        if can_write and selected_request is not None and selected_request.ops_status != PromoOpsStatus.COMPLETED
+        if can_write and _selected_request_is_mutable
         else ""
     )
 
@@ -3469,9 +3494,7 @@ def promo_dashboard(request, request_id: int | None = None):
             "hero_subtitle": "إدارة الاستفسارات، تحويلها لطلبات ترويج، تشغيل التنفيذ، ومتابعة التسعير والفوترة.",
             "can_write": can_write,
             "selected_request_can_save": bool(
-                can_write
-                and selected_request is not None
-                and selected_request.ops_status != PromoOpsStatus.COMPLETED
+                can_write and _selected_request_is_mutable
             ),
             "inquiries": _promo_inquiry_rows(inquiries),
             "promo_requests": _promo_request_rows(promo_requests),
@@ -4947,7 +4970,21 @@ def _promo_module_request_candidates_queryset(requests_base_qs, *, service_type:
     legacy_ad_types = PROMO_MODULE_LEGACY_AD_TYPES_BY_SERVICE.get(service_type_value, set())
     if legacy_ad_types:
         filter_q |= Q(ad_type__in=legacy_ad_types)
-    return requests_base_qs.filter(filter_q).distinct().order_by("-created_at", "-id")
+    # Exclude requests in terminal / immutable states
+    immutable_statuses = {
+        PromoRequestStatus.ACTIVE,
+        PromoRequestStatus.COMPLETED,
+        PromoRequestStatus.EXPIRED,
+        PromoRequestStatus.CANCELLED,
+        PromoRequestStatus.REJECTED,
+    }
+    return (
+        requests_base_qs.filter(filter_q)
+        .exclude(status__in=immutable_statuses)
+        .exclude(ops_status__in={PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED})
+        .distinct()
+        .order_by("-created_at", "-id")
+    )
 
 
 def _promo_selected_request_item_for_service(selected_request: PromoRequest | None, *, service_type: str) -> PromoRequestItem | None:
@@ -5421,6 +5458,39 @@ def promo_module(request, module_key: str):
             promo_request = requests_base_qs.filter(id=int(request_id)).first() if request_id else None
             if promo_request is None:
                 module_form.add_error("request_id", "رقم طلب الترويج المحدد غير متاح.")
+            elif module_action != "preview_item":
+                # --- status guards: prevent item creation on terminal / already-active requests ---
+                _immutable_statuses = {
+                    PromoRequestStatus.ACTIVE,
+                    PromoRequestStatus.COMPLETED,
+                    PromoRequestStatus.EXPIRED,
+                    PromoRequestStatus.CANCELLED,
+                    PromoRequestStatus.REJECTED,
+                }
+                if promo_request.status in _immutable_statuses:
+                    messages.error(
+                        request,
+                        f"لا يمكن إضافة بنود جديدة لطلب بحالة «{promo_request.get_status_display()}».",
+                    )
+                    return _promo_module_redirect_with_state(request, module_key, request_id=promo_request.id)
+                if promo_request.ops_status in {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED}:
+                    messages.error(
+                        request,
+                        f"لا يمكن إضافة بنود جديدة لطلب حالة تنفيذه «{promo_request.get_ops_status_display()}».",
+                    )
+                    return _promo_module_redirect_with_state(request, module_key, request_id=promo_request.id)
+                # For PROMO_MESSAGES: prevent creating a duplicate item if one was already sent
+                if service_type == PromoServiceType.PROMO_MESSAGES:
+                    already_sent = promo_request.items.filter(
+                        service_type=PromoServiceType.PROMO_MESSAGES,
+                        message_sent_at__isnull=False,
+                    ).exists()
+                    if already_sent:
+                        messages.error(
+                            request,
+                            "يوجد بند رسائل دعائية تم إرساله مسبقًا في هذا الطلب. لا يمكن إضافة بند آخر.",
+                        )
+                        return _promo_module_redirect_with_state(request, module_key, request_id=promo_request.id)
 
             target_provider = None
             target_provider_id = cleaned.get("target_provider_id")

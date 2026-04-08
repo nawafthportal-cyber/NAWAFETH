@@ -187,7 +187,26 @@ class _PlansScreenState extends State<PlansScreen> {
                       ],
                     ),
                   )
-                : ListView.builder(
+                : Column(
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          compact ? 10 : 12,
+                          compact ? 10 : 14,
+                          compact ? 10 : 12,
+                          0,
+                        ),
+                        child: const Text(
+                          'اختر الباقة المناسبة لإكمال الترقية.',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: ListView.builder(
                     padding: EdgeInsets.fromLTRB(
                       compact ? 10 : 12,
                       compact ? 10 : 14,
@@ -200,6 +219,9 @@ class _PlansScreenState extends State<PlansScreen> {
                       compact: compact,
                       veryCompact: veryCompact,
                     ),
+                  ),
+                      ),
+                    ],
                   ),
       ),
     );

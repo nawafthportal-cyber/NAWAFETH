@@ -61,8 +61,8 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
       builder: (_) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
-          title: const Text('تم إنشاء الطلب'),
-          content: Text('تم إنشاء طلب الاشتراك بنجاح. المبلغ النهائي: $amountLabel'),
+          title: const Text('تم تسجيل الاشتراك بنجاح'),
+          content: Text('سيتم إشعاركم بتفعيل الاشتراك بعد مراجعة فريق الاشتراكات. المبلغ النهائي: $amountLabel'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -104,7 +104,7 @@ class _PlanSummaryScreenState extends State<PlanSummaryScreen> {
       child: Scaffold(
         backgroundColor: const Color(0xFFF6F8FB),
         appBar: const PlatformTopBar(
-          pageLabel: 'ملخص الاشتراك',
+          pageLabel: 'ملخص طلب الترقية والتكلفة',
           showBackButton: true,
           showNotificationAction: false,
           showChatAction: false,

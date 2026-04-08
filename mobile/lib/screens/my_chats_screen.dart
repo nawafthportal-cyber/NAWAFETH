@@ -442,6 +442,69 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // ── شريط الرسائل ──
+            Container(
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.deepPurple.shade100),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'الرسائل',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: const [
+                            _HeroTag('رسائل مباشرة'),
+                            _HeroTag('فرق المنصة'),
+                            _HeroTag('مرفقات آمنة'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    children: [
+                      Text(
+                        '${_threads.length}',
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.deepPurple,
+                        ),
+                      ),
+                      if (totalUnread > 0)
+                        Text(
+                          '$totalUnread غير مقروء',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 9,
+                            color: Colors.red.shade600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
             // ✅ حقل البحث
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
@@ -805,6 +868,31 @@ class _MyChatsScreenState extends State<MyChatsScreen> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroTag extends StatelessWidget {
+  final String label;
+  const _HeroTag(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.deepPurple.shade100.withAlpha(80),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 9,
+          color: Colors.deepPurple,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

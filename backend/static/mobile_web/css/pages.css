@@ -3818,6 +3818,11 @@ body.page-profile .profile-guest-highlight span {
   border-color: #f6d38a;
   background: #fffbeb;
 }
+.chat-header.is-system-thread {
+  background:
+    radial-gradient(circle at top right, rgba(103,58,183,.16), transparent 36%),
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,241,255,.96));
+}
 .chat-member-card {
   margin: 12px 14px 10px;
   padding: 10px;
@@ -3829,6 +3834,13 @@ body.page-profile .profile-guest-highlight span {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+.chat-member-card.is-system-thread {
+  grid-template-columns: 1fr;
+  background:
+    radial-gradient(circle at top right, rgba(103,58,183,.14), transparent 42%),
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(246,241,255,.96));
+  border-color: rgba(103,58,183,.16);
 }
 .chat-member-row {
   display: flex;
@@ -3845,6 +3857,14 @@ body.page-profile .profile-guest-highlight span {
   grid-column: 1 / -1;
   background: linear-gradient(135deg, rgba(103,58,183,.12), rgba(103,58,183,.04));
   border-color: rgba(103,58,183,.14);
+}
+.chat-member-card.is-system-thread .chat-member-row-identity {
+  background: linear-gradient(135deg, rgba(103,58,183,.18), rgba(103,58,183,.08));
+}
+.chat-member-row-note {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(99,102,241,.1), rgba(103,58,183,.06));
+  border-color: rgba(99,102,241,.16);
 }
 .chat-member-action {
   margin-inline-start: auto;
@@ -3900,6 +3920,14 @@ body.page-profile .profile-guest-highlight span {
   background: #eef2ff;
   border: 1px solid #c7d2fe;
   color: #3730a3;
+}
+.chat-input-wrap.is-readonly {
+  gap: 0;
+}
+.chat-input-wrap.is-readonly .chat-composer-note {
+  margin-bottom: 0;
+  color: #4338ca;
+  font-weight: 800;
 }
 .chat-messages-shell {
   flex: 1;

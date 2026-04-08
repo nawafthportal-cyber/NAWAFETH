@@ -166,7 +166,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
       case 'individual':
         return 'فرد';
       case 'company':
-        return 'مؤسسة';
+        return 'منشأة';
       case 'freelancer':
         return 'مستقل';
       default:

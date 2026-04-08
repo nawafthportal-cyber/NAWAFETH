@@ -84,15 +84,21 @@ const ChatDetailPage = (() => {
   }
 
   function _cacheDom() {
+    dom.header = document.getElementById('chat-header');
+    dom.headerActions = document.getElementById('chat-header-actions');
+    dom.memberCard = document.getElementById('chat-member-card');
     dom.peerAvatar = document.getElementById('peer-avatar');
     dom.peerName = document.getElementById('peer-name');
     dom.peerSubtitle = document.getElementById('peer-subtitle');
     dom.peerTags = document.getElementById('peer-tags');
+    dom.peerCardNameLabel = document.getElementById('peer-card-name-label');
     dom.peerCardName = document.getElementById('peer-card-name');
     dom.peerCardPhone = document.getElementById('peer-card-phone');
     dom.peerCardCity = document.getElementById('peer-card-city');
     dom.peerCardPhoneRow = document.getElementById('peer-card-phone-row');
     dom.peerCardCityRow = document.getElementById('peer-card-city-row');
+    dom.peerCardSystemRow = document.getElementById('peer-card-system-row');
+    dom.peerCardSystemValue = document.getElementById('peer-card-system-value');
     dom.favoriteIndicator = document.getElementById('chat-favorite-indicator');
     dom.banner = document.getElementById('chat-thread-banner');
     dom.composerNote = document.getElementById('chat-composer-note');
@@ -128,6 +134,7 @@ const ChatDetailPage = (() => {
     dom.btnRetry = document.getElementById('btn-retry-load');
 
     dom.inputWrap = document.getElementById('chat-input-wrap');
+    dom.inputBar = document.getElementById('chat-input-bar');
     dom.attachPreview = document.getElementById('chat-attachment-preview');
     dom.btnAttach = document.getElementById('btn-attach');
     dom.fileInput = document.getElementById('msg-file-input');
@@ -291,8 +298,9 @@ const ChatDetailPage = (() => {
     for (let i = 0; i < rawList.length; i += 1) {
       const raw = rawList[i] || {};
       const senderId = _toInt(raw.sender_id || raw.sender);
-      if (senderId && senderId !== state.myUserId && _trim(raw.sender_name)) {
-        state.peer.name = _trim(raw.sender_name);
+      const senderTeamName = _trim(raw.sender_team_name);
+      if (senderId && senderId !== state.myUserId && (senderTeamName || _trim(raw.sender_name))) {
+        state.peer.name = senderTeamName || _trim(raw.sender_name);
         _renderPeer();
         return;
       }
@@ -350,10 +358,20 @@ const ChatDetailPage = (() => {
   }
 
   function _renderPeer() {
-    if (dom.peerName) dom.peerName.textContent = state.peer.name || 'مستخدم';
-    if (dom.peerCardName) dom.peerCardName.textContent = state.peer.name || 'مستخدم';
+    const isSystem = _isAutoPlatformThread();
+    const displayName = isSystem ? _systemThreadSenderLabel() : (state.peer.name || 'مستخدم');
+    if (isSystem && displayName) state.peer.name = displayName;
+
+    if (dom.peerName) dom.peerName.textContent = displayName || 'مستخدم';
+    if (dom.peerCardName) dom.peerCardName.textContent = displayName || 'مستخدم';
     if (dom.peerCardPhone) dom.peerCardPhone.textContent = state.peer.phone || 'غير متوفر';
     if (dom.peerCardCity) dom.peerCardCity.textContent = state.peer.city || 'غير متوفر';
+    if (dom.peerCardNameLabel) dom.peerCardNameLabel.textContent = isSystem ? 'الفريق المرسل' : 'العضو';
+    if (dom.peerCardSystemValue) {
+      dom.peerCardSystemValue.textContent = isSystem
+        ? 'رسائل آلية مباشرة من ' + _systemThreadSenderLabel()
+        : 'رسائل آلية من المنصة';
+    }
 
     state.peer.kind = _derivePeerKind();
 
@@ -377,15 +395,21 @@ const ChatDetailPage = (() => {
     }
 
     if (dom.peerCardPhoneRow) {
-      dom.peerCardPhoneRow.classList.toggle('hidden', !_hasMeaningfulValue(state.peer.phone));
+      dom.peerCardPhoneRow.classList.toggle('hidden', isSystem || !_hasMeaningfulValue(state.peer.phone));
     }
     if (dom.peerCardCityRow) {
-      dom.peerCardCityRow.classList.toggle('hidden', !_hasMeaningfulValue(state.peer.city));
+      dom.peerCardCityRow.classList.toggle('hidden', isSystem || !_hasMeaningfulValue(state.peer.city));
+    }
+    if (dom.peerCardSystemRow) {
+      dom.peerCardSystemRow.classList.toggle('hidden', !isSystem);
     }
 
     if (dom.composerNote) {
       dom.composerNote.textContent = _composerNote();
     }
+    dom.header?.classList.toggle('is-system-thread', isSystem);
+    dom.memberCard?.classList.toggle('is-system-thread', isSystem);
+    _renderHeaderActions();
 
     if (!dom.peerAvatar) return;
     dom.peerAvatar.innerHTML = '';
@@ -406,14 +430,31 @@ const ChatDetailPage = (() => {
   }
 
   function _renderProviderClientActions() {
-    const show = _canShowProviderClientActions();
-    dom.btnClientRequests?.classList.toggle('hidden', !show);
-    dom.btnSendServiceRequest?.classList.toggle('hidden', !show);
+    const show = _canShowProviderClientActions() && !_isAutoPlatformThread();
     dom.btnClientRequestsCard?.classList.toggle('hidden', !show);
     if (dom.clientRequestsTitle) {
       const peerName = _trim(state.peer.name) || 'العميل';
       dom.clientRequestsTitle.textContent = 'طلبات العميل: ' + peerName;
     }
+    _renderHeaderActions();
+  }
+
+  function _renderHeaderActions() {
+    const isSystem = _isAutoPlatformThread();
+    const showProviderTools = _canShowProviderClientActions() && !isSystem;
+    dom.btnClientRequests?.classList.toggle('hidden', !showProviderTools);
+    dom.btnSendServiceRequest?.classList.toggle('hidden', !showProviderTools);
+    dom.btnFavorite?.classList.toggle('hidden', isSystem);
+    dom.btnOptions?.classList.toggle('hidden', isSystem);
+
+    const buttons = [
+      dom.btnClientRequests,
+      dom.btnSendServiceRequest,
+      dom.btnFavorite,
+      dom.btnOptions,
+    ].filter(Boolean);
+    const hasVisible = buttons.some((btn) => !btn.classList.contains('hidden'));
+    dom.headerActions?.classList.toggle('hidden', !hasVisible);
   }
 
   function _derivePeerKind() {
@@ -424,8 +465,8 @@ const ChatDetailPage = (() => {
   }
 
   function _peerSubtitle() {
-    if (state.threadState.reply_restricted_to_me || state.threadState.is_system_thread) {
-      const label = _trim(state.threadState.system_sender_label) || _trim(state.peer.name) || 'الجهة المرسلة';
+    if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
+      const label = _systemThreadSenderLabel() || 'الجهة المرسلة';
       return 'رسائل آلية من ' + label;
     }
     if (state.peer.kind === 'team') return 'رسائل فريق المنصة';
@@ -436,8 +477,9 @@ const ChatDetailPage = (() => {
 
   function _peerTags() {
     const tags = [];
+    const isSystem = _isAutoPlatformThread();
 
-    if (state.threadState.is_system_thread) {
+    if (isSystem) {
       tags.push({ text: 'رسائل آلية', accent: 'violet' });
     }
 
@@ -449,9 +491,11 @@ const ChatDetailPage = (() => {
       tags.push({ text: 'عميل', accent: 'amber' });
     }
 
-    tags.push({ text: 'رسائل مباشرة' });
+    if (!isSystem) {
+      tags.push({ text: 'رسائل مباشرة' });
+    }
 
-    if (_hasMeaningfulValue(state.peer.city)) {
+    if (!isSystem && _hasMeaningfulValue(state.peer.city)) {
       tags.push({ text: state.peer.city, accent: 'slate' });
     }
 
@@ -462,8 +506,8 @@ const ChatDetailPage = (() => {
     if (state.threadState.blocked_by_other || state.threadState.is_blocked) {
       return 'الإرسال متوقف حتى يتم رفع الحظر.';
     }
-    if (state.threadState.reply_restricted_to_me) {
-      return state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.';
+    if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
+      return state.threadState.reply_restriction_reason || 'الردود مغلقة على هذه الرسائل الآلية.';
     }
     if (state.peer.kind === 'team') {
       return 'يمكنك متابعة الرسائل مع فريق المنصة وإرسال المرفقات عند الحاجة.';
@@ -487,10 +531,19 @@ const ChatDetailPage = (() => {
     return normalized.startsWith('فريق ');
   }
 
+  function _isAutoPlatformThread() {
+    return !!state.threadState.is_system_thread;
+  }
+
+  function _systemThreadSenderLabel() {
+    return _trim(state.threadState.system_sender_label) || _trim(state.peer.name) || 'فريق المنصة';
+  }
+
   function _renderThreadState() {
+    const isSystem = _isAutoPlatformThread();
     const isFavorite = !!state.threadState.is_favorite;
     dom.btnFavorite?.classList.toggle('active', isFavorite);
-    dom.favoriteIndicator?.classList.toggle('hidden', !isFavorite);
+    dom.favoriteIndicator?.classList.toggle('hidden', isSystem || !isFavorite);
     if (dom.composerNote) dom.composerNote.textContent = _composerNote();
 
     if (dom.actionFavorite) {
@@ -516,7 +569,7 @@ const ChatDetailPage = (() => {
       _setComposerDisabled(true);
       return;
     }
-    if (state.threadState.reply_restricted_to_me) {
+    if (isSystem || state.threadState.reply_restricted_to_me) {
       _showBanner(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'info');
       _setComposerDisabled(true);
       return;
@@ -544,6 +597,15 @@ const ChatDetailPage = (() => {
     dom.msgInput.disabled = disabled;
     dom.btnAttach.disabled = disabled;
     dom.inputWrap?.classList.toggle('is-disabled', disabled);
+    dom.inputWrap?.classList.toggle('is-readonly', disabled && _isAutoPlatformThread());
+    if (dom.inputBar) {
+      dom.inputBar.classList.toggle('hidden', disabled && _isAutoPlatformThread());
+    }
+    if (disabled && _isAutoPlatformThread()) {
+      state.pendingAttachment = null;
+      if (dom.fileInput) dom.fileInput.value = '';
+      _renderAttachmentPreview();
+    }
     _updateSendButtonState();
   }
 
@@ -901,7 +963,7 @@ const ChatDetailPage = (() => {
     const hasText = !!_trim(dom.msgInput?.value);
     const hasAttachment = !!state.pendingAttachment;
     const blocked = !!state.threadState.is_blocked || !!state.threadState.blocked_by_other;
-    const replyLocked = !!state.threadState.reply_restricted_to_me;
+    const replyLocked = !!state.threadState.reply_restricted_to_me || _isAutoPlatformThread();
     const disabled = state.isSending || blocked || replyLocked || (!hasText && !hasAttachment);
 
     if (dom.btnSend) {
@@ -921,7 +983,7 @@ const ChatDetailPage = (() => {
       _showToast('لا يمكن الإرسال لأن هذه الرسائل محظورة.', 'error');
       return;
     }
-    if (state.threadState.reply_restricted_to_me) {
+    if (_isAutoPlatformThread() || state.threadState.reply_restricted_to_me) {
       _showToast(state.threadState.reply_restriction_reason || 'الردود مغلقة لهذه الرسائل الآلية.', 'warning');
       return;
     }
@@ -1349,6 +1411,7 @@ const ChatDetailPage = (() => {
   }
 
   function _openOptionsSheet() {
+    if (_isAutoPlatformThread()) return;
     dom.sheetBackdrop?.classList.remove('hidden');
     dom.optionsSheet?.classList.remove('hidden');
     requestAnimationFrame(() => {

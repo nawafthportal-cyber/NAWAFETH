@@ -964,7 +964,7 @@ class _HomeScreenState extends State<HomeScreen> {
         margin: const EdgeInsets.only(top: 12),
         alignment: Alignment.center,
         child: Text(
-          'لا توجد لمحات حاليا',
+          'لا توجد لمحات حالياً',
           style: TextStyle(
             fontSize: 11,
             fontFamily: 'Cairo',

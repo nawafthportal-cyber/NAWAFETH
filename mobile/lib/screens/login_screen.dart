@@ -75,10 +75,25 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
   }
 
+  /// تطبيع رقم الجوال إلى صيغة 05XXXXXXXX
+  String _normalizePhone05(String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.startsWith('009665') && digits.length == 12) {
+      return '0${digits.substring(4)}';
+    }
+    if (digits.startsWith('9665') && digits.length == 12) {
+      return '0${digits.substring(3)}';
+    }
+    if (digits.startsWith('5') && digits.length == 9) {
+      return '0$digits';
+    }
+    return digits;
+  }
+
   /// ✅ التحقق من صحة رقم الجوال
   bool get _isPhoneValid {
-    final digits = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
-    return RegExp(r'^05\d{8}$').hasMatch(digits);
+    final normalized = _normalizePhone05(_phoneController.text);
+    return RegExp(r'^05\d{8}$').hasMatch(normalized);
   }
 
   /// ✅ إرسال OTP عبر الـ API
@@ -98,7 +113,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _errorMessage = null;
     });
 
-    final phone = _phoneController.text.replaceAll(RegExp(r'[^\d]'), '');
+    final phone = _normalizePhone05(_phoneController.text);
     final result = await AuthApiService.sendOtp(phone);
 
     if (!mounted) return;

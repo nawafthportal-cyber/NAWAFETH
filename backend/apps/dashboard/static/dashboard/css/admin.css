@@ -2790,6 +2790,7 @@ table.dash-table {
 .inline-icon-btn {
   width: 30px;
   height: 30px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface-solid);
@@ -2797,7 +2798,10 @@ table.dash-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
+  line-height: 0;
   transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
@@ -2816,6 +2820,13 @@ table.dash-table {
   opacity: .45;
   cursor: not-allowed;
   transform: none;
+}
+
+.inline-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .field-hint {
@@ -3184,12 +3195,14 @@ table.dash-table {
 }
 
 .subs-account-action-form {
+  display: inline-flex;
   margin: 0;
 }
 
 .subs-account-action-btn {
   width: 48px;
   height: 48px;
+  padding: 0;
   border: 1px solid rgba(123, 66, 180, .18);
   border-radius: 14px;
   background: #fff;
@@ -3197,7 +3210,11 @@ table.dash-table {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
+  line-height: 0;
+  flex-shrink: 0;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
 }
 
@@ -3227,7 +3244,11 @@ table.dash-table {
 .subs-account-action-btn svg {
   width: 22px;
   height: 22px;
+  display: block;
+  flex-shrink: 0;
 }
+
+.kpi-card h3 {
   padding: 14px 18px;
   color: #fff;
   font-size: .98rem;

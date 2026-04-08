@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/chat_message_model.dart';
 import '../models/service_request_model.dart';
 import '../services/messaging_service.dart';
@@ -85,6 +86,10 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     r'(https?:\/\/[^\s]+|\/service-request\/[^\s]*)',
     caseSensitive: false,
   );
+  static final RegExp _paymentUrlRegex = RegExp(
+    r'(https?:\/\/[^\s]*(?:promotion|promo-payment|subscription|verification)[^\s]*|\/(?:promotion|promo-payment|subscription|verification)(?:\/[^\s]*)?)',
+    caseSensitive: false,
+  );
 
   String get _connectionStatusText {
     if (_isChatConnected) return 'متصل';
@@ -95,9 +100,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   bool get _isChatWithClient => widget.peerProviderId == null;
 
   bool get _canShowProviderClientActions =>
-      _isProviderAccount && _isChatWithClient && (widget.peerId ?? 0) > 0;
+      !_isAutomatedPlatformThread &&
+      _isProviderAccount &&
+      _isChatWithClient &&
+      (widget.peerId ?? 0) > 0;
 
-  bool get _isReplyRestricted => _replyRestrictedToMe;
+  bool get _isAutomatedPlatformThread => _isSystemThread;
+
+  bool get _isReplyRestricted => _replyRestrictedToMe || _isAutomatedPlatformThread;
 
   String get _replyRestrictionMessage {
     final reason = _replyRestrictionReason.trim();
@@ -109,7 +119,20 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return 'الردود مغلقة لهذه الرسائل الآلية.';
   }
 
+  String get _systemThreadDisplayName {
+    final label = _systemSenderLabel.trim();
+    if (label.isNotEmpty) return label;
+    final override = _peerNameOverride.trim();
+    if (override.isNotEmpty) return override;
+    final fallback = widget.peerName.trim();
+    if (fallback.isNotEmpty) return fallback;
+    return 'فريق المنصة';
+  }
+
   String get _memberName {
+    if (_isAutomatedPlatformThread) {
+      return _systemThreadDisplayName;
+    }
     final value = _peerNameOverride.trim().isNotEmpty
         ? _peerNameOverride.trim()
         : widget.peerName.trim();
@@ -212,6 +235,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _replyRestrictionReason = threadState.replyRestrictionReason;
         _systemSenderLabel = threadState.systemSenderLabel;
         _isSystemThread = threadState.isSystemThread;
+        if (_isReplyRestricted) {
+          _pendingType = null;
+          _pendingFile = null;
+          _pendingDuration = null;
+          _recordSeconds = 0;
+        }
         if (_systemSenderLabel.trim().isNotEmpty) {
           _peerNameOverride = _systemSenderLabel.trim();
         }
@@ -778,6 +807,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   // ✅ خيارات المحادثة من الشريط العلوي
   void _showChatOptions() {
+    if (_isAutomatedPlatformThread) {
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -1221,6 +1253,101 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  bool _isPaymentUrl(String text) {
+    return _paymentUrlRegex.hasMatch(text);
+  }
+
+  Widget _buildPaymentCTA(String body, bool isMe, Color textColor) {
+    final match = _paymentUrlRegex.firstMatch(body);
+    final url = match?.group(0)?.trim() ?? '';
+    final helperText = body.replaceFirst(url, '').trim();
+
+    final bg = isMe
+        ? Colors.white.withValues(alpha: 0.15)
+        : Colors.green.withValues(alpha: 0.07);
+    final border = isMe
+        ? Colors.white.withValues(alpha: 0.25)
+        : Colors.green.withValues(alpha: 0.22);
+    final iconBg = isMe
+        ? Colors.white.withValues(alpha: 0.2)
+        : Colors.green.withValues(alpha: 0.12);
+    final subColor = isMe ? Colors.white70 : Colors.black54;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (helperText.isNotEmpty) ...[
+          Text(helperText,
+              style: TextStyle(
+                  color: textColor, fontFamily: 'Cairo', fontSize: 15)),
+          const SizedBox(height: 8),
+        ],
+        InkWell(
+          onTap: () {
+            final uri = url.startsWith('http')
+                ? Uri.tryParse(url)
+                : Uri.tryParse('https://www.nawafthportal.com$url');
+            if (uri != null) {
+              launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text('💳', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'صفحة الدفع',
+                        style: TextStyle(
+                          color: textColor,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'اضغط هنا للانتقال إلى صفحة الدفع',
+                        style: TextStyle(
+                          color: subColor,
+                          fontFamily: 'Cairo',
+                          fontSize: 11,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_left, color: textColor, size: 18),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1680,6 +1807,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     } else {
       // نص فقط
+      if (_isPaymentUrl(msg.body)) {
+        content = _buildPaymentCTA(msg.body, isMe, textColor);
+      } else {
       final servicePayload = _extractServiceRequestPayload(msg.body);
       if (servicePayload != null) {
         content = Column(
@@ -1701,6 +1831,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           msg.body,
           style: TextStyle(color: textColor, fontFamily: "Cairo", fontSize: 15),
         );
+      }
       }
     }
 
@@ -1932,7 +2063,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: PlatformTopBar(
-        pageLabel: '$_memberName • $_connectionStatusText',
+        pageLabel: _isAutomatedPlatformThread
+            ? '$_memberName • رسالة آلية'
+            : '$_memberName • $_connectionStatusText',
         showBackButton: Navigator.of(context).canPop(),
         showChatAction: false,
         notificationCount: _notificationUnread,
@@ -1945,33 +2078,35 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           await UnreadBadgeService.refresh(force: true);
         },
-        trailingActions: [
-          if (_canShowProviderClientActions)
-            PlatformTopBarActionButton(
-              icon: Icons.assignment_ind_outlined,
-              foreground: const Color(0xFF56316D),
-              background: Colors.white.withValues(alpha: 0.82),
-              borderColor: const Color(0xFFDACDED),
-              onTap: _showClientRequestsSheet,
-            ),
-          if (_canShowProviderClientActions) const SizedBox(width: 6),
-          if (_canShowProviderClientActions)
-            PlatformTopBarActionButton(
-              icon: Icons.send_outlined,
-              foreground: const Color(0xFF56316D),
-              background: Colors.white.withValues(alpha: 0.82),
-              borderColor: const Color(0xFFDACDED),
-              onTap: _sendServiceRequestLink,
-            ),
-          if (_canShowProviderClientActions) const SizedBox(width: 6),
-          PlatformTopBarActionButton(
-            icon: Icons.more_vert,
-            foreground: const Color(0xFF56316D),
-            background: Colors.white.withValues(alpha: 0.82),
-            borderColor: const Color(0xFFDACDED),
-            onTap: _showChatOptions,
-          ),
-        ],
+        trailingActions: _isAutomatedPlatformThread
+            ? const []
+            : [
+                if (_canShowProviderClientActions)
+                  PlatformTopBarActionButton(
+                    icon: Icons.assignment_ind_outlined,
+                    foreground: const Color(0xFF56316D),
+                    background: Colors.white.withValues(alpha: 0.82),
+                    borderColor: const Color(0xFFDACDED),
+                    onTap: _showClientRequestsSheet,
+                  ),
+                if (_canShowProviderClientActions) const SizedBox(width: 6),
+                if (_canShowProviderClientActions)
+                  PlatformTopBarActionButton(
+                    icon: Icons.send_outlined,
+                    foreground: const Color(0xFF56316D),
+                    background: Colors.white.withValues(alpha: 0.82),
+                    borderColor: const Color(0xFFDACDED),
+                    onTap: _sendServiceRequestLink,
+                  ),
+                if (_canShowProviderClientActions) const SizedBox(width: 6),
+                PlatformTopBarActionButton(
+                  icon: Icons.more_vert,
+                  foreground: const Color(0xFF56316D),
+                  background: Colors.white.withValues(alpha: 0.82),
+                  borderColor: const Color(0xFFDACDED),
+                  onTap: _showChatOptions,
+                ),
+              ],
       ),
       body: Column(
         children: [
@@ -1980,7 +2115,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: _isAutomatedPlatformThread
+                  ? const Color(0xFFF7F2FF)
+                  : Colors.white,
               borderRadius: BorderRadius.circular(12),
               border:
                   Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
@@ -1994,8 +2131,13 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.person_outline,
-                        size: 16, color: Colors.deepPurple),
+                    Icon(
+                      _isAutomatedPlatformThread
+                          ? Icons.support_agent_outlined
+                          : Icons.person_outline,
+                      size: 16,
+                      color: Colors.deepPurple,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -2010,6 +2152,24 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         ),
                       ),
                     ),
+                    if (_isAutomatedPlatformThread)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.deepPurple.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'رسالة آلية',
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                            color: Colors.deepPurple,
+                          ),
+                        ),
+                      ),
                     if (_canShowProviderClientActions)
                       IconButton(
                         icon: const Icon(
@@ -2025,44 +2185,78 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    const Icon(Icons.phone_outlined,
-                        size: 15, color: Colors.grey),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _memberPhone,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            color: Colors.black54),
+                if (_isAutomatedPlatformThread) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.72),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.deepPurple.withValues(alpha: 0.12),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.location_city_outlined,
-                        size: 15, color: Colors.grey),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _memberCity,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            color: Colors.black54),
-                      ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.lock_outline,
+                            size: 16, color: Colors.deepPurple),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'هذه المحادثة مخصصة لاستقبال الرسائل الآلية من المنصة فقط.',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF4C3575),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      const Icon(Icons.phone_outlined,
+                          size: 15, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _memberPhone,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color: Colors.black54),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_city_outlined,
+                          size: 15, color: Colors.grey),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _memberCity,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color: Colors.black54),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -2167,90 +2361,89 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           ),
 
           // ✅ شريط الإدخال
-          SafeArea(
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      offset: Offset(0, -2))
-                ],
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon:
-                        const Icon(Icons.attach_file, color: Colors.deepPurple),
-                    onPressed: _isReplyRestricted ? null : _showAttachmentOptions,
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: _isRecording
-                          ? Row(
-                              children: [
-                                const Icon(Icons.mic, color: Colors.red),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: LinearProgressIndicator(
-                                    value: (_recordSeconds % 10) / 10,
-                                    color: Colors.red,
-                                    backgroundColor: Colors.red.shade100,
+          if (!_isReplyRestricted)
+            SafeArea(
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 4,
+                        offset: Offset(0, -2))
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon:
+                          const Icon(Icons.attach_file, color: Colors.deepPurple),
+                      onPressed: _showAttachmentOptions,
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(25),
+                        ),
+                        child: _isRecording
+                            ? Row(
+                                children: [
+                                  const Icon(Icons.mic, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: LinearProgressIndicator(
+                                      value: (_recordSeconds % 10) / 10,
+                                      color: Colors.red,
+                                      backgroundColor: Colors.red.shade100,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(_formatDuration(_recordSeconds),
-                                    style: const TextStyle(color: Colors.red)),
-                              ],
+                                  const SizedBox(width: 12),
+                                  Text(_formatDuration(_recordSeconds),
+                                      style: const TextStyle(color: Colors.red)),
+                                ],
+                              )
+                            : _buildPreview(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    if (_isRecording)
+                      CircleAvatar(
+                        backgroundColor: Colors.red,
+                        child: IconButton(
+                          icon: const Icon(Icons.stop, color: Colors.white),
+                          onPressed: _stopRecording,
+                        ),
+                      )
+                    else
+                      CircleAvatar(
+                        backgroundColor: Colors.deepPurple,
+                        child: IconButton(
+                          icon: const Icon(Icons.mic, color: Colors.white),
+                          onPressed: _startRecording,
+                        ),
+                      ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      backgroundColor: Colors.deepPurple,
+                      child: _isSending
+                          ? const Padding(
+                              padding: EdgeInsets.all(10),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
-                          : _buildPreview(),
+                          : IconButton(
+                              icon: const Icon(Icons.send, color: Colors.white),
+                              onPressed: _sendMessage,
+                            ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (_isRecording)
-                    CircleAvatar(
-                      backgroundColor: Colors.red,
-                      child: IconButton(
-                        icon: const Icon(Icons.stop, color: Colors.white),
-                        onPressed: _stopRecording,
-                      ),
-                    )
-                  else
-                    CircleAvatar(
-                      backgroundColor:
-                          _isReplyRestricted ? Colors.grey : Colors.deepPurple,
-                      child: IconButton(
-                        icon: const Icon(Icons.mic, color: Colors.white),
-                        onPressed: _isReplyRestricted ? null : _startRecording,
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  CircleAvatar(
-                    backgroundColor:
-                        _isReplyRestricted ? Colors.grey : Colors.deepPurple,
-                    child: _isSending
-                        ? const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : IconButton(
-                            icon: const Icon(Icons.send, color: Colors.white),
-                            onPressed: _isReplyRestricted ? null : _sendMessage,
-                          ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
