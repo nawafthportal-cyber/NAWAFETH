@@ -12,6 +12,7 @@ const ProviderDetailPage = (() => {
   let _activeTab = 'profile';
   let _providerData = null;
   let _providerPhone = '';
+  let _providerWhatsappUrl = '';
   let _spotlights = [];
   let _portfolioItems = [];
   let _profileLikesBase = 0;
@@ -148,11 +149,14 @@ const ProviderDetailPage = (() => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', e => {
         e.preventDefault();
-        if (!_providerPhone) return;
-        const phone = _formatPhoneE164(_providerPhone).replace('+', '');
         const name = _pickFirstText(_providerData?.display_name, _providerData?.displayName);
-        const msg = encodeURIComponent('السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @' + name);
-        window.open('https://wa.me/' + phone + '?text=' + msg, '_blank');
+        const waUrl = _buildWhatsappChatUrl(
+          _providerWhatsappUrl,
+          _providerPhone,
+          'السلام عليكم\nأتواصل معك بخصوص خدماتك في منصة نوافذ @' + name,
+        );
+        if (!waUrl) return;
+        window.open(waUrl, '_blank');
       });
     });
 
@@ -386,6 +390,7 @@ const ProviderDetailPage = (() => {
      RENDER PROVIDER PROFILE
      ═══════════════════════════════════════════════ */
   function _renderProvider(p, stats) {
+    _providerWhatsappUrl = _pickFirstText(p.whatsapp_url, p.whatsappUrl);
     _providerPhone = _pickFirstText(
       p.phone,
       p.whatsapp,
@@ -2285,11 +2290,60 @@ const ProviderDetailPage = (() => {
   }
 
   function _formatPhoneE164(phone) {
-    const cleaned = phone.replace(/\s+/g, '');
-    if (cleaned.startsWith('+')) return cleaned;
-    if (cleaned.startsWith('05') && cleaned.length === 10) return '+966' + cleaned.substring(1);
-    if (cleaned.startsWith('5') && cleaned.length === 9) return '+966' + cleaned;
+    const raw = String(phone || '').trim();
+    if (!raw) return '';
+    const cleaned = raw.replace(/\s+/g, '');
+    if (cleaned.startsWith('+')) {
+      const plusDigits = cleaned.slice(1).replace(/\D+/g, '');
+      return plusDigits ? ('+' + plusDigits) : '';
+    }
+
+    const digits = cleaned.replace(/\D+/g, '');
+    if (!digits) return '';
+    if (digits.startsWith('05') && digits.length === 10) return '+966' + digits.substring(1);
+    if (digits.startsWith('5') && digits.length === 9) return '+966' + digits;
+    if (digits.startsWith('9665') && digits.length === 12) return '+' + digits;
+    if (digits.startsWith('009665') && digits.length === 14) return '+' + digits.substring(2);
     return cleaned;
+  }
+
+  function _normalizeWhatsappBaseUrl(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return '';
+    if (/^[\d+\s()-]+$/.test(text)) {
+      const phone = _formatPhoneE164(text).replace('+', '');
+      return phone ? ('https://wa.me/' + phone) : '';
+    }
+    let candidate = text;
+    if (candidate.startsWith('wa.me/')) candidate = 'https://' + candidate;
+    if (!/^https?:\/\//i.test(candidate)) candidate = 'https://' + candidate;
+    try {
+      const parsed = new URL(candidate);
+      const host = parsed.hostname.toLowerCase();
+      if (host === 'wa.me' || host.endsWith('.wa.me')) {
+        const pathDigits = parsed.pathname.replace(/\D+/g, '');
+        const phone = _formatPhoneE164(pathDigits).replace('+', '');
+        return phone ? ('https://wa.me/' + phone) : '';
+      }
+      const phoneQuery = parsed.searchParams.get('phone');
+      const phone = _formatPhoneE164(phoneQuery).replace('+', '');
+      return phone ? ('https://wa.me/' + phone) : '';
+    } catch (_) {
+      const phone = _formatPhoneE164(text).replace('+', '');
+      return phone ? ('https://wa.me/' + phone) : '';
+    }
+  }
+
+  function _buildWhatsappChatUrl(rawUrl, fallbackPhone, message) {
+    const base = _normalizeWhatsappBaseUrl(rawUrl) || _normalizeWhatsappBaseUrl(fallbackPhone);
+    if (!base) return '';
+    try {
+      const url = new URL(base);
+      url.searchParams.set('text', String(message || '').trim());
+      return url.toString();
+    } catch (_) {
+      return base;
+    }
   }
 
   function _ensureExcellenceMount() {

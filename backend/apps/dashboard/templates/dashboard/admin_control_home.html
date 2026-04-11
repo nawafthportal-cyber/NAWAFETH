@@ -1,18 +1,25 @@
 {% extends 'dashboard/_base.html' %}
 {% load static %}
-{% block title %}Admin User Access{% endblock %}
+{% block title %}لوحة إدارة الصلاحيات وتقارير المنصة{% endblock %}
 {% block body %}
-  <div class="dashboard-layout">
+  <div class="dashboard-layout admin-control-page">
     <header class="dash-header">
-      <div class="hero-panel panel fade-in">
-        <div>
-          <h1>لوحة إدارة الصلاحيات وتقارير المنصة - Admin User Access</h1>
-          <p class="subtitle">تحكم مركزي بالحسابات التشغيلية وصلاحيات الدخول وتقارير الأداء.</p>
+      <div class="hero-panel panel fade-in admin-control-hero">
+        <div class="admin-control-hero-copy">
+          <span class="pill brand">Admin Control</span>
+          <h1>لوحة إدارة الصلاحيات وتقارير المنصة</h1>
+          <p class="subtitle">واجهة موحدة لإدارة الحسابات التشغيلية، حوكمة الوصول، ومتابعة مؤشرات الأداء ضمن نفس هوية المنصة الحالية.</p>
+          <div class="hero-stats">
+            <span class="pill brand">إجمالي الحسابات: {{ access_summary.total }}</span>
+            <span class="pill mint">الحسابات النشطة: {{ access_summary.active }}</span>
+            <span class="pill danger">الحسابات المسحوبة: {{ access_summary.revoked }}</span>
+          </div>
         </div>
-        <div class="hero-stats">
-          <span class="pill brand">إجمالي الحسابات: {{ access_summary.total }}</span>
-          <span class="pill mint">الحسابات النشطة: {{ access_summary.active }}</span>
-          <span class="pill danger">الحسابات المسحوبة: {{ access_summary.revoked }}</span>
+        <div class="admin-control-hero-grid">
+          <article class="admin-control-hero-card"><span>إجمالي الحسابات</span><strong data-animate-number>{{ access_summary.total }}</strong><small>كل الحسابات التشغيلية المسجلة.</small></article>
+          <article class="admin-control-hero-card"><span>طلبات الفترة</span><strong data-animate-number>{{ reports.requests_summary.total }}</strong><small>الطلبات خلال الفترة الحالية.</small></article>
+          <article class="admin-control-hero-card"><span>التحقق OTP</span><strong data-animate-number>{{ reports.users_summary.app_logins }}</strong><small>حركة تسجيل الدخول والتحقق.</small></article>
+          <article class="admin-control-hero-card"><span>فواتير مدفوعة</span><strong data-animate-number>{{ reports.payment_summary.paid_invoices }}</strong><small>الدفعات الناجحة في الفترة المختارة.</small></article>
         </div>
       </div>
     </header>
@@ -22,55 +29,148 @@
         {% if messages %}
           <ul class="alert-list" id="alertsList">
             {% for message in messages %}
-              <li class="alert {{ message.tags }}">
-                <span>{{ message }}</span>
-                <button type="button" aria-label="إغلاق">×</button>
-              </li>
+              <li class="alert {{ message.tags }}"><span>{{ message }}</span><button type="button" aria-label="إغلاق">×</button></li>
             {% endfor %}
           </ul>
         {% endif %}
 
         <section class="section-view section-panel slide-up {% if section != 'access' %}hidden{% endif %}" data-section-view="access">
           <div class="title-row">
-            <h2>إدارة الصلاحيات</h2>
+            <div class="admin-control-title-stack">
+              <h2>إدارة الصلاحيات</h2>
+              <p class="subtitle">إنشاء الحسابات التشغيلية وربطها باللوحات والصلاحيات الدقيقة المناسبة لكل دور.</p>
+            </div>
             <div class="actions">
-              <a
-                href="?section=access&new=1"
-                class="primary-btn access-new-btn"
-                id="openAccessFormBtn"
-                aria-controls="accessFormShell"
-                aria-expanded="{{ access_form_open|yesno:'true,false' }}"
-                title="إضافة حساب تشغيل جديد"
-              >
+              <a href="?section=access&new=1" class="primary-btn access-new-btn" id="openAccessFormBtn" aria-controls="accessFormShell" aria-expanded="{{ access_form_open|yesno:'true,false' }}">
                 <span aria-hidden="true">+</span>
-                <span>جديد</span>
+                <span>إضافة حساب</span>
               </a>
             </div>
           </div>
 
-          <div class="side-card" style="margin-bottom:12px;">
-            <h4>مستوى الصلاحيات</h4>
-            <div class="table-wrap">
-              <table class="dash-table">
+          <div class="form-shell admin-control-form-shell {% if not access_form_open %}hidden{% endif %}" id="accessFormShell">
+            <div class="title-row form-shell-title">
+              <div class="admin-control-title-stack"><h3>{% if edit_profile %}تعديل حساب تشغيل{% else %}إضافة حساب تشغيل جديد{% endif %}</h3></div>
+              <div class="actions"><button type="button" class="icon-btn" id="closeAccessFormBtn" title="إغلاق النموذج" aria-label="إغلاق النموذج"><span aria-hidden="true">×</span></button></div>
+            </div>
+            <form method="post" id="accessForm">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="save_user">
+              {{ access_form.profile_id }}
+              <div class="form-grid">
+                <div class="field" data-field-shell data-field-name="username">
+                  <label for="{{ access_form.username.id_for_label }}">اسم المستخدم</label>
+                  {{ access_form.username }}
+                  {% if access_form.username.errors %}<div class="field-errors">{% for err in access_form.username.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="field" data-field-shell data-field-name="level">
+                  <label for="{{ access_form.level.id_for_label }}">مستوى الصلاحية</label>
+                  {{ access_form.level }}
+                  {% if access_form.level.errors %}<div class="field-errors">{% for err in access_form.level.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="field" data-field-shell data-field-name="mobile_number">
+                  <label for="{{ access_form.mobile_number.id_for_label }}">رقم الجوال</label>
+                  {{ access_form.mobile_number }}
+                  {% if access_form.mobile_number.errors %}<div class="field-errors">{% for err in access_form.mobile_number.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="field" data-field-shell data-field-name="password">
+                  <label for="{{ access_form.password.id_for_label }}">كلمة المرور</label>
+                  {{ access_form.password }}
+                  {% if access_form.password.errors %}<div class="field-errors">{% for err in access_form.password.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="field" data-field-shell data-field-name="password_expiration_date">
+                  <label for="{{ access_form.password_expiration_date.id_for_label }}">تاريخ انتهاء كلمة المرور</label>
+                  {{ access_form.password_expiration_date }}
+                </div>
+                <div class="field" data-field-shell data-field-name="account_revoke_date">
+                  <label for="{{ access_form.account_revoke_date.id_for_label }}">تاريخ سحب الحساب</label>
+                  {{ access_form.account_revoke_date }}
+                </div>
+                <div class="field full" data-field-shell data-field-name="dashboards">
+                  <label for="{{ access_form.dashboards.id_for_label }}">لوحات التحكم المسموحة</label>
+                  <div class="checks" id="accessDashboardsChecks">{{ access_form.dashboards }}</div>
+                  {% if access_form.dashboards.errors %}<div class="field-errors">{% for err in access_form.dashboards.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+                <div class="field full" data-field-shell data-field-name="permissions">
+                  <label for="{{ access_form.permissions.id_for_label }}">الصلاحيات الدقيقة</label>
+                  <div class="checks" id="accessPermissionsChecks">{{ access_form.permissions }}</div>
+                  {% if access_form.permissions.errors %}<div class="field-errors">{% for err in access_form.permissions.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
+                </div>
+              </div>
+              {% if access_form.non_field_errors %}
+                <div class="field-errors field-errors--block">
+                  {% for err in access_form.non_field_errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}
+                </div>
+              {% endif %}
+              <div class="actions"><button type="submit" class="primary-btn">حفظ</button><a href="?section=access" class="ghost-btn" id="cancelAccessFormBtn">إلغاء</a></div>
+            </form>
+          </div>
+
+          <div class="admin-control-overview-grid">
+            <article class="admin-control-overview-card"><span>Admin</span><strong data-animate-number>{{ access_summary.by_level.admin|default:0 }}</strong><small>وصول شامل على كل اللوحات.</small></article>
+            <article class="admin-control-overview-card"><span>Power User</span><strong data-animate-number>{{ access_summary.by_level.power|default:0 }}</strong><small>تشغيل متقدم متعدد اللوحات.</small></article>
+            <article class="admin-control-overview-card"><span>User</span><strong data-animate-number>{{ access_summary.by_level.user|default:0 }}</strong><small>تنفيذ يومي داخل لوحة واحدة.</small></article>
+            <article class="admin-control-overview-card"><span>QA</span><strong data-animate-number>{{ access_summary.by_level.qa|default:0 }}</strong><small>وصول قراءة ومراجعة على مستوى اللوحات.</small></article>
+          </div>
+
+          <section class="admin-access-matrix" aria-label="أنواع المستخدمين">
+            <div class="admin-access-matrix__head">
+              <h3>أنواع المستخدمين</h3>
+            </div>
+            <div class="admin-access-matrix__wrap">
+              <table class="admin-access-matrix__table">
                 <thead>
                   <tr>
-                    <th>المستوى</th>
+                    <th>النوع</th>
+                    <th>نطاق الوصول</th>
+                    <th>اللوحات</th>
                     <th>الصلاحيات</th>
+                    <th>النمط</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr><td>Admin</td><td>الدخول على جميع لوحات التحكم وإجراء جميع العمليات.</td></tr>
-                  <tr><td>Power User</td><td>الدخول على لوحة تحكم أو أكثر وإجراء جميع العمليات في لوحات التحكم المعطاة.</td></tr>
-                  <tr><td>User</td><td>الدخول على لوحة تحكم واحدة وإجراء العمليات على الطلبات المكلف بها في لوحة التحكم المحددة.</td></tr>
-                  <tr><td>QA</td><td>الدخول على جميع لوحات التحكم بدون صلاحية إجراء أي عملية.</td></tr>
-                  <tr><td>Client</td><td>الدخول على لوحة الخدمات الإضافية (التقارير - إدارة العملاء - الإدارة المالية).</td></tr>
+                  <tr class="is-admin">
+                    <td><span class="admin-access-type">Admin</span></td>
+                    <td><span class="admin-access-chip">شامل</span></td>
+                    <td>جميع اللوحات الداخلية</td>
+                    <td><span class="admin-access-badge is-full">كامل</span></td>
+                    <td><span class="admin-access-mode is-live">تشغيلي</span></td>
+                  </tr>
+                  <tr class="is-power">
+                    <td><span class="admin-access-type">Power User</span></td>
+                    <td><span class="admin-access-chip">متعدد</span></td>
+                    <td>لوحة أو أكثر</td>
+                    <td><span class="admin-access-badge is-full">كامل حسب اللوحات</span></td>
+                    <td><span class="admin-access-mode is-live">تشغيلي</span></td>
+                  </tr>
+                  <tr class="is-user">
+                    <td><span class="admin-access-type">User</span></td>
+                    <td><span class="admin-access-chip">مخصص</span></td>
+                    <td>لوحة واحدة</td>
+                    <td><span class="admin-access-badge is-limited">محددة</span></td>
+                    <td><span class="admin-access-mode is-focus">تنفيذي</span></td>
+                  </tr>
+                  <tr class="is-qa">
+                    <td><span class="admin-access-type">QA</span></td>
+                    <td><span class="admin-access-chip">رقابي</span></td>
+                    <td>جميع اللوحات الداخلية</td>
+                    <td><span class="admin-access-badge is-readonly">قراءة فقط</span></td>
+                    <td><span class="admin-access-mode is-review">مراجعة</span></td>
+                  </tr>
+                  <tr class="is-client">
+                    <td><span class="admin-access-type">Client</span></td>
+                    <td><span class="admin-access-chip">بوابة</span></td>
+                    <td>لوحة العميل فقط</td>
+                    <td><span class="admin-access-badge is-portal">مقيد</span></td>
+                    <td><span class="admin-access-mode is-portal">خارجي</span></td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-          </div>
+          </section>
 
-          <div class="toolbar">
-            <input id="accessSearch" class="input-control" type="search" placeholder="ابحث بالاسم أو الجوال أو المستوى...">
+          <div class="toolbar admin-control-toolbar">
+            <input id="accessSearch" class="input-control" type="search" placeholder="ابحث بالاسم أو الجوال أو اللوحات أو الصلاحيات...">
             <select id="levelFilter" class="input-control">
               <option value="">جميع المستويات</option>
               <option value="admin">Admin</option>
@@ -79,318 +179,172 @@
               <option value="qa">QA</option>
               <option value="client">Client</option>
             </select>
-            <div class="actions">
-              <button id="clearFiltersBtn" type="button" class="ghost-btn">إعادة ضبط الفلاتر</button>
-            </div>
+            <span class="admin-control-filter-count" id="accessFilterCount">عرض {{ access_summary.total }} حساب</span>
+            <div class="actions"><button id="clearFiltersBtn" type="button" class="ghost-btn">إعادة ضبط الفلاتر</button></div>
+          </div>
+
+          <div class="admin-control-table-head">
+            <div><h3>سجل الحسابات التشغيلية</h3><p>متابعة المستخدمين وحالة الوصول واللوحات الممنوحة والصلاحيات الدقيقة.</p></div>
           </div>
 
           <div class="table-wrap">
             <table class="dash-table" id="accessTable">
-              <thead>
-                <tr>
-                  <th>حذف</th>
-                  <th>تحديث</th>
-                  <th>رقم الجوال</th>
-                  <th>تاريخ السحب</th>
-                  <th>تاريخ انتهاء كلمة المرور</th>
-                  <th>كلمة المرور</th>
-                  <th>اللوحات</th>
-                  <th>المستوى</th>
-                  <th>اسم المستخدم</th>
-                </tr>
-              </thead>
+              <thead><tr><th>إجراءات</th><th>المستخدم</th><th>المستوى</th><th>اللوحات</th><th>الصلاحيات</th><th>كلمة المرور</th><th>انتهاء كلمة المرور</th><th>تاريخ السحب</th></tr></thead>
               <tbody>
                 {% for row in access_rows %}
-                  <tr
-                    data-level="{{ row.level_code }}"
-                    data-username="{{ row.username|lower }}"
-                    data-mobile="{{ row.mobile|lower }}"
-                    data-dashboard="{{ row.dashboards_text|lower }}"
-                    class="{% if row.revoked %}row-revoked{% endif %}"
-                  >
+                  <tr data-level="{{ row.level_code }}" data-username="{{ row.username|lower }}" data-mobile="{{ row.mobile|lower }}" data-dashboard="{{ row.dashboards_text|lower }}" data-permissions="{{ row.permissions_text|lower }}" class="{% if row.revoked %}row-revoked{% endif %}">
                     <td>
-                      <form method="post" onsubmit="return confirm('تأكيد تعطيل الحساب؟');">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="delete_user">
-                        <input type="hidden" name="profile_id" value="{{ row.profile_id }}">
-                        <button type="submit" class="icon-btn danger" title="تعطيل">
-                          <span aria-hidden="true">🗑</span>
-                        </button>
-                      </form>
-                    </td>
-                    <td>
-                      <div class="actions">
-                        <a class="icon-btn" href="?section=access&edit={{ row.profile_id }}" title="تعديل">
-                          <span aria-hidden="true">↻</span>
-                        </a>
-                        <form method="post">
-                          {% csrf_token %}
-                          <input type="hidden" name="action" value="toggle_revoke">
-                          <input type="hidden" name="profile_id" value="{{ row.profile_id }}">
-                          <button type="submit" class="icon-btn" title="سحب/إلغاء السحب">
-                            {% if row.revoked %}
-                              <span aria-hidden="true">✓</span>
-                            {% else %}
-                              <span aria-hidden="true">⛔</span>
-                            {% endif %}
-                          </button>
-                        </form>
+                      <div class="admin-control-action-set">
+                        <a class="icon-btn" href="?section=access&edit={{ row.profile_id }}" title="تعديل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"></path></svg></a>
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle_revoke"><input type="hidden" name="profile_id" value="{{ row.profile_id }}"><button type="submit" class="icon-btn" title="سحب أو إلغاء السحب" data-confirm-message="{% if row.revoked %}تأكيد إعادة تفعيل صلاحية هذا الحساب؟{% else %}تأكيد سحب صلاحية هذا الحساب؟{% endif %}">{% if row.revoked %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l5 5L20 7"></path></svg>{% else %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 8.5l7 7"></path></svg>{% endif %}</button></form>
+                        <form method="post">{% csrf_token %}<input type="hidden" name="action" value="delete_user"><input type="hidden" name="profile_id" value="{{ row.profile_id }}"><button type="submit" class="icon-btn danger" title="تعطيل" data-confirm-message="تأكيد تعطيل الحساب وسحب صلاحياته؟"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18"></path><path d="M8 6V4h8v2"></path><path d="M19 6l-1 14H6L5 6"></path></svg></button></form>
                       </div>
                     </td>
-                    <td>{{ row.mobile }}</td>
-                    <td>{{ row.account_revoke_date|default:"-" }}</td>
-                    <td>{{ row.password_expiration_date|default:"-" }}</td>
+                    <td><div class="admin-control-user"><strong>{{ row.username }}</strong><small>{{ row.mobile|default:"-" }}</small></div></td>
+                    <td><span class="admin-control-status {% if row.revoked %}is-revoked{% endif %}"><span class="status-dot {% if not row.revoked %}active{% else %}revoked{% endif %}"></span>{{ row.level }}</span></td>
+                    <td><span class="admin-control-tag">{{ row.dashboards_text }}</span></td>
+                    <td><span class="admin-control-tag is-soft">{{ row.permissions_text }}</span></td>
                     <td>{{ row.password_mask }}</td>
-                    <td>{{ row.dashboards_text }}</td>
-                    <td>
-                      <span class="status-dot {% if not row.revoked %}active{% else %}revoked{% endif %}"></span>
-                      {{ row.level }}
-                    </td>
-                    <td>{{ row.username }}</td>
+                    <td>{{ row.password_expiration_date|default:"-" }}</td>
+                    <td>{{ row.account_revoke_date|default:"-" }}</td>
                   </tr>
                 {% empty %}
-                  <tr>
-                    <td colspan="9">لا توجد حسابات تشغيل حالياً.</td>
-                  </tr>
+                  <tr><td colspan="8">لا توجد حسابات تشغيل حالياً.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
           </div>
 
-          <div class="form-shell {% if not access_form_open %}hidden{% endif %}" id="accessFormShell">
-            <div class="title-row form-shell-title">
-              <h3>{% if edit_profile %}تعديل حساب تشغيل{% else %}إضافة حساب تشغيل جديد{% endif %}</h3>
-              <div class="actions">
-                <button type="button" class="icon-btn" id="closeAccessFormBtn" title="إغلاق النموذج" aria-label="إغلاق النموذج">
-                  <span aria-hidden="true">×</span>
-                </button>
-              </div>
-            </div>
-            <form method="post" id="accessForm">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save_user">
-              {{ access_form.profile_id }}
-              <div class="form-grid">
-                <div class="field">
-                  <label for="{{ access_form.username.id_for_label }}">اسم المستخدم</label>
-                  {{ access_form.username }}
-                  {% if access_form.username.errors %}<small>{{ access_form.username.errors|striptags }}</small>{% endif %}
-                </div>
-                <div class="field">
-                  <label for="{{ access_form.level.id_for_label }}">مستوى الصلاحية</label>
-                  {{ access_form.level }}
-                  <small id="accessLevelHint" class="text-muted" style="display:block; margin-top:6px;"></small>
-                  {% if access_form.level.errors %}<small>{{ access_form.level.errors|striptags }}</small>{% endif %}
-                </div>
-                <div class="field">
-                  <label for="{{ access_form.mobile_number.id_for_label }}">رقم الجوال</label>
-                  {{ access_form.mobile_number }}
-                  {% if access_form.mobile_number.errors %}<small>{{ access_form.mobile_number.errors|striptags }}</small>{% endif %}
-                </div>
-                <div class="field">
-                  <label for="{{ access_form.password.id_for_label }}">كلمة المرور</label>
-                  {{ access_form.password }}
-                  {% if access_form.password.errors %}<small>{{ access_form.password.errors|striptags }}</small>{% endif %}
-                </div>
-                <div class="field">
-                  <label for="{{ access_form.password_expiration_date.id_for_label }}">تاريخ انتهاء كلمة المرور</label>
-                  {{ access_form.password_expiration_date }}
-                </div>
-                <div class="field">
-                  <label for="{{ access_form.account_revoke_date.id_for_label }}">تاريخ سحب الحساب</label>
-                  {{ access_form.account_revoke_date }}
-                </div>
-                <div class="field full">
-                  <label for="{{ access_form.dashboards.id_for_label }}">لوحات التحكم المسموحة</label>
-                  <small id="accessDashboardsHint" class="text-muted" style="display:block; margin-bottom:6px;"></small>
-                  <div class="checks">
-                    {{ access_form.dashboards }}
-                  </div>
-                  {% if access_form.dashboards.errors %}<small>{{ access_form.dashboards.errors|striptags }}</small>{% endif %}
-                </div>
-              </div>
-              <div class="actions">
-                <button type="submit" class="primary-btn">حفظ</button>
-                <a href="?section=access" class="ghost-btn" id="cancelAccessFormBtn">إلغاء</a>
-              </div>
-            </form>
-          </div>
         </section>
 
         <section class="section-view section-panel slide-up {% if section != 'reports' %}hidden{% endif %}" data-section-view="reports">
-          <div class="title-row">
-            <h2>إحصاءات وتقارير المنصة</h2>
-            <p class="subtitle">الفترة الحالية: من {{ reports.start }} إلى {{ reports.end }}</p>
+          <div class="admin-report-command">
+            <div class="title-row">
+              <div class="admin-control-title-stack">
+                <h2>إحصاءات وتقارير المنصة</h2>
+                <p class="subtitle admin-report-date-range">الفترة: {{ reports.start }} - {{ reports.end }}</p>
+              </div>
+              <div class="actions admin-control-export-actions">
+                <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=pdf">PDF</a>
+                <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=xlsx">Excel</a>
+                <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=csv">CSV</a>
+              </div>
+            </div>
+
+            <div class="admin-report-signal-grid">
+              <article class="admin-report-signal-card"><span>جديد</span><strong data-animate-number>{{ reports.requests_summary.new }}</strong></article>
+              <article class="admin-report-signal-card"><span>قيد التنفيذ</span><strong data-animate-number>{{ reports.requests_summary.in_progress }}</strong></article>
+              <article class="admin-report-signal-card"><span>مكتمل</span><strong data-animate-number>{{ reports.requests_summary.completed }}</strong></article>
+              <article class="admin-report-signal-card"><span>فشل الدفع</span><strong data-animate-number>{{ reports.payment_summary.failed }}</strong></article>
+            </div>
+
+            <div class="admin-report-summary-strip">
+              <article class="admin-report-summary-card"><span>إجمالي المستخدمين</span><strong data-animate-number>{{ reports.users_summary.total_users }}</strong></article>
+              <article class="admin-report-summary-card"><span>إجمالي الطلبات</span><strong data-animate-number>{{ reports.requests_summary.total }}</strong></article>
+              <article class="admin-report-summary-card"><span>إجمالي التحميلات</span><strong data-animate-number>{{ reports.app_downloads_summary.total }}</strong></article>
+              <article class="admin-report-summary-card"><span>المدفوعات الناجحة</span><strong data-animate-number>{{ reports.payment_summary.paid_invoices }}</strong></article>
+              <article class="admin-report-summary-card"><span>قيمة المدفوعات</span><strong data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:0 }}</strong></article>
+            </div>
+
+            <form method="get" class="reports-period-toolbar admin-report-period-toolbar" id="reportsPeriodForm">
+              <input type="hidden" name="section" value="reports">
+              <div class="field"><label for="reportsStartDate">من تاريخ</label><input id="reportsStartDate" type="date" class="input-control" name="start" value="{{ reports.start }}"></div>
+              <div class="field"><label for="reportsEndDate">إلى تاريخ</label><input id="reportsEndDate" type="date" class="input-control" name="end" value="{{ reports.end }}"></div>
+              <div class="actions"><button type="submit" class="primary-btn light">تحديث الفترة</button><a class="ghost-btn" href="?section=reports">آخر 30 يوم</a></div>
+            </form>
           </div>
 
-          <form method="get" class="reports-period-toolbar">
-            <input type="hidden" name="section" value="reports">
-            <div class="field">
-              <label for="reportsStartDate">من تاريخ</label>
-              <input id="reportsStartDate" type="date" class="input-control" name="start" value="{{ reports.start }}">
-            </div>
-            <div class="field">
-              <label for="reportsEndDate">إلى تاريخ</label>
-              <input id="reportsEndDate" type="date" class="input-control" name="end" value="{{ reports.end }}">
-            </div>
-            <div class="actions">
-              <button type="submit" class="primary-btn light">تحديث الفترة</button>
-              <a class="ghost-btn" href="?section=reports">آخر 30 يوم</a>
-            </div>
-          </form>
-
-          <div class="report-grid">
-            <article class="kpi-card">
-              <h3>إحصاءات المستخدمين</h3>
-              <div class="kpi-content">
-                <div class="metric">
-                  <div class="label">عدد المستخدمين الكلي</div>
-                  <div class="value" data-animate-number>{{ reports.users_summary.total_users }}</div>
-                  <div class="bar"><span data-bar-fill></span></div>
-                </div>
-                <div class="metric">
-                  <div class="label">عدد المستخدمين مكتملين التسجيل</div>
-                  <div class="value" data-animate-number>{{ reports.users_summary.users_complete }}</div>
-                  <div class="bar"><span data-bar-fill></span></div>
-                </div>
-                <div class="metric">
-                  <div class="label">عدد المستخدمين الموظفين</div>
-                  <div class="value" data-animate-number>{{ reports.users_summary.staff_users }}</div>
-                  <div class="bar"><span data-bar-fill></span></div>
-                </div>
-                <div class="metric">
-                  <div class="label">عدد مرات التحقق OTP</div>
-                  <div class="value" data-animate-number>{{ reports.users_summary.app_logins }}</div>
-                  <div class="bar"><span data-bar-fill></span></div>
-                </div>
+          <div class="admin-report-grid">
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>إحصاءات المستخدمين</h3></div>
+              <div class="admin-report-list" data-report-list>
+                <div class="admin-report-item"><span class="admin-report-item__label">عدد المستخدمين الكلي</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.total_users }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">مكتملو التسجيل</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.users_complete }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">المستخدمون الموظفون</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.staff_users }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">مرات التحقق OTP</span><strong class="admin-report-item__value" data-animate-number>{{ reports.users_summary.app_logins }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>إحصاءات الطلبات</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">عدد الطلبات الجديدة</div><div class="value" data-animate-number>{{ reports.requests_summary.new }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد الطلبات تحت التنفيذ</div><div class="value" data-animate-number>{{ reports.requests_summary.in_progress }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد الطلبات المكتملة</div><div class="value" data-animate-number>{{ reports.requests_summary.completed }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد الطلبات الملغاة</div><div class="value" data-animate-number>{{ reports.requests_summary.cancelled }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">المجموع الكلي لجميع الطلبات</div><div class="value" data-animate-number>{{ reports.requests_summary.total }}</div><div class="bar"><span data-bar-fill></span></div></div>
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>إحصاءات الطلبات</h3></div>
+              <div class="admin-report-list" data-report-list>
+                <div class="admin-report-item"><span class="admin-report-item__label">طلبات جديدة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.new }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">تحت التنفيذ</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.in_progress }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">مكتملة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.completed }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">ملغاة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.cancelled }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">الإجمالي</span><strong class="admin-report-item__value" data-animate-number>{{ reports.requests_summary.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>إحصاءات التفاعل</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">عدد المراجعات</div><div class="value" data-animate-number>{{ reports.interaction_summary.reviews }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد عمليات الإعجاب بالمحتوى</div><div class="value" data-animate-number>{{ reports.interaction_summary.portfolio_likes }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد عمليات التوصية بالمنصة</div><div class="value" data-animate-number>{{ reports.interaction_summary.provider_follows }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عمليات البحث</div><div class="value" data-animate-number>{{ reports.search_events }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">إحصاءات البريد الإلكتروني</div><div class="value" data-animate-number>{{ reports.email_events }}</div><div class="bar"><span data-bar-fill></span></div></div>
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>إحصاءات التفاعل</h3></div>
+              <div class="admin-report-list" data-report-list>
+                <div class="admin-report-item"><span class="admin-report-item__label">عدد المراجعات</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.reviews }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">إعجابات المحتوى</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.portfolio_likes }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">التوصية بالمنصة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.interaction_summary.provider_follows }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">عمليات البحث</span><strong class="admin-report-item__value" data-animate-number>{{ reports.search_events }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">إحصاءات البريد الإلكتروني</span><strong class="admin-report-item__value" data-animate-number>{{ reports.email_events }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>إحصاءات الدعم والمساعدة</h3>
-              <div class="kpi-content">
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>الدعم والمساعدة</h3></div>
+              <div class="admin-report-list" data-report-list>
                 {% for row in reports.support_type_rows %}
-                  <div class="metric">
-                    <div class="label">{{ row.type_label }}</div>
-                    <div class="value" data-animate-number>{{ row.total }}</div>
-                    <div class="bar"><span data-bar-fill></span></div>
-                  </div>
+                  <div class="admin-report-item"><span class="admin-report-item__label">{{ row.type_label }}</span><strong class="admin-report-item__value" data-animate-number>{{ row.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
                 {% empty %}
-                  <div class="metric">
-                    <div class="label">لا توجد بيانات</div>
-                    <div class="value" data-animate-number>0</div>
-                    <div class="bar"><span data-bar-fill></span></div>
-                  </div>
+                  <div class="admin-report-item"><span class="admin-report-item__label">لا توجد بيانات</span><strong class="admin-report-item__value" data-animate-number>0</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
                 {% endfor %}
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>تحميلات التطبيق</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">عدد تحميلات iOS</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.ios }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد تحميلات Android</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.android }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد تحميلات Web</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.web }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">إجمالي التحميلات</div><div class="value" data-animate-number>{{ reports.app_downloads_summary.total }}</div><div class="bar"><span data-bar-fill></span></div></div>
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>التحميلات والزوار</h3></div>
+              <div class="admin-report-list" data-report-list>
+                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات iOS</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.ios }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات Android</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.android }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">تحميلات Web</span><strong class="admin-report-item__value" data-animate-number>{{ reports.app_downloads_summary.web }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">حسابات الزوار</span><strong class="admin-report-item__value" data-animate-number>{{ reports.visitor_summary.visitor_accounts }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">نقرات نتائج البحث</span><strong class="admin-report-item__value" data-animate-number>{{ reports.visitor_summary.search_clicks }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>إحصاءات زوار التطبيق</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">عدد حسابات الزوار</div><div class="value" data-animate-number>{{ reports.visitor_summary.visitor_accounts }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد حسابات رقم فقط</div><div class="value" data-animate-number>{{ reports.visitor_summary.phone_only_accounts }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد زيارات ملفات المختصين</div><div class="value" data-animate-number>{{ reports.visitor_summary.profile_views }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">عدد نقرات نتائج البحث</div><div class="value" data-animate-number>{{ reports.visitor_summary.search_clicks }}</div><div class="bar"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="kpi-card">
-              <h3>إحصاءات الخدمات المدفوعة</h3>
-              <div class="kpi-content">
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>الخدمات المدفوعة والدفع</h3></div>
+              <div class="admin-report-list" data-report-list>
                 {% for row in reports.paid_services_rows %}
-                  <div class="metric">
-                    <div class="label">{{ row.type_label }}</div>
-                    <div class="value" data-animate-number>{{ row.total }}</div>
-                    <div class="bar"><span data-bar-fill></span></div>
-                  </div>
+                  <div class="admin-report-item"><span class="admin-report-item__label">{{ row.type_label }}</span><strong class="admin-report-item__value" data-animate-number>{{ row.total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
                 {% empty %}
-                  <div class="metric">
-                    <div class="label">لا توجد بيانات</div>
-                    <div class="value" data-animate-number>0</div>
-                    <div class="bar"><span data-bar-fill></span></div>
-                  </div>
+                  <div class="admin-report-item"><span class="admin-report-item__label">لا توجد بيانات خدمات</span><strong class="admin-report-item__value" data-animate-number>0</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
                 {% endfor %}
+                <div class="admin-report-item"><span class="admin-report-item__label">إجمالي محاولات الدفع</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.attempts_total }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">محاولات ناجحة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.success }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">محاولات فاشلة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.failed }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">إجمالي المبالغ المدفوعة</span><strong class="admin-report-item__value" data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:2 }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>إحصاءات الدفع الإلكتروني</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">إجمالي محاولات الدفع</div><div class="value" data-animate-number>{{ reports.payment_summary.attempts_total }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">محاولات ناجحة</div><div class="value" data-animate-number>{{ reports.payment_summary.success }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">محاولات فاشلة</div><div class="value" data-animate-number>{{ reports.payment_summary.failed }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">محاولات ملغاة</div><div class="value" data-animate-number>{{ reports.payment_summary.cancelled }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">فواتير مدفوعة</div><div class="value" data-animate-number>{{ reports.payment_summary.paid_invoices }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">إجمالي المبالغ المدفوعة</div><div class="value" data-animate-number>{{ reports.payment_summary.paid_amount_total|floatformat:2 }}</div><div class="bar"><span data-bar-fill></span></div></div>
+            <article class="admin-report-card" data-report-card>
+              <div class="admin-report-card__head"><h3>تصنيف المختصين</h3></div>
+              <div class="admin-report-list" data-report-list>
+                <div class="admin-report-item"><span class="admin-report-item__label">ماهر</span><strong class="admin-report-item__value" data-animate-number>{{ reports.specialist_classification.maher }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">مستشار</span><strong class="admin-report-item__value" data-animate-number>{{ reports.specialist_classification.mostashar }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">مؤهل</span><strong class="admin-report-item__value" data-animate-number>{{ reports.specialist_classification.moahel }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">كفو</span><strong class="admin-report-item__value" data-animate-number>{{ reports.specialist_classification.kafo }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
+                <div class="admin-report-item"><span class="admin-report-item__label">إجمالي المختصين</span><strong class="admin-report-item__value" data-animate-number>{{ reports.specialist_classification.total_specialists }}</strong><div class="admin-report-item__meter"><span data-bar-fill></span></div></div>
               </div>
             </article>
 
-            <article class="kpi-card">
-              <h3>تصنيف المختصين</h3>
-              <div class="kpi-content">
-                <div class="metric"><div class="label">ماهر</div><div class="value" data-animate-number>{{ reports.specialist_classification.maher }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">مستشار</div><div class="value" data-animate-number>{{ reports.specialist_classification.mostashar }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">مؤهل</div><div class="value" data-animate-number>{{ reports.specialist_classification.moahel }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">كفو</div><div class="value" data-animate-number>{{ reports.specialist_classification.kafo }}</div><div class="bar"><span data-bar-fill></span></div></div>
-                <div class="metric"><div class="label">إجمالي المختصين</div><div class="value" data-animate-number>{{ reports.specialist_classification.total_specialists }}</div><div class="bar"><span data-bar-fill></span></div></div>
-              </div>
-            </article>
-
-            <article class="kpi-card">
-              <h3>التصنيف الرئيسي لمجال الخدمات</h3>
-              <div class="kpi-content single-col-grid">
-                <table class="category-table">
-                  <thead>
-                    <tr>
-                      <th>التصنيف الرئيسي</th>
-                      <th>عدد المتخصصين</th>
-                      <th>عدد الطلبات</th>
-                    </tr>
-                  </thead>
+            <article class="admin-report-card admin-report-card--wide" data-report-card>
+              <div class="admin-report-card__head"><h3>التصنيف الرئيسي لمجال الخدمات</h3></div>
+              <div class="admin-report-table-wrap">
+                <table class="category-table admin-report-category-table">
+                  <thead><tr><th>التصنيف الرئيسي</th><th>عدد المتخصصين</th><th>عدد الطلبات</th></tr></thead>
                   <tbody>
                     {% for row in reports.category_stats %}
-                      <tr>
-                        <td>{{ row.name }}</td>
-                        <td data-animate-number>{{ row.specialists }}</td>
-                        <td data-animate-number>{{ row.requests }}</td>
-                      </tr>
+                      <tr><td>{{ row.name }}</td><td data-animate-number>{{ row.specialists }}</td><td data-animate-number>{{ row.requests }}</td></tr>
                     {% empty %}
-                      <tr>
-                        <td colspan="3">لا توجد بيانات تصنيفية متاحة.</td>
-                      </tr>
+                      <tr><td colspan="3">لا توجد بيانات تصنيفية متاحة.</td></tr>
                     {% endfor %}
                   </tbody>
                 </table>
@@ -403,48 +357,10 @@
       <aside class="panel side-panel">
         <div class="stack">
           {% include 'dashboard/_sidebar_main_nav.html' %}
-
-          <div class="side-card">
-            <h4>القائمة الفرعية</h4>
-            <div class="stack sidebar-menu-stack">
-              <a class="tab-btn {% if section == 'access' %}active{% endif %}" href="?section=access" data-section-link="access">إدارة الصلاحيات</a>
-              <a class="tab-btn {% if section == 'reports' %}active{% endif %}" href="?section=reports" data-section-link="reports">إحصاءات وتقارير المنصة</a>
-            </div>
-          </div>
-
-          <div class="side-card">
-            <h4>بحث سريع</h4>
-            <div class="quick-stat"><span>مستوى Admin</span><strong>{{ access_summary.by_level.admin|default:0 }}</strong></div>
-            <div class="quick-stat"><span>مستوى Power</span><strong>{{ access_summary.by_level.power|default:0 }}</strong></div>
-            <div class="quick-stat"><span>مستوى User</span><strong>{{ access_summary.by_level.user|default:0 }}</strong></div>
-            <div class="quick-stat"><span>مستوى QA</span><strong>{{ access_summary.by_level.qa|default:0 }}</strong></div>
-            <div class="quick-stat"><span>مستوى Client</span><strong>{{ access_summary.by_level.client|default:0 }}</strong></div>
-          </div>
-
-          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsFiltersCard">
-            <h4>إعدادات التقارير</h4>
-            <form method="get" class="stack">
-              <input type="hidden" name="section" value="reports">
-              <div class="field">
-                <label>بداية التقرير</label>
-                <input type="date" class="input-control" name="start" value="{{ reports.start }}">
-              </div>
-              <div class="field">
-                <label>نهاية التقرير</label>
-                <input type="date" class="input-control" name="end" value="{{ reports.end }}">
-              </div>
-              <button type="submit" class="primary-btn light">تحديث</button>
-            </form>
-          </div>
-
-          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsExportCard">
-            <h4>تصدير البيانات</h4>
-            <div class="stack">
-              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=pdf">تصدير PDF</a>
-              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=xlsx">تصدير Excel</a>
-              <a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=csv">تصدير CSV</a>
-            </div>
-          </div>
+          <div class="side-card"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg> القائمة الفرعية</h4><div class="stack sidebar-menu-stack"><a class="tab-btn {% if section == 'access' %}active{% endif %}" href="?section=access" data-section-link="access"><span class="tab-btn-label">إدارة الصلاحيات</span></a><a class="tab-btn {% if section == 'reports' %}active{% endif %}" href="?section=reports" data-section-link="reports"><span class="tab-btn-label">إحصاءات وتقارير المنصة</span></a></div></div>
+          <div class="side-card"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg> ملخص الوصول</h4><div class="quick-stat"><span>مستوى Admin</span><strong>{{ access_summary.by_level.admin|default:0 }}</strong></div><div class="quick-stat"><span>مستوى Power</span><strong>{{ access_summary.by_level.power|default:0 }}</strong></div><div class="quick-stat"><span>مستوى User</span><strong>{{ access_summary.by_level.user|default:0 }}</strong></div><div class="quick-stat"><span>مستوى QA</span><strong>{{ access_summary.by_level.qa|default:0 }}</strong></div><div class="quick-stat"><span>مستوى Client</span><strong>{{ access_summary.by_level.client|default:0 }}</strong></div></div>
+          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsFiltersCard"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> إعدادات التقارير</h4><form method="get" class="stack"><input type="hidden" name="section" value="reports"><div class="field"><label>بداية التقرير</label><input type="date" class="input-control" name="start" value="{{ reports.start }}"></div><div class="field"><label>نهاية التقرير</label><input type="date" class="input-control" name="end" value="{{ reports.end }}"></div><button type="submit" class="primary-btn light">تحديث</button></form></div>
+          <div class="side-card {% if section != 'reports' %}hidden{% endif %}" id="reportsExportCard"><h4><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> تصدير البيانات</h4><div class="stack"><a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=pdf"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> PDF</a><a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=xlsx"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg> Excel</a><a class="ghost-btn export-btn" href="?section=reports&start={{ reports.start }}&end={{ reports.end }}&export=csv">CSV</a></div></div>
         </div>
       </aside>
     </main>

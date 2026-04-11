@@ -953,27 +953,40 @@ def _promo_message_recipient_users(*, item: PromoRequestItem):
 
     city = str(item.target_city or item.request.target_city or "").strip()
     category = str(item.target_category or item.request.target_category or "").strip()
+    sender_id = item.request.requester_id
 
-    qs = (
-        User.objects.filter(
-            is_active=True,
-            role_state=UserRole.PROVIDER,
-            provider_profile__isnull=False,
-        )
-        .select_related("provider_profile")
-        .exclude(id=item.request.requester_id)
-    )
+    # Providers can be filtered by city and category.
+    provider_qs = User.objects.filter(
+        is_active=True,
+        role_state=UserRole.PROVIDER,
+        provider_profile__isnull=False,
+    ).exclude(id=sender_id)
     if city:
-        qs = qs.filter(
+        provider_qs = provider_qs.filter(
             Q(provider_profile__city__iexact=city)
             | Q(city__iexact=city)
         )
     if category:
-        qs = qs.filter(
+        provider_qs = provider_qs.filter(
             Q(provider_profile__providercategory__subcategory__name__iexact=category)
             | Q(provider_profile__providercategory__subcategory__category__name__iexact=category)
         )
-    return qs.distinct().order_by("id")
+    provider_ids = list(provider_qs.values_list("id", flat=True).distinct())
+
+    # Clients do not carry service-category taxonomy, so category targeting
+    # does not exclude them. City targeting still applies when provided.
+    client_qs = User.objects.filter(
+        is_active=True,
+        role_state__in=[UserRole.CLIENT, UserRole.PHONE_ONLY],
+    ).exclude(id=sender_id)
+    if city:
+        client_qs = client_qs.filter(city__iexact=city)
+    client_ids = list(client_qs.values_list("id", flat=True).distinct())
+
+    recipient_ids = list(set(provider_ids + client_ids))
+    if not recipient_ids:
+        return User.objects.none()
+    return User.objects.filter(id__in=recipient_ids).select_related("provider_profile").order_by("id")
 
 
 def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
@@ -1016,7 +1029,7 @@ def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
 
 
 @transaction.atomic
-def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
+def dispatch_promo_message_item(*, item: PromoRequestItem, now=None, allow_expired_window: bool = False) -> int:
     from apps.messaging.models import Thread, create_system_message
     from apps.messaging.views import _is_blocked_by_other, _unarchive_for_participants
     from apps.notifications.services import create_notification
@@ -1041,7 +1054,7 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
         return int(item.message_recipients_count or 0)
     if not item.send_at or item.send_at > now:
         return 0
-    if item.request.end_at and item.request.end_at < now:
+    if not allow_expired_window and item.request.end_at and item.request.end_at < now:
         return 0
 
     sender_user = item.request.requester
@@ -1053,7 +1066,6 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
     if not title:
         title = f"رسالة دعائية من {_promo_message_sender_label(pr=item.request)}"
     sender_label = _promo_message_sender_label(pr=item.request)
-    landing_url = _promo_message_default_url(item=item)
     assets = _item_assets(item)
     delivered_count = 0
 
@@ -1061,15 +1073,20 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None) -> int:
         delivered = False
 
         if item.use_notification_channel:
+            recipient_role = str(getattr(recipient, "role_state", "") or "").strip().lower()
+            notification_audience_mode = "provider" if recipient_role == "provider" else "client"
+            notification_pref_key = (
+                "ads_and_offers" if notification_audience_mode == "provider" else "platform_recommendations"
+            )
             notification = create_notification(
                 user=recipient,
                 title=title,
                 body=body or "لديك رسالة دعائية جديدة.",
                 kind="promo_offer",
-                url=landing_url,
+                url=f"/notifications/?promo_item_id={item.id}",
                 actor=sender_user,
-                pref_key="ads_and_offers",
-                audience_mode="provider",
+                pref_key=notification_pref_key,
+                audience_mode=notification_audience_mode,
                 meta={
                     "promo_request_id": item.request_id,
                     "promo_request_item_id": item.id,
@@ -1158,6 +1175,30 @@ def send_due_promo_messages(*, now=None, limit: int = 100) -> int:
     return processed
 
 
+def _dispatch_due_messages_for_request(pr: PromoRequest, *, now=None) -> int:
+    """Dispatch all due promo-message items for a single request, inline."""
+    now = now or timezone.now()
+    due_items = list(
+        PromoRequestItem.objects.filter(
+            request=pr,
+            service_type=PromoServiceType.PROMO_MESSAGES,
+            send_at__isnull=False,
+            send_at__lte=now,
+            message_sent_at__isnull=True,
+        ).order_by("send_at", "id")
+    )
+    dispatched = 0
+    for item in due_items:
+        try:
+            dispatch_promo_message_item(item=item, now=now, allow_expired_window=True)
+            dispatched += 1
+        except Exception as exc:
+            PromoRequestItem.objects.filter(pk=item.pk).update(
+                message_dispatch_error=str(exc)[:255]
+            )
+    return dispatched
+
+
 @transaction.atomic
 def expire_due_promos(*, now=None) -> int:
     now = now or timezone.now()
@@ -1168,6 +1209,8 @@ def expire_due_promos(*, now=None) -> int:
     rows = list(qs)
     count = len(rows)
     for pr in rows:
+        # Dispatch any unsent promo messages while request is still ACTIVE
+        _dispatch_due_messages_for_request(pr, now=now)
         pr.status = PromoRequestStatus.EXPIRED
         if pr.ops_status != PromoOpsStatus.COMPLETED:
             pr.ops_status = PromoOpsStatus.COMPLETED
@@ -1278,6 +1321,12 @@ def apply_effective_payment(*, pr: PromoRequest) -> PromoRequest:
 
     now = timezone.now()
     if pr.end_at and pr.end_at <= now:
+        # Temporarily activate so due promo messages can still be dispatched
+        pr.status = PromoRequestStatus.ACTIVE
+        pr.activated_at = pr.activated_at or now
+        pr.save(update_fields=["status", "activated_at", "updated_at"])
+        _dispatch_due_messages_for_request(pr, now=now)
+
         pr.status = PromoRequestStatus.EXPIRED
         pr.ops_status = PromoOpsStatus.COMPLETED
         pr.ops_completed_at = pr.ops_completed_at or now
@@ -1320,6 +1369,12 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
 
     now = timezone.now()
     if pr.end_at and pr.end_at <= now:
+        # Temporarily activate so due promo messages can still be dispatched
+        pr.status = PromoRequestStatus.ACTIVE
+        pr.activated_at = pr.activated_at or now
+        pr.save(update_fields=["status", "activated_at", "updated_at"])
+        _dispatch_due_messages_for_request(pr, now=now)
+
         pr.status = PromoRequestStatus.EXPIRED
         pr.ops_status = PromoOpsStatus.COMPLETED
         pr.ops_completed_at = pr.ops_completed_at or now
@@ -1369,6 +1424,10 @@ def activate_after_payment(*, pr: PromoRequest) -> PromoRequest:
         )
     except Exception:
         pass
+
+    # Dispatch any promo messages that are already due at activation time
+    _dispatch_due_messages_for_request(pr, now=now)
+
     return pr
 
 

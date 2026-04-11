@@ -1,23 +1,7 @@
 (function () {
   "use strict";
 
-  function closeAlerts() {
-    const list = document.getElementById("alertsList");
-    if (!list) {
-      return;
-    }
-    list.querySelectorAll("button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const alert = btn.closest(".alert");
-        if (alert) {
-          alert.remove();
-        }
-      });
-    });
-    window.setTimeout(() => {
-      list.querySelectorAll(".alert").forEach((alert) => alert.remove());
-    }, 9000);
-  }
+  /* closeAlerts — handled globally by _base.html toast system */
 
   function attachCharCounters() {
     const textareas = document.querySelectorAll("textarea[maxlength]");
@@ -3061,7 +3045,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    closeAlerts();
     attachCharCounters();
     syncFileSpecs();
     setupActionConfirmations();

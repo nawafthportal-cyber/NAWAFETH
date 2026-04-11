@@ -32,6 +32,40 @@ class ServiceCatalog(models.Model):
         return f"[{status}] {self.sku} — {self.price} {self.currency}"
 
 
+class ExtrasBundlePricingRule(models.Model):
+    SECTION_REPORTS = "reports"
+    SECTION_CLIENTS = "clients"
+    SECTION_FINANCE = "finance"
+
+    SECTION_CHOICES = (
+        (SECTION_REPORTS, "التقارير"),
+        (SECTION_CLIENTS, "إدارة العملاء"),
+        (SECTION_FINANCE, "الإدارة المالية"),
+    )
+
+    section_key = models.CharField("القسم", max_length=20, choices=SECTION_CHOICES)
+    option_key = models.CharField("رمز البند", max_length=80)
+    fee = models.DecimalField("السعر قبل الضريبة", max_digits=10, decimal_places=2)
+    currency = models.CharField("العملة", max_length=10, default="SAR")
+    apply_year_multiplier = models.BooleanField("يضرب في مدة الاشتراك", default=False)
+    is_active = models.BooleanField("نشط", default=True)
+    sort_order = models.PositiveIntegerField("الترتيب", default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "تسعير بند باقة خدمات إضافية"
+        verbose_name_plural = "تسعير بنود باقات الخدمات الإضافية"
+        ordering = ["section_key", "sort_order", "option_key"]
+        constraints = [
+            models.UniqueConstraint(fields=["section_key", "option_key"], name="uniq_extras_bundle_pricing_rule"),
+        ]
+
+    def __str__(self):
+        state = "✓" if self.is_active else "✗"
+        return f"[{state}] {self.section_key}:{self.option_key} — {self.fee} {self.currency}"
+
+
 class ExtraPurchaseStatus(models.TextChoices):
     PENDING_PAYMENT = "pending_payment", "بانتظار الدفع"
     ACTIVE = "active", "نشط"

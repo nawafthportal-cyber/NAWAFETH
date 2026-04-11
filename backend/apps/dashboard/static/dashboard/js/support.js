@@ -1,20 +1,7 @@
 (function () {
   "use strict";
 
-  function closeAlerts() {
-    const list = document.getElementById("alertsList");
-    if (!list) {
-      return;
-    }
-    list.querySelectorAll("button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const alert = btn.closest(".alert");
-        if (alert) {
-          alert.remove();
-        }
-      });
-    });
-  }
+  /* closeAlerts — handled globally by _base.html toast system */
 
   function attachCharCounter(textarea, limit) {
     if (!textarea) {
@@ -67,14 +54,20 @@
         return;
       }
       const action = submitter.value || "";
-      if (action === "close_ticket") {
+      const confirmMsg = submitter.getAttribute("data-confirm-message");
+      if (confirmMsg) {
+        const ok = window.confirm(confirmMsg);
+        if (!ok) {
+          event.preventDefault();
+          return;
+        }
+      } else if (action === "close_ticket") {
         const ok = window.confirm("هل تريد إغلاق الطلب؟");
         if (!ok) {
           event.preventDefault();
           return;
         }
-      }
-      if (action === "return_ticket") {
+      } else if (action === "return_ticket") {
         const ok = window.confirm("هل تريد إعادة الطلب للعميل؟");
         if (!ok) {
           event.preventDefault();
@@ -84,7 +77,7 @@
 
       form.querySelectorAll("button[type='submit']").forEach((button) => {
         button.disabled = true;
-        button.style.opacity = "0.65";
+        button.classList.add("is-loading");
       });
     });
   }
@@ -222,7 +215,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    closeAlerts();
     setupLiveSearch();
     setupActionForm();
     markActiveTicket();

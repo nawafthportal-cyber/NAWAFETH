@@ -27,6 +27,7 @@ from apps.analytics.models import AnalyticsEvent
 from apps.analytics.services import extras_kpis, kpis_summary, promo_kpis, provider_kpis, subscription_kpis
 from apps.audit.models import AuditAction
 from apps.audit.services import log_action
+from apps.backoffice.bootstrap import ensure_backoffice_access_catalog
 from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard, UserAccessProfile
 from apps.backoffice.policies import (
     ContentHideDeletePolicy,
@@ -60,14 +61,15 @@ from apps.subscriptions.services import (
     delete_subscription_account_for_dashboard,
     activate_subscription_after_payment,
     apply_effective_payment,
+    get_effective_active_subscriptions_map,
     start_subscription_renewal_checkout,
     normalize_subscription_duration_count,
     plan_to_db_tier,
     plan_to_tier,
 )
-from apps.unified_requests.models import UnifiedRequest, UnifiedRequestStatus, UnifiedRequestType
+from apps.unified_requests.models import UnifiedRequest, UnifiedRequestPriority, UnifiedRequestStatus, UnifiedRequestType
 from apps.unified_requests.services import upsert_unified_request
-from apps.unified_requests.workflows import canonical_status_for_workflow
+from apps.unified_requests.workflows import canonical_status_for_workflow, is_valid_transition
 from apps.support.models import (
     SupportAttachment,
     SupportComment,
@@ -107,6 +109,18 @@ from apps.verification.models import (
     VerificationStatus,
 )
 from apps.verification.serializers import VerificationRequestDetailSerializer
+from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
+from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
+from apps.extras.services import (
+    activate_bundle_portal_subscription_for_request,
+    create_manual_extras_invoice,
+    extras_bundle_detail_sections_for_request,
+    extras_bundle_invoice_for_request,
+    extras_bundle_payment_access_url,
+    extras_bundle_payload_for_request,
+    notify_bundle_completed,
+    notify_bundle_payment_requested,
+)
 from apps.promo.services import (
     calc_promo_request_quote,
     expire_due_promos,
@@ -115,7 +129,6 @@ from apps.promo.services import (
     _sync_promo_to_unified,
 )
 from apps.verification.services import (
-    REQUIREMENTS_CATALOG,
     _sync_verification_to_unified,
     create_renewal_request_from_verified_badge,
     deactivate_verified_badge,
@@ -159,6 +172,8 @@ from .forms import (
     ContentSettingsLinksForm,
     DashboardLoginForm,
     DashboardOTPForm,
+    ExtrasInquiryActionForm,
+    ExtrasRequestActionForm,
     PromoInquiryActionForm,
     PromoModuleItemForm,
     PromoRequestActionForm,
@@ -176,6 +191,8 @@ PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_inquiry_submit_tokens
 PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_module_submit_tokens"
 PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_pricing_submit_tokens"
 SINGLE_USE_SUBMIT_TOKEN_CACHE_TIMEOUT = 15 * 60
+OTP_RESEND_COOLDOWN_SECONDS = 60
+EXTRAS_BUNDLE_DRAFT_SESSION_KEY = "dashboard_extras_bundle_draft"
 
 
 def _want_export(request, expected: str) -> bool:
@@ -240,6 +257,32 @@ def _consume_single_use_submit_token(request, session_key: str, token: str) -> b
     sanitized_tokens.remove(submitted_token)
     request.session[session_key] = sanitized_tokens
     return True
+
+
+def _otp_resend_cache_key(user_id: int) -> str:
+    return f"dashboard:otp:resend:cooldown:{int(user_id)}"
+
+
+def _otp_resend_remaining_seconds(user_id: int | None) -> int:
+    if not user_id:
+        return 0
+    cache_key = _otp_resend_cache_key(user_id)
+    until_ts = cache.get(cache_key)
+    if until_ts is None:
+        return 0
+    now_ts = int(timezone.now().timestamp())
+    remaining = max(0, int(until_ts) - now_ts)
+    if remaining <= 0:
+        cache.delete(cache_key)
+        return 0
+    return remaining
+
+
+def _activate_otp_resend_cooldown(user_id: int, seconds: int = OTP_RESEND_COOLDOWN_SECONDS) -> int:
+    cooldown = max(1, int(seconds or OTP_RESEND_COOLDOWN_SECONDS))
+    until_ts = int(timezone.now().timestamp()) + cooldown
+    cache.set(_otp_resend_cache_key(user_id), until_ts, timeout=cooldown)
+    return cooldown
 
 
 def _promo_module_redirect_with_state(request, module_key: str, *, request_id: int | None = None):
@@ -438,7 +481,13 @@ def otp_view(request):
             return render(
                 request,
                 "dashboard/auth/otp.html",
-                {"form": form, "dev_accept_any": bypass_enabled, "phone": pending_user.phone},
+                {
+                    "form": form,
+                    "dev_accept_any": bypass_enabled,
+                    "phone": pending_user.phone,
+                    "otp_resend_cooldown_seconds": _otp_resend_remaining_seconds(pending_user.id),
+                    "otp_resend_default_cooldown_seconds": OTP_RESEND_COOLDOWN_SECONDS,
+                },
             )
 
         login(request, pending_user, backend="django.contrib.auth.backends.ModelBackend")
@@ -461,7 +510,13 @@ def otp_view(request):
     return render(
         request,
         "dashboard/auth/otp.html",
-        {"form": form, "dev_accept_any": bypass_enabled, "phone": pending_user.phone},
+        {
+            "form": form,
+            "dev_accept_any": bypass_enabled,
+            "phone": pending_user.phone,
+            "otp_resend_cooldown_seconds": _otp_resend_remaining_seconds(pending_user.id),
+            "otp_resend_default_cooldown_seconds": OTP_RESEND_COOLDOWN_SECONDS,
+        },
     )
 
 
@@ -485,6 +540,8 @@ def dashboard_index(request):
         return redirect("dashboard:verification_dashboard")
     if dashboard_allowed(request.user, "subs"):
         return redirect("dashboard:subscription_dashboard")
+    if dashboard_allowed(request.user, "extras"):
+        return redirect("dashboard:extras_dashboard")
     if dashboard_allowed(request.user, "analytics"):
         return redirect("dashboard:analytics_insights")
     return HttpResponseForbidden("لا توجد لوحة متاحة لهذا الحساب.")
@@ -596,16 +653,24 @@ def _would_still_be_active_admin(level: str, revoked_at, expires_at) -> bool:
     return True
 
 
-def _resolve_granted_permissions(level: str, dashboard_codes: list[str]):
+def _resolve_granted_permissions(level: str, dashboard_codes: list[str], selected_permission_codes: list[str] | None = None):
     active_permissions = AccessPermission.objects.filter(is_active=True)
     if level == AccessLevel.ADMIN:
+        return active_permissions
+    if level == AccessLevel.POWER:
         return active_permissions
     if level in {AccessLevel.QA, AccessLevel.CLIENT}:
         return AccessPermission.objects.none()
     allowed_codes = [code for code in dashboard_codes if code]
     if not allowed_codes:
         return AccessPermission.objects.none()
-    return active_permissions.filter(dashboard_code__in=allowed_codes)
+    allowed_permissions = active_permissions.filter(dashboard_code__in=allowed_codes)
+    normalized_permission_codes = [
+        str(code).strip() for code in (selected_permission_codes or []) if str(code).strip()
+    ]
+    if not normalized_permission_codes:
+        return AccessPermission.objects.none()
+    return allowed_permissions.filter(code__in=normalized_permission_codes)
 
 
 def _normalize_dashboards_for_level(level: str, dashboard_codes: list[str]) -> list[str]:
@@ -643,6 +708,7 @@ def _upsert_access_profile(request, form: AccessProfileForm):
     mobile = (form.cleaned_data.get("mobile_number") or "").strip()
     level = form.cleaned_data.get("level")
     dashboards = _normalize_dashboards_for_level(level, form.cleaned_data.get("dashboards") or [])
+    permissions = form.cleaned_data.get("permissions") or []
     password = form.cleaned_data.get("password") or ""
     password_expiration_date = form.cleaned_data.get("password_expiration_date")
     account_revoke_date = form.cleaned_data.get("account_revoke_date")
@@ -687,7 +753,7 @@ def _upsert_access_profile(request, form: AccessProfileForm):
 
     profile.save()
     profile.allowed_dashboards.set(Dashboard.objects.filter(code__in=dashboards, is_active=True))
-    profile.granted_permissions.set(_resolve_granted_permissions(level, dashboards))
+    profile.granted_permissions.set(_resolve_granted_permissions(level, dashboards, permissions))
 
     changed_fields = sync_dashboard_user_access(
         user,
@@ -969,6 +1035,7 @@ def _reports_export_rows(report: dict) -> tuple[list[str], list[list]]:
 @dashboard_staff_required
 @require_dashboard_access("admin_control")
 def admin_control_home(request):
+    ensure_backoffice_access_catalog()
     section = (request.GET.get("section") or "access").strip().lower()
     if section not in {"access", "reports"}:
         section = "access"
@@ -1208,14 +1275,63 @@ def _support_assignee_choices() -> list[tuple[str, str]]:
     return _dashboard_assignee_choices("support")
 
 
-SUPPORT_TEAM_TO_DASHBOARD_CODE = {
+SUPPORT_TEAM_CODE_TO_DASHBOARD_FALLBACK = {
     "support": "support",
     "content": "content",
     "promo": "promo",
     "verification": "verify",
+    "verify": "verify",
     "finance": "subs",
+    "subs": "subs",
     "extras": "extras",
 }
+
+
+SUPPORT_DASHBOARD_CODE_ALIASES = {
+    "verification": "verify",
+    "verify": "verify",
+    "finance": "subs",
+    "subscription": "subs",
+    "subscriptions": "subs",
+    "subs": "subs",
+}
+
+
+def _normalize_support_dashboard_code(dashboard_code: str, *, default: str = "") -> str:
+    normalized = normalize_dashboard_code(str(dashboard_code or "").strip())
+    if not normalized:
+        return default
+    return SUPPORT_DASHBOARD_CODE_ALIASES.get(normalized, normalized)
+
+
+def _support_dashboard_code_candidates(dashboard_code: str) -> list[str]:
+    normalized_target = _normalize_support_dashboard_code(dashboard_code, default="")
+    if not normalized_target:
+        return []
+
+    candidates = {normalized_target}
+    for raw_code, canonical_code in SUPPORT_DASHBOARD_CODE_ALIASES.items():
+        if canonical_code == normalized_target:
+            candidates.add(raw_code)
+    return sorted(candidates)
+
+
+def _fallback_dashboard_code_for_team_code(team_code: str) -> str:
+    normalized_team_code = str(team_code or "").strip().lower()
+    if not normalized_team_code:
+        return "support"
+
+    mapped_dashboard_code = SUPPORT_TEAM_CODE_TO_DASHBOARD_FALLBACK.get(normalized_team_code)
+    if mapped_dashboard_code:
+        return mapped_dashboard_code
+    return _normalize_support_dashboard_code(normalized_team_code, default="support")
+
+
+def _support_teams_queryset():
+    active_qs = SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")
+    if active_qs.exists():
+        return active_qs
+    return SupportTeam.objects.order_by("sort_order", "id")
 
 
 def _support_team_dashboard_code(team_id) -> str:
@@ -1224,42 +1340,89 @@ def _support_team_dashboard_code(team_id) -> str:
     except (TypeError, ValueError):
         return "support"
 
-    team = SupportTeam.objects.filter(id=normalized_team_id, is_active=True).only("code").first()
+    team = SupportTeam.objects.filter(id=normalized_team_id).only("code", "dashboard_code").first()
     if team is None:
         return "support"
-    return SUPPORT_TEAM_TO_DASHBOARD_CODE.get(str(team.code or "").strip().lower(), "support")
+    explicit_dashboard_code = _normalize_support_dashboard_code(getattr(team, "dashboard_code", ""), default="")
+    if explicit_dashboard_code:
+        return explicit_dashboard_code
+    return _fallback_dashboard_code_for_team_code(getattr(team, "code", ""))
 
 
 def _support_assignee_choices_by_team() -> dict[str, list[tuple[str, str]]]:
     mapping: dict[str, list[tuple[str, str]]] = {}
-    for team in SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id"):
+    for team in _support_teams_queryset():
         dashboard_code = _support_team_dashboard_code(team.id)
         mapping[str(team.id)] = _dashboard_assignee_choices(dashboard_code)
     return mapping
 
 
 def _support_team_choices() -> list[tuple[str, str]]:
-    return [(str(team.id), team.name_ar) for team in SupportTeam.objects.filter(is_active=True).order_by("sort_order", "id")]
+    return [(str(team.id), team.name_ar) for team in _support_teams_queryset()]
+
+
+def _support_team_for_dashboard(dashboard_code: str, *, fallback_codes: list[str] | None = None) -> SupportTeam | None:
+    target_candidates = _support_dashboard_code_candidates(dashboard_code)
+    if not target_candidates:
+        return None
+
+    teams = list(_support_teams_queryset())
+    for team in teams:
+        team_dashboard_code = _normalize_support_dashboard_code(getattr(team, "dashboard_code", ""), default="")
+        if team_dashboard_code and team_dashboard_code in target_candidates:
+            return team
+
+    for code in fallback_codes or []:
+        normalized_code = str(code or "").strip().lower()
+        if not normalized_code:
+            continue
+        for team in teams:
+            if str(getattr(team, "code", "") or "").strip().lower() == normalized_code:
+                return team
+    return None
+
+
+def _support_ticket_dashboard_q(dashboard_code: str, *, fallback_team_codes: list[str] | None = None):
+    query = Q(pk__in=[])
+
+    for candidate in _support_dashboard_code_candidates(dashboard_code):
+        query |= Q(assigned_team__dashboard_code__iexact=candidate)
+
+    for raw_code in fallback_team_codes or []:
+        normalized_code = str(raw_code or "").strip()
+        if not normalized_code:
+            continue
+        query |= (
+            (Q(assigned_team__dashboard_code__exact="") | Q(assigned_team__dashboard_code__isnull=True))
+            & Q(assigned_team__code__iexact=normalized_code)
+        )
+
+    return query
 
 def _promo_support_team() -> SupportTeam | None:
-    return (
-        SupportTeam.objects.filter(is_active=True, code__iexact="promo")
-        .order_by("sort_order", "id")
-        .first()
-    )
+    return _support_team_for_dashboard("promo", fallback_codes=["promo"])
 
 
 def _serialize_support_rows(tickets: list[SupportTicket]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(ticket, "requester", None) for ticket in tickets]
+    )
     rows = []
     for ticket in tickets:
-        priority_number = _support_priority_number(ticket.priority)
+        priority_number = _dashboard_priority_number_for_user(
+            ticket.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         rows.append(
             {
                 "id": ticket.id,
                 "code": ticket.code or f"HD{ticket.id:04d}",
                 "requester": _support_requester_label(ticket),
                 "priority_number": priority_number,
-                "priority_class": _support_priority_row_class(ticket.priority),
+                "priority_class": _dashboard_priority_class_for_user(
+                    ticket.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
@@ -1452,7 +1615,7 @@ def _subscription_request_operational_status(sub: Subscription | None, request_o
     if sub is None:
         return UnifiedRequestStatus.NEW
     if sub.status == SubscriptionStatus.AWAITING_REVIEW:
-        return UnifiedRequestStatus.IN_PROGRESS
+        return UnifiedRequestStatus.NEW
     if sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE, SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELLED}:
         return UnifiedRequestStatus.CLOSED
     return UnifiedRequestStatus.NEW
@@ -1771,7 +1934,7 @@ def support_dashboard(request, ticket_id: int | None = None):
                 if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
                     return HttpResponseForbidden("لا يمكنك تعيين الطلب لمستخدم آخر.")
 
-            if team_id is not None and not SupportTeam.objects.filter(id=team_id, is_active=True).exists():
+            if team_id is not None and not SupportTeam.objects.filter(id=team_id).exists():
                 messages.error(request, "فريق الدعم المحدد غير صالح.")
                 return _support_redirect_with_state(request, ticket_id=target_ticket.id)
 
@@ -1899,6 +2062,33 @@ def _priority_row_class_from_number(priority_number: int) -> str:
     if int(priority_number or 1) == 2:
         return "priority-2"
     return "priority-1"
+
+
+def _effective_subscriptions_map_for_users(users) -> dict[int, Subscription]:
+    user_ids = sorted(
+        {
+            int(getattr(user, "id", 0) or 0)
+            for user in users
+            if getattr(user, "id", None)
+        }
+    )
+    return get_effective_active_subscriptions_map(user_ids)
+
+
+def _dashboard_priority_number_for_user(user, *, subscriptions_by_user_id: dict[int, Subscription] | None = None) -> int:
+    user_id = int(getattr(user, "id", 0) or 0)
+    if not user_id:
+        return 1
+    if subscriptions_by_user_id is not None:
+        sub = subscriptions_by_user_id.get(user_id)
+        return _subscription_priority_number_for_plan(getattr(sub, "plan", None))
+    return _support_priority_number(support_priority(user))
+
+
+def _dashboard_priority_class_for_user(user, *, subscriptions_by_user_id: dict[int, Subscription] | None = None) -> str:
+    return _priority_row_class_from_number(
+        _dashboard_priority_number_for_user(user, subscriptions_by_user_id=subscriptions_by_user_id)
+    )
 
 
 def _subscription_unified_queryset_for_user(user):
@@ -2091,11 +2281,7 @@ def _subscription_accounts_summary(rows: list[Subscription]) -> dict:
 @dashboard_staff_required
 @require_dashboard_access("subs")
 def subscription_dashboard(request):
-    subscription_team = (
-        SupportTeam.objects.filter(is_active=True, code__in=["subs", "finance"])
-        .order_by("sort_order", "id")
-        .first()
-    )
+    subscription_team = _support_team_for_dashboard("subs", fallback_codes=["subs", "finance"])
     can_write = dashboard_allowed(request.user, "subs", write=True)
     assignee_choices = _dashboard_assignee_choices("subs")
     plan_choices = _subscription_request_plan_choices()
@@ -2210,6 +2396,16 @@ def subscription_dashboard(request):
                     sub.save(update_fields=update_fields)
 
                 payment_effective = bool(sub.invoice and sub.invoice.is_payment_effective())
+                if not is_valid_transition(
+                    request_type=UnifiedRequestType.SUBSCRIPTION,
+                    from_status=request_status_code,
+                    to_status=desired_status,
+                ):
+                    if request_status_code == UnifiedRequestStatus.NEW and desired_status == UnifiedRequestStatus.CLOSED:
+                        messages.error(request, "يجب نقل طلب الاشتراك أولًا إلى تحت المعالجة قبل تحويله إلى مكتمل.")
+                    else:
+                        messages.error(request, "تسلسل حالة الطلب غير صحيح لطلب الاشتراك الحالي.")
+                    return _subscription_request_redirect_with_state(request, request_id=target_request.id)
                 if desired_status == UnifiedRequestStatus.CLOSED and not payment_effective:
                     messages.error(request, "لا يمكن إكمال طلب الاشتراك قبل اعتماد الدفع.")
                     return _subscription_request_redirect_with_state(request, request_id=target_request.id)
@@ -2433,14 +2629,30 @@ def subscription_dashboard(request):
                 messages.error(request, "الاشتراك المطلوب غير موجود.")
                 return redirect(f"{redirect_url}#subscriptionRequests")
 
-            visible_request = _subscription_unified_queryset_for_user(request.user).filter(
+            target_request = _subscription_unified_queryset_for_user(request.user).filter(
                 source_app="subscriptions",
                 source_model="Subscription",
                 source_object_id=str(sub.id),
-            ).exists()
-            if not visible_request:
+            ).select_related("assigned_user").first()
+            if target_request is None:
                 messages.error(request, "هذا الطلب غير متاح لك.")
                 return redirect(f"{redirect_url}#subscriptionRequests")
+
+            operational_status = _subscription_request_operational_status(sub, target_request)
+            if operational_status == UnifiedRequestStatus.NEW:
+                messages.error(request, "يجب نقل طلب الاشتراك أولًا إلى تحت المعالجة قبل اعتماده كمكتمل وتفعيل الاشتراك.")
+                return redirect(f"{redirect_url}#subscriptionRequests")
+            if operational_status == UnifiedRequestStatus.CLOSED or sub.status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
+                messages.warning(request, "تمت معالجة هذا الطلب مسبقًا ونقله إلى بيانات حسابات المشتركين.")
+                return redirect(
+                    _subscription_dashboard_url_with_state(
+                        request,
+                        account_id=sub.id,
+                        anchor="subscriberAccounts",
+                        query=redirect_query,
+                        tab=SUBSCRIPTION_DASHBOARD_TAB_ACCOUNTS,
+                    )
+                )
 
             try:
                 if sub.status != SubscriptionStatus.AWAITING_REVIEW:
@@ -2448,7 +2660,7 @@ def subscription_dashboard(request):
                 activate_subscription_after_payment(
                     sub=sub,
                     changed_by=request.user,
-                    assigned_user=request.user,
+                    assigned_user=target_request.assigned_user or request.user,
                 )
             except ValueError as exc:
                 messages.error(request, str(exc))
@@ -2674,6 +2886,1913 @@ def subscription_dashboard(request):
     return render(request, "dashboard/subscription_dashboard.html", context)
 
 
+EXTRAS_REQUEST_STATUS_CHOICES = [
+    (UnifiedRequestStatus.NEW, "جديد"),
+    (UnifiedRequestStatus.IN_PROGRESS, "تحت المعالجة"),
+    (UnifiedRequestStatus.CLOSED, "مكتمل"),
+]
+
+EXTRAS_REQUEST_ALLOWED_TRANSITIONS = {
+    UnifiedRequestStatus.NEW: (UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS),
+    UnifiedRequestStatus.IN_PROGRESS: (UnifiedRequestStatus.IN_PROGRESS, UnifiedRequestStatus.CLOSED),
+    UnifiedRequestStatus.CLOSED: (UnifiedRequestStatus.CLOSED,),
+}
+
+
+def _extras_vat_percent():
+    """Return the current extras VAT percent from PlatformConfig."""
+    from apps.core.models import PlatformConfig
+    return PlatformConfig.load().extras_vat_percent
+
+
+def _parse_manual_invoice_lines(post_data) -> list[dict]:
+    """Extract manual invoice line items from POST data.
+
+    Expects pairs of ``invoice_line_title[]`` and ``invoice_line_amount[]``.
+    Blank rows are silently skipped.  Returns a list of dicts with ``title``
+    and ``amount`` keys for non-empty rows.
+    """
+    from decimal import Decimal, InvalidOperation
+
+    titles = post_data.getlist("invoice_line_title[]")
+    amounts = post_data.getlist("invoice_line_amount[]")
+    lines: list[dict] = []
+    for title_raw, amount_raw in zip(titles, amounts):
+        title = str(title_raw or "").strip()[:160]
+        amount_str = str(amount_raw or "").strip()
+        if not title and not amount_str:
+            continue
+        try:
+            amount = Decimal(amount_str)
+        except (InvalidOperation, ValueError):
+            amount = Decimal("0")
+        if title and amount > Decimal("0"):
+            lines.append({"title": title, "amount": amount})
+    return lines
+
+
+def _extras_request_status_choices_for(current_status: str):
+    normalized_status = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.EXTRAS,
+        status=current_status,
+    )
+    label_by_status = dict(EXTRAS_REQUEST_STATUS_CHOICES)
+    return [
+        (status_code, label_by_status.get(status_code, status_code))
+        for status_code in EXTRAS_REQUEST_ALLOWED_TRANSITIONS.get(normalized_status, (normalized_status,))
+    ]
+
+
+def _extras_request_status_help_text(current_status: str) -> str:
+    normalized_status = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.EXTRAS,
+        status=current_status,
+    )
+    if normalized_status == UnifiedRequestStatus.NEW:
+        return "المتاح الآن: إبقاء الطلب جديدًا أو نقله إلى تحت المعالجة فقط."
+    if normalized_status == UnifiedRequestStatus.IN_PROGRESS:
+        return "المتاح الآن: إبقاء الطلب تحت المعالجة أو نقله إلى مكتمل فقط."
+    return "الطلب مكتمل، ولا يمكن نقله إلى حالة أخرى."
+
+
+def _extras_support_team() -> SupportTeam | None:
+    return _support_team_for_dashboard("extras", fallback_codes=["extras"])
+
+
+def _extras_team_name(team: SupportTeam | None) -> str:
+    return getattr(team, "name_ar", "فريق إدارة الخدمات الإضافية")
+
+
+def _extras_inquiries_queryset_for_user(user):
+    return _support_queryset_for_user(user).filter(
+        _support_ticket_dashboard_q("extras", fallback_team_codes=["extras"])
+        | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.EXTRAS)
+    ).distinct()
+
+
+def _extras_unified_queryset_for_user(user):
+    qs = (
+        UnifiedRequest.objects.select_related("requester", "assigned_user", "metadata_record")
+        .filter(request_type=UnifiedRequestType.EXTRAS)
+        .order_by("-updated_at", "-id")
+    )
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        qs = qs.filter(Q(assigned_user=user) | Q(assigned_user__isnull=True))
+    return qs
+
+
+def _extras_purchase_map(unified_requests: list[UnifiedRequest]) -> dict[int, ExtraPurchase]:
+    purchase_ids: list[int] = []
+    for request_obj in unified_requests:
+        raw_purchase_id = str(request_obj.source_object_id or "").strip()
+        if not raw_purchase_id.isdigit():
+            continue
+        purchase_ids.append(int(raw_purchase_id))
+    if not purchase_ids:
+        return {}
+    return {
+        purchase.id: purchase
+        for purchase in ExtraPurchase.objects.select_related("user", "invoice").filter(id__in=purchase_ids)
+    }
+
+
+def _extras_request_status_label(status_code: str) -> str:
+    normalized = str(status_code or "").strip().lower()
+    return {
+        UnifiedRequestStatus.NEW: "جديد",
+        UnifiedRequestStatus.IN_PROGRESS: "تحت المعالجة",
+        UnifiedRequestStatus.RETURNED: "معاد للعميل",
+        UnifiedRequestStatus.CLOSED: "مكتمل",
+    }.get(normalized, "جديد")
+
+
+def _extras_payment_status_label(purchase: ExtraPurchase | None) -> str:
+    if purchase is None:
+        return "-"
+    invoice = getattr(purchase, "invoice", None)
+    if invoice is None:
+        return "لا توجد فاتورة"
+    if invoice.is_payment_effective():
+        return "مدفوع ومعتمد"
+    return invoice.get_status_display()
+
+
+def _extras_request_operator_comment(request_obj: UnifiedRequest | None) -> str:
+    payload = getattr(getattr(request_obj, "metadata_record", None), "payload", None)
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("operator_comment", "") or "").strip()[:300]
+
+
+def _extras_request_rows(extras_requests: list[UnifiedRequest]) -> list[dict]:
+    purchase_map = _extras_purchase_map(extras_requests)
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(request_obj, "requester", None) for request_obj in extras_requests]
+    )
+    rows: list[dict] = []
+    for request_obj in extras_requests:
+        raw_purchase_id = str(request_obj.source_object_id or "").strip()
+        purchase_id = int(raw_purchase_id) if raw_purchase_id.isdigit() else 0
+        purchase = purchase_map.get(purchase_id)
+        request_status_code = canonical_status_for_workflow(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=request_obj.status,
+        )
+        priority_number = _dashboard_priority_number_for_user(
+            request_obj.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
+        rows.append(
+            {
+                "id": request_obj.id,
+                "code": request_obj.code or f"P{request_obj.id:06d}",
+                "requester": _promo_requester_label(request_obj.requester),
+                "priority_number": priority_number,
+                "priority_class": _dashboard_priority_class_for_user(
+                    request_obj.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
+                "created_at": _format_dt(getattr(purchase, "created_at", None) or request_obj.created_at),
+                "request_status_code": request_status_code,
+                "request_status": _extras_request_status_label(request_status_code),
+                "assignee": _subscription_request_assignee_label(request_obj),
+                "assigned_at": _format_dt(request_obj.assigned_at),
+                "service_title": (getattr(purchase, "title", "") or request_obj.summary or "-").strip(),
+                "service_sku": getattr(purchase, "sku", "") or "-",
+                "purchase_status": purchase.get_status_display() if purchase is not None else "-",
+                "purchase_type": purchase.get_extra_type_display() if purchase is not None else "-",
+                "payment_status": _extras_payment_status_label(purchase),
+                "invoice_code": getattr(getattr(purchase, "invoice", None), "code", "") or "-",
+                "start_at": _format_dt(getattr(purchase, "start_at", None)),
+                "end_at": _format_dt(getattr(purchase, "end_at", None)),
+                "credits_total": int(getattr(purchase, "credits_total", 0) or 0),
+                "credits_used": int(getattr(purchase, "credits_used", 0) or 0),
+                "purchase_id": purchase.id if purchase is not None else None,
+            }
+        )
+    return rows
+
+
+def _extras_requests_summary(rows: list[dict]) -> dict:
+    by_status: dict[str, int] = {}
+    for row in rows:
+        key = str(row.get("request_status_code") or "").strip().lower()
+        by_status[key] = by_status.get(key, 0) + 1
+    return {
+        "total": len(rows),
+        "new": by_status.get(UnifiedRequestStatus.NEW, 0),
+        "in_progress": by_status.get(UnifiedRequestStatus.IN_PROGRESS, 0),
+        "returned": by_status.get(UnifiedRequestStatus.RETURNED, 0),
+        "closed": by_status.get(UnifiedRequestStatus.CLOSED, 0),
+    }
+
+
+def _extras_dashboard_url_with_state(
+    request,
+    *,
+    inquiry_id: int | None = None,
+    request_id: int | None = None,
+    anchor: str = "",
+    query: str = "",
+) -> str:
+    raw_query = str(query or request.GET.urlencode()).strip()
+    params = QueryDict(raw_query, mutable=True)
+
+    if inquiry_id is None:
+        params.pop("inquiry", None)
+    else:
+        params["inquiry"] = str(inquiry_id)
+
+    if request_id is None:
+        params.pop("request", None)
+    else:
+        params["request"] = str(request_id)
+
+    base = reverse("dashboard:extras_dashboard")
+    normalized_query = params.urlencode()
+    target = f"{base}?{normalized_query}" if normalized_query else base
+    return f"{target}#{anchor}" if anchor else target
+
+
+def _extras_redirect_with_state(
+    request,
+    *,
+    inquiry_id: int | None = None,
+    request_id: int | None = None,
+    anchor: str = "extrasInquiries",
+):
+    query = (request.POST.get("redirect_query") or request.GET.urlencode()).strip()
+    return redirect(
+        _extras_dashboard_url_with_state(
+            request,
+            inquiry_id=inquiry_id,
+            request_id=request_id,
+            anchor=anchor,
+            query=query,
+        )
+    )
+
+
+def _extras_close_inquiry_url(request, *, selected_request_id: int | None = None) -> str:
+    return _extras_dashboard_url_with_state(
+        request,
+        inquiry_id=None,
+        request_id=selected_request_id,
+        anchor="extrasInquiries",
+    )
+
+
+def _extras_close_request_url(request, *, selected_inquiry_id: int | None = None) -> str:
+    return _extras_dashboard_url_with_state(
+        request,
+        inquiry_id=selected_inquiry_id,
+        request_id=None,
+        anchor="extrasRequests",
+    )
+
+
+EXTRAS_DASHBOARD_SECTION_OVERVIEW = "overview"
+EXTRAS_DASHBOARD_SECTION_REPORTS = "reports"
+EXTRAS_DASHBOARD_SECTION_CLIENTS = "clients"
+EXTRAS_DASHBOARD_SECTION_FINANCE = "finance"
+EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS = "subscribers"
+EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY = "request_summary"
+EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED = "request_created"
+EXTRAS_DASHBOARD_SECTIONS = {
+    EXTRAS_DASHBOARD_SECTION_OVERVIEW,
+    EXTRAS_DASHBOARD_SECTION_REPORTS,
+    EXTRAS_DASHBOARD_SECTION_CLIENTS,
+    EXTRAS_DASHBOARD_SECTION_FINANCE,
+    EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS,
+    EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY,
+    EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED,
+}
+EXTRAS_DASHBOARD_MAIN_SECTION = EXTRAS_DASHBOARD_SECTION_OVERVIEW
+
+EXTRAS_REPORT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("platform_metrics", "مؤشرات المنصة"),
+    ("platform_visits", "عدد الزيارات لمنصتي"),
+    ("platform_favorites", "عدد التفضيلات لمحتوى منصتي"),
+    ("orders_breakdown", "عدد الطلبات (الجديدة - تحت التنفيذ - المكتملة - الملغية)"),
+    ("platform_shares", "عدد مرات مشاركة منصتي"),
+    ("service_requesters", "قائمة بمعرفات من طلب خدماتي"),
+    ("potential_clients", "قائمة بمعرفات من تم تميزه كعميل محتمل"),
+    ("content_favoriters", "قائمة بمعرفات من عمل تفضيل لمحتوى منصتي"),
+    ("platform_followers", "قائمة بمعرفات من عمل متابعة لمنصتي"),
+    ("content_sharers", "قائمة بمعرفات من عمل مشاركة لمنصتي"),
+    ("positive_reviewers", "قائمة بمعرفات أصحاب التقييم الإيجابي لخدماتي"),
+    ("content_commenters", "قائمة بمعرفات المعلقين على محتوى منصتي"),
+)
+
+EXTRAS_REPORT_OPTION_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        "مؤشرات المنصة",
+        (
+            "platform_metrics",
+            "platform_visits",
+            "platform_favorites",
+            "orders_breakdown",
+            "platform_shares",
+        ),
+    ),
+    (
+        "القوائم والمعرفات المطلوبة",
+        (
+            "service_requesters",
+            "potential_clients",
+            "content_favoriters",
+            "platform_followers",
+            "content_sharers",
+            "positive_reviewers",
+            "content_commenters",
+        ),
+    ),
+)
+
+EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("platform_clients_list", "قوائم عملاء منصتي"),
+    ("historical_clients", "قائمة بجميع العملاء الذين سبق لهم تقديم طلب خدمة تشمل معرفاتهم ووسائل التواصل معهم"),
+    ("all_followers", "قائمة بكل متابعي المختص"),
+    ("potential_clients_contact", "قائمة بالعملاء المحتملين (المرشحين من قائمة التواصل)"),
+    ("export_clients", "تصدير المعلومات إلى ملف PDF أو Excel"),
+    ("list_services", "خدمات القوائم"),
+    ("grouping", "التصنيف على شكل مجموعات (خدمة محددة - مهم - متكرر ...)"),
+    ("bulk_messages", "إرسال الرسائل الجماعية لعملائي"),
+    ("recurring_reminders", "خيار تذكير مرتبط بالعملاء وخدمتهم المتكررة (مثل الصيانة الدوري) يشمل مواعيد ورسائل تنبيه"),
+    ("loyalty_program", "برنامج الولاء"),
+    ("loyalty_points", "وضع نظام نقاط لعملائي مرتبط بعدد طلباتهم"),
+)
+
+EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
+    ("bank_qr_registration", "خدمة تسجيل الحساب البنكي للمختص (QR)"),
+    ("electronic_payments", "خدمات الدفع الإلكتروني"),
+    ("electronic_invoices", "الفواتير الإلكترونية لعمليات الدفع من خلال منصة مختص"),
+    ("financial_statement", "كشف حساب شامل (اسم العميل - التاريخ - المبلغ المستلم - المبلغ الباقي - المبلغ النهائي)"),
+    ("finance_export", "تصدير البيانات المالية للعمليات المنفذة من خلال منصة مختص إلى ملف PDF أو Excel"),
+)
+
+
+def _extras_nav_items(active_key: str) -> list[dict]:
+    base = reverse("dashboard:extras_dashboard")
+    items = [
+        {
+            "key": EXTRAS_DASHBOARD_SECTION_REPORTS,
+            "label": "التقارير",
+            "description": "القائمة الفرعية الخاصة بالتقارير.",
+            "url": f"{base}?section={EXTRAS_DASHBOARD_SECTION_REPORTS}",
+        },
+        {
+            "key": EXTRAS_DASHBOARD_SECTION_CLIENTS,
+            "label": "إدارة العملاء",
+            "description": "القائمة الفرعية الخاصة بإدارة العملاء.",
+            "url": f"{base}?section={EXTRAS_DASHBOARD_SECTION_CLIENTS}",
+        },
+        {
+            "key": EXTRAS_DASHBOARD_SECTION_FINANCE,
+            "label": "الإدارة المالية",
+            "description": "القائمة الفرعية الخاصة بالإدارة المالية.",
+            "url": f"{base}?section={EXTRAS_DASHBOARD_SECTION_FINANCE}",
+        },
+        {
+            "key": EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS,
+            "label": "بيانات مشتركي الخدمات الإضافية",
+            "description": "القائمة الفرعية الخاصة بمشتركي الخدمات الإضافية.",
+            "url": f"{base}?section={EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS}",
+        },
+    ]
+    for item in items:
+        item["active"] = item["key"] == active_key
+    return items
+
+
+def _extras_purchases_queryset_for_user(user):
+    qs = ExtraPurchase.objects.select_related("user", "invoice").order_by("-updated_at", "-id")
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        allowed_ids: list[int] = []
+        for row in _extras_unified_queryset_for_user(user):
+            raw_purchase_id = str(row.source_object_id or "").strip()
+            if raw_purchase_id.isdigit():
+                allowed_ids.append(int(raw_purchase_id))
+        if not allowed_ids:
+            return qs.none()
+        qs = qs.filter(id__in=allowed_ids)
+    return qs
+
+
+def _extras_amount_text(amount, currency: str | None = None) -> str:
+    try:
+        value = Decimal(amount)
+    except (InvalidOperation, TypeError, ValueError):
+        return "-"
+    currency_code = str(currency or "SAR").strip().upper()
+    return f"{value:.2f} {currency_code}".strip()
+
+
+def _extras_invoice_details(invoice: Invoice | None, *, request_obj: UnifiedRequest | None = None) -> dict | None:
+    if invoice is None:
+        return None
+
+    latest_attempt = (
+        PaymentAttempt.objects.filter(invoice=invoice)
+        .exclude(checkout_url="")
+        .order_by("-created_at")
+        .first()
+    )
+    checkout_url = ""
+    metadata_payload = getattr(getattr(request_obj, "metadata_record", None), "payload", None)
+    if isinstance(metadata_payload, dict):
+        checkout_url = str(metadata_payload.get("checkout_url") or "").strip()
+    if not checkout_url and latest_attempt is not None:
+        checkout_url = str(getattr(latest_attempt, "checkout_url", "") or "").strip()
+    if checkout_url and request_obj is not None:
+        checkout_url = extras_bundle_payment_access_url(
+            request_obj=request_obj,
+            invoice=invoice,
+            checkout_url=checkout_url,
+        )
+
+    payment_confirmed_at = getattr(invoice, "payment_confirmed_at", None) or getattr(invoice, "paid_at", None)
+    status_label = "مدفوع ومعتمد" if invoice.is_payment_effective() else invoice.get_status_display()
+
+    return {
+        "code": getattr(invoice, "code", "") or "-",
+        "status_label": status_label,
+        "description": str(getattr(invoice, "description", "") or "").strip(),
+        "subtotal_text": _extras_amount_text(getattr(invoice, "subtotal", None), getattr(invoice, "currency", None)),
+        "vat_percent_text": f"{Decimal(str(getattr(invoice, 'vat_percent', 0) or 0)):.2f}%",
+        "vat_amount_text": _extras_amount_text(getattr(invoice, "vat_amount", None), getattr(invoice, "currency", None)),
+        "total_text": _extras_amount_text(getattr(invoice, "total", None), getattr(invoice, "currency", None)),
+        "created_at": _format_dt(getattr(invoice, "created_at", None)),
+        "payment_confirmed_at": _format_dt(payment_confirmed_at),
+        "checkout_url": checkout_url,
+        "attempt_status": latest_attempt.get_status_display() if latest_attempt is not None else "-",
+        "lines": [
+            {
+                "title": str(line.title or "").strip() or f"بند {index}",
+                "amount_text": _extras_amount_text(line.amount, getattr(invoice, "currency", None)),
+            }
+            for index, line in enumerate(invoice.lines.all(), start=1)
+        ],
+    }
+
+
+def _extras_request_billing_state(
+    request_obj: UnifiedRequest | None,
+    *,
+    invoice: Invoice | None = None,
+    invoice_details: dict | None = None,
+) -> dict:
+    normalized_status = (
+        canonical_status_for_workflow(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=getattr(request_obj, "status", ""),
+        )
+        if request_obj is not None
+        else UnifiedRequestStatus.NEW
+    )
+    invoice_details = invoice_details or _extras_invoice_details(invoice, request_obj=request_obj)
+
+    if invoice is not None and invoice.is_payment_effective():
+        return {
+            "label": "مدفوع ومعتمد",
+            "tone": "success",
+            "next_step": "إكمال التنفيذ ثم إغلاق الطلب",
+            "description": "تم اعتماد السداد لهذا الطلب. يمكن الآن استكمال التنفيذ ثم تحويل الحالة إلى مكتمل بعد إنهاء الخدمة.",
+        }
+
+    if invoice is not None:
+        return {
+            "label": "فاتورة صادرة وبانتظار السداد",
+            "tone": "info",
+            "next_step": "متابعة السداد أو تحديث الفاتورة",
+            "description": (
+                "تم إنشاء فاتورة يدوية لهذا الطلب وإرسال رابط الدفع للعميل. "
+                "يمكن تحديث البنود قبل السداد عند الحاجة."
+            ),
+            "checkout_url": (invoice_details or {}).get("checkout_url", ""),
+        }
+
+    if normalized_status == UnifiedRequestStatus.IN_PROGRESS:
+        return {
+            "label": "بانتظار التسعير اليدوي",
+            "tone": "warning",
+            "next_step": "إصدار الفاتورة من المكلف",
+            "description": (
+                "الطلب تحت المعالجة، لكن لم يتم تحديد التسعير بعد. "
+                "أدخل البنود والمبالغ يدويًا ثم أصدر الفاتورة عند جاهزية العرض المالي."
+            ),
+        }
+
+    if normalized_status == UnifiedRequestStatus.CLOSED:
+        return {
+            "label": "مغلق بدون فاتورة",
+            "tone": "muted",
+            "next_step": "مراجعة السجل المالي",
+            "description": "هذا الطلب مغلق حاليًا ولا توجد عليه فاتورة محفوظة داخل السجل الحالي.",
+        }
+
+    return {
+        "label": "بانتظار التسعير",
+        "tone": "warning",
+        "next_step": "نقل الطلب إلى تحت المعالجة",
+        "description": (
+            "لا يتم إنشاء فاتورة تلقائيًا في الخدمات الإضافية. "
+            "يبدأ المكلف بمراجعة الطلب ثم ينتقل إلى التسعير اليدوي حسب نطاق العمل المطلوب."
+        ),
+    }
+
+
+def _extras_purchase_rows(purchases: list[ExtraPurchase]) -> list[dict]:
+    source_ids = [str(purchase.id) for purchase in purchases if getattr(purchase, "id", None)]
+    request_map: dict[int, UnifiedRequest] = {}
+    if source_ids:
+        for request_obj in UnifiedRequest.objects.filter(
+            request_type=UnifiedRequestType.EXTRAS,
+            source_app="extras",
+            source_model="ExtraPurchase",
+            source_object_id__in=source_ids,
+        ):
+            raw_purchase_id = str(request_obj.source_object_id or "").strip()
+            if raw_purchase_id.isdigit():
+                request_map[int(raw_purchase_id)] = request_obj
+
+    rows: list[dict] = []
+    for purchase in purchases:
+        invoice = getattr(purchase, "invoice", None)
+        request_obj = request_map.get(int(purchase.id))
+        rows.append(
+            {
+                "id": purchase.id,
+                "request_id": getattr(request_obj, "id", None),
+                "request_code": getattr(request_obj, "code", "") or f"P{purchase.id:06d}",
+                "requester": _promo_requester_label(purchase.user),
+                "service_title": (purchase.title or purchase.sku or "-").strip(),
+                "service_sku": purchase.sku or "-",
+                "purchase_status_code": purchase.status,
+                "purchase_status": purchase.get_status_display(),
+                "payment_status": _extras_payment_status_label(purchase),
+                "subtotal_text": _extras_amount_text(purchase.subtotal, purchase.currency),
+                "invoice_total_text": _extras_amount_text(
+                    getattr(invoice, "total", None),
+                    getattr(invoice, "currency", None) or purchase.currency,
+                ),
+                "invoice_code": getattr(invoice, "code", "") or "-",
+                "start_at": _format_dt(purchase.start_at),
+                "end_at": _format_dt(purchase.end_at),
+                "credits_total": int(purchase.credits_total or 0),
+                "credits_used": int(purchase.credits_used or 0),
+                "credits_left": int(purchase.credits_left()),
+                "updated_at": _format_dt(purchase.updated_at),
+            }
+        )
+    return rows
+
+
+def _extras_finance_summary(rows: list[dict]) -> dict:
+    paid_count = 0
+    for row in rows:
+        if row.get("payment_status") == "مدفوع ومعتمد":
+            paid_count += 1
+    return {
+        "total": len(rows),
+        "paid": paid_count,
+        "pending": max(0, len(rows) - paid_count),
+    }
+
+
+def _extras_portal_subscriptions_queryset_for_user(user):
+    qs = ExtrasPortalSubscription.objects.select_related("provider", "provider__user").order_by("-updated_at", "-id")
+    access_profile = active_access_profile_for_user(user)
+    if access_profile and access_profile.level == AccessLevel.USER:
+        allowed_requester_ids = {
+            int(row.requester_id)
+            for row in _extras_unified_queryset_for_user(user)
+            if getattr(row, "requester_id", None)
+        }
+        if not allowed_requester_ids:
+            return qs.none()
+        qs = qs.filter(provider__user_id__in=allowed_requester_ids)
+    return qs
+
+
+def _extras_subscription_payment_status_label(invoice: Invoice | None) -> str:
+    if invoice is None:
+        return "لا توجد فاتورة"
+    if invoice.is_payment_effective():
+        return "مدفوع ومعتمد"
+    return invoice.get_status_display()
+
+
+def _extras_subscription_payment_message(invoice: Invoice | None) -> str:
+    if invoice is None:
+        return "لا توجد فاتورة مرتبطة بآخر طلب مكتمل لهذه الخدمة حتى الآن."
+    if invoice.is_payment_effective():
+        paid_at = getattr(invoice, "payment_confirmed_at", None) or getattr(invoice, "paid_at", None)
+        amount_text = _subscription_payment_amount_text(invoice)
+        if paid_at and amount_text != "-":
+            return f"تمت عملية السداد بنجاح في تاريخ {_format_dt(paid_at)} بقيمة {amount_text}."
+        if paid_at:
+            return f"تمت عملية السداد بنجاح في تاريخ {_format_dt(paid_at)}."
+        if amount_text != "-":
+            return f"تمت عملية السداد بنجاح بقيمة {amount_text}."
+        return "تمت عملية السداد بنجاح."
+    return f"حالة السداد الحالية: {invoice.get_status_display()}."
+
+
+def _extras_subscription_latest_bundle_request_map(subscriptions: list[ExtrasPortalSubscription]) -> dict[int, UnifiedRequest]:
+    requester_ids = {
+        int(subscription.provider.user_id)
+        for subscription in subscriptions
+        if getattr(subscription.provider, "user_id", None)
+    }
+    if not requester_ids:
+        return {}
+
+    latest_by_requester_id: dict[int, UnifiedRequest] = {}
+    requests = UnifiedRequest.objects.filter(
+        request_type=UnifiedRequestType.EXTRAS,
+        requester_id__in=requester_ids,
+        status=UnifiedRequestStatus.CLOSED,
+    ).order_by("requester_id", "-updated_at", "-id")
+    for request_obj in requests:
+        requester_id = int(request_obj.requester_id or 0)
+        if requester_id in latest_by_requester_id:
+            continue
+        if extras_bundle_payload_for_request(request_obj):
+            latest_by_requester_id[requester_id] = request_obj
+    return latest_by_requester_id
+
+
+def _extras_subscription_section_key(title: str, *, index: int) -> str:
+    normalized = str(title or "").strip()
+    mapping = {
+        "التقارير": "reports",
+        "إدارة العملاء": "clients",
+        "الإدارة المالية": "finance",
+    }
+    return mapping.get(normalized, f"service-{index}")
+
+
+def _extras_subscription_fallback_sections(subscription: ExtrasPortalSubscription) -> list[dict]:
+    titles = [segment.strip() for segment in str(subscription.plan_title or "").split("/") if segment.strip()]
+    sections: list[dict] = []
+    for index, title in enumerate(titles, start=1):
+        sections.append(
+            {
+                "key": _extras_subscription_section_key(title, index=index),
+                "title": title,
+                "items": [{"title": title, "duration": "-"}],
+                "meta_lines": [],
+            }
+        )
+    return sections
+
+
+def _extras_subscription_rows(subscriptions: list[ExtrasPortalSubscription]) -> list[dict]:
+    latest_requests = _extras_subscription_latest_bundle_request_map(subscriptions)
+    rows: list[dict] = []
+
+    for subscription in subscriptions:
+        provider = getattr(subscription, "provider", None)
+        user_obj = getattr(provider, "user", None)
+        latest_request = latest_requests.get(int(getattr(provider, "user_id", 0) or 0))
+        invoice = extras_bundle_invoice_for_request(latest_request) if latest_request is not None else None
+        section_rows = extras_bundle_detail_sections_for_request(latest_request) if latest_request is not None else []
+        if not section_rows:
+            section_rows = _extras_subscription_fallback_sections(subscription)
+
+        provider_name = str(getattr(provider, "display_name", "") or "").strip() or _promo_requester_label(user_obj)
+        requester_label = _promo_requester_label(user_obj) if user_obj is not None else provider_name
+        payment_status_label = _extras_subscription_payment_status_label(invoice)
+        payment_message = _extras_subscription_payment_message(invoice)
+        payment_effective = bool(invoice is not None and invoice.is_payment_effective())
+        disabled_reason = "إجراءات التجديد والحذف ستُربط بعد إضافة مسار مستقل لكل خدمة داخل اشتراك الخدمات الإضافية."
+
+        for index, section in enumerate(section_rows, start=1):
+            service_key = str(section.get("key") or _extras_subscription_section_key(section.get("title", ""), index=index)).strip() or f"service-{index}"
+            items = list(section.get("items") or [])
+            meta_lines = [
+                str(value or "").strip()
+                for value in (section.get("meta_lines") or [])
+                if str(value or "").strip()
+            ]
+            duration_label = next(
+                (str(item.get("duration") or "").strip() for item in items if str(item.get("duration") or "").strip()),
+                "-",
+            )
+            request_code = getattr(latest_request, "code", "") or f"S{subscription.id:06d}"
+            row_id = f"{subscription.id}:{service_key}"
+            search_text = " ".join(
+                filter(
+                    None,
+                    [
+                        requester_label,
+                        provider_name,
+                        service_key,
+                        str(section.get("title") or ""),
+                        str(subscription.plan_title or ""),
+                        request_code,
+                        getattr(user_obj, "phone", "") or "",
+                        getattr(invoice, "code", "") or "",
+                    ],
+                )
+            ).casefold()
+            rows.append(
+                {
+                    "id": row_id,
+                    "dom_id": row_id.replace(":", "-"),
+                    "subscription_id": subscription.id,
+                    "request_id": getattr(latest_request, "id", None),
+                    "request_code": request_code,
+                    "requester": requester_label,
+                    "provider_name": provider_name,
+                    "provider_phone": getattr(user_obj, "phone", "") or "-",
+                    "service_key": service_key,
+                    "service_title": str(section.get("title") or "الخدمة الإضافية").strip() or "الخدمة الإضافية",
+                    "service_count": len(items),
+                    "subscription_status_code": subscription.status,
+                    "subscription_status": subscription.get_status_display(),
+                    "payment_status": payment_status_label,
+                    "payment_effective": payment_effective,
+                    "payment_message": payment_message,
+                    "invoice_code": getattr(invoice, "code", "") or "-",
+                    "invoice_total_text": _extras_amount_text(
+                        getattr(invoice, "total", None),
+                        getattr(invoice, "currency", None),
+                    ),
+                    "start_at": _format_dt(subscription.started_at),
+                    "end_at": _format_dt(subscription.ends_at),
+                    "raw_end_at": subscription.ends_at,
+                    "duration_label": duration_label,
+                    "notes": str(subscription.notes or "").strip(),
+                    "plan_title": str(subscription.plan_title or "").strip() or "-",
+                    "items": items,
+                    "meta_lines": meta_lines,
+                    "can_renew": False,
+                    "can_delete": False,
+                    "renew_disabled_reason": disabled_reason,
+                    "delete_disabled_reason": disabled_reason,
+                    "search_text": search_text,
+                }
+            )
+    return rows
+
+
+def _extras_subscribers_summary(rows: list[dict]) -> dict:
+    by_status: dict[str, int] = {}
+    ending_soon = 0
+    now = timezone.now()
+    soon_threshold = now + timedelta(days=30)
+    for row in rows:
+        status_code = str(row.get("subscription_status_code") or "").strip().lower()
+        by_status[status_code] = by_status.get(status_code, 0) + 1
+        raw_end_at = row.get("raw_end_at")
+        if (
+            status_code == ExtrasPortalSubscriptionStatus.ACTIVE
+            and isinstance(raw_end_at, datetime)
+            and now <= raw_end_at <= soon_threshold
+        ):
+            ending_soon += 1
+    return {
+        "total": len(rows),
+        "active": by_status.get(ExtrasPortalSubscriptionStatus.ACTIVE, 0),
+        "inactive": by_status.get(ExtrasPortalSubscriptionStatus.INACTIVE, 0),
+        "ending_soon": ending_soon,
+    }
+
+
+def _extras_option_map(options: tuple[tuple[str, str], ...]) -> dict[str, str]:
+    return {key: label for key, label in options}
+
+
+def _extras_parse_option_selection(raw_values: list[str], options: tuple[tuple[str, str], ...]) -> list[str]:
+    allowed = set(_extras_option_map(options).keys())
+    selected: list[str] = []
+    for value in raw_values:
+        normalized = str(value or "").strip()
+        if not normalized or normalized not in allowed:
+            continue
+        if normalized in selected:
+            continue
+        selected.append(normalized)
+    return selected
+
+
+def _extras_report_option_groups() -> list[dict]:
+    labels_map = _extras_option_map(EXTRAS_REPORT_OPTIONS)
+    groups: list[dict] = []
+    for title, keys in EXTRAS_REPORT_OPTION_GROUPS:
+        groups.append(
+            {
+                "title": title,
+                "options": [
+                    {"key": key, "label": labels_map[key]}
+                    for key in keys
+                    if key in labels_map
+                ],
+            }
+        )
+    return groups
+
+
+def _extras_bundle_default_draft() -> dict:
+    return {
+        "specialist_identifier": "",
+        "reports": {
+            "options": [],
+            "start_at": "",
+            "end_at": "",
+        },
+        "clients": {
+            "options": [],
+            "subscription_years": 1,
+            "bulk_message_count": 0,
+        },
+        "finance": {
+            "options": [],
+            "subscription_years": 1,
+            "qr_first_name": "",
+            "qr_last_name": "",
+            "iban": "",
+        },
+    }
+
+
+def _extras_bundle_load_draft(request) -> dict:
+    payload = request.session.get(EXTRAS_BUNDLE_DRAFT_SESSION_KEY)
+    draft = _extras_bundle_default_draft()
+    if not isinstance(payload, dict):
+        return draft
+
+    specialist_identifier = str(payload.get("specialist_identifier", "") or "").strip()
+    if specialist_identifier:
+        draft["specialist_identifier"] = specialist_identifier
+
+    for section_key in ("reports", "clients", "finance"):
+        raw_section = payload.get(section_key)
+        if not isinstance(raw_section, dict):
+            continue
+        draft[section_key].update(raw_section)
+    return draft
+
+
+def _extras_bundle_save_draft(request, draft: dict) -> None:
+    request.session[EXTRAS_BUNDLE_DRAFT_SESSION_KEY] = draft
+
+
+def _extras_bundle_selected_labels(selected_keys: list[str], options: tuple[tuple[str, str], ...]) -> list[str]:
+    labels_map = _extras_option_map(options)
+    labels: list[str] = []
+    for key in selected_keys:
+        if key in labels_map:
+            labels.append(labels_map[key])
+    return labels
+
+
+def _extras_bundle_summary_sections(draft: dict) -> list[dict]:
+    report_labels = _extras_bundle_selected_labels(draft.get("reports", {}).get("options", []), EXTRAS_REPORT_OPTIONS)
+    client_labels = _extras_bundle_selected_labels(draft.get("clients", {}).get("options", []), EXTRAS_CLIENT_OPTIONS)
+    finance_labels = _extras_bundle_selected_labels(draft.get("finance", {}).get("options", []), EXTRAS_FINANCE_OPTIONS)
+
+    report_start_at = _parse_datetime_local(draft.get("reports", {}).get("start_at"))
+    report_end_at = _parse_datetime_local(draft.get("reports", {}).get("end_at"))
+    if report_start_at:
+        report_labels.append(f"بداية التقرير: {_format_dt(report_start_at)}")
+    if report_end_at:
+        report_labels.append(f"نهاية التقرير: {_format_dt(report_end_at)}")
+
+    clients_years = max(1, int(draft.get("clients", {}).get("subscription_years", 1) or 1))
+    clients_bulk_count = max(0, int(draft.get("clients", {}).get("bulk_message_count", 0) or 0))
+    if client_labels:
+        client_labels.append(f"مدة الاشتراك (بالسنوات): {clients_years}")
+        client_labels.append(f"عدد الرسائل الجماعية: {clients_bulk_count}")
+
+    finance_years = max(1, int(draft.get("finance", {}).get("subscription_years", 1) or 1))
+    if finance_labels:
+        finance_labels.append(f"مدة الاشتراك (بالسنوات): {finance_years}")
+        qr_first_name = str(draft.get("finance", {}).get("qr_first_name", "") or "").strip()
+        qr_last_name = str(draft.get("finance", {}).get("qr_last_name", "") or "").strip()
+        iban = str(draft.get("finance", {}).get("iban", "") or "").strip()
+        if qr_first_name:
+            finance_labels.append(f"الاسم الأول: {qr_first_name}")
+        if qr_last_name:
+            finance_labels.append(f"الاسم الثاني: {qr_last_name}")
+        if iban:
+            finance_labels.append(f"IBAN: {iban}")
+
+    return [
+        {"key": EXTRAS_DASHBOARD_SECTION_REPORTS, "title": "التقارير", "items": report_labels},
+        {"key": EXTRAS_DASHBOARD_SECTION_CLIENTS, "title": "إدارة العملاء", "items": client_labels},
+        {"key": EXTRAS_DASHBOARD_SECTION_FINANCE, "title": "الإدارة المالية", "items": finance_labels},
+    ]
+
+
+def _extras_bundle_has_selection(draft: dict) -> bool:
+    for section in ("reports", "clients", "finance"):
+        if draft.get(section, {}).get("options"):
+            return True
+    return False
+
+
+def _extras_datetime_input_value(raw_value: str) -> str:
+    dt = _parse_datetime_local(raw_value)
+    if not dt:
+        return ""
+    local_dt = timezone.localtime(dt)
+    return local_dt.strftime("%Y-%m-%dT%H:%M")
+
+
+def _extras_add_years(dt: datetime, years: int) -> datetime:
+    try:
+        return dt.replace(year=dt.year + years)
+    except ValueError:
+        return dt.replace(year=dt.year + years, month=2, day=28)
+
+
+def _extras_human_datetime(dt: datetime | None) -> str:
+    if dt is None:
+        return "-"
+    return timezone.localtime(dt).strftime("%d/%m/%Y - %H:%M")
+
+
+def _extras_resolve_specialist(identifier: str):
+    normalized_identifier = str(identifier or "").strip()
+    if not normalized_identifier:
+        return None
+    return _get_user_by_identifier(normalized_identifier)
+
+
+@dashboard_staff_required
+@require_dashboard_access("extras")
+def extras_dashboard(request):
+    extras_team = _extras_support_team()
+    extras_team_name = _extras_team_name(extras_team)
+    can_write = dashboard_allowed(request.user, "extras", write=True)
+    assignee_choices = _dashboard_assignee_choices("extras")
+    bundle_draft = _extras_bundle_load_draft(request)
+
+    specialist_identifier_from_query = (
+        (request.GET.get("specialist") or "").strip()
+        or (request.GET.get("specialist_username") or "").strip()
+    )
+    if specialist_identifier_from_query:
+        bundle_draft["specialist_identifier"] = specialist_identifier_from_query
+        _extras_bundle_save_draft(request, bundle_draft)
+
+    requested_section = (request.GET.get("section") or "").strip().lower()
+    active_section = requested_section if requested_section in EXTRAS_DASHBOARD_SECTIONS else EXTRAS_DASHBOARD_MAIN_SECTION
+
+    def _extras_redirect_to_section(
+        section_key: str,
+        *,
+        params: dict[str, str | int] | None = None,
+        anchor: str = "",
+    ):
+        query_params = QueryDict("", mutable=True)
+        query_params["section"] = section_key
+        specialist_identifier = str(bundle_draft.get("specialist_identifier", "") or "").strip()
+        if specialist_identifier:
+            query_params["specialist"] = specialist_identifier
+        for key, value in (params or {}).items():
+            normalized_value = str(value or "").strip()
+            if normalized_value:
+                query_params[str(key)] = normalized_value
+        base = reverse("dashboard:extras_dashboard")
+        query = query_params.urlencode()
+        target = f"{base}?{query}" if query else base
+        return redirect(f"{target}#{anchor}" if anchor else target)
+
+    if request.method == "POST":
+        if not can_write:
+            return HttpResponseForbidden("لا تملك صلاحية تعديل طلبات الخدمات الإضافية.")
+
+        action = (request.POST.get("action") or "").strip()
+        posted_specialist_identifier = (request.POST.get("specialist_identifier") or "").strip()
+        if posted_specialist_identifier:
+            bundle_draft["specialist_identifier"] = posted_specialist_identifier
+            _extras_bundle_save_draft(request, bundle_draft)
+
+        if action == "save_extras_bundle_reports":
+            selected_options = _extras_parse_option_selection(
+                request.POST.getlist("reports_options"),
+                EXTRAS_REPORT_OPTIONS,
+            )
+            raw_start_at = (request.POST.get("reports_start_at") or "").strip()
+            raw_end_at = (request.POST.get("reports_end_at") or "").strip()
+            start_at = _parse_datetime_local(raw_start_at)
+            end_at = _parse_datetime_local(raw_end_at)
+            if raw_start_at and not start_at:
+                messages.error(request, "صيغة بداية التقرير غير صحيحة.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REPORTS)
+            if raw_end_at and not end_at:
+                messages.error(request, "صيغة نهاية التقرير غير صحيحة.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REPORTS)
+            if start_at and end_at and end_at < start_at:
+                messages.error(request, "تاريخ نهاية التقرير يجب أن يكون بعد تاريخ البداية.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REPORTS)
+
+            bundle_draft["reports"] = {
+                "options": selected_options,
+                "start_at": start_at.isoformat() if start_at else "",
+                "end_at": end_at.isoformat() if end_at else "",
+            }
+            _extras_bundle_save_draft(request, bundle_draft)
+            if (request.POST.get("continue_to_summary") or "").strip() == "1":
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+            messages.success(request, "تم حفظ اختيارات باقة التقارير.")
+            return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REPORTS)
+
+        if action == "save_extras_bundle_clients":
+            selected_options = _extras_parse_option_selection(
+                request.POST.getlist("clients_options"),
+                EXTRAS_CLIENT_OPTIONS,
+            )
+            raw_years = (request.POST.get("clients_subscription_years") or "1").strip()
+            raw_bulk_count = (request.POST.get("clients_bulk_message_count") or "0").strip()
+            try:
+                clients_years = max(1, min(10, int(raw_years or "1")))
+            except (TypeError, ValueError):
+                clients_years = 1
+            try:
+                bulk_count = max(0, min(100000, int(raw_bulk_count or "0")))
+            except (TypeError, ValueError):
+                bulk_count = 0
+
+            bundle_draft["clients"] = {
+                "options": selected_options,
+                "subscription_years": clients_years,
+                "bulk_message_count": bulk_count,
+            }
+            _extras_bundle_save_draft(request, bundle_draft)
+            if (request.POST.get("continue_to_summary") or "").strip() == "1":
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+            messages.success(request, "تم حفظ اختيارات باقة إدارة العملاء.")
+            return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_CLIENTS)
+
+        if action == "save_extras_bundle_finance":
+            selected_options = _extras_parse_option_selection(
+                request.POST.getlist("finance_options"),
+                EXTRAS_FINANCE_OPTIONS,
+            )
+            raw_years = (request.POST.get("finance_subscription_years") or "1").strip()
+            qr_first_name = str(request.POST.get("finance_qr_first_name") or "").strip()[:50]
+            qr_last_name = str(request.POST.get("finance_qr_last_name") or "").strip()[:50]
+            iban = re.sub(r"\s+", "", str(request.POST.get("finance_iban") or "")).upper()[:34]
+            try:
+                finance_years = max(1, min(10, int(raw_years or "1")))
+            except (TypeError, ValueError):
+                finance_years = 1
+
+            bundle_draft["finance"] = {
+                "options": selected_options,
+                "subscription_years": finance_years,
+                "qr_first_name": qr_first_name,
+                "qr_last_name": qr_last_name,
+                "iban": iban,
+            }
+            _extras_bundle_save_draft(request, bundle_draft)
+            if (request.POST.get("continue_to_summary") or "").strip() == "1":
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+            messages.success(request, "تم حفظ اختيارات باقة الإدارة المالية.")
+            return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_FINANCE)
+
+        if action == "clear_extras_bundle_draft":
+            redirect_section = (request.POST.get("redirect_section") or "").strip().lower()
+            if redirect_section not in EXTRAS_DASHBOARD_SECTIONS:
+                redirect_section = EXTRAS_DASHBOARD_SECTION_CLIENTS
+            if redirect_section in {
+                EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY,
+                EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED,
+            }:
+                redirect_section = EXTRAS_DASHBOARD_MAIN_SECTION
+            request.session.pop(EXTRAS_BUNDLE_DRAFT_SESSION_KEY, None)
+            bundle_draft = _extras_bundle_default_draft()
+            messages.info(request, "تم إلغاء الاختيارات الحالية.")
+            return _extras_redirect_to_section(redirect_section)
+
+        if action == "submit_extras_bundle_request":
+            if not _extras_bundle_has_selection(bundle_draft):
+                messages.error(request, "اختر بندًا واحدًا على الأقل قبل إنشاء الطلب.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+
+            specialist_identifier = str(bundle_draft.get("specialist_identifier", "") or "").strip()
+            specialist_user = _extras_resolve_specialist(specialist_identifier)
+            if specialist_identifier and specialist_user is None:
+                messages.error(request, "تعذر العثور على المختص المحدد. راجع اسم المختص ثم أعد المحاولة.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+
+            requester_user = specialist_user or request.user
+            summary_sections = _extras_bundle_summary_sections(bundle_draft)
+            selected_section_titles = [row["title"] for row in summary_sections if row.get("items")]
+            summary_text = (
+                f"طلب خدمات إضافية - {' / '.join(selected_section_titles)}"
+                if selected_section_titles
+                else "طلب خدمات إضافية"
+            )
+
+            metadata_payload = {
+                "flow_type": "extras_bundle_wizard",
+                "specialist_identifier": specialist_identifier,
+                "specialist_label": (
+                    getattr(specialist_user, "username", "")
+                    or getattr(specialist_user, "phone", "")
+                    or ""
+                )
+                if specialist_user is not None
+                else "",
+                "reports": bundle_draft.get("reports", {}),
+                "clients": bundle_draft.get("clients", {}),
+                "finance": bundle_draft.get("finance", {}),
+                "summary_sections": summary_sections,
+            }
+
+            created_request = upsert_unified_request(
+                request_type=UnifiedRequestType.EXTRAS,
+                requester=requester_user,
+                source_app="dashboard",
+                source_model="ExtrasServiceRequest",
+                source_object_id=uuid4().hex,
+                status=UnifiedRequestStatus.NEW,
+                priority=UnifiedRequestPriority.NORMAL,
+                summary=summary_text,
+                metadata=metadata_payload,
+                assigned_team_code="extras",
+                assigned_team_name=extras_team_name,
+                assigned_user=request.user,
+                changed_by=request.user,
+            )
+            request.session.pop(EXTRAS_BUNDLE_DRAFT_SESSION_KEY, None)
+            messages.success(request, f"تم إنشاء طلب الخدمات الإضافية {created_request.code} بنجاح.")
+            return _extras_redirect_to_section(
+                EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED,
+                params={"created_request": created_request.id},
+            )
+
+        if action == "save_extras_inquiry":
+            raw_ticket_id = (request.POST.get("ticket_id") or "").strip()
+            if not raw_ticket_id.isdigit():
+                messages.error(request, "تعذر تحديد الاستفسار المطلوب تحديثه.")
+                return _extras_redirect_with_state(request)
+
+            target_ticket = _extras_inquiries_queryset_for_user(request.user).filter(
+                ticket_type=SupportTicketType.EXTRAS,
+                id=int(raw_ticket_id),
+            ).first()
+            if target_ticket is None:
+                messages.error(request, "الاستفسار المحدد غير متاح لهذا الحساب.")
+                return _extras_redirect_with_state(request)
+
+            access_profile = active_access_profile_for_user(request.user)
+            if access_profile and access_profile.level == AccessLevel.USER:
+                if target_ticket.assigned_to_id and target_ticket.assigned_to_id != request.user.id:
+                    return HttpResponseForbidden("غير مصرح: الاستفسار ليس ضمن المهام المكلف بها.")
+
+            post_form = ExtrasInquiryActionForm(request.POST, assignee_choices=assignee_choices)
+            if not post_form.is_valid():
+                messages.error(request, "يرجى مراجعة حقول تفاصيل استفسار الخدمات الإضافية.")
+                return _extras_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else target_ticket.assigned_to_id
+            if assigned_to_id is not None:
+                assignee = dashboard_assignee_user(assigned_to_id, "extras", write=True)
+                if assignee is None:
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الخدمات الإضافية.")
+                    return _extras_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            team_id = extras_team.id if extras_team is not None else target_ticket.assigned_team_id
+            note = post_form.cleaned_data.get("operator_comment") or ""
+            target_ticket = assign_ticket(
+                ticket=target_ticket,
+                team_id=team_id,
+                user_id=assigned_to_id,
+                by_user=request.user,
+                note=note,
+            )
+
+            new_description = post_form.cleaned_data.get("description") or target_ticket.description or ""
+            if new_description != (target_ticket.description or ""):
+                target_ticket.description = new_description
+                target_ticket.last_action_by = request.user
+                target_ticket.save(update_fields=["description", "last_action_by", "updated_at"])
+
+            desired_status = post_form.cleaned_data.get("status")
+            if desired_status and desired_status != target_ticket.status:
+                try:
+                    target_ticket = change_ticket_status(
+                        ticket=target_ticket,
+                        new_status=desired_status,
+                        by_user=request.user,
+                        note=note,
+                    )
+                except ValueError as exc:
+                    messages.error(request, str(exc))
+                    return _extras_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+            messages.success(request, f"تم تحديث استفسار الخدمات الإضافية {target_ticket.code or target_ticket.id} بنجاح.")
+            return _extras_redirect_with_state(request, inquiry_id=target_ticket.id)
+
+        if action == "save_extras_request":
+            raw_request_id = (request.POST.get("request_id") or "").strip()
+            if not raw_request_id.isdigit():
+                messages.error(request, "تعذر تحديد طلب الخدمات الإضافية المطلوب تحديثه.")
+                return _extras_redirect_with_state(request, anchor="extrasRequests")
+
+            target_request = _extras_unified_queryset_for_user(request.user).filter(
+                request_type=UnifiedRequestType.EXTRAS,
+                id=int(raw_request_id),
+            ).first()
+            if target_request is None:
+                messages.error(request, "طلب الخدمات الإضافية المحدد غير متاح لهذا الحساب.")
+                return _extras_redirect_with_state(request, anchor="extrasRequests")
+
+            current_status = canonical_status_for_workflow(
+                request_type=UnifiedRequestType.EXTRAS,
+                status=target_request.status,
+            )
+            post_form = ExtrasRequestActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+                status_choices=_extras_request_status_choices_for(current_status),
+            )
+            if not post_form.is_valid():
+                if "status" in post_form.errors:
+                    messages.error(request, _extras_request_status_help_text(current_status))
+                else:
+                    messages.error(request, "يرجى مراجعة حقول تفاصيل طلب الخدمات الإضافية.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            if not assigned_to_raw.isdigit():
+                messages.error(request, "يرجى اختيار المكلف بالطلب من فريق إدارة الخدمات الإضافية.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            assignee = dashboard_assignee_user(int(assigned_to_raw), "extras", write=True)
+            if assignee is None:
+                messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الخدمات الإضافية.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            desired_status = canonical_status_for_workflow(
+                request_type=UnifiedRequestType.EXTRAS,
+                status=post_form.cleaned_data.get("status") or UnifiedRequestStatus.NEW,
+            )
+            if desired_status not in {
+                UnifiedRequestStatus.NEW,
+                UnifiedRequestStatus.IN_PROGRESS,
+                UnifiedRequestStatus.CLOSED,
+            }:
+                desired_status = UnifiedRequestStatus.NEW
+
+            allowed_transitions = EXTRAS_REQUEST_ALLOWED_TRANSITIONS
+            if desired_status not in allowed_transitions.get(current_status, {current_status}):
+                if current_status == UnifiedRequestStatus.NEW:
+                    messages.error(request, "يمكن نقل الطلب من جديد إلى تحت المعالجة فقط.")
+                elif current_status == UnifiedRequestStatus.IN_PROGRESS:
+                    messages.error(request, "يمكن إكمال الطلب فقط بعد اعتماده تحت المعالجة وسداد الفاتورة.")
+                else:
+                    messages.error(request, "الطلب المكتمل لا يمكن تعديله من جديد.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            raw_purchase_id = str(target_request.source_object_id or "").strip()
+            target_purchase = (
+                ExtraPurchase.objects.select_related("user", "invoice")
+                .filter(pk=int(raw_purchase_id))
+                .first()
+                if raw_purchase_id.isdigit()
+                else None
+            )
+            bundle_payload = extras_bundle_payload_for_request(target_request)
+            is_bundle_request = bool(bundle_payload)
+
+            metadata_payload: dict = {}
+            existing_metadata = getattr(getattr(target_request, "metadata_record", None), "payload", None)
+            if isinstance(existing_metadata, dict):
+                metadata_payload.update(existing_metadata)
+
+            if target_purchase is not None:
+                metadata_payload.update(
+                    {
+                        "purchase_id": target_purchase.id,
+                        "sku": target_purchase.sku,
+                        "extra_type": target_purchase.extra_type,
+                        "purchase_status": target_purchase.status,
+                        "invoice_id": target_purchase.invoice_id,
+                        "credits_total": int(target_purchase.credits_total or 0),
+                        "credits_used": int(target_purchase.credits_used or 0),
+                        "start_at": target_purchase.start_at.isoformat() if target_purchase.start_at else None,
+                        "end_at": target_purchase.end_at.isoformat() if target_purchase.end_at else None,
+                    }
+                )
+
+            target_invoice = getattr(target_purchase, "invoice", None)
+
+            if desired_status == UnifiedRequestStatus.CLOSED:
+                if current_status != UnifiedRequestStatus.IN_PROGRESS:
+                    messages.error(request, "يجب نقل الطلب أولًا إلى تحت المعالجة قبل تحويله إلى مكتمل.")
+                    return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+                if target_request.assigned_user_id != request.user.id:
+                    messages.error(request, "فقط المكلف الحالي بالطلب يمكنه تحويله إلى مكتمل.")
+                    return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+                if target_invoice is None and is_bundle_request:
+                    target_invoice = extras_bundle_invoice_for_request(target_request)
+                if target_invoice is None or not target_invoice.is_payment_effective():
+                    messages.error(request, "لا يمكن تحويل الطلب إلى مكتمل قبل اعتماد السداد فعليًا.")
+                    return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+                metadata_payload.update(
+                    {
+                        "invoice_id": target_invoice.id,
+                        "invoice_code": target_invoice.code,
+                        "invoice_status": target_invoice.status,
+                        "payment_effective": True,
+                        "completed_at": timezone.now().isoformat(),
+                        "completed_by_user_id": request.user.id,
+                    }
+                )
+
+            operator_comment = post_form.cleaned_data.get("operator_comment") or ""
+            if operator_comment:
+                metadata_payload["operator_comment"] = operator_comment
+            else:
+                metadata_payload.pop("operator_comment", None)
+
+            summary_text = (
+                getattr(target_purchase, "title", "")
+                or target_request.summary
+                or target_request.code
+                or "طلب خدمات إضافية"
+            ).strip()
+
+            updated_request = upsert_unified_request(
+                request_type=UnifiedRequestType.EXTRAS,
+                requester=getattr(target_purchase, "user", None) or target_request.requester,
+                source_app=(target_request.source_app or "extras"),
+                source_model=(target_request.source_model or "ExtraPurchase"),
+                source_object_id=target_request.source_object_id,
+                status=desired_status,
+                priority=(target_request.priority or "normal"),
+                summary=summary_text,
+                metadata=metadata_payload,
+                assigned_team_code="extras",
+                assigned_team_name=extras_team_name,
+                assigned_user=assignee,
+                changed_by=request.user,
+            )
+
+            if desired_status == UnifiedRequestStatus.CLOSED and is_bundle_request:
+                activate_bundle_portal_subscription_for_request(request_obj=updated_request)
+                notify_bundle_completed(request_obj=updated_request, actor=request.user)
+
+            messages.success(request, f"تم تحديث طلب الخدمات الإضافية {target_request.code or target_request.id} بنجاح.")
+            return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+        if action == "issue_extras_invoice":
+            raw_request_id = (request.POST.get("request_id") or "").strip()
+            if not raw_request_id.isdigit():
+                messages.error(request, "تعذر تحديد طلب الخدمات الإضافية المطلوب إصدار فاتورته.")
+                return _extras_redirect_with_state(request, anchor="extrasRequests")
+
+            target_request = _extras_unified_queryset_for_user(request.user).filter(
+                request_type=UnifiedRequestType.EXTRAS,
+                id=int(raw_request_id),
+            ).first()
+            if target_request is None:
+                messages.error(request, "طلب الخدمات الإضافية المحدد غير متاح لهذا الحساب.")
+                return _extras_redirect_with_state(request, anchor="extrasRequests")
+
+            current_status = canonical_status_for_workflow(
+                request_type=UnifiedRequestType.EXTRAS,
+                status=target_request.status,
+            )
+            if current_status not in {UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS}:
+                messages.error(request, "يمكن إصدار فاتورة يدوية فقط للطلبات الجديدة أو التي تحت المعالجة.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            post_form = ExtrasRequestActionForm(
+                request.POST,
+                assignee_choices=assignee_choices,
+                status_choices=_extras_request_status_choices_for(current_status),
+            )
+            if not post_form.is_valid():
+                messages.error(request, "يرجى مراجعة حقول تفاصيل طلب الخدمات الإضافية قبل إصدار الفاتورة.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            assigned_to_raw = (post_form.cleaned_data.get("assigned_to") or "").strip()
+            if not assigned_to_raw.isdigit():
+                messages.error(request, "يرجى اختيار المكلف بالطلب من فريق إدارة الخدمات الإضافية قبل إصدار الفاتورة.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            assignee = dashboard_assignee_user(int(assigned_to_raw), "extras", write=True)
+            if assignee is None:
+                messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الخدمات الإضافية.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            existing_invoice = extras_bundle_invoice_for_request(target_request)
+            if existing_invoice is not None and existing_invoice.is_payment_effective():
+                messages.error(request, "الطلب يملك فاتورة مدفوعة مسبقًا ولا يمكن إصدار فاتورة جديدة.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            manual_line_items = _parse_manual_invoice_lines(request.POST)
+            if not manual_line_items:
+                messages.error(request, "يجب إدخال بند واحد على الأقل (عنوان ومبلغ) لإصدار الفاتورة.")
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            try:
+                target_invoice, payment_attempt = create_manual_extras_invoice(
+                    request_obj=target_request,
+                    by_user=request.user,
+                    line_items=manual_line_items,
+                    invoice_title=post_form.cleaned_data.get("invoice_title") or "",
+                    invoice_description=post_form.cleaned_data.get("invoice_description") or "",
+                )
+            except (ValueError, Exception) as exc:
+                messages.error(request, str(exc))
+                return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+            existing_metadata = getattr(getattr(target_request, "metadata_record", None), "payload", None)
+            metadata_payload = dict(existing_metadata) if isinstance(existing_metadata, dict) else {}
+            raw_purchase_id = str(target_request.source_object_id or "").strip()
+            target_purchase = (
+                ExtraPurchase.objects.select_related("user", "invoice")
+                .filter(pk=int(raw_purchase_id))
+                .first()
+                if raw_purchase_id.isdigit()
+                else None
+            )
+            if target_purchase is not None:
+                metadata_payload.update(
+                    {
+                        "purchase_id": target_purchase.id,
+                        "sku": target_purchase.sku,
+                        "extra_type": target_purchase.extra_type,
+                        "purchase_status": target_purchase.status,
+                        "invoice_id": target_purchase.invoice_id,
+                        "credits_total": int(target_purchase.credits_total or 0),
+                        "credits_used": int(target_purchase.credits_used or 0),
+                        "start_at": target_purchase.start_at.isoformat() if target_purchase.start_at else None,
+                        "end_at": target_purchase.end_at.isoformat() if target_purchase.end_at else None,
+                    }
+                )
+            metadata_payload.update(
+                {
+                    "invoice_id": target_invoice.id,
+                    "invoice_code": target_invoice.code,
+                    "invoice_status": target_invoice.status,
+                    "payment_effective": bool(target_invoice.is_payment_effective()),
+                    "checkout_url": extras_bundle_payment_access_url(
+                        request_obj=target_request,
+                        invoice=target_invoice,
+                        checkout_url=getattr(payment_attempt, "checkout_url", "") if payment_attempt is not None else "",
+                    ),
+                    "payment_attempt_id": str(payment_attempt.id) if payment_attempt is not None else "",
+                }
+            )
+            operator_comment = post_form.cleaned_data.get("operator_comment") or ""
+            if operator_comment:
+                metadata_payload["operator_comment"] = operator_comment
+            else:
+                metadata_payload.pop("operator_comment", None)
+
+            upsert_unified_request(
+                request_type=UnifiedRequestType.EXTRAS,
+                requester=getattr(target_purchase, "user", None) or target_request.requester,
+                source_app=(target_request.source_app or "extras"),
+                source_model=(target_request.source_model or "ExtraPurchase"),
+                source_object_id=target_request.source_object_id,
+                status=UnifiedRequestStatus.IN_PROGRESS,
+                priority=(target_request.priority or "normal"),
+                summary=(target_request.summary or target_request.code or "طلب خدمات إضافية").strip(),
+                metadata=metadata_payload,
+                assigned_team_code="extras",
+                assigned_team_name=extras_team_name,
+                assigned_user=assignee,
+                changed_by=request.user,
+            )
+
+            notify_bundle_payment_requested(
+                request_obj=target_request,
+                actor=request.user,
+                invoice=target_invoice,
+                checkout_url=getattr(payment_attempt, "checkout_url", "") if payment_attempt is not None else "",
+            )
+
+            messages.success(request, f"تم إصدار فاتورة يدوية للطلب {target_request.code or target_request.id} وإرسال رابط الدفع للعميل.")
+            return _extras_redirect_with_state(request, request_id=target_request.id, anchor="extrasRequests")
+
+        messages.error(request, "الإجراء المطلوب غير مدعوم داخل لوحة الخدمات الإضافية.")
+        return _extras_redirect_with_state(request)
+
+    inquiry_q = (request.GET.get("inquiry_q") or "").strip()
+    request_q = (request.GET.get("request_q") or "").strip()
+    finance_q = (request.GET.get("finance_q") or "").strip()
+    subscribers_q = (request.GET.get("subscribers_q") or "").strip()
+    request_status_filter = canonical_status_for_workflow(
+        request_type=UnifiedRequestType.EXTRAS,
+        status=(request.GET.get("request_status") or "").strip(),
+    )
+    if request_status_filter not in {
+        UnifiedRequestStatus.NEW,
+        UnifiedRequestStatus.IN_PROGRESS,
+        UnifiedRequestStatus.CLOSED,
+    }:
+        request_status_filter = ""
+
+    extras_inquiries_base_qs = _extras_inquiries_queryset_for_user(request.user).filter(
+        ticket_type=SupportTicketType.EXTRAS
+    )
+    selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
+    selected_inquiry = (
+        extras_inquiries_base_qs.filter(id=int(selected_inquiry_id_raw)).first()
+        if selected_inquiry_id_raw.isdigit()
+        else None
+    )
+
+    extras_inquiries_qs = extras_inquiries_base_qs
+    if inquiry_q:
+        extras_inquiries_qs = extras_inquiries_qs.filter(
+            Q(code__icontains=inquiry_q)
+            | Q(description__icontains=inquiry_q)
+            | Q(requester__username__icontains=inquiry_q)
+            | Q(requester__phone__icontains=inquiry_q)
+        )
+    extras_inquiries = list(extras_inquiries_qs.order_by("-created_at", "-id"))
+    inquiry_form = ExtrasInquiryActionForm(
+        initial={
+            "status": selected_inquiry.status if selected_inquiry else SupportTicketStatus.NEW,
+            "assigned_to": str(selected_inquiry.assigned_to_id or "") if selected_inquiry else "",
+            "description": (selected_inquiry.description or "") if selected_inquiry else "",
+            "operator_comment": "",
+        },
+        assignee_choices=assignee_choices,
+    )
+
+    extras_requests_base_qs = _extras_unified_queryset_for_user(request.user)
+    selected_request_id_raw = (request.GET.get("request") or "").strip()
+    selected_request = (
+        extras_requests_base_qs.filter(id=int(selected_request_id_raw)).first()
+        if selected_request_id_raw.isdigit()
+        else None
+    )
+
+    selected_request_purchase = None
+    if selected_request is not None:
+        raw_purchase_id = str(selected_request.source_object_id or "").strip()
+        if raw_purchase_id.isdigit():
+            selected_request_purchase = (
+                ExtraPurchase.objects.select_related("user", "invoice")
+                .filter(pk=int(raw_purchase_id))
+                .first()
+            )
+
+    selected_request_bundle_sections = (
+        extras_bundle_detail_sections_for_request(selected_request)
+        if selected_request is not None
+        else []
+    )
+    selected_request_invoice = (
+        getattr(selected_request_purchase, "invoice", None)
+        if selected_request_purchase is not None
+        else extras_bundle_invoice_for_request(selected_request)
+        if selected_request is not None
+        else None
+    )
+    selected_request_invoice_details = _extras_invoice_details(
+        selected_request_invoice,
+        request_obj=selected_request,
+    )
+    selected_request_billing_state = _extras_request_billing_state(
+        selected_request,
+        invoice=selected_request_invoice,
+        invoice_details=selected_request_invoice_details,
+    )
+    if selected_request_invoice_details is not None:
+        selected_request_payment_status_label = selected_request_invoice_details["status_label"]
+    else:
+        selected_request_payment_status_label = "لا توجد فاتورة"
+    selected_request_invoice_action_label = (
+        "تحديث الفاتورة"
+        if selected_request_invoice is not None and not selected_request_invoice.is_payment_effective()
+        else "إصدار الفاتورة"
+    )
+
+    selected_request_status_code = (
+        canonical_status_for_workflow(
+            request_type=UnifiedRequestType.EXTRAS,
+            status=selected_request.status,
+        )
+        if selected_request is not None
+        else UnifiedRequestStatus.NEW
+    )
+    selected_request_invoice_title = (
+        str(getattr(selected_request_invoice, "title", "") or "").strip()
+        if selected_request_invoice is not None
+        else (
+            (
+                f"عرض سعر {selected_request_purchase.title}"
+                if selected_request_purchase is not None and getattr(selected_request_purchase, "title", "")
+                else ""
+            )
+            or (
+                f"عرض سعر {selected_request.summary}"
+                if selected_request is not None and getattr(selected_request, "summary", "")
+                else ""
+            )
+            or "عرض سعر طلب خدمات إضافية"
+        )
+    )
+    selected_request_invoice_description = (
+        str(getattr(selected_request_invoice, "description", "") or "").strip()
+        if selected_request_invoice is not None
+        else (
+            str(getattr(selected_request, "summary", "") or "").strip()
+            if selected_request is not None
+            else ""
+        )
+    )
+    selected_request_form = (
+        ExtrasRequestActionForm(
+            initial={
+                "status": selected_request_status_code,
+                "assigned_to": str(getattr(selected_request, "assigned_user_id", "") or ""),
+                "operator_comment": _extras_request_operator_comment(selected_request),
+                "invoice_title": selected_request_invoice_title,
+                "invoice_description": selected_request_invoice_description,
+            },
+            assignee_choices=assignee_choices,
+            status_choices=_extras_request_status_choices_for(selected_request_status_code),
+        )
+        if selected_request is not None
+        else None
+    )
+
+    inquiry_query_params = request.GET.copy()
+    inquiry_query_params.pop("inquiry", None)
+    inquiry_detail_base_query = inquiry_query_params.urlencode()
+
+    request_query_params = request.GET.copy()
+    request_query_params.pop("request", None)
+    request_detail_base_query = request_query_params.urlencode()
+
+    extras_requests_qs = extras_requests_base_qs
+    if request_q:
+        extras_requests_qs = extras_requests_qs.filter(
+            Q(code__icontains=request_q)
+            | Q(summary__icontains=request_q)
+            | Q(requester__username__icontains=request_q)
+            | Q(requester__phone__icontains=request_q)
+        )
+    extras_requests = list(extras_requests_qs)
+    extras_request_rows = _extras_request_rows(extras_requests)
+    if request_status_filter:
+        extras_request_rows = [
+            row for row in extras_request_rows if row.get("request_status_code") == request_status_filter
+        ]
+    for row in extras_request_rows:
+        row["is_selected"] = bool(selected_request is not None and row.get("id") == selected_request.id)
+
+    extras_purchases_base_qs = _extras_purchases_queryset_for_user(request.user)
+    extras_finance_qs = extras_purchases_base_qs
+    if finance_q:
+        extras_finance_qs = extras_finance_qs.filter(
+            Q(sku__icontains=finance_q)
+            | Q(title__icontains=finance_q)
+            | Q(user__username__icontains=finance_q)
+            | Q(user__phone__icontains=finance_q)
+            | Q(invoice__code__icontains=finance_q)
+        )
+    extras_finance_rows = _extras_purchase_rows(list(extras_finance_qs))
+
+    selected_subscriber_id = (request.GET.get("subscriber") or "").strip()
+    extras_subscribers_rows = _extras_subscription_rows(list(_extras_portal_subscriptions_queryset_for_user(request.user)))
+    if subscribers_q:
+        subscribers_q_normalized = subscribers_q.casefold()
+        extras_subscribers_rows = [
+            row for row in extras_subscribers_rows if subscribers_q_normalized in row.get("search_text", "")
+        ]
+    selected_subscriber_row = None
+    for row in extras_subscribers_rows:
+        row.pop("search_text", None)
+        row["is_selected"] = row.get("id") == selected_subscriber_id
+        if row["is_selected"]:
+            selected_subscriber_row = row
+
+    subscriber_query_params = request.GET.copy()
+    subscriber_query_params.pop("subscriber", None)
+    subscriber_detail_base_query = subscriber_query_params.urlencode()
+    selected_subscriber_close_url = (
+        f"{request.path}?{subscriber_detail_base_query}" if subscriber_detail_base_query else request.path
+    )
+
+    specialist_identifier = str(bundle_draft.get("specialist_identifier", "") or "").strip()
+    specialist_user = _extras_resolve_specialist(specialist_identifier)
+    specialist_display_name = (
+        (getattr(specialist_user, "username", "") or getattr(specialist_user, "phone", "") or "").strip()
+        if specialist_user is not None
+        else ""
+    )
+    report_start_at = _parse_datetime_local(bundle_draft.get("reports", {}).get("start_at", ""))
+    report_end_at = _parse_datetime_local(bundle_draft.get("reports", {}).get("end_at", ""))
+    client_years = max(1, int(bundle_draft.get("clients", {}).get("subscription_years", 1) or 1))
+    client_preview_start_at = timezone.localtime(timezone.now())
+    client_preview_end_at = _extras_add_years(client_preview_start_at, client_years)
+    finance_years = max(1, int(bundle_draft.get("finance", {}).get("subscription_years", 1) or 1))
+    finance_preview_start_at = timezone.localtime(timezone.now())
+    finance_preview_end_at = _extras_add_years(finance_preview_start_at, finance_years)
+
+    bundle_summary_sections = _extras_bundle_summary_sections(bundle_draft)
+    bundle_has_selections = _extras_bundle_has_selection(bundle_draft)
+    report_bundle_summary = next(
+        (section for section in bundle_summary_sections if section.get("key") == EXTRAS_DASHBOARD_SECTION_REPORTS),
+        {"items": []},
+    )
+    client_bundle_summary = next(
+        (section for section in bundle_summary_sections if section.get("key") == EXTRAS_DASHBOARD_SECTION_CLIENTS),
+        {"items": [], "meta_lines": []},
+    )
+    finance_bundle_summary = next(
+        (section for section in bundle_summary_sections if section.get("key") == EXTRAS_DASHBOARD_SECTION_FINANCE),
+        {"items": []},
+    )
+    created_request_id_raw = (request.GET.get("created_request") or "").strip()
+    created_request = (
+        _extras_unified_queryset_for_user(request.user).filter(id=int(created_request_id_raw)).first()
+        if created_request_id_raw.isdigit()
+        else None
+    )
+
+    if active_section == EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY:
+        active_section = EXTRAS_DASHBOARD_SECTION_CLIENTS
+    elif active_section == EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED:
+        active_section = EXTRAS_DASHBOARD_MAIN_SECTION
+
+    if active_section == EXTRAS_DASHBOARD_SECTION_CLIENTS and not specialist_display_name:
+        specialist_display_name = (
+            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
+            or "لم يتم تحديد المختص بعد"
+        )
+    if active_section == EXTRAS_DASHBOARD_SECTION_REPORTS and not specialist_display_name:
+        specialist_display_name = (
+            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
+            or "لم يتم تحديد المختص بعد"
+        )
+    if active_section == EXTRAS_DASHBOARD_SECTION_FINANCE and not specialist_display_name:
+        specialist_display_name = (
+            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
+            or "لم يتم تحديد المختص بعد"
+        )
+
+    finance_qr_first_name = str(bundle_draft.get("finance", {}).get("qr_first_name", "") or "").strip()
+    finance_qr_last_name = str(bundle_draft.get("finance", {}).get("qr_last_name", "") or "").strip()
+    finance_iban = str(bundle_draft.get("finance", {}).get("iban", "") or "").strip()
+    if specialist_user is not None:
+        if not finance_qr_first_name:
+            finance_qr_first_name = str(getattr(specialist_user, "first_name", "") or "").strip()
+        if not finance_qr_last_name:
+            finance_qr_last_name = str(getattr(specialist_user, "last_name", "") or "").strip()
+        if not finance_iban:
+            provider_profile = getattr(specialist_user, "provider_profile", None)
+            settings_obj = getattr(provider_profile, "extras_portal_finance_settings", None) if provider_profile is not None else None
+            finance_iban = str(getattr(settings_obj, "iban", "") or "").strip()
+
+    hero_subtitle = {
+        EXTRAS_DASHBOARD_SECTION_OVERVIEW: "الصفحة الرئيسية تعرض فقط قائمة استفسارات الخدمات الإضافية وقائمة طلبات الخدمات الإضافية.",
+        EXTRAS_DASHBOARD_SECTION_REPORTS: "اعتمد إعدادات التقارير من صفحة مستقلة تتضمن الفترة الزمنية وخيارات الإحصاءات المطلوبة.",
+        EXTRAS_DASHBOARD_SECTION_CLIENTS: "اعتمد خدمات إدارة العملاء من صفحة مستقلة، مع معاينة للمدة والزمن والخدمات المحددة.",
+        EXTRAS_DASHBOARD_SECTION_FINANCE: "القسم الفرعي للإدارة المالية مفصول عن الصفحة الرئيسية وسيتم استكمال محتواه التشغيلي لاحقًا.",
+        EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS: "يعرض هذا القسم سجلات المشتركين الفعلية للخدمات الإضافية اعتمادًا على اشتراك البوابة وآخر طلب مكتمل وفاتورته المعتمدة.",
+    }.get(active_section, "")
+    active_section_label = {
+        EXTRAS_DASHBOARD_SECTION_OVERVIEW: "الرئيسية",
+        EXTRAS_DASHBOARD_SECTION_REPORTS: "التقارير",
+        EXTRAS_DASHBOARD_SECTION_CLIENTS: "إدارة العملاء",
+        EXTRAS_DASHBOARD_SECTION_FINANCE: "الإدارة المالية",
+        EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS: "بيانات مشتركي الخدمات الإضافية",
+    }.get(active_section, "")
+
+    latest_helpdesk_code = (
+        SupportTicket.objects.filter(ticket_type=SupportTicketType.EXTRAS)
+        .exclude(code="")
+        .order_by("-id")
+        .values_list("code", flat=True)
+        .first()
+        or "HD000001"
+    )
+
+    context = {
+        "hero_title": "لوحة فريق إدارة الخدمات الإضافية",
+        "hero_subtitle": hero_subtitle,
+        "can_write": can_write,
+        "extras_team_label": extras_team_name,
+        "nav_items": _extras_nav_items(active_section),
+        "active_section": active_section,
+        "active_section_label": active_section_label,
+        "extras_inquiries": _subscription_inquiry_rows(extras_inquiries),
+        "extras_requests": extras_request_rows,
+        "extras_finance_rows": extras_finance_rows,
+        "extras_subscribers_rows": extras_subscribers_rows,
+        "selected_subscriber_row": selected_subscriber_row,
+        "selected_inquiry": selected_inquiry,
+        "selected_inquiry_status_label": _subscription_inquiry_status_label(
+            selected_inquiry.status if selected_inquiry else ""
+        ),
+        "selected_request": selected_request,
+        "selected_request_purchase": selected_request_purchase,
+        "selected_request_invoice": selected_request_invoice,
+        "selected_request_invoice_details": selected_request_invoice_details,
+        "selected_request_billing_state": selected_request_billing_state,
+        "selected_request_invoice_action_label": selected_request_invoice_action_label,
+        "selected_request_payment_status_label": selected_request_payment_status_label,
+        "selected_request_bundle_sections": selected_request_bundle_sections,
+        "selected_request_form": selected_request_form,
+        "selected_request_status_label": _extras_request_status_label(selected_request_status_code),
+        "selected_request_status_help_text": (
+            _extras_request_status_help_text(selected_request_status_code)
+            if selected_request is not None
+            else ""
+        ),
+        "selected_request_can_save": bool(
+            can_write
+            and selected_request_form is not None
+            and selected_request_status_code in {UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS}
+        ),
+        "selected_request_can_invoice": bool(
+            can_write
+            and selected_request is not None
+            and selected_request_status_code in {UnifiedRequestStatus.NEW, UnifiedRequestStatus.IN_PROGRESS}
+            and (selected_request_invoice is None or not selected_request_invoice.is_payment_effective())
+        ),
+        "selected_request_has_paid_invoice": bool(
+            selected_request_invoice is not None and selected_request_invoice.is_payment_effective()
+        ),
+        "extras_vat_percent": _extras_vat_percent(),
+        "report_options": [{"key": key, "label": label} for key, label in EXTRAS_REPORT_OPTIONS],
+        "report_option_groups": _extras_report_option_groups(),
+        "client_options": [{"key": key, "label": label} for key, label in EXTRAS_CLIENT_OPTIONS],
+        "finance_options": [{"key": key, "label": label} for key, label in EXTRAS_FINANCE_OPTIONS],
+        "bundle_selected_report_options": list(bundle_draft.get("reports", {}).get("options", [])),
+        "bundle_selected_client_options": list(bundle_draft.get("clients", {}).get("options", [])),
+        "bundle_selected_finance_options": list(bundle_draft.get("finance", {}).get("options", [])),
+        "bundle_form_values": {
+            "reports_start_at": _extras_datetime_input_value(bundle_draft.get("reports", {}).get("start_at", "")),
+            "reports_end_at": _extras_datetime_input_value(bundle_draft.get("reports", {}).get("end_at", "")),
+            "clients_subscription_years": client_years,
+            "clients_bulk_message_count": max(0, int(bundle_draft.get("clients", {}).get("bulk_message_count", 0) or 0)),
+            "finance_subscription_years": finance_years,
+            "finance_qr_first_name": finance_qr_first_name,
+            "finance_qr_last_name": finance_qr_last_name,
+            "finance_iban": finance_iban,
+        },
+        "bundle_summary_sections": bundle_summary_sections,
+        "bundle_has_selections": bundle_has_selections,
+        "report_bundle_summary": report_bundle_summary,
+        "report_preview_start_at": _extras_human_datetime(report_start_at),
+        "report_preview_end_at": _extras_human_datetime(report_end_at),
+        "client_bundle_summary": client_bundle_summary,
+        "client_preview_start_at": _extras_human_datetime(client_preview_start_at),
+        "client_preview_end_at": _extras_human_datetime(client_preview_end_at),
+        "finance_bundle_summary": finance_bundle_summary,
+        "finance_preview_start_at": _extras_human_datetime(finance_preview_start_at),
+        "finance_preview_end_at": _extras_human_datetime(finance_preview_end_at),
+        "specialist_identifier": specialist_identifier,
+        "specialist_display_name": specialist_display_name,
+        "created_request": created_request,
+        "created_request_code": getattr(created_request, "code", "") or "",
+        "inquiry_form": inquiry_form,
+        "close_inquiry_url": _extras_close_inquiry_url(
+            request,
+            selected_request_id=getattr(selected_request, "id", None),
+        ),
+        "close_request_url": _extras_close_request_url(
+            request,
+            selected_inquiry_id=getattr(selected_inquiry, "id", None),
+        ),
+        "inquiry_detail_base_query": inquiry_detail_base_query,
+        "request_detail_base_query": request_detail_base_query,
+        "subscriber_detail_base_query": subscriber_detail_base_query,
+        "selected_subscriber_close_url": selected_subscriber_close_url,
+        "inquiry_summary": _support_summary(extras_inquiries),
+        "request_summary": _extras_requests_summary(extras_request_rows),
+        "finance_summary": _extras_finance_summary(extras_finance_rows),
+        "subscribers_summary": _extras_subscribers_summary(extras_subscribers_rows),
+        "request_codes": [
+            {"code": latest_helpdesk_code, "label": "استفسارات الخدمات الإضافية"},
+            {"code": _latest_request_code("P", request_type=UnifiedRequestType.EXTRAS), "label": "طلبات الخدمات الإضافية"},
+        ],
+        "filters": {
+            "section": active_section,
+            "inquiry_q": inquiry_q,
+            "request_q": request_q,
+            "finance_q": finance_q,
+            "subscribers_q": subscribers_q,
+            "request_status": request_status_filter,
+        },
+        "request_status_choices": EXTRAS_REQUEST_STATUS_CHOICES,
+        "redirect_query": request.GET.urlencode(),
+    }
+    return render(request, "dashboard/extras_dashboard.html", context)
+
+
 PROMO_MODULE_DEFINITIONS = (
     {
         "key": "home_banner",
@@ -2772,7 +4891,7 @@ def _promo_base_context(active_key: str) -> dict:
 
 def _promo_inquiries_queryset_for_user(user):
     return _support_queryset_for_user(user).filter(
-        Q(assigned_team__code__iexact="promo")
+        _support_ticket_dashboard_q("promo", fallback_team_codes=["promo"])
         | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.ADS)
     ).distinct()
 
@@ -2803,17 +4922,27 @@ def _promo_assignee_label(promo_request: PromoRequest) -> str:
 
 
 def _promo_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(ticket, "requester", None) for ticket in tickets]
+    )
     rows: list[dict] = []
     for ticket in tickets:
         team_label = _support_team_label(ticket)
         team_label = team_label.replace("فريق ", "") if team_label.startswith("فريق ") else team_label
+        priority_number = _dashboard_priority_number_for_user(
+            ticket.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         rows.append(
             {
                 "id": ticket.id,
                 "code": ticket.code or f"HD{ticket.id:06d}",
                 "requester": _support_requester_label(ticket),
-                "priority_number": _support_priority_number(ticket.priority),
-                "priority_class": _support_priority_row_class(ticket.priority),
+                "priority_number": priority_number,
+                "priority_class": _dashboard_priority_class_for_user(
+                    ticket.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
@@ -2826,17 +4955,26 @@ def _promo_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
 
 
 def _promo_request_rows(requests: list[PromoRequest]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(promo_request, "requester", None) for promo_request in requests]
+    )
     rows: list[dict] = []
     for promo_request in requests:
-        priority = support_priority(promo_request.requester)
+        priority_number = _dashboard_priority_number_for_user(
+            promo_request.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         ops_status_label = _promo_request_ops_status_label(promo_request)
         rows.append(
             {
                 "id": promo_request.id,
                 "code": promo_request.code or f"MD{promo_request.id:06d}",
                 "requester": _promo_requester_label(promo_request.requester),
-                "priority_number": _support_priority_number(priority),
-                "priority_class": _support_priority_row_class(priority),
+                "priority_number": priority_number,
+                "priority_class": _dashboard_priority_class_for_user(
+                    promo_request.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "created_at": _format_dt(promo_request.created_at),
                 "approved_at": _format_dt(promo_request.reviewed_at or promo_request.created_at),
                 "request_status": _promo_request_operational_status_label(promo_request),
@@ -3249,7 +5387,7 @@ def promo_dashboard(request, request_id: int | None = None):
                     messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الترويج.")
                     return _promo_redirect_with_state(request, inquiry_id=target_ticket.id)
 
-            if team_id is not None and not SupportTeam.objects.filter(id=team_id, is_active=True).exists():
+            if team_id is not None and not SupportTeam.objects.filter(id=team_id).exists():
                 messages.error(request, "فريق الدعم المحدد غير صالح.")
                 return _promo_redirect_with_state(request, inquiry_id=target_ticket.id)
 
@@ -3537,12 +5675,7 @@ def _verification_priority_row_class(priority_number: int) -> str:
 
 
 def _verification_support_team() -> SupportTeam | None:
-    return (
-        SupportTeam.objects.filter(is_active=True)
-        .filter(Q(code__iexact="verification") | Q(code__iexact="verify"))
-        .order_by("sort_order", "id")
-        .first()
-    )
+    return _support_team_for_dashboard("verify", fallback_codes=["verification", "verify"])
 
 
 def _verification_nav_items(active_key: str) -> list[dict]:
@@ -3587,8 +5720,7 @@ def _verification_inquiries_queryset_for_user(user):
     return (
         _support_queryset_for_user(user)
         .filter(
-            Q(assigned_team__code__iexact="verification")
-            | Q(assigned_team__code__iexact="verify")
+            _support_ticket_dashboard_q("verify", fallback_team_codes=["verification", "verify"])
             | Q(assigned_team__isnull=True, ticket_type=SupportTicketType.VERIFY)
         )
         .select_related("verification_profile", "verification_profile__linked_request")
@@ -3615,34 +5747,29 @@ def _verification_requests_queryset_for_user(user):
     return qs
 
 
-def _verification_request_badge_labels(verification_request: VerificationRequest) -> list[str]:
-    labels = dict(VerificationBadgeType.choices)
-    seen: set[str] = set()
-    values: list[str] = []
-    if verification_request.badge_type:
-        seen.add(verification_request.badge_type)
-        values.append(labels.get(verification_request.badge_type, verification_request.badge_type))
-    for requirement in verification_request.requirements.all():
-        badge_type = str(requirement.badge_type or "").strip()
-        if badge_type and badge_type not in seen:
-            seen.add(badge_type)
-            values.append(labels.get(badge_type, badge_type))
-    return values
-
-
 def _verification_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(ticket, "requester", None) for ticket in tickets]
+    )
     rows: list[dict] = []
     for ticket in tickets:
         team_label = _support_team_label(ticket)
         team_label = team_label.replace("فريق ", "") if team_label.startswith("فريق ") else team_label
         linked_request = getattr(getattr(ticket, "verification_profile", None), "linked_request", None)
+        priority_number = _dashboard_priority_number_for_user(
+            ticket.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         rows.append(
             {
                 "id": ticket.id,
                 "code": ticket.code or f"HD{ticket.id:06d}",
                 "requester": _support_requester_label(ticket),
-                "priority_number": _support_priority_number(ticket.priority),
-                "priority_class": _support_priority_row_class(ticket.priority),
+                "priority_number": priority_number,
+                "priority_class": _dashboard_priority_class_for_user(
+                    ticket.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
@@ -3656,16 +5783,25 @@ def _verification_inquiry_rows(tickets: list[SupportTicket]) -> list[dict]:
 
 
 def _verification_request_rows(requests: list[VerificationRequest]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(verification_request, "requester", None) for verification_request in requests]
+    )
     rows: list[dict] = []
     for verification_request in requests:
-        priority_number = int(verification_request.priority or 1)
+        priority_number = _dashboard_priority_number_for_user(
+            verification_request.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         rows.append(
             {
                 "id": verification_request.id,
                 "code": verification_request.code or f"AD{verification_request.id:06d}",
                 "requester": _promo_requester_label(verification_request.requester),
                 "priority_number": priority_number,
-                "priority_class": _verification_priority_row_class(priority_number),
+                "priority_class": _dashboard_priority_class_for_user(
+                    verification_request.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "approved_at": _format_dt(
                     verification_request.approved_at
                     or verification_request.reviewed_at
@@ -3673,7 +5809,6 @@ def _verification_request_rows(requests: list[VerificationRequest]) -> list[dict
                 ),
                 "request_status": _verification_request_ops_status_label(verification_request),
                 "request_status_key": _verification_request_ops_status_key(verification_request),
-                "badge_labels": _verification_request_badge_labels(verification_request),
                 "assignee": (
                     (verification_request.assigned_to.username or verification_request.assigned_to.phone or "").strip()
                     if verification_request.assigned_to
@@ -4075,7 +6210,7 @@ def _verification_verified_accounts_export_rows(rows: list[dict]) -> tuple[list[
     headers = [
         "اسم العميل",
         "رمز التوثيق",
-        "نوع شارة التوثيق",
+        "نوع التوثيق",
         "تاريخ تفعيل التوثيق",
         "تاريخ نهاية تفعيل التوثيق",
         "رقم طلب التوثيق المصدر",
@@ -4224,20 +6359,6 @@ def _extract_first_http_url(text: str) -> str:
     if not match:
         return ""
     return match.group(0).rstrip(".,);]")
-
-
-def _verification_badge_guide() -> dict:
-    green_requirements = list((REQUIREMENTS_CATALOG.get(VerificationBadgeType.GREEN) or {}).values())
-    return {
-        "blue": {
-            "title": "توثيق الشارة الزرقاء",
-            "description": "توثيق الهوية الشخصية أو الصفة التجارية.",
-        },
-        "green": {
-            "title": "توثيق الشارة الخضراء",
-            "requirements": green_requirements,
-        },
-    }
 
 
 @dashboard_staff_required
@@ -4852,7 +6973,6 @@ def verification_dashboard(request):
             "hero_title": "لوحة فريق إدارة التوثيق",
             "hero_subtitle": "متابعة استفسارات التوثيق من صفحة التواصل، مراجعة طلبات التوثيق من مزودي الخدمة، وربطها بالحسابات الموثقة.",
             "can_write": can_write,
-            "badge_guide": _verification_badge_guide(),
             "inquiries": _verification_inquiry_rows(inquiries),
             "verification_requests": _verification_request_rows(verification_requests),
             "verified_accounts": verified_accounts,
@@ -4865,7 +6985,6 @@ def verification_dashboard(request):
             "selected_verified_badge": selected_verified_badge,
             "selected_verified_badge_detail": selected_verified_badge_detail,
             "selected_request_is_editable": _verification_request_is_editable(selected_request),
-            "selected_request_badge_labels": _verification_request_badge_labels(selected_request) if selected_request else [],
             "selected_request_invoice_summary": selected_request_invoice_summary,
             "selected_request_financial_summary": selected_request_financial_summary,
             "selected_request_review": selected_request_review,
@@ -5999,7 +8118,7 @@ def _dashboard_team_panels() -> list[dict]:
             "team": "فريق إدارة الخدمات الإضافية",
             "summary": "تشغيل الطلبات الإضافية وتحويلها للمسار التنفيذي المناسب.",
             "dashboards": [
-                {"label": "إدارة الصلاحيات", "url": reverse("dashboard:admin_control_home")},
+                {"label": "لوحة فريق إدارة الخدمات الإضافية", "url": reverse("dashboard:extras_dashboard")},
             ],
             "worklists": [
                 "طلبات الخدمات الإضافية",
@@ -6498,7 +8617,7 @@ def content_settings(request):
 
 def _content_review_queryset_for_user(user):
     return _support_queryset_for_user(user).filter(
-        Q(assigned_team__code__iexact="content")
+        _support_ticket_dashboard_q("content", fallback_team_codes=["content"])
         | Q(assigned_team__isnull=True, ticket_type__in=CONTENT_REVIEW_TYPES)
     ).distinct()
 
@@ -6626,16 +8745,25 @@ def _content_review_detail_payload(ticket: SupportTicket | None) -> dict:
 
 
 def _content_review_ticket_rows(tickets: list[SupportTicket]) -> list[dict]:
+    subscriptions_by_user_id = _effective_subscriptions_map_for_users(
+        [getattr(ticket, "requester", None) for ticket in tickets]
+    )
     rows = []
     for ticket in tickets:
-        priority_number = _support_priority_number(ticket.priority)
+        priority_number = _dashboard_priority_number_for_user(
+            ticket.requester,
+            subscriptions_by_user_id=subscriptions_by_user_id,
+        )
         rows.append(
             {
                 "id": ticket.id,
                 "code": ticket.code or f"HD{ticket.id:04d}",
                 "requester": _support_requester_label(ticket),
                 "priority_number": priority_number,
-                "priority_class": _support_priority_row_class(ticket.priority),
+                "priority_class": _dashboard_priority_class_for_user(
+                    ticket.requester,
+                    subscriptions_by_user_id=subscriptions_by_user_id,
+                ),
                 "ticket_type": ticket.get_ticket_type_display(),
                 "created_at": _format_dt(ticket.created_at),
                 "status": ticket.get_status_display(),
@@ -6901,8 +9029,13 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
     if selected_ticket is None and tickets:
         selected_ticket = tickets[0]
 
-    assignee_choices = _dashboard_assignee_choices("content")
     team_choices = _support_team_choices()
+    assignee_choices_by_team = _support_assignee_choices_by_team()
+    assignee_map: dict[str, str] = {}
+    for choices in assignee_choices_by_team.values():
+        for value, label in choices:
+            assignee_map[str(value)] = label
+    assignee_choices = sorted(assignee_map.items(), key=lambda item: item[1].lower())
 
     can_write = dashboard_allowed(request.user, "content", write=True)
     can_manage_content = bool(can_write and ContentManagePolicy.evaluate(request.user).allowed)
@@ -6978,15 +9111,26 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             team_id = int(team_id_raw) if team_id_raw.isdigit() else target_ticket.assigned_team_id
             assigned_to_id = int(assigned_to_raw) if assigned_to_raw.isdigit() else target_ticket.assigned_to_id
 
+            if team_id is not None and assigned_to_id is not None:
+                allowed_assignees = {
+                    int(value)
+                    for value, _ in assignee_choices_by_team.get(str(team_id), [])
+                    if str(value).isdigit()
+                }
+                if assigned_to_id not in allowed_assignees:
+                    messages.error(request, "المكلف المختار غير مرتبط بفريق الدعم المحدد.")
+                    return _content_reviews_redirect_with_state(request, ticket_id=target_ticket.id)
+
             if assigned_to_id is not None:
-                assignee = dashboard_assignee_user(assigned_to_id, "content", write=True)
+                assignee_dashboard_code = _support_team_dashboard_code(team_id) if team_id is not None else "content"
+                assignee = dashboard_assignee_user(assigned_to_id, assignee_dashboard_code, write=True)
                 if assignee is None:
-                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة إدارة المحتوى.")
+                    messages.error(request, "المكلف المختار لا يملك صلاحية لوحة الفريق المحدد.")
                     return _content_reviews_redirect_with_state(request, ticket_id=target_ticket.id)
                 if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
                     return HttpResponseForbidden("لا يمكنك تعيين الطلب لمستخدم آخر.")
 
-            if team_id is not None and not SupportTeam.objects.filter(id=team_id, is_active=True).exists():
+            if team_id is not None and not SupportTeam.objects.filter(id=team_id).exists():
                 messages.error(request, "فريق الدعم المحدد غير صالح.")
                 return _content_reviews_redirect_with_state(request, ticket_id=target_ticket.id)
 
@@ -7124,6 +9268,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
             "detail_info": _content_review_detail_payload(selected_ticket),
             "selected_ticket_comments": list(selected_ticket.comments.order_by("-id")[:8]) if selected_ticket else [],
             "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
+            "team_assignee_map": assignee_choices_by_team,
         }
     )
     return render(request, "dashboard/content_reviews_dashboard.html", context)
@@ -7339,9 +9484,16 @@ def resend_otp_view(request):
     if user is None:
         messages.error(request, "انتهت جلسة الدخول.")
         return redirect("dashboard:login")
+
+    remaining = _otp_resend_remaining_seconds(user.id)
+    if remaining > 0:
+        messages.warning(request, f"يرجى الانتظار {remaining} ثانية قبل إعادة إرسال رمز جديد.")
+        return redirect("dashboard:otp")
+
     if accept_any_otp_code():
         messages.info(request, "وضع الاختبار مفعّل: يمكنك إدخال أي رمز من 4 أرقام.")
     else:
         create_otp(user.phone or "", request)
         messages.success(request, "تم إرسال رمز تحقق جديد.")
+    _activate_otp_resend_cooldown(user.id)
     return redirect("dashboard:otp")

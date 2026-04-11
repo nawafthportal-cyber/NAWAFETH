@@ -21,6 +21,8 @@ const NotificationsPage = (() => {
   let _eventsBound = false;
   let _scrollBound = false;
   let _toastTimer = null;
+  let _promoModal = null;
+  let _promoModalKeyBound = false;
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -214,11 +216,13 @@ const NotificationsPage = (() => {
     const isFollowUp = !!notif.is_follow_up;
     const isPinned = !!notif.is_pinned;
     const kind = String(notif.kind || '').toLowerCase();
+    const isPromo = _isPromotionalNotification(notif, kind);
 
     const card = UI.el('div', {
       className:
         'notif-card' +
         (isRead ? ' read' : ' unread') +
+        (isPromo ? ' promo' : '') +
         (isUrgent ? ' urgent' : '') +
         (isFollowUp ? ' follow-up' : '') +
         (isPinned ? ' pinned' : ''),
@@ -249,6 +253,7 @@ const NotificationsPage = (() => {
     titleWrap.appendChild(UI.el('span', { className: 'notif-title', textContent: notif.title || 'إشعار' }));
 
     const flagsWrap = UI.el('div', { className: 'notif-flags' });
+    if (isPromo) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo', textContent: 'دعائي' }));
     if (isFollowUp) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag follow', textContent: 'متابعة' }));
     if (isPinned) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag pin', textContent: 'مثبت' }));
     if (!isRead) flagsWrap.appendChild(UI.el('span', { className: 'notif-dot' }));
@@ -271,7 +276,10 @@ const NotificationsPage = (() => {
           textContent: _relativeTime(notif.created_at || notif.created),
         })
       );
-      metaRow.appendChild(UI.el('div', { className: 'notif-open-hint', textContent: isRead ? 'مقروء' : 'جديد' }));
+      const hintText = isPromo
+        ? (isRead ? 'دعائي - مقروء' : 'دعائي - جديد')
+        : (isRead ? 'مقروء' : 'جديد');
+      metaRow.appendChild(UI.el('div', { className: 'notif-open-hint', textContent: hintText }));
       body.appendChild(metaRow);
     }
 
@@ -386,12 +394,155 @@ const NotificationsPage = (() => {
     return _withMode(raw);
   }
 
+  function _isPromotionalNotification(notif, kindOverride) {
+    const kind = String(kindOverride || (notif && notif.kind) || '').trim().toLowerCase();
+    if (kind === 'promo_offer' || kind.includes('promo')) return true;
+    const title = String((notif && notif.title) || '').trim();
+    return title.includes('دعائي') || title.includes('ترويج');
+  }
+
   async function _openNotification(notif) {
     if (!notif) return;
     if (notif.id) await _markRead(notif.id);
+    if (_isPromotionalNotification(notif)) {
+      await _openPromoModal(notif);
+      return;
+    }
     const targetUrl = _withModeOnNavigation(notif.url || '');
     if (!targetUrl) return;
     window.location.href = targetUrl;
+  }
+
+  function _ensurePromoModal() {
+    if (_promoModal) return _promoModal;
+    const root = UI.el('div', { className: 'notif-promo-modal hidden', id: 'notif-promo-modal' });
+    root.innerHTML = [
+      '<div class="notif-promo-backdrop" data-close-promo-modal="1"></div>',
+      '<section class="notif-promo-dialog" role="dialog" aria-modal="true" aria-label="رسالة دعائية">',
+      '<button type="button" class="notif-promo-close" data-close-promo-modal="1" aria-label="إغلاق">×</button>',
+      '<div class="notif-promo-head">',
+      '<span class="notif-promo-badge">رسالة دعائية</span>',
+      '<h3 class="notif-promo-title" id="notif-promo-title"></h3>',
+      '<div class="notif-promo-time" id="notif-promo-time"></div>',
+      '</div>',
+      '<div class="notif-promo-message" id="notif-promo-message"></div>',
+      '<div class="notif-promo-section-title">المرفقات</div>',
+      '<div class="notif-promo-attachments" id="notif-promo-attachments"></div>',
+      '</section>',
+    ].join('');
+    root.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-close-promo-modal="1"]')) _closePromoModal();
+    });
+    document.body.appendChild(root);
+    _promoModal = root;
+    if (!_promoModalKeyBound) {
+      _promoModalKeyBound = true;
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') _closePromoModal();
+      });
+    }
+    return root;
+  }
+
+  function _closePromoModal() {
+    const root = document.getElementById('notif-promo-modal');
+    if (!root) return;
+    root.classList.remove('open');
+    window.setTimeout(() => {
+      root.classList.add('hidden');
+    }, 160);
+  }
+
+  function _assetVisualType(asset) {
+    const type = String((asset && asset.asset_type) || '').trim().toLowerCase();
+    if (type === 'video') return 'video';
+    if (type === 'image') return 'image';
+    return 'file';
+  }
+
+  function _renderPromoAttachments(container, attachments) {
+    container.innerHTML = '';
+    if (!Array.isArray(attachments) || !attachments.length) {
+      container.appendChild(UI.el('div', { className: 'notif-promo-empty', textContent: 'لا توجد مرفقات في هذه الرسالة.' }));
+      return;
+    }
+    const frag = document.createDocumentFragment();
+    attachments.forEach((asset) => {
+      const card = UI.el('div', { className: 'notif-promo-asset' });
+      const fileUrl = String((asset && asset.file_url) || '').trim();
+      const caption = String((asset && asset.title) || (asset && asset.file_name) || 'مرفق');
+      const visualType = _assetVisualType(asset);
+
+      if (visualType === 'image' && fileUrl) {
+        const img = UI.el('img', { className: 'notif-promo-asset-image', alt: caption });
+        img.src = fileUrl;
+        card.appendChild(img);
+      } else if (visualType === 'video' && fileUrl) {
+        const video = UI.el('video', { className: 'notif-promo-asset-video', controls: 'controls', preload: 'metadata' });
+        video.src = fileUrl;
+        card.appendChild(video);
+      } else {
+        const fileRow = UI.el('a', {
+          className: 'notif-promo-asset-file',
+          href: fileUrl || '#',
+          target: '_blank',
+          rel: 'noopener',
+        });
+        fileRow.appendChild(UI.icon('attach_file', 16, '#9a3412'));
+        fileRow.appendChild(UI.el('span', { textContent: String((asset && asset.file_name) || 'ملف مرفق') }));
+        card.appendChild(fileRow);
+      }
+
+      card.appendChild(UI.el('div', { className: 'notif-promo-asset-caption', textContent: caption }));
+      if (fileUrl) {
+        card.appendChild(UI.el('a', {
+          className: 'notif-promo-asset-open',
+          href: fileUrl,
+          target: '_blank',
+          rel: 'noopener',
+          textContent: 'فتح المرفق',
+        }));
+      }
+      frag.appendChild(card);
+    });
+    container.appendChild(frag);
+  }
+
+  async function _openPromoModal(notif) {
+    const root = _ensurePromoModal();
+    const titleEl = document.getElementById('notif-promo-title');
+    const timeEl = document.getElementById('notif-promo-time');
+    const messageEl = document.getElementById('notif-promo-message');
+    const attachmentsEl = document.getElementById('notif-promo-attachments');
+    if (!titleEl || !timeEl || !messageEl || !attachmentsEl) return;
+
+    titleEl.textContent = String(notif.title || '').trim() || 'رسالة دعائية';
+    timeEl.textContent = _relativeTime(notif.created_at || notif.created) || '';
+    messageEl.textContent = String(notif.body || notif.message || '').trim() || 'لا يوجد نص للرسالة.';
+    attachmentsEl.innerHTML = '<div class="notif-promo-loading">جار تحميل المرفقات...</div>';
+
+    root.classList.remove('hidden');
+    requestAnimationFrame(() => root.classList.add('open'));
+
+    if (!notif.id) {
+      _renderPromoAttachments(attachmentsEl, []);
+      return;
+    }
+
+    const res = await ApiClient.get(_withMode('/api/notifications/promo-preview/' + notif.id + '/'));
+    if (!res.ok || !res.data) {
+      _showToast('تعذر تحميل تفاصيل الرسالة الدعائية.', 'error');
+      _renderPromoAttachments(attachmentsEl, []);
+      return;
+    }
+
+    const payload = res.data || {};
+    titleEl.textContent = String(payload.title || titleEl.textContent).trim() || 'رسالة دعائية';
+    messageEl.textContent = String(payload.body || messageEl.textContent).trim() || 'لا يوجد نص للرسالة.';
+    timeEl.textContent = _relativeTime(payload.created_at || notif.created_at || notif.created) || '';
+    _renderPromoAttachments(attachmentsEl, payload.attachments || []);
   }
 
   async function _markRead(id) {
@@ -517,6 +668,7 @@ const NotificationsPage = (() => {
   }
 
   function _iconForKind(kind) {
+    if (kind.includes('promo')) return 'campaign';
     if (kind.includes('request') || kind.includes('offer')) return 'category';
     if (kind.includes('message')) return 'campaign';
     if (kind.includes('urgent')) return 'fitness';
@@ -524,6 +676,7 @@ const NotificationsPage = (() => {
   }
 
   function _colorForKind(kind) {
+    if (kind.includes('promo')) return '#D97706';
     if (kind.includes('urgent') || kind.includes('error')) return '#F44336';
     if (kind.includes('offer') || kind.includes('success')) return '#4CAF50';
     if (kind.includes('message')) return '#2196F3';
@@ -629,16 +782,24 @@ const NotificationsPage = (() => {
     return Math.max(0, Math.floor(num));
   }
 
-  function _showToast(message, type) {
+  function _showToast(message, type, options) {
     if (!message) return;
     const existing = document.getElementById('notif-toast');
     if (existing) existing.remove();
+    const title = String((options && options.title) || '').trim();
+    const durationMs = Number(options && options.durationMs) > 0 ? Number(options.durationMs) : 2200;
 
     const toast = UI.el('div', {
       id: 'notif-toast',
       className: 'notif-toast' + (type ? (' ' + type) : ''),
-      textContent: message,
     });
+    if (title) {
+      toast.classList.add('with-title');
+      toast.appendChild(UI.el('div', { className: 'notif-toast-title', textContent: title }));
+      toast.appendChild(UI.el('div', { className: 'notif-toast-body', textContent: message }));
+    } else {
+      toast.textContent = message;
+    }
 
     document.body.appendChild(toast);
     requestAnimationFrame(() => toast.classList.add('show'));
@@ -649,7 +810,7 @@ const NotificationsPage = (() => {
       window.setTimeout(() => {
         if (toast.parentNode) toast.remove();
       }, 180);
-    }, 2200);
+    }, durationMs);
   }
 
   if (document.readyState === 'loading') {

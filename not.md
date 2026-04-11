@@ -5,7 +5,15 @@ cd c:\Users\manso\nawafeth\backend
 
 لتشغيل محاكي أندرويد محليًا:
 
-emulator -avd <اسم_المحاكي>
+emulator -avd Medium_Phone 
+
+
+cd mobile 
+
+flutter clean
+flutter pub get
+flutter run -d emulator-5554
+
 
 ولعرض أسماء المحاكيات المتاحة أولًا:
 

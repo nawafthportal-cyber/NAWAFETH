@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import quote
-
+import logging
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -22,6 +21,20 @@ from .permissions import IsInvoiceOwner
 from .services import complete_mock_payment, init_payment, handle_webhook, sign_webhook_payload
 
 
+logger = logging.getLogger(__name__)
+
+
+def _account_display(user) -> str:
+    if not user or not getattr(user, "id", None):
+        return "حساب غير معروف"
+
+    username = str(getattr(user, "username", "") or "").strip()
+    phone = str(getattr(user, "phone", "") or "").strip()
+    parts = [part for part in [username, phone] if part]
+    label = " / ".join(parts) if parts else f"User {user.id}"
+    return f"{label} (#{user.id})"
+
+
 def _safe_next_path(raw_next: str, default_path: str = "/verification/") -> str:
     value = (raw_next or "").strip()
     if value.startswith("/") and not value.startswith("//"):
@@ -32,7 +45,7 @@ def _safe_next_path(raw_next: str, default_path: str = "/verification/") -> str:
 class MockCheckoutView(View):
     """
     صفحة checkout تجريبية قابلة للفتح من المتصفح.
-    - تتأكد من ملكية الفاتورة.
+    - تعمل كرابط دفع عام قائم على حيازة الرابط.
     - تكمل الدفع التجريبي عبر webhook mock آمن.
     - تعيد التوجيه إلى صفحة التوثيق/الوجهة المطلوبة.
     """
@@ -48,13 +61,6 @@ class MockCheckoutView(View):
             provider=PaymentProvider.MOCK,
         )
         invoice = attempt.invoice
-
-        if not request.user.is_authenticated:
-            next_param = quote(request.get_full_path(), safe="/?=&%")
-            return redirect(f"/login/?next={next_param}")
-
-        if request.user.id != invoice.user_id:
-            return HttpResponseForbidden("غير مصرح: لا يمكنك إتمام دفع فاتورة لا تخص حسابك.")
 
         next_path = _safe_next_path(request.GET.get("next"), default_path="/verification/")
         if invoice.is_payment_effective():

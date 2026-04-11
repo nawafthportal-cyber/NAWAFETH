@@ -29,6 +29,7 @@ from .models import (
 	ProviderSpotlightItem,
 	ProviderSpotlightLike,
 	ProviderSpotlightSave,
+	SaudiRegion,
 	SubCategory,
 	sync_provider_accepts_urgent_flag,
 )
@@ -36,6 +37,7 @@ from .serializers import (
 	CategorySerializer,
 	MyProviderSubcategoriesSerializer,
 	ProviderFollowerSerializer,
+	SaudiRegionSerializer,
 	SubCategoryWithCategorySerializer,
 	ProviderServicePublicDetailSerializer,
 	ProviderServicePublicSerializer,
@@ -262,6 +264,19 @@ class CategoryListView(generics.ListAPIView):
 	queryset = Category.objects.filter(is_active=True)
 	serializer_class = CategorySerializer
 	permission_classes = [permissions.AllowAny]
+
+
+class RegionCityCatalogView(generics.ListAPIView):
+	queryset = SaudiRegion.objects.filter(is_active=True).prefetch_related("cities").order_by("sort_order", "id")
+	serializer_class = SaudiRegionSerializer
+	permission_classes = [permissions.AllowAny]
+
+	def get_queryset(self):
+		return (
+			SaudiRegion.objects.filter(is_active=True)
+			.prefetch_related("cities")
+			.order_by("sort_order", "id")
+		)
 
 
 class ProviderCreateView(generics.CreateAPIView):

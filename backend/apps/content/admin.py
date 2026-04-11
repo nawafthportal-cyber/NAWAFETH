@@ -65,7 +65,25 @@ class HomePageFallbackBannerBlockAdmin(admin.ModelAdmin):
         return super().get_queryset(request).filter(key=HOME_FALLBACK_BANNER_KEY)
 
     def has_add_permission(self, request):
+        if not super().has_add_permission(request):
+            return False
+        return not self.get_queryset(request).exists()
+
+    def has_delete_permission(self, request, obj=None):
         return False
+
+    def get_changeform_initial_data(self, request):
+        initial = super().get_changeform_initial_data(request)
+        initial.setdefault("title_ar", "البنر الافتراضي")
+        initial.setdefault("body_ar", "يظهر هذا البنر تلقائيًا في الصفحة الرئيسية عندما لا توجد إعلانات أو بنرات ترويجية فعالة.")
+        initial.setdefault("is_active", True)
+        return initial
+
+    def save_model(self, request, obj, form, change):
+        obj.key = HOME_FALLBACK_BANNER_KEY
+        if hasattr(obj, "updated_by"):
+            obj.updated_by = getattr(request, "user", None)
+        super().save_model(request, obj, form, change)
 
     @admin.display(description="نوع العنصر")
     def key_label(self, obj):

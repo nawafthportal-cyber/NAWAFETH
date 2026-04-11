@@ -3,10 +3,13 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.db.models import Q
-from django.test import RequestFactory, SimpleTestCase, TestCase
+from django.http import HttpResponse
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
+from apps.core.middleware import InlinePromoSchedulerMiddleware
 from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
 from apps.providers.models import ProviderProfile
@@ -822,6 +825,97 @@ class PromoMessageEndToEndTests(TestCase):
         # recipient_a (الرياض) and recipient_b (الرياض) = 2
         self.assertEqual(count, 2)
 
+    @patch("apps.notifications.services.should_send_notification", return_value=True)
+    @patch("apps.promo.services._notify_promo_status_change")
+    @patch("apps.promo.services._notify_promo_ops_completed")
+    @patch("apps.promo.services._sync_promo_to_unified")
+    def test_recipients_include_clients_with_client_audience_mode(self, mock_sync, mock_ops_notif, mock_status_notif, mock_notif_pref):
+        from apps.accounts.models import UserRole
+        from apps.notifications.models import Notification
+        from apps.promo.models import PromoRequestItem, PromoServiceType
+        from apps.promo.services import dispatch_promo_message_item
+
+        client_in_city = get_user_model().objects.create_user(
+            phone="0511110088",
+            password="secret",
+            role_state=UserRole.CLIENT,
+            city="الرياض",
+            is_active=True,
+        )
+        client_other_city = get_user_model().objects.create_user(
+            phone="0511110089",
+            password="secret",
+            role_state=UserRole.CLIENT,
+            city="جدة",
+            is_active=True,
+        )
+
+        now = timezone.now()
+        pr = PromoRequest.objects.create(
+            requester=self.sender,
+            title="client-targeting",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=now + timezone.timedelta(hours=1),
+            end_at=now + timezone.timedelta(days=2),
+            status=PromoRequestStatus.ACTIVE,
+            activated_at=now,
+            ops_status=PromoOpsStatus.COMPLETED,
+        )
+        item = PromoRequestItem.objects.create(
+            request=pr,
+            service_type=PromoServiceType.PROMO_MESSAGES,
+            title="رسالة للجميع",
+            send_at=now + timezone.timedelta(hours=2),
+            target_city="الرياض",
+            target_category="كهرباء",
+            use_notification_channel=True,
+            use_chat_channel=False,
+            message_title="عرض شامل",
+            message_body="رسالة دعائية تصل للعملاء والمزودين",
+        )
+
+        count = dispatch_promo_message_item(item=item, now=item.send_at)
+        # recipient_a + recipient_b + client_in_city
+        self.assertEqual(count, 3)
+        self.assertTrue(Notification.objects.filter(user=client_in_city, kind="promo_offer", audience_mode="client").exists())
+        self.assertFalse(Notification.objects.filter(user=client_other_city, kind="promo_offer").exists())
+
+class InlinePromoSchedulerMiddlewareTests(PromoMessageEndToEndTests):
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+    @override_settings(
+        PROMO_INLINE_SCHEDULER_ENABLED=True,
+        PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS=60,
+    )
+    @patch("apps.notifications.services.should_send_notification", return_value=True)
+    @patch("apps.promo.services._notify_promo_status_change")
+    @patch("apps.promo.services._notify_promo_ops_completed")
+    @patch("apps.promo.services._sync_promo_to_unified")
+    def test_inline_scheduler_dispatches_due_messages(
+        self,
+        mock_sync,
+        mock_ops_notif,
+        mock_status_notif,
+        mock_notif_pref,
+    ):
+        pr, item = self._create_promo_message_request()
+        pr = self._quote_and_pay(pr)
+        pr = self._ops_complete(pr)
+
+        due_at = timezone.now() - timezone.timedelta(minutes=1)
+        item.send_at = due_at
+        item.save(update_fields=["send_at", "updated_at"])
+
+        middleware = InlinePromoSchedulerMiddleware(lambda request: HttpResponse("ok"))
+        response = middleware(RequestFactory().get("/promotion/"))
+
+        self.assertEqual(response.status_code, 200)
+        item.refresh_from_db()
+        self.assertIsNotNone(item.message_sent_at)
+        self.assertEqual(item.message_recipients_count, 2)
+
     # ------------------------------------------------------------------
     # Serializer validation for PROMO_MESSAGES items
     # ------------------------------------------------------------------
@@ -862,3 +956,154 @@ class PromoMessageEndToEndTests(TestCase):
             "asset_count": 1,
         })
         self.assertTrue(serializer.is_valid(), serializer.errors)
+
+
+class PromoScheduledDispatchTests(TestCase):
+    """
+    Verify that promo messages scheduled during the campaign window
+    are dispatched even when ops completion / activation happens after end_at.
+    """
+
+    def setUp(self):
+        User = get_user_model()
+        from apps.providers.models import Category, SubCategory, ProviderCategory
+
+        self.sender = User.objects.create_user(
+            phone="0522220001", password="secret",
+            role_state="provider", is_active=True,
+        )
+        self.sender_profile = ProviderProfile.objects.create(
+            user=self.sender, provider_type="individual",
+            display_name="مرسل مجدول", bio="...", city="الرياض",
+        )
+        self.staff = User.objects.create_user(
+            phone="0522220002", password="secret",
+            is_staff=True, is_active=True,
+        )
+        self.cat = Category.objects.create(name="فئة اختبار", is_active=True)
+        self.subcat = SubCategory.objects.create(category=self.cat, name="فرعي", is_active=True)
+        self.recipient = User.objects.create_user(
+            phone="0522220003", password="secret",
+            role_state="provider", is_active=True,
+        )
+        self.recipient_profile = ProviderProfile.objects.create(
+            user=self.recipient, provider_type="individual",
+            display_name="مستلم", bio="...", city="الرياض",
+        )
+        ProviderCategory.objects.create(
+            provider=self.recipient_profile, subcategory=self.subcat,
+        )
+
+    def _create_paid_promo_request(self, *, send_at, end_at):
+        from apps.promo.models import PromoRequestItem, PromoServiceType
+        from apps.promo.services import quote_and_create_invoice
+
+        pr = PromoRequest.objects.create(
+            requester=self.sender, title="طلب رسائل مجدول",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=send_at, end_at=end_at,
+            status=PromoRequestStatus.NEW, ops_status=PromoOpsStatus.NEW,
+        )
+        PromoRequestItem.objects.create(
+            request=pr, service_type=PromoServiceType.PROMO_MESSAGES,
+            title="رسالة مجدولة", send_at=send_at,
+            start_at=send_at, end_at=end_at,
+            message_body="رسالة اختبار", message_title="اختبار",
+            use_notification_channel=True,
+            target_city="الرياض", target_category=self.cat.name,
+        )
+        pr = quote_and_create_invoice(pr=pr, by_user=self.staff)
+        pr.invoice.mark_payment_confirmed(
+            provider="mock", provider_reference="sched-test",
+            event_id=f"sched-test-{pr.pk}", amount=pr.invoice.total, currency="SAR",
+        )
+        pr.invoice.save()
+        return pr
+
+    @patch("apps.notifications.services.should_send_notification", return_value=True)
+    @patch("apps.promo.services._notify_promo_status_change")
+    @patch("apps.promo.services._notify_promo_ops_completed")
+    @patch("apps.promo.services._sync_promo_to_unified")
+    def test_dispatch_on_activation_when_send_time_already_passed(self, _sync, _ops_notif, _status_notif, _should_send):
+        """Messages are dispatched inline when ops completes and send_at has passed."""
+        from apps.promo.services import apply_effective_payment, set_promo_ops_status
+        from apps.notifications.models import Notification
+
+        now = timezone.now()
+        send_at = now - timezone.timedelta(hours=1)  # already past
+        end_at = now + timezone.timedelta(days=1)     # still in window
+        pr = self._create_paid_promo_request(send_at=send_at, end_at=end_at)
+
+        pr = apply_effective_payment(pr=pr)
+        self.assertEqual(pr.status, PromoRequestStatus.NEW)
+
+        pr = set_promo_ops_status(pr=pr, new_status=PromoOpsStatus.IN_PROGRESS, by_user=self.staff)
+        pr = set_promo_ops_status(pr=pr, new_status=PromoOpsStatus.COMPLETED, by_user=self.staff)
+        self.assertEqual(pr.status, PromoRequestStatus.ACTIVE)
+
+        pr.refresh_from_db()
+        item = pr.items.first()
+        self.assertIsNotNone(item.message_sent_at, "Message should be sent inline on activation")
+        self.assertGreater(item.message_recipients_count, 0)
+        self.assertTrue(Notification.objects.filter(user=self.recipient, kind="promo_offer").exists())
+
+    @patch("apps.notifications.services.should_send_notification", return_value=True)
+    @patch("apps.promo.services._notify_promo_status_change")
+    @patch("apps.promo.services._notify_promo_ops_completed")
+    @patch("apps.promo.services._sync_promo_to_unified")
+    def test_dispatch_on_activation_when_campaign_already_expired(self, _sync, _ops_notif, _status_notif, _should_send):
+        """Messages are dispatched even when payment applied after end_at."""
+        from apps.promo.services import apply_effective_payment
+        from apps.notifications.models import Notification
+
+        now = timezone.now()
+        send_at = now - timezone.timedelta(hours=6)   # long past
+        end_at = now - timezone.timedelta(hours=1)     # campaign expired
+        pr = self._create_paid_promo_request(send_at=send_at, end_at=end_at)
+
+        # apply_effective_payment sees end_at <= now → should dispatch then expire
+        pr = apply_effective_payment(pr=pr)
+
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, PromoRequestStatus.EXPIRED)
+
+        item = pr.items.first()
+        self.assertIsNotNone(item.message_sent_at, "Message should be sent even when campaign expired")
+        self.assertGreater(item.message_recipients_count, 0)
+        self.assertTrue(Notification.objects.filter(user=self.recipient, kind="promo_offer").exists())
+
+    @patch("apps.notifications.services.should_send_notification", return_value=True)
+    @patch("apps.promo.services._notify_promo_status_change")
+    @patch("apps.promo.services._notify_promo_ops_completed")
+    @patch("apps.promo.services._sync_promo_to_unified")
+    def test_expire_dispatches_unsent_messages_before_expiring(self, _sync, _ops_notif, _status_notif, _should_send):
+        """expire_due_promos dispatches unsent messages before marking request as expired."""
+        from apps.promo.services import apply_effective_payment, set_promo_ops_status, expire_due_promos
+        from apps.notifications.models import Notification
+
+        now = timezone.now()
+        send_at = now - timezone.timedelta(minutes=10)
+        end_at = now + timezone.timedelta(hours=2)
+        pr = self._create_paid_promo_request(send_at=send_at, end_at=end_at)
+
+        pr = apply_effective_payment(pr=pr)
+        pr = set_promo_ops_status(pr=pr, new_status=PromoOpsStatus.IN_PROGRESS, by_user=self.staff)
+        pr = set_promo_ops_status(pr=pr, new_status=PromoOpsStatus.COMPLETED, by_user=self.staff)
+        self.assertEqual(pr.status, PromoRequestStatus.ACTIVE)
+
+        # Simulate message NOT yet dispatched by clearing sent_at
+        item = pr.items.first()
+        item.message_sent_at = None
+        item.message_recipients_count = 0
+        item.save(update_fields=["message_sent_at", "message_recipients_count"])
+
+        # Expire with a future time past end_at
+        expire_time = end_at + timezone.timedelta(hours=1)
+        expire_due_promos(now=expire_time)
+
+        pr.refresh_from_db()
+        self.assertEqual(pr.status, PromoRequestStatus.EXPIRED)
+
+        item.refresh_from_db()
+        self.assertIsNotNone(item.message_sent_at, "Message should be sent before expiry")
+        self.assertTrue(Notification.objects.filter(user=self.recipient, kind="promo_offer").exists())

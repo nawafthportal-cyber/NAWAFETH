@@ -2,7 +2,7 @@
 var ProviderRegisterPage = (function () {
   var RAW_API = window.ApiClient;
   var API = window.NwApiClient;
-  var CITIES = ["الرياض","جدة","مكة المكرمة","المدينة المنورة","الدمام","الخبر","الظهران","الطائف","تبوك","بريدة","عنيزة","حائل","أبها","خميس مشيط","نجران","جازان","ينبع","الباحة","الجبيل","حفر الباطن","القطيف","الأحساء","سكاكا","عرعر","بيشة","الخرج","الدوادمي","المجمعة","القويعية","وادي الدواسر"];
+  var regionCatalog = [];
   var ALLOWED_PROVIDER_TYPES = ["individual", "company"];
   var currentStep = 1;
   var categories = [];
@@ -12,7 +12,7 @@ var ProviderRegisterPage = (function () {
   var toastTimer = null;
 
   function init() {
-    populateCities();
+    loadRegionsAndCities();
     loadCategories();
     bindEvents();
     syncProviderTypeFromDom();
@@ -32,13 +32,60 @@ var ProviderRegisterPage = (function () {
     providerType = normalizeProviderType(activeChip ? activeChip.dataset.val : providerType);
   }
 
-  function populateCities() {
-    var sel = document.getElementById("reg-city");
-    CITIES.forEach(function (c) {
+  function loadRegionsAndCities() {
+    API.get("/api/providers/geo/regions-cities/").then(function (rows) {
+      regionCatalog = normalizeRegionCatalog(rows);
+      populateRegions();
+      populateCitiesForRegion("");
+    }).catch(function () {
+      regionCatalog = [];
+      populateRegions();
+      populateCitiesForRegion("");
+      showToast("تعذر تحميل المناطق والمدن حاليًا. حاول تحديث الصفحة.", "error");
+    });
+  }
+
+  function normalizeRegionCatalog(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map(function (row) {
+      var regionName = String((row && row.name_ar) || "").trim();
+      if (!regionName) return null;
+      var citiesRaw = Array.isArray(row.cities) ? row.cities : [];
+      var cities = citiesRaw.map(function (cityRow) {
+        var cityName = String((cityRow && cityRow.name_ar) || "").trim();
+        return cityName || null;
+      }).filter(Boolean);
+      return { region: regionName, cities: cities };
+    }).filter(Boolean);
+  }
+
+  function populateRegions() {
+    var regionSel = document.getElementById("reg-region");
+    if (!regionSel) return;
+    regionSel.innerHTML = '<option value="">اختر المنطقة</option>';
+    regionCatalog.forEach(function (entry) {
       var o = document.createElement("option");
-      o.value = c;
-      o.textContent = c;
-      sel.appendChild(o);
+      o.value = entry.region;
+      o.textContent = entry.region;
+      regionSel.appendChild(o);
+    });
+  }
+
+  function populateCitiesForRegion(regionName) {
+    var citySel = document.getElementById("reg-city");
+    if (!citySel) return;
+    citySel.innerHTML = '<option value="">اختر المدينة</option>';
+    if (!regionName) return;
+
+    var found = regionCatalog.find(function (entry) {
+      return entry.region === regionName;
+    });
+    if (!found || !Array.isArray(found.cities)) return;
+    found.cities.forEach(function (cityName) {
+      var o = document.createElement("option");
+      o.value = cityName;
+      o.textContent = cityName;
+      citySel.appendChild(o);
     });
   }
 
@@ -58,6 +105,22 @@ var ProviderRegisterPage = (function () {
   }
 
   function bindEvents() {
+    var regionSel = document.getElementById("reg-region");
+    if (regionSel) {
+      regionSel.addEventListener("change", function () {
+        var regionValue = String(regionSel.value || "").trim();
+        populateCitiesForRegion(regionValue);
+      });
+    }
+
+    var whatsappInput = document.getElementById("reg-whatsapp");
+    if (whatsappInput) {
+      whatsappInput.addEventListener("input", function () {
+        var digits = String(whatsappInput.value || "").replace(/\D+/g, "").slice(0, 10);
+        whatsappInput.value = digits;
+      });
+    }
+
     document.getElementById("reg-type-chips").addEventListener("click", function (e) {
       var chip = e.target.closest(".chip");
       if (!chip) return;
@@ -85,7 +148,9 @@ var ProviderRegisterPage = (function () {
     document.getElementById("reg-back-2").addEventListener("click", function () { goToStep(1); });
     document.getElementById("reg-next-2").addEventListener("click", function () { if (validateStep2()) goToStep(3); });
     document.getElementById("reg-back-3").addEventListener("click", function () { goToStep(2); });
-    document.getElementById("reg-submit").addEventListener("click", function () { submit(); });
+    document.getElementById("reg-submit").addEventListener("click", function () {
+      if (validateStep3()) submit();
+    });
 
     var suggestOpenBtn = document.getElementById("reg-suggest-open");
     var suggestCloseBtn = document.getElementById("reg-suggest-close");
@@ -252,17 +317,31 @@ var ProviderRegisterPage = (function () {
 
   function goToStep(n) {
     currentStep = n;
+    var stepValue = String(n);
+    var numericStep = parseInt(stepValue, 10);
+    var hasNumericStep = !isNaN(numericStep);
+    var isSuccessStep = stepValue === "success";
+
+    var shell = document.querySelector("main.page-shell");
+    if (shell) {
+      shell.setAttribute("data-current-step", stepValue);
+    }
+
     document.querySelectorAll(".wizard-panel").forEach(function (p) { p.classList.toggle("active", p.dataset.panel == n); });
     document.querySelectorAll(".wizard-step").forEach(function (s) {
       var sn = parseInt(s.dataset.step, 10);
-      s.classList.toggle("active", sn === n);
-      s.classList.toggle("done", sn < n);
+      s.classList.toggle("active", hasNumericStep && sn === numericStep);
+      s.classList.toggle("done", isSuccessStep || (hasNumericStep && sn < numericStep));
     });
   }
 
   function validateStep1() {
     if (!document.getElementById("reg-display-name").value.trim()) {
       showToast("أدخل اسم العرض أولًا.", "warning");
+      return false;
+    }
+    if (!document.getElementById("reg-region").value) {
+      showToast("اختر المنطقة أولًا.", "warning");
       return false;
     }
     if (!document.getElementById("reg-city").value) {
@@ -275,6 +354,20 @@ var ProviderRegisterPage = (function () {
   function validateStep2() {
     if (!document.getElementById("reg-subcategory").value) {
       showToast("اختر التصنيف الفرعي أولًا.", "warning");
+      return false;
+    }
+    return true;
+  }
+
+  function validateStep3() {
+    var whatsappInput = document.getElementById("reg-whatsapp");
+    if (!whatsappInput) return true;
+
+    var whatsapp = String(whatsappInput.value || "").trim();
+    if (!whatsapp) return true;
+
+    if (!/^05\d{8}$/.test(whatsapp)) {
+      showToast("رقم الواتساب يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.", "warning");
       return false;
     }
     return true;
@@ -375,6 +468,7 @@ var ProviderRegisterPage = (function () {
       provider_type: normalizeProviderType(providerType),
       display_name: document.getElementById("reg-display-name").value.trim(),
       bio: document.getElementById("reg-bio").value.trim(),
+      region: document.getElementById("reg-region").value,
       city: document.getElementById("reg-city").value,
       subcategory_ids: subcategoryId ? [subcategoryId] : [],
       whatsapp: document.getElementById("reg-whatsapp").value.trim(),

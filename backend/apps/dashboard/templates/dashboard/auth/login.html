@@ -1,23 +1,42 @@
 {% extends 'dashboard/_base.html' %}
 {% load static %}
 {% block title %}دخول لوحة التحكم{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
+{% endblock %}
 {% block body %}
-  <main class="auth-shell">
-    <section class="auth-layout">
-      <aside class="auth-brand fade-in">
-        <span class="pill brand">بوابة تشغيل موحدة</span>
-        <h2>لوحة إدارة الصلاحيات وتقارير المنصة</h2>
-        <p>واجهة مركزية لإدارة الدخول، مستويات الصلاحيات، ولوحات الفرق التشغيلية داخل المنصة.</p>
-        <ul class="auth-points">
-          <li>مصادقة آمنة مع تحقق ثنائي OTP.</li>
-          <li>تحكم دقيق في الصلاحيات حسب المستوى واللوحة.</li>
-          <li>تقارير تشغيلية ديناميكية وتصدير احترافي للبيانات.</li>
-        </ul>
+  <main class="nx-auth nx-auth-login">
+    <section class="nx-auth__grid">
+      <aside class="nx-auth__hero">
+        <span class="nx-auth__kicker">Nawafeth Control Hub</span>
+        <h2>بوابة تشغيل منصة نوافذ</h2>
+        <p>
+          واجهة دخول احترافية مخصصة لفرق التشغيل الداخلية. مصممة للعمل اليومي السريع،
+          بإحساس حديث ووضوح عالي في كل خطوة.
+        </p>
+        <div class="nx-auth__feature-grid">
+          <article>
+            <strong>2FA</strong>
+            <span>تحقق ثنائي قبل الوصول للبيانات الحساسة.</span>
+          </article>
+          <article>
+            <strong>RBAC</strong>
+            <span>صلاحيات دقيقة حسب الدور واللوحة.</span>
+          </article>
+          <article>
+            <strong>Audit Trail</strong>
+            <span>سجل موثق للعمليات الحرجة.</span>
+          </article>
+        </div>
       </aside>
 
-      <section class="auth-card slide-up">
-        <h1 class="auth-title">دخول لوحة التحكم</h1>
-        <p class="auth-subtitle">أدخل بيانات الحساب التشغيلي للمتابعة</p>
+      <section class="nx-auth__card">
+        <header class="nx-auth__head">
+          <span class="nx-auth__pill">Dashboard Login</span>
+          <h1>دخول لوحة التحكم</h1>
+          <p>أدخل بيانات الحساب التشغيلي للانتقال إلى بيئة العمل الداخلية.</p>
+        </header>
 
         {% if messages %}
           <ul class="alert-list" id="alertsList">
@@ -30,21 +49,31 @@
           </ul>
         {% endif %}
 
-        <form method="post" class="stack" id="loginForm">
+        <form method="post" class="nx-auth__form" id="loginForm" novalidate>
           {% csrf_token %}
-          <div class="field">
+          <div class="field nx-auth__field">
             <label for="{{ form.username.id_for_label }}">اسم المستخدم</label>
-            {{ form.username }}
+            <div class="nx-auth__input-wrap">
+              {{ form.username }}
+            </div>
+            <p class="field-hint">اسم المستخدم أو رقم الجوال المرتبط بالحساب التشغيلي.</p>
             {% if form.username.errors %}<small>{{ form.username.errors|striptags }}</small>{% endif %}
           </div>
-          <div class="field">
+
+          <div class="field nx-auth__field">
             <label for="{{ form.password.id_for_label }}">كلمة المرور</label>
-            {{ form.password }}
+            <div class="nx-auth__password-wrap">
+              {{ form.password }}
+              <button type="button" class="nx-auth__toggle" data-password-toggle aria-label="إظهار أو إخفاء كلمة المرور">
+                <span data-password-toggle-text>إظهار</span>
+              </button>
+            </div>
             {% if form.password.errors %}<small>{{ form.password.errors|striptags }}</small>{% endif %}
           </div>
-          <div class="actions">
-            <button type="submit" class="primary-btn">دخول</button>
-            <a href="/" class="ghost-btn">إلغاء</a>
+
+          <div class="nx-auth__actions">
+            <button type="submit" class="nx-auth__btn-primary">تسجيل الدخول</button>
+            <a href="/" class="nx-auth__btn-ghost">العودة للموقع</a>
           </div>
         </form>
       </section>
@@ -52,4 +81,3 @@
   </main>
 {% endblock %}
 {% block scripts %}<script src="{% static 'dashboard/js/auth.js' %}"></script>{% endblock %}
-

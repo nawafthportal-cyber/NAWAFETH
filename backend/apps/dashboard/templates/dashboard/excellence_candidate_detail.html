@@ -11,29 +11,34 @@
         </div>
       </div>
     </header>
-    <section class="panel content-panel">
-      <div class="kpi-content">
-        <div class="metric"><div class="label">الترتيب</div><div class="value">{{ candidate.rank_position }}</div></div>
-        <div class="metric"><div class="label">عدد الطلبات المكتملة</div><div class="value">{{ candidate.completed_orders_count }}</div></div>
-        <div class="metric"><div class="label">التقييم</div><div class="value">{{ candidate.rating_avg }}</div></div>
-      </div>
 
-      {% if can_write %}
-        <div class="actions">
-          <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}">
-            {% csrf_token %}
-            <button type="submit" class="primary-btn">اعتماد الشارة</button>
-          </form>
-          {% if active_award %}
-            <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' active_award.id %}">
-              {% csrf_token %}
-              <button type="submit" class="danger-btn">سحب الشارة</button>
-            </form>
-          {% endif %}
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        <div class="kpi-content">
+          <div class="metric"><div class="label">الترتيب</div><div class="value">{{ candidate.rank_position }}</div></div>
+          <div class="metric"><div class="label">عدد الطلبات المكتملة</div><div class="value">{{ candidate.completed_orders_count }}</div></div>
+          <div class="metric"><div class="label">التقييم</div><div class="value">{{ candidate.rating_avg }}</div></div>
         </div>
-      {% endif %}
-    </section>
-  </main>
+
+        {% if can_write %}
+          <div class="actions">
+            <form method="post" action="{% url 'dashboard:excellence_candidate_approve_action' candidate.id %}">
+              {% csrf_token %}
+              <button type="submit" class="primary-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                اعتماد الشارة
+              </button>
+            </form>
+            {% if active_award %}
+              <form method="post" action="{% url 'dashboard:excellence_award_revoke_action' active_award.id %}">
+                {% csrf_token %}
+                <button type="submit" class="ghost-btn danger" data-confirm-message="هل أنت متأكد من سحب الشارة؟">سحب الشارة</button>
+              </form>
+            {% endif %}
+          </div>
+        {% endif %}
+      </section>
+    </main>
   </div>
 {% endblock %}
 

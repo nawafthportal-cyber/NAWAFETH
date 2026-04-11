@@ -1,53 +1,145 @@
+{% load static %}
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>رمز التحقق - بوابة الخدمات الإضافية</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
   <style>
-    * { font-family: 'Tajawal', sans-serif; }
-    .gradient-bg { background: linear-gradient(135deg, #8f2e8a 0%, #5e35b1 100%); }
+    .alert-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+    .alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(15, 90, 215, 0.14);
+      background: #f8fbff;
+      color: #23426e;
+      font-size: 0.88rem;
+    }
+    .alert.error {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .alert.success {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .alert button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .nx-auth__field small {
+      color: #b91c1c;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-  <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-    <div class="gradient-bg px-6 py-8">
-      <div class="text-2xl font-bold text-white">رمز التحقق</div>
-      <div class="text-sm text-white/80 mt-1">تم إرسال رمز تحقق إلى {{ phone }}</div>
-    </div>
-    <div class="p-6">
-      {% if dev_accept_any %}
-        <div class="mb-4 px-4 py-3 rounded-xl bg-amber-50 text-amber-900 border border-amber-100 text-sm">
-          وضع التطوير: يمكنك إدخال أي 4 أرقام.
+<body>
+  <main class="nx-auth nx-auth-otp">
+    <section class="nx-auth__grid">
+      <aside class="nx-auth__hero">
+        <span class="nx-auth__kicker">Secure Verification</span>
+        <h2>التحقق الثنائي قبل فتح البنود المشتركة</h2>
+        <p>
+          تم إرسال رمز تحقق إلى <strong dir="ltr">{{ phone }}</strong>.
+          بعد إدخال الرمز ستنتقل مباشرة إلى أول قسم مفعل داخل اشتراك الخدمات الإضافية.
+        </p>
+        <div class="nx-auth__steps">
+          <div class="is-done">1. التحقق من بيانات الحساب</div>
+          <div class="is-active">2. إدخال رمز OTP</div>
+          <div>3. فتح صفحة الخدمات المشتركة</div>
         </div>
-      {% endif %}
+      </aside>
 
-      {% if messages %}
-        <div class="space-y-2 mb-4">
-          {% for message in messages %}
-            <div class="px-4 py-3 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-100{% else %}bg-gray-50 text-gray-800 border border-gray-100{% endif %}">
-              {{ message }}
+      <section class="nx-auth__card">
+        <header class="nx-auth__head">
+          <span class="nx-auth__pill">OTP Verification</span>
+          <h1>رمز التحقق</h1>
+          <p>أدخل الرمز المكوّن من 4 أرقام لإكمال تسجيل الدخول إلى البوابة.</p>
+        </header>
+
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <form method="post" class="nx-auth__form" id="otpForm" novalidate>
+          {% csrf_token %}
+          <input type="hidden" name="code" id="otpCode" value="{{ form.code.value|default:'' }}">
+
+          <div class="nx-auth__phone">
+            <span>أُرسل الرمز إلى</span>
+            <strong dir="ltr">{{ phone }}</strong>
+          </div>
+
+          <div class="field nx-auth__field">
+            <label>رمز التحقق</label>
+            <div class="nx-auth__otp" data-otp-slots>
+              <input type="text" maxlength="1" class="nx-auth__otp-slot" inputmode="numeric" autocomplete="one-time-code" aria-label="الرقم الأول">
+              <input type="text" maxlength="1" class="nx-auth__otp-slot" inputmode="numeric" aria-label="الرقم الثاني">
+              <input type="text" maxlength="1" class="nx-auth__otp-slot" inputmode="numeric" aria-label="الرقم الثالث">
+              <input type="text" maxlength="1" class="nx-auth__otp-slot" inputmode="numeric" aria-label="الرقم الرابع">
             </div>
-          {% endfor %}
-        </div>
-      {% endif %}
+            <noscript>
+              <div>{{ form.code }}</div>
+            </noscript>
+            {% if form.code.errors %}<small>{{ form.code.errors|striptags }}</small>{% endif %}
+          </div>
 
-      <form method="post" class="space-y-4">
-        {% csrf_token %}
-        <div>
-          <label class="block text-sm font-bold text-gray-700 mb-2">الرمز (4 أرقام)</label>
-          <input name="code" value="{{ form.code.value|default:'' }}" inputmode="numeric" maxlength="4" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-200" placeholder="0000">
-          {% if form.code.errors %}<div class="text-sm text-red-600 mt-1">{{ form.code.errors.0 }}</div>{% endif %}
-        </div>
-        <button class="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl gradient-bg text-white font-bold hover:opacity-95">تأكيد</button>
-      </form>
+          <div class="nx-auth__actions">
+            <button type="submit" class="nx-auth__btn-primary">تأكيد الرمز والمتابعة</button>
+            <a href="{% url 'extras_portal:login' %}" class="nx-auth__btn-ghost">تعديل بيانات الدخول</a>
+          </div>
+        </form>
 
-      <div class="mt-4 text-center">
-        <a href="{% url 'extras_portal:login' %}" class="text-sm text-gray-600 hover:text-gray-900">رجوع</a>
-      </div>
-    </div>
-  </div>
+        <form
+          method="post"
+          action="{% url 'extras_portal:otp_resend' %}"
+          class="nx-auth__resend"
+          data-resend-cooldown-seconds="{{ otp_resend_cooldown_seconds|default:0 }}"
+          data-resend-default-cooldown="{{ otp_resend_default_cooldown_seconds|default:60 }}"
+        >
+          {% csrf_token %}
+          <button type="submit" class="nx-auth__resend-btn" data-resend-btn>
+            <span class="nx-auth__resend-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 1 1-3.2-6.9"></path>
+                <path d="M21 4v8h-8"></path>
+              </svg>
+            </span>
+            <span class="nx-auth__resend-text">إعادة إرسال رمز التحقق</span>
+            <span class="nx-auth__resend-timer" data-resend-timer></span>
+          </button>
+        </form>
+
+        {% if dev_accept_any %}
+          <p class="nx-auth__dev-note">وضع الاختبار مفعّل: أي رمز مكوّن من 4 أرقام.</p>
+        {% endif %}
+      </section>
+    </section>
+  </main>
+  <script src="{% static 'dashboard/js/auth.js' %}"></script>
 </body>
 </html>

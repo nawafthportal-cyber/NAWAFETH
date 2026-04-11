@@ -18,6 +18,7 @@ MAIN_DASHBOARD_NAV = (
     ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard"),
     ("verify", "لوحة فريق التوثيق", "dashboard:verification_dashboard"),
     ("subs", "لوحة فريق إدارة الاشتراكات", "dashboard:subscription_dashboard"),
+    ("extras", "لوحة فريق إدارة الخدمات الإضافية", "dashboard:extras_dashboard"),
 )
 
 
@@ -45,6 +46,7 @@ def dashboard_nav_access(request):
             "promo": dashboard_allowed(user, "promo"),
             "verify": dashboard_allowed(user, "verify"),
             "subs": dashboard_allowed(user, "subs"),
+            "extras": dashboard_allowed(user, "extras"),
             "analytics": dashboard_allowed(user, "analytics"),
         }
 

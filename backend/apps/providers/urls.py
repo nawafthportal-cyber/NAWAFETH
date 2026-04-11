@@ -32,6 +32,7 @@ from .views import (
     ProviderListView,
     ProviderPortfolioListView,
     ProviderPublicStatsView,
+    RegionCityCatalogView,
     ProviderSpotlightListView,
     ProviderSpotlightFeedView,
     SavePortfolioItemView,
@@ -48,6 +49,7 @@ app_name = "providers"
 
 urlpatterns = [
     path("categories/", CategoryListView.as_view(), name="categories"),
+    path("geo/regions-cities/", RegionCityCatalogView.as_view(), name="regions_cities"),
     path("list/", ProviderListView.as_view(), name="provider_list"),
     path("me/profile/", MyProviderProfileView.as_view(), name="my_profile"),
     path("me/subcategories/", MyProviderSubcategoriesView.as_view(), name="my_subcategories"),

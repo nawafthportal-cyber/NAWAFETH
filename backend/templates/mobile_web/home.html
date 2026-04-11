@@ -13,7 +13,7 @@
 
 {% block content %}
 <!-- ====== HERO SECTION (homepage banner replaces legacy video slot) ====== -->
-<section id="hero">
+<section id="hero" class="home-hero-section">
   <div id="banners" class="hero-banner-shell" style="display:none">
     <div class="carousel-wrapper" id="carousel-wrapper">
       <div class="carousel-track" id="carousel-track"></div>
@@ -26,74 +26,112 @@
       </button>
     </div>
   </div>
+  <div class="home-hero-fade" aria-hidden="true"></div>
 </section>
 
-<main id="main-content">
+<main id="main-content" class="home-sections-stack">
   <!-- ====== REELS / SPOTLIGHTS (horizontal auto-scroll, click → SpotlightViewer) ====== -->
-  <section id="reels" class="section-reels">
+  <section id="reels" class="section-reels home-section home-section--reels" data-home-section>
     <div class="container">
-      <div class="reels-track" id="reels-track">
-        <!-- Skeleton reels -->
-        <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
-        <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
-        <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
-        <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
-        <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+      <div class="home-section-shell">
+        <div class="home-section-header home-section-header--compact">
+          <div class="home-section-heading">
+            <span class="home-section-kicker">لمحات حية</span>
+            <h2 class="home-section-title-static">أحدث اللمحات</h2>
+          </div>
+        </div>
+        <div class="reels-track" id="reels-track">
+          <!-- Skeleton reels -->
+          <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+          <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+          <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+          <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+          <div class="reel-item skeleton-reel"><div class="reel-ring shimmer"><div class="reel-inner"></div></div><div class="reel-caption shimmer" style="width:50px;height:10px;margin-top:4px"></div></div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section id="home-promo-message" class="section-block" style="display:none">
+  <section id="home-promo-message" class="section-block home-section home-section--promo" style="display:none" data-home-section>
     <div class="container">
-      <div class="sponsor-card" id="home-promo-message-card"></div>
+      <div class="home-section-shell home-section-shell--promo">
+        <div class="home-section-header home-section-header--compact">
+          <div class="home-section-heading">
+            <span class="home-section-kicker">رسالة مميزة</span>
+            <h2 class="home-section-title-static">مساحة ترويجية نشطة</h2>
+            <p class="home-section-note">إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون تشويش.</p>
+          </div>
+        </div>
+        <div class="sponsor-card" id="home-promo-message-card"></div>
+      </div>
     </div>
   </section>
 
   <!-- ====== CATEGORIES (horizontal scroll mobile, grid desktop) ====== -->
-  <section id="categories" class="section-block">
+  <section id="categories" class="section-block home-section home-section--categories" data-home-section>
     <div class="container">
-      <h2 class="section-title" id="categories-title">...</h2>
-      <div class="categories-scroll" id="categories-list">
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
-        <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+      <div class="home-section-shell">
+        <div class="home-section-header">
+          <div class="home-section-heading">
+            <span class="home-section-kicker">اكتشف الخدمات</span>
+            <h2 class="section-title" id="categories-title">...</h2>
+          </div>
+        </div>
+        <div class="categories-scroll" id="categories-list">
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+          <div class="cat-item skeleton-cat"><div class="cat-icon shimmer"></div><div class="cat-name shimmer"></div></div>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ====== PROVIDERS (horizontal scroll mobile, grid desktop) ====== -->
-  <section id="providers" class="section-block">
+  <section id="providers" class="section-block home-section home-section--providers" data-home-section>
     <div class="container">
-      <div class="section-header">
-        <h2 class="section-title" id="providers-title">...</h2>
-      </div>
-      <div class="providers-scroll featured-specialists-scroll" id="providers-list">
-        <div class="featured-specialist-card skeleton-featured-specialist">
-          <div class="featured-specialist-avatar shimmer"></div>
-          <div class="featured-specialist-name shimmer"></div>
-          <div class="featured-specialist-rating shimmer"></div>
+      <div class="home-section-shell">
+        <div class="home-section-header">
+          <div class="home-section-heading">
+            <span class="home-section-kicker">ترشيحات المنصة</span>
+            <h2 class="section-title" id="providers-title">...</h2>
+          </div>
         </div>
-        <div class="featured-specialist-card skeleton-featured-specialist">
-          <div class="featured-specialist-avatar shimmer"></div>
-          <div class="featured-specialist-name shimmer"></div>
-          <div class="featured-specialist-rating shimmer"></div>
-        </div>
-        <div class="featured-specialist-card skeleton-featured-specialist">
-          <div class="featured-specialist-avatar shimmer"></div>
-          <div class="featured-specialist-name shimmer"></div>
-          <div class="featured-specialist-rating shimmer"></div>
+        <div class="providers-scroll featured-specialists-scroll" id="providers-list">
+          <div class="featured-specialist-card skeleton-featured-specialist">
+            <div class="featured-specialist-avatar shimmer"></div>
+            <div class="featured-specialist-name shimmer"></div>
+            <div class="featured-specialist-rating shimmer"></div>
+          </div>
+          <div class="featured-specialist-card skeleton-featured-specialist">
+            <div class="featured-specialist-avatar shimmer"></div>
+            <div class="featured-specialist-name shimmer"></div>
+            <div class="featured-specialist-rating shimmer"></div>
+          </div>
+          <div class="featured-specialist-card skeleton-featured-specialist">
+            <div class="featured-specialist-avatar shimmer"></div>
+            <div class="featured-specialist-name shimmer"></div>
+            <div class="featured-specialist-rating shimmer"></div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="portfolio-showcase" class="section-block" style="display:none">
+  <section id="portfolio-showcase" class="section-block home-section home-section--portfolio" style="display:none" data-home-section>
     <div class="container">
-      <h2 class="section-title">شريط البنرات والمشاريع</h2>
-      <div class="showcase-scroll" id="portfolio-showcase-list"></div>
+      <div class="home-section-shell">
+        <div class="home-section-header">
+          <div class="home-section-heading">
+            <span class="home-section-kicker">أعمال وبنرات</span>
+            <h2 class="section-title">شريط البنرات والمشاريع</h2>
+            <p class="home-section-note">معرض بصري ثري يبرز المشاريع والمواد الترويجية القابلة للاستكشاف.</p>
+          </div>
+        </div>
+        <div class="showcase-scroll" id="portfolio-showcase-list"></div>
+      </div>
     </div>
   </section>
 

@@ -110,23 +110,28 @@
             <span>ماستر كارد</span>
           </label>
         </div>
+        <small id="verifyPayMethodError" class="verify-pay-field-error hidden" role="alert"></small>
 
         <div class="verify-pay-card-grid">
           <div class="form-group">
             <label class="form-label" for="verifyPayCardName">اسم حامل البطاقة</label>
-            <input id="verifyPayCardName" name="cc-name" type="text" class="form-input" maxlength="60" autocomplete="cc-name" autocapitalize="words" spellcheck="false">
+            <input id="verifyPayCardName" name="cc-name" type="text" class="form-input" maxlength="60" autocomplete="cc-name" autocapitalize="words" spellcheck="false" aria-describedby="verifyPayCardNameError">
+            <small id="verifyPayCardNameError" class="verify-pay-field-error hidden" role="alert"></small>
           </div>
           <div class="form-group">
             <label class="form-label" for="verifyPayCardNumber">رقم البطاقة</label>
-            <input id="verifyPayCardNumber" name="cc-number" type="text" class="form-input" inputmode="numeric" maxlength="23" autocomplete="cc-number" placeholder="0000 0000 0000 0000" dir="ltr" spellcheck="false" autocorrect="off">
+            <input id="verifyPayCardNumber" name="cc-number" type="text" class="form-input" inputmode="numeric" maxlength="23" autocomplete="cc-number" placeholder="0000 0000 0000 0000" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardNumberError">
+            <small id="verifyPayCardNumberError" class="verify-pay-field-error hidden" role="alert"></small>
           </div>
           <div class="form-group half">
             <label class="form-label" for="verifyPayCardExpiry">تاريخ الانتهاء (MM/YY)</label>
-            <input id="verifyPayCardExpiry" name="cc-exp" type="text" class="form-input" inputmode="numeric" maxlength="5" autocomplete="cc-exp" placeholder="MM/YY" dir="ltr" spellcheck="false" autocorrect="off">
+            <input id="verifyPayCardExpiry" name="cc-exp" type="text" class="form-input" inputmode="numeric" maxlength="5" autocomplete="cc-exp" placeholder="MM/YY" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardExpiryError">
+            <small id="verifyPayCardExpiryError" class="verify-pay-field-error hidden" role="alert"></small>
           </div>
           <div class="form-group half">
             <label class="form-label" for="verifyPayCardCvv">CVV</label>
-            <input id="verifyPayCardCvv" name="cc-csc" type="password" class="form-input" inputmode="numeric" maxlength="4" autocomplete="cc-csc" placeholder="***" dir="ltr" spellcheck="false" autocorrect="off">
+            <input id="verifyPayCardCvv" name="cc-csc" type="password" class="form-input" inputmode="numeric" maxlength="4" autocomplete="cc-csc" placeholder="***" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardCvvError">
+            <small id="verifyPayCardCvvError" class="verify-pay-field-error hidden" role="alert"></small>
           </div>
         </div>
 
@@ -134,8 +139,8 @@
           <strong>أمان الدفع</strong>
           <ul>
             <li>يتم ربط الدفع مباشرة مع فاتورة طلب الاشتراك الحالية.</li>
-            <li>بعد نجاح الدفع يتم تسجيل السداد وتحويل الطلب إلى قائمة طلبات الاشتراكات بانتظار المراجعة.</li>
-            <li>لا يتم تفعيل الباقة مباشرة بعد الدفع، بل بعد اعتماد فريق الاشتراكات للطلب المكتمل.</li>
+            <li>بعد نجاح الدفع يتم تسجيل السداد ووصول الطلب إلى لوحة فريق الاشتراكات كطلب جديد بانتظار بدء المعالجة.</li>
+            <li>لا يتم تفعيل الباقة مباشرة بعد الدفع، بل بعد انتقال الطلب إلى مكتمل واعتماد فريق الاشتراكات له.</li>
             <li>لا يتم تخزين بيانات البطاقة بعد اكتمال العملية.</li>
           </ul>
         </div>
@@ -147,6 +152,7 @@
       </form>
     </article>
   </section>
+  <div id="verifyPayToast" class="verify-pay-toast" aria-live="polite" aria-atomic="true"></div>
 </main>
 {% endblock %}
 

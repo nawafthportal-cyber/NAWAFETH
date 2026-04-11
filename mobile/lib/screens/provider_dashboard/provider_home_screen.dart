@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:nawafeth/widgets/bottom_nav.dart';
 import 'package:nawafeth/widgets/platform_top_bar.dart';
@@ -25,7 +26,6 @@ import 'reviews_tab.dart';
 import 'package:nawafeth/screens/provider_dashboard/provider_orders_screen.dart';
 import 'package:nawafeth/screens/verification_screen.dart';
 import 'package:nawafeth/screens/plans_screen.dart';
-import 'package:nawafeth/screens/additional_services_screen.dart';
 import 'package:nawafeth/screens/my_qr_screen.dart';
 import 'package:nawafeth/screens/registration/steps/content_step.dart';
 import 'package:nawafeth/screens/provider_dashboard/promotion_screen.dart';
@@ -122,6 +122,16 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
 
     final value = (_userProfile?.usernameDisplay ?? '').trim();
     return value.isEmpty ? '@provider' : value;
+  }
+
+  Future<void> _openNewAdditionalServicesPage() async {
+    final uri = Uri.parse(ApiClient.baseUrl).resolve('/additional-services/');
+    final launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('تعذر فتح صفحة الخدمات الإضافية الجديدة')),
+      );
+    }
   }
 
   String? get _resolvedProfileImagePath {
@@ -1483,13 +1493,8 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const AdditionalServicesScreen(),
-                  ),
-                );
+              onTap: () async {
+                await _openNewAdditionalServicesPage();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(

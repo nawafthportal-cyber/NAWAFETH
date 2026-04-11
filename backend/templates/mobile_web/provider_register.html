@@ -4,13 +4,18 @@
 
 {% block content %}
 <main class="page-shell">
-  <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>التسجيل كمزود خدمة</h1>
+  <div class="page-header provider-reg-header">
+    <button class="btn-back reg-back" onclick="history.back()" aria-label="رجوع">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="provider-reg-header-copy">
+      <h1>التسجيل كمزود خدمة</h1>
+      <p>أكمل بياناتك في 3 خطوات</p>
+    </div>
   </div>
 
   <!-- Progress -->
-  <div class="wizard-progress">
+  <div class="wizard-progress provider-reg-progress" aria-label="خطوات التسجيل">
     <div class="wizard-step active" data-step="1"><span class="step-num">1</span><span class="step-label">معلومات شخصية</span></div>
     <div class="wizard-line"></div>
     <div class="wizard-step" data-step="2"><span class="step-num">2</span><span class="step-label">تصنيف الخدمة</span></div>
@@ -20,7 +25,10 @@
 
   <!-- Step 1: Personal Info -->
   <div class="wizard-panel active" data-panel="1">
-    <div class="detail-card">
+    <div class="detail-card reg-step-card">
+      <div class="wizard-panel-head">
+        <h2>معلومات الحساب</h2>
+      </div>
       <div class="form-group">
         <label class="form-label">صفة الحساب</label>
         <div class="chip-group" id="reg-type-chips">
@@ -37,16 +45,23 @@
         <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
       </div>
       <div class="form-group">
+        <label class="form-label">المنطقة</label>
+        <select id="reg-region" class="form-select" required><option value="">اختر المنطقة</option></select>
+      </div>
+      <div class="form-group">
         <label class="form-label">المدينة</label>
         <select id="reg-city" class="form-select" required><option value="">اختر المدينة</option></select>
       </div>
-      <button class="btn btn-primary btn-block" id="reg-next-1">التالي</button>
+      <button class="btn btn-primary btn-block reg-main-btn" id="reg-next-1">التالي</button>
     </div>
   </div>
 
   <!-- Step 2: Service Classification -->
   <div class="wizard-panel" data-panel="2">
-    <div class="detail-card">
+    <div class="detail-card reg-step-card">
+      <div class="wizard-panel-head">
+        <h2>تصنيف الخدمة</h2>
+      </div>
       <div class="form-group">
         <label class="form-label">القسم الرئيسي</label>
         <select id="reg-category" class="form-select" required><option value="">اختر القسم</option></select>
@@ -83,8 +98,8 @@
             <textarea id="reg-suggest-note" class="form-input" rows="2" placeholder="اكتب وصفًا مختصرًا يساعد الفريق على فهم اقتراحك"></textarea>
           </div>
           <div class="form-row category-suggest-actions">
-            <button class="btn btn-secondary" id="reg-suggest-close" type="button" style="flex:1">إغلاق</button>
-            <button class="btn btn-primary" id="reg-suggest-submit" type="button" style="flex:1" aria-busy="false">
+            <button class="btn btn-secondary btn-split" id="reg-suggest-close" type="button">إغلاق</button>
+            <button class="btn btn-primary btn-split" id="reg-suggest-submit" type="button" aria-busy="false">
               <span id="reg-suggest-submit-text">إرسال الاقتراح</span>
               <span id="reg-suggest-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
             </button>
@@ -92,7 +107,7 @@
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group form-group-wide">
         <label class="form-label">اسم الخدمة </label>
         <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
       </div>
@@ -100,16 +115,19 @@
         <label class="form-label">وصف الخدمة</label>
         <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
       </div>
-      <div class="form-row">
-        <button class="btn btn-outline" id="reg-back-2" style="flex:1">السابق</button>
-        <button class="btn btn-primary" id="reg-next-2" style="flex:1">التالي</button>
+      <div class="form-row reg-actions">
+        <button class="btn btn-outline btn-split" id="reg-back-2">السابق</button>
+        <button class="btn btn-primary btn-split" id="reg-next-2">التالي</button>
       </div>
     </div>
   </div>
 
   <!-- Step 3: Contact Info -->
   <div class="wizard-panel" data-panel="3">
-    <div class="detail-card">
+    <div class="detail-card reg-step-card">
+      <div class="wizard-panel-head">
+        <h2>معلومات التواصل</h2>
+      </div>
       <div class="form-group">
         <label class="form-label">رقم الواتساب</label>
         <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05XXXXXXXX" maxlength="10" inputmode="numeric" pattern="05[0-9]{8}" dir="ltr">
@@ -122,16 +140,16 @@
         <label class="form-label">سنوات الخبرة</label>
         <input id="reg-experience" type="number" class="form-input" placeholder="5" min="0">
       </div>
-      <div class="form-row">
-        <button class="btn btn-outline" id="reg-back-3" style="flex:1">السابق</button>
-        <button class="btn btn-primary" id="reg-submit" style="flex:1">إنشاء الحساب</button>
+      <div class="form-row reg-actions">
+        <button class="btn btn-outline btn-split" id="reg-back-3">السابق</button>
+        <button class="btn btn-primary btn-split" id="reg-submit">إنشاء الحساب</button>
       </div>
     </div>
   </div>
 
   <!-- Success -->
   <div class="wizard-panel" data-panel="success" id="reg-success">
-    <div class="success-card">
+    <div class="success-card reg-success-card">
       <div class="success-icon">✓</div>
       <h2>تم التسجيل بنجاح!</h2>
       <p>تم إنشاء حساب مزود الخدمة بنجاح. يمكنك الآن إكمال ملفك الشخصي وإضافة خدماتك.</p>

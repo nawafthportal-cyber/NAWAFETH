@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from django import forms
 from django.utils import timezone
 
+from apps.backoffice.bootstrap import ensure_backoffice_access_catalog
 from apps.backoffice.models import AccessLevel, AccessPermission, Dashboard
 from apps.content.models import (
     LegalDocumentType,
@@ -77,7 +79,7 @@ class DashboardOTPForm(forms.Form):
     code = forms.CharField(
         label="رمز التحقق",
         min_length=4,
-        max_length=6,
+        max_length=4,
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
@@ -91,6 +93,8 @@ class DashboardOTPForm(forms.Form):
         value = (self.cleaned_data.get("code") or "").strip()
         if not value.isdigit():
             raise forms.ValidationError("رمز التحقق يجب أن يكون أرقامًا فقط.")
+        if len(value) != 4:
+            raise forms.ValidationError("رمز التحقق يجب أن يكون من 4 أرقام.")
         return value
 
 
@@ -113,7 +117,7 @@ class AccessProfileForm(forms.Form):
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "9665xxxxxxxx",
+                "placeholder": "05xxxxxxxx",
                 "inputmode": "tel",
                 "autocomplete": "tel",
             }
@@ -155,6 +159,7 @@ class AccessProfileForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        ensure_backoffice_access_catalog()
         self.fields["level"].widget.attrs.update({"class": "input-control"})
         dashboards = Dashboard.objects.filter(
             is_active=True,
@@ -202,13 +207,32 @@ class AccessProfileForm(forms.Form):
         cleaned_data = super().clean()
         profile_id = cleaned_data.get("profile_id")
         password = (cleaned_data.get("password") or "").strip()
+        mobile_number = str(cleaned_data.get("mobile_number") or "").strip()
         level = cleaned_data.get("level")
         dashboards = cleaned_data.get("dashboards") or []
+        permissions = cleaned_data.get("permissions") or []
+
+        if not profile_id and not re.fullmatch(r"05\d{8}", mobile_number):
+            self.add_error("mobile_number", "رقم الجوال يجب أن يتكون من 10 خانات ويبدأ بـ 05.")
 
         if level == AccessLevel.POWER and len(dashboards) < 1:
             self.add_error("dashboards", "مستوى Power User يتطلب اختيار لوحة واحدة على الأقل.")
         if level == AccessLevel.USER and len(dashboards) != 1:
             self.add_error("dashboards", "مستوى User يتطلب اختيار لوحة تحكم واحدة فقط.")
+
+        active_permissions = AccessPermission.objects.filter(is_active=True)
+        if level in {AccessLevel.ADMIN, AccessLevel.POWER}:
+            cleaned_data["permissions"] = list(active_permissions.values_list("code", flat=True))
+        elif level in {AccessLevel.QA, AccessLevel.CLIENT}:
+            cleaned_data["permissions"] = []
+        else:
+            allowed_permission_codes = set(
+                active_permissions.filter(dashboard_code__in=dashboards).values_list("code", flat=True)
+            )
+            invalid_permissions = [code for code in permissions if code not in allowed_permission_codes]
+            if invalid_permissions:
+                self.add_error("permissions", "بعض الصلاحيات المختارة لا تنتمي إلى اللوحات المحددة.")
+            cleaned_data["permissions"] = [code for code in permissions if code in allowed_permission_codes]
 
         if not profile_id and not password:
             self.add_error("password", "كلمة المرور مطلوبة عند إنشاء حساب جديد.")
@@ -861,6 +885,137 @@ class SubscriptionRequestActionForm(forms.Form):
         super().__init__(*args, **kwargs)
         self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices or [])
         self.fields["plan_id"].choices = list(plan_choices or [])
+
+
+class ExtrasInquiryActionForm(forms.Form):
+    STATUS_CHOICES = [
+        (SupportTicketStatus.NEW, "جديد"),
+        (SupportTicketStatus.IN_PROGRESS, "تحت المعالجة"),
+        (SupportTicketStatus.RETURNED, "معاد للعميل"),
+        (SupportTicketStatus.CLOSED, "مكتمل"),
+    ]
+
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    description = forms.CharField(
+        label="تفاصيل الطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 4,
+                "maxlength": 300,
+                "placeholder": "تفاصيل الطلب (300 حرف).",
+            }
+        ),
+    )
+    operator_comment = forms.CharField(
+        label="تعليق المكلف بالطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "تعليق داخلي (300 حرف).",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        super().__init__(*args, **kwargs)
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices or [])
+
+    def clean_description(self):
+        return (self.cleaned_data.get("description") or "").strip()[:300]
+
+    def clean_operator_comment(self):
+        return (self.cleaned_data.get("operator_comment") or "").strip()[:300]
+
+
+class ExtrasRequestActionForm(forms.Form):
+    STATUS_CHOICES = [
+        ("new", "جديد"),
+        ("in_progress", "تحت المعالجة"),
+        ("closed", "مكتمل"),
+    ]
+
+    status = forms.ChoiceField(
+        label="حالة الطلب",
+        choices=STATUS_CHOICES,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    assigned_to = forms.ChoiceField(
+        label="المكلف بالطلب",
+        required=False,
+        widget=forms.Select(attrs={"class": "input-control"}),
+    )
+    operator_comment = forms.CharField(
+        label="تعليق المكلف بالطلب",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "تعليق داخلي (300 حرف).",
+            }
+        ),
+    )
+    invoice_title = forms.CharField(
+        label="عنوان عرض السعر",
+        max_length=160,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "maxlength": 160,
+                "placeholder": "مثال: عرض سعر باقة التقارير الشهرية",
+            }
+        ),
+    )
+    invoice_description = forms.CharField(
+        label="وصف الفاتورة",
+        max_length=300,
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "input-control",
+                "rows": 3,
+                "maxlength": 300,
+                "placeholder": "ملاحظات توضيحية للعميل حول نطاق الخدمة أو آلية التنفيذ.",
+            }
+        ),
+    )
+
+    def __init__(self, *args, **kwargs):
+        assignee_choices = kwargs.pop("assignee_choices", None)
+        status_choices = kwargs.pop("status_choices", None)
+        super().__init__(*args, **kwargs)
+        if status_choices is not None:
+            self.fields["status"].choices = list(status_choices)
+        self.fields["assigned_to"].choices = [("", "غير محدد")] + list(assignee_choices or [])
+
+    def clean_operator_comment(self):
+        return (self.cleaned_data.get("operator_comment") or "").strip()[:300]
+
+    def clean_invoice_title(self):
+        return (self.cleaned_data.get("invoice_title") or "").strip()[:160]
+
+    def clean_invoice_description(self):
+        return (self.cleaned_data.get("invoice_description") or "").strip()[:300]
 
 
 class VerificationInquiryActionForm(forms.Form):

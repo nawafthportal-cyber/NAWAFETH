@@ -1,50 +1,135 @@
+{% load static %}
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>تسجيل الدخول - بوابة الخدمات الإضافية</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
   <style>
-    * { font-family: 'Tajawal', sans-serif; }
-    .gradient-bg { background: linear-gradient(135deg, #8f2e8a 0%, #5e35b1 100%); }
+    .alert-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+    .alert {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(15, 90, 215, 0.14);
+      background: #f8fbff;
+      color: #23426e;
+      font-size: 0.88rem;
+    }
+    .alert.error {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+    .alert.success {
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      color: #166534;
+    }
+    .alert button {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+    .field-hint,
+    .nx-auth__field small {
+      margin: 0;
+      color: #667892;
+      font-size: 0.78rem;
+      line-height: 1.7;
+    }
+    .nx-auth__field small {
+      color: #b91c1c;
+      font-weight: 600;
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-  <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
-    <div class="gradient-bg px-6 py-8">
-      <div class="text-2xl font-bold text-white">بوابة الخدمات الإضافية</div>
-      <div class="text-sm text-white/80 mt-1">تسجيل الدخول</div>
-    </div>
-    <div class="p-6">
-      {% if messages %}
-        <div class="space-y-2 mb-4">
-          {% for message in messages %}
-            <div class="px-4 py-3 rounded-xl {% if message.tags == 'error' %}bg-red-50 text-red-800 border border-red-100{% else %}bg-gray-50 text-gray-800 border border-gray-100{% endif %}">
-              {{ message }}
-            </div>
-          {% endfor %}
+<body>
+  <main class="nx-auth nx-auth-login">
+    <section class="nx-auth__grid">
+      <aside class="nx-auth__hero">
+        <span class="nx-auth__kicker">Client Access</span>
+        <h2>دخول بوابة العملاء للخدمات الإضافية</h2>
+        <p>
+          مسار دخول مستقل للعملاء أو مزودي الخدمة المشتركين في خدمات إضافية محددة.
+          بعد التحقق من الحساب سيظهر فقط ما تم الاشتراك فيه فعليًا داخل الطلب المكتمل.
+        </p>
+        <div class="nx-auth__feature-grid">
+          <article>
+            <strong>Isolated Access</strong>
+            <span>رابط مستقل عن الداشبورد مع تجربة دخول واضحة ومخصصة.</span>
+          </article>
+          <article>
+            <strong>Subscribed Only</strong>
+            <span>إظهار الأقسام والبنود المشتركة فقط دون أي عناصر عامة غير مفعلة.</span>
+          </article>
+          <article>
+            <strong>Secure OTP</strong>
+            <span>تأكيد ثنائي قبل الوصول إلى التقارير أو العملاء أو البيانات المالية.</span>
+          </article>
         </div>
-      {% endif %}
+      </aside>
 
-      <form method="post" class="space-y-4">
-        {% csrf_token %}
-        <div>
-          <label class="block text-sm font-bold text-gray-700 mb-2">اسم المستخدم</label>
-          <input name="username" value="{{ form.username.value|default:'' }}" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-200" placeholder="اسم المستخدم أو رقم الجوال">
-          {% if form.username.errors %}<div class="text-sm text-red-600 mt-1">{{ form.username.errors.0 }}</div>{% endif %}
-        </div>
-        <div>
-          <label class="block text-sm font-bold text-gray-700 mb-2">كلمة المرور</label>
-          <input type="password" name="password" class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-200" placeholder="••••••••">
-          {% if form.password.errors %}<div class="text-sm text-red-600 mt-1">{{ form.password.errors.0 }}</div>{% endif %}
-        </div>
-        <button class="w-full inline-flex items-center justify-center px-4 py-3 rounded-xl gradient-bg text-white font-bold hover:opacity-95">
-          دخول
-        </button>
-      </form>
-    </div>
-  </div>
+      <section class="nx-auth__card">
+        <header class="nx-auth__head">
+          <span class="nx-auth__pill">Extras Portal Login</span>
+          <h1>تسجيل الدخول</h1>
+          <p>أدخل اسم المستخدم أو رقم الجوال ثم كلمة المرور للمتابعة إلى البوابة المستقلة.</p>
+        </header>
+
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}">
+                <span>{{ message }}</span>
+                <button type="button" aria-label="إغلاق">×</button>
+              </li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        <form method="post" class="nx-auth__form" id="loginForm" novalidate>
+          {% csrf_token %}
+          <div class="field nx-auth__field">
+            <label for="portalUsername">اسم المستخدم</label>
+            <div class="nx-auth__input-wrap">
+              <input id="portalUsername" name="username" value="{{ form.username.value|default:'' }}" class="input-control" placeholder="اسم المستخدم أو رقم الجوال">
+            </div>
+            <p class="field-hint">يمكنك تسجيل الدخول باسم المستخدم أو رقم الجوال المرتبط بالحساب.</p>
+            {% if form.username.errors %}<small>{{ form.username.errors|striptags }}</small>{% endif %}
+          </div>
+
+          <div class="field nx-auth__field">
+            <label for="portalPassword">كلمة المرور</label>
+            <div class="nx-auth__password-wrap">
+              <input id="portalPassword" type="password" name="password" class="input-control" placeholder="••••••••">
+              <button type="button" class="nx-auth__toggle" data-password-toggle aria-label="إظهار أو إخفاء كلمة المرور">
+                <span data-password-toggle-text>إظهار</span>
+              </button>
+            </div>
+            {% if form.password.errors %}<small>{{ form.password.errors|striptags }}</small>{% endif %}
+          </div>
+
+          <div class="nx-auth__actions">
+            <button type="submit" class="nx-auth__btn-primary">دخول البوابة</button>
+            <a href="/" class="nx-auth__btn-ghost">العودة للموقع</a>
+          </div>
+        </form>
+      </section>
+    </section>
+  </main>
+  <script src="{% static 'dashboard/js/auth.js' %}"></script>
 </body>
 </html>

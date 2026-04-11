@@ -7,10 +7,10 @@
       <div class="hero-panel panel fade-in">
         <div>
           <h1>لوحة تحكم فريق الدعم والمساعدة</h1>
-          <p class="subtitle">متابعة طلبات `HD`، الإسناد التشغيلي، وتحديث حالات المعالجة لحظيًا.</p>
+          <p class="subtitle">متابعة طلبات HD، الإسناد التشغيلي، وتحديث حالات المعالجة لحظيًا.</p>
         </div>
         <div class="hero-stats">
-          <span class="pill brand">إجمالي الطلبات: {{ summary.total }}</span>
+          <span class="pill brand">إجمالي: {{ summary.total }}</span>
           <span class="pill accent">جديد: {{ summary.new }}</span>
           <span class="pill mint">تحت المعالجة: {{ summary.in_progress }}</span>
           <span class="pill danger">مغلق: {{ summary.closed }}</span>
@@ -35,8 +35,14 @@
           <div class="title-row">
             <h2>طلبات الدعم والمساعدة</h2>
             <div class="actions">
-              <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">PDF</a>
-              <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=pdf">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF
+              </a>
+              <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=xlsx">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                Excel
+              </a>
               <a class="ghost-btn export-btn" href="?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}&export=csv">CSV</a>
             </div>
           </div>
@@ -62,7 +68,10 @@
               {% endfor %}
             </select>
             <div class="actions">
-              <button class="primary-btn light" type="submit">تحديث</button>
+              <button class="primary-btn light" type="submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                تحديث
+              </button>
               <a class="ghost-btn" href="{% url 'dashboard:support_dashboard' %}">مسح الفلاتر</a>
             </div>
           </form>
@@ -75,11 +84,11 @@
                   <th>اسم العميل</th>
                   <th>الأولوية</th>
                   <th>نوع الطلب</th>
-                  <th>تاريخ وقت استلام الطلب</th>
-                  <th>حالة الطلب</th>
-                  <th>فريق الدعم</th>
-                  <th>المكلف بالطلب</th>
-                  <th>تاريخ وقت التكليف</th>
+                  <th>تاريخ الاستلام</th>
+                  <th>الحالة</th>
+                  <th>الفريق</th>
+                  <th>المكلف</th>
+                  <th>تاريخ التكليف</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,7 +124,7 @@
                             <div class="quick-stat"><span>اسم العميل</span><strong>{% if selected_ticket.requester.username %}@{{ selected_ticket.requester.username }}{% else %}@{{ selected_ticket.requester.phone }}{% endif %}</strong></div>
                             <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
                             <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
-                            <div class="quick-stat"><span>فريق الدعم الحالي</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
+                            <div class="quick-stat"><span>الفريق</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>
                           </div>
 
                           <section class="support-attachments-view" aria-label="مرفقات الطلب">
@@ -140,8 +149,8 @@
                                       <h4 title="{{ attachment.name }}">{{ attachment.name }}</h4>
                                       <p>
                                         <span>النوع: {{ attachment.ext|default:"-"|upper }}</span>
-                                        <span>رفع بواسطة: {{ attachment.uploaded_by }}</span>
-                                        <span>تاريخ الرفع: {{ attachment.created_at }}</span>
+                                        <span>رفع: {{ attachment.uploaded_by }}</span>
+                                        <span>{{ attachment.created_at }}</span>
                                       </p>
                                       <div class="actions">
                                         <a class="ghost-btn export-btn" href="{{ attachment.url }}" target="_blank" rel="noopener">فتح</a>
@@ -152,7 +161,7 @@
                                 {% endfor %}
                               </div>
                             {% else %}
-                              <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب حتى الآن.</div>
+                              <div class="empty-note">لا توجد مرفقات مضافة لهذا الطلب.</div>
                             {% endif %}
                           </section>
 
@@ -175,11 +184,11 @@
                                 {{ support_form.assigned_to }}
                               </div>
                               <div class="field full">
-                                <label for="{{ support_form.description.id_for_label }}">تفاصيل الطلب (300 حرف)</label>
+                                <label for="{{ support_form.description.id_for_label }}">تفاصيل الطلب <small style="color:var(--ink-muted)">(300 حرف)</small></label>
                                 {{ support_form.description }}
                               </div>
                               <div class="field full">
-                                <label for="{{ support_form.assignee_comment.id_for_label }}">تعليق المكلف بالطلب (300 حرف)</label>
+                                <label for="{{ support_form.assignee_comment.id_for_label }}">تعليق المكلف <small style="color:var(--ink-muted)">(300 حرف)</small></label>
                                 {{ support_form.assignee_comment }}
                               </div>
                               <div class="field full">
@@ -190,10 +199,15 @@
 
                             <div class="actions">
                               {% if can_write %}
-                                <button type="submit" name="action" value="save_ticket" class="primary-btn">حفظ</button>
-                                <button type="submit" name="action" value="close_ticket" class="ghost-btn">إغلاق</button>
-                                <button type="submit" name="action" value="return_ticket" class="ghost-btn">إعادة للعميل</button>
-                                <a class="ghost-btn" href="{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}#support-ticket-{{ row.id }}">إغلاق العرض</a>
+                                <button type="submit" name="action" value="save_ticket" class="primary-btn">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                                  حفظ
+                                </button>
+                                <button type="submit" name="action" value="close_ticket" class="ghost-btn" data-confirm-message="هل أنت متأكد من إغلاق الطلب؟">إغلاق الطلب</button>
+                                <button type="submit" name="action" value="return_ticket" class="ghost-btn" data-confirm-message="هل تريد إعادة الطلب للعميل؟">إعادة للعميل</button>
+                                <a class="ghost-btn" href="{% url 'dashboard:support_dashboard' %}?status={{ filters.status }}&type={{ filters.type }}&priority={{ filters.priority }}&q={{ filters.q|urlencode }}#support-ticket-{{ row.id }}">
+                                  إغلاق العرض
+                                </a>
                               {% else %}
                                 <span class="pill danger">وضع قراءة فقط (QA)</span>
                               {% endif %}
@@ -205,7 +219,7 @@
                   {% endif %}
                 {% empty %}
                   <tr>
-                    <td colspan="9">لا توجد طلبات مطابقة للفلاتر الحالية.</td>
+                    <td colspan="9" class="empty-note">لا توجد طلبات مطابقة للفلاتر الحالية.</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -219,18 +233,24 @@
           {% include 'dashboard/_sidebar_main_nav.html' %}
 
           <div class="side-card">
-            <h4>مرجع الأولوية</h4>
-            <div class="quick-stat"><span>1</span><strong>الأساسية</strong></div>
-            <div class="quick-stat"><span>2</span><strong>الريادية</strong></div>
-            <div class="quick-stat"><span>3</span><strong>الاحترافية</strong></div>
-          </div>
-
-          <div class="side-card">
-            <h4>حالات الطلب المعتمدة</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              ملخص الحالات
+            </h4>
             <div class="quick-stat"><span>جديد</span><strong>{{ summary.new }}</strong></div>
             <div class="quick-stat"><span>تحت المعالجة</span><strong>{{ summary.in_progress }}</strong></div>
             <div class="quick-stat"><span>معاد للعميل</span><strong>{{ summary.returned }}</strong></div>
             <div class="quick-stat"><span>مغلق</span><strong>{{ summary.closed }}</strong></div>
+          </div>
+
+          <div class="side-card">
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              مرجع الأولوية
+            </h4>
+            <div class="quick-stat"><span>1</span><strong>الأساسية</strong></div>
+            <div class="quick-stat"><span>2</span><strong>الريادية</strong></div>
+            <div class="quick-stat"><span>3</span><strong>الاحترافية</strong></div>
           </div>
         </div>
       </aside>

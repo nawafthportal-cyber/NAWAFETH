@@ -13,6 +13,8 @@ from .models import (
     ProviderSpotlightItem,
     ProviderSpotlightLike,
     ProviderSpotlightSave,
+    SaudiCity,
+    SaudiRegion,
     SubCategory,
 )
 
@@ -41,6 +43,7 @@ class ProviderProfileAdmin(admin.ModelAdmin):
         "display_name",
         "provider_type",
         "user",
+        "region",
         "city",
         "accepts_urgent",
         "rating_avg",
@@ -54,12 +57,30 @@ class ProviderProfileAdmin(admin.ModelAdmin):
         "accepts_urgent",
         "is_verified_blue",
         "is_verified_green",
+        "region",
         "city",
     )
-    search_fields = ("display_name", "city", "user__phone", "user__username", "seo_slug")
+    search_fields = ("display_name", "region", "city", "user__phone", "user__username", "seo_slug")
     ordering = ("-id",)
     list_select_related = ("user",)
     readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(SaudiRegion)
+class SaudiRegionAdmin(admin.ModelAdmin):
+    list_display = ("id", "name_ar", "is_active", "sort_order")
+    list_filter = ("is_active",)
+    search_fields = ("name_ar",)
+    ordering = ("sort_order", "name_ar", "id")
+
+
+@admin.register(SaudiCity)
+class SaudiCityAdmin(admin.ModelAdmin):
+    list_display = ("id", "name_ar", "region", "is_active", "sort_order")
+    list_filter = ("is_active", "region")
+    search_fields = ("name_ar", "region__name_ar")
+    ordering = ("region__sort_order", "sort_order", "name_ar", "id")
+    list_select_related = ("region",)
 
 
 @admin.register(ProviderCategory)

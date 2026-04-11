@@ -1,0 +1,1322 @@
+{% extends 'dashboard/_base.html' %}
+{% load static %}
+
+{% block title %}لوحة فريق إدارة الخدمات الإضافية{% endblock %}
+
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <p class="subtitle">{{ hero_subtitle }}</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">استفسارات HD: {{ inquiry_summary.total }}</span>
+          <span class="pill accent">طلبات P: {{ request_summary.total }}</span>
+          <span class="pill mint">تحت المعالجة: {{ request_summary.in_progress }}</span>
+          <span class="pill danger">مكتمل: {{ request_summary.closed }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+        {% if messages %}
+          <ul class="alert-list" id="alertsList">
+            {% for message in messages %}
+              <li class="alert {{ message.tags }}"><span>{{ message }}</span><button type="button" aria-label="إغلاق">×</button></li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if filters.section == 'overview' %}
+          <section class="section-panel slide-up" id="extrasInquiries">
+            <div class="title-row">
+              <h2>قائمة استفسارات الخدمات الإضافية</h2>
+              <div class="actions">
+                <span class="pill accent">جديد: {{ inquiry_summary.new }}</span>
+                <span class="pill mint">تحت المعالجة: {{ inquiry_summary.in_progress }}</span>
+                <span class="pill info">معاد للعميل: {{ inquiry_summary.returned }}</span>
+                <span class="pill brand">مكتمل: {{ inquiry_summary.closed }}</span>
+              </div>
+            </div>
+
+            <form method="get" class="toolbar">
+              <input type="hidden" name="section" value="{{ filters.section }}">
+              <input class="input-control" type="search" name="inquiry_q" value="{{ filters.inquiry_q }}" placeholder="بحث برقم الاستفسار أو اسم العميل...">
+              <input type="hidden" name="request_q" value="{{ filters.request_q }}">
+              <input type="hidden" name="request_status" value="{{ filters.request_status }}">
+              <div class="actions">
+                <button class="primary-btn light" type="submit">تحديث</button>
+                <a class="ghost-btn" href="{% url 'dashboard:extras_dashboard' %}?section=overview#extrasInquiries">مسح</a>
+              </div>
+            </form>
+
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>رقم الاستفسار</th>
+                    <th>العميل</th>
+                    <th>الأولوية</th>
+                    <th>النوع</th>
+                    <th>وقت الاستلام</th>
+                    <th>الحالة</th>
+                    <th>الفريق</th>
+                    <th>المكلف</th>
+                    <th>تاريخ التكليف</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in extras_inquiries %}
+                    <tr id="extras-inquiry-{{ row.id }}" class="support-row {{ row.priority_class }}{% if selected_inquiry and selected_inquiry.id == row.id %} active-ticket{% endif %}">
+                      <td>
+                        <a class="ticket-link" href="{% if selected_inquiry and selected_inquiry.id == row.id %}{{ close_inquiry_url }}#extras-inquiry-{{ row.id }}{% else %}{% url 'dashboard:extras_dashboard' %}?{% if inquiry_detail_base_query %}{{ inquiry_detail_base_query }}&{% else %}section=overview&{% endif %}inquiry={{ row.id }}#extrasInquiryForm{% endif %}">{{ row.code }}</a>
+                      </td>
+                      <td>{{ row.requester }}</td>
+                      <td>{{ row.priority_number }}</td>
+                      <td>{{ row.ticket_type }}</td>
+                      <td>{{ row.created_at }}</td>
+                      <td>{{ row.status }}</td>
+                      <td>{{ row.team }}</td>
+                      <td>{{ row.assignee }}</td>
+                      <td>{{ row.assigned_at }}</td>
+                    </tr>
+                    {% if selected_inquiry and selected_inquiry.id == row.id %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="9">
+                          <div class="dash-inline-detail-shell support-detail-shell">
+                            <div class="title-row">
+                              <h2>تفاصيل الاستفسار: {{ selected_inquiry.code }}</h2>
+                              <div class="actions">
+                                <span class="pill brand">{{ extras_team_label }}</span>
+                                <span class="pill accent">{{ selected_inquiry_status_label }}</span>
+                              </div>
+                            </div>
+
+                            <form method="post" id="extrasInquiryForm" data-single-submit-form="true">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="save_extras_inquiry">
+                              <input type="hidden" name="ticket_id" value="{{ selected_inquiry.id }}">
+                              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+
+                              <div class="support-meta-grid promo-inquiry-meta-grid">
+                                <div class="quick-stat"><span>رقم الاستفسار</span><strong>{{ selected_inquiry.code }}</strong></div>
+                                <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
+                                <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
+                                <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
+                              </div>
+
+                              <div class="support-action-grid">
+                                <div class="field full">
+                                  <label for="{{ inquiry_form.description.id_for_label }}">تفاصيل الطلب</label>
+                                  {{ inquiry_form.description }}
+                                </div>
+                                <div class="field">
+                                  <label for="{{ inquiry_form.status.id_for_label }}">حالة الطلب</label>
+                                  {{ inquiry_form.status }}
+                                </div>
+                                <div class="field">
+                                  <label>فريق الدعم</label>
+                                  <div class="input-control static-field"><strong>{{ extras_team_label }}</strong></div>
+                                </div>
+                                <div class="field">
+                                  <label for="{{ inquiry_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                  {{ inquiry_form.assigned_to }}
+                                </div>
+                                <div class="field full">
+                                  <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
+                                  {{ inquiry_form.operator_comment }}
+                                </div>
+                              </div>
+
+                              <div class="actions">
+                                {% if can_write %}
+                                  <button type="submit" class="primary-btn" data-lock-on-submit="true" data-pending-text="جار الحفظ...">حفظ</button>
+                                {% endif %}
+                                <a class="ghost-btn" href="{{ close_inquiry_url }}#extras-inquiry-{{ row.id }}">إغلاق</a>
+                              </div>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% empty %}
+                    <tr><td colspan="9" class="empty-note">لا توجد استفسارات خدمات إضافية مطابقة للفلاتر الحالية.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="section-panel slide-up" id="extrasRequests">
+            <div class="title-row">
+              <h2>قائمة طلبات الخدمات الإضافية</h2>
+              <div class="actions">
+                <span class="pill accent">جديد: {{ request_summary.new }}</span>
+                <span class="pill mint">تحت المعالجة: {{ request_summary.in_progress }}</span>
+                <span class="pill brand">مكتمل: {{ request_summary.closed }}</span>
+              </div>
+            </div>
+
+            <form method="get" class="toolbar">
+              <input type="hidden" name="section" value="{{ filters.section }}">
+              <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث برقم الطلب أو اسم العميل...">
+              <select class="input-control" name="request_status">
+                <option value="">كل الحالات</option>
+                {% for code, label in request_status_choices %}
+                  <option value="{{ code }}" {% if filters.request_status == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <div class="actions">
+                <button class="primary-btn light" type="submit">تحديث</button>
+                <a class="ghost-btn" href="{% url 'dashboard:extras_dashboard' %}?section=overview#extrasRequests">مسح</a>
+              </div>
+            </form>
+
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>رقم الطلب</th>
+                    <th>اسم العميل</th>
+                    <th>الأولوية</th>
+                    <th>تاريخ ووقت اعتماد الطلب</th>
+                    <th>حالة الطلب</th>
+                    <th>المكلف بالطلب</th>
+                    <th>تاريخ ووقت التكليف</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in extras_requests %}
+                    <tr id="extras-request-{{ row.id }}" class="support-row {{ row.priority_class }}{% if selected_request and selected_request.id == row.id %} active-ticket{% endif %}">
+                      <td>
+                        <a class="ticket-link" href="{% if selected_request and selected_request.id == row.id %}{{ close_request_url }}{% else %}{% url 'dashboard:extras_dashboard' %}?{% if request_detail_base_query %}{{ request_detail_base_query }}&{% else %}section=overview&{% endif %}request={{ row.id }}#extrasRequestForm{% endif %}">{{ row.code }}</a>
+                      </td>
+                      <td>{{ row.requester }}</td>
+                      <td>{{ row.priority_number }}</td>
+                      <td>{{ row.created_at }}</td>
+                      <td>{{ row.request_status }}</td>
+                      <td>{{ row.assignee }}</td>
+                      <td>{{ row.assigned_at }}</td>
+                    </tr>
+                    {% if selected_request and selected_request.id == row.id %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="7">
+                          <div class="dash-inline-detail-shell support-detail-shell extras-request-detail">
+                            <div class="title-row">
+                              <h2>تفاصيل الطلب: {{ selected_request.code }}</h2>
+                              <div class="actions">
+                                <span class="pill brand">{{ extras_team_label }}</span>
+                                <span class="pill accent">{{ selected_request_status_label }}</span>
+                              </div>
+                            </div>
+
+                            <form method="post" id="extrasRequestForm" class="extras-request-detail__form">
+                              {% csrf_token %}
+                              <input type="hidden" name="action" value="save_extras_request">
+                              <input type="hidden" name="request_id" value="{{ selected_request.id }}">
+                              <input type="hidden" name="redirect_query" value="{{ redirect_query }}">
+
+                              <div class="review-report-shell extras-request-review-shell">
+                                <div class="review-report-main extras-request-main">
+                                  <section class="side-card extras-request-overview-card">
+                                    <div class="title-row extras-request-section-head">
+                                      <h4>البنود والخدمات المختارة</h4>
+                                      <div class="actions">
+                                        <span class="pill info">{{ selected_request_bundle_sections|length }} باقة</span>
+                                      </div>
+                                    </div>
+
+                                    {% if selected_request_bundle_sections %}
+                                      <div class="extras-request-bundle-grid">
+                                        {% for section in selected_request_bundle_sections %}
+                                          <article class="target-card extras-request-bundle-card extras-request-bundle-card--{{ section.key }}">
+                                            <div class="extras-request-bundle-head">
+                                              <h4>{{ section.title }}</h4>
+                                              <span class="pill extras-request-bundle-pill extras-request-bundle-pill--{{ section.key }}">{{ section.items|length }} بند</span>
+                                            </div>
+
+                                            <div class="extras-request-bundle-items">
+                                              {% for item in section.items %}
+                                                <article class="extras-request-bundle-item extras-request-bundle-item--{{ section.key }}">
+                                                  <div class="extras-request-bundle-item__head">
+                                                    <span class="pill extras-request-item-pill extras-request-item-pill--{{ section.key }}">بند {{ forloop.counter }}</span>
+                                                  </div>
+                                                  <div class="extras-request-bundle-item__title">{{ item.title }}</div>
+                                                  <div class="extras-request-bundle-item__meta">
+                                                    <span>المدة</span>
+                                                    <strong>{{ item.duration }}</strong>
+                                                  </div>
+                                                </article>
+                                              {% endfor %}
+                                            </div>
+
+                                            {% if section.meta_lines %}
+                                              <div class="extras-request-meta-lines">
+                                                {% for meta_line in section.meta_lines %}
+                                                  <div class="quick-stat">
+                                                    <span>معلومة إضافية</span>
+                                                    <strong>{{ meta_line }}</strong>
+                                                  </div>
+                                                {% endfor %}
+                                              </div>
+                                            {% endif %}
+                                          </article>
+                                        {% endfor %}
+                                      </div>
+                                    {% else %}
+                                      <div class="empty-note">لا توجد باقات أو خدمات محددة داخل هذا الطلب حتى الآن.</div>
+                                    {% endif %}
+                                  </section>
+
+                                  <section class="side-card extras-request-ops-card">
+                                    <div class="title-row extras-request-ops-head">
+                                      <h4>معالجة الطلب</h4>
+                                      <div class="actions">
+                                        <span class="pill brand">تشغيل داخلي</span>
+                                      </div>
+                                    </div>
+
+                                    <div class="extras-request-ops-summary">
+                                      <div class="quick-stat">
+                                        <span>الحالة الحالية</span>
+                                        <strong>{{ selected_request_status_label }}</strong>
+                                      </div>
+                                      <div class="quick-stat">
+                                        <span>فريق المعالجة</span>
+                                        <strong>{{ extras_team_label }}</strong>
+                                      </div>
+                                      <div class="quick-stat">
+                                        <span>حالة التسعير</span>
+                                        <strong>{{ selected_request_billing_state.label }}</strong>
+                                      </div>
+                                      <div class="quick-stat">
+                                        <span>الخطوة التالية</span>
+                                        <strong>{{ selected_request_billing_state.next_step }}</strong>
+                                      </div>
+                                    </div>
+
+                                    <div class="support-action-grid extras-request-ops-grid">
+                                      <div class="field full">
+                                        <label>وصف الطلب</label>
+                                        <div class="input-control static-field extras-request-static-block">
+                                          <strong>
+                                            {% if selected_request.summary %}
+                                              {{ selected_request.summary }}
+                                            {% elif selected_request_purchase %}
+                                              {{ selected_request_purchase.title }}
+                                            {% else %}
+                                              طلب خدمات إضافية
+                                            {% endif %}
+                                          </strong>
+                                        </div>
+                                      </div>
+                                      <div class="field">
+                                        <label for="{{ selected_request_form.status.id_for_label }}">حالة الطلب</label>
+                                        {{ selected_request_form.status }}
+                                      </div>
+                                      <div class="field">
+                                        <label>فريق الدعم</label>
+                                        <div class="input-control static-field"><strong>{{ extras_team_label }}</strong></div>
+                                      </div>
+                                      <div class="field">
+                                        <label for="{{ selected_request_form.assigned_to.id_for_label }}">المكلف بالطلب</label>
+                                        {{ selected_request_form.assigned_to }}
+                                      </div>
+                                      {% if selected_request_status_help_text %}
+                                        <div class="field full">
+                                          <div class="extras-request-status-note">
+                                            <strong>تنبيه الحالة الحالية</strong>
+                                            <p>{{ selected_request_status_help_text }}</p>
+                                          </div>
+                                        </div>
+                                      {% endif %}
+                                      <div class="field full">
+                                        <div class="extras-request-status-note extras-request-status-note--{{ selected_request_billing_state.tone }}">
+                                          <strong>التسعير والفاتورة</strong>
+                                          <p>{{ selected_request_billing_state.description }}</p>
+                                        </div>
+                                      </div>
+                                      <div class="field full">
+                                        <label for="{{ selected_request_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
+                                        {{ selected_request_form.operator_comment }}
+                                      </div>
+                                    </div>
+                                  </section>
+
+                                  {% if selected_request_can_invoice %}
+                                  <section class="side-card extras-request-invoice-card" id="extrasInvoiceBuilder" data-vat-percent="{{ extras_vat_percent }}">
+                                    <div class="title-row extras-request-ops-head">
+                                      <h4>التسعير والفاتورة</h4>
+                                      <div class="actions">
+                                        <span class="pill accent">تسعير يدوي</span>
+                                      </div>
+                                    </div>
+
+                                    <div class="extras-request-ops-summary extras-request-ops-summary--billing">
+                                      <div class="quick-stat">
+                                        <span>طريقة التسعير</span>
+                                        <strong>يدوي بواسطة المكلف</strong>
+                                      </div>
+                                      <div class="quick-stat">
+                                        <span>حالة الفاتورة</span>
+                                        <strong>{{ selected_request_billing_state.label }}</strong>
+                                      </div>
+                                      <div class="quick-stat">
+                                        <span>الإجراء المتاح</span>
+                                        <strong>{{ selected_request_invoice_action_label }}</strong>
+                                      </div>
+                                    </div>
+
+                                    {% if selected_request_has_paid_invoice %}
+                                      <div class="extras-request-status-note">
+                                        <strong>الفاتورة مدفوعة</strong>
+                                        <p>هذا الطلب يملك فاتورة مدفوعة ومعتمدة. لا يمكن إصدار فاتورة جديدة.</p>
+                                      </div>
+                                    {% else %}
+                                      <div class="extras-request-status-note extras-request-status-note--info" style="margin-bottom:0.85rem;">
+                                        <strong>آلية العمل</strong>
+                                        <p>حدّد البنود والمبالغ الفعلية حسب نطاق الطلب. لن يتم إنشاء أي فاتورة عند الحفظ العادي، بل فقط عند الضغط على {{ selected_request_invoice_action_label }}.</p>
+                                      </div>
+
+                                      <div class="extras-invoice-meta-grid">
+                                        <div class="field">
+                                          <label for="{{ selected_request_form.invoice_title.id_for_label }}">عنوان عرض السعر</label>
+                                          {{ selected_request_form.invoice_title }}
+                                        </div>
+                                        <div class="field full">
+                                          <label for="{{ selected_request_form.invoice_description.id_for_label }}">وصف الفاتورة</label>
+                                          {{ selected_request_form.invoice_description }}
+                                        </div>
+                                      </div>
+
+                                      <div class="extras-request-ops-summary extras-request-ops-summary--billing-preview">
+                                        <div class="quick-stat">
+                                          <span>المجموع قبل الضريبة</span>
+                                          <strong id="extrasInvoiceSubtotal">0.00 ر.س</strong>
+                                        </div>
+                                        <div class="quick-stat">
+                                          <span>الضريبة التقديرية</span>
+                                          <strong id="extrasInvoiceVatAmount">0.00 ر.س</strong>
+                                        </div>
+                                        <div class="quick-stat">
+                                          <span>الإجمالي المتوقع</span>
+                                          <strong id="extrasInvoiceGrandTotal">0.00 ر.س</strong>
+                                        </div>
+                                      </div>
+
+                                      <div id="extrasInvoiceLines" class="extras-invoice-lines">
+                                        <div class="extras-invoice-line" data-line-index="0">
+                                          <div class="extras-invoice-line__fields">
+                                            <div class="field">
+                                              <label>عنوان البند</label>
+                                              <input type="text" name="invoice_line_title[]" class="input-control" maxlength="160" placeholder="مثال: تقرير تحليل الأداء">
+                                            </div>
+                                            <div class="field">
+                                              <label>المبلغ (ر.س)</label>
+                                              <input type="number" name="invoice_line_amount[]" class="input-control" min="0.01" step="0.01" placeholder="0.00">
+                                            </div>
+                                          </div>
+                                          <button type="button" class="extras-invoice-line__remove ghost-btn" title="حذف البند" style="display:none;">✕</button>
+                                        </div>
+                                      </div>
+
+                                      <div class="extras-invoice-controls">
+                                        <button type="button" id="extrasAddInvoiceLine" class="ghost-btn">+ إضافة بند</button>
+                                        <div class="extras-invoice-subtotal">
+                                          <span>نسبة الضريبة:</span>
+                                          <strong>{{ extras_vat_percent }}%</strong>
+                                        </div>
+                                      </div>
+
+                                      <div class="extras-invoice-note">
+                                        <small>سيتم إضافة ضريبة القيمة المضافة ({{ extras_vat_percent }}%) تلقائيًا عند {{ selected_request_invoice_action_label }} وإرسال رابط الدفع للعميل.</small>
+                                      </div>
+                                    {% endif %}
+                                  </section>
+                                  {% endif %}
+                                </div>
+
+                                <aside class="review-report-side extras-request-side">
+                                  <div class="target-card extras-request-summary-card">
+                                    <h4>بطاقة الطلب</h4>
+                                    <div class="support-meta-grid extras-request-meta-grid">
+                                      <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
+                                      <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                                      <div class="quick-stat">
+                                        <span>الخدمة الأساسية</span>
+                                        <strong>
+                                          {% if selected_request_purchase %}
+                                            {{ selected_request_purchase.title }}
+                                          {% elif selected_request.summary %}
+                                            {{ selected_request.summary }}
+                                          {% else %}
+                                            طلب خدمات إضافية
+                                          {% endif %}
+                                        </strong>
+                                      </div>
+                                      <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
+                                      <div class="quick-stat"><span>رقم الفاتورة</span><strong>{{ selected_request_invoice.code|default:'-' }}</strong></div>
+                                      <div class="quick-stat"><span>عدد الباقات</span><strong>{{ selected_request_bundle_sections|length }}</strong></div>
+                                    </div>
+                                  </div>
+
+                                  <div class="target-card extras-request-summary-card">
+                                    <h4>ملخص الباقات</h4>
+                                    {% if selected_request_bundle_sections %}
+                                      <div class="extras-request-summary-list">
+                                        {% for section in selected_request_bundle_sections %}
+                                          <div class="quick-stat">
+                                            <span>{{ section.title }}</span>
+                                            <strong>{{ section.items|length }} بند</strong>
+                                          </div>
+                                        {% endfor %}
+                                      </div>
+                                    {% else %}
+                                      <p class="subtitle">لا توجد باقات مختارة داخل هذا الطلب.</p>
+                                    {% endif %}
+                                  </div>
+
+                                  {% if selected_request_invoice_details %}
+                                    <div class="target-card extras-request-summary-card extras-request-summary-card--invoice">
+                                      <h4>تفاصيل الفاتورة</h4>
+                                      <div class="support-meta-grid extras-request-meta-grid">
+                                        <div class="quick-stat"><span>رقم الفاتورة</span><strong>{{ selected_request_invoice_details.code }}</strong></div>
+                                        <div class="quick-stat"><span>الحالة</span><strong>{{ selected_request_invoice_details.status_label }}</strong></div>
+                                        <div class="quick-stat"><span>تاريخ الإنشاء</span><strong>{{ selected_request_invoice_details.created_at }}</strong></div>
+                                        <div class="quick-stat"><span>حالة محاولة الدفع</span><strong>{{ selected_request_invoice_details.attempt_status }}</strong></div>
+                                        <div class="quick-stat"><span>المجموع قبل الضريبة</span><strong>{{ selected_request_invoice_details.subtotal_text }}</strong></div>
+                                        <div class="quick-stat"><span>الضريبة</span><strong>{{ selected_request_invoice_details.vat_amount_text }}</strong></div>
+                                        <div class="quick-stat"><span>نسبة الضريبة</span><strong>{{ selected_request_invoice_details.vat_percent_text }}</strong></div>
+                                        <div class="quick-stat"><span>الإجمالي</span><strong>{{ selected_request_invoice_details.total_text }}</strong></div>
+                                        {% if selected_request_invoice_details.payment_confirmed_at != '-' %}
+                                          <div class="quick-stat"><span>تاريخ تأكيد السداد</span><strong>{{ selected_request_invoice_details.payment_confirmed_at }}</strong></div>
+                                        {% endif %}
+                                      </div>
+
+                                      {% if selected_request_invoice %}
+                                        <div class="extras-request-status-note" style="margin-top:12px;">
+                                          <strong>عنوان الفاتورة</strong>
+                                          <p>{{ selected_request_invoice.title }}</p>
+                                        </div>
+                                      {% endif %}
+                                      {% if selected_request_invoice_details.description %}
+                                        <div class="extras-request-status-note" style="margin-top:12px;">
+                                          <strong>وصف الفاتورة</strong>
+                                          <p>{{ selected_request_invoice_details.description }}</p>
+                                        </div>
+                                      {% endif %}
+
+                                      {% if selected_request_invoice_details.lines %}
+                                        <div class="extras-request-summary-list extras-request-summary-list--invoice">
+                                          {% for line in selected_request_invoice_details.lines %}
+                                            <div class="quick-stat">
+                                              <span>{{ line.title }}</span>
+                                              <strong>{{ line.amount_text }}</strong>
+                                            </div>
+                                          {% endfor %}
+                                        </div>
+                                      {% endif %}
+
+                                      {% if selected_request_invoice_details.checkout_url %}
+                                        <div class="actions" style="margin-top:12px;">
+                                          <a class="ghost-btn" href="{{ selected_request_invoice_details.checkout_url }}" target="_blank" rel="noopener">فتح رابط الدفع</a>
+                                        </div>
+                                      {% endif %}
+                                    </div>
+                                  {% endif %}
+                                </aside>
+                              </div>
+
+                              <div class="actions extras-request-actions">
+                                {% if selected_request_can_save %}
+                                  <button type="submit" class="primary-btn">حفظ المعالجة</button>
+                                  {% if selected_request_can_invoice %}
+                                    <button type="submit" class="accent-btn" id="extrasIssueInvoiceBtn" formnovalidate data-action-label="{{ selected_request_invoice_action_label }}">{{ selected_request_invoice_action_label }}</button>
+                                  {% endif %}
+                                {% elif can_write %}
+                                  <span class="subtitle">لا يمكن تعديل الطلب بالحالة الحالية.</span>
+                                {% else %}
+                                  <span class="pill danger">قراءة فقط</span>
+                                {% endif %}
+                                <a class="ghost-btn" href="{{ close_request_url }}#extrasRequests">إغلاق</a>
+                              </div>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% empty %}
+                    <tr><td colspan="7" class="empty-note">لا توجد طلبات خدمات إضافية حتى الآن.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        {% elif filters.section == 'reports' %}
+          <section class="section-panel slide-up extras-subpage-panel extras-report-panel">
+            <div class="extras-report-header">
+              <div>
+                <span class="pill accent extras-report-header__pill">الخدمات الإضافية</span>
+                <h2>لوحة التحكم للتقارير</h2>
+                <p class="subtitle">تفعيل خيارات الإحصاءات والتقارير المطلوبة للمختص مع تحديد الفترة الزمنية وربطها بطلب الخدمات الإضافية.</p>
+              </div>
+              <div class="extras-report-header__icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 52V28l12 10 13-18 11 9 12-15"/>
+                  <path d="M10 52h44"/>
+                  <path d="M16 52V40"/>
+                  <path d="M28 52V34"/>
+                  <path d="M40 52V38"/>
+                  <path d="M52 52V24"/>
+                </svg>
+              </div>
+            </div>
+
+            <form method="post" class="extras-report-shell" data-single-submit-form="true">
+              {% csrf_token %}
+              <input type="hidden" name="specialist_identifier" value="{{ specialist_identifier }}">
+              <input type="hidden" name="redirect_section" value="reports">
+
+              <div class="extras-report-notes">
+                <div class="extras-report-note extras-report-note--success">
+                  <strong>رسالة حالة الطلب</strong>
+                  <p>
+                    {% if bundle_selected_report_options %}
+                      تم تجهيز {{ bundle_selected_report_options|length }} خيار تقارير داخل هذه الصفحة، وسيقوم المكلف بتسعيرها يدويًا ثم إصدار الفاتورة بعد مراجعة نطاق العمل.
+                    {% else %}
+                      ابدأ بتحديد الفترة الزمنية وخيارات التقرير المطلوبة قبل اعتماد هذا القسم.
+                    {% endif %}
+                  </p>
+                </div>
+                <div class="extras-report-note extras-report-note--system">
+                  <strong>رسالة من النظام</strong>
+                  <p>هذه الصفحة مخصصة لإعداد بنود التقارير المطلوبة فقط. التسعير لا يتم تلقائيًا، بل يُحدده المكلف داخل تفاصيل الطلب ثم تُرسل الفاتورة للعميل بعد الاعتماد.</p>
+                </div>
+              </div>
+
+              <div class="extras-report-layout review-report-shell">
+                <div class="review-report-main extras-report-main">
+                  <section class="side-card extras-report-card">
+                    <div class="title-row extras-report-section-head">
+                      <h4>بيانات التقرير</h4>
+                    </div>
+
+                    <div class="support-action-grid extras-report-grid">
+                      <div class="field">
+                        <label>اسم المختص</label>
+                        <div class="input-control static-field extras-report-readonly"><strong>{{ specialist_display_name }}</strong></div>
+                      </div>
+                      <div class="field">
+                        <label for="reportsStartAt">بداية التقرير</label>
+                        <input id="reportsStartAt" class="input-control" type="datetime-local" name="reports_start_at" value="{{ bundle_form_values.reports_start_at }}">
+                      </div>
+                      <div class="field full">
+                        <label for="reportsEndAt">نهاية التقرير</label>
+                        <input id="reportsEndAt" class="input-control" type="datetime-local" name="reports_end_at" value="{{ bundle_form_values.reports_end_at }}">
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="side-card extras-report-card">
+                    <div class="title-row extras-report-section-head">
+                      <h4>تفعيل خيارات الإحصاءات والتقارير المطلوبة</h4>
+                    </div>
+
+                    <div class="extras-report-groups">
+                      {% for group in report_option_groups %}
+                        <div class="extras-report-group">
+                          <h5>{{ group.title }}</h5>
+                          <div class="extras-report-options">
+                            {% for option in group.options %}
+                              <label class="extras-report-option {% if option.key in bundle_selected_report_options %}is-selected{% endif %}">
+                                <input type="checkbox" name="reports_options" value="{{ option.key }}" {% if option.key in bundle_selected_report_options %}checked{% endif %}>
+                                <span class="extras-report-option__mark"></span>
+                                <span class="extras-report-option__label">{{ option.label }}</span>
+                              </label>
+                            {% endfor %}
+                          </div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  </section>
+                </div>
+
+                <aside class="review-report-side extras-report-side">
+                  <div class="target-card extras-report-summary-card">
+                    <h4>ملخص التقرير</h4>
+                    <div class="support-meta-grid extras-request-meta-grid">
+                      <div class="quick-stat"><span>اسم المختص</span><strong>{{ specialist_display_name }}</strong></div>
+                      <div class="quick-stat"><span>بداية التقرير</span><strong>{{ report_preview_start_at }}</strong></div>
+                      <div class="quick-stat"><span>نهاية التقرير</span><strong>{{ report_preview_end_at }}</strong></div>
+                      <div class="quick-stat"><span>الخيارات المحددة</span><strong>{{ bundle_selected_report_options|length }}</strong></div>
+                    </div>
+                  </div>
+
+                  <div class="target-card extras-report-summary-card">
+                    <h4>العناصر المعتمدة</h4>
+                    {% if report_bundle_summary.items %}
+                      <div class="extras-client-selected-list">
+                        {% for item in report_bundle_summary.items %}
+                          <div class="quick-stat">
+                            <span>عنصر {{ forloop.counter }}</span>
+                            <strong>{{ item }}</strong>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <p class="subtitle">لم يتم تحديد أي خيار تقارير حتى الآن.</p>
+                    {% endif %}
+                  </div>
+                </aside>
+              </div>
+
+              <div class="actions extras-report-actions">
+                {% if can_write %}
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_reports" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                {% else %}
+                  <span class="pill danger">قراءة فقط</span>
+                {% endif %}
+              </div>
+            </form>
+          </section>
+
+        {% elif filters.section == 'finance' %}
+          <section class="section-panel slide-up extras-subpage-panel extras-finance-panel">
+            <div class="extras-finance-header">
+              <div>
+                <h2>الإدارة المالية</h2>
+                <p class="subtitle">اعتماد خدمات الإدارة المالية ضمن نفس منطق الصورة المرجعية: بيانات المختص، مدة الاشتراك، حقول QR، وخيارات الباقة المالية المعتمدة.</p>
+              </div>
+            </div>
+
+            <form method="post" class="extras-finance-shell" data-single-submit-form="true">
+              {% csrf_token %}
+              <input type="hidden" name="specialist_identifier" value="{{ specialist_identifier }}">
+              <input type="hidden" name="redirect_section" value="finance">
+
+              <div class="extras-report-notes">
+                <div class="extras-report-note extras-report-note--success">
+                  <strong>رسالة حالة الطلب</strong>
+                  <p>
+                    {% if bundle_selected_finance_options %}
+                      تم تجهيز {{ bundle_selected_finance_options|length }} خدمة مالية داخل هذه الصفحة، وسيتم اعتمادها ضمن باقة الخدمات الإضافية عند استكمال المسار.
+                    {% else %}
+                      حدد مدة الاشتراك والخدمات المالية المطلوبة ثم اعتمد البيانات كما في النموذج المرجعي.
+                    {% endif %}
+                  </p>
+                </div>
+                <div class="extras-report-note extras-report-note--system">
+                  <strong>رسالة من النظام</strong>
+                  <p>حقول الاسم الأول والاسم الثاني وIBAN تُحفظ ضمن بيانات الطلب حتى تكون خدمة تسجيل الحساب البنكي للمختص جاهزة للتنفيذ لاحقًا.</p>
+                </div>
+              </div>
+
+              <div class="extras-finance-layout review-report-shell">
+                <div class="review-report-main extras-finance-main">
+                  <section class="side-card extras-finance-card">
+                    <div class="support-action-grid extras-finance-grid">
+                      <div class="field">
+                        <label>اسم المختص</label>
+                        <div class="input-control static-field extras-finance-readonly"><strong>{{ specialist_display_name }}</strong></div>
+                      </div>
+                      <div class="field">
+                        <label for="financeSubscriptionYears">مدة الاشتراك (بالسنوات)</label>
+                        <input id="financeSubscriptionYears" class="input-control" type="number" name="finance_subscription_years" min="1" max="10" value="{{ bundle_form_values.finance_subscription_years }}">
+                      </div>
+                      <div class="field">
+                        <label>بداية الاشتراك</label>
+                        <div class="input-control static-field extras-finance-readonly"><strong>{{ finance_preview_start_at }}</strong></div>
+                      </div>
+                      <div class="field">
+                        <label>نهاية الاشتراك</label>
+                        <div class="input-control static-field extras-finance-readonly"><strong>{{ finance_preview_end_at }}</strong></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="side-card extras-finance-card">
+                    <div class="title-row extras-finance-section-head">
+                      <h4>خيارات باقة الخدمات المالية المعتمدة</h4>
+                    </div>
+
+                    <div class="extras-finance-qr-grid">
+                      <div class="field">
+                        <label for="financeQrFirstName">الاسم الأول</label>
+                        <input id="financeQrFirstName" class="input-control" type="text" name="finance_qr_first_name" maxlength="50" value="{{ bundle_form_values.finance_qr_first_name }}">
+                      </div>
+                      <div class="field">
+                        <label for="financeQrLastName">الاسم الثاني</label>
+                        <input id="financeQrLastName" class="input-control" type="text" name="finance_qr_last_name" maxlength="50" value="{{ bundle_form_values.finance_qr_last_name }}">
+                      </div>
+                      <div class="field full">
+                        <label for="financeIban">IBAN</label>
+                        <input id="financeIban" class="input-control" type="text" name="finance_iban" maxlength="34" value="{{ bundle_form_values.finance_iban }}">
+                      </div>
+                    </div>
+
+                    <div class="extras-finance-options">
+                      {% for option in finance_options %}
+                        <label class="extras-finance-option {% if option.key in bundle_selected_finance_options %}is-selected{% endif %}">
+                          <input type="checkbox" name="finance_options" value="{{ option.key }}" {% if option.key in bundle_selected_finance_options %}checked{% endif %}>
+                          <span class="extras-finance-option__mark"></span>
+                          <span class="extras-finance-option__label">{{ option.label }}</span>
+                        </label>
+                      {% endfor %}
+                    </div>
+                  </section>
+                </div>
+
+                <aside class="review-report-side extras-finance-side">
+                  <div class="target-card extras-finance-summary-card">
+                    <h4>ملخص الباقة المالية</h4>
+                    <div class="support-meta-grid extras-request-meta-grid">
+                      <div class="quick-stat"><span>اسم المختص</span><strong>{{ specialist_display_name }}</strong></div>
+                      <div class="quick-stat"><span>مدة الاشتراك</span><strong>{{ bundle_form_values.finance_subscription_years }} سنة</strong></div>
+                      <div class="quick-stat"><span>عدد الخدمات المحددة</span><strong>{{ bundle_selected_finance_options|length }}</strong></div>
+                      <div class="quick-stat"><span>IBAN</span><strong>{{ bundle_form_values.finance_iban|default:'-' }}</strong></div>
+                    </div>
+                  </div>
+
+                  <div class="target-card extras-finance-summary-card">
+                    <h4>العناصر المعتمدة</h4>
+                    {% if finance_bundle_summary.items %}
+                      <div class="extras-client-selected-list">
+                        {% for item in finance_bundle_summary.items %}
+                          <div class="quick-stat">
+                            <span>عنصر {{ forloop.counter }}</span>
+                            <strong>{{ item }}</strong>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <p class="subtitle">لم يتم تحديد أي خدمة مالية حتى الآن.</p>
+                    {% endif %}
+                  </div>
+                </aside>
+              </div>
+
+              <div class="actions extras-finance-actions">
+                {% if can_write %}
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_finance" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                {% else %}
+                  <span class="pill danger">قراءة فقط</span>
+                {% endif %}
+              </div>
+            </form>
+          </section>
+
+        {% elif filters.section == 'clients' %}
+          <section class="section-panel slide-up extras-subpage-panel">
+            <div class="title-row">
+              <div>
+                <h2>إدارة العملاء</h2>
+                <p class="subtitle">صفحة مستقلة لاعتماد خدمات العملاء، مع إبقاء الصفحة الرئيسية مخصصة فقط لقوائم الاستفسارات والطلبات.</p>
+              </div>
+              <div class="actions">
+                <span class="pill brand">الخدمات المختارة: {{ bundle_selected_client_options|length }}</span>
+                <span class="pill accent">مدة الاشتراك: {{ bundle_form_values.clients_subscription_years }} سنة</span>
+              </div>
+            </div>
+
+            <form method="post" class="extras-client-shell" data-single-submit-form="true">
+              {% csrf_token %}
+              <input type="hidden" name="specialist_identifier" value="{{ specialist_identifier }}">
+              <input type="hidden" name="redirect_section" value="clients">
+
+              <div class="extras-client-layout review-report-shell">
+                <div class="review-report-main extras-client-main">
+                  <section class="side-card extras-client-card">
+                    <div class="title-row extras-client-section-head">
+                      <h4>بيانات اعتماد الخدمة</h4>
+                      <div class="actions">
+                        <span class="pill info">معاينة تشغيلية</span>
+                      </div>
+                    </div>
+
+                    <div class="support-action-grid extras-client-grid">
+                      <div class="field">
+                        <label>اسم المختص</label>
+                        <div class="input-control static-field extras-client-readonly"><strong>{{ specialist_display_name }}</strong></div>
+                      </div>
+                      <div class="field">
+                        <label for="clientsSubscriptionYears">الاشتراك الحالي (سنوات)</label>
+                        <input id="clientsSubscriptionYears" class="input-control" type="number" name="clients_subscription_years" min="1" max="10" value="{{ bundle_form_values.clients_subscription_years }}">
+                      </div>
+                      <div class="field">
+                        <label>بداية الاشتراك</label>
+                        <div class="input-control static-field extras-client-readonly"><strong>{{ client_preview_start_at }}</strong></div>
+                      </div>
+                      <div class="field">
+                        <label>نهاية الاشتراك</label>
+                        <div class="input-control static-field extras-client-readonly"><strong>{{ client_preview_end_at }}</strong></div>
+                      </div>
+                    </div>
+
+                    <div class="extras-client-note">
+                      <strong>ملاحظة تشغيلية</strong>
+                      <p>تاريخا البداية والنهاية في هذه الصفحة معاينة تعتمد على مدة الاشتراك الحالية، وسيتم ربط التنفيذ الفعلي بخطوة الاعتماد النهائية داخل سير العمل.</p>
+                    </div>
+                  </section>
+
+                  <section class="side-card extras-client-card">
+                    <div class="title-row extras-client-section-head">
+                      <h4>الخدمات المطلوبة</h4>
+                      <div class="actions">
+                        <span class="pill mint">إعدادات الباقة</span>
+                      </div>
+                    </div>
+
+                    <div class="extras-client-options">
+                      {% for option in client_options %}
+                        <label class="extras-client-option {% if option.key in bundle_selected_client_options %}is-selected{% endif %}">
+                          <input type="checkbox" name="clients_options" value="{{ option.key }}" {% if option.key in bundle_selected_client_options %}checked{% endif %}>
+                          <span class="extras-client-option__mark"></span>
+                          <span class="extras-client-option__content">
+                            <strong>{{ option.label }}</strong>
+                            {% if option.key == 'bulk_messages' %}
+                              <span>عند تفعيل هذا الخيار يمكن تحديد عدد الرسائل الجماعية المطلوب إرسالها.</span>
+                            {% endif %}
+                          </span>
+                        </label>
+                      {% endfor %}
+                    </div>
+
+                    <div class="support-action-grid extras-client-grid extras-client-grid--compact">
+                      <div class="field">
+                        <label for="clientsBulkMessageCount">عدد الرسائل الجماعية</label>
+                        <input id="clientsBulkMessageCount" class="input-control" type="number" name="clients_bulk_message_count" min="0" max="100000" value="{{ bundle_form_values.clients_bulk_message_count }}">
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <aside class="review-report-side extras-client-side">
+                  <div class="target-card extras-client-summary-card">
+                    <h4>ملخص الإدارة</h4>
+                    <div class="support-meta-grid extras-request-meta-grid">
+                      <div class="quick-stat"><span>اسم المختص</span><strong>{{ specialist_display_name }}</strong></div>
+                      <div class="quick-stat"><span>مدة الاشتراك</span><strong>{{ bundle_form_values.clients_subscription_years }} سنة</strong></div>
+                      <div class="quick-stat"><span>عدد الخدمات المحددة</span><strong>{{ client_bundle_summary.items|length }}</strong></div>
+                      <div class="quick-stat"><span>الرسائل الجماعية</span><strong>{{ bundle_form_values.clients_bulk_message_count }}</strong></div>
+                    </div>
+                  </div>
+
+                  <div class="target-card extras-client-summary-card">
+                    <h4>العناصر المعتمدة</h4>
+                    {% if client_bundle_summary.items %}
+                      <div class="extras-client-selected-list">
+                        {% for item in client_bundle_summary.items %}
+                          <div class="quick-stat">
+                            <span>خدمة {{ forloop.counter }}</span>
+                            <strong>{{ item.title }}</strong>
+                          </div>
+                        {% endfor %}
+                        {% for meta_line in client_bundle_summary.meta_lines %}
+                          <div class="quick-stat">
+                            <span>معلومة إضافية</span>
+                            <strong>{{ meta_line }}</strong>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <p class="subtitle">لم يتم اختيار أي خدمة حتى الآن داخل صفحة إدارة العملاء.</p>
+                    {% endif %}
+                  </div>
+
+                  {% if created_request_code %}
+                    <div class="extras-client-note extras-client-note--success">
+                      <strong>تم إنشاء الطلب بنجاح</strong>
+                      <p>أصبح الطلب {{ created_request_code }} ظاهرًا في الصفحة الرئيسية ضمن قائمة طلبات الخدمات الإضافية.</p>
+                    </div>
+                  {% endif %}
+                </aside>
+              </div>
+
+              <div class="actions extras-client-actions">
+                {% if can_write %}
+                  <button type="submit" class="primary-btn" name="action" value="save_extras_bundle_clients" data-lock-on-submit="true" data-pending-text="جار الاعتماد...">اعتماد</button>
+                  <button type="submit" class="ghost-btn" name="action" value="clear_extras_bundle_draft" formnovalidate>إلغاء</button>
+                {% else %}
+                  <span class="pill danger">قراءة فقط</span>
+                {% endif %}
+              </div>
+            </form>
+          </section>
+
+        {% elif filters.section == 'subscribers' %}
+          <section class="section-panel slide-up extras-subpage-panel extras-subscribers-panel" id="extrasSubscribers">
+            <div class="extras-subscribers-header">
+              <div>
+                <span class="pill accent extras-report-header__pill">الخدمات الإضافية</span>
+                <h2>بيانات مشتركي الخدمات الإضافية</h2>
+                <p class="subtitle">سجل تشغيلي موحد يعرض الخدمات المفعلة فعليًا لكل مختص بالاعتماد على اشتراك البوابة وآخر طلب مكتمل والفاتورة المرتبطة به.</p>
+              </div>
+            </div>
+
+            <div class="extras-report-notes">
+              <div class="extras-report-note extras-report-note--success">
+                <strong>مصدر البيانات</strong>
+                <p>الجدول أدناه لم يعد يعتمد على مشتريات الخدمات العامة، بل على اشتراك بوابة الخدمات الإضافية نفسه مع تفكيك الخدمات المفعلة من آخر طلب مكتمل.</p>
+              </div>
+              <div class="extras-report-note extras-report-note--system">
+                <strong>تنبيه تشغيلي</strong>
+                <p>أزرار التجديد والحذف معروضة هنا بصيغة تشغيلية، لكنها معطلة مؤقتًا إلى أن يُضاف مسار مالي مستقل لكل خدمة بدل الاشتراك المجمّع الحالي.</p>
+              </div>
+            </div>
+
+            <div class="extras-subscribers-summary">
+              <div class="quick-stat"><span>إجمالي الخدمات المفعلة</span><strong>{{ subscribers_summary.total }}</strong></div>
+              <div class="quick-stat"><span>الخدمات النشطة</span><strong>{{ subscribers_summary.active }}</strong></div>
+              <div class="quick-stat"><span>تنتهي خلال 30 يومًا</span><strong>{{ subscribers_summary.ending_soon }}</strong></div>
+              <div class="quick-stat"><span>غير نشطة</span><strong>{{ subscribers_summary.inactive }}</strong></div>
+            </div>
+
+            <form method="get" class="toolbar extras-subscribers-toolbar">
+              <input type="hidden" name="section" value="{{ filters.section }}">
+              <input class="input-control" type="search" name="subscribers_q" value="{{ filters.subscribers_q }}" placeholder="ابحث باسم العميل أو رقم الطلب أو اسم الخدمة...">
+              <div class="actions">
+                <button class="primary-btn light" type="submit">تحديث</button>
+                <a class="ghost-btn" href="{% url 'dashboard:extras_dashboard' %}?section=subscribers#extrasSubscribers">مسح</a>
+              </div>
+            </form>
+
+            <div class="table-wrap">
+              <table class="dash-table extras-subscribers-table">
+                <thead>
+                  <tr>
+                    <th>رقم الطلب</th>
+                    <th>اسم العميل</th>
+                    <th>الخدمة</th>
+                    <th>حالة الاشتراك</th>
+                    <th>بداية الاشتراك</th>
+                    <th>نهاية الاشتراك</th>
+                    <th>حالة الدفع</th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in extras_subscribers_rows %}
+                    <tr id="extras-subscriber-{{ row.dom_id }}" class="support-row{% if row.is_selected %} active-ticket{% endif %}">
+                      <td>
+                        <a class="ticket-link" href="{% if row.is_selected %}{{ selected_subscriber_close_url }}#extrasSubscribers{% else %}{% url 'dashboard:extras_dashboard' %}?{% if subscriber_detail_base_query %}{{ subscriber_detail_base_query }}&{% else %}section=subscribers&{% endif %}subscriber={{ row.id }}#extrasSubscriberDetail{% endif %}">{{ row.request_code }}</a>
+                      </td>
+                      <td>
+                        <strong>{{ row.provider_name }}</strong>
+                        <div class="subtitle">{{ row.requester }}</div>
+                      </td>
+                      <td>
+                        <span class="pill brand extras-subscriber-service-pill">{{ row.service_title }}</span>
+                        <div class="subtitle">{{ row.service_count }} بند</div>
+                      </td>
+                      <td>{{ row.subscription_status }}</td>
+                      <td>{{ row.start_at }}</td>
+                      <td>{{ row.end_at }}</td>
+                      <td>{{ row.payment_status }}</td>
+                      <td>
+                        <div class="extras-subscriber-action-set">
+                          <a class="inline-icon-btn" href="{% url 'dashboard:extras_dashboard' %}?{% if subscriber_detail_base_query %}{{ subscriber_detail_base_query }}&{% else %}section=subscribers&{% endif %}subscriber={{ row.id }}#extrasSubscriberDetail" title="عرض التفاصيل" aria-label="عرض التفاصيل">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                          </a>
+                          <button type="button" class="inline-icon-btn" disabled title="{{ row.renew_disabled_reason }}" aria-label="تجديد الخدمة">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 11a8 8 0 0 0-14.9-3H2.5A.5.5 0 0 1 2 7.5v-4A.5.5 0 0 1 2.5 3h4a.5.5 0 0 1 0 1H4.3A9 9 0 0 1 21 11a.5.5 0 0 1-1 0Zm1.5 5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1 0-1h2.2A9 9 0 0 1 3 13a.5.5 0 0 1 1 0 8 8 0 0 0 14.9 3H21.5Z"></path></svg>
+                          </button>
+                          <button type="button" class="inline-icon-btn danger" disabled title="{{ row.delete_disabled_reason }}" aria-label="حذف الخدمة">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V4h4a.5.5 0 0 1 0 1h-1.1l-.8 13.3A2 2 0 0 1 15.1 20H8.9a2 2 0 0 1-2-1.7L6.1 5H5a.5.5 0 0 1 0-1h4v-.5Zm1 0V4h4v-.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5ZM8.1 5l.8 13.2a1 1 0 0 0 1 .8h5.2a1 1 0 0 0 1-.8L16.9 5H8.1ZM10.5 8a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Zm3 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Z"></path></svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {% if row.is_selected and selected_subscriber_row %}
+                      <tr class="dash-inline-detail-row">
+                        <td colspan="8">
+                          <div class="support-detail-shell subs-account-detail-shell extras-subscriber-detail-shell" id="extrasSubscriberDetail">
+                            <div class="title-row subs-account-inline-title">
+                              <h2>تفاصيل الاشتراك: {{ selected_subscriber_row.request_code }}</h2>
+                              <div class="actions">
+                                <span class="pill brand">{{ selected_subscriber_row.provider_name }}</span>
+                                <span class="pill accent">{{ selected_subscriber_row.service_title }}</span>
+                                <span class="pill mint">{{ selected_subscriber_row.subscription_status }}</span>
+                              </div>
+                            </div>
+
+                            <div class="support-meta-grid subs-account-meta-grid extras-subscriber-meta-grid">
+                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_subscriber_row.provider_name }}</strong></div>
+                              <div class="quick-stat"><span>اسم الحساب</span><strong>{{ selected_subscriber_row.requester }}</strong></div>
+                              <div class="quick-stat"><span>رقم الجوال</span><strong>{{ selected_subscriber_row.provider_phone }}</strong></div>
+                              <div class="quick-stat"><span>الخدمة المفعلة</span><strong>{{ selected_subscriber_row.service_title }}</strong></div>
+                              <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_subscriber_row.payment_status }}</strong></div>
+                              <div class="quick-stat"><span>رقم الفاتورة</span><strong>{{ selected_subscriber_row.invoice_code }}</strong></div>
+                              <div class="quick-stat"><span>إجمالي الفاتورة</span><strong>{{ selected_subscriber_row.invoice_total_text }}</strong></div>
+                              <div class="quick-stat"><span>بداية الاشتراك</span><strong>{{ selected_subscriber_row.start_at }}</strong></div>
+                              <div class="quick-stat"><span>نهاية الاشتراك</span><strong>{{ selected_subscriber_row.end_at }}</strong></div>
+                            </div>
+
+                            <div class="subs-payment-note{% if selected_subscriber_row.payment_effective %} is-paid{% endif %}">{{ selected_subscriber_row.payment_message }}</div>
+
+                            <div class="extras-subscriber-detail-layout review-report-shell">
+                              <div class="review-report-main extras-subscriber-detail-main">
+                                <section class="side-card extras-subscriber-detail-card">
+                                  <div class="title-row compact">
+                                    <h2>البنود المفعلة داخل الخدمة</h2>
+                                  </div>
+                                  <div class="extras-subscriber-service-list">
+                                    {% for item in selected_subscriber_row.items %}
+                                      <article class="extras-subscriber-service-card">
+                                        <strong>{{ item.title }}</strong>
+                                        <span>المدة: {{ item.duration }}</span>
+                                      </article>
+                                    {% empty %}
+                                      <div class="empty-note">لا توجد بنود تفصيلية محفوظة لهذه الخدمة داخل آخر طلب مكتمل.</div>
+                                    {% endfor %}
+                                  </div>
+                                </section>
+
+                                {% if selected_subscriber_row.meta_lines %}
+                                  <section class="side-card extras-subscriber-detail-card">
+                                    <div class="title-row compact">
+                                      <h2>بيانات إضافية</h2>
+                                    </div>
+                                    <div class="extras-client-selected-list">
+                                      {% for meta_line in selected_subscriber_row.meta_lines %}
+                                        <div class="quick-stat">
+                                          <span>معلومة إضافية</span>
+                                          <strong>{{ meta_line }}</strong>
+                                        </div>
+                                      {% endfor %}
+                                    </div>
+                                  </section>
+                                {% endif %}
+                              </div>
+
+                              <aside class="review-report-side extras-subscriber-detail-side">
+                                <div class="target-card extras-subscriber-detail-card">
+                                  <h4>ملخص الاشتراك</h4>
+                                  <div class="extras-client-selected-list">
+                                    <div class="quick-stat"><span>آخر طلب معتمد</span><strong>{{ selected_subscriber_row.request_code }}</strong></div>
+                                    <div class="quick-stat"><span>الخطة المفعلة</span><strong>{{ selected_subscriber_row.plan_title }}</strong></div>
+                                    <div class="quick-stat"><span>وصف المدة</span><strong>{{ selected_subscriber_row.duration_label }}</strong></div>
+                                    <div class="quick-stat"><span>عدد البنود</span><strong>{{ selected_subscriber_row.service_count }}</strong></div>
+                                  </div>
+                                </div>
+
+                                {% if selected_subscriber_row.notes %}
+                                  <div class="extras-client-note">
+                                    <strong>ملاحظة النظام</strong>
+                                    <p>{{ selected_subscriber_row.notes }}</p>
+                                  </div>
+                                {% endif %}
+                              </aside>
+                            </div>
+
+                            {% if can_write %}
+                              <div class="subs-account-actions extras-subscriber-actions">
+                                <button type="button" class="subs-account-action-btn" disabled title="{{ selected_subscriber_row.renew_disabled_reason }}" aria-label="تجديد الخدمة">
+                                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 11a8 8 0 0 0-14.9-3H2.5A.5.5 0 0 1 2 7.5v-4A.5.5 0 0 1 2.5 3h4a.5.5 0 0 1 0 1H4.3A9 9 0 0 1 21 11a.5.5 0 0 1-1 0Zm1.5 5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-4a.5.5 0 0 1 0-1h2.2A9 9 0 0 1 3 13a.5.5 0 0 1 1 0 8 8 0 0 0 14.9 3H21.5Z" fill="currentColor"></path></svg>
+                                </button>
+                                <button type="button" class="subs-account-action-btn is-danger" disabled title="{{ selected_subscriber_row.delete_disabled_reason }}" aria-label="حذف الخدمة">
+                                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 3.5A1.5 1.5 0 0 1 10.5 2h3A1.5 1.5 0 0 1 15 3.5V4h4a.5.5 0 0 1 0 1h-1.1l-.8 13.3A2 2 0 0 1 15.1 20H8.9a2 2 0 0 1-2-1.7L6.1 5H5a.5.5 0 0 1 0-1h4v-.5Zm1 0V4h4v-.5a.5.5 0 0 0-.5-.5h-3a.5.5 0 0 0-.5.5ZM8.1 5l.8 13.2a1 1 0 0 0 1 .8h5.2a1 1 0 0 0 1-.8L16.9 5H8.1ZM10.5 8a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Zm3 0a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5Z" fill="currentColor"></path></svg>
+                                </button>
+                                <a class="ghost-btn" href="{{ selected_subscriber_close_url }}#extrasSubscribers">إغلاق</a>
+                              </div>
+
+                              <div class="subtitle extras-subscriber-disabled-note">{{ selected_subscriber_row.renew_disabled_reason }}</div>
+                            {% endif %}
+                          </div>
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% empty %}
+                    <tr><td colspan="8" class="empty-note">لا توجد خدمات إضافية مفعلة مطابقة للفلاتر الحالية.</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        {% else %}
+          <section class="section-panel slide-up extras-subpage-panel">
+            <div class="title-row">
+              <div>
+                <h2>{{ active_section_label }}</h2>
+                <p class="subtitle">تم فصل هذه الصفحة عن الصفحة الرئيسية، وسيتم بناء محتواها التشغيلي المتخصص في خطوة لاحقة.</p>
+              </div>
+            </div>
+
+            <div class="extras-placeholder-card target-card">
+              <h3>{{ active_section_label }}</h3>
+              <p>الهيكل العام لهذه القائمة الفرعية أصبح مستقلًا، لكن الوظائف التفصيلية الخاصة بها لم تُفعّل بعد داخل هذه المرحلة.</p>
+            </div>
+          </section>
+        {% endif %}
+      </section>
+
+      <aside class="panel side-panel">
+        <div class="stack">
+          {% include 'dashboard/_sidebar_main_nav.html' %}
+
+          <div class="side-card">
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              لوحة فريق الخدمات الإضافية
+            </h4>
+            <div class="stack sidebar-menu-stack extras-sidebar-menu-stack">
+              {% for item in nav_items %}
+                <a class="tab-btn extras-sidebar-btn {% if item.active %}active{% endif %}" href="{{ item.url }}"><span class="tab-btn-label">{{ item.label }}</span></a>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              مرجع الأكواد
+            </h4>
+            <div class="stack sidebar-menu-stack">
+              {% for row in request_codes %}
+                <div class="quick-stat"><span>{{ row.label }}</span><strong>{{ row.code }}</strong></div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="side-card">
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              حالات الطلبات
+            </h4>
+            <div class="quick-stat"><span>جديد</span><strong>{{ request_summary.new }}</strong></div>
+            <div class="quick-stat"><span>تحت المعالجة</span><strong>{{ request_summary.in_progress }}</strong></div>
+            <div class="quick-stat"><span>معاد للعميل</span><strong>{{ request_summary.returned }}</strong></div>
+            <div class="quick-stat"><span>مكتمل</span><strong>{{ request_summary.closed }}</strong></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  "use strict";
+
+  var container = document.getElementById("extrasInvoiceLines");
+  var addBtn = document.getElementById("extrasAddInvoiceLine");
+  var subtotalNode = document.getElementById("extrasInvoiceSubtotal");
+  var vatNode = document.getElementById("extrasInvoiceVatAmount");
+  var grandTotalNode = document.getElementById("extrasInvoiceGrandTotal");
+  var issueBtn = document.getElementById("extrasIssueInvoiceBtn");
+  var form = document.getElementById("extrasRequestForm");
+  var actionInput = form ? form.querySelector("input[name='action']") : null;
+  var invoiceBuilder = document.getElementById("extrasInvoiceBuilder");
+  var vatPercent = invoiceBuilder ? parseFloat(invoiceBuilder.getAttribute("data-vat-percent") || "0") : 0;
+
+  if (!container || !addBtn) { return; }
+
+  var lineIndex = 1;
+
+  function recalcSubtotal() {
+    var total = 0;
+    var amounts = container.querySelectorAll("input[name='invoice_line_amount[]']");
+    for (var i = 0; i < amounts.length; i++) {
+      var val = parseFloat(amounts[i].value);
+      if (!isNaN(val) && val > 0) { total += val; }
+    }
+    var vatAmount = total * (isNaN(vatPercent) ? 0 : vatPercent) / 100;
+    var grandTotal = total + vatAmount;
+    if (subtotalNode) {
+      subtotalNode.textContent = total.toFixed(2) + " ر.س";
+    }
+    if (vatNode) {
+      vatNode.textContent = vatAmount.toFixed(2) + " ر.س";
+    }
+    if (grandTotalNode) {
+      grandTotalNode.textContent = grandTotal.toFixed(2) + " ر.س";
+    }
+  }
+
+  function syncRemoveButtons() {
+    var lines = container.querySelectorAll(".extras-invoice-line");
+    for (var i = 0; i < lines.length; i++) {
+      var btn = lines[i].querySelector(".extras-invoice-line__remove");
+      if (btn) { btn.style.display = lines.length > 1 ? "" : "none"; }
+    }
+  }
+
+  function createLine() {
+    var line = document.createElement("div");
+    line.className = "extras-invoice-line";
+    line.dataset.lineIndex = String(lineIndex++);
+    line.innerHTML =
+      '<div class="extras-invoice-line__fields">' +
+        '<div class="field">' +
+          '<label>عنوان البند</label>' +
+          '<input type="text" name="invoice_line_title[]" class="input-control" maxlength="160" placeholder="وصف الخدمة أو البند">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label>المبلغ (ر.س)</label>' +
+          '<input type="number" name="invoice_line_amount[]" class="input-control" min="0.01" step="0.01" placeholder="0.00">' +
+        '</div>' +
+      '</div>' +
+      '<button type="button" class="extras-invoice-line__remove ghost-btn" title="حذف البند">✕</button>';
+    return line;
+  }
+
+  addBtn.addEventListener("click", function () {
+    container.appendChild(createLine());
+    syncRemoveButtons();
+    var lastTitle = container.querySelector(".extras-invoice-line:last-child input[name='invoice_line_title[]']");
+    if (lastTitle) { lastTitle.focus(); }
+  });
+
+  container.addEventListener("click", function (e) {
+    if (!e.target.classList.contains("extras-invoice-line__remove")) { return; }
+    var line = e.target.closest(".extras-invoice-line");
+    if (line && container.querySelectorAll(".extras-invoice-line").length > 1) {
+      line.remove();
+      syncRemoveButtons();
+      recalcSubtotal();
+    }
+  });
+
+  container.addEventListener("input", function (e) {
+    if (e.target.name === "invoice_line_amount[]") { recalcSubtotal(); }
+  });
+
+  if (issueBtn && form && actionInput) {
+    issueBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      var actionLabel = issueBtn.getAttribute("data-action-label") || "إصدار الفاتورة";
+
+      var titles = container.querySelectorAll("input[name='invoice_line_title[]']");
+      var amounts = container.querySelectorAll("input[name='invoice_line_amount[]']");
+      var hasValidLine = false;
+      for (var i = 0; i < titles.length; i++) {
+        var t = (titles[i].value || "").trim();
+        var a = parseFloat((amounts[i] && amounts[i].value) || "0");
+        if (t && a > 0) { hasValidLine = true; break; }
+      }
+
+      if (!hasValidLine) {
+        window.alert("أدخل بندًا سعريًا واحدًا على الأقل بعنوان واضح ومبلغ أكبر من صفر قبل متابعة " + actionLabel + ".");
+        return;
+      }
+
+      if (!window.confirm("سيتم حفظ المعالجة ثم " + actionLabel + " يدويًا بالبنود المحددة وإرسال رابط الدفع للعميل. هل تريد المتابعة؟")) {
+        return;
+      }
+
+      actionInput.value = "issue_extras_invoice";
+      form.submit();
+    });
+  }
+
+  syncRemoveButtons();
+  recalcSubtotal();
+})();
+</script>
+{% endblock %}

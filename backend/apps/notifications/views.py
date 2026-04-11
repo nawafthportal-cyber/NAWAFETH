@@ -1,8 +1,9 @@
 from datetime import timedelta
+from urllib.parse import parse_qs, urlparse
 
 from django.conf import settings
 from django.db import DatabaseError, OperationalError
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, IntegerField, Q, Value, When
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.views import APIView
@@ -223,6 +224,150 @@ class NotificationPreferencesView(APIView):
                 "ok": True,
                 "changed": changed,
                 "results": _serialize_preferences_for_response(user=request.user, prefs=refreshed, mode=mode),
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+def _promo_item_id_from_notification_url(raw_url: str) -> int:
+    value = str(raw_url or "").strip()
+    if not value:
+        return 0
+    try:
+        candidate = value if "://" in value else f"https://local.invalid{value if value.startswith('/') else '/' + value}"
+        parsed = urlparse(candidate)
+        query = parse_qs(parsed.query or "")
+        item_raw = str((query.get("promo_item_id") or [""])[0]).strip()
+        item_id = int(item_raw)
+        return item_id if item_id > 0 else 0
+    except Exception:
+        return 0
+
+
+def _resolve_promo_item_for_notification(*, notif: Notification, user):
+    try:
+        from apps.promo.models import PromoRequestItem, PromoServiceType
+        from apps.promo.services import _promo_message_recipient_users
+    except Exception:
+        return None
+
+    item_id = _promo_item_id_from_notification_url(getattr(notif, "url", ""))
+    base_qs = PromoRequestItem.objects.select_related(
+        "request",
+        "request__requester",
+        "request__requester__provider_profile",
+    ).filter(service_type=PromoServiceType.PROMO_MESSAGES)
+
+    if item_id:
+        item = base_qs.filter(pk=item_id).first()
+        if item is not None:
+            return item
+
+    notif_created_at = getattr(notif, "created_at", None) or timezone.now()
+    notif_body = str(getattr(notif, "body", "") or "").strip()
+    notif_title = str(getattr(notif, "title", "") or "").strip()
+
+    candidates_qs = base_qs.filter(
+        message_sent_at__isnull=False,
+        message_sent_at__gte=notif_created_at - timedelta(days=14),
+        message_sent_at__lte=notif_created_at + timedelta(minutes=10),
+    )
+
+    if notif_body:
+        candidates_qs = candidates_qs.filter(
+            Q(message_body=notif_body) | Q(request__message_body=notif_body)
+        )
+    elif notif_title:
+        candidates_qs = candidates_qs.filter(
+            Q(message_title=notif_title) | Q(request__message_title=notif_title)
+        )
+
+    candidates = list(candidates_qs.order_by("-message_sent_at", "-id")[:80])
+    if not candidates:
+        candidates = list(
+            base_qs.filter(message_sent_at__isnull=False).order_by("-message_sent_at", "-id")[:80]
+        )
+
+    for candidate in candidates:
+        try:
+            if _promo_message_recipient_users(item=candidate).filter(id=user.id).exists():
+                return candidate
+        except Exception:
+            continue
+    return None
+
+
+class PromoNotificationPreviewView(APIView):
+    permission_classes = [IsAtLeastPhoneOnly]
+
+    def get(self, request, notif_id: int):
+        notif = Notification.objects.filter(
+            id=notif_id,
+            user=request.user,
+            kind="promo_offer",
+        ).first()
+        if not notif:
+            return Response({"detail": "غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+
+        item = _resolve_promo_item_for_notification(notif=notif, user=request.user)
+        attachments = []
+        if item is not None:
+            try:
+                from apps.promo.models import PromoAsset
+
+                sender_name = ""
+                try:
+                    provider = getattr(item.request.requester, "provider_profile", None)
+                    sender_name = str(getattr(provider, "display_name", "") or getattr(item.request.requester, "username", "") or "").strip()
+                except Exception:
+                    sender_name = ""
+
+                if sender_name and "دعائية" in str(notif.title or "") and "من " not in str(notif.title or ""):
+                    notif.title = f"رسالة دعائية من {sender_name}"
+
+                item_assets = list(
+                    PromoAsset.objects.filter(item_id=item.id).order_by("id")
+                )
+                if not item_assets:
+                    item_assets = list(
+                        PromoAsset.objects.filter(request_id=item.request_id, item__isnull=True).order_by("id")
+                    )
+                if not item_assets:
+                    item_assets = list(
+                        PromoAsset.objects.filter(request_id=item.request_id).order_by("id")
+                    )
+
+                seen_asset_ids = set()
+                for asset in item_assets:
+                    if asset.id in seen_asset_ids:
+                        continue
+                    seen_asset_ids.add(asset.id)
+                    file_url = ""
+                    try:
+                        file_path = str(asset.file.url or "").strip()
+                        if file_path:
+                            file_url = request.build_absolute_uri(file_path)
+                    except Exception:
+                        file_url = ""
+                    attachments.append(
+                        {
+                            "id": asset.id,
+                            "asset_type": str(asset.asset_type or "").strip().lower(),
+                            "title": str(asset.title or "").strip(),
+                            "file_url": file_url,
+                            "file_name": str(getattr(asset.file, "name", "") or "").split("/")[-1],
+                        }
+                    )
+            except Exception:
+                attachments = []
+
+        return Response(
+            {
+                "id": notif.id,
+                "title": str(notif.title or "").strip() or "رسالة دعائية",
+                "body": str(notif.body or "").strip(),
+                "created_at": notif.created_at,
+                "attachments": attachments,
             },
             status=status.HTTP_200_OK,
         )

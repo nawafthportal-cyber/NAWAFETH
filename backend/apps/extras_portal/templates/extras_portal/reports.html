@@ -1,51 +1,233 @@
 {% extends 'extras_portal/base_portal.html' %}
 
 {% block title %}التقارير{% endblock %}
-{% block header %}التقارير{% endblock %}
+{% block header %}لوحة التقارير{% endblock %}
+{% block header_subtitle %}تعرض هذه الصفحة بنود التقارير المشتركة في آخر طلب مكتمل، مع نفس الفترة الزمنية المعتمدة داخل الطلب وسهولة التصدير المباشر.{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .report-surface {
+      background:
+        radial-gradient(circle at top right, rgba(15, 90, 215, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(10, 141, 164, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96));
+    }
+    .option-card {
+      transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    }
+    .option-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
+      border-color: rgba(167, 139, 250, 0.35);
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">إجمالي الطلبات</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ totals.total_requests }}</div>
-    </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">طلبات مكتملة</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ totals.completed_requests }}</div>
-    </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">تحت التنفيذ</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ totals.in_progress_requests }}</div>
-    </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">مبالغ مستلمة (تقريبي)</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ totals.received_amount }}</div>
-    </div>
-  </div>
+  {% if bundle_context.request_obj %}
+    <section class="report-surface overflow-hidden rounded-[32px] border border-white/80 shadow-[0_30px_90px_rgba(15,23,42,0.08)]">
+      <div class="grid gap-6 p-5 sm:p-7 xl:grid-cols-[1.5fr,0.9fr]">
+        <div class="space-y-5">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">التقارير المفعلة</span>
+            <span class="inline-flex rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white">الطلب {{ request_code }}</span>
+          </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">متابعون</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ followers_count }}</div>
-    </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">إعجابات (بورتفوليو)</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ likes_count }}</div>
-    </div>
-    <div class="bg-white rounded-2xl border border-gray-100 shadow p-5">
-      <div class="text-sm text-gray-500 font-semibold">رسائل</div>
-      <div class="text-3xl font-extrabold text-gray-900 mt-2">{{ messages_count }}</div>
-    </div>
-  </div>
+          <div>
+            <h2 class="text-2xl font-extrabold text-slate-900 sm:text-3xl">لوحة التقارير المرتبطة بطلب الخدمات الإضافية</h2>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+              تظهر هنا البنود المشتركة فقط كما تم اعتمادها في الطلب المكتمل، مع نفس الفترة التشغيلية وسهولة التصدير بصيغة PDF أو Excel.
+            </p>
+          </div>
 
-  <div class="mt-6 bg-white rounded-2xl border border-gray-100 shadow p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <div class="text-lg font-bold text-gray-900">تصدير</div>
-      <div class="text-sm text-gray-500">تصدير آخر البيانات المتاحة (طلبات مزود الخدمة).</div>
-    </div>
-    <div class="flex gap-2">
-      <a href="{% url 'extras_portal:reports_export_pdf' %}" class="px-4 py-2 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800">PDF</a>
-      <a href="{% url 'extras_portal:reports_export_xlsx' %}" class="px-4 py-2 rounded-xl bg-white border border-gray-200 text-gray-900 font-semibold hover:bg-gray-50">Excel</a>
-    </div>
-  </div>
+          <div class="rounded-[26px] border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 p-5">
+            <div class="text-sm font-bold text-emerald-700">إشعار نجاح التفعيل</div>
+            <div class="mt-2 text-lg font-extrabold text-slate-900">
+              {% if bundle_context.invoice %}
+                تمت عملية سداد الرسوم بنجاح بتاريخ {{ payment_confirmed_label }}
+              {% else %}
+                تم ربط لوحة التقارير بآخر طلب مكتمل داخل الخدمات الإضافية.
+              {% endif %}
+            </div>
+            <div class="mt-2 text-sm leading-7 text-slate-600">{{ payment_note }}</div>
+            {% if bundle_context.invoice %}
+              <div class="mt-3 text-sm font-bold text-slate-700">رقم الفاتورة {{ bundle_context.invoice.code }} • القيمة {{ bundle_context.invoice.total|floatformat:2 }} {{ bundle_context.invoice.currency }}</div>
+            {% endif %}
+          </div>
+
+          <div class="rounded-[24px] border border-amber-100 bg-amber-50/90 p-4 text-sm leading-7 text-slate-700">
+            <div class="font-bold text-amber-700">ملاحظة النظام</div>
+            <div class="mt-2">{{ system_note }}</div>
+          </div>
+        </div>
+
+        <aside class="space-y-4">
+          <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
+            <div class="text-sm font-bold text-slate-500">بطاقة التقرير</div>
+            <div class="mt-4 grid gap-3">
+              <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">اسم المختص</div>
+                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ provider_identifier }}</div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                  <div class="text-xs font-bold text-slate-500">بداية التقرير</div>
+                  <div class="mt-2 text-sm font-extrabold text-slate-900">{{ bundle_context.start_label }}</div>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                  <div class="text-xs font-bold text-slate-500">نهاية التقرير</div>
+                  <div class="mt-2 text-sm font-extrabold text-slate-900">{{ bundle_context.end_label }}</div>
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                  <div class="text-xs font-bold text-slate-500">البنود المفعلة</div>
+                  <div class="mt-2 text-sm font-extrabold text-slate-900">{{ selected_option_count }} بند</div>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                  <div class="text-xs font-bold text-slate-500">حالة الوصول</div>
+                  <div class="mt-2 text-sm font-extrabold {% if portal_subscription_active %}text-emerald-700{% else %}text-amber-700{% endif %}">{% if portal_subscription_active %}نشط ومتاح{% else %}مفعل داخل الطلب{% endif %}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
+            <div class="text-sm font-bold text-slate-500">تصدير الفترة الحالية</div>
+            <div class="mt-1 text-base font-extrabold text-slate-900">ملفات التقرير ضمن نفس نطاق الطلب</div>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <a href="{% url 'extras_portal:reports_export_pdf' %}" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">PDF</a>
+              <a href="{% url 'extras_portal:reports_export_xlsx' %}" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50">Excel</a>
+            </div>
+            {% if subscription_end_label != "-" %}
+              <div class="mt-4 rounded-2xl bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">صلاحية البوابة حتى {{ subscription_end_label }}</div>
+            {% endif %}
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {% for card in overview_cards %}
+        <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+          <div class="h-1.5 bg-gradient-to-r {{ card.tone }}"></div>
+          <div class="p-5">
+            <div class="text-sm font-bold text-slate-500">{{ card.title }}</div>
+            <div class="mt-3 text-3xl font-extrabold text-slate-900">{{ card.value }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </section>
+
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">البنود المشتركة في التقرير</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">هذه القائمة تمثل البنود المعتمدة داخل اشتراك التقارير الحالي، ولا تظهر أي بنود أخرى خارج الطلب.</p>
+        </div>
+      </div>
+      <div class="mt-5 overflow-x-auto">
+        <table class="min-w-full overflow-hidden rounded-[24px] border border-slate-200 text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-4 py-4 text-right font-bold">البند</th>
+              <th class="px-4 py-4 text-right font-bold">الحالة</th>
+              <th class="px-4 py-4 text-right font-bold">الوصف</th>
+              <th class="px-4 py-4 text-right font-bold">التصدير</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in selected_option_rows %}
+              <tr class="border-t border-slate-200 align-top">
+                <td class="px-4 py-4 font-extrabold text-slate-900">{{ row.label }}</td>
+                <td class="px-4 py-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ row.status_class }}">{{ row.status }}</span></td>
+                <td class="px-4 py-4 leading-7 text-slate-600">{{ row.summary }}</td>
+                <td class="px-4 py-4">
+                  <div class="flex flex-wrap gap-2">
+                    <a href="{% url 'extras_portal:reports_export_pdf' %}" class="inline-flex rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">PDF</a>
+                    <a href="{% url 'extras_portal:reports_export_xlsx' %}" class="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900">Excel</a>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    {% for group in report_option_groups %}
+      <section class="mt-8">
+        <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h3 class="text-2xl font-extrabold text-slate-900">{{ group.title }}</h3>
+            <p class="mt-2 text-sm leading-7 text-slate-600">{{ group.description }}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          {% for card in group.cards %}
+            <article class="option-card rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)] {% if card.wide %}xl:col-span-2{% endif %}">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="flex items-start gap-3">
+                  <div class="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl {{ card.accent_class }}">
+                    <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
+                      <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm4.39 8.53-4.77 4.77a1 1 0 0 1-1.41 0L7.61 12.7a1 1 0 1 1 1.41-1.41l1.9 1.89 4.06-4.06a1 1 0 0 1 1.41 1.41Z"></path>
+                    </svg>
+                  </div>
+                  <div>
+                    <h4 class="text-lg font-extrabold text-slate-900">{{ card.title }}</h4>
+                    <p class="mt-2 text-sm leading-7 text-slate-600">{{ card.helper_text }}</p>
+                  </div>
+                </div>
+                <span class="inline-flex items-center rounded-full px-3 py-2 text-sm font-bold {{ card.badge_class }}">{{ card.badge }}</span>
+              </div>
+
+              {% if card.kind == 'stats' %}
+                <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  {% for stat in card.stats %}
+                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <div class="text-xs font-bold text-slate-500">{{ stat.label }}</div>
+                      <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ stat.value }}</div>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% elif card.kind == 'list' %}
+                <div class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+                  {% if card.entries %}
+                    <div class="grid gap-3 sm:grid-cols-2">
+                      {% for entry in card.entries %}
+                        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                          <div class="text-base font-extrabold text-slate-900">{{ entry.primary }}</div>
+                          <div class="mt-1 text-sm text-slate-500">{{ entry.secondary }}</div>
+                        </div>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm font-bold text-slate-500">{{ card.empty_message }}</div>
+                  {% endif %}
+                </div>
+              {% else %}
+                <div class="mt-5 rounded-[24px] border border-amber-100 bg-amber-50 px-4 py-5 text-sm leading-7 text-slate-700">
+                  {{ card.placeholder_text }}
+                </div>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+    {% endfor %}
+  {% else %}
+    <section class="report-surface overflow-hidden rounded-[32px] border border-white/80 p-8 shadow-[0_30px_90px_rgba(15,23,42,0.08)]">
+      <div class="mx-auto max-w-3xl text-center">
+        <span class="inline-flex items-center rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-700">لا توجد تقارير مفعّلة حاليًا</span>
+        <h2 class="mt-5 text-3xl font-extrabold text-slate-900">ستظهر هذه الصفحة تلقائيًا بعد اعتماد طلب التقارير</h2>
+        <p class="mt-4 text-base leading-8 text-slate-600">
+          بعد اكتمال طلب التقارير من لوحة الخدمات الإضافية وربطه بالدفع، سنعرض هنا الفترة الزمنية، حالة التفعيل، والخيارات المعتمدة مع بياناتها المرتبطة.
+        </p>
+        <div class="mt-8">
+          <a href="/additional-services/" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold text-white transition hover:bg-slate-800">الانتقال إلى الخدمات الإضافية</a>
+        </div>
+      </div>
+    </section>
+  {% endif %}
 {% endblock %}

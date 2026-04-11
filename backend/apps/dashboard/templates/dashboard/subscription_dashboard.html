@@ -48,7 +48,10 @@
             <input type="hidden" name="request_status" value="{{ filters.request_status }}">
             <input type="hidden" name="account_status" value="{{ filters.account_status }}">
             <div class="actions">
-              <button class="primary-btn light" type="submit">تحديث</button>
+              <button class="primary-btn light" type="submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                تحديث
+              </button>
               <a class="ghost-btn" href="{% url 'dashboard:subscription_dashboard' %}?tab=operations">مسح</a>
             </div>
           </form>
@@ -58,14 +61,14 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>اسم العميل</th>
+                  <th>العميل</th>
                   <th>الأولوية</th>
-                  <th>نوع الطلب</th>
-                  <th>تاريخ ووقت استلام الطلب</th>
-                  <th>حالة الطلب</th>
-                  <th>فريق الدعم</th>
-                  <th>المكلف بالطلب</th>
-                  <th>تاريخ ووقت التكليف</th>
+                  <th>النوع</th>
+                  <th>تاريخ الاستلام</th>
+                  <th>الحالة</th>
+                  <th>الفريق</th>
+                  <th>المكلف</th>
+                  <th>تاريخ التكليف</th>
                 </tr>
               </thead>
               <tbody>
@@ -141,7 +144,7 @@
                     </tr>
                   {% endif %}
                 {% empty %}
-                  <tr><td colspan="9">لا توجد استفسارات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
+                  <tr><td colspan="9" class="empty-note">لا توجد استفسارات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -171,7 +174,10 @@
               {% endfor %}
             </select>
             <div class="actions">
-              <button class="primary-btn light" type="submit">تحديث</button>
+              <button class="primary-btn light" type="submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                تحديث
+              </button>
               <a class="ghost-btn" href="{% url 'dashboard:subscription_dashboard' %}?tab=operations#subscriptionRequests">مسح الفلاتر</a>
             </div>
           </form>
@@ -181,12 +187,12 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>اسم العميل</th>
+                  <th>العميل</th>
                   <th>الأولوية</th>
-                  <th>تاريخ ووقت اعتماد الطلب</th>
-                  <th>حالة الطلب</th>
-                  <th>المكلف بالطلب</th>
-                  <th>تاريخ ووقت التكليف</th>
+                  <th>تاريخ الاعتماد</th>
+                  <th>الحالة</th>
+                  <th>المكلف</th>
+                  <th>تاريخ التكليف</th>
                 </tr>
               </thead>
               <tbody>
@@ -276,7 +282,7 @@
                     </tr>
                   {% endif %}
                 {% empty %}
-                  <tr><td colspan="7">لا توجد طلبات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
+                  <tr><td colspan="7" class="empty-note">لا توجد طلبات اشتراكات مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -308,7 +314,10 @@
               {% endfor %}
             </select>
             <div class="actions">
-              <button class="primary-btn light" type="submit">تحديث</button>
+              <button class="primary-btn light" type="submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                تحديث
+              </button>
               <a class="ghost-btn" href="{% url 'dashboard:subscription_dashboard' %}?tab=subscriber_accounts#subscriberAccounts">مسح الفلاتر</a>
             </div>
           </form>
@@ -421,7 +430,7 @@
                     </tr>
                   {% endif %}
                 {% empty %}
-                  <tr><td colspan="9">لا توجد حسابات اشتراك مطابقة للفلاتر الحالية.</td></tr>
+                  <tr><td colspan="9" class="empty-note">لا توجد حسابات اشتراك مطابقة للفلاتر الحالية.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -435,16 +444,22 @@
           {% include 'dashboard/_sidebar_main_nav.html' %}
 
           <div class="side-card">
-            <h4>لوحة فريق إدارة الاشتراكات</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              لوحة فريق الاشتراكات
+            </h4>
             <div class="stack sidebar-menu-stack">
               {% for item in nav_items %}
-                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}"><span class="tab-btn-label">{{ item.label }}</span></a>
               {% endfor %}
             </div>
           </div>
 
           <div class="side-card">
-            <h4>مرجع الأكواد</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              مرجع الأكواد
+            </h4>
             <div class="stack sidebar-menu-stack">
               {% for row in request_codes %}
                 <div class="quick-stat"><span>{{ row.label }}</span><strong>{{ row.code }}</strong></div>
@@ -453,14 +468,20 @@
           </div>
 
           <div class="side-card">
-            <h4>حالات طلبات الاشتراك</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              حالات الطلبات
+            </h4>
             <div class="quick-stat"><span>جديد</span><strong>{{ request_summary.new }}</strong></div>
             <div class="quick-stat"><span>تحت المعالجة</span><strong>{{ request_summary.in_progress }}</strong></div>
             <div class="quick-stat"><span>مكتمل</span><strong>{{ request_summary.completed }}</strong></div>
           </div>
 
           <div class="side-card">
-            <h4>حالات حسابات المشتركين</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              حسابات المشتركين
+            </h4>
             <div class="quick-stat"><span>نشط</span><strong>{{ account_summary.active }}</strong></div>
             <div class="quick-stat"><span>فترة سماح</span><strong>{{ account_summary.grace }}</strong></div>
             <div class="quick-stat"><span>بانتظار المراجعة</span><strong>{{ account_summary.awaiting_review }}</strong></div>

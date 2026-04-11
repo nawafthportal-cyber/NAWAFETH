@@ -1,9 +1,15 @@
 {% if dashboard_main_nav_items %}
   <div class="side-card sidebar-menu-card">
-    <h4>القائمة الرئيسية</h4>
+    <h4>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      القائمة الرئيسية
+    </h4>
     <div class="stack sidebar-menu-stack">
       {% for item in dashboard_main_nav_items %}
-        <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+        <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">
+          <span class="tab-btn-label">{{ item.label }}</span>
+          {% if item.active %}<span class="tab-btn-indicator"></span>{% endif %}
+        </a>
       {% endfor %}
     </div>
   </div>

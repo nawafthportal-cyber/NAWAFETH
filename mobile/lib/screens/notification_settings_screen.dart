@@ -1,11 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
+import '../services/api_client.dart';
 import '../services/unread_badge_service.dart';
 import '../widgets/platform_top_bar.dart';
-import 'additional_services_screen.dart';
 import 'my_chats_screen.dart';
 import 'plans_screen.dart';
 
@@ -287,22 +288,33 @@ class _NotificationSettingsScreenState
     return null;
   }
 
-  Widget _lockedDestination({String? tier, String? message}) {
+  bool _isExtrasLockedDestination({String? tier, String? message}) {
     final normalizedTier = (tier ?? '').trim().toLowerCase();
     final normalizedMessage = (message ?? '').trim();
-    final isExtras = normalizedTier == 'extra' ||
+    return normalizedTier == 'extra' ||
         normalizedMessage.contains('الخدمات الإضافية') ||
         normalizedMessage.contains('بوابة الخدمات الإضافية');
-    return isExtras ? const AdditionalServicesScreen() : const PlansScreen();
   }
 
   String _lockedActionLabel({String? tier, String? message}) {
-    final normalizedTier = (tier ?? '').trim().toLowerCase();
-    final normalizedMessage = (message ?? '').trim();
-    final isExtras = normalizedTier == 'extra' ||
-        normalizedMessage.contains('الخدمات الإضافية') ||
-        normalizedMessage.contains('بوابة الخدمات الإضافية');
+    final isExtras = _isExtrasLockedDestination(tier: tier, message: message);
     return isExtras ? 'عرض الخدمات الإضافية' : 'عرض الباقات';
+  }
+
+  Future<void> _openNewAdditionalServicesPage(BuildContext rootContext) async {
+    final uri = Uri.parse(ApiClient.baseUrl).resolve('/additional-services/');
+    final launched = await launchUrl(uri, mode: LaunchMode.platformDefault);
+    if (!launched && rootContext.mounted) {
+      ScaffoldMessenger.of(rootContext).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'تعذر فتح صفحة الخدمات الإضافية الجديدة',
+            style: TextStyle(fontFamily: 'Cairo'),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // ─── Dialog ترقية ───
@@ -311,7 +323,7 @@ class _NotificationSettingsScreenState
         ? reason
         : "هذه الإشعارات غير متاحة في اشتراكك الحالي.";
     final rootContext = context;
-    final destination = _lockedDestination(tier: tier, message: message);
+    final isExtrasDestination = _isExtrasLockedDestination(tier: tier, message: message);
     final actionLabel = _lockedActionLabel(tier: tier, message: message);
     showDialog(
       context: context,
@@ -356,12 +368,16 @@ class _NotificationSettingsScreenState
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.pop(context);
                         if (!rootContext.mounted) return;
+                        if (isExtrasDestination) {
+                          await _openNewAdditionalServicesPage(rootContext);
+                          return;
+                        }
                         Navigator.push(
                           rootContext,
-                          MaterialPageRoute(builder: (_) => destination),
+                          MaterialPageRoute(builder: (_) => const PlansScreen()),
                         );
                       },
                       child: Text(

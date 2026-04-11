@@ -235,15 +235,21 @@
         <div class="stack">
           {% include 'dashboard/_sidebar_main_nav.html' %}
           <div class="side-card">
-            <h4>القائمة الفرعية</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              القائمة الفرعية
+            </h4>
             <div class="stack sidebar-menu-stack">
               {% for item in content_modules %}
-                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}"><span class="tab-btn-label">{{ item.label }}</span></a>
               {% endfor %}
             </div>
           </div>
           <div class="side-card">
-            <h4>آخر مستندات فعّالة</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              آخر مستندات فعّالة
+            </h4>
             {% for code,doc in legal_docs_index.items %}
               <div class="quick-stat">
                 <span>{{ code }}</span>
@@ -252,7 +258,10 @@
             {% endfor %}
           </div>
           <div class="side-card">
-            <h4>ربط الويب والجوال</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              ربط الويب والجوال
+            </h4>
             <p class="subtitle">يتم نشر هذه البيانات عبر API: <strong>/api/content/public/</strong></p>
             <div class="quick-stat"><span>المستندات</span><strong>documents</strong></div>
             <div class="quick-stat"><span>روابط المنصة</span><strong>links</strong></div>

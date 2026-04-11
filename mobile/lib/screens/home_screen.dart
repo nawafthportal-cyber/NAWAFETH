@@ -754,7 +754,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor:
-          isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+          isDark ? const Color(0xFF120F18) : const Color(0xFFF7F4FB),
       drawer: const CustomDrawer(),
       bottomNavigationBar: const CustomBottomNav(currentIndex: 0),
       body: RefreshIndicator(
@@ -766,31 +766,21 @@ class _HomeScreenState extends State<HomeScreen> {
         },
         color: purple,
         child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
-            // -- Hero header with banner + search --
             SliverToBoxAdapter(child: _buildHero()),
-
-            // -- Reels carousel --
             SliverToBoxAdapter(child: _buildReels(isDark)),
-
-            // -- Promo messages callout --
             if (_promoMessagePlacement != null && !_promoMessageDismissed)
               SliverToBoxAdapter(child: _buildPromoMessageCard(isDark, purple)),
-
-            // -- Categories --
             SliverToBoxAdapter(child: _buildCategories(isDark, purple)),
-
-            // -- Featured providers --
             SliverToBoxAdapter(child: _buildProviders(isDark, purple)),
-
-            // -- Sponsored portfolio showcase --
             if (_portfolioShowcase.isNotEmpty)
               SliverToBoxAdapter(
-                  child: _buildPortfolioShowcase(isDark, purple)),
-
-            // -- Bottom safe area --
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+                child: _buildPortfolioShowcase(isDark, purple),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 30)),
           ],
         ),
       ),
@@ -802,46 +792,94 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _buildHero() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SafeArea(
-          bottom: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: PlatformTopBar(
-              overlay: false,
-              height: 64,
-              showMenuButton: true,
-              onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
-              notificationCount: _notificationUnread,
-              chatCount: _chatUnread,
-              onNotificationsTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotificationsScreen(),
-                  ),
-                );
-                _loadUnreadBadges();
-              },
-              onChatsTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MyChatsScreen(),
-                  ),
-                );
-                _loadUnreadBadges();
-              },
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF8F3FD), Color(0xFFF1ECFA)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+              child: PlatformTopBar(
+                overlay: false,
+                height: 62,
+                showMenuButton: true,
+                onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+                notificationCount: _notificationUnread,
+                chatCount: _chatUnread,
+                onNotificationsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
+                  );
+                  _loadUnreadBadges();
+                },
+                onChatsTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MyChatsScreen(),
+                    ),
+                  );
+                  _loadUnreadBadges();
+                },
+              ),
             ),
           ),
-        ),
-        AspectRatio(
-          aspectRatio: 16 / 7,
-          child: _buildHeroBannerBackground(),
-        ),
-      ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+            child: AspectRatio(
+              aspectRatio: 16 / 10.8,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF60269E).withValues(alpha: 0.14),
+                      blurRadius: 34,
+                      offset: const Offset(0, 18),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(30),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _buildHeroBannerBackground(),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF160F1F).withValues(alpha: 0.18),
+                              const Color(0xFF160F1F).withValues(alpha: 0.04),
+                              const Color(0xFF160F1F).withValues(alpha: 0.72),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.0, 0.4, 1.0],
+                          ),
+                        ),
+                      ),
+                      _buildHeroContentOverlay(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
+      ),
     );
   }
 
@@ -903,11 +941,215 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildHeroContentOverlay() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.18),
+                ),
+              ),
+              child: const Text(
+                'نوافذ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const Spacer(),
+          const Text(
+            'اكتشف المختص المناسب\nبواجهة أسرع للجوال',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              height: 1.35,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'تصميم أخف، معلومات أوضح، وتنقل سريع بين اللمحات والتصنيفات وأبرز المختصين.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.88),
+              fontSize: 10.5,
+              height: 1.7,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildHeroPrimaryAction(
+                  label: 'ابدأ البحث',
+                  icon: Icons.search_rounded,
+                  onTap: _openSearchHome,
+                  filled: true,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildHeroPrimaryAction(
+                  label: 'التصنيفات',
+                  icon: Icons.widgets_rounded,
+                  onTap: _openSearchHome,
+                  filled: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildHeroInfoPill(
+                icon: Icons.auto_awesome_rounded,
+                label: 'واجهة مناسبة لكل الجوالات',
+              ),
+              _buildHeroInfoPill(
+                icon: Icons.flash_on_rounded,
+                label: 'بحث سريع',
+              ),
+              _buildHeroInfoPill(
+                icon: Icons.verified_rounded,
+                label: 'مختصون موثقون',
+              ),
+            ],
+          ),
+          if (_heroBanners.length > 1) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: List.generate(_heroBanners.length, (index) {
+                final isActive = index == _bannerCurrentPage;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 220),
+                  margin: const EdgeInsetsDirectional.only(end: 6),
+                  width: isActive ? 22 : 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.38),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                );
+              }),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroPrimaryAction({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool filled,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: filled
+                ? const Color(0xFFF07B32)
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: filled
+                  ? Colors.transparent
+                  : Colors.white.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15, color: Colors.white),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeroInfoPill({
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: Colors.white),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 9.5,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openSearchHome() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const SearchProviderScreen(
+          showDrawer: false,
+          showBottomNavigation: true,
+        ),
+      ),
+    );
+  }
+
   Widget _buildAdaptiveHeroBanner({
     required BannerModel banner,
     required String? mediaUrl,
     required bool isActive,
   }) {
+    final shouldLoopSingleVideo = banner.isVideo && _heroBanners.length <= 1;
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -918,8 +1160,8 @@ class _HomeScreenState extends State<HomeScreen> {
             isVideo: banner.isVideo,
             isActive: isActive,
             autoplay: true,
-            loopVideo: false,
-            onVideoEnded: banner.isVideo && isActive
+            loopVideo: shouldLoopSingleVideo,
+            onVideoEnded: banner.isVideo && isActive && !shouldLoopSingleVideo
                 ? () => _handleHeroBannerVideoEnded(banner.id)
                 : null,
             borderRadius: 0,
@@ -958,69 +1200,218 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildReels(bool isDark) {
     final hasData = _spotlights.isNotEmpty;
 
-    if (!hasData) {
-      return Container(
-        height: 96,
-        margin: const EdgeInsets.only(top: 12),
-        alignment: Alignment.center,
-        child: Text(
-          'لا توجد لمحات حالياً',
-          style: TextStyle(
-            fontSize: 11,
-            fontFamily: 'Cairo',
-            fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white70 : Colors.black54,
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      height: 108,
-      margin: const EdgeInsets.only(top: 12),
-      child: Listener(
-        onPointerDown: (_) => _pauseReelsAutoScroll(),
-        onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
-        onPointerCancel: (_) => _pauseReelsAutoScroll(resumeLater: true),
-        child: ListView.builder(
-          controller: _reelsScroll,
-          scrollDirection: Axis.horizontal,
-          physics: const ClampingScrollPhysics(),
-          itemCount: _spotlights.length,
-          itemBuilder: (context, index) {
-            final item = _spotlights[index];
-            final thumb = _spotlightThumbUrl(item);
-            final caption = (item.caption ?? '').trim();
-
-            return GestureDetector(
-              onTap: () => _openSpotlightViewer(index),
-              child: SizedBox(
-                width: 78,
-                child: Column(
-                  children: [
-                    _reelMediaRing(
-                      imageUrl: thumb,
-                      isDark: isDark,
-                      fallbackIcon: item.isVideo
-                          ? Icons.play_arrow_rounded
-                          : Icons.image_rounded,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      caption.isNotEmpty ? caption : 'لمحة',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontFamily: 'Cairo',
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
-                    ),
-                  ],
+    return _buildSectionShell(
+      kicker: 'لمحات حية',
+      title: 'أحدث اللمحات',
+      note: 'محتوى قصير وسريع الاستكشاف مناسب للجوال.',
+      isDark: isDark,
+      margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
+      child: !hasData
+          ? SizedBox(
+              height: 84,
+              child: Center(
+                child: Text(
+                  'لا توجد لمحات حالياً',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white70 : Colors.black54,
+                  ),
                 ),
               ),
-            );
-          },
+            )
+          : SizedBox(
+              height: 102,
+              child: Listener(
+                onPointerDown: (_) => _pauseReelsAutoScroll(),
+                onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
+                onPointerCancel: (_) => _pauseReelsAutoScroll(resumeLater: true),
+                child: ListView.builder(
+                  controller: _reelsScroll,
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _spotlights.length,
+                  itemBuilder: (context, index) {
+                    final item = _spotlights[index];
+                    final thumb = _spotlightThumbUrl(item);
+                    final caption = (item.caption ?? '').trim();
+
+                    return GestureDetector(
+                      onTap: () => _openSpotlightViewer(index),
+                      child: SizedBox(
+                        width: 76,
+                        child: Column(
+                          children: [
+                            _reelMediaRing(
+                              imageUrl: thumb,
+                              isDark: isDark,
+                              fallbackIcon: item.isVideo
+                                  ? Icons.play_arrow_rounded
+                                  : Icons.image_rounded,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              caption.isNotEmpty ? caption : 'لمحة',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w700,
+                                color: isDark ? Colors.white70 : Colors.black54,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildSectionShell({
+    required String kicker,
+    required String title,
+    String? note,
+    required Widget child,
+    required bool isDark,
+    EdgeInsets margin = const EdgeInsets.fromLTRB(14, 8, 14, 4),
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: margin,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1623) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE9DDF7),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF3C1B5F).withValues(alpha: 0.06),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
+                  ),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSectionHeader(
+              kicker: kicker,
+              title: title,
+              note: note,
+              isDark: isDark,
+              trailing: trailing,
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String kicker,
+    required String title,
+    String? note,
+    required bool isDark,
+    Widget? trailing,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B3D8F).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  kicker,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    fontFamily: 'Cairo',
+                    color: Color(0xFF8B3D8F),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Cairo',
+                  color: isDark ? Colors.white : const Color(0xFF24182F),
+                ),
+              ),
+              if (note != null && note.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  note,
+                  style: TextStyle(
+                    fontSize: 10,
+                    height: 1.6,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white60 : const Color(0xFF796A8A),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: 10),
+          trailing,
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSectionMiniAction({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF6EFFC),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0xFFE7D8F8)),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Cairo',
+              color: Color(0xFF7B2E87),
+            ),
+          ),
         ),
       ),
     );
@@ -1040,68 +1431,71 @@ class _HomeScreenState extends State<HomeScreen> {
     final providerName = placement['target_provider_display_name'] as String?;
     final redirectUrl = placement['redirect_url'] as String?;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+    return _buildSectionShell(
+      kicker: 'رسالة مميزة',
+      title: title,
+      note: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون إزعاج.',
+      isDark: isDark,
+      margin: const EdgeInsets.fromLTRB(14, 6, 14, 4),
+      trailing: IconButton(
+        tooltip: 'إخفاء',
+        onPressed: () {
+          if (!mounted) return;
+          setState(() => _promoMessageDismissed = true);
+        },
+        icon: const Icon(Icons.close_rounded, size: 18),
+      ),
       child: Container(
+        width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1F1A2A) : const Color(0xFFF2ECFF),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: purple.withValues(alpha: 0.2)),
+          gradient: LinearGradient(
+            colors: isDark
+                ? const [Color(0xFF271F34), Color(0xFF1B1623)]
+                : const [Color(0xFFFFF4EA), Color(0xFFF9EEFF)],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+          ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: purple.withValues(alpha: 0.14)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : const Color(0xFF2A1A4A),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: 'Cairo',
-                    ),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'إخفاء',
-                  onPressed: () {
-                    if (!mounted) return;
-                    setState(() => _promoMessageDismissed = true);
-                  },
-                  icon: const Icon(Icons.close_rounded, size: 18),
-                ),
-              ],
-            ),
             if (body.trim().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4, bottom: 8),
-                child: Text(
-                  body,
-                  style: TextStyle(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.85)
-                        : Colors.black87,
-                    fontSize: 12,
-                    height: 1.5,
-                    fontFamily: 'Cairo',
-                  ),
+              Text(
+                body,
+                style: TextStyle(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.84)
+                      : const Color(0xFF4E3B59),
+                  fontSize: 11,
+                  height: 1.8,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.tonal(
-                onPressed: () async {
-                  await _openPromoPlacement(
-                    redirectUrl: redirectUrl,
-                    providerId: providerId,
-                    providerName: providerName,
-                  );
-                },
-                child: const Text('عرض التفاصيل'),
+            const SizedBox(height: 12),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                foregroundColor: const Color(0xFF6A246F),
+                backgroundColor: Colors.white.withValues(alpha: 0.72),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                textStyle: const TextStyle(
+                  fontSize: 10.5,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w800,
+                ),
               ),
+              onPressed: () async {
+                await _openPromoPlacement(
+                  redirectUrl: redirectUrl,
+                  providerId: providerId,
+                  providerName: providerName,
+                );
+              },
+              child: const Text('عرض التفاصيل'),
             ),
           ],
         ),
@@ -1226,21 +1620,23 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _buildCategories(bool isDark, Color purple) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(_content.categoriesTitle, isDark),
-          const SizedBox(height: 10),
-          if (_categories.isEmpty)
-            SizedBox(
-              height: 72,
+    return _buildSectionShell(
+      kicker: 'اكتشف الخدمات',
+      title: _content.categoriesTitle,
+      note: 'تصنيفات سريعة ومقروءة بحجم مناسب للشاشات الصغيرة.',
+      isDark: isDark,
+      trailing: _buildSectionMiniAction(
+        label: 'عرض الكل',
+        onTap: _openSearchHome,
+      ),
+      child: _categories.isEmpty
+          ? SizedBox(
+              height: 76,
               child: Center(
                 child: Text(
                   'لا توجد تصنيفات متاحة حالياً',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10.5,
                     fontFamily: 'Cairo',
                     fontWeight: FontWeight.w700,
                     color: isDark ? Colors.white54 : Colors.black45,
@@ -1248,11 +1644,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             )
-          else
-            SizedBox(
-              height: 82,
+          : SizedBox(
+              height: 98,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
                   final cat = _categories[index];
@@ -1260,49 +1656,66 @@ class _HomeScreenState extends State<HomeScreen> {
                   return GestureDetector(
                     onTap: () {
                       Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => SearchProviderScreen(
-                                initialCategoryId: cat.id > 0 ? cat.id : null),
-                          ));
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SearchProviderScreen(
+                            initialCategoryId: cat.id > 0 ? cat.id : null,
+                          ),
+                        ),
+                      );
                     },
                     child: Container(
-                      width: 76,
-                      margin: const EdgeInsets.only(left: 8),
+                      width: 84,
+                      margin: const EdgeInsetsDirectional.only(end: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.04)
+                            : const Color(0xFFF9F5FD),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0xFFECDDFA),
+                        ),
+                      ),
                       child: Column(
                         children: [
                           Container(
-                            width: 50,
-                            height: 50,
+                            width: 44,
+                            height: 44,
                             decoration: BoxDecoration(
-                              color: isDark
-                                  ? Colors.white.withValues(alpha: 0.06)
-                                  : Colors.white,
+                              gradient: LinearGradient(
+                                colors: [
+                                  const Color(0xFF8E37A3).withValues(alpha: 0.15),
+                                  const Color(0xFFF08B46).withValues(alpha: 0.18),
+                                ],
+                                begin: Alignment.topRight,
+                                end: Alignment.bottomLeft,
+                              ),
                               borderRadius: BorderRadius.circular(14),
-                              boxShadow: isDark
-                                  ? null
-                                  : [
-                                      BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.05),
-                                          blurRadius: 6,
-                                          offset: const Offset(0, 2))
-                                    ],
                             ),
-                            child: Icon(icon, size: 22, color: purple),
+                            child: Icon(icon, size: 20, color: purple),
                           ),
-                          const SizedBox(height: 5),
-                          Text(
-                            cat.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600,
+                          const SizedBox(height: 8),
+                          Expanded(
+                            child: Text(
+                              cat.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                height: 1.45,
                                 fontFamily: 'Cairo',
                                 color:
-                                    isDark ? Colors.white70 : Colors.black87),
+                                    isDark ? Colors.white70 : Colors.black87,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -1311,8 +1724,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               ),
             ),
-        ],
-      ),
     );
   }
 
@@ -1326,89 +1737,88 @@ class _HomeScreenState extends State<HomeScreen> {
             _content.providersTitle == 'مقدمو الخدمة')
         ? 'أبرز المختصين'
         : _content.providersTitle;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle(title, isDark),
-          const SizedBox(height: 10),
-          if (_isLoading)
-            const SizedBox(
-                height: 132,
-                child: Center(
-                    child: CircularProgressIndicator(color: Colors.deepPurple)))
-          else if (_featuredSpecialists.isEmpty)
-            SizedBox(
-              height: 80,
+    return _buildSectionShell(
+      kicker: 'ترشيحات المنصة',
+      title: title,
+      note: 'بطاقات مختصين مضبوطة بصريًا لتناسب شاشات الجوال الصغيرة.',
+      isDark: isDark,
+      child: _isLoading
+          ? const SizedBox(
+              height: 156,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 20,
-                        color: isDark ? Colors.white24 : Colors.grey.shade300),
-                    const SizedBox(height: 4),
-                    Text('لا يوجد مختصون مميزون حالياً',
-                        style: TextStyle(
-                            fontSize: 10,
-                            fontFamily: 'Cairo',
-                            color: isDark
-                                ? Colors.white30
-                                : Colors.grey.shade400)),
-                  ],
-                ),
+                child: CircularProgressIndicator(color: Colors.deepPurple),
               ),
             )
-          else
-            SizedBox(
-              height: 138,
-              child: Listener(
-                onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
-                onPointerUp: (_) =>
-                    _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
-                onPointerCancel: (_) =>
-                    _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
-                child: ListView.builder(
-                  controller: _featuredSpecialistsScroll,
-                  scrollDirection: Axis.horizontal,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: _featuredSpecialists.length,
-                  itemBuilder: (context, index) => _providerCard(
-                    _featuredSpecialists[index],
-                    isDark,
-                    purple,
+          : _featuredSpecialists.isEmpty
+              ? SizedBox(
+                  height: 92,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.info_outline_rounded,
+                          size: 20,
+                          color:
+                              isDark ? Colors.white24 : Colors.grey.shade300,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'لا يوجد مختصون مميزون حالياً',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontFamily: 'Cairo',
+                            color:
+                                isDark ? Colors.white30 : Colors.grey.shade400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : SizedBox(
+                  height: 182,
+                  child: Listener(
+                    onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
+                    onPointerUp: (_) =>
+                        _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                    onPointerCancel: (_) =>
+                        _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                    child: ListView.builder(
+                      controller: _featuredSpecialistsScroll,
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _featuredSpecialists.length,
+                      itemBuilder: (context, index) => _providerCard(
+                        _featuredSpecialists[index],
+                        isDark,
+                        purple,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
-        ],
-      ),
     );
   }
 
   Widget _buildPortfolioShowcase(bool isDark, Color purple) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('شريط البنرات والمشاريع', isDark),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 206,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: _portfolioShowcase.length,
-              itemBuilder: (context, index) => _portfolioShowcaseCard(
-                _portfolioShowcase[index],
-                index,
-                isDark,
-                purple,
-              ),
-            ),
+    return _buildSectionShell(
+      kicker: 'أعمال وبنرات',
+      title: 'شريط البنرات والمشاريع',
+      note: 'معرض بصري مضغوط وواضح يبرز الأعمال الترويجية والمشاريع المختارة.',
+      isDark: isDark,
+      child: SizedBox(
+        height: 214,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          itemCount: _portfolioShowcase.length,
+          itemBuilder: (context, index) => _portfolioShowcaseCard(
+            _portfolioShowcase[index],
+            index,
+            isDark,
+            purple,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1425,18 +1835,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: () => _openPortfolioShowcasePlacement(index),
       child: Container(
-        width: 182,
-        margin: const EdgeInsets.only(left: 12),
+        width: 188,
+        margin: const EdgeInsetsDirectional.only(end: 12),
         decoration: BoxDecoration(
           color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFEBDCF8),
+          ),
           boxShadow: isDark
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: const Color(0xFF34104E).withValues(alpha: 0.07),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
                   ),
                 ],
         ),
@@ -1449,7 +1864,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(18),
+                      top: Radius.circular(22),
                     ),
                     child: thumbUrl != null
                         ? Image.network(
@@ -1475,7 +1890,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: const Text(
                         'مختار',
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 8.5,
                           fontWeight: FontWeight.w700,
                           fontFamily: 'Cairo',
                           color: Colors.white,
@@ -1537,7 +1952,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Cairo',
                             color: isDark ? Colors.white : Colors.black87,
@@ -1549,7 +1964,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 9.5,
+                            fontSize: 9,
                             fontFamily: 'Cairo',
                             color:
                                 isDark ? Colors.white70 : Colors.grey.shade600,
@@ -1605,7 +2020,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Color purple,
   ) {
     final profileUrl = ApiClient.buildMediaUrl(specialist.profileImage);
-    final cardWidth = specialist.excellenceBadges.isNotEmpty ? 108.0 : 102.0;
+    const cardWidth = 146.0;
 
     return GestureDetector(
       onTap: () async {
@@ -1633,101 +2048,99 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       child: Container(
         width: cardWidth,
-        margin: const EdgeInsets.only(left: 10),
+        margin: const EdgeInsetsDirectional.only(end: 12),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF221B2E) : const Color(0xFFFCFAFE),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE8DDF5),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF3D195E).withValues(alpha: 0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 82,
-              height: 82,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (specialist.excellenceBadges.isNotEmpty)
+                        _buildProviderMetaPill(
+                          label: 'متميز',
+                          background: const Color(0xFFFFF0D9),
+                          foreground: const Color(0xFFB56A00),
+                        ),
+                      if ((specialist.city ?? '').trim().isNotEmpty)
+                        _buildProviderMetaPill(
+                          label: specialist.city!.trim(),
+                          background: const Color(0xFFF3EEFB),
+                          foreground: const Color(0xFF7A2B74),
+                        ),
+                    ],
+                  ),
+                ),
+                if (specialist.isVerified)
                   Container(
-                    padding: const EdgeInsets.all(3),
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFF59E0B), Color(0xFFB13AC7)],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                      ),
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
                     ),
-                    child: CircleAvatar(
-                      radius: 38,
-                      backgroundColor:
-                          isDark ? const Color(0xFF221B31) : Colors.white,
-                      backgroundImage:
-                          profileUrl != null ? NetworkImage(profileUrl) : null,
-                      child: profileUrl == null
-                          ? Text(
-                              specialist.displayName.isNotEmpty
-                                  ? specialist.displayName[0]
-                                  : '؟',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                fontFamily: 'Cairo',
-                                color: purple,
-                              ),
-                            )
-                          : null,
+                    child: VerifiedBadgeView(
+                      isVerifiedBlue: specialist.isVerifiedBlue,
+                      isVerifiedGreen: specialist.isVerifiedGreen,
+                      iconSize: 15,
+                      enableTap: false,
                     ),
                   ),
-                  if (specialist.excellenceBadges.isNotEmpty)
-                    Positioned(
-                      top: -2,
-                      left: -2,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFFF59E0B).withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color:
-                                const Color(0xFFF59E0B).withValues(alpha: 0.28),
-                          ),
-                        ),
-                        child: const Text(
-                          'تميز',
+              ],
+            ),
+            const SizedBox(height: 10),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFF59E0B), Color(0xFFB13AC7)],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ),
+                ),
+                child: CircleAvatar(
+                  radius: 34,
+                  backgroundColor:
+                      isDark ? const Color(0xFF221B31) : Colors.white,
+                  backgroundImage:
+                      profileUrl != null ? NetworkImage(profileUrl) : null,
+                  child: profileUrl == null
+                      ? Text(
+                          specialist.displayName.isNotEmpty
+                              ? specialist.displayName[0]
+                              : '؟',
                           style: TextStyle(
-                            fontSize: 9,
+                            fontSize: 20,
                             fontWeight: FontWeight.w800,
                             fontFamily: 'Cairo',
-                            color: Color(0xFFB45309),
+                            color: purple,
                           ),
-                        ),
-                      ),
-                    ),
-                  if (specialist.isVerified)
-                    Positioned(
-                      right: -2,
-                      bottom: 2,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: VerifiedBadgeView(
-                          isVerifiedBlue: specialist.isVerifiedBlue,
-                          isVerifiedGreen: specialist.isVerifiedGreen,
-                          iconSize: 16,
-                          enableTap: false,
-                        ),
-                      ),
-                    ),
-                ],
+                        )
+                      : null,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -1735,43 +2148,84 @@ class _HomeScreenState extends State<HomeScreen> {
               specialist.displayName,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: FontWeight.w800,
                 fontFamily: 'Cairo',
                 color: isDark ? Colors.white : const Color(0xFF24182F),
               ),
             ),
             const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFF8D2A7A).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.star_rounded,
-                    size: 13,
-                    color: Color(0xFFF59E0B),
+            Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8D2A7A).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(999),
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    specialist.ratingLabel,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Cairo',
-                      color: Color(0xFF7A2B74),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.star_rounded,
+                        size: 12,
+                        color: Color(0xFFF59E0B),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        specialist.ratingLabel,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'Cairo',
+                          color: Color(0xFF7A2B74),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const Spacer(),
+                Text(
+                  specialist.ratingCount > 0
+                      ? '${specialist.ratingCount} تقييم'
+                      : 'جديد',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Cairo',
+                    color: isDark ? Colors.white54 : const Color(0xFF8B7A9B),
+                  ),
+                ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProviderMetaPill({
+    required String label,
+    required Color background,
+    required Color foreground,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 8.5,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'Cairo',
+          color: foreground,
         ),
       ),
     );

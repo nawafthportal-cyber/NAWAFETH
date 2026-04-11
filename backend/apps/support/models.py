@@ -47,6 +47,7 @@ class SupportTeam(models.Model):
     """
     code = models.SlugField(max_length=50, unique=True)
     name_ar = models.CharField(max_length=120)
+    dashboard_code = models.CharField(max_length=50, blank=True, default="")
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

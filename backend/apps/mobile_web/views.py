@@ -6,6 +6,12 @@ from django.utils.text import slugify
 from django.views.generic import TemplateView
 from django.views.generic.base import RedirectView
 
+from apps.extras.option_catalog import (
+    EXTRAS_CLIENT_OPTIONS,
+    EXTRAS_FINANCE_OPTIONS,
+    EXTRAS_REPORT_OPTIONS,
+    option_items,
+)
 from apps.providers.models import ProviderProfile
 
 
@@ -357,6 +363,46 @@ class MobileWebPromotionNewRequestView(TemplateView):
 
 class MobileWebAdditionalServicesView(TemplateView):
     template_name = "mobile_web/additional_services.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = getattr(self.request, "user", None)
+        provider_name = ""
+
+        if user is not None and getattr(user, "is_authenticated", False):
+            try:
+                provider_profile = user.provider_profile
+            except Exception:
+                provider_profile = None
+
+            if provider_profile is not None:
+                provider_name = str(getattr(provider_profile, "display_name", "") or "").strip()
+
+            if not provider_name:
+                first_name = str(getattr(user, "first_name", "") or "").strip()
+                last_name = str(getattr(user, "last_name", "") or "").strip()
+                provider_name = " ".join(part for part in [first_name, last_name] if part).strip()
+
+            if not provider_name:
+                provider_name = str(getattr(user, "username", "") or getattr(user, "phone", "") or "").strip()
+
+        option_groups = {
+            "reports": {
+                "title": "خدمات التقارير",
+                "items": option_items(EXTRAS_REPORT_OPTIONS),
+            },
+            "clients": {
+                "title": "خدمات إدارة العملاء",
+                "items": option_items(EXTRAS_CLIENT_OPTIONS),
+            },
+            "finance": {
+                "title": "خدمات الإدارة المالية",
+                "items": option_items(EXTRAS_FINANCE_OPTIONS),
+            },
+        }
+        context["extras_option_groups_json"] = json.dumps(option_groups, ensure_ascii=False)
+        context["additional_services_provider_display_name"] = provider_name or ""
+        return context
 
 
 class MobileWebProviderServicesView(TemplateView):

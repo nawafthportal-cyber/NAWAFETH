@@ -5,6 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -33,9 +34,14 @@ def _get_locked_subscription(*, sub: Subscription) -> Subscription:
     return _locked_subscription_queryset().get(pk=sub.pk)
 
 
-def _subscription_status_to_unified(status: str) -> str:
+def _subscription_status_to_unified(status: str, *, existing_request_status: str = "") -> str:
+    normalized_existing = str(existing_request_status or "").strip().lower()
+    if normalized_existing == "completed":
+        normalized_existing = "closed"
     if status == SubscriptionStatus.AWAITING_REVIEW:
-        return "in_progress"
+        if normalized_existing == "in_progress":
+            return "in_progress"
+        return "new"
     if status in {SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE}:
         return "completed"
     if status in {SubscriptionStatus.EXPIRED, SubscriptionStatus.CANCELLED}:
@@ -65,7 +71,10 @@ def _sync_subscription_to_unified(*, sub: Subscription, changed_by=None, assigne
         source_app="subscriptions",
         source_model="Subscription",
         source_object_id=sub.id,
-        status=_subscription_status_to_unified(sub.status),
+        status=_subscription_status_to_unified(
+            sub.status,
+            existing_request_status=getattr(existing_request, "status", ""),
+        ),
         priority="normal",
         summary=f"اشتراك {getattr(sub.plan, 'title', getattr(sub.plan, 'code', ''))}".strip(),
         metadata={
@@ -164,28 +173,51 @@ def _get_or_create_subscription_direct_thread(*, user_a, user_b):
     )
 
 
-def _send_subscription_activation_system_message(*, sub: Subscription, sender, is_upgrade: bool) -> None:
+def _subscription_activation_copy(*, sub: Subscription, is_upgrade: bool) -> tuple[str, str]:
+    duration_text = _subscription_duration_text(plan=sub.plan, duration_count=sub.duration_count)
+    plan_name = getattr(sub.plan, "title", "") or getattr(sub.plan, "code", "") or "الباقة المختارة"
+    completion_text = "ترقية اشتراكك" if is_upgrade else "تفعيل اشتراكك"
+    title = "تمت ترقية اشتراكك بنجاح" if is_upgrade else "تم تفعيل اشتراكك بنجاح"
+    body = f"مبارك، تم إكمال {completion_text} إلى باقة {plan_name} {duration_text}."
+    if sub.end_at:
+        end_at_text = timezone.localtime(sub.end_at).strftime("%d/%m/%Y")
+        body += f" تاريخ نهاية الاشتراك: {end_at_text}."
+    else:
+        body += " الاشتراك مفعل الآن بدون تاريخ انتهاء محدد."
+    body += " أصبحت مزايا الباقة مفعلة على حسابك الآن."
+    return title, body
+
+
+def _resolve_subscription_message_sender(*, sub: Subscription, actor=None, assigned_user=None):
+    for candidate in (actor, assigned_user):
+        if candidate is not None and getattr(candidate, "id", None) and getattr(candidate, "id", None) != getattr(sub.user, "id", None):
+            return candidate
+
+    User = get_user_model()
+    return (
+        User.objects.filter(is_active=True)
+        .filter(Q(is_superuser=True) | Q(is_staff=True))
+        .exclude(pk=getattr(sub.user, "id", None))
+        .order_by("-is_superuser", "id")
+        .first()
+    )
+
+
+def _send_subscription_activation_system_message(*, sub: Subscription, sender, is_upgrade: bool):
     if not sender or getattr(sender, "id", None) == getattr(sub.user, "id", None):
-        return
+        return None
 
     try:
         from apps.messaging.models import create_system_message
         from apps.messaging.views import _unarchive_for_participants
     except Exception:
-        return
+        return None
 
     thread = _get_or_create_subscription_direct_thread(user_a=sender, user_b=sub.user)
     if thread is None:
-        return
+        return None
 
-    duration_text = _subscription_duration_text(plan=sub.plan, duration_count=sub.duration_count)
-    plan_name = getattr(sub.plan, "title", "") or getattr(sub.plan, "code", "") or "الباقة المختارة"
-    completion_text = "ترقية اشتراكك" if is_upgrade else "تفعيل اشتراكك"
-    end_at_text = timezone.localtime(sub.end_at).strftime("%d/%m/%Y") if sub.end_at else ""
-    body = f"مبارك، تم إكمال {completion_text} إلى باقة {plan_name} {duration_text}."
-    if end_at_text:
-        body += f" يستمر الاشتراك حتى {end_at_text}."
-    body += " أصبحت مزايا الباقة مفعلة على حسابك الآن."
+    _, body = _subscription_activation_copy(sub=sub, is_upgrade=is_upgrade)
 
     create_system_message(
         thread=thread,
@@ -198,6 +230,63 @@ def _send_subscription_activation_system_message(*, sub: Subscription, sender, i
         created_at=timezone.now(),
     )
     _unarchive_for_participants(thread)
+    return thread
+
+
+def _send_subscription_activation_notification(*, sub: Subscription, actor=None, is_upgrade: bool, thread=None) -> None:
+    try:
+        from apps.notifications.services import create_notification
+    except Exception:
+        return
+
+    title, body = _subscription_activation_copy(sub=sub, is_upgrade=is_upgrade)
+    notification_url = "/plans/"
+    if thread is not None and getattr(thread, "id", None):
+        notification_url = f"/chat/{thread.id}/"
+
+    try:
+        create_notification(
+            user=sub.user,
+            title=title,
+            body=body,
+            kind="success",
+            url=notification_url,
+            actor=actor,
+            meta={
+                "subscription_id": sub.id,
+                "plan_id": sub.plan_id,
+                "plan_code": getattr(sub.plan, "code", "") or "",
+                "duration_count": sub.duration_count,
+                "status": sub.status,
+                "start_at": sub.start_at.isoformat() if sub.start_at else None,
+                "end_at": sub.end_at.isoformat() if sub.end_at else None,
+                "thread_id": getattr(thread, "id", None),
+                "is_upgrade": bool(is_upgrade),
+            },
+            pref_key="paid_subscription_completed",
+            audience_mode="provider",
+        )
+    except Exception:
+        pass
+
+
+def _dispatch_subscription_activation_communications(*, sub: Subscription, actor=None, assigned_user=None, is_upgrade: bool) -> None:
+    message_sender = _resolve_subscription_message_sender(
+        sub=sub,
+        actor=actor,
+        assigned_user=assigned_user,
+    )
+    thread = _send_subscription_activation_system_message(
+        sub=sub,
+        sender=message_sender,
+        is_upgrade=is_upgrade,
+    )
+    _send_subscription_activation_notification(
+        sub=sub,
+        actor=message_sender or actor,
+        is_upgrade=is_upgrade,
+        thread=thread,
+    )
 
 
 def is_current_subscription_status(status: str) -> bool:
@@ -577,9 +666,16 @@ def start_subscription_checkout(*, user, plan: SubscriptionPlan, duration_count:
         plan_to_tier(plan) == CanonicalPlanTier.BASIC
         and Decimal(str(offer.get("final_payable_amount", "0.00"))) <= Decimal("0.00")
     ):
-        entitlement, _ = ensure_basic_subscription_entitlement(user=user)
+        entitlement, created = ensure_basic_subscription_entitlement(user=user)
         if entitlement is None:
             raise ValueError("تعذر إنشاء الاستحقاق الأساسي.")
+        if created:
+            _dispatch_subscription_activation_communications(
+                sub=entitlement,
+                actor=user,
+                assigned_user=None,
+                is_upgrade=False,
+            )
         return entitlement
 
     if action_state == "current":
@@ -903,9 +999,10 @@ def activate_subscription_after_payment(*, sub: Subscription, changed_by=None, a
         pass
 
     if not was_already_active:
-        _send_subscription_activation_system_message(
+        _dispatch_subscription_activation_communications(
             sub=sub,
-            sender=changed_by,
+            actor=changed_by,
+            assigned_user=assigned_user,
             is_upgrade=had_other_current_subscription,
         )
     return sub

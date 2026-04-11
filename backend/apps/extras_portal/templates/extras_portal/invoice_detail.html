@@ -2,97 +2,128 @@
 
 {% block title %}طلب #{{ sr.id }}{% endblock %}
 {% block header %}تفاصيل الطلب #{{ sr.id }}{% endblock %}
+{% block header_subtitle %}عرض تفصيلي للحالة المالية والتشغيلية للطلب المختار من كشف الحساب، مع إبراز المبالغ والحالة الزمنية والبيانات الأساسية للعميل والخدمة.{% endblock %}
+
+{% block extra_head %}
+  <style>
+    .invoice-surface {
+      background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.10), transparent 30%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 250, 255, 0.96));
+    }
+  </style>
+{% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto">
-  <a href="{% url 'extras_portal:finance' %}" class="inline-flex items-center text-sky-600 hover:underline mb-4 text-sm">&larr; العودة لكشف الحساب</a>
+  <div class="mx-auto max-w-6xl">
+    <a href="{% url 'extras_portal:finance' %}" class="mb-4 inline-flex items-center rounded-2xl bg-white px-4 py-3 text-sm font-bold text-sky-700 shadow-sm transition hover:bg-sky-50">العودة إلى كشف الحساب</a>
 
-  <div class="bg-white rounded-2xl border border-gray-100 shadow p-6 space-y-6">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div>
-        <span class="block text-gray-500 text-xs">رقم الطلب</span>
-        <span class="font-bold text-lg">#{{ sr.id }}</span>
-      </div>
-      <div>
-        <span class="block text-gray-500 text-xs">الحالة</span>
-        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-          {% if sr.status == 'completed' %}bg-green-100 text-green-800
-          {% elif sr.status == 'canceled' %}bg-red-100 text-red-800
-          {% elif sr.status == 'in_progress' %}bg-blue-100 text-blue-800
-          {% else %}bg-gray-100 text-gray-800{% endif %}">{{ sr.get_status_display }}</span>
-      </div>
+    <section class="invoice-surface overflow-hidden rounded-[32px] border border-white/80 shadow-[0_30px_90px_rgba(15,23,42,0.08)]">
+      <div class="grid gap-6 p-5 sm:p-7 xl:grid-cols-[1.45fr,0.95fr]">
+        <div class="space-y-5">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="inline-flex rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">سجل مالي تفصيلي</span>
+            <span class="inline-flex rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white">طلب #{{ sr.id }}</span>
+          </div>
 
-      <div>
-        <span class="block text-gray-500 text-xs">العميل</span>
-        <span>{{ sr.client.phone|default:"—" }}</span>
-      </div>
-      <div>
-        <span class="block text-gray-500 text-xs">التصنيف</span>
-        <span>{{ sr.subcategory|default:"—" }}</span>
-      </div>
+          <div>
+            <h2 class="text-2xl font-extrabold text-slate-900 sm:text-3xl">تفاصيل حالة الطلب والمبالغ المرتبطة به</h2>
+            <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+              تعرض هذه الصفحة كل ما يلزم للمراجعة المالية السريعة: حالة الطلب، بيانات العميل، وصف الخدمة، والمبالغ التقديرية والفعلية مع الطابع الزمني للأحداث المهمة.
+            </p>
+          </div>
 
-      <div>
-        <span class="block text-gray-500 text-xs">العنوان</span>
-        <span>{{ sr.title|default:"—" }}</span>
-      </div>
-      <div>
-        <span class="block text-gray-500 text-xs">المدينة</span>
-        <span>{{ sr.city|default:"—" }}</span>
-      </div>
+          <div class="rounded-[26px] border border-slate-200 bg-white/90 p-5">
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <div class="text-xs font-bold text-slate-500">العميل</div>
+                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ sr.client.phone|default:'—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-slate-500">التصنيف</div>
+                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ sr.subcategory|default:'—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-slate-500">العنوان</div>
+                <div class="mt-2 text-sm font-bold text-slate-700">{{ sr.title|default:'—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-slate-500">المدينة</div>
+                <div class="mt-2 text-sm font-bold text-slate-700">{{ sr.city|default:'—' }}</div>
+              </div>
+            </div>
+          </div>
 
-      <div class="md:col-span-2">
-        <span class="block text-gray-500 text-xs">الوصف</span>
-        <p class="text-gray-700 mt-1">{{ sr.description|default:"—" }}</p>
-      </div>
-    </div>
+          <div class="rounded-[24px] border border-slate-200 bg-white/90 p-5">
+            <div class="text-sm font-bold text-slate-500">الوصف</div>
+            <p class="mt-3 text-sm leading-8 text-slate-700">{{ sr.description|default:'—' }}</p>
+          </div>
+        </div>
 
-    <hr class="border-gray-100">
+        <aside class="space-y-4">
+          <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
+            <div class="text-sm font-bold text-slate-500">حالة الطلب</div>
+            <div class="mt-4">
+              <span class="inline-flex rounded-full px-4 py-2 text-sm font-bold {% if sr.status == 'completed' %}bg-emerald-100 text-emerald-700{% elif sr.status == 'canceled' %}bg-rose-100 text-rose-700{% elif sr.status == 'in_progress' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ sr.get_status_display }}</span>
+            </div>
+            <div class="mt-4 rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">تاريخ الإنشاء</div>
+              <div class="mt-2 text-sm font-extrabold text-slate-900">{{ sr.created_at|date:'Y-m-d H:i' }}</div>
+            </div>
+            {% if sr.delivered_at %}
+              <div class="mt-3 rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">تاريخ التسليم</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ sr.delivered_at|date:'Y-m-d H:i' }}</div>
+              </div>
+            {% endif %}
+            {% if sr.canceled_at %}
+              <div class="mt-3 rounded-2xl bg-rose-50 px-4 py-4">
+                <div class="text-xs font-bold text-rose-700">تاريخ الإلغاء</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ sr.canceled_at|date:'Y-m-d H:i' }}</div>
+              </div>
+            {% endif %}
+          </div>
 
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-      <div>
-        <span class="block text-gray-500 text-xs">المبلغ التقديري</span>
-        <span class="font-semibold">{{ sr.estimated_service_amount|default:"—" }}</span>
+          {% if sr.cancel_reason %}
+            <div class="rounded-[28px] border border-rose-200 bg-rose-50 p-5 shadow-sm">
+              <div class="text-sm font-bold text-rose-700">سبب الإلغاء</div>
+              <div class="mt-2 text-sm leading-7 text-rose-700">{{ sr.cancel_reason }}</div>
+            </div>
+          {% endif %}
+        </aside>
       </div>
-      <div>
-        <span class="block text-gray-500 text-xs">المبلغ المستلم</span>
-        <span class="font-semibold text-green-700">{{ sr.received_amount|default:"—" }}</span>
-      </div>
-      <div>
-        <span class="block text-gray-500 text-xs">المبلغ المتبقي</span>
-        <span class="font-semibold text-orange-600">{{ sr.remaining_amount|default:"—" }}</span>
-      </div>
-      <div>
-        <span class="block text-gray-500 text-xs">المبلغ الفعلي</span>
-        <span class="font-semibold">{{ sr.actual_service_amount|default:"—" }}</span>
-      </div>
-    </div>
+    </section>
 
-    <hr class="border-gray-100">
-
-    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-      <div>
-        <span class="block text-gray-500 text-xs">تاريخ الإنشاء</span>
-        <span>{{ sr.created_at|date:"Y-m-d H:i" }}</span>
+    <section class="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div class="h-1.5 bg-gradient-to-r from-sky-500 to-blue-300"></div>
+        <div class="p-5">
+          <div class="text-sm font-bold text-slate-500">المبلغ التقديري</div>
+          <div class="mt-3 text-2xl font-extrabold text-slate-900">{{ sr.estimated_service_amount|default:0|floatformat:2 }}</div>
+        </div>
       </div>
-      {% if sr.delivered_at %}
-      <div>
-        <span class="block text-gray-500 text-xs">تاريخ التسليم</span>
-        <span>{{ sr.delivered_at|date:"Y-m-d H:i" }}</span>
+      <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div class="h-1.5 bg-gradient-to-r from-emerald-500 to-emerald-300"></div>
+        <div class="p-5">
+          <div class="text-sm font-bold text-slate-500">المبلغ المستلم</div>
+          <div class="mt-3 text-2xl font-extrabold text-emerald-700">{{ sr.received_amount|default:0|floatformat:2 }}</div>
+        </div>
       </div>
-      {% endif %}
-      {% if sr.canceled_at %}
-      <div>
-        <span class="block text-gray-500 text-xs">تاريخ الإلغاء</span>
-        <span>{{ sr.canceled_at|date:"Y-m-d H:i" }}</span>
+      <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div class="h-1.5 bg-gradient-to-r from-amber-500 to-orange-300"></div>
+        <div class="p-5">
+          <div class="text-sm font-bold text-slate-500">المبلغ المتبقي</div>
+          <div class="mt-3 text-2xl font-extrabold text-amber-700">{{ sr.remaining_amount|default:0|floatformat:2 }}</div>
+        </div>
       </div>
-      {% endif %}
-      {% if sr.cancel_reason %}
-      <div class="md:col-span-3">
-        <span class="block text-gray-500 text-xs">سبب الإلغاء</span>
-        <span class="text-red-600">{{ sr.cancel_reason }}</span>
+      <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
+        <div class="h-1.5 bg-gradient-to-r from-slate-900 to-slate-600"></div>
+        <div class="p-5">
+          <div class="text-sm font-bold text-slate-500">المبلغ الفعلي</div>
+          <div class="mt-3 text-2xl font-extrabold text-slate-900">{{ sr.actual_service_amount|default:0|floatformat:2 }}</div>
+        </div>
       </div>
-      {% endif %}
-    </div>
+    </section>
   </div>
-</div>
 {% endblock %}

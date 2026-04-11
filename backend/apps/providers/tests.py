@@ -6,7 +6,15 @@ from rest_framework.test import APIClient
 from apps.accounts.models import UserRole
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 
-from .models import Category, ProviderCategory, ProviderProfile, ProviderSpotlightItem, SubCategory
+from .models import (
+    Category,
+    ProviderCategory,
+    ProviderProfile,
+    ProviderSpotlightItem,
+    SaudiCity,
+    SaudiRegion,
+    SubCategory,
+)
 
 
 class ProviderSubscriptionRestrictionTests(TestCase):
@@ -77,3 +85,88 @@ class ProviderSubscriptionRestrictionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"][0], "subscription_required")
         self.assertEqual(ProviderSpotlightItem.objects.filter(provider=self.provider_profile).count(), 0)
+
+
+class ProviderRegionCityCatalogTests(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user = get_user_model().objects.create_user(phone="0500000610", password="secret")
+        self.user.role_state = UserRole.CLIENT
+        self.user.save(update_fields=["role_state"])
+        self.client.force_authenticate(user=self.user)
+
+        self.region_riyadh, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        self.region_makkah, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة مكة المكرمة",
+            defaults={"sort_order": 2, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=self.region_riyadh,
+            name_ar="الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=self.region_makkah,
+            name_ar="جدة",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+
+    def test_regions_cities_endpoint_returns_nested_catalog(self):
+        response = self.client.get("/api/providers/geo/regions-cities/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertGreaterEqual(len(payload), 2)
+        first_region = payload[0]
+        self.assertIn("name_ar", first_region)
+        self.assertIn("cities", first_region)
+
+    def test_provider_register_rejects_city_not_in_selected_region(self):
+        category = Category.objects.create(name="تصميم", is_active=True)
+        subcategory = SubCategory.objects.create(category=category, name="هوية بصرية", is_active=True)
+
+        response = self.client.post(
+            "/api/providers/register/",
+            {
+                "provider_type": "individual",
+                "display_name": "مزود اختبار",
+                "bio": "نبذة",
+                "region": "منطقة الرياض",
+                "city": "جدة",
+                "subcategory_ids": [subcategory.id],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("city", response.json())
+        self.assertFalse(ProviderProfile.objects.filter(user=self.user).exists())
+
+    def test_provider_register_accepts_valid_region_city_pair(self):
+        category = Category.objects.create(name="برمجة", is_active=True)
+        subcategory = SubCategory.objects.create(category=category, name="تطبيقات", is_active=True)
+
+        response = self.client.post(
+            "/api/providers/register/",
+            {
+                "provider_type": "individual",
+                "display_name": "مزود صالح",
+                "bio": "نبذة",
+                "region": "منطقة مكة المكرمة",
+                "city": "جدة",
+                "whatsapp": "+966512345678",
+                "subcategory_ids": [subcategory.id],
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        profile = ProviderProfile.objects.get(user=self.user)
+        self.assertEqual(profile.region, "منطقة مكة المكرمة")
+        self.assertEqual(profile.city, "جدة")
+        self.assertEqual(profile.whatsapp, "0512345678")
+        self.assertEqual(payload.get("whatsapp_url"), "https://wa.me/966512345678")

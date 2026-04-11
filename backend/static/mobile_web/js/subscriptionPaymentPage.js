@@ -16,6 +16,7 @@ const SubscriptionPaymentPage = (() => {
     method: 'mada',
     canPay: false,
   };
+  let toastTimer = null;
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -110,6 +111,7 @@ const SubscriptionPaymentPage = (() => {
   }
 
   function bindCardInputs() {
+    const cardNameInput = document.getElementById('verifyPayCardName');
     const numberInput = document.getElementById('verifyPayCardNumber');
     const expiryInput = document.getElementById('verifyPayCardExpiry');
     const cvvInput = document.getElementById('verifyPayCardCvv');
@@ -138,6 +140,12 @@ const SubscriptionPaymentPage = (() => {
       cvvInput.addEventListener('input', normalizeCvv);
       cvvInput.addEventListener('change', normalizeCvv);
     }
+
+    [cardNameInput, numberInput, expiryInput, cvvInput].forEach((input) => {
+      if (!input) return;
+      input.addEventListener('input', () => clearFieldError(input.id));
+      input.addEventListener('change', () => clearFieldError(input.id));
+    });
   }
 
   function bindMethodInputs() {
@@ -146,6 +154,7 @@ const SubscriptionPaymentPage = (() => {
       input.addEventListener('change', () => {
         if (!input.checked) return;
         state.method = String(input.value || 'mada').trim() || 'mada';
+        clearMethodError();
         syncMethodUi();
       });
     });
@@ -209,6 +218,7 @@ const SubscriptionPaymentPage = (() => {
     if (!error) return;
     error.textContent = message || 'تعذر تحميل بيانات الدفع.';
     error.classList.remove('hidden');
+    showToast(error.textContent, 'error');
   }
 
   function setStatusBanner(message, tone) {
@@ -220,6 +230,108 @@ const SubscriptionPaymentPage = (() => {
     if (tone === 'warning') banner.classList.add('is-warning');
     banner.textContent = message || '';
     if (!message) banner.classList.add('hidden');
+  }
+
+  function showToast(message, tone) {
+    const toast = document.getElementById('verifyPayToast');
+    if (!toast || !message) return;
+    toast.textContent = String(message || '').trim();
+    toast.classList.remove('show', 'success', 'error', 'warning');
+    if (tone === 'success') toast.classList.add('success');
+    else if (tone === 'warning') toast.classList.add('warning');
+    else toast.classList.add('error');
+    requestAnimationFrame(() => toast.classList.add('show'));
+    if (toastTimer) window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => {
+      toast.classList.remove('show');
+    }, 3600);
+  }
+
+  function methodGroup() {
+    return document.querySelector('.verify-pay-methods');
+  }
+
+  function setMethodError(message) {
+    const methods = methodGroup();
+    const node = document.getElementById('verifyPayMethodError');
+    if (methods) methods.classList.add('is-invalid');
+    if (!node) return;
+    node.textContent = message || '';
+    node.classList.toggle('hidden', !message);
+  }
+
+  function clearMethodError() {
+    const methods = methodGroup();
+    const node = document.getElementById('verifyPayMethodError');
+    if (methods) methods.classList.remove('is-invalid');
+    if (node) {
+      node.textContent = '';
+      node.classList.add('hidden');
+    }
+  }
+
+  function setFieldError(fieldId, message) {
+    const input = document.getElementById(fieldId);
+    const err = document.getElementById(fieldId + 'Error');
+    if (input) {
+      input.classList.add('is-invalid');
+      input.setAttribute('aria-invalid', 'true');
+    }
+    if (err) {
+      err.textContent = message || '';
+      err.classList.toggle('hidden', !message);
+    }
+  }
+
+  function clearFieldError(fieldId) {
+    const input = document.getElementById(fieldId);
+    const err = document.getElementById(fieldId + 'Error');
+    if (input) {
+      input.classList.remove('is-invalid');
+      input.removeAttribute('aria-invalid');
+    }
+    if (err) {
+      err.textContent = '';
+      err.classList.add('hidden');
+    }
+  }
+
+  function clearAllFieldErrors() {
+    clearMethodError();
+    ['verifyPayCardName', 'verifyPayCardNumber', 'verifyPayCardExpiry', 'verifyPayCardCvv'].forEach(clearFieldError);
+  }
+
+  function focusField(fieldId) {
+    const node = document.getElementById(fieldId);
+    if (!node || typeof node.focus !== 'function') return;
+    try {
+      node.focus({ preventScroll: false });
+    } catch (_) {
+      node.focus();
+    }
+  }
+
+  function applyServerFieldError(message) {
+    const text = String(message || '').trim();
+    if (!text) return '';
+    const lower = text.toLowerCase();
+    if (lower.includes('mm/yy') || text.includes('تاريخ الانتهاء') || lower.includes('expiry')) {
+      setFieldError('verifyPayCardExpiry', text);
+      return 'verifyPayCardExpiry';
+    }
+    if (lower.includes('cvv') || lower.includes('cvc') || lower.includes('security code') || text.includes('رمز')) {
+      setFieldError('verifyPayCardCvv', text);
+      return 'verifyPayCardCvv';
+    }
+    if (text.includes('رقم البطاقة') || lower.includes('card number')) {
+      setFieldError('verifyPayCardNumber', text);
+      return 'verifyPayCardNumber';
+    }
+    if (text.includes('حامل البطاقة') || lower.includes('cardholder') || lower.includes('card holder')) {
+      setFieldError('verifyPayCardName', text);
+      return 'verifyPayCardName';
+    }
+    return '';
   }
 
   function money(value) {
@@ -389,35 +501,56 @@ const SubscriptionPaymentPage = (() => {
   }
 
   function validatePaymentFields() {
+    clearAllFieldErrors();
     const methodInput = document.querySelector('input[name="verify-payment-method"]:checked');
     const method = methodInput ? String(methodInput.value || '').trim() : '';
-    if (!method) return { ok: false, message: 'اختر وسيلة الدفع أولاً.' };
+    if (!method) {
+      const message = 'اختر وسيلة الدفع أولاً.';
+      setMethodError(message);
+      return { ok: false, message, focusFieldId: '' };
+    }
 
     const cardName = valueOf('verifyPayCardName');
-    if (cardName.length < 3) return { ok: false, message: 'أدخل اسم حامل البطاقة بشكل صحيح.' };
+    if (cardName.length < 3) {
+      const message = 'أدخل اسم حامل البطاقة بشكل صحيح.';
+      setFieldError('verifyPayCardName', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardName' };
+    }
 
     const cardNumber = normalizeCardDigits(valueOf('verifyPayCardNumber'));
     if (cardNumber.length < 12 || cardNumber.length > 19 || !luhnCheck(cardNumber)) {
-      return { ok: false, message: 'رقم البطاقة غير صالح.' };
+      const message = 'رقم البطاقة غير صالح.';
+      setFieldError('verifyPayCardNumber', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardNumber' };
     }
 
     const expiryRaw = valueOf('verifyPayCardExpiry');
     const expiryMatch = /^(\d{2})\/(\d{2})$/.exec(expiryRaw);
-    if (!expiryMatch) return { ok: false, message: 'أدخل تاريخ الانتهاء بصيغة MM/YY.' };
+    if (!expiryMatch) {
+      const message = 'أدخل تاريخ الانتهاء بصيغة MM/YY.';
+      setFieldError('verifyPayCardExpiry', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardExpiry' };
+    }
 
     const expMonth = parseInt(expiryMatch[1], 10);
     const expYear = 2000 + parseInt(expiryMatch[2], 10);
     if (!Number.isFinite(expMonth) || expMonth < 1 || expMonth > 12) {
-      return { ok: false, message: 'شهر انتهاء البطاقة غير صحيح.' };
+      const message = 'شهر انتهاء البطاقة غير صحيح.';
+      setFieldError('verifyPayCardExpiry', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardExpiry' };
     }
     const expiryDate = new Date(expYear, expMonth, 0, 23, 59, 59, 999);
     if (expiryDate.getTime() < Date.now()) {
-      return { ok: false, message: 'البطاقة منتهية الصلاحية.' };
+      const message = 'البطاقة منتهية الصلاحية.';
+      setFieldError('verifyPayCardExpiry', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardExpiry' };
     }
 
     const cvv = normalizeCardDigits(valueOf('verifyPayCardCvv'));
     if (cvv.length < 3 || cvv.length > 4) {
-      return { ok: false, message: 'رمز CVV غير صحيح.' };
+      const message = 'رمز CVV غير صحيح.';
+      setFieldError('verifyPayCardCvv', message);
+      return { ok: false, message, focusFieldId: 'verifyPayCardCvv' };
     }
 
     return { ok: true, method };
@@ -441,6 +574,7 @@ const SubscriptionPaymentPage = (() => {
     }
 
     setSubmitting(true);
+    clearAllFieldErrors();
     setStatusBanner('', '');
     try {
       const response = await ApiClient.request(cancelUrl(state.subscriptionId), {
@@ -448,14 +582,18 @@ const SubscriptionPaymentPage = (() => {
         body: {},
       });
       if (!response.ok) {
-        setStatusBanner(apiErrorMessage(response, 'تعذر إلغاء طلب الاشتراك الحالي.'), 'error');
+        const message = apiErrorMessage(response, 'تعذر إلغاء طلب الاشتراك الحالي.');
+        setStatusBanner(message, 'error');
+        showToast(message, 'error');
         return;
       }
 
       const nextUrl = response.data && response.data.redirect_url ? String(response.data.redirect_url) : redirectTarget;
       window.location.href = nextUrl || redirectTarget;
     } catch (error) {
-      setStatusBanner((error && error.message) || 'تعذر إلغاء الطلب الحالي.', 'error');
+      const message = (error && error.message) || 'تعذر إلغاء الطلب الحالي.';
+      setStatusBanner(message, 'error');
+      showToast(message, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -473,7 +611,7 @@ const SubscriptionPaymentPage = (() => {
         <div class="subpay-result-code">رقم الطلب: ${safeText(state.requestCode || '—')}</div>
         <div class="subpay-result-body">
           <p>تمت عملية الدفع بنجاح</p>
-          <p>تم تسجيل السداد وتحويل الطلب إلى قائمة طلبات الاشتراكات بانتظار مراجعة واعتماد الفريق.</p>
+          <p>تم السداد وتحويل الطلب إلى قائمة طلبات الاشتراكات بانتظار مراجعة واعتماد الفريق.</p>
           <p>لا يتم تفعيل الباقة مباشرة بعد الدفع، وسيتم إشعارك عند اعتماد الترقية.</p>
         </div>
         <button type="button" class="subpay-result-close">إغلاق</button>
@@ -496,13 +634,18 @@ const SubscriptionPaymentPage = (() => {
 
   async function submitPayment() {
     if (!state.canPay || !state.invoiceId) {
-      setStatusBanner('لا يوجد دفع مطلوب لهذا الطلب حالياً.', 'warning');
+      const message = 'لا يوجد دفع مطلوب لهذا الطلب حالياً.';
+      setStatusBanner(message, 'warning');
+      showToast(message, 'warning');
       return;
     }
 
     const validation = validatePaymentFields();
     if (!validation.ok) {
-      setStatusBanner(validation.message || 'تحقق من بيانات البطاقة.', 'error');
+      const message = validation.message || 'تحقق من بيانات البطاقة.';
+      setStatusBanner(message, 'error');
+      showToast(message, 'error');
+      if (validation.focusFieldId) focusField(validation.focusFieldId);
       return;
     }
 
@@ -510,6 +653,7 @@ const SubscriptionPaymentPage = (() => {
     const idempotencyKey = 'subscription-checkout-' + String(state.subscriptionId || '0') + '-' + String(state.invoiceId);
 
     setSubmitting(true);
+    clearAllFieldErrors();
     setStatusBanner('', '');
     try {
       const initRes = await ApiClient.request(initUrl(state.invoiceId), {
@@ -521,7 +665,11 @@ const SubscriptionPaymentPage = (() => {
         },
       });
       if (!initRes.ok) {
-        setStatusBanner(apiErrorMessage(initRes, 'تعذر بدء عملية الدفع.'), 'error');
+        const message = apiErrorMessage(initRes, 'تعذر بدء عملية الدفع.');
+        const fieldId = applyServerFieldError(message);
+        setStatusBanner(message, 'error');
+        showToast(message, 'error');
+        if (fieldId) focusField(fieldId);
         return;
       }
 
@@ -533,7 +681,11 @@ const SubscriptionPaymentPage = (() => {
         },
       });
       if (!payRes.ok) {
-        setStatusBanner(apiErrorMessage(payRes, 'تعذر إتمام الدفع.'), 'error');
+        const message = apiErrorMessage(payRes, 'تعذر إتمام الدفع.');
+        const fieldId = applyServerFieldError(message);
+        setStatusBanner(message, 'error');
+        showToast(message, 'error');
+        if (fieldId) focusField(fieldId);
         return;
       }
 
@@ -542,10 +694,15 @@ const SubscriptionPaymentPage = (() => {
       state.requestStatus = 'awaiting_review';
       renderState();
       setStatusBanner('تم سداد الفاتورة بنجاح. لا يتم تفعيل الباقة مباشرة بعد الدفع، وقد انتقل الطلب الآن إلى قائمة طلبات الاشتراكات بانتظار مراجعة واعتماد الفريق.', 'success');
+      showToast('تم سداد الفاتورة بنجاح.', 'success');
       await showSuccessDialog();
       window.location.href = plansUrl();
     } catch (error) {
-      setStatusBanner((error && error.message) || 'حدث خطأ غير متوقع أثناء الدفع.', 'error');
+      const message = (error && error.message) || 'حدث خطأ غير متوقع أثناء الدفع.';
+      const fieldId = applyServerFieldError(message);
+      setStatusBanner(message, 'error');
+      showToast(message, 'error');
+      if (fieldId) focusField(fieldId);
     } finally {
       setSubmitting(false);
     }

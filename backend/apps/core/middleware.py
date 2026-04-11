@@ -3,7 +3,11 @@ from __future__ import annotations
 import logging
 import uuid
 
+from django.conf import settings
+from django.core.cache import cache
+from django.db import DatabaseError
 from django.http import HttpResponseNotFound
+from django.utils import timezone
 
 from .request_context import bind_request_context, clear_request_context
 
@@ -70,3 +74,72 @@ class RequestContextMiddleware:
         if forwarded:
             return forwarded.split(",")[0].strip()
         return (request.META.get("REMOTE_ADDR") or "-").strip()
+
+
+class InlinePromoSchedulerMiddleware:
+    """
+    Lightweight fallback scheduler for promo message dispatch/expiry.
+
+    This keeps scheduled promo delivery moving in deployments where Celery Beat
+    or workers are unavailable, while remaining safe to run alongside Celery.
+    """
+
+    logger = logging.getLogger("nawafeth.promo.inline_scheduler")
+    throttle_cache_key = "promo:inline_scheduler:tick"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        if not getattr(settings, "PROMO_INLINE_SCHEDULER_ENABLED", True):
+            return response
+        if self._should_skip(request):
+            return response
+
+        try:
+            self._run_due_jobs()
+        except Exception:
+            # This is a best-effort fallback and must never affect request flow.
+            self.logger.exception("inline promo scheduler failed")
+        return response
+
+    def _should_skip(self, request) -> bool:
+        method = (getattr(request, "method", "") or "").upper()
+        if method == "OPTIONS":
+            return True
+
+        path = str(getattr(request, "path_info", "") or "").strip()
+        if not path:
+            return False
+
+        static_url = str(getattr(settings, "STATIC_URL", "/static/") or "/static/").strip()
+        media_url = str(getattr(settings, "MEDIA_URL", "/media/") or "/media/").strip()
+        skipped_prefixes = tuple(
+            prefix for prefix in (static_url, media_url, "/healthz", "/admin/jsi18n/") if prefix
+        )
+        return path.startswith(skipped_prefixes)
+
+    def _run_due_jobs(self) -> None:
+        interval_seconds = max(
+            30,
+            int(getattr(settings, "PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS", 60) or 60),
+        )
+        if not cache.add(self.throttle_cache_key, timezone.now().isoformat(), timeout=interval_seconds):
+            return
+
+        try:
+            from apps.promo.services import expire_due_promos, send_due_promo_messages
+
+            now = timezone.now()
+            delivered_count = send_due_promo_messages(now=now, limit=100)
+            expired_count = expire_due_promos(now=now)
+            if delivered_count or expired_count:
+                self.logger.info(
+                    "inline promo scheduler processed delivered=%s expired=%s",
+                    delivered_count,
+                    expired_count,
+                )
+        except DatabaseError:
+            pass

@@ -1,23 +1,7 @@
 (function () {
   "use strict";
 
-  function closeAlerts() {
-    const list = document.getElementById("alertsList");
-    if (!list) {
-      return;
-    }
-    list.querySelectorAll("button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const alert = btn.closest(".alert");
-        if (alert) {
-          alert.remove();
-        }
-      });
-    });
-    window.setTimeout(() => {
-      list.querySelectorAll(".alert").forEach((alert) => alert.remove());
-    }, 9000);
-  }
+  /* closeAlerts — handled globally by _base.html toast system */
 
   function attachCharCounters() {
     const textareas = document.querySelectorAll("textarea[maxlength]");
@@ -100,7 +84,7 @@
 
       form.querySelectorAll("button[type='submit']").forEach((btn) => {
         btn.disabled = true;
-        btn.style.opacity = "0.68";
+        btn.classList.add("is-loading");
       });
     });
   }
@@ -118,6 +102,54 @@
         row.style.display = !term || text.includes(term) ? "" : "none";
       });
     });
+  }
+
+  function setupAssigneeFilterByTeam() {
+    const form = document.getElementById("contentReviewsActionForm");
+    if (!form) {
+      return;
+    }
+
+    const teamSelect = form.querySelector("select[name='assigned_team']");
+    const assigneeSelect = form.querySelector("select[name='assigned_to']");
+    const state = window.contentDashboardState || {};
+    const assigneesByTeam = state.assigneesByTeam || {};
+    if (!teamSelect || !assigneeSelect || !Object.keys(assigneesByTeam).length) {
+      return;
+    }
+
+    function renderOptions(teamId) {
+      const currentValue = assigneeSelect.value || "";
+      const choices = Array.isArray(assigneesByTeam[String(teamId)]) ? assigneesByTeam[String(teamId)] : [];
+
+      assigneeSelect.innerHTML = "";
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "غير محدد";
+      assigneeSelect.appendChild(blank);
+
+      choices.forEach((entry) => {
+        if (!Array.isArray(entry) || entry.length < 2) {
+          return;
+        }
+        const option = document.createElement("option");
+        option.value = String(entry[0] || "");
+        option.textContent = String(entry[1] || "");
+        assigneeSelect.appendChild(option);
+      });
+
+      if (currentValue && choices.some((entry) => String(entry[0] || "") === currentValue)) {
+        assigneeSelect.value = currentValue;
+      } else {
+        assigneeSelect.value = "";
+      }
+    }
+
+    teamSelect.addEventListener("change", () => {
+      renderOptions(teamSelect.value || "");
+    });
+
+    renderOptions(teamSelect.value || "");
   }
 
   function scrollSelectedRow() {
@@ -624,11 +656,11 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    closeAlerts();
     attachCharCounters();
     updateFileSpecs();
     setupReviewFormConfirmations();
     setupLiveTableSearch();
+    setupAssigneeFilterByTeam();
     scrollSelectedRow();
     setupTeamPanels();
     setupFirstTimeDesignPreview();

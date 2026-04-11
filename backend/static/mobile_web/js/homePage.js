@@ -51,6 +51,7 @@ const HomePage = (() => {
   let _providersResumeTimer = null;
   let _providersPaused = false;
   let _providersBound = false;
+  let _sectionObserver = null;
   let _popupShown = false;       // only show popup once per session
   let _homeContent = {
     categoriesTitle: '',
@@ -83,6 +84,7 @@ const HomePage = (() => {
     _bindReelsInteraction();
     _bindProvidersInteraction();
     _applyHomeContent();
+    _initSectionPresentation();
     window.addEventListener('resize', _syncDesktopHomeBehaviors);
 
     // Network listener
@@ -104,8 +106,76 @@ const HomePage = (() => {
         window.clearInterval(_bannerSyncTimer);
         _bannerSyncTimer = null;
       }
+      if (_sectionObserver) {
+        _sectionObserver.disconnect();
+        _sectionObserver = null;
+      }
       window.removeEventListener('resize', _syncDesktopHomeBehaviors);
     }, { once: true });
+  }
+
+  function _initSectionPresentation() {
+    if (!document.body) return;
+    document.body.classList.add('js-enhanced-home');
+
+    const sections = Array.from(document.querySelectorAll('[data-home-section]'));
+    const shells = Array.from(document.querySelectorAll('.home-section-shell'));
+
+    shells.forEach((shell) => {
+      shell.addEventListener('pointermove', _handleSectionPointerMove, { passive: true });
+      shell.addEventListener('pointerleave', _resetSectionPointerGlow, { passive: true });
+    });
+
+    if (!sections.length) {
+      return;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      sections.forEach((section) => section.classList.add('is-visible'));
+      return;
+    }
+
+    _sectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        if (_sectionObserver) {
+          _sectionObserver.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.16,
+      rootMargin: '0px 0px -12% 0px',
+    });
+
+    sections.forEach((section) => _sectionObserver.observe(section));
+  }
+
+  function _handleSectionPointerMove(event) {
+    if (window.innerWidth < 960) return;
+    const shell = event.currentTarget;
+    if (!shell) return;
+    const rect = shell.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = ((event.clientX - rect.left) / rect.width) * 100;
+    const y = ((event.clientY - rect.top) / rect.height) * 100;
+    shell.style.setProperty('--section-pointer-x', `${Math.max(0, Math.min(100, x))}%`);
+    shell.style.setProperty('--section-pointer-y', `${Math.max(0, Math.min(100, y))}%`);
+  }
+
+  function _resetSectionPointerGlow(event) {
+    const shell = event.currentTarget;
+    if (!shell) return;
+    shell.style.removeProperty('--section-pointer-x');
+    shell.style.removeProperty('--section-pointer-y');
+  }
+
+  function _notifySectionShown(section) {
+    if (!section) return;
+    section.classList.add('is-visible');
+    if (_sectionObserver) {
+      _sectionObserver.unobserve(section);
+    }
   }
 
   /* ----------------------------------------------------------
@@ -425,6 +495,7 @@ const HomePage = (() => {
     });
     frame.setAttribute('data-media-ratio', 'landscape');
     frame.style.setProperty('--banner-effective-scale', String(_resolveResponsiveBannerScale(banner)));
+    const shouldLoopSingleVideo = isVideo && _carouselItems.length <= 1;
 
     const backdrop = UI.el('div', {
       className: 'carousel-media-backdrop' + (isVideo ? ' is-video' : ''),
@@ -440,7 +511,7 @@ const HomePage = (() => {
         'aria-hidden': 'true',
       });
       backdropVid.muted = true;
-      backdropVid.loop = false;
+      backdropVid.loop = shouldLoopSingleVideo;
       backdropVid.playsInline = true;
       backdropVid.setAttribute('playsinline', '');
       backdropVid.setAttribute('disablepictureinpicture', '');
@@ -475,7 +546,7 @@ const HomePage = (() => {
       });
       vid.autoplay = false;
       vid.muted = true;
-      vid.loop = false;
+      vid.loop = shouldLoopSingleVideo;
       vid.playsInline = true;
       vid.setAttribute('playsinline', '');
       vid.setAttribute('disablepictureinpicture', '');
@@ -1007,6 +1078,7 @@ const HomePage = (() => {
       return;
     }
     $portfolioShowcaseSection.style.display = '';
+    _notifySectionShown($portfolioShowcaseSection);
 
     const frag = document.createDocumentFragment();
     items.forEach((item, index) => {
@@ -1072,6 +1144,7 @@ const HomePage = (() => {
     const providerId = _readBannerInt(promo.target_provider_id);
 
     $promoMessageSection.style.display = '';
+    _notifySectionShown($promoMessageSection);
     $promoMessageCard.textContent = '';
     const chip = UI.el('span', { className: 'sponsor-chip', textContent: 'رسالة دعائية' });
     const headline = UI.el('div', { className: 'sponsor-title', textContent: title });

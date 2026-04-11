@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}لوحة التحكم{% endblock %}</title>
+  <title>{% block title %}لوحة التحكم{% endblock %} — نوافذ</title>
   <link rel="stylesheet" href="{% static 'dashboard/css/admin.css' %}">
   {% block extra_head %}{% endblock %}
 </head>
@@ -12,12 +12,123 @@
   {% if request.user.is_authenticated %}
     <div class="dashboard-global-actions">
       <span class="pill brand dashboard-user-pill">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         {{ request.user.username|default:request.user.phone|default:"حساب تشغيلي" }}
       </span>
-      <a href="{% url 'dashboard:logout' %}" class="ghost-btn dashboard-logout-btn">تسجيل الخروج</a>
+      <a href="{% url 'dashboard:logout' %}" class="ghost-btn dashboard-logout-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        خروج
+      </a>
     </div>
   {% endif %}
+
+  <!-- Toast Notification Container -->
+  <div class="nw-toast-container" id="nwToastContainer"></div>
+
   {% block body %}{% endblock %}
+
+  <script>
+    /* ── Global Toast Notification System ── */
+    window.NwToast = {
+      _container: null,
+      _getContainer() {
+        if (!this._container) this._container = document.getElementById('nwToastContainer');
+        return this._container;
+      },
+      show(message, type = 'success', duration = 4000) {
+        const container = this._getContainer();
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `nw-toast nw-toast-${type}`;
+        const icons = {
+          success: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+          error: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+          warning: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86l-8.6 14.86A2 2 0 0 0 3.4 22h17.2a2 2 0 0 0 1.71-3.28l-8.6-14.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+          info: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+        };
+        toast.innerHTML = `
+          <span class="nw-toast-icon">${icons[type] || icons.info}</span>
+          <span class="nw-toast-msg">${message}</span>
+          <button class="nw-toast-close" onclick="this.parentElement.remove()" aria-label="إغلاق">×</button>
+        `;
+        container.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('nw-toast-show'));
+        if (duration > 0) {
+          setTimeout(() => {
+            toast.classList.remove('nw-toast-show');
+            toast.classList.add('nw-toast-hide');
+            setTimeout(() => toast.remove(), 350);
+          }, duration);
+        }
+      },
+      success(msg, dur) { this.show(msg, 'success', dur); },
+      error(msg, dur) { this.show(msg, 'error', dur); },
+      warning(msg, dur) { this.show(msg, 'warning', dur); },
+      info(msg, dur) { this.show(msg, 'info', dur); },
+    };
+
+    /* ── Auto-convert Django messages to toasts ── */
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.alert-list .alert').forEach(function(el) {
+        const msg = el.querySelector('span')?.textContent?.trim();
+        if (!msg) return;
+        const cls = el.className || '';
+        let type = 'info';
+        if (cls.includes('success')) type = 'success';
+        else if (cls.includes('error') || cls.includes('danger')) type = 'error';
+        else if (cls.includes('warning')) type = 'warning';
+        NwToast.show(msg, type, 5000);
+      });
+      const alertList = document.getElementById('alertsList');
+      if (alertList) alertList.style.display = 'none';
+
+      /* ── Global: auto-close old-style alert banners ── */
+      (function() {
+        var al = document.getElementById('alertsList');
+        if (!al) return;
+        al.querySelectorAll('button').forEach(function(b) {
+          b.addEventListener('click', function() {
+            var a = b.closest('.alert'); if (a) a.remove();
+          });
+        });
+        setTimeout(function() {
+          al.querySelectorAll('.alert').forEach(function(a) { a.remove(); });
+        }, 8000);
+      })();
+
+      /* ── Global: data-confirm-message on any submit button ── */
+      document.addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-confirm-message], input[type="submit"][data-confirm-message]');
+        if (!btn) return;
+        var msg = btn.getAttribute('data-confirm-message');
+        if (msg && !window.confirm(msg)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+
+      /* ── Global: .is-loading on form submit buttons ── */
+      document.addEventListener('submit', function(e) {
+        var form = e.target;
+        if (!form || form.tagName !== 'FORM') return;
+        if (form.dataset.noAutoLoading === 'true') return;
+        var btns = form.querySelectorAll('button[type="submit"]');
+        btns.forEach(function(b) { b.classList.add('is-loading'); });
+      });
+
+      /* ── Global: export-btn brief loading feedback ── */
+      document.querySelectorAll('.export-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          btn.classList.add('loading');
+          btn.setAttribute('aria-busy', 'true');
+          setTimeout(function() {
+            btn.classList.remove('loading');
+            btn.removeAttribute('aria-busy');
+          }, 1200);
+        });
+      });
+    });
+  </script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

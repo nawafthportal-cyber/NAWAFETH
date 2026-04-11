@@ -32,43 +32,19 @@
           </ul>
         {% endif %}
 
-        <section class="section-panel slide-up verification-guide-shell">
-          <div class="title-row">
-            <h2>أنواع وشارات التوثيق</h2>
-            <div class="actions">
-              <span class="pill brand">الزرقاء</span>
-              <span class="pill mint">الخضراء</span>
-            </div>
-          </div>
-          <div class="verification-guide-grid">
-            <article class="verification-guide-card is-blue">
-              <div class="verification-guide-icon" aria-hidden="true">✓</div>
-              <div>
-                <h3>{{ badge_guide.blue.title }}</h3>
-                <p>{{ badge_guide.blue.description }}</p>
-              </div>
-            </article>
-            <article class="verification-guide-card is-green">
-              <div class="verification-guide-icon" aria-hidden="true">✓</div>
-              <div>
-                <h3>{{ badge_guide.green.title }}</h3>
-                <ul class="verification-guide-list">
-                  {% for item in badge_guide.green.requirements %}
-                    <li>{{ item.title }}</li>
-                  {% endfor %}
-                </ul>
-              </div>
-            </article>
-          </div>
-        </section>
-
         {% if filters.tab == 'verification' %}
           <section class="section-panel slide-up">
             <div class="title-row">
               <h2>قائمة استفسارات التوثيق</h2>
               <div class="actions">
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=inquiries&export=pdf">PDF</a>
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=inquiries&export=xlsx">Excel</a>
+                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=inquiries&export=pdf">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  PDF
+                </a>
+                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=inquiries&export=xlsx">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                  Excel
+                </a>
                 <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=inquiries&export=csv">CSV</a>
               </div>
             </div>
@@ -79,7 +55,10 @@
               <input type="hidden" name="accounts_q" value="{{ filters.accounts_q }}">
               <input class="input-control" type="search" name="inquiry_q" value="{{ filters.inquiry_q }}" placeholder="بحث في استفسارات التوثيق...">
               <div class="actions">
-                <button class="primary-btn light" type="submit">تحديث</button>
+                <button class="primary-btn light" type="submit">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  تحديث
+                </button>
                 <a class="ghost-btn" href="{% url 'dashboard:verification_dashboard' %}">مسح</a>
               </div>
             </form>
@@ -89,14 +68,14 @@
                 <thead>
                   <tr>
                     <th>رقم الطلب</th>
-                    <th>اسم العميل</th>
+                    <th>العميل</th>
                     <th>الأولوية</th>
-                    <th>نوع الطلب</th>
-                    <th>تاريخ ووقت استلام الطلب</th>
-                    <th>حالة الطلب</th>
-                    <th>فريق الدعم</th>
-                    <th>المكلف بالطلب</th>
-                    <th>تاريخ ووقت التكليف</th>
+                    <th>النوع</th>
+                    <th>تاريخ الاستلام</th>
+                    <th>الحالة</th>
+                    <th>الفريق</th>
+                    <th>المكلف</th>
+                    <th>تاريخ التكليف</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -197,7 +176,7 @@
                       </tr>
                     {% endif %}
                   {% empty %}
-                    <tr><td colspan="9">لا توجد استفسارات توثيق مطابقة للفلاتر.</td></tr>
+                    <tr><td colspan="9" class="empty-note">لا توجد استفسارات توثيق مطابقة للفلاتر.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -208,8 +187,14 @@
             <div class="title-row">
               <h2>قائمة طلبات التوثيق</h2>
               <div class="actions">
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=requests&export=pdf">PDF</a>
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=requests&export=xlsx">Excel</a>
+                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=requests&export=pdf">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  PDF
+                </a>
+                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=requests&export=xlsx">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                  Excel
+                </a>
                 <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&inquiry_q={{ filters.inquiry_q|urlencode }}&request_q={{ filters.request_q|urlencode }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=requests&export=csv">CSV</a>
               </div>
             </div>
@@ -220,7 +205,10 @@
               <input type="hidden" name="accounts_q" value="{{ filters.accounts_q }}">
               <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم العميل أو رقم طلب التوثيق...">
               <div class="actions">
-                <button class="primary-btn light" type="submit">تحديث</button>
+                <button class="primary-btn light" type="submit">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                  تحديث
+                </button>
                 <a class="ghost-btn" href="{% url 'dashboard:verification_dashboard' %}">مسح</a>
               </div>
             </form>
@@ -230,12 +218,12 @@
                 <thead>
                   <tr>
                     <th>رقم الطلب</th>
-                    <th>اسم العميل</th>
+                    <th>العميل</th>
                     <th>الأولوية</th>
-                    <th>تاريخ ووقت اعتماد الطلب</th>
-                    <th>حالة الطلب</th>
-                    <th>المكلف بالطلب</th>
-                    <th>تاريخ ووقت التكليف</th>
+                    <th>تاريخ الاعتماد</th>
+                    <th>الحالة</th>
+                    <th>المكلف</th>
+                    <th>تاريخ التكليف</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -265,9 +253,6 @@
                               <h2>{% if request_stage == 'summary' %}ملخص اعتماد طلب التوثيق{% else %}مراجعة بنود طلب التوثيق{% endif %}: {{ selected_request.code }}</h2>
                               <div class="actions">
                                 <span class="pill brand">الحالة الحالية: {{ selected_request_status_label }}</span>
-                                {% for label in selected_request_badge_labels %}
-                                  <span class="pill {% if label == 'شارة خضراء' %}mint{% else %}info{% endif %}">{{ label }}</span>
-                                {% endfor %}
                               </div>
                             </div>
 
@@ -320,7 +305,7 @@
                                 {% if selected_request_review.blue_rows %}
                                   <section class="verification-review-card is-blue">
                                     <div class="verification-review-head">
-                                      <h3>الشارة الزرقاء</h3>
+                                      <h3>مسار التحقق الأساسي</h3>
                                       <span class="pill brand">اعتماد هوية أو صفة تجارية</span>
                                     </div>
 
@@ -379,7 +364,7 @@
                                       <div class="verification-inline-attachments">
                                         {% for document in selected_request_review.blue_documents %}
                                           <article class="verification-inline-attachment">
-                                            <strong>{{ document.title|default:"مرفق داعم للشارة الزرقاء" }}</strong>
+                                            <strong>{{ document.title|default:"مرفق داعم للمسار الأساسي" }}</strong>
                                             <span>{{ document.get_doc_type_display }} - {{ document.uploaded_at|date:"d/m/Y - H:i" }}</span>
                                             <div class="actions">
                                               <a class="ticket-link" href="{{ document.file.url }}" target="_blank" rel="noopener">فتح</a>
@@ -395,7 +380,7 @@
                                 {% if selected_request_review.green_rows %}
                                   <section class="verification-review-card is-green">
                                     <div class="verification-review-head">
-                                      <h3>الشارة الخضراء</h3>
+                                      <h3>مسار التحقق المهني</h3>
                                       <span class="pill mint">فحص كل بند على حدة</span>
                                     </div>
 
@@ -476,7 +461,6 @@
                                         <tr>
                                           <th>بنود التوثيق المعتمدة</th>
                                           <th>رمز التوثيق</th>
-                                          <th>نوع شارة التوثيق</th>
                                           <th>التكلفة (ريال سعودي)</th>
                                         </tr>
                                       </thead>
@@ -485,23 +469,22 @@
                                           <tr>
                                             <td>{{ summary_row.title }}</td>
                                             <td>{{ summary_row.code }}</td>
-                                            <td>{{ summary_row.badge_label }}</td>
                                             <td>{{ summary_row.amount|default:"0.00" }}</td>
                                           </tr>
                                         {% empty %}
-                                          <tr><td colspan="4">لا توجد بنود معتمدة لهذا الطلب.</td></tr>
+                                          <tr><td colspan="3">لا توجد بنود معتمدة لهذا الطلب.</td></tr>
                                         {% endfor %}
                                         {% if selected_request_financial_summary %}
                                           <tr class="summary-total-row">
-                                            <td colspan="3">المجموع</td>
+                                            <td colspan="2">المجموع</td>
                                             <td>{{ selected_request_financial_summary.subtotal }}</td>
                                           </tr>
                                           <tr class="summary-total-row">
-                                            <td colspan="3">VAT</td>
+                                            <td colspan="2">VAT</td>
                                             <td>{{ selected_request_financial_summary.vat_amount }}</td>
                                           </tr>
                                           <tr class="summary-total-row">
-                                            <td colspan="3">المجموع مع الضريبة</td>
+                                            <td colspan="2">المجموع مع الضريبة</td>
                                             <td>{{ selected_request_financial_summary.total }}</td>
                                           </tr>
                                         {% endif %}
@@ -517,7 +500,6 @@
                                       <thead>
                                         <tr>
                                           <th>بنود التوثيق المرفوضة</th>
-                                          <th>نوع شارة التوثيق</th>
                                           <th>سبب الرفض</th>
                                         </tr>
                                       </thead>
@@ -525,7 +507,6 @@
                                         {% for summary_row in selected_request_decision_summary.rejected %}
                                           <tr>
                                             <td>{{ summary_row.title }}</td>
-                                            <td>{{ summary_row.badge_label }}</td>
                                             <td>
                                               {% if can_write and selected_request_is_editable %}
                                                 <textarea class="input-control verification-reject-reason" name="reject_reason_{{ summary_row.id }}" rows="2" maxlength="300" placeholder="سبب الرفض الذي سيظهر للعميل">{{ summary_row.decision_note }}</textarea>
@@ -535,7 +516,7 @@
                                             </td>
                                           </tr>
                                         {% empty %}
-                                          <tr><td colspan="3">لا توجد بنود مرفوضة في هذا الطلب.</td></tr>
+                                          <tr><td colspan="2">لا توجد بنود مرفوضة في هذا الطلب.</td></tr>
                                         {% endfor %}
                                       </tbody>
                                     </table>
@@ -580,7 +561,7 @@
                       </tr>
                     {% endif %}
                   {% empty %}
-                    <tr><td colspan="7">لا توجد طلبات توثيق حالياً.</td></tr>
+                    <tr><td colspan="7" class="empty-note">لا توجد طلبات توثيق حالياً.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -591,8 +572,14 @@
             <div class="title-row">
               <h2>بيانات الحسابات الموثقة</h2>
               <div class="actions">
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=verified_accounts&export=pdf">PDF</a>
-                <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=verified_accounts&export=xlsx">Excel</a>
+              <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=verified_accounts&export=pdf">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF
+              </a>
+              <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=verified_accounts&export=xlsx">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+                Excel
+              </a>
                 <a class="ghost-btn export-btn" href="?tab={{ filters.tab }}&accounts_q={{ filters.accounts_q|urlencode }}&scope=verified_accounts&export=csv">CSV</a>
               </div>
             </div>
@@ -612,7 +599,7 @@
                   <tr>
                     <th>اسم العميل</th>
                     <th>رمز التوثيق</th>
-                    <th>نوع شارة التوثيق</th>
+                    <th>نوع التوثيق</th>
                     <th>تاريخ تفعيل التوثيق</th>
                     <th>تاريخ نهاية تفعيل التوثيق</th>
                     <th>تجديد</th>
@@ -677,7 +664,7 @@
                             <div class="verification-blue-summary-grid verified-account-summary-grid">
                               <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_verified_badge_detail.requester_name }}</strong></div>
                               <div class="quick-stat"><span>رمز التوثيق</span><strong>{{ selected_verified_badge_detail.verification_code }}</strong></div>
-                              <div class="quick-stat"><span>نوع شارة التوثيق</span><strong>{{ selected_verified_badge_detail.badge_type_label }}</strong></div>
+                              <div class="quick-stat"><span>نوع التوثيق</span><strong>{{ selected_verified_badge_detail.badge_type_label }}</strong></div>
                               <div class="quick-stat"><span>تاريخ تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.activated_at_label }}</strong></div>
                               <div class="quick-stat"><span>تاريخ نهاية تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.expires_at_label }}</strong></div>
                               <div class="quick-stat"><span>رقم طلب التوثيق المصدر</span><strong>{{ selected_verified_badge_detail.request_code|default:"-" }}</strong></div>
@@ -762,7 +749,7 @@
                       </tr>
                     {% endif %}
                   {% empty %}
-                    <tr><td colspan="7">لا توجد حسابات موثقة مطابقة للبحث الحالي.</td></tr>
+                    <tr><td colspan="7" class="empty-note">لا توجد حسابات موثقة مطابقة للبحث الحالي.</td></tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -776,16 +763,22 @@
           {% include 'dashboard/_sidebar_main_nav.html' %}
 
           <div class="side-card">
-            <h4>لوحة فريق التوثيق</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              لوحة فريق التوثيق
+            </h4>
             <div class="stack sidebar-menu-stack">
               {% for item in nav_items %}
-                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}">{{ item.label }}</a>
+                <a class="tab-btn {% if item.active %}active{% endif %}" href="{{ item.url }}"><span class="tab-btn-label">{{ item.label }}</span></a>
               {% endfor %}
             </div>
           </div>
 
           <div class="side-card">
-            <h4>مؤشرات سريعة</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              مؤشرات سريعة
+            </h4>
             {% if filters.tab == 'verification' %}
               <div class="quick-stat"><span>الاستفسارات الجديدة</span><strong>{{ inquiry_summary.new }}</strong></div>
               <div class="quick-stat"><span>طلبات جديدة</span><strong>{{ request_summary.new }}</strong></div>
@@ -799,7 +792,10 @@
           </div>
 
           <div class="side-card">
-            <h4>آخر المراجع</h4>
+            <h4>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+              آخر المراجع
+            </h4>
             {% for item in request_codes %}
               <div class="quick-stat"><span>{{ item.label }}</span><strong>{{ item.code }}</strong></div>
             {% endfor %}

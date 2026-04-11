@@ -1,23 +1,7 @@
 (function () {
   "use strict";
 
-  function closeAlerts() {
-    const list = document.getElementById("alertsList");
-    if (!list) {
-      return;
-    }
-    list.querySelectorAll("button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const alert = btn.closest(".alert");
-        if (alert) {
-          alert.remove();
-        }
-      });
-    });
-    window.setTimeout(() => {
-      list.querySelectorAll(".alert").forEach((alert) => alert.remove());
-    }, 9000);
-  }
+  /* closeAlerts — handled globally by _base.html toast system */
 
   function attachCharCounters() {
     document.querySelectorAll("textarea[maxlength]").forEach((textarea) => {
@@ -55,10 +39,8 @@
         }
       }
       form.querySelectorAll("button[type='submit']").forEach((button) => {
-        button.style.opacity = "0.65";
+        button.classList.add("is-loading");
         if (submitter && button === submitter) {
-          // Keep the clicked submitter enabled for this tick so its name/value
-          // stays in the submitted payload (needed for server action routing).
           window.setTimeout(() => {
             button.disabled = true;
           }, 0);
@@ -77,10 +59,8 @@
     form.addEventListener("submit", (event) => {
       const submitter = event.submitter;
       form.querySelectorAll("button[type='submit']").forEach((button) => {
-        button.style.opacity = "0.65";
+        button.classList.add("is-loading");
         if (submitter && button === submitter) {
-          // Keep the clicked submitter enabled for this tick so its name/value
-          // stays in the submitted payload (needed for server action routing).
           window.setTimeout(() => {
             button.disabled = true;
           }, 0);
@@ -326,7 +306,6 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    closeAlerts();
     attachCharCounters();
     setupInquiryConfirmations();
     setupRequestSubmitState();

@@ -10,31 +10,159 @@
     <button class="btn-icon" id="as-refresh" title="تحديث" aria-label="تحديث"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.13-3.36L23 10M1 14l5.36 4.36A9 9 0 0020.49 15"/></svg></button>
   </div>
 
-  <section class="detail-card as-intro">
-    <h2>خدمات إضافية مرتبطة بالنظام</h2>
-    <p>اطلب الإضافة المناسبة لحسابك وتابع حالتها كما تظهر في لوحة التحكم والداشبورد.</p>
+  <section class="detail-card as-hero">
+    <div>
+      <h2>ابنِ باقتك الإضافية باحتراف</h2>
+      <p>اختر من الباقات الثلاث في صفحة واحدة، ثم حدّد تفاصيلك وأرسل الطلب مباشرة لفريق الخدمات الإضافية.</p>
+    </div>
+    <div class="as-hero-badge">للمزودين فقط</div>
+  </section>
+
+  <section class="detail-card as-provider-strip">
+    <span class="as-provider-label">اسم المختص</span>
+    <strong class="as-provider-value">{{ additional_services_provider_display_name|default:"-" }}</strong>
   </section>
 
   <div id="as-loading" class="loading-center"><div class="spinner"></div></div>
-  <div id="as-error" class="detail-card as-error" style="display:none"></div>
+  <div id="as-error" class="detail-card as-error" hidden></div>
 
-  <div id="as-content" style="display:none">
-    <section class="detail-card as-block">
-      <div class="as-block-head">
-        <h3>الكتالوج المتاح</h3>
-        <span class="text-muted" id="as-catalog-count"></span>
+  <div id="as-content" hidden>
+    <section class="detail-card as-wizard-card">
+      <div class="as-wizard-head">
+        <h3>الصفحة التفصيلية لاختيارات الخدمات الإضافية</h3>
+        <p>انقر على أي بطاقة لعرض خياراتها وتحديد الإضافات المطلوبة.</p>
       </div>
-      <div id="as-catalog-items" class="as-stack"></div>
+
+      <div id="as-main-cards" class="as-main-cards" role="tablist" aria-label="أقسام الخدمات الإضافية">
+        <button type="button" class="as-main-card is-active" data-section="reports" aria-selected="true">
+          <span class="as-main-card-title">التقارير</span>
+          <span class="as-main-card-count" id="as-card-count-reports">0</span>
+        </button>
+        <button type="button" class="as-main-card" data-section="clients" aria-selected="false">
+          <span class="as-main-card-title">إدارة العملاء</span>
+          <span class="as-main-card-count" id="as-card-count-clients">0</span>
+        </button>
+        <button type="button" class="as-main-card" data-section="finance" aria-selected="false">
+          <span class="as-main-card-title">الإدارة المالية</span>
+          <span class="as-main-card-count" id="as-card-count-finance">0</span>
+        </button>
+      </div>
+
+      <form id="as-bundle-form" novalidate>
+        <section class="as-section-panel is-active" data-section-panel="reports">
+          <div class="as-section-head">
+            <label class="as-enable-toggle">
+              <input type="checkbox" id="as-reports-enabled" />
+              <span>تفعيل قسم التقارير</span>
+            </label>
+            <span class="as-counter" id="as-reports-counter">0 خيار</span>
+          </div>
+          <div id="as-reports-options" class="as-options-grid"></div>
+          <div class="as-inline-fields">
+            <label>
+              <span>من تاريخ</span>
+              <input type="date" id="as-reports-start" />
+            </label>
+            <label>
+              <span>إلى تاريخ</span>
+              <input type="date" id="as-reports-end" />
+            </label>
+          </div>
+        </section>
+
+        <section class="as-section-panel" data-section-panel="clients" hidden>
+          <div class="as-section-head">
+            <label class="as-enable-toggle">
+              <input type="checkbox" id="as-clients-enabled" />
+              <span>تفعيل قسم إدارة العملاء</span>
+            </label>
+            <span class="as-counter" id="as-clients-counter">0 خيار</span>
+          </div>
+          <div id="as-clients-options" class="as-options-grid"></div>
+          <div class="as-inline-fields">
+            <label>
+              <span>مدة الاشتراك (بالسنوات)</span>
+              <input type="number" id="as-clients-years" min="1" max="5" step="1" value="1" />
+            </label>
+            <label>
+              <span>عدد الرسائل الجماعية</span>
+              <input type="number" id="as-clients-bulk" min="0" step="1" value="0" />
+            </label>
+          </div>
+        </section>
+
+        <section class="as-section-panel" data-section-panel="finance" hidden>
+          <div class="as-section-head">
+            <label class="as-enable-toggle">
+              <input type="checkbox" id="as-finance-enabled" />
+              <span>تفعيل قسم الإدارة المالية</span>
+            </label>
+            <span class="as-counter" id="as-finance-counter">0 خيار</span>
+          </div>
+          <div id="as-finance-options" class="as-options-grid"></div>
+          <div class="as-inline-fields as-inline-fields-single">
+            <label>
+              <span>مدة الاشتراك (بالسنوات)</span>
+              <input type="number" id="as-finance-years" min="1" max="5" step="1" value="1" />
+            </label>
+          </div>
+        </section>
+
+        <section class="as-summary-panel">
+          <div class="as-review-head">
+            <h4>ملخص الطلب</h4>
+            <p>راجع التفاصيل قبل الإرسال.</p>
+          </div>
+          <div id="as-summary-sections" class="as-summary-sections"></div>
+          <label class="as-notes-field">
+            <span>ملاحظات إضافية (اختياري)</span>
+            <textarea id="as-notes" rows="4" maxlength="1000" placeholder="أي تفاصيل إضافية تساعد فريق المراجعة"></textarea>
+          </label>
+        </section>
+
+        <div id="as-submit-error" class="as-inline-alert" hidden></div>
+
+        <div class="as-wizard-actions">
+          <button type="button" class="btn-outline" id="as-next-card">القسم التالي</button>
+          <button type="submit" class="btn-primary" id="as-submit">إرسال الطلب</button>
+        </div>
+      </form>
     </section>
 
     <section class="detail-card as-block">
       <div class="as-block-head">
-        <h3>طلباتي السابقة</h3>
-        <span class="text-muted" id="as-history-count"></span>
+        <h3>طلباتي التفصيلية</h3>
+        <span class="text-muted" id="as-bundle-history-count"></span>
       </div>
-      <div id="as-my-items" class="as-stack"></div>
+      <div id="as-bundle-history" class="as-stack"></div>
     </section>
   </div>
+
+  <div id="as-success-modal" class="as-success-modal" hidden>
+    <div class="as-success-backdrop" data-success-close="true"></div>
+    <section class="as-success-dialog" role="dialog" aria-modal="true" aria-labelledby="as-success-modal-title">
+      <div class="as-success-dialog-head" id="as-success-modal-title">
+        رقم الطلب: <span id="as-success-code">-</span>
+      </div>
+      <div class="as-success-dialog-body">
+        <p>تم استلام الطلب بنجاح وسيتم التواصل معكم من قبل فريق إدارة الخدمات الإضافية قريبًا.</p>
+        <p id="as-success-status" class="as-success-status"></p>
+      </div>
+      <button type="button" id="as-success-close" class="as-success-close-btn">إغلاق</button>
+    </section>
+  </div>
+
+
+  <script id="as-option-groups" type="application/json">{{ extras_option_groups_json|safe }}</script>
+  <div
+    id="as-config"
+    data-catalog-url="{% url 'extras:catalog' %}"
+    data-my-url="{% url 'extras:my_extras' %}"
+    data-buy-url-template="{% url 'extras:buy_extra' sku='__SKU__' %}"
+    data-bundle-create-url="{% url 'extras:bundle_request_create' %}"
+    data-bundle-my-url="{% url 'extras:bundle_request_my' %}"
+    data-portal-home-url="{% url 'extras_portal:home' %}"
+  ></div>
 </main>
 {% endblock %}
 

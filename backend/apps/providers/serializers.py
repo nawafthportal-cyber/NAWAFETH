@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.utils.text import slugify
 
 from apps.accounts.models import User
-from apps.accounts.phone_validation import require_phone_local05
+from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
 from apps.accounts.role_context import get_active_role
 
 from .models import (
@@ -13,6 +13,8 @@ from .models import (
     ProviderProfile,
     ProviderService,
     ProviderSpotlightItem,
+    SaudiCity,
+    SaudiRegion,
     SubCategory,
     sync_provider_accepts_urgent_flag,
 )
@@ -61,6 +63,23 @@ def _normalize_seo_slug(value):
     return normalized
 
 
+def _normalize_whatsapp_local05(value):
+    normalized = normalize_phone_local05(str(value or "").strip())
+    if not normalized:
+        return ""
+    try:
+        return require_phone_local05(normalized, allow_blank=True)
+    except ValueError:
+        return ""
+
+
+def _build_whatsapp_url(value):
+    local05 = _normalize_whatsapp_local05(value)
+    if not local05:
+        return ""
+    return f"https://wa.me/966{local05[1:]}"
+
+
 class ProviderSeoValidationMixin:
     def validate_seo_title(self, value):
         return _trim_text(value)
@@ -89,7 +108,26 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ("id", "name", "subcategories")
 
 
+class SaudiCitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SaudiCity
+        fields = ("id", "name_ar")
+
+
+class SaudiRegionSerializer(serializers.ModelSerializer):
+    cities = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SaudiRegion
+        fields = ("id", "name_ar", "cities")
+
+    def get_cities(self, obj):
+        rows = obj.cities.filter(is_active=True).order_by("sort_order", "name_ar", "id")
+        return SaudiCitySerializer(rows, many=True).data
+
+
 class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSerializer):
+    whatsapp_url = serializers.SerializerMethodField(read_only=True)
     subcategory_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
@@ -107,9 +145,48 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
         if not text:
             return ""
         try:
-            return require_phone_local05(text, allow_blank=True)
+            return require_phone_local05(normalize_phone_local05(text), allow_blank=True)
         except ValueError as exc:
             raise serializers.ValidationError(str(exc))
+
+    def get_whatsapp_url(self, obj):
+        return _build_whatsapp_url(getattr(obj, "whatsapp", ""))
+
+    def validate_region(self, value):
+        return _trim_text(value)
+
+    def validate_city(self, value):
+        return _trim_text(value)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        region = _trim_text(attrs.get("region"))
+        city = _trim_text(attrs.get("city"))
+
+        if city and not region:
+            city_rows = SaudiCity.objects.filter(name_ar=city, is_active=True, region__is_active=True)
+            distinct_regions = list(city_rows.values_list("region__name_ar", flat=True).distinct())
+            if len(distinct_regions) == 1:
+                region = distinct_regions[0]
+                attrs["region"] = region
+            else:
+                raise serializers.ValidationError({"region": "اختر المنطقة المرتبطة بالمدينة المختارة."})
+
+        if region and not city:
+            raise serializers.ValidationError({"city": "اختر المدينة التابعة للمنطقة."})
+
+        if not region or not city:
+            raise serializers.ValidationError({"city": "المنطقة والمدينة مطلوبتان."})
+
+        if not SaudiCity.objects.filter(
+            is_active=True,
+            name_ar=city,
+            region__is_active=True,
+            region__name_ar=region,
+        ).exists():
+            raise serializers.ValidationError({"city": "المدينة المختارة لا تتبع المنطقة المحددة."})
+
+        return attrs
 
     def create(self, validated_data):
         subcategory_ids = validated_data.pop("subcategory_ids", [])
@@ -150,6 +227,7 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     main_categories = serializers.SerializerMethodField()
     selected_subcategories = serializers.SerializerMethodField()
     subcategory_ids = serializers.SerializerMethodField()
+    whatsapp_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -164,9 +242,11 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
             "about_details",
             "years_experience",
             "whatsapp",
+            "whatsapp_url",
             "website",
             "social_links",
             "languages",
+            "region",
             "city",
             "lat",
             "lng",
@@ -209,9 +289,53 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
         if not text:
             return ""
         try:
-            return require_phone_local05(text, allow_blank=True)
+            return require_phone_local05(normalize_phone_local05(text), allow_blank=True)
         except ValueError as exc:
             raise serializers.ValidationError(str(exc))
+
+    def get_whatsapp_url(self, obj):
+        return _build_whatsapp_url(getattr(obj, "whatsapp", ""))
+
+    def validate_region(self, value):
+        return _trim_text(value)
+
+    def validate_city(self, value):
+        return _trim_text(value)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        region_in_payload = "region" in attrs
+        city_in_payload = "city" in attrs
+
+        if not region_in_payload and not city_in_payload:
+            return attrs
+
+        region = _trim_text(attrs.get("region", getattr(self.instance, "region", "")))
+        city = _trim_text(attrs.get("city", getattr(self.instance, "city", "")))
+
+        if city and not region:
+            city_rows = SaudiCity.objects.filter(name_ar=city, is_active=True, region__is_active=True)
+            distinct_regions = list(city_rows.values_list("region__name_ar", flat=True).distinct())
+            if len(distinct_regions) == 1:
+                region = distinct_regions[0]
+                attrs["region"] = region
+            else:
+                raise serializers.ValidationError({"region": "اختر المنطقة المرتبطة بالمدينة المختارة."})
+
+        if region and not city:
+            raise serializers.ValidationError({"city": "اختر المدينة التابعة للمنطقة."})
+
+        if city and region:
+            if not SaudiCity.objects.filter(
+                is_active=True,
+                name_ar=city,
+                region__is_active=True,
+                region__name_ar=region,
+            ).exists():
+                raise serializers.ValidationError({"city": "المدينة المختارة لا تتبع المنطقة المحددة."})
+
+        return attrs
 
     def _provider_subcategory_rows(self, obj):
         rows = []
@@ -278,6 +402,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     main_categories = serializers.SerializerMethodField()
     selected_subcategories = serializers.SerializerMethodField()
     subcategory_ids = serializers.SerializerMethodField()
+    whatsapp_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -294,9 +419,11 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "years_experience",
             "phone",
             "whatsapp",
+            "whatsapp_url",
             "website",
             "social_links",
             "languages",
+            "region",
             "city",
             "lat",
             "lng",
@@ -344,6 +471,9 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     def get_excellence_badges(self, obj):
         value = getattr(obj, "excellence_badges_cache", None)
         return value if isinstance(value, list) else []
+
+    def get_whatsapp_url(self, obj):
+        return _build_whatsapp_url(getattr(obj, "whatsapp", ""))
 
     def _provider_subcategory_rows(self, obj):
         rows = []

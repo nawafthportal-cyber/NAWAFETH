@@ -60,7 +60,7 @@ def _resolve_support_team_for_create(raw_team_value, *, ticket_type: str) -> Sup
 class SupportTeamSerializer(serializers.ModelSerializer):
     class Meta:
         model = SupportTeam
-        fields = ["id", "code", "name_ar", "is_active", "sort_order"]
+        fields = ["id", "code", "name_ar", "dashboard_code", "is_active", "sort_order"]
 
 
 class SupportAttachmentSerializer(serializers.ModelSerializer):

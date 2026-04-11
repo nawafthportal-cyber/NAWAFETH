@@ -10,6 +10,7 @@ urlpatterns = [
     path("", views.portal_home, name="home"),
     path("login/", views.portal_login, name="login"),
     path("otp/", views.portal_otp, name="otp"),
+    path("otp/resend/", views.portal_resend_otp, name="otp_resend"),
     path("logout/", views.portal_logout, name="logout"),
 
     path("reports/", views.portal_reports, name="reports"),

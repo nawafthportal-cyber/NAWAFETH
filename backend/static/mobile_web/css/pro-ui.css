@@ -366,35 +366,36 @@ body.mobile-web-parity .chip.active:hover {
   }
 
   body.mobile-web-parity.page-provider-register .page-shell {
-    max-width: min(1360px, calc(100vw - 56px)) !important;
+    max-width: min(1320px, calc(100vw - 56px)) !important;
   }
 
   body.mobile-web-parity.page-provider-register .wizard-progress {
     max-width: 1040px;
-    margin: 0 auto 28px;
+    margin: 0 auto 22px;
   }
 
-  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="1"] .detail-card,
-  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="2"] .detail-card,
-  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="3"] .detail-card {
+  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="1"] .reg-step-card,
+  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="2"] .reg-step-card,
+  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="3"] .reg-step-card {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 18px;
+    gap: 16px 20px;
     align-items: end;
   }
 
-  body.mobile-web-parity.page-provider-register .wizard-panel .detail-card .form-group {
+  body.mobile-web-parity.page-provider-register .wizard-panel .reg-step-card .form-group {
     margin-bottom: 0;
   }
 
-  body.mobile-web-parity.page-provider-register .wizard-panel .detail-card .form-group-wide,
-  body.mobile-web-parity.page-provider-register .wizard-panel .detail-card .form-row,
-  body.mobile-web-parity.page-provider-register .wizard-panel .detail-card > .btn {
+  body.mobile-web-parity.page-provider-register .wizard-panel .reg-step-card .wizard-panel-head,
+  body.mobile-web-parity.page-provider-register .wizard-panel .reg-step-card .form-group-wide,
+  body.mobile-web-parity.page-provider-register .wizard-panel .reg-step-card .form-row,
+  body.mobile-web-parity.page-provider-register .wizard-panel .reg-step-card > .btn {
     grid-column: 1 / -1;
   }
 
-  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="success"] .success-card {
-    max-width: 900px;
+  body.mobile-web-parity.page-provider-register .wizard-panel[data-panel="success"] .reg-success-card {
+    max-width: 940px;
     margin-inline: auto;
   }
 }

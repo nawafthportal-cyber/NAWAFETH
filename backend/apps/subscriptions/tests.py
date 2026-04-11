@@ -7,23 +7,42 @@ from rest_framework.test import APIClient
 
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.core.models import PlatformConfig
+from apps.messaging.models import Message
+from apps.notifications.models import Notification
 from apps.providers.models import ProviderProfile
 from apps.unified_requests.models import UnifiedRequest
 
 from .bootstrap import ensure_basic_subscription_plan
 from .models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
-from .services import _locked_subscription_queryset, activate_subscription_after_payment, start_subscription_checkout
+from .services import (
+    _locked_subscription_queryset,
+    activate_subscription_after_payment,
+    apply_effective_payment,
+    start_subscription_checkout,
+)
 
 
 class SubscriptionPaymentReviewWorkflowTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(phone="0500000400", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود اشتراك",
+            bio="نبذة مختصرة",
+        )
         self.plan = SubscriptionPlan.objects.create(
             code="pro_monthly_review",
             tier=PlanTier.PRO,
             title="الباقة الاحترافية",
             period=PlanPeriod.MONTH,
             price="299.00",
+        )
+        self.operator = get_user_model().objects.create_user(phone="0500000401", password="secret")
+        self.staff_operator = get_user_model().objects.create_user(
+            phone="0500000402",
+            password="secret",
+            is_staff=True,
         )
         self.subscription = Subscription.objects.create(
             user=self.user,
@@ -73,6 +92,41 @@ class SubscriptionPaymentReviewWorkflowTests(TestCase):
 
         self.assertEqual(self.subscription.status, SubscriptionStatus.AWAITING_REVIEW)
         self.assertIsNone(self.subscription.start_at)
+        self.assertEqual(request_row.status, "new")
+
+    def test_paid_subscription_resync_does_not_demote_request_already_in_progress(self):
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="pay-1b",
+            event_id="evt-1b",
+            amount=self.invoice.total,
+            currency="SAR",
+            when=timezone.now(),
+        )
+        self.invoice.save(update_fields=[
+            "status",
+            "paid_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ])
+
+        request_row = UnifiedRequest.objects.get(
+            source_app="subscriptions",
+            source_model="Subscription",
+            source_object_id=str(self.subscription.id),
+        )
+        request_row.status = "in_progress"
+        request_row.save(update_fields=["status", "updated_at"])
+
+        apply_effective_payment(sub=self.subscription)
+
+        request_row.refresh_from_db()
         self.assertEqual(request_row.status, "in_progress")
 
     def test_manual_activation_after_review_activates_and_closes_request(self):
@@ -110,6 +164,117 @@ class SubscriptionPaymentReviewWorkflowTests(TestCase):
         self.assertIsNotNone(self.subscription.start_at)
         self.assertEqual(request_row.status, "closed")
         self.assertEqual(request_row.assigned_user_id, self.user.id)
+
+    def test_manual_activation_after_review_creates_notification_for_subscriber(self):
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="pay-notify-1",
+            event_id="evt-notify-1",
+            amount=self.invoice.total,
+            currency="SAR",
+            when=timezone.now(),
+        )
+        self.invoice.save(update_fields=[
+            "status",
+            "paid_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ])
+
+        activate_subscription_after_payment(sub=self.subscription, changed_by=self.user, assigned_user=self.user)
+        self.subscription.refresh_from_db()
+
+        notification = Notification.objects.filter(user=self.user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.kind, "success")
+        self.assertIn("تفعيل اشتراكك", notification.title)
+        self.assertIn("الباقة الاحترافية", notification.body)
+        self.assertIn(timezone.localtime(self.subscription.end_at).strftime("%d/%m/%Y"), notification.body)
+
+    def test_manual_activation_by_operator_creates_system_message(self):
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="pay-notify-2",
+            event_id="evt-notify-2",
+            amount=self.invoice.total,
+            currency="SAR",
+            when=timezone.now(),
+        )
+        self.invoice.save(update_fields=[
+            "status",
+            "paid_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ])
+
+        activate_subscription_after_payment(
+            sub=self.subscription,
+            changed_by=self.operator,
+            assigned_user=self.operator,
+        )
+
+        system_message = Message.objects.filter(
+            thread__system_thread_key="subscriptions",
+            thread__is_system_thread=True,
+            sender=self.operator,
+            thread__participant_1=self.user,
+        ).order_by("-id").first() or Message.objects.filter(
+            thread__system_thread_key="subscriptions",
+            thread__is_system_thread=True,
+            sender=self.operator,
+            thread__participant_2=self.user,
+        ).order_by("-id").first()
+        self.assertIsNotNone(system_message)
+        self.assertIn("الباقة الاحترافية", system_message.body)
+
+    def test_manual_activation_uses_fallback_staff_sender_for_chat_when_actor_is_subscriber(self):
+        self.invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="pay-notify-3",
+            event_id="evt-notify-3",
+            amount=self.invoice.total,
+            currency="SAR",
+            when=timezone.now(),
+        )
+        self.invoice.save(update_fields=[
+            "status",
+            "paid_at",
+            "payment_confirmed",
+            "payment_confirmed_at",
+            "payment_provider",
+            "payment_reference",
+            "payment_event_id",
+            "payment_amount",
+            "payment_currency",
+            "updated_at",
+        ])
+
+        activate_subscription_after_payment(
+            sub=self.subscription,
+            changed_by=self.user,
+            assigned_user=self.user,
+        )
+
+        system_message = Message.objects.filter(
+            thread__system_thread_key="subscriptions",
+            thread__is_system_thread=True,
+            sender=self.staff_operator,
+        ).order_by("-id").first()
+        self.assertIsNotNone(system_message)
+        self.assertEqual(system_message.thread.system_sender_label, "فريق إدارة الاشتراكات")
+        self.assertIn("الباقة الاحترافية", system_message.body)
 
     def test_payment_reversal_from_awaiting_review_returns_to_pending_payment(self):
         self.invoice.mark_payment_confirmed(
@@ -222,6 +387,11 @@ class SubscriptionEntitlementApiRecoveryTests(TestCase):
         self.assertEqual(payload["provider_status_code"], SubscriptionStatus.ACTIVE)
         self.assertIsNone(payload["invoice_summary"])
         self.assertTrue(str(payload["request_code"]).startswith("SD"))
+
+        notification = Notification.objects.filter(user=self.user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.kind, "success")
+        self.assertIn("تفعيل اشتراكك", notification.title)
 
 
 class SubscriptionCheckoutDurationTests(TestCase):

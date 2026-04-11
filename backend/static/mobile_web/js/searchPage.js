@@ -891,10 +891,49 @@ const SearchPage = (() => {
 
   function _resolveProviderPhone(provider) {
     const raw = String(
-      provider?.phone || provider?.phone_number || provider?.phoneNumber || provider?.whatsapp || ''
+      provider?.whatsapp || provider?.phone || provider?.phone_number || provider?.phoneNumber || ''
     ).trim();
     if (!raw) return '';
     return raw.replace(/\s+/g, '');
+  }
+
+  function _normalizeSaudiMobileLocal05(value) {
+    const digits = String(value || '').replace(/\D+/g, '');
+    if (digits.length === 10 && digits.startsWith('05')) return digits;
+    if (digits.length === 9 && digits.startsWith('5')) return '0' + digits;
+    if (digits.length === 12 && digits.startsWith('9665')) return '0' + digits.slice(3);
+    if (digits.length === 14 && digits.startsWith('009665')) return '0' + digits.slice(5);
+    return '';
+  }
+
+  function _toSaudiE164(value) {
+    const local05 = _normalizeSaudiMobileLocal05(value);
+    return local05 ? ('+966' + local05.slice(1)) : '';
+  }
+
+  function _resolveProviderTelHref(provider) {
+    const phone = _toSaudiE164(_resolveProviderPhone(provider));
+    return phone ? ('tel:' + phone) : '';
+  }
+
+  function _resolveProviderWhatsappHref(provider) {
+    const text = 'السلام عليكم، أتواصل معك عبر منصة نوافذ بخصوص طلب خدمة.';
+    const whatsappRaw = String(provider?.whatsapp_url || '').trim();
+    if (whatsappRaw) {
+      const normalized = whatsappRaw.startsWith('http') ? whatsappRaw : ('https://' + whatsappRaw);
+      try {
+        const url = new URL(normalized);
+        url.searchParams.set('text', text);
+        return url.toString();
+      } catch (_) {
+        // Fallback to phone normalization below.
+      }
+    }
+    const e164 = _toSaudiE164(_resolveProviderPhone(provider)).replace('+', '');
+    if (!e164) return '';
+    const url = new URL('https://wa.me/' + e164);
+    url.searchParams.set('text', text);
+    return url.toString();
   }
 
   function _buildProviderMapPopupHtml(provider) {
@@ -921,11 +960,8 @@ const SearchPage = (() => {
     const rating = _safeNum(provider?.rating_avg);
     const ratingLabel = rating > 0 ? rating.toFixed(1) : '-';
     const completed = _completedCount(provider);
-    const phone = _resolveProviderPhone(provider);
-    const telHref = phone ? ('tel:' + encodeURIComponent(phone)) : '';
-    const waPhone = phone ? phone.replace(/^\+/, '') : '';
-    const waText = encodeURIComponent('السلام عليكم، أتواصل معك عبر منصة نوافذ بخصوص طلب خدمة.');
-    const waHref = waPhone ? ('https://wa.me/' + encodeURIComponent(waPhone) + '?text=' + waText) : '';
+    const telHref = _resolveProviderTelHref(provider);
+    const waHref = _resolveProviderWhatsappHref(provider);
     const chatHref = providerId ? ('/chats/?start=' + encodeURIComponent(providerId)) : '/chats/';
 
     return [

@@ -679,27 +679,31 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor:
-            isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA),
+            isDark ? const Color(0xFF120F18) : const Color(0xFFF7F4FB),
         drawer: widget.showDrawer ? const CustomDrawer() : null,
         bottomNavigationBar: widget.showBottomNavigation
             ? const CustomBottomNav(currentIndex: 2)
             : null,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // ── Header + Search ──
-              _buildSearchHeader(isDark, purple),
-
-              // ── Category chips ──
-              if (!_loadingCats && _categories.isNotEmpty)
-                _buildCategoryChips(isDark, purple),
-
-              // ── Sort bar ──
-              _buildSortBar(isDark, purple),
-
-              // ── Results ──
-              Expanded(child: _buildResults(isDark, purple)),
-            ],
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isDark
+                  ? const [Color(0xFF120F18), Color(0xFF1A1422)]
+                  : const [Color(0xFFF8F3FD), Color(0xFFF2EEF9)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildSearchHeader(isDark, purple),
+                if (!_loadingCats && _categories.isNotEmpty)
+                  _buildCategoryChips(isDark, purple),
+                _buildSortBar(isDark, purple),
+                Expanded(child: _buildResults(isDark, purple)),
+              ],
+            ),
           ),
         ),
       ),
@@ -711,81 +715,173 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   // ═══════════════════════════════════════
 
   Widget _buildSearchHeader(bool isDark, Color purple) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Top bar
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : purple.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
+    final hasActiveFilter = _selectedCatId != null || _searchCtrl.text.trim().isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1623) : Colors.white,
+          borderRadius: BorderRadius.circular(26),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE9DDF7),
+          ),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF3B155D).withValues(alpha: 0.06),
+                    blurRadius: 24,
+                    offset: const Offset(0, 12),
                   ),
-                  child: Icon(Icons.arrow_forward_ios_rounded,
-                      size: 16, color: isDark ? Colors.white70 : purple),
+                ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                _buildIconChrome(
+                  icon: Icons.arrow_forward_ios_rounded,
+                  isDark: isDark,
+                  color: purple,
+                  onTap: () => Navigator.pop(context),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'البحث عن مزود خدمة',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'Cairo',
+                          color: isDark ? Colors.white : const Color(0xFF24182F),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'ابحث بسرعة، بدقة، وبواجهة مناسبة لجميع شاشات الجوال.',
+                        style: TextStyle(
+                          fontSize: 10,
+                          height: 1.6,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white60 : const Color(0xFF7A6B8B),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (widget.showDrawer)
+                  Builder(
+                    builder: (drawerContext) => _buildIconChrome(
+                      icon: Icons.menu_rounded,
+                      isDark: isDark,
+                      color: purple,
+                      onTap: () => Scaffold.of(drawerContext).openDrawer(),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? null
+                    : const LinearGradient(
+                        colors: [Color(0xFFF9F5FD), Color(0xFFF4EEFC)],
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                      ),
+                color: isDark ? Colors.white.withValues(alpha: 0.05) : null,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.07)
+                      : const Color(0xFFE7D8F8),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text('البحث عن مزود خدمة',
-                    style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        fontFamily: 'Cairo',
-                        color: isDark ? Colors.white : Colors.black87)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          // Search field
-          Container(
-            height: 38,
-            decoration: BoxDecoration(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.06)
-                  : const Color(0xFFF2F2F7),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: TextField(
-              controller: _searchCtrl,
-              onChanged: _onSearchChanged,
-              textAlignVertical: TextAlignVertical.center,
-              style: TextStyle(
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: _onSearchChanged,
+                textAlignVertical: TextAlignVertical.center,
+                style: TextStyle(
                   fontSize: 12,
                   fontFamily: 'Cairo',
-                  color: isDark ? Colors.white : Colors.black87),
-              decoration: InputDecoration(
-                hintText: 'ابحث بالاسم أو التخصص...',
-                hintStyle: TextStyle(
-                    fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : const Color(0xFF24182F),
+                ),
+                decoration: InputDecoration(
+                  hintText: 'ابحث بالاسم أو التخصص...',
+                  hintStyle: TextStyle(
+                    fontSize: 10.5,
                     fontFamily: 'Cairo',
-                    color: isDark ? Colors.white38 : Colors.grey.shade400),
-                prefixIcon: Icon(Icons.search_rounded,
+                    color: isDark ? Colors.white38 : const Color(0xFF9B90AA),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
                     size: 18,
-                    color: isDark ? Colors.white38 : Colors.grey.shade400),
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                isDense: true,
+                    color: isDark ? Colors.white38 : const Color(0xFF8B3D8F),
+                  ),
+                  suffixIcon: _searchCtrl.text.trim().isNotEmpty
+                      ? IconButton(
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            _onSearchChanged('');
+                            setState(() {});
+                          },
+                          icon: Icon(
+                            Icons.close_rounded,
+                            size: 18,
+                            color: isDark
+                                ? Colors.white38
+                                : const Color(0xFF8B3D8F),
+                          ),
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  isDense: true,
+                ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSearchStatChip(
+                    icon: Icons.manage_search_rounded,
+                    label: hasActiveFilter
+                        ? _activeSearchSummary()
+                        : 'ابدأ بكتابة الخدمة أو اختر تصنيفًا',
+                    isDark: isDark,
+                  ),
+                ),
+                if (hasActiveFilter) ...[
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: _clearSearchFilters,
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFF8B3D8F),
+                      textStyle: const TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    child: const Text('إعادة ضبط'),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -795,51 +891,79 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   // ═══════════════════════════════════════
 
   Widget _buildCategoryChips(bool isDark, Color purple) {
-    return SizedBox(
-      height: 38,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        itemCount: _categories.length + 1, // +1 for "الكل"
-        itemBuilder: (_, i) {
-          final isAll = i == 0;
-          final selected = isAll
-              ? _selectedCatId == null
-              : _selectedCatId == _categories[i - 1].id;
-          final label = isAll ? 'الكل' : _categories[i - 1].name;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 4),
+      child: Container(
+        height: 54,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1623) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE9DDF7),
+          ),
+        ),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          itemCount: _categories.length + 1,
+          itemBuilder: (_, i) {
+            final isAll = i == 0;
+            final selected = isAll
+                ? _selectedCatId == null
+                : _selectedCatId == _categories[i - 1].id;
+            final label = isAll ? 'الكل' : _categories[i - 1].name;
 
-          return GestureDetector(
-            onTap: () =>
-                _onCategorySelected(isAll ? null : _categories[i - 1].id),
-            child: Container(
-              margin: const EdgeInsets.only(left: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: selected
-                    ? purple
-                    : isDark
-                        ? Colors.white.withValues(alpha: 0.06)
-                        : Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
+            return GestureDetector(
+              onTap: () =>
+                  _onCategorySelected(isAll ? null : _categories[i - 1].id),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                margin: const EdgeInsetsDirectional.only(end: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+                decoration: BoxDecoration(
+                  gradient: selected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF8A2E8A), Color(0xFFF0823C)],
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                        )
+                      : null,
                   color: selected
-                      ? purple
-                      : (isDark ? Colors.white12 : Colors.grey.shade300),
+                      ? null
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.05)
+                          : const Color(0xFFF8F4FC)),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: selected
+                        ? Colors.transparent
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.07)
+                            : const Color(0xFFE5D7F6)),
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w800,
+                      fontFamily: 'Cairo',
+                      color: selected
+                          ? Colors.white
+                          : (isDark ? Colors.white70 : const Color(0xFF5A446F)),
+                    ),
+                  ),
                 ),
               ),
-              child: Center(
-                child: Text(label,
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Cairo',
-                        color: selected
-                            ? Colors.white
-                            : (isDark ? Colors.white60 : Colors.black54))),
-              ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
@@ -850,32 +974,62 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
 
   Widget _buildSortBar(bool isDark, Color purple) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Text('${_providers.length} نتيجة',
-              style: TextStyle(
-                  fontSize: 10,
-                  fontFamily: 'Cairo',
-                  color: isDark ? Colors.white38 : Colors.grey.shade500)),
-          const Spacer(),
-          GestureDetector(
-            onTap: () => _openSortSheet(isDark, purple),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.tune_rounded, size: 14, color: purple),
-                const SizedBox(width: 4),
-                Text('فرز',
-                    style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Cairo',
-                        color: purple)),
-              ],
-            ),
+      padding: const EdgeInsets.fromLTRB(14, 6, 14, 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1B1623) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFE9DDF7),
           ),
-        ],
+        ),
+        child: Row(
+          children: [
+            _buildSearchStatChip(
+              icon: Icons.analytics_outlined,
+              label: '${_providers.length} نتيجة',
+              isDark: isDark,
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _openSortSheet(isDark, purple),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : const Color(0xFFF8F4FC),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFE5D7F6),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.tune_rounded, size: 14, color: purple),
+                    const SizedBox(width: 5),
+                    Text(
+                      _selectedSortLabel(),
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Cairo',
+                        color: purple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -961,6 +1115,115 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     );
   }
 
+  String _selectedSortLabel() {
+    switch (_selectedSort) {
+      case 'nearest':
+        return 'الأقرب';
+      case 'rating':
+        return 'أعلى تقييم';
+      case 'completed':
+        return 'الأكثر تنفيذًا';
+      case 'followers':
+        return 'الأكثر متابعة';
+      default:
+        return 'الفرز';
+    }
+  }
+
+  String _activeSearchSummary() {
+    final parts = <String>[];
+    final query = _searchCtrl.text.trim();
+    final category = _selectedCategoryName();
+    if (query.isNotEmpty) {
+      parts.add('بحث: $query');
+    }
+    if (category.isNotEmpty) {
+      parts.add('تصنيف: $category');
+    }
+    return parts.isEmpty ? 'بدون فلاتر نشطة' : parts.join(' • ');
+  }
+
+  void _clearSearchFilters() {
+    setState(() {
+      _selectedCatId = null;
+      _selectedSort = 'default';
+      _searchCtrl.clear();
+    });
+    _searchProviders();
+    _loadSearchPromos();
+  }
+
+  Widget _buildIconChrome({
+    required IconData icon,
+    required bool isDark,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : const Color(0xFFF7F1FC),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : const Color(0xFFE9DDF7),
+            ),
+          ),
+          child: Icon(icon, size: 16, color: isDark ? Colors.white70 : color),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchStatChip({
+    required IconData icon,
+    required String label,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF8F4FC),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 13,
+            color: isDark ? Colors.white54 : const Color(0xFF8B3D8F),
+          ),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w700,
+                fontFamily: 'Cairo',
+                color: isDark ? Colors.white70 : const Color(0xFF6A577B),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ═══════════════════════════════════════
   //  RESULTS
   // ═══════════════════════════════════════
@@ -968,8 +1231,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   Widget _buildResults(bool isDark, Color purple) {
     if (_initialLoad || _loadingProviders) {
       return const Center(
-          child: CircularProgressIndicator(
-              color: Colors.deepPurple, strokeWidth: 2));
+        child: CircularProgressIndicator(
+          color: Colors.deepPurple,
+          strokeWidth: 2,
+        ),
+      );
     }
     if (_providers.isEmpty) {
       return Center(
@@ -977,27 +1243,34 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-                _loadError != null
-                    ? Icons.cloud_off_rounded
-                    : Icons.search_off_rounded,
-                size: 40,
-                color: Colors.grey.shade400),
+              _loadError != null
+                  ? Icons.cloud_off_rounded
+                  : Icons.search_off_rounded,
+              size: 40,
+              color: Colors.grey.shade400,
+            ),
             const SizedBox(height: 8),
-            Text(_loadError ?? 'لا توجد نتائج',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'Cairo',
-                    color: isDark ? Colors.white38 : Colors.grey.shade500)),
+            Text(
+              _loadError ?? 'لا توجد نتائج',
+              style: TextStyle(
+                fontSize: 12,
+                fontFamily: 'Cairo',
+                color: isDark ? Colors.white38 : Colors.grey.shade500,
+              ),
+            ),
             if (_loadError != null) ...[
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _searchProviders,
-                child: Text('إعادة المحاولة',
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontFamily: 'Cairo',
-                        fontWeight: FontWeight.w700,
-                        color: purple)),
+                child: Text(
+                  'إعادة المحاولة',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: purple,
+                  ),
+                ),
               ),
             ],
           ],
@@ -1006,24 +1279,67 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+      physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(14, 4, 14, 18),
       itemCount: _providers.length + (_searchBannerMediaUrl != null ? 1 : 0),
       itemBuilder: (_, i) {
-        // Promo banner as first item
         if (_searchBannerMediaUrl != null && i == 0) {
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: 12),
             child: GestureDetector(
               onTap: _openSearchBanner,
-              child: PromoMediaTile(
-                mediaUrl: _searchBannerMediaUrl,
-                mediaType: _searchBannerMediaType == 'video' ? 'video' : 'image',
-                height: 120,
-                borderRadius: 12,
-                autoplay: true,
-                isActive: true,
-                showVideoBadge: _searchBannerMediaType == 'video',
-                fallback: const SizedBox.shrink(),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1B1623) : Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.06)
+                        : const Color(0xFFE9DDF7),
+                  ),
+                ),
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: PromoMediaTile(
+                        mediaUrl: _searchBannerMediaUrl,
+                        mediaType:
+                            _searchBannerMediaType == 'video' ? 'video' : 'image',
+                        height: 130,
+                        borderRadius: 18,
+                        autoplay: true,
+                        isActive: true,
+                        showVideoBadge: _searchBannerMediaType == 'video',
+                        fallback: const SizedBox.shrink(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        _buildPromoTag('إعلان مميز'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _searchBannerProviderName?.trim().isNotEmpty == true
+                                ? _searchBannerProviderName!.trim()
+                                : 'مساحة دعائية نشطة',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
+                              color:
+                                  isDark ? Colors.white : const Color(0xFF24182F),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -1072,29 +1388,45 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isDark ? const Color(0xFF1B1623) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: _featuredProviderIds.contains(p.id)
-                ? const Color(0xFFF59E0B)
-                : (isDark ? Colors.white10 : Colors.grey.shade200),
+                ? const Color(0xFFF1A559)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFE9DDF7)),
             width: _featuredProviderIds.contains(p.id) ? 1.5 : 1,
           ),
           boxShadow: _featuredProviderIds.contains(p.id)
-              ? [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.15), blurRadius: 6)]
-              : null,
+              ? [
+                  BoxShadow(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.16),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ]
+              : [
+                  if (!isDark)
+                    BoxShadow(
+                      color: const Color(0xFF3B155D).withValues(alpha: 0.05),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                ],
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Cover / Avatar section ──
             ClipRRect(
               borderRadius:
-                  const BorderRadius.horizontal(right: Radius.circular(12)),
+                  const BorderRadius.horizontal(right: Radius.circular(16)),
               child: SizedBox(
-                width: 80,
-                height: 88,
+                width: 92,
+                height: 118,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -1108,15 +1440,14 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            Colors.black.withValues(alpha: 0.3),
-                            Colors.transparent
+                            Colors.black.withValues(alpha: 0.42),
+                            Colors.transparent,
                           ],
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                         ),
                       ),
                     ),
-                    // Avatar
                     Center(
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -1161,7 +1492,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                                   style: const TextStyle(
                                     fontFamily: 'Cairo',
                                     color: Colors.white,
-                                    fontSize: 9,
+                                    fontSize: 8.5,
                                     fontWeight: FontWeight.w700,
                                     height: 1.1,
                                   ),
@@ -1171,7 +1502,6 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                         ],
                       ),
                     ),
-                    // Verified badge
                     if (p.isVerified)
                       Positioned(
                         top: 6,
@@ -1186,38 +1516,33 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                 ),
               ),
             ),
-
-            // ── Info ──
             Expanded(
               child: Padding(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    const EdgeInsetsDirectional.only(start: 12, end: 2, top: 2),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Name
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Flexible(
-                          child: Text(p.displayName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  fontFamily: 'Cairo',
-                                  color: isDark ? Colors.white : Colors.black87)),
+                        Expanded(
+                          child: Text(
+                            p.displayName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.45,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
                         ),
                         if (_featuredProviderIds.contains(p.id)) ...[
                           const SizedBox(width: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: [Color(0xFFF59E0B), Color(0xFFD97706)]),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text('مميز', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w700, color: Colors.white)),
-                          ),
+                          _buildPromoTag('مميز'),
                         ],
                         if (p.hasExcellenceBadges) ...[
                           const SizedBox(width: 4),
@@ -1231,72 +1556,91 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       ],
                     ),
                     if (p.city != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.location_on_outlined,
-                              size: 11,
+                          Icon(
+                            Icons.location_on_outlined,
+                            size: 11,
+                            color: isDark
+                                ? Colors.white38
+                                : Colors.grey.shade500,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            p.city!,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontFamily: 'Cairo',
                               color: isDark
                                   ? Colors.white38
-                                  : Colors.grey.shade500),
-                          const SizedBox(width: 2),
-                          Text(p.city!,
-                              style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontFamily: 'Cairo',
-                                  color: isDark
-                                      ? Colors.white38
-                                      : Colors.grey.shade500)),
+                                  : Colors.grey.shade500,
+                            ),
+                          ),
                         ],
                       ),
                     ],
                     if (distanceKm != null) ...[
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.near_me_outlined,
-                              size: 11, color: Colors.blue.shade500),
+                          Icon(
+                            Icons.near_me_outlined,
+                            size: 11,
+                            color: Colors.blue.shade500,
+                          ),
                           const SizedBox(width: 2),
-                          Text('${distanceKm.toStringAsFixed(1)} كم',
-                              style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontFamily: 'Cairo',
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.blue.shade600)),
+                          Text(
+                            '${distanceKm.toStringAsFixed(1)} كم',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w700,
+                              color: Colors.blue.shade600,
+                            ),
+                          ),
                         ],
                       ),
                     ],
-                    const SizedBox(height: 6),
-                    // Stats
-                    Row(
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        _statChip(
-                            Icons.star_rounded,
-                            p.ratingAvg > 0
-                                ? p.ratingAvg.toStringAsFixed(1)
-                                : '-',
-                            Colors.amber),
-                        const SizedBox(width: 8),
-                        _statChip(
-                            Icons.people_outline_rounded,
-                            '${p.followersCount}',
-                            isDark ? Colors.white38 : Colors.grey.shade500),
-                        const SizedBox(width: 8),
-                        _statChip(Icons.check_circle_outline_rounded,
-                            '${p.completedRequests}', Colors.green.shade400),
+                        _metricChip(
+                          icon: Icons.star_rounded,
+                          value: p.ratingAvg > 0
+                              ? p.ratingAvg.toStringAsFixed(1)
+                              : '-',
+                          color: Colors.amber,
+                          isDark: isDark,
+                        ),
+                        _metricChip(
+                          icon: Icons.people_outline_rounded,
+                          value: '${p.followersCount}',
+                          color:
+                              isDark ? Colors.white38 : Colors.grey.shade500,
+                          isDark: isDark,
+                        ),
+                        _metricChip(
+                          icon: Icons.check_circle_outline_rounded,
+                          value: '${p.completedRequests}',
+                          color: Colors.green.shade400,
+                          isDark: isDark,
+                        ),
                       ],
                     ),
                   ],
                 ),
               ),
             ),
-
-            // Arrow
             Padding(
-              padding: const EdgeInsets.only(left: 10),
-              child: Icon(Icons.arrow_back_ios_new_rounded,
-                  size: 12,
-                  color: isDark ? Colors.white24 : Colors.grey.shade400),
+              padding: const EdgeInsetsDirectional.only(start: 8, top: 42),
+              child: Icon(
+                Icons.arrow_back_ios_new_rounded,
+                size: 12,
+                color: isDark ? Colors.white24 : Colors.grey.shade400,
+              ),
             ),
           ],
         ),
@@ -1304,19 +1648,59 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     );
   }
 
-  Widget _statChip(IconData icon, String val, Color color) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: color),
-        const SizedBox(width: 2),
-        Text(val,
+  Widget _metricChip({
+    required IconData icon,
+    required String value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFF8F4FC),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 2),
+          Text(
+            value,
             style: TextStyle(
-                fontSize: 9.5,
-                fontFamily: 'Cairo',
-                fontWeight: FontWeight.w600,
-                color: color)),
-      ],
+              fontSize: 9.5,
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPromoTag(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+          fontFamily: 'Cairo',
+          color: Colors.white,
+        ),
+      ),
     );
   }
 

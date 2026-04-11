@@ -32,6 +32,34 @@ class SubCategory(models.Model):
         return f"{self.category.name} - {self.name}"
 
 
+class SaudiRegion(models.Model):
+    name_ar = models.CharField(max_length=120, unique=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "name_ar", "id"]
+
+    def __str__(self) -> str:
+        return self.name_ar
+
+
+class SaudiCity(models.Model):
+    region = models.ForeignKey(SaudiRegion, on_delete=models.CASCADE, related_name="cities")
+    name_ar = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["region__sort_order", "sort_order", "name_ar", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["region", "name_ar"], name="uniq_saudi_city_per_region"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.region.name_ar} - {self.name_ar}"
+
+
 class ProviderProfile(models.Model):
     PROVIDER_TYPE_CHOICES = (
         ("individual", "فرد"),
@@ -56,6 +84,7 @@ class ProviderProfile(models.Model):
     social_links = models.JSONField(default=list, blank=True)
     languages = models.JSONField(default=list, blank=True)
 
+    region = models.CharField(max_length=100, blank=True, default="")
     city = models.CharField(max_length=100, blank=True, default="")
     lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)

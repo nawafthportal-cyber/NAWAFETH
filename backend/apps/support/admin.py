@@ -4,9 +4,9 @@ from .models import SupportTicket, SupportAttachment, SupportComment, SupportTea
 
 @admin.register(SupportTeam)
 class SupportTeamAdmin(admin.ModelAdmin):
-    list_display = ("code", "name_ar", "is_active", "sort_order")
+    list_display = ("code", "name_ar", "dashboard_code", "is_active", "sort_order")
     list_filter = ("is_active",)
-    search_fields = ("code", "name_ar")
+    search_fields = ("code", "name_ar", "dashboard_code")
     ordering = ("sort_order", "code")
 
 

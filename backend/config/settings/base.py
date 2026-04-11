@@ -38,6 +38,11 @@ RBAC_AUDIT_ONLY = env_bool("RBAC_AUDIT_ONLY", True)
 FEATURE_ANALYTICS_EVENTS = env_bool("FEATURE_ANALYTICS_EVENTS", False)
 FEATURE_ANALYTICS_KPI_SURFACES = env_bool("FEATURE_ANALYTICS_KPI_SURFACES", False)
 PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", False)
+PROMO_INLINE_SCHEDULER_ENABLED = env_bool("PROMO_INLINE_SCHEDULER_ENABLED", True)
+PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS = max(
+    30,
+    int(os.getenv("PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS", "60") or "60"),
+)
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 if DEBUG:
@@ -94,6 +99,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "apps.core.middleware.RequestContextMiddleware",
+    "apps.core.middleware.InlinePromoSchedulerMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
