@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from django.db.models import Q, Case, When, Value, IntegerField
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from apps.uploads.media_optimizer import optimize_upload_for_storage
 
 from apps.backoffice.policies import PromoQuoteActivatePolicy
 from apps.dashboard.access import dashboard_assignee_user
@@ -341,6 +342,7 @@ class PublicHomeBannersView(generics.ListAPIView):
     Only returns banner assets from activated promo requests managed by admin.
     """
 
+    authentication_classes = []
     permission_classes = [AllowAny]
     serializer_class = PromoHomeBannerAssetSerializer
     pagination_class = None
@@ -367,6 +369,7 @@ class PublicActivePromosView(generics.ListAPIView):
     This is a generalized endpoint for all promo ad types.
     """
 
+    authentication_classes = []
     permission_classes = [AllowAny]
     serializer_class = PromoActivePlacementSerializer
     pagination_class = None
@@ -470,6 +473,7 @@ class PublicHomeCarouselView(generics.ListAPIView):
     ordered by display_order. Supports images and short videos.
     """
 
+    authentication_classes = []
     permission_classes = [AllowAny]
     serializer_class = HomeBannerSerializer
     pagination_class = None
@@ -718,6 +722,9 @@ class PromoAddAssetView(generics.CreateAPIView):
             )
             if requires_home_banner_dims:
                 validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
+                validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
+            file_obj = optimize_upload_for_storage(file_obj, declared_type=asset_type)
+            if requires_home_banner_dims:
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
         except ValidationError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

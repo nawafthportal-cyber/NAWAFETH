@@ -44,8 +44,8 @@ def _try_extract_frame_with_ffmpeg(src_path: str) -> Optional[bytes]:
         ]
         proc = subprocess.run(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
             check=False,
             timeout=15,
         )

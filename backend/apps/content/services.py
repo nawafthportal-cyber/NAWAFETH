@@ -5,6 +5,8 @@ import logging
 from django.db import DatabaseError
 from django.utils.html import strip_tags
 
+from apps.core.db_outage import mark_database_outage
+
 from .models import SiteContentBlock, SiteLegalDocument, SiteLinks
 
 
@@ -66,8 +68,12 @@ def _store_links_payload(links: dict[str, str]) -> list[dict[str, str]]:
     return [item for item in store_links if item["url"]]
 
 
-def _log_public_content_fallback() -> None:
-    logger.warning("Site public content unavailable; using default payloads instead.", exc_info=True)
+def _log_public_content_fallback(exc: Exception | None = None) -> None:
+    mark_database_outage(reason="content.public_payload", exc=exc)
+    logger.warning(
+        "Site public content unavailable; using default payloads instead. error=%s",
+        str(exc)[:220] if exc else "-",
+    )
 
 
 def _block_payloads() -> dict[str, dict]:
@@ -153,8 +159,8 @@ def template_site_payload() -> dict[str, object]:
     try:
         blocks = _block_payloads()
         links = _site_links_payload()
-    except DatabaseError:
-        _log_public_content_fallback()
+    except DatabaseError as exc:
+        _log_public_content_fallback(exc)
         blocks = {}
         links = default_site_links_payload()
 
@@ -172,8 +178,8 @@ def public_content_payload() -> dict:
         blocks = _block_payloads()
         documents = _latest_legal_documents()
         links_payload = _site_links_payload()
-    except DatabaseError:
-        _log_public_content_fallback()
+    except DatabaseError as exc:
+        _log_public_content_fallback(exc)
         blocks = {}
         documents = {}
         links_payload = default_site_links_payload()

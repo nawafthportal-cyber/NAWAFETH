@@ -216,13 +216,16 @@ const NotificationsPage = (() => {
     const isFollowUp = !!notif.is_follow_up;
     const isPinned = !!notif.is_pinned;
     const kind = String(notif.kind || '').toLowerCase();
-    const isPromo = _isPromotionalNotification(notif, kind);
+    const notificationClass = _notificationClassification(notif, kind);
+    const isPromo = notificationClass === 'promo_ad';
+    const isPromoUpdate = notificationClass === 'promo_update';
 
     const card = UI.el('div', {
       className:
         'notif-card' +
         (isRead ? ' read' : ' unread') +
         (isPromo ? ' promo' : '') +
+        (isPromoUpdate ? ' promo-update' : '') +
         (isUrgent ? ' urgent' : '') +
         (isFollowUp ? ' follow-up' : '') +
         (isPinned ? ' pinned' : ''),
@@ -238,8 +241,8 @@ const NotificationsPage = (() => {
     });
 
     const iconWrap = UI.el('div', { className: 'notif-icon' });
-    const iconName = _iconForKind(kind);
-    const iconColor = isUrgent ? '#FFFFFF' : _colorForKind(kind);
+    const iconName = _iconForKind(kind, notificationClass);
+    const iconColor = isUrgent ? '#FFFFFF' : _colorForKind(kind, notificationClass);
     iconWrap.style.background = isUrgent ? 'rgba(255, 255, 255, 0.14)' : iconColor + '15';
     if (isUrgent) iconWrap.style.borderColor = 'rgba(255, 255, 255, 0.3)';
     iconWrap.appendChild(UI.icon(iconName, 22, iconColor));
@@ -254,6 +257,7 @@ const NotificationsPage = (() => {
 
     const flagsWrap = UI.el('div', { className: 'notif-flags' });
     if (isPromo) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo', textContent: 'دعائي' }));
+    if (isPromoUpdate) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag promo-update', textContent: 'ترويج' }));
     if (isFollowUp) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag follow', textContent: 'متابعة' }));
     if (isPinned) flagsWrap.appendChild(UI.el('span', { className: 'notif-flag pin', textContent: 'مثبت' }));
     if (!isRead) flagsWrap.appendChild(UI.el('span', { className: 'notif-dot' }));
@@ -278,6 +282,8 @@ const NotificationsPage = (() => {
       );
       const hintText = isPromo
         ? (isRead ? 'دعائي - مقروء' : 'دعائي - جديد')
+        : isPromoUpdate
+          ? (isRead ? 'تحديث ترويج - مقروء' : 'تحديث ترويج - جديد')
         : (isRead ? 'مقروء' : 'جديد');
       metaRow.appendChild(UI.el('div', { className: 'notif-open-hint', textContent: hintText }));
       body.appendChild(metaRow);
@@ -394,11 +400,27 @@ const NotificationsPage = (() => {
     return _withMode(raw);
   }
 
-  function _isPromotionalNotification(notif, kindOverride) {
+  function _notificationClassification(notif, kindOverride) {
     const kind = String(kindOverride || (notif && notif.kind) || '').trim().toLowerCase();
-    if (kind === 'promo_offer' || kind.includes('promo')) return true;
-    const title = String((notif && notif.title) || '').trim();
-    return title.includes('دعائي') || title.includes('ترويج');
+    if (kind === 'promo_offer') return 'promo_ad';
+    if (kind === 'promo_status_change') return 'promo_update';
+    if (_notificationHasPromoItemLink(notif)) return 'promo_ad';
+    return 'standard';
+  }
+
+  function _notificationHasPromoItemLink(notif) {
+    const raw = String((notif && notif.url) || '').trim();
+    if (!raw) return false;
+    try {
+      const parsed = /^https?:\/\//i.test(raw) ? new URL(raw) : new URL(raw, window.location.origin);
+      return parsed.searchParams.has('promo_item_id');
+    } catch (_) {
+      return /(?:^|[?&])promo_item_id=\d+/i.test(raw);
+    }
+  }
+
+  function _isPromotionalNotification(notif, kindOverride) {
+    return _notificationClassification(notif, kindOverride) === 'promo_ad';
   }
 
   async function _openNotification(notif) {
@@ -667,16 +689,18 @@ const NotificationsPage = (() => {
     _fetchNotifications({ reset: true });
   }
 
-  function _iconForKind(kind) {
-    if (kind.includes('promo')) return 'campaign';
+  function _iconForKind(kind, classification) {
+    if (classification === 'promo_ad') return 'campaign';
+    if (classification === 'promo_update') return 'info';
     if (kind.includes('request') || kind.includes('offer')) return 'category';
     if (kind.includes('message')) return 'campaign';
     if (kind.includes('urgent')) return 'fitness';
     return 'info';
   }
 
-  function _colorForKind(kind) {
-    if (kind.includes('promo')) return '#D97706';
+  function _colorForKind(kind, classification) {
+    if (classification === 'promo_ad') return '#D97706';
+    if (classification === 'promo_update') return '#4F46E5';
     if (kind.includes('urgent') || kind.includes('error')) return '#F44336';
     if (kind.includes('offer') || kind.includes('success')) return '#4CAF50';
     if (kind.includes('message')) return '#2196F3';

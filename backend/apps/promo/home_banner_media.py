@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
+import logging
 import os
 import shutil
 import subprocess
@@ -13,6 +14,8 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from .validators import validate_home_banner_media_dimensions
+
+logger = logging.getLogger(__name__)
 
 
 def home_banner_required_dimensions() -> tuple[int, int]:
@@ -46,6 +49,55 @@ def resolve_ffmpeg_binary() -> str:
         return str(get_ffmpeg_exe() or "")
     except Exception:
         return ""
+
+
+def _home_banner_video_autofit_max_mb() -> int:
+    raw = getattr(settings, "PROMO_HOME_BANNER_VIDEO_AUTOFIT_MAX_MB", 20)
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = 20
+    return max(1, min(parsed, 200))
+
+
+def _home_banner_video_autofit_timeout_seconds() -> int:
+    raw = getattr(settings, "PROMO_HOME_BANNER_VIDEO_AUTOFIT_TIMEOUT_SECONDS", 25)
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = 25
+    return max(5, min(parsed, 300))
+
+
+def _stream_uploaded_file_to_path(file_obj, target_path: str) -> int:
+    written = 0
+    try:
+        file_obj.seek(0)
+    except Exception:
+        pass
+
+    with open(target_path, "wb") as handle:
+        chunks = getattr(file_obj, "chunks", None)
+        if callable(chunks):
+            for chunk in chunks():
+                if not chunk:
+                    continue
+                handle.write(chunk)
+                written += len(chunk)
+        else:
+            while True:
+                chunk = file_obj.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                written += len(chunk)
+
+    try:
+        file_obj.seek(0)
+    except Exception:
+        pass
+
+    return written
 
 
 def transcode_home_banner_image_to_required_dims(file_obj):
@@ -119,22 +171,34 @@ def transcode_home_banner_video_to_required_dims(file_obj):
         )
 
     source_name = str(getattr(file_obj, "name", "banner-video.mp4") or "banner-video.mp4")
-    source_bytes = file_obj.read()
-    try:
-        file_obj.seek(0)
-    except Exception:
-        pass
-
-    if not source_bytes:
-        raise ValidationError("ملف الفيديو المرفوع فارغ أو غير صالح.")
+    max_autofit_bytes = _home_banner_video_autofit_max_mb() * 1024 * 1024
+    source_size = int(getattr(file_obj, "size", 0) or 0)
+    if source_size and source_size > max_autofit_bytes:
+        logger.warning(
+            "home_banner_video_autofit_skipped_large_file size=%s max=%s name=%s",
+            source_size,
+            max_autofit_bytes,
+            source_name,
+        )
+        raise ValidationError(
+            "حجم فيديو البنر كبير جدًا للمعالجة التلقائية على الخادم. "
+            f"الحد الأقصى للمعالجة التلقائية هو {_home_banner_video_autofit_max_mb()}MB. "
+            "يرجى رفع فيديو MP4 بالأبعاد المعتمدة 1920x840."
+        )
 
     required_width, required_height = home_banner_required_dimensions()
     with tempfile.TemporaryDirectory(prefix="promo-home-banner-") as tmp_dir:
         input_path = os.path.join(tmp_dir, "input.mp4")
         output_path = os.path.join(tmp_dir, "output.mp4")
 
-        with open(input_path, "wb") as handle:
-            handle.write(source_bytes)
+        written_bytes = _stream_uploaded_file_to_path(file_obj, input_path)
+        if written_bytes <= 0:
+            raise ValidationError("ملف الفيديو المرفوع فارغ أو غير صالح.")
+        if written_bytes > max_autofit_bytes:
+            raise ValidationError(
+                "حجم فيديو البنر بعد القراءة تجاوز الحد المسموح للمعالجة التلقائية. "
+                f"الحد الحالي هو {_home_banner_video_autofit_max_mb()}MB."
+            )
 
         filter_expr = (
             f"scale={required_width}:{required_height}:force_original_aspect_ratio=decrease,"
@@ -164,11 +228,33 @@ def transcode_home_banner_video_to_required_dims(file_obj):
             "aac",
             output_path,
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        timeout_seconds = _home_banner_video_autofit_timeout_seconds()
+        try:
+            proc = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+                timeout=timeout_seconds,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise ValidationError(
+                "استغرقت معالجة فيديو البنر وقتًا أطول من المسموح على الخادم. "
+                "يرجى ضغط الفيديو أو رفع ملف MP4 بالأبعاد المعتمدة 1920x840."
+            ) from exc
         if proc.returncode != 0 or not os.path.exists(output_path):
             raise ValidationError(
                 "تعذر ضبط أبعاد فيديو البنر تلقائياً. "
                 "يرجى رفع فيديو MP4 بالأبعاد المعتمدة 1920x840."
+            )
+
+        output_size = os.path.getsize(output_path)
+        if output_size <= 0:
+            raise ValidationError("فشل تجهيز فيديو البنر بعد المعالجة.")
+        if output_size > max_autofit_bytes:
+            raise ValidationError(
+                "الناتج بعد المعالجة التلقائية أكبر من الحد المسموح. "
+                "يرجى رفع فيديو MP4 مُحسّن بالأبعاد المعتمدة 1920x840."
             )
 
         with open(output_path, "rb") as output_handle:

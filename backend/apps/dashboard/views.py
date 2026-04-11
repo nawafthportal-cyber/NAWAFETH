@@ -145,6 +145,9 @@ from apps.excellence.selectors import (
 )
 from apps.excellence.services import sync_badge_type_catalog
 from apps.features.support import support_priority
+from apps.features.upload_limits import user_max_upload_mb
+from apps.uploads.media_optimizer import optimize_upload_for_storage
+from apps.uploads.validators import validate_user_file_size
 
 from .access import (
     active_access_profile_for_user,
@@ -257,6 +260,13 @@ def _consume_single_use_submit_token(request, session_key: str, token: str) -> b
     sanitized_tokens.remove(submitted_token)
     request.session[session_key] = sanitized_tokens
     return True
+
+
+def _validate_and_optimize_dashboard_attachment(attachment, *, user):
+    if attachment is None:
+        return attachment
+    validate_user_file_size(attachment, user_max_upload_mb(user))
+    return optimize_upload_for_storage(attachment)
 
 
 def _otp_resend_cache_key(user_id: int) -> str:
@@ -1973,11 +1983,7 @@ def support_dashboard(request, ticket_id: int | None = None):
 
             if attachment is not None:
                 try:
-                    from django.core.exceptions import ValidationError as DjangoValidationError
-                    from apps.features.upload_limits import user_max_upload_mb
-                    from apps.uploads.validators import validate_user_file_size
-
-                    validate_user_file_size(attachment, user_max_upload_mb(request.user))
+                    attachment = _validate_and_optimize_dashboard_attachment(attachment, user=request.user)
                 except DjangoValidationError as exc:
                     messages.error(request, str(exc))
                     return _support_redirect_with_state(request, ticket_id=target_ticket.id)
@@ -5429,10 +5435,7 @@ def promo_dashboard(request, request_id: int | None = None):
             attachment = post_form.cleaned_data.get("attachment")
             if attachment is not None:
                 try:
-                    from apps.features.upload_limits import user_max_upload_mb
-                    from apps.uploads.validators import validate_user_file_size
-
-                    validate_user_file_size(attachment, user_max_upload_mb(request.user))
+                    attachment = _validate_and_optimize_dashboard_attachment(attachment, user=request.user)
                 except DjangoValidationError as exc:
                     messages.error(request, str(exc))
                     return _promo_redirect_with_state(request, inquiry_id=target_ticket.id)
@@ -6536,10 +6539,7 @@ def verification_dashboard(request):
             attachment = post_form.cleaned_data.get("attachment")
             if attachment is not None:
                 try:
-                    from apps.features.upload_limits import user_max_upload_mb
-                    from apps.uploads.validators import validate_user_file_size
-
-                    validate_user_file_size(attachment, user_max_upload_mb(request.user))
+                    attachment = _validate_and_optimize_dashboard_attachment(attachment, user=request.user)
                 except DjangoValidationError as exc:
                     messages.error(request, str(exc))
                     return _verification_redirect_with_state(request, inquiry_id=target_ticket.id)
@@ -9169,10 +9169,7 @@ def content_reviews_dashboard(request, ticket_id: int | None = None):
 
             if attachment is not None:
                 try:
-                    from apps.features.upload_limits import user_max_upload_mb
-                    from apps.uploads.validators import validate_user_file_size
-
-                    validate_user_file_size(attachment, user_max_upload_mb(request.user))
+                    attachment = _validate_and_optimize_dashboard_attachment(attachment, user=request.user)
                 except DjangoValidationError as exc:
                     messages.error(request, str(exc))
                     return _content_reviews_redirect_with_state(request, ticket_id=target_ticket.id)

@@ -5855,6 +5855,25 @@ body.page-notifications .notif-card.promo.unread::before {
   background: linear-gradient(180deg, #fb923c, #ea580c);
 }
 
+body.page-notifications .notif-card.promo-update {
+  border-color: rgba(79, 70, 229, 0.3);
+  background: linear-gradient(135deg, rgba(238, 242, 255, 0.88), rgba(255, 255, 255, 1));
+  box-shadow:
+    inset 0 0 0 1px rgba(99, 102, 241, 0.12),
+    0 10px 22px rgba(79, 70, 229, 0.08);
+}
+
+body.page-notifications .notif-card.promo-update:hover {
+  border-color: rgba(79, 70, 229, 0.44);
+  box-shadow:
+    inset 0 0 0 1px rgba(79, 70, 229, 0.18),
+    0 14px 24px rgba(79, 70, 229, 0.12);
+}
+
+body.page-notifications .notif-card.promo-update.unread::before {
+  background: linear-gradient(180deg, #818cf8, #4f46e5);
+}
+
 body.page-notifications .notif-card.urgent {
   background: #d32f2f;
   border-color: #d32f2f;
@@ -5978,6 +5997,12 @@ body.page-notifications .notif-flag.promo {
   background: rgba(251, 146, 60, 0.16);
   color: #9a3412;
   border-color: rgba(234, 88, 12, 0.24);
+}
+
+body.page-notifications .notif-flag.promo-update {
+  background: rgba(99, 102, 241, 0.14);
+  color: #3730a3;
+  border-color: rgba(79, 70, 229, 0.24);
 }
 
 body.page-notifications .notif-dot {

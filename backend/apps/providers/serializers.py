@@ -4,6 +4,14 @@ from django.utils.text import slugify
 from apps.accounts.models import User
 from apps.accounts.phone_validation import normalize_phone_local05, require_phone_local05
 from apps.accounts.role_context import get_active_role
+from apps.uploads.media_optimizer import optimize_upload_for_storage
+from apps.uploads.validators import (
+    IMAGE_EXTENSIONS,
+    IMAGE_MIME_TYPES,
+    VIDEO_EXTENSIONS,
+    VIDEO_MIME_TYPES,
+    validate_secure_upload,
+)
 
 from .models import (
     Category,
@@ -78,6 +86,60 @@ def _build_whatsapp_url(value):
     if not local05:
         return ""
     return f"https://wa.me/966{local05[1:]}"
+
+
+def _infer_upload_media_type(upload, *, fallback: str = "") -> str:
+    if upload is None:
+        return fallback
+    media_type = str(fallback or "").strip().lower()
+    if media_type in {"image", "video"}:
+        return media_type
+    content_type = str(getattr(upload, "content_type", "") or "").strip().lower()
+    filename = str(getattr(upload, "name", "") or "").strip().lower()
+    if content_type.startswith("video/") or filename.endswith((".mp4", ".mov", ".avi", ".webm", ".mkv")):
+        return "video"
+    if content_type.startswith("image/") or filename.endswith((".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp")):
+        return "image"
+    return media_type
+
+
+def _normalize_provider_image_field(attrs: dict, field_name: str, *, prefix: str) -> None:
+    upload = attrs.get(field_name)
+    if upload is None or isinstance(upload, str):
+        return
+    validate_secure_upload(
+        upload,
+        allowed_extensions=IMAGE_EXTENSIONS,
+        allowed_mime_types=IMAGE_MIME_TYPES,
+        max_size_mb=20,
+        rename=True,
+        rename_prefix=prefix,
+    )
+    attrs[field_name] = optimize_upload_for_storage(upload, declared_type="image")
+
+
+def _normalize_provider_media_upload(upload, *, media_type: str, image_prefix: str, video_prefix: str):
+    if media_type == "image":
+        validate_secure_upload(
+            upload,
+            allowed_extensions=IMAGE_EXTENSIONS,
+            allowed_mime_types=IMAGE_MIME_TYPES,
+            max_size_mb=20,
+            rename=True,
+            rename_prefix=image_prefix,
+        )
+        return optimize_upload_for_storage(upload, declared_type="image")
+    if media_type == "video":
+        validate_secure_upload(
+            upload,
+            allowed_extensions=VIDEO_EXTENSIONS,
+            allowed_mime_types=VIDEO_MIME_TYPES,
+            max_size_mb=70,
+            rename=True,
+            rename_prefix=video_prefix,
+        )
+        return optimize_upload_for_storage(upload, declared_type="video")
+    raise serializers.ValidationError({"file_type": "نوع الملف يجب أن يكون صورة أو فيديو."})
 
 
 class ProviderSeoValidationMixin:
@@ -160,6 +222,8 @@ class ProviderProfileSerializer(ProviderSeoValidationMixin, serializers.ModelSer
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        _normalize_provider_image_field(attrs, "profile_image", prefix="provider_profile_image")
+        _normalize_provider_image_field(attrs, "cover_image", prefix="provider_cover_image")
         region = _trim_text(attrs.get("region"))
         city = _trim_text(attrs.get("city"))
 
@@ -304,6 +368,8 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
+        _normalize_provider_image_field(attrs, "profile_image", prefix="provider_profile_image")
+        _normalize_provider_image_field(attrs, "cover_image", prefix="provider_cover_image")
 
         region_in_payload = "region" in attrs
         city_in_payload = "city" in attrs
@@ -599,6 +665,28 @@ class ProviderPortfolioItemSerializer(serializers.ModelSerializer):
 
 
 class ProviderPortfolioItemCreateSerializer(serializers.ModelSerializer):
+    file_type = serializers.ChoiceField(
+        choices=ProviderPortfolioItem.FILE_TYPE_CHOICES,
+        required=False,
+        allow_blank=True,
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        upload = attrs.get("file")
+        media_type = _infer_upload_media_type(
+            upload,
+            fallback=str(attrs.get("file_type") or "").strip().lower(),
+        )
+        attrs["file_type"] = media_type
+        attrs["file"] = _normalize_provider_media_upload(
+            upload,
+            media_type=media_type,
+            image_prefix="provider_portfolio_image",
+            video_prefix="provider_portfolio_video",
+        )
+        return attrs
+
     class Meta:
         model = ProviderPortfolioItem
         fields = (
@@ -731,6 +819,12 @@ class ProviderSpotlightItemCreateSerializer(serializers.ModelSerializer):
             })
 
         attrs["file_type"] = file_type
+        attrs["file"] = _normalize_provider_media_upload(
+            upload,
+            media_type=file_type,
+            image_prefix="provider_spotlight_image",
+            video_prefix="provider_spotlight_video",
+        )
         return attrs
 
     class Meta:

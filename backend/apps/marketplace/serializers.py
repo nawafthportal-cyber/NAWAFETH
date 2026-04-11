@@ -2,7 +2,10 @@ from rest_framework import serializers
 
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
 from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
+from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
+    ALL_SAFE_EXTENSIONS,
+    ALL_SAFE_MIME_TYPES,
     AUDIO_EXTENSIONS,
     AUDIO_MIME_TYPES,
     DOCUMENT_EXTENSIONS,
@@ -141,6 +144,7 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                     "subcategory_ids": "مزود الخدمة لا يدعم أيًا من التصنيفات المختارة"
                 })
 
+        optimized_images = []
         for image in attrs.get("images") or []:
             validate_secure_upload(
                 image,
@@ -150,6 +154,9 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 rename=True,
                 rename_prefix="marketplace_image",
             )
+            optimized_images.append(optimize_upload_for_storage(image, declared_type="image"))
+
+        optimized_videos = []
         for video in attrs.get("videos") or []:
             validate_secure_upload(
                 video,
@@ -159,6 +166,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 rename=True,
                 rename_prefix="marketplace_video",
             )
+            optimized_videos.append(optimize_upload_for_storage(video, declared_type="video"))
+
         for doc in attrs.get("files") or []:
             validate_secure_upload(
                 doc,
@@ -179,6 +188,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 rename_prefix="marketplace_audio",
             )
 
+        attrs["images"] = optimized_images
+        attrs["videos"] = optimized_videos
         return attrs
 
     def create(self, validated_data):
@@ -468,6 +479,19 @@ class RequestCompleteSerializer(RequestActionSerializer):
         amount = attrs.get("actual_service_amount")
         if amount is not None and amount < 0:
             raise serializers.ValidationError({"actual_service_amount": "القيمة يجب أن تكون موجبة"})
+
+        optimized_attachments = []
+        for attachment in attrs.get("attachments") or []:
+            validate_secure_upload(
+                attachment,
+                allowed_extensions=ALL_SAFE_EXTENSIONS,
+                allowed_mime_types=ALL_SAFE_MIME_TYPES,
+                max_size_mb=50,
+                rename=True,
+                rename_prefix="marketplace_complete",
+            )
+            optimized_attachments.append(optimize_upload_for_storage(attachment))
+        attrs["attachments"] = optimized_attachments
         return attrs
 
 

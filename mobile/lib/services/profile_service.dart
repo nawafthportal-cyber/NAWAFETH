@@ -1,13 +1,29 @@
 /// خدمة البروفايل — جلب وتحديث بيانات المستخدم والمزود
 library;
 
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../models/user_profile.dart';
 import '../models/provider_profile_model.dart';
 import 'api_client.dart';
 import 'account_mode_service.dart';
+import 'upload_optimizer.dart';
 
 class ProfileService {
+  static Future<String> _optimizeImagePath(String path) async {
+    final sourcePath = path.trim();
+    if (sourcePath.isEmpty) return path;
+    try {
+      final optimized = await UploadOptimizer.optimizeForUpload(
+        File(sourcePath),
+        declaredType: 'image',
+      );
+      return optimized.path;
+    } catch (_) {
+      return sourcePath;
+    }
+  }
+
   static Future<String> _mePathWithMode() async {
     final mode = await AccountModeService.apiMode();
     return '/api/accounts/me/?mode=$mode';
@@ -92,14 +108,16 @@ class ProfileService {
       await _mePathWithMode(),
       (request) async {
         if (profileImagePath != null && profileImagePath.isNotEmpty) {
+          final optimizedProfilePath = await _optimizeImagePath(profileImagePath);
           request.files.add(
             await http.MultipartFile.fromPath(
-                'profile_image', profileImagePath),
+                'profile_image', optimizedProfilePath),
           );
         }
         if (coverImagePath != null && coverImagePath.isNotEmpty) {
+          final optimizedCoverPath = await _optimizeImagePath(coverImagePath);
           request.files.add(
-            await http.MultipartFile.fromPath('cover_image', coverImagePath),
+            await http.MultipartFile.fromPath('cover_image', optimizedCoverPath),
           );
         }
       },
@@ -143,14 +161,16 @@ class ProfileService {
       '/api/providers/me/profile/',
       (request) async {
         if (profileImagePath != null && profileImagePath.isNotEmpty) {
+          final optimizedProfilePath = await _optimizeImagePath(profileImagePath);
           request.files.add(
             await http.MultipartFile.fromPath(
-                'profile_image', profileImagePath),
+                'profile_image', optimizedProfilePath),
           );
         }
         if (coverImagePath != null && coverImagePath.isNotEmpty) {
+          final optimizedCoverPath = await _optimizeImagePath(coverImagePath);
           request.files.add(
-            await http.MultipartFile.fromPath('cover_image', coverImagePath),
+            await http.MultipartFile.fromPath('cover_image', optimizedCoverPath),
           );
         }
       },
@@ -197,7 +217,11 @@ class ProfileService {
         if (caption != null && caption.trim().isNotEmpty) {
           request.fields['caption'] = caption.trim();
         }
-        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+        var uploadPath = filePath;
+        if (fileType.trim().toLowerCase() == 'image') {
+          uploadPath = await _optimizeImagePath(filePath);
+        }
+        request.files.add(await http.MultipartFile.fromPath('file', uploadPath));
       },
     );
 
@@ -225,7 +249,11 @@ class ProfileService {
         if (caption != null && caption.trim().isNotEmpty) {
           request.fields['caption'] = caption.trim();
         }
-        request.files.add(await http.MultipartFile.fromPath('file', filePath));
+        var uploadPath = filePath;
+        if (fileType.trim().toLowerCase() == 'image') {
+          uploadPath = await _optimizeImagePath(filePath);
+        }
+        request.files.add(await http.MultipartFile.fromPath('file', uploadPath));
       },
     );
 

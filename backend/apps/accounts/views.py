@@ -37,6 +37,8 @@ from .otp import (
     otp_expiry,
 )
 from apps.core.throttling import build_cooldown_payload, throttled_response
+from apps.uploads.media_optimizer import optimize_upload_for_storage
+from apps.uploads.validators import IMAGE_EXTENSIONS, IMAGE_MIME_TYPES, validate_secure_upload
 
 logger = logging.getLogger(__name__)
 
@@ -343,9 +345,31 @@ def me_view(request):
                 val = data.get(field)
                 setattr(user, field, val)
 
-        for field in ("profile_image", "cover_image"):
-            if field in data:
-                setattr(user, field, data.get(field))
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        try:
+            for field in ("profile_image", "cover_image"):
+                if field not in data:
+                    continue
+                upload = data.get(field)
+                if upload is None:
+                    setattr(user, field, None)
+                    continue
+                validate_secure_upload(
+                    upload,
+                    allowed_extensions=IMAGE_EXTENSIONS,
+                    allowed_mime_types=IMAGE_MIME_TYPES,
+                    max_size_mb=20,
+                    rename=True,
+                    rename_prefix=f"user_{field}",
+                )
+                optimized = optimize_upload_for_storage(upload, declared_type="image")
+                setattr(user, field, optimized)
+        except DjangoValidationError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             user.save()

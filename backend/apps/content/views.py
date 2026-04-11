@@ -6,6 +6,7 @@ from .services import public_content_payload
 
 
 class PublicSiteContentView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def get(self, request):

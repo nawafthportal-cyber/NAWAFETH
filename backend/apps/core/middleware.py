@@ -6,9 +6,10 @@ import uuid
 from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError
-from django.http import HttpResponseNotFound
+from django.http import HttpResponseNotFound, JsonResponse
 from django.utils import timezone
 
+from .db_outage import is_database_outage_active, outage_retry_after_seconds
 from .request_context import bind_request_context, clear_request_context
 
 
@@ -74,6 +75,46 @@ class RequestContextMiddleware:
         if forwarded:
             return forwarded.split(",")[0].strip()
         return (request.META.get("REMOTE_ADDR") or "-").strip()
+
+
+class DatabaseOutageShortCircuitMiddleware:
+    """Return fast 503 responses for API calls while DB outage marker is active."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method.upper() == "OPTIONS":
+            return self.get_response(request)
+
+        if not is_database_outage_active():
+            return self.get_response(request)
+
+        path = str(getattr(request, "path_info", "") or "")
+        if not self._should_short_circuit(path):
+            return self.get_response(request)
+
+        response = JsonResponse(
+            {
+                "detail": "الخدمة غير متاحة مؤقتًا. يرجى المحاولة مرة أخرى بعد قليل.",
+                "code": "database_unavailable",
+                "outage_cached": True,
+            },
+            status=503,
+        )
+        retry_after = outage_retry_after_seconds()
+        if retry_after is not None:
+            response["Retry-After"] = str(retry_after)
+        response["X-Database-Outage-Guard"] = "1"
+        return response
+
+    @staticmethod
+    def _should_short_circuit(path: str) -> bool:
+        if not path.startswith("/api/"):
+            return False
+        if path.startswith("/api/health") or path.startswith("/api/core/health"):
+            return False
+        return True
 
 
 class InlinePromoSchedulerMiddleware:

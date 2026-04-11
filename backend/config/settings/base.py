@@ -44,6 +44,29 @@ PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS = max(
     int(os.getenv("PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS", "60") or "60"),
 )
 
+# Upload media optimization
+MEDIA_UPLOAD_OPTIMIZATION_ENABLED = env_bool("MEDIA_UPLOAD_OPTIMIZATION_ENABLED", True)
+MEDIA_IMAGE_OPTIMIZATION_ENABLED = env_bool("MEDIA_IMAGE_OPTIMIZATION_ENABLED", True)
+MEDIA_VIDEO_OPTIMIZATION_ENABLED = env_bool("MEDIA_VIDEO_OPTIMIZATION_ENABLED", True)
+
+MEDIA_IMAGE_OPTIMIZE_MIN_BYTES = int(os.getenv("MEDIA_IMAGE_OPTIMIZE_MIN_BYTES", str(350 * 1024)) or str(350 * 1024))
+MEDIA_IMAGE_OPTIMIZE_MAX_INPUT_BYTES = int(
+    os.getenv("MEDIA_IMAGE_OPTIMIZE_MAX_INPUT_BYTES", str(40 * 1024 * 1024)) or str(40 * 1024 * 1024)
+)
+MEDIA_IMAGE_TARGET_BYTES = int(os.getenv("MEDIA_IMAGE_TARGET_BYTES", str(1200 * 1024)) or str(1200 * 1024))
+MEDIA_IMAGE_MAX_DIMENSION = int(os.getenv("MEDIA_IMAGE_MAX_DIMENSION", "2560") or "2560")
+MEDIA_IMAGE_QUALITY_START = int(os.getenv("MEDIA_IMAGE_QUALITY_START", "90") or "90")
+MEDIA_IMAGE_QUALITY_MIN = int(os.getenv("MEDIA_IMAGE_QUALITY_MIN", "80") or "80")
+MEDIA_IMAGE_MIN_SAVINGS_RATIO = float(os.getenv("MEDIA_IMAGE_MIN_SAVINGS_RATIO", "0.06") or "0.06")
+
+MEDIA_VIDEO_OPTIMIZE_MIN_MB = int(os.getenv("MEDIA_VIDEO_OPTIMIZE_MIN_MB", "10") or "10")
+MEDIA_VIDEO_OPTIMIZE_MAX_MB = int(os.getenv("MEDIA_VIDEO_OPTIMIZE_MAX_MB", "80") or "80")
+MEDIA_VIDEO_OPTIMIZE_TIMEOUT_SECONDS = int(os.getenv("MEDIA_VIDEO_OPTIMIZE_TIMEOUT_SECONDS", "60") or "60")
+MEDIA_VIDEO_MAX_WIDTH = int(os.getenv("MEDIA_VIDEO_MAX_WIDTH", "1920") or "1920")
+MEDIA_VIDEO_MAX_HEIGHT = int(os.getenv("MEDIA_VIDEO_MAX_HEIGHT", "1080") or "1080")
+MEDIA_VIDEO_OPTIMIZE_CRF = int(os.getenv("MEDIA_VIDEO_OPTIMIZE_CRF", "22") or "22")
+MEDIA_VIDEO_MIN_SAVINGS_RATIO = float(os.getenv("MEDIA_VIDEO_MIN_SAVINGS_RATIO", "0.10") or "0.10")
+
 ALLOWED_HOSTS = [h.strip() for h in os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost").split(",") if h.strip()]
 if DEBUG:
     # Local development defaults (Android emulator uses 10.0.2.2)
@@ -99,6 +122,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "apps.core.middleware.RequestContextMiddleware",
+    "apps.core.middleware.DatabaseOutageShortCircuitMiddleware",
     "apps.core.middleware.InlinePromoSchedulerMiddleware",
 
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -174,6 +198,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 DB_CONN_MAX_AGE = int(os.getenv("DB_CONN_MAX_AGE", "300"))
 DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "5"))
 DB_APPLICATION_NAME = (os.getenv("DB_APPLICATION_NAME", "nawafeth") or "nawafeth").strip()
+DB_OUTAGE_TTL_SECONDS = int(os.getenv("DB_OUTAGE_TTL_SECONDS", "30"))
+DB_OUTAGE_LOG_THROTTLE_SECONDS = int(os.getenv("DB_OUTAGE_LOG_THROTTLE_SECONDS", "30"))
 if DATABASE_URL:
     # Render style DATABASE_URL
     import dj_database_url  # type: ignore

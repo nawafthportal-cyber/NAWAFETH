@@ -13,6 +13,7 @@ from apps.content.models import (
     validate_content_block_media,
     validate_legal_document_file,
 )
+from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.promo.models import (
     PromoOpsStatus,
     PromoPosition,
@@ -418,7 +419,7 @@ class ContentDesignUploadForm(forms.Form):
         if uploaded is None:
             return uploaded
         validate_content_block_media(uploaded)
-        return uploaded
+        return optimize_upload_for_storage(uploaded)
 
     def clean_file_specs(self):
         return (self.cleaned_data.get("file_specs") or "").strip()[:180]
@@ -465,7 +466,7 @@ class ContentSettingsLegalForm(forms.Form):
         if uploaded is None:
             return uploaded
         validate_legal_document_file(uploaded)
-        return uploaded
+        return optimize_upload_for_storage(uploaded)
 
     def clean_body_ar(self):
         return (self.cleaned_data.get("body_ar") or "").strip()[:5000]
@@ -1506,8 +1507,10 @@ class PromoModuleItemForm(forms.Form):
 
     def clean_media_file(self):
         uploaded = self.cleaned_data.get("media_file")
-        if uploaded is None or str(self.service_type or "").strip() != PromoServiceType.PROMO_MESSAGES:
+        if uploaded is None:
             return uploaded
+        if str(self.service_type or "").strip() != PromoServiceType.PROMO_MESSAGES:
+            return optimize_upload_for_storage(uploaded)
 
         ext = Path(str(getattr(uploaded, "name", "") or "")).suffix.lower()
         content_type = str(getattr(uploaded, "content_type", "") or "").strip().lower()
@@ -1518,4 +1521,4 @@ class PromoModuleItemForm(forms.Form):
             raise forms.ValidationError("المرفق يجب أن يكون صورة ثابتة أو متحركة أو فيديو MP4 واحدًا.")
         if not is_image and not is_mp4:
             raise forms.ValidationError("المرفق يجب أن يكون صورة ثابتة أو متحركة أو فيديو MP4 واحدًا.")
-        return uploaded
+        return optimize_upload_for_storage(uploaded)

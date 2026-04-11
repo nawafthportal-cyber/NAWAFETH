@@ -263,12 +263,14 @@ class ProviderSubcategoriesPublicListView(generics.ListAPIView):
 class CategoryListView(generics.ListAPIView):
 	queryset = Category.objects.filter(is_active=True)
 	serializer_class = CategorySerializer
+	authentication_classes = []
 	permission_classes = [permissions.AllowAny]
 
 
 class RegionCityCatalogView(generics.ListAPIView):
 	queryset = SaudiRegion.objects.filter(is_active=True).prefetch_related("cities").order_by("sort_order", "id")
 	serializer_class = SaudiRegionSerializer
+	authentication_classes = []
 	permission_classes = [permissions.AllowAny]
 
 	def get_queryset(self):

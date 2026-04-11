@@ -2,6 +2,7 @@ from rest_framework import serializers
 
 from .models import Message, Thread, ThreadUserState
 from .display import display_name_for_user
+from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
     AUDIO_EXTENSIONS,
     AUDIO_MIME_TYPES,
@@ -91,6 +92,8 @@ class MessageCreateSerializer(serializers.ModelSerializer):
                     rename=True,
                     rename_prefix="msg_file",
                 )
+            attachment = optimize_upload_for_storage(attachment, declared_type=attachment_type)
+            attrs["attachment"] = attachment
             attrs["attachment_name"] = (attrs.get("attachment_name") or attachment.name or "")[:255]
         attrs["body"] = body
         return attrs

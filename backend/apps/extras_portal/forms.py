@@ -3,6 +3,7 @@ from __future__ import annotations
 from django import forms
 from django.core.exceptions import ValidationError
 
+from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
     DOCUMENT_EXTENSIONS,
     DOCUMENT_MIME_TYPES,
@@ -51,7 +52,7 @@ class BulkMessageForm(forms.Form):
             )
         except ValidationError as exc:
             raise forms.ValidationError(str(exc))
-        return attachment
+        return optimize_upload_for_storage(attachment)
 
 
 class FinanceSettingsForm(forms.Form):
@@ -75,4 +76,4 @@ class FinanceSettingsForm(forms.Form):
             )
         except ValidationError as exc:
             raise forms.ValidationError(str(exc))
-        return qr_image
+        return optimize_upload_for_storage(qr_image, declared_type="image")

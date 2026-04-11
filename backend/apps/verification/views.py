@@ -171,12 +171,14 @@ class VerificationAddDocumentView(generics.CreateAPIView):
 
         from django.core.exceptions import ValidationError as DjangoValidationError
         from apps.features.upload_limits import user_max_upload_mb
+        from apps.uploads.media_optimizer import optimize_upload_for_storage
         from apps.uploads.validators import validate_user_file_size
         from .validators import validate_extension
 
         try:
             validate_extension(file_obj)
             validate_user_file_size(file_obj, user_max_upload_mb(request.user))
+            file_obj = optimize_upload_for_storage(file_obj)
         except DjangoValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -220,12 +222,14 @@ class VerificationAddRequirementAttachmentView(generics.CreateAPIView):
 
         from django.core.exceptions import ValidationError as DjangoValidationError
         from apps.features.upload_limits import user_max_upload_mb
+        from apps.uploads.media_optimizer import optimize_upload_for_storage
         from apps.uploads.validators import validate_user_file_size
         from .validators import validate_extension
 
         try:
             validate_extension(file_obj)
             validate_user_file_size(file_obj, user_max_upload_mb(request.user))
+            file_obj = optimize_upload_for_storage(file_obj)
         except DjangoValidationError as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
