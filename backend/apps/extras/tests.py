@@ -5,7 +5,10 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from apps.billing.models import Invoice, InvoiceStatus
 from apps.billing.services import init_payment
-from apps.extras.services import EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE
+from apps.extras.services import (
+    EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE,
+    extras_bundle_payment_access_url,
+)
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestType
 
 
@@ -64,7 +67,7 @@ class ExtrasBundlePaymentLinkViewTests(TestCase):
         )
         self.client = Client()
 
-    def test_bundle_payment_link_redirects_owner_to_checkout(self):
+    def test_bundle_payment_link_redirects_owner_to_additional_services_payment_page(self):
         self.client.force_login(self.owner)
 
         response = self.client.get(
@@ -72,7 +75,9 @@ class ExtrasBundlePaymentLinkViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/api/billing/checkout/mock/", response["Location"])
+        self.assertIn("/additional-services/payment/", response["Location"])
+        self.assertIn(f"request_id={self.request_obj.id}", response["Location"])
+        self.assertIn(f"invoice_id={self.invoice.id}", response["Location"])
 
     def test_bundle_payment_link_redirects_staff_to_request_detail(self):
         self.client.force_login(self.staff_user)
@@ -82,7 +87,8 @@ class ExtrasBundlePaymentLinkViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/api/billing/checkout/mock/", response["Location"])
+        self.assertIn("/dashboard/extras/", response["Location"])
+        self.assertIn(f"request={self.request_obj.id}", response["Location"])
 
     def test_bundle_payment_link_allows_unauthenticated_mobile_web_flow(self):
         response = self.client.get(
@@ -90,7 +96,7 @@ class ExtrasBundlePaymentLinkViewTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/api/billing/checkout/mock/", response["Location"])
+        self.assertIn("/additional-services/payment/", response["Location"])
 
     def test_bundle_payment_link_restores_requester_ownership_for_existing_wrong_invoice_owner(self):
         other_user = get_user_model().objects.create_user(
@@ -109,5 +115,16 @@ class ExtrasBundlePaymentLinkViewTests(TestCase):
 
         self.invoice.refresh_from_db()
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/api/billing/checkout/mock/", response["Location"])
+        self.assertIn("/additional-services/payment/", response["Location"])
         self.assertEqual(self.invoice.user_id, self.owner.id)
+
+    def test_bundle_payment_access_url_points_to_additional_services_payment_page(self):
+        payment_url = extras_bundle_payment_access_url(
+            request_obj=self.request_obj,
+            invoice=self.invoice,
+            checkout_url=self.attempt.checkout_url,
+        )
+
+        self.assertIn("/additional-services/payment/", payment_url)
+        self.assertIn(f"request_id={self.request_obj.id}", payment_url)
+        self.assertIn(f"invoice_id={self.invoice.id}", payment_url)

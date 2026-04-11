@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, time, timedelta
 from decimal import Decimal
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -497,6 +497,10 @@ def extras_bundle_invoice_for_request(request_obj) -> Invoice | None:
 
 
 def extras_bundle_payment_access_url(*, request_obj, invoice: Invoice | None = None, checkout_url: str = "") -> str:
+    payment_page_url = extras_bundle_payment_page_url(request_obj=request_obj, invoice=invoice)
+    if payment_page_url:
+        return payment_page_url
+
     invoice = invoice or extras_bundle_invoice_for_request(request_obj)
     if invoice is None:
         return str(checkout_url or "").strip()
@@ -516,6 +520,34 @@ def extras_bundle_payment_access_url(*, request_obj, invoice: Invoice | None = N
     if parsed_checkout.scheme and parsed_checkout.netloc:
         return f"{parsed_checkout.scheme}://{parsed_checkout.netloc}{access_path}"
     return access_path
+
+
+def extras_bundle_payment_page_url(*, request_obj, invoice: Invoice | None = None) -> str:
+    if request_obj is None:
+        return ""
+
+    query_params: dict[str, str] = {}
+    request_id = getattr(request_obj, "id", None)
+    if request_id:
+        query_params["request_id"] = str(request_id)
+
+    resolved_invoice = invoice or extras_bundle_invoice_for_request(request_obj)
+    invoice_id = getattr(resolved_invoice, "id", None)
+    if invoice_id:
+        query_params["invoice_id"] = str(invoice_id)
+
+    if not query_params:
+        return ""
+
+    try:
+        base_path = reverse("additional_services_payment")
+    except Exception:
+        try:
+            base_path = reverse("mobile_web:additional_services_payment")
+        except Exception:
+            base_path = "/additional-services/payment/"
+
+    return f"{base_path}?{urlencode(query_params)}"
 
 
 def extras_portal_reports_url() -> str:

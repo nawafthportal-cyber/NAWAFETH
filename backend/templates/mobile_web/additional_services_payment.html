@@ -1,0 +1,164 @@
+{% extends "mobile_web/base.html" %}
+{% load static %}
+
+{% block title %}دفع الخدمات الإضافية — نوافــذ{% endblock %}
+{% block body_class %}page-verification-payment page-additional-services-payment{% endblock %}
+
+{% block content %}
+<main class="page-shell verify-pay-page-shell">
+  <div id="verifyPayAuthGate" class="auth-gate auth-gate-unified hidden">
+    <div class="auth-gate-inner auth-gate-unified-card">
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="42" height="42" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="4" width="18" height="16" rx="4" fill="#A21CAF"></rect>
+          <path d="M7 10h10M7 14h6" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"></path>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجل دخولك لإتمام دفع الخدمات الإضافية</h2>
+      <p class="auth-gate-unified-desc">هذه الصفحة متاحة لمزود الخدمة صاحب طلب الخدمات الإضافية فقط.</p>
+      <a href="{{ additional_services_payment_login_url }}" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+    </div>
+  </div>
+
+  <section
+    id="verifyPayContent"
+    class="verify-pay-page hidden"
+    data-list-url="/api/extras/bundle-requests/my/"
+    data-init-url-template="/api/billing/invoices/__id__/init-payment/"
+    data-complete-url-template="/api/billing/invoices/__id__/complete-mock-payment/"
+    data-services-url="/additional-services/"
+  >
+    <header class="verify-pay-header">
+      <button type="button" class="verify-pay-back" id="verifyPayHeaderBack" aria-label="رجوع">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <div class="verify-pay-header-copy">
+        <p>إتمام رسوم الخدمات الإضافية</p>
+        <h1>صفحة دفع طلب الخدمات الإضافية</h1>
+      </div>
+    </header>
+
+    <article class="verify-pay-card">
+      <div id="verifyPayLoading" class="verify-pay-loading">
+        <div class="spinner" aria-hidden="true"></div>
+        <span>جاري تحميل بيانات الفاتورة...</span>
+      </div>
+
+      <div id="verifyPayError" class="verify-pay-error hidden"></div>
+
+      <form id="verifyPayForm" class="verify-pay-body hidden" autocomplete="on" novalidate>
+        <div id="verifyPayStatusBanner" class="verify-pay-status hidden"></div>
+
+        <div class="verify-pay-summary-grid">
+          <div class="verify-pay-summary-item">
+            <span>رقم الطلب</span>
+            <strong id="verifyPayRequestCode">—</strong>
+          </div>
+          <div class="verify-pay-summary-item">
+            <span>رقم الفاتورة</span>
+            <strong id="verifyPayInvoiceCode">—</strong>
+          </div>
+          <div class="verify-pay-summary-item">
+            <span>نوع الطلب</span>
+            <strong id="verifyPayPlanName">—</strong>
+          </div>
+          <div class="verify-pay-summary-item">
+            <span>تاريخ الإرسال</span>
+            <strong id="verifyPayDuration">—</strong>
+          </div>
+          <div class="verify-pay-summary-item">
+            <span>حالة الطلب</span>
+            <strong id="verifyPayRequestStatus">—</strong>
+          </div>
+          <div class="verify-pay-summary-item">
+            <span>حالة الفاتورة</span>
+            <strong id="verifyPayInvoiceStatus">—</strong>
+          </div>
+        </div>
+
+        <div class="verify-pay-amount-row">
+          <span>المبلغ المطلوب</span>
+          <strong id="verifyPayAmount">0.00 ريال</strong>
+        </div>
+
+        <section class="verify-pay-status is-warning">
+          بعد السداد يستمر الطلب تحت المعالجة لدى فريق الخدمات الإضافية حتى اكتمال التنفيذ والتسليم النهائي.
+        </section>
+
+        <section class="verify-pay-security">
+          <strong>بنود الفاتورة</strong>
+          <ul id="verifyPayInvoiceLines">
+            <li>جاري تحميل البنود...</li>
+          </ul>
+        </section>
+
+        <div class="verify-pay-brand-box" aria-hidden="true">Apple Pay</div>
+
+        <div class="verify-pay-methods" role="radiogroup" aria-label="خيارات الدفع">
+          <label class="verify-pay-method-option">
+            <input type="radio" name="verify-payment-method" value="apple_pay">
+            <span>Apple Pay</span>
+          </label>
+          <label class="verify-pay-method-option">
+            <input type="radio" name="verify-payment-method" value="mada" checked>
+            <span>مدى</span>
+          </label>
+          <label class="verify-pay-method-option">
+            <input type="radio" name="verify-payment-method" value="visa">
+            <span>فيزا</span>
+          </label>
+          <label class="verify-pay-method-option">
+            <input type="radio" name="verify-payment-method" value="mastercard">
+            <span>ماستر كارد</span>
+          </label>
+        </div>
+        <small id="verifyPayMethodError" class="verify-pay-field-error hidden" role="alert"></small>
+
+        <div class="verify-pay-card-grid">
+          <div class="form-group">
+            <label class="form-label" for="verifyPayCardName">اسم حامل البطاقة</label>
+            <input id="verifyPayCardName" name="cc-name" type="text" class="form-input" maxlength="60" autocomplete="cc-name" autocapitalize="words" spellcheck="false" aria-describedby="verifyPayCardNameError">
+            <small id="verifyPayCardNameError" class="verify-pay-field-error hidden" role="alert"></small>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="verifyPayCardNumber">رقم البطاقة</label>
+            <input id="verifyPayCardNumber" name="cc-number" type="text" class="form-input" inputmode="numeric" maxlength="23" autocomplete="cc-number" placeholder="0000 0000 0000 0000" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardNumberError">
+            <small id="verifyPayCardNumberError" class="verify-pay-field-error hidden" role="alert"></small>
+          </div>
+          <div class="form-group half">
+            <label class="form-label" for="verifyPayCardExpiry">تاريخ الانتهاء (MM/YY)</label>
+            <input id="verifyPayCardExpiry" name="cc-exp" type="text" class="form-input" inputmode="numeric" maxlength="5" autocomplete="cc-exp" placeholder="MM/YY" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardExpiryError">
+            <small id="verifyPayCardExpiryError" class="verify-pay-field-error hidden" role="alert"></small>
+          </div>
+          <div class="form-group half">
+            <label class="form-label" for="verifyPayCardCvv">CVV</label>
+            <input id="verifyPayCardCvv" name="cc-csc" type="password" class="form-input" inputmode="numeric" maxlength="4" autocomplete="cc-csc" placeholder="***" dir="ltr" spellcheck="false" autocorrect="off" aria-describedby="verifyPayCardCvvError">
+            <small id="verifyPayCardCvvError" class="verify-pay-field-error hidden" role="alert"></small>
+          </div>
+        </div>
+
+        <div class="verify-pay-security">
+          <strong>أمان الدفع</strong>
+          <ul>
+            <li>يتم ربط الدفع مباشرة مع فاتورة طلب الخدمات الإضافية الحالية.</li>
+            <li>بعد نجاح الدفع يستمر الطلب تحت تنفيذ الفريق حتى يتم إنجازه وإغلاقه.</li>
+            <li>لا يتم تخزين بيانات البطاقة بعد اكتمال العملية.</li>
+          </ul>
+        </div>
+
+        <div class="verify-pay-actions">
+          <button type="button" class="btn btn-outline" id="verifyPayBackBtn">العودة لصفحة الخدمات الإضافية</button>
+          <button type="submit" class="btn btn-primary" id="verifyPaySubmitBtn">دفع الآن</button>
+        </div>
+      </form>
+    </article>
+  </section>
+  <div id="verifyPayToast" class="verify-pay-toast" aria-live="polite" aria-atomic="true"></div>
+</main>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'mobile_web/js/additionalServicesPaymentPage.js' %}"></script>
+{% endblock %}

@@ -405,6 +405,20 @@ class MobileWebAdditionalServicesView(TemplateView):
         return context
 
 
+class MobileWebAdditionalServicesPaymentView(TemplateView):
+    template_name = "mobile_web/additional_services_payment.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        full_path = (
+            self.request.get_full_path()
+            if hasattr(self.request, "get_full_path")
+            else "/additional-services/payment/"
+        )
+        context["additional_services_payment_login_url"] = f"/login/?{urlencode({'next': full_path})}"
+        return context
+
+
 class MobileWebProviderServicesView(TemplateView):
     template_name = "mobile_web/provider_services.html"
 

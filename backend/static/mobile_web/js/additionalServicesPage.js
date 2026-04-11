@@ -602,6 +602,12 @@ var AdditionalServicesPage = (function () {
         return section && Array.isArray(section.items) && section.items.length > 0;
       });
       var notes = asText(item && item.notes);
+      var invoiceSummary = item && typeof item.invoice_summary === "object" ? item.invoice_summary : null;
+      var paymentUrl = asText(item && item.payment_url);
+      var invoiceCode = asText(invoiceSummary && invoiceSummary.code) || "—";
+      var invoiceStatus = asText(invoiceSummary && invoiceSummary.status_label) || "لا توجد فاتورة";
+      var invoiceTotal = invoiceSummary ? formatPrice(invoiceSummary.total, invoiceSummary.currency) : "—";
+      var canPay = !!paymentUrl && invoiceSummary && invoiceSummary.payment_effective !== true;
 
       return [
         '<article class="as-card as-card-bundle">',
@@ -625,6 +631,9 @@ var AdditionalServicesPage = (function () {
           '</div>',
           '<div class="as-meta-grid">',
             '<div class="as-meta-row"><span>تاريخ الإرسال</span><b>', escapeHtml(submittedAt), '</b></div>',
+            '<div class="as-meta-row"><span>رقم الفاتورة</span><b>', escapeHtml(invoiceCode), '</b></div>',
+            '<div class="as-meta-row"><span>حالة الفاتورة</span><b>', escapeHtml(invoiceStatus), '</b></div>',
+            '<div class="as-meta-row"><span>إجمالي الفاتورة</span><b>', escapeHtml(invoiceTotal), '</b></div>',
           '</div>',
           sections.length ? '<div class="as-section-list">' + sections.map(function (section) {
             return '<div class="as-section-item"><h6>' + escapeHtml(section.title) + '</h6><ul>' + section.items.map(function (it) {
@@ -632,6 +641,7 @@ var AdditionalServicesPage = (function () {
             }).join("") + '</ul></div>';
           }).join("") + '</div>' : '',
           notes ? '<div class="as-note"><b>ملاحظات:</b> ' + escapeHtml(notes) + '</div>' : '',
+          canPay ? '<div class="as-card-footer"><a class="as-buy-btn" href="' + escapeHtml(paymentUrl) + '">دفع الفاتورة</a></div>' : '',
         '</article>'
       ].join("");
     }).join("");

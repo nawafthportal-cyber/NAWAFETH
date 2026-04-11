@@ -27,6 +27,8 @@ from .services import (
     EXTRAS_BUNDLE_SOURCE_MODELS,
     _extras_bundle_specialist_user,
     create_extra_purchase_checkout,
+    extras_bundle_invoice_for_request,
+    extras_bundle_payment_page_url,
     get_extra_catalog,
 )
 from .models import ExtraPurchase
@@ -50,11 +52,18 @@ def _resolve_bundle_payment_link_redirect(*, user, attempt):
         .order_by("-id")
         .first()
     )
+    payment_page_url = extras_bundle_payment_page_url(request_obj=request_obj, invoice=invoice)
+
+    if request_obj is not None and not getattr(invoice, "id", None):
+        invoice = extras_bundle_invoice_for_request(request_obj)
+        payment_page_url = extras_bundle_payment_page_url(request_obj=request_obj, invoice=invoice)
 
     if user and getattr(user, "id", None) == invoice.user_id:
         return {
             "kind": "owner",
-            "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+            "redirect_url": payment_page_url
+            or checkout_url
+            or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
             "request_obj": request_obj,
         }
 
@@ -64,23 +73,30 @@ def _resolve_bundle_payment_link_redirect(*, user, attempt):
             invoice.save(update_fields=["user", "updated_at"])
         return {
             "kind": "requester-owner-corrected",
-            "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+            "redirect_url": payment_page_url
+            or checkout_url
+            or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
             "request_obj": request_obj,
         }
 
     if not user or not getattr(user, "id", None):
         return {
             "kind": "public",
-            "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+            "redirect_url": payment_page_url
+            or checkout_url
+            or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
             "request_obj": request_obj,
         }
 
     specialist_user = _extras_bundle_specialist_user(request_obj) if request_obj is not None else None
 
     if request_obj is not None and (user.id == getattr(request_obj, "assigned_user_id", None) or getattr(user, "is_staff", False)):
+        dashboard_url = reverse("dashboard:extras_dashboard")
+        if getattr(request_obj, "id", None):
+            dashboard_url = f"{dashboard_url}?request={request_obj.id}#extrasRequests"
         return {
             "kind": "public-staff",
-            "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+            "redirect_url": dashboard_url,
             "request_obj": request_obj,
         }
 
@@ -91,14 +107,18 @@ def _resolve_bundle_payment_link_redirect(*, user, attempt):
     if user.id in related_non_owner_ids:
         return {
             "kind": "public-related-non-owner",
-            "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+            "redirect_url": payment_page_url
+            or checkout_url
+            or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
             "request_obj": request_obj,
         }
 
     return {
         "kind": "public-fallback",
         "request_obj": request_obj,
-        "redirect_url": checkout_url or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
+        "redirect_url": payment_page_url
+        or checkout_url
+        or reverse("billing:mock_checkout", kwargs={"provider": attempt.provider, "attempt_id": attempt.id}),
     }
 
 
@@ -310,6 +330,25 @@ class MyExtrasBundleRequestsView(APIView):
                 payload = meta_record.payload
             bundle = payload.get("bundle") if isinstance(payload.get("bundle"), dict) else {}
             notes = str(bundle.get("notes") or "").strip()
+            invoice = extras_bundle_invoice_for_request(row)
+            invoice_summary = None
+            if invoice is not None:
+                invoice_summary = {
+                    "id": invoice.id,
+                    "code": invoice.code,
+                    "status": invoice.status,
+                    "status_label": "مدفوع ومعتمد" if invoice.is_payment_effective() else invoice.get_status_display(),
+                    "total": str(invoice.total),
+                    "currency": invoice.currency,
+                    "payment_effective": bool(invoice.is_payment_effective()),
+                    "lines": [
+                        {
+                            "title": str(line.title or "").strip(),
+                            "amount": str(line.amount),
+                        }
+                        for line in invoice.lines.all().order_by("sort_order", "id")
+                    ],
+                }
             results.append(
                 {
                     "request_id": row.id,
@@ -321,6 +360,8 @@ class MyExtrasBundleRequestsView(APIView):
                     "updated_at": row.updated_at,
                     "summary_sections": _sections_from_bundle(bundle),
                     "notes": notes,
+                    "invoice_summary": invoice_summary,
+                    "payment_url": extras_bundle_payment_page_url(request_obj=row, invoice=invoice),
                 }
             )
 

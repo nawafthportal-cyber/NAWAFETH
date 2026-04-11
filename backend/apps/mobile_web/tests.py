@@ -1,7 +1,11 @@
 from django.test import TestCase
 from django.urls import resolve
 
-from .views import MobileWebPromotionPaymentView, MobileWebSubscriptionPaymentView
+from .views import (
+    MobileWebAdditionalServicesPaymentView,
+    MobileWebPromotionPaymentView,
+    MobileWebSubscriptionPaymentView,
+)
 
 
 class MobileWebRootRoutesTests(TestCase):
@@ -14,3 +18,8 @@ class MobileWebRootRoutesTests(TestCase):
         match = resolve("/promotion/payment/")
 
         self.assertEqual(match.func.view_class, MobileWebPromotionPaymentView)
+
+    def test_additional_services_payment_page_is_available_at_root_path(self):
+        match = resolve("/additional-services/payment/")
+
+        self.assertEqual(match.func.view_class, MobileWebAdditionalServicesPaymentView)
