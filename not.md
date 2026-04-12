@@ -23,6 +23,7 @@ emulator -list-avds
 تحديث قاعدة البيانات 
 python manage.py showmigrations
 python manage.py migrate
+python manage.py collectstatic --noinput
 
 
 ولو تريد جمع الملفات الثابتة بعد التحديث:

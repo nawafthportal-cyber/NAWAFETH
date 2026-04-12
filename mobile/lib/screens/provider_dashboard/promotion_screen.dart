@@ -16,6 +16,10 @@ import 'package:video_player/video_player.dart';
 const _brandColor = Colors.deepPurple;
 const _homeBannerRequiredWidth = 1920;
 const _homeBannerRequiredHeight = 840;
+const _homeBannerMinWidth = 960;
+const _homeBannerMinHeight = 420;
+const _homeBannerMinRatio = 1.60;
+const _homeBannerMaxRatio = 3.60;
 
 const _statusLabels = {
   'new': 'جديد',
@@ -141,8 +145,8 @@ String buildHomeBannerVideoAutofitWarning({
   required int currentWidth,
   required int currentHeight,
 }) {
-  return 'WARN: سيتم ضبط الفيديو تلقائيًا إلى ${requiredWidth}x$requiredHeight على الخادم '
-      '(المقاس الحالي ${currentWidth}x$currentHeight).';
+  return 'WARN: سيتم عرض الملف بصيغة بنر عبر Cloudflare مع قص تلقائي إلى '
+      '${requiredWidth}x$requiredHeight (المقاس الحالي ${currentWidth}x$currentHeight).';
 }
 
 const _promoServices = [
@@ -2555,15 +2559,13 @@ class _PromoComposerState extends State<_PromoComposer> {
         final image = await _decodeImage(bytes);
         final width = image.width;
         final height = image.height;
-        if (width != _homeBannerRequiredWidth ||
-            height != _homeBannerRequiredHeight) {
-          return 'الأبعاد المطلوبة ${_homeBannerRequiredWidth}x$_homeBannerRequiredHeight. '
-              'الأبعاد الحالية ${width}x$height.';
-        }
+        return _validateFlexibleHomeBannerDimensions(
+          width: width,
+          height: height,
+        );
       } catch (_) {
         return 'تعذر قراءة أبعاد الصورة.';
       }
-      return null;
     }
 
     VideoPlayerController? controller;
@@ -2573,21 +2575,42 @@ class _PromoComposerState extends State<_PromoComposer> {
       final size = controller.value.size;
       final width = size.width.round();
       final height = size.height.round();
-      if (width != _homeBannerRequiredWidth ||
-          height != _homeBannerRequiredHeight) {
-        return buildHomeBannerVideoAutofitWarning(
-          requiredWidth: _homeBannerRequiredWidth,
-          requiredHeight: _homeBannerRequiredHeight,
-          currentWidth: width,
-          currentHeight: height,
-        );
-      }
-      return null;
+      return _validateFlexibleHomeBannerDimensions(
+        width: width,
+        height: height,
+      );
     } catch (_) {
       return 'تعذر قراءة أبعاد الفيديو.';
     } finally {
       await controller?.dispose();
     }
+  }
+
+  String? _validateFlexibleHomeBannerDimensions({
+    required int width,
+    required int height,
+  }) {
+    if (width < _homeBannerMinWidth || height < _homeBannerMinHeight) {
+      return 'أبعاد الملف صغيرة جدًا. الحد الأدنى المسموح '
+          '${_homeBannerMinWidth}x$_homeBannerMinHeight. '
+          'الأبعاد الحالية ${width}x$height.';
+    }
+    final ratio = width / height;
+    if (ratio < _homeBannerMinRatio || ratio > _homeBannerMaxRatio) {
+      return 'نسبة أبعاد الملف غير مناسبة لبنر الصفحة الرئيسية. '
+          'النسبة المقبولة بين ${_homeBannerMinRatio.toStringAsFixed(2)} و '
+          '${_homeBannerMaxRatio.toStringAsFixed(2)}، '
+          'والنسبة الحالية ${ratio.toStringAsFixed(2)}.';
+    }
+    if (width != _homeBannerRequiredWidth || height != _homeBannerRequiredHeight) {
+      return buildHomeBannerVideoAutofitWarning(
+        requiredWidth: _homeBannerRequiredWidth,
+        requiredHeight: _homeBannerRequiredHeight,
+        currentWidth: width,
+        currentHeight: height,
+      );
+    }
+    return null;
   }
 
   Future<ui.Image> _decodeImage(Uint8List bytes) {

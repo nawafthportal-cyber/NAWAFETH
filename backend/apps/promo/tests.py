@@ -1,14 +1,17 @@
+from io import BytesIO
 from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Q
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
+from PIL import Image
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.middleware import InlinePromoSchedulerMiddleware
@@ -25,7 +28,54 @@ from apps.promo.services import (
     quote_and_create_invoice,
     set_promo_ops_status,
 )
-from apps.promo.validators import promo_asset_upload_limit_mb
+from apps.promo.validators import promo_asset_upload_limit_mb, validate_home_banner_media_dimensions
+
+
+class HomeBannerDimensionPolicyTests(SimpleTestCase):
+    def _image_upload(self, width: int, height: int) -> SimpleUploadedFile:
+        buf = BytesIO()
+        Image.new("RGB", (width, height), (24, 36, 48)).save(buf, format="JPEG", quality=92)
+        return SimpleUploadedFile(
+            name=f"banner-{width}x{height}.jpg",
+            content=buf.getvalue(),
+            content_type="image/jpeg",
+        )
+
+    @override_settings(
+        PROMO_HOME_BANNER_ENFORCE_EXACT_DIMENSIONS=True,
+        PROMO_HOME_BANNER_REQUIRED_DIMENSIONS=[1920, 840],
+    )
+    def test_strict_mode_rejects_non_exact_dimensions(self):
+        upload = self._image_upload(1280, 720)
+        with self.assertRaises(ValidationError):
+            validate_home_banner_media_dimensions(upload, asset_type="image")
+
+    @override_settings(
+        PROMO_HOME_BANNER_ENFORCE_EXACT_DIMENSIONS=False,
+        PROMO_HOME_BANNER_REQUIRED_DIMENSIONS=[1920, 840],
+        PROMO_HOME_BANNER_MIN_DIMENSIONS=[960, 420],
+        PROMO_HOME_BANNER_MIN_RATIO=1.60,
+        PROMO_HOME_BANNER_MAX_RATIO=3.60,
+    )
+    def test_flexible_mode_accepts_1280x720(self):
+        upload = self._image_upload(1280, 720)
+        validate_home_banner_media_dimensions(upload, asset_type="image")
+
+    @override_settings(
+        PROMO_HOME_BANNER_ENFORCE_EXACT_DIMENSIONS=False,
+        PROMO_HOME_BANNER_REQUIRED_DIMENSIONS=[1920, 840],
+        PROMO_HOME_BANNER_MIN_DIMENSIONS=[960, 420],
+        PROMO_HOME_BANNER_MIN_RATIO=1.60,
+        PROMO_HOME_BANNER_MAX_RATIO=3.60,
+    )
+    def test_flexible_mode_rejects_small_or_bad_ratio(self):
+        tiny_upload = self._image_upload(800, 360)
+        with self.assertRaises(ValidationError):
+            validate_home_banner_media_dimensions(tiny_upload, asset_type="image")
+
+        tall_upload = self._image_upload(900, 900)
+        with self.assertRaises(ValidationError):
+            validate_home_banner_media_dimensions(tall_upload, asset_type="image")
 
 
 class PromoPaymentWorkflowTests(TestCase):

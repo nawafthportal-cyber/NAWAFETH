@@ -1201,7 +1201,7 @@ var PromotionPage = (function () {
         dims.textContent = "تعذر معاينة الفيديو المختار";
       };
       wrap.appendChild(video);
-      note.textContent = "سيقوم النظام بضبط الفيديو تلقائياً إلى المقاس المعتمد 1920x840 عند الرفع.";
+      note.textContent = "سيتم تكييف عرض الفيديو تلقائياً عبر Cloudflare إلى مساحة البنر (1920x840).";
       return;
     }
 
@@ -1216,7 +1216,7 @@ var PromotionPage = (function () {
       dims.textContent = "تعذر معاينة الصورة المختارة";
     };
     wrap.appendChild(img);
-    note.textContent = "سيقوم النظام بضبط الصورة تلقائياً إلى المقاس المعتمد 1920x840 عند الرفع.";
+    note.textContent = "سيتم تكييف عرض الصورة تلقائياً عبر Cloudflare إلى مساحة البنر (1920x840).";
   }
 
   function homeBannerAutoFitEnabled() {

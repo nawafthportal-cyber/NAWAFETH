@@ -35,6 +35,20 @@ _DEFAULT_PROMO_ASSET_LIMITS_MB = {
 }
 
 
+def _bool_setting(name: str, default: bool) -> bool:
+    raw = getattr(settings, name, default)
+    if isinstance(raw, bool):
+        return raw
+    if isinstance(raw, (int, float)):
+        return bool(raw)
+    text = str(raw or "").strip().lower()
+    if text in {"1", "true", "yes", "on"}:
+        return True
+    if text in {"0", "false", "no", "off"}:
+        return False
+    return bool(default)
+
+
 def _platform_config_limit_mb(field_name: str, default: int) -> int:
     try:
         from apps.core.models import PlatformConfig
@@ -107,6 +121,41 @@ def _home_banner_required_dimensions() -> tuple[int, int]:
     if width <= 0 or height <= 0:
         return (1920, 840)
     return (width, height)
+
+
+def _home_banner_exact_dimensions_required() -> bool:
+    default = not bool(getattr(settings, "USE_R2_MEDIA", False))
+    return _bool_setting("PROMO_HOME_BANNER_ENFORCE_EXACT_DIMENSIONS", default)
+
+
+def _home_banner_min_dimensions(required_width: int, required_height: int) -> tuple[int, int]:
+    raw = getattr(settings, "PROMO_HOME_BANNER_MIN_DIMENSIONS", None)
+    if isinstance(raw, (list, tuple)) and len(raw) >= 2:
+        try:
+            width = int(raw[0])
+            height = int(raw[1])
+            if width > 0 and height > 0:
+                return width, height
+        except Exception:
+            pass
+    return (max(320, required_width // 2), max(200, required_height // 2))
+
+
+def _home_banner_ratio_bounds(required_width: int, required_height: int) -> tuple[float, float]:
+    required_ratio = float(required_width) / float(required_height)
+    raw_min = getattr(settings, "PROMO_HOME_BANNER_MIN_RATIO", required_ratio * 0.70)
+    raw_max = getattr(settings, "PROMO_HOME_BANNER_MAX_RATIO", required_ratio * 1.60)
+    try:
+        min_ratio = float(raw_min)
+    except Exception:
+        min_ratio = required_ratio * 0.70
+    try:
+        max_ratio = float(raw_max)
+    except Exception:
+        max_ratio = required_ratio * 1.60
+    min_ratio = max(0.1, min_ratio)
+    max_ratio = max(min_ratio + 0.05, max_ratio)
+    return min_ratio, max_ratio
 
 
 def _detect_media_kind(file_obj, declared_asset_type: str | None = None) -> str | None:
@@ -245,10 +294,27 @@ def validate_home_banner_media_dimensions(file_obj, *, asset_type: str | None = 
             raise ValidationError("تعذر قراءة أبعاد فيديو MP4. تأكد من أن الملف صالح وغير تالف.")
         width, height = dims
 
-    if width != required_width or height != required_height:
+    if _home_banner_exact_dimensions_required():
+        if width != required_width or height != required_height:
+            raise ValidationError(
+                f"الأبعاد المعتمدة لبنر الصفحة الرئيسية هي {required_width}x{required_height} بكسل. "
+                f"تم رفع ملف بأبعاد {width}x{height}."
+            )
+        return
+
+    min_width, min_height = _home_banner_min_dimensions(required_width, required_height)
+    if width < min_width or height < min_height:
         raise ValidationError(
-            f"الأبعاد المعتمدة لبنر الصفحة الرئيسية هي {required_width}x{required_height} بكسل. "
-            f"تم رفع ملف بأبعاد {width}x{height}."
+            f"أبعاد الملف صغيرة جدًا لبنر الصفحة الرئيسية. الحد الأدنى المقبول هو "
+            f"{min_width}x{min_height} بكسل، وتم رفع ملف بأبعاد {width}x{height}."
+        )
+    ratio = float(width) / float(height) if height else 0.0
+    min_ratio, max_ratio = _home_banner_ratio_bounds(required_width, required_height)
+    if ratio < min_ratio or ratio > max_ratio:
+        raise ValidationError(
+            "نسبة أبعاد الملف غير مناسبة لبنر الصفحة الرئيسية. "
+            f"النسبة المقبولة بين {min_ratio:.2f} و {max_ratio:.2f}، "
+            f"والملف المرفوع نسبته {ratio:.2f} ({width}x{height})."
         )
 
 
