@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import (
     Category,
     ProviderCategory,
@@ -133,7 +135,7 @@ class ProviderSpotlightItemAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderPortfolioLike)
-class ProviderPortfolioLikeAdmin(admin.ModelAdmin):
+class ProviderPortfolioLikeAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "item", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "item__provider__display_name")
@@ -143,7 +145,7 @@ class ProviderPortfolioLikeAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderPortfolioSave)
-class ProviderPortfolioSaveAdmin(admin.ModelAdmin):
+class ProviderPortfolioSaveAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "item", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "item__provider__display_name")
@@ -153,7 +155,7 @@ class ProviderPortfolioSaveAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderSpotlightLike)
-class ProviderSpotlightLikeAdmin(admin.ModelAdmin):
+class ProviderSpotlightLikeAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "item", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "item__provider__display_name")
@@ -163,7 +165,7 @@ class ProviderSpotlightLikeAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderSpotlightSave)
-class ProviderSpotlightSaveAdmin(admin.ModelAdmin):
+class ProviderSpotlightSaveAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "item", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "item__provider__display_name")
@@ -173,7 +175,7 @@ class ProviderSpotlightSaveAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderFollow)
-class ProviderFollowAdmin(admin.ModelAdmin):
+class ProviderFollowAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "provider", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "provider__display_name", "provider__user__phone")
@@ -183,7 +185,7 @@ class ProviderFollowAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProviderLike)
-class ProviderLikeAdmin(admin.ModelAdmin):
+class ProviderLikeAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "user", "provider", "role_context", "created_at")
     list_filter = ("role_context",)
     search_fields = ("user__phone", "user__username", "provider__display_name", "provider__user__phone")

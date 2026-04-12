@@ -17,6 +17,7 @@ def main() -> None:
     """
     # ✅ Use the settings package (config/settings/) which selects dev/prod via DJANGO_ENV
     # Render should set DJANGO_ENV=prod.
+    os.environ.setdefault("DJANGO_ENV", "dev")
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
     try:

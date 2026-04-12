@@ -116,6 +116,14 @@ var PromotionPage = (function () {
     promo_messages: [".jpg", ".jpeg", ".png", ".mp4"],
     sponsorship: [".jpg", ".jpeg", ".png", ".mp4"]
   };
+  var PROMO_ASSET_UPLOAD_LIMITS_MB = {
+    image: 10,
+    video: 20,
+    pdf: 10,
+    other: 10,
+    home_banner_image: 10,
+    home_banner_video: 20
+  };
 
   var selectedServices = [];
   var requestsCache = {};
@@ -300,16 +308,30 @@ var PromotionPage = (function () {
         var badFiles = files.filter(function (file) {
           return !isSupportedAttachmentForService(service, file);
         });
-        if (!badFiles.length) return;
+        var tooLarge = files.filter(function (file) {
+          return isFileTooLargeForService(file, service);
+        });
+        if (!badFiles.length && !tooLarge.length) return;
 
         input.value = "";
         if (service === "home_banner") {
           renderHomeBannerPreview(null);
         }
+        if (badFiles.length) {
+          alert(
+            "الملف المرفق غير مدعوم.\\n"
+            + "الملفات المدعومة: "
+            + supportedExtensionsLabel(service)
+          );
+          return;
+        }
+        var firstLargeFile = tooLarge[0];
+        var assetType = detectAssetType(String(firstLargeFile.name || ""));
+        var maxMb = resolveUploadLimitMb(service, assetType);
         alert(
-          "الملف المرفق غير مدعوم.\\n"
-          + "الملفات المدعومة: "
-          + supportedExtensionsLabel(service)
+          "حجم الملف أكبر من الحد المسموح.\\n"
+          + "الملف: " + String(firstLargeFile.name || "مرفق") + "\\n"
+          + "الحد الأقصى لهذا النوع: " + maxMb + "MB"
         );
       });
     });
@@ -431,6 +453,7 @@ var PromotionPage = (function () {
 
       pricingGuideState.payload = res.data;
       pricingGuideState.loaded = true;
+      applyAssetUploadLimitsFromGuide(res.data);
       renderPricingGuide(res.data);
 
       loadingEl.hidden = true;
@@ -1582,6 +1605,17 @@ var PromotionPage = (function () {
   }
 
   async function uploadAssetsToRequest(requestId) {
+    var singleItemId = null;
+    try {
+      var detailRes = await ApiClient.get("/api/promo/requests/" + requestId + "/");
+      var detailItems = detailRes && detailRes.ok && detailRes.data && Array.isArray(detailRes.data.items)
+        ? detailRes.data.items
+        : [];
+      if (detailItems.length === 1 && detailItems[0] && detailItems[0].id) {
+        singleItemId = detailItems[0].id;
+      }
+    } catch (_) {}
+
     var input = document.createElement("input");
     input.type = "file";
     input.accept = ".jpg,.jpeg,.png,.gif,.mp4,.pdf";
@@ -1594,6 +1628,13 @@ var PromotionPage = (function () {
         var MAX_RETRIES = 3;
         for (var i = 0; i < files.length; i++) {
           var f = files[i];
+          if (isFileTooLargeForService(f, service)) {
+            failures.push(
+              String(f.name || "مرفق")
+              + ": حجم الملف أكبر من الحد المسموح (" + resolveUploadLimitMb(service, detectAssetType(f.name)) + "MB)"
+            );
+            continue;
+          }
           var ok = false;
           var lastRes = null;
           for (var attempt = 0; attempt < MAX_RETRIES && !ok; attempt++) {
@@ -1601,6 +1642,7 @@ var PromotionPage = (function () {
             var fd = new FormData();
             fd.append("file", f, f.name);
             fd.append("asset_type", detectAssetType(f.name));
+            if (singleItemId) fd.append("item_id", String(singleItemId));
             lastRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
               method: "POST", body: fd, formData: true
             });
@@ -1609,7 +1651,11 @@ var PromotionPage = (function () {
           if (!ok) failures.push(f.name + ": " + extractError(lastRes, "تعذر رفع المرفق"));
         }
         if (failures.length) {
-          alert("فشل رفع " + failures.length + " مرفق/مرفقات:\n" + failures.join("\n"));
+          await discardIncompleteRequest(requestId, "manual_asset_upload_failed");
+          alert(
+            "تم إلغاء الطلب تلقائيًا لأن المرفقات المطلوبة لم تكتمل.\n"
+            + "الأخطاء:\n" + failures.join("\n")
+          );
         } else {
           alert("تم رفع جميع المرفقات بنجاح.");
         }
@@ -2100,6 +2146,7 @@ var PromotionPage = (function () {
   }
 
   async function submitRequestFlow(requestBody, submitButton) {
+    var createdRequestId = 0;
     if (!submitButton) return false;
     try {
       submitButton.textContent = "جاري إنشاء الطلب...";
@@ -2107,22 +2154,27 @@ var PromotionPage = (function () {
       if (!createResult) {
         return false;
       }
+      createdRequestId = parseInt(String(createResult.requestId || "0"), 10) || 0;
 
       if (createResult.uploadFailures.length) {
-        var failMsg = "تم إنشاء الطلب، لكن فشل رفع " + createResult.uploadFailures.length + " مرفق/مرفقات.\n" + createResult.uploadFailures[0] + "\n\nهل تريد المتابعة إلى الدفع بدون المرفقات الفاشلة؟";
-        if (!confirm(failMsg)) {
-          window.location.href = "/promotion/?request_id=" + createResult.requestId;
-          return false;
-        }
+        await discardIncompleteRequest(createdRequestId, "asset_upload_failed");
+        alert(
+          "تم إلغاء الطلب تلقائيًا لأن المرفقات المطلوبة لم تكتمل.\n"
+          + "سبب الفشل: " + String(createResult.uploadFailures[0] || "تعذر رفع المرفق.")
+        );
+        return false;
       }
 
       submitButton.textContent = "جاري تجهيز الفاتورة...";
       var prepared = await preparePromoRequestPayment(createResult.requestId);
       if (!prepared) {
+        await discardIncompleteRequest(createdRequestId, "prepare_payment_failed");
+        alert("تم إلغاء الطلب تلقائيًا لأن الدفع لم يُجهّز بنجاح.");
         return false;
       }
       var invoiceId = parseInt(String(prepared.invoice || ""), 10);
       if (!invoiceId) {
+        await discardIncompleteRequest(createdRequestId, "missing_invoice_id");
         alert("تعذر تجهيز الفاتورة لهذا الطلب. حاول مرة أخرى.");
         return false;
       }
@@ -2138,6 +2190,9 @@ var PromotionPage = (function () {
       return true;
     } catch (err) {
       console.error("Submit flow failed", err);
+      if (createdRequestId) {
+        await discardIncompleteRequest(createdRequestId, "submit_flow_exception");
+      }
       alert("تعذر إكمال تجهيز الطلب للدفع. حاول مرة أخرى.");
       return false;
     }
@@ -2166,6 +2221,9 @@ var PromotionPage = (function () {
     detailItems.forEach(function (item) {
       if (item && item.id) ids[(item.service_type || "") + ":" + (item.sort_order || 0)] = item.id;
     });
+    var singleItemId = detailItems.length === 1 && detailItems[0] && detailItems[0].id
+      ? detailItems[0].id
+      : null;
 
     var uploadFailures = [];
     submitButton.textContent = "جاري رفع المرفقات...";
@@ -2177,6 +2235,13 @@ var PromotionPage = (function () {
       var files = fileInput && fileInput.files ? Array.from(fileInput.files) : [];
       for (var y = 0; y < files.length; y += 1) {
         var sourceFile = files[y];
+        if (isFileTooLargeForService(sourceFile, s)) {
+          uploadFailures.push(
+            String(sourceFile.name || "مرفق")
+            + ": حجم الملف أكبر من الحد المسموح (" + resolveUploadLimitMb(s, detectAssetType(sourceFile.name)) + "MB)"
+          );
+          continue;
+        }
         var uploadFile = sourceFile;
         var uploadType = detectAssetType(sourceFile.name);
         var uploadOk = false;
@@ -2190,6 +2255,7 @@ var PromotionPage = (function () {
           fd.append("file", uploadFile, uploadFile.name);
           fd.append("asset_type", uploadType);
           if (ids[s + ":" + x]) fd.append("item_id", String(ids[s + ":" + x]));
+          else if (singleItemId) fd.append("item_id", String(singleItemId));
           lastUploadRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
             method: "POST",
             body: fd,
@@ -2224,6 +2290,20 @@ var PromotionPage = (function () {
       return null;
     }
     return prepareRes.data || {};
+  }
+
+  async function discardIncompleteRequest(requestId, reason) {
+    var id = parseInt(String(requestId || "0"), 10) || 0;
+    if (!id) return false;
+    try {
+      var res = await ApiClient.request("/api/promo/requests/" + id + "/discard/", {
+        method: "DELETE",
+        body: reason ? { reason: String(reason) } : undefined
+      });
+      return !!(res && res.ok);
+    } catch (_) {
+      return false;
+    }
   }
 
   async function payPreparedInvoice() {
@@ -2263,6 +2343,11 @@ var PromotionPage = (function () {
         var file = files[j];
         if (!isSupportedAttachmentForService(service, file)) {
           return "الملف المرفق غير مدعوم. الملفات المدعومة: " + supportedExtensionsLabel(service);
+        }
+        if (isFileTooLargeForService(file, service)) {
+          var uploadType = detectAssetType(String(file.name || ""));
+          return "الملف " + String(file.name || "المرفق")
+            + " أكبر من الحد المسموح (" + resolveUploadLimitMb(service, uploadType) + "MB).";
         }
       }
 
@@ -2617,6 +2702,48 @@ var PromotionPage = (function () {
     if (["mp4", "mov", "avi", "mkv", "webm"].indexOf(ext) >= 0) return "video";
     if (ext === "pdf") return "pdf";
     return "other";
+  }
+
+  function normalizeLimitMb(value, fallback) {
+    var parsed = parseInt(String(value || ""), 10);
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+    return parsed;
+  }
+
+  function applyAssetUploadLimitsFromGuide(data) {
+    var incoming = data && data.asset_upload_limits_mb;
+    if (!incoming || typeof incoming !== "object") return;
+    PROMO_ASSET_UPLOAD_LIMITS_MB.image = normalizeLimitMb(incoming.image, PROMO_ASSET_UPLOAD_LIMITS_MB.image);
+    PROMO_ASSET_UPLOAD_LIMITS_MB.video = normalizeLimitMb(incoming.video, PROMO_ASSET_UPLOAD_LIMITS_MB.video);
+    PROMO_ASSET_UPLOAD_LIMITS_MB.pdf = normalizeLimitMb(incoming.pdf, PROMO_ASSET_UPLOAD_LIMITS_MB.pdf);
+    PROMO_ASSET_UPLOAD_LIMITS_MB.other = normalizeLimitMb(incoming.other, PROMO_ASSET_UPLOAD_LIMITS_MB.other);
+    PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_image = normalizeLimitMb(
+      incoming.home_banner_image,
+      PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_image
+    );
+    PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_video = normalizeLimitMb(
+      incoming.home_banner_video,
+      PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_video
+    );
+  }
+
+  function resolveUploadLimitMb(service, assetType) {
+    var type = String(assetType || "other").trim().toLowerCase();
+    if (["image", "video", "pdf", "other"].indexOf(type) < 0) type = "other";
+    if (service === "home_banner") {
+      if (type === "video") return PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_video;
+      return PROMO_ASSET_UPLOAD_LIMITS_MB.home_banner_image;
+    }
+    return PROMO_ASSET_UPLOAD_LIMITS_MB[type] || PROMO_ASSET_UPLOAD_LIMITS_MB.other || 10;
+  }
+
+  function isFileTooLargeForService(file, service) {
+    var size = Number(file && file.size ? file.size : 0);
+    if (!Number.isFinite(size) || size <= 0) return false;
+    var assetType = detectAssetType(String(file && file.name || ""));
+    var maxMb = resolveUploadLimitMb(service, assetType);
+    var maxBytes = maxMb * 1024 * 1024;
+    return size > maxBytes;
   }
 
   function fileExtension(name) {

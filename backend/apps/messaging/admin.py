@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import Message, MessageRead, Thread, ThreadUserState
 
 
@@ -42,7 +44,7 @@ class MessageAdmin(admin.ModelAdmin):
 
 
 @admin.register(MessageRead)
-class MessageReadAdmin(admin.ModelAdmin):
+class MessageReadAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "message", "user", "read_at")
     search_fields = ("message__body", "user__phone", "user__username")
     ordering = ("-id",)
@@ -50,7 +52,7 @@ class MessageReadAdmin(admin.ModelAdmin):
 
 
 @admin.register(ThreadUserState)
-class ThreadUserStateAdmin(admin.ModelAdmin):
+class ThreadUserStateAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "thread",

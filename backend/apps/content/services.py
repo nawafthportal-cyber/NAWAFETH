@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 
+from django.conf import settings
+from django.core.cache import cache
 from django.db import DatabaseError
 from django.utils.html import strip_tags
 
@@ -11,6 +13,9 @@ from .models import SiteContentBlock, SiteLegalDocument, SiteLinks
 
 
 logger = logging.getLogger(__name__)
+_CACHE_VERSION = "v1"
+_TEMPLATE_CACHE_KEY = f"content:{_CACHE_VERSION}:template_site_payload"
+_PUBLIC_CACHE_KEY = f"content:{_CACHE_VERSION}:public_content_payload"
 
 
 def sanitize_text(value: str) -> str:
@@ -74,6 +79,21 @@ def _log_public_content_fallback(exc: Exception | None = None) -> None:
         "Site public content unavailable; using default payloads instead. error=%s",
         str(exc)[:220] if exc else "-",
     )
+
+
+def _template_payload_cache_ttl() -> int:
+    return max(30, int(getattr(settings, "SITE_TEMPLATE_PAYLOAD_CACHE_TTL", 300) or 300))
+
+
+def _public_payload_cache_ttl() -> int:
+    return max(30, int(getattr(settings, "SITE_PUBLIC_PAYLOAD_CACHE_TTL", 300) or 300))
+
+
+def invalidate_public_content_cache() -> None:
+    try:
+        cache.delete_many([_TEMPLATE_CACHE_KEY, _PUBLIC_CACHE_KEY])
+    except Exception:
+        pass
 
 
 def _block_payloads() -> dict[str, dict]:
@@ -156,6 +176,10 @@ def public_branding_payload(blocks: dict[str, dict] | None = None) -> dict[str, 
 
 
 def template_site_payload() -> dict[str, object]:
+    cached = cache.get(_TEMPLATE_CACHE_KEY)
+    if cached is not None:
+        return dict(cached)
+
     try:
         blocks = _block_payloads()
         links = _site_links_payload()
@@ -165,15 +189,21 @@ def template_site_payload() -> dict[str, object]:
         links = default_site_links_payload()
 
     branding = public_branding_payload(blocks)
-    return {
+    payload = {
         "brand": branding,
         "links": links,
         "social_links": _social_links_payload(links),
         "store_links": _store_links_payload(links),
     }
+    cache.set(_TEMPLATE_CACHE_KEY, payload, _template_payload_cache_ttl())
+    return payload
 
 
 def public_content_payload() -> dict:
+    cached = cache.get(_PUBLIC_CACHE_KEY)
+    if cached is not None:
+        return dict(cached)
+
     try:
         blocks = _block_payloads()
         documents = _latest_legal_documents()
@@ -184,9 +214,11 @@ def public_content_payload() -> dict:
         documents = {}
         links_payload = default_site_links_payload()
 
-    return {
+    payload = {
         "blocks": blocks,
         "documents": documents,
         "links": links_payload,
         "branding": public_branding_payload(blocks),
     }
+    cache.set(_PUBLIC_CACHE_KEY, payload, _public_payload_cache_ttl())
+    return payload

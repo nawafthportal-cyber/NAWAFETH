@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import (
     ExtrasPortalFinanceSettings,
     ExtrasPortalScheduledMessage,
@@ -38,7 +40,7 @@ class ExtrasPortalScheduledMessageAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExtrasPortalScheduledMessageRecipient)
-class ExtrasPortalScheduledMessageRecipientAdmin(admin.ModelAdmin):
+class ExtrasPortalScheduledMessageRecipientAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "scheduled_message", "user", "created_at")
     search_fields = (
         "scheduled_message__provider__display_name",

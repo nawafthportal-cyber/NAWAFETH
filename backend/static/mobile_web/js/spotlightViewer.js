@@ -330,9 +330,10 @@ const SpotlightViewer = (() => {
     if (bottomEl) {
       bottomEl.innerHTML = '';
       const provName = (item.provider_display_name || '').trim();
-      const caption = (item.caption || '').trim();
+      const hideTextDetails = !!item.sponsored_badge_only;
+      const caption = hideTextDetails ? '' : (item.caption || '').trim();
       const sectionTitle = (item.section_title || '').trim();
-      const mediaLabel = _resolveMediaLabel(item);
+      const mediaLabel = hideTextDetails ? '' : _resolveMediaLabel(item);
       const provId = item.provider_id;
 
       if (provName) {

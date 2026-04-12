@@ -51,6 +51,12 @@ class PlatformConfigAdmin(admin.ModelAdmin):
         ("حدود الرفع والتصدير", {
             "fields": (
                 "upload_max_file_size_mb",
+                "promo_asset_image_max_file_size_mb",
+                "promo_asset_video_max_file_size_mb",
+                "promo_asset_pdf_max_file_size_mb",
+                "promo_asset_other_max_file_size_mb",
+                "promo_home_banner_image_max_file_size_mb",
+                "promo_home_banner_video_max_file_size_mb",
                 "export_pdf_max_rows",
                 "export_xlsx_max_rows",
             ),

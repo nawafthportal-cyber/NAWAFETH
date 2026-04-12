@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import logging
+
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny
@@ -48,11 +53,22 @@ from .services import (
     preview_promo_request,
     quote_and_create_invoice,
     reject_request,
+    discard_incomplete_promo_request,
     ensure_default_pricing_rules,
     promo_min_campaign_hours,
     _sync_promo_to_unified,
 )
-from .validators import validate_home_banner_media_dimensions
+from .validators import (
+    promo_asset_upload_limit_mb,
+    promo_asset_upload_limits_payload,
+    validate_home_banner_media_dimensions,
+)
+
+logger = logging.getLogger("apps.promo")
+PUBLIC_PROMO_CACHE_SECONDS = max(
+    15,
+    int(getattr(settings, "PROMO_PUBLIC_ENDPOINT_CACHE_SECONDS", 60) or 60),
+)
 
 
 def _position_rank_case(field_name: str = "position"):
@@ -336,6 +352,7 @@ def _public_active_bundle_item_queryset():
     )
 
 
+@method_decorator(cache_page(PUBLIC_PROMO_CACHE_SECONDS), name="dispatch")
 class PublicHomeBannersView(generics.ListAPIView):
     """Public list of active home banner assets.
 
@@ -363,6 +380,7 @@ class PublicHomeBannersView(generics.ListAPIView):
         return qs
 
 
+@method_decorator(cache_page(PUBLIC_PROMO_CACHE_SECONDS), name="dispatch")
 class PublicActivePromosView(generics.ListAPIView):
     """Public list of active promo placements.
 
@@ -466,6 +484,7 @@ class PublicActivePromosView(generics.ListAPIView):
         return placements
 
 
+@method_decorator(cache_page(PUBLIC_PROMO_CACHE_SECONDS), name="dispatch")
 class PublicHomeCarouselView(generics.ListAPIView):
     """Public list of dashboard-managed homepage carousel banners.
 
@@ -547,6 +566,7 @@ class PromoRequestPreviewView(APIView):
         return Response(payload, status=status.HTTP_200_OK)
 
 
+@method_decorator(cache_page(PUBLIC_PROMO_CACHE_SECONDS), name="dispatch")
 class PromoPricingGuideView(APIView):
     permission_classes = [AllowAny]
 
@@ -601,6 +621,7 @@ class PromoPricingGuideView(APIView):
                 "currency": "SAR",
                 "currency_label": "ريال سعودي",
                 "min_campaign_hours": promo_min_campaign_hours(),
+                "asset_upload_limits_mb": promo_asset_upload_limits_payload(),
                 "service_order": ordered_service_types,
                 "services": services_payload,
             },
@@ -632,6 +653,30 @@ class PromoRequestDetailView(generics.RetrieveAPIView):
         return obj
 
 
+class PromoRequestDiscardView(APIView):
+    permission_classes = [IsOwnerOrBackofficePromo]
+
+    def delete(self, request, pk: int):
+        pr = get_object_or_404(PromoRequest.objects.select_related("invoice"), pk=pk)
+        self.check_object_permissions(request, pr)
+        reason = str(request.data.get("reason") or request.query_params.get("reason") or "manual_discard").strip()[:120]
+
+        deleted = discard_incomplete_promo_request(
+            pr=pr,
+            by_user=request.user,
+            reason=reason,
+        )
+        if not deleted:
+            return Response(
+                {"detail": "لا يمكن حذف هذا الطلب لأنه مكتمل أو مرتبط بدفع معتمد."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(
+            {"detail": "تم حذف الطلب غير المكتمل بنجاح."},
+            status=status.HTTP_200_OK,
+        )
+
+
 class PromoAddAssetView(generics.CreateAPIView):
     permission_classes = [IsOwnerOrBackofficePromo]
     parser_classes = [MultiPartParser, FormParser]
@@ -659,33 +704,36 @@ class PromoAddAssetView(generics.CreateAPIView):
             )
 
         item_id_raw = (request.data.get("item_id") or "").strip()
-        if not item_id_raw:
-            return Response(
-                {
-                    "detail": (
-                        "يجب اختيار بند الخدمة قبل رفع المرفق. "
-                        "هذا الطلب يحتوي على خدمات متعددة، وكل مرفق يجب أن يُربط ببند محدد."
-                    )
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        item = None
+        if item_id_raw:
+            try:
+                item_id = int(item_id_raw)
+            except (TypeError, ValueError):
+                return Response(
+                    {"detail": "معرف بند الخدمة غير صالح."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item = PromoRequestItem.objects.filter(id=item_id, request=pr).first()
+            if item is None:
+                return Response(
+                    {"detail": "بند الخدمة المحدد غير موجود أو لا يتبع هذا الطلب."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            request_items = list(pr.items.all())
+            if len(request_items) == 1:
+                item = request_items[0]
+            else:
+                return Response(
+                    {
+                        "detail": (
+                            "يجب اختيار بند الخدمة قبل رفع المرفق. "
+                            "هذا الطلب يحتوي على خدمات متعددة، وكل مرفق يجب أن يُربط ببند محدد."
+                        )
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
 
-        try:
-            item_id = int(item_id_raw)
-        except (TypeError, ValueError):
-            return Response(
-                {"detail": "معرف بند الخدمة غير صالح."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        item = PromoRequestItem.objects.filter(id=item_id, request=pr).first()
-        if item is None:
-            return Response(
-                {"detail": "بند الخدمة المحدد غير موجود أو لا يتبع هذا الطلب."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        from apps.features.upload_limits import user_max_upload_mb
         from apps.subscriptions.capabilities import banner_image_limit_for_user
         from apps.uploads.validators import validate_user_file_size
         from .validators import validate_extension
@@ -706,10 +754,14 @@ class PromoAddAssetView(generics.CreateAPIView):
 
         asset_type = (request.data.get("asset_type") or "image").strip().lower()
         requires_home_banner_dims = _requires_home_banner_dimensions_validation(pr, item)
+        effective_upload_limit_mb = promo_asset_upload_limit_mb(
+            asset_type=asset_type,
+            requires_home_banner_dims=requires_home_banner_dims,
+        )
 
         try:
             validate_extension(file_obj)
-            validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
+            validate_user_file_size(file_obj, effective_upload_limit_mb)
             file_obj = _maybe_autofit_home_banner_image(
                 file_obj,
                 asset_type=asset_type,
@@ -721,7 +773,7 @@ class PromoAddAssetView(generics.CreateAPIView):
                 required_validation=requires_home_banner_dims,
             )
             if requires_home_banner_dims:
-                validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
+                validate_user_file_size(file_obj, effective_upload_limit_mb)
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
             # Home-banner videos already pass through strict normalization/validation.
             # Skip generic optimizer to avoid a second ffmpeg pass in request lifecycle.
@@ -730,6 +782,20 @@ class PromoAddAssetView(generics.CreateAPIView):
             if requires_home_banner_dims:
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
         except ValidationError as exc:
+            logger.warning(
+                "promo_asset_upload_validation_failed request_id=%s user_id=%s promo_id=%s item_id=%s "
+                "asset_type=%s file_name=%s content_type=%s file_size=%s upload_limit_mb=%s error=%s",
+                getattr(request, "request_id", "-"),
+                getattr(request.user, "id", None),
+                pr.id,
+                getattr(item, "id", None),
+                asset_type,
+                str(getattr(file_obj, "name", "") or ""),
+                str(getattr(file_obj, "content_type", "") or ""),
+                int(getattr(file_obj, "size", 0) or 0),
+                int(effective_upload_limit_mb),
+                str(exc),
+            )
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         title = (request.data.get("title") or "").strip()

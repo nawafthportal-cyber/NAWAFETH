@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.http import Http404
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
 from rest_framework.response import Response
@@ -72,6 +73,11 @@ class BackofficeModerationCasesListView(ModerationFeatureFlagMixin, generics.Lis
 
     def get_queryset(self):
         qs = ModerationCase.objects.select_related("reporter", "reported_user", "assigned_to").order_by("-id")
+        access_profile = getattr(self.request.user, "access_profile", None)
+        if not access_profile:
+            return ModerationCase.objects.none()
+        if access_profile.level == "user":
+            qs = qs.filter(Q(assigned_to=self.request.user) | Q(assigned_to__isnull=True))
         status_q = (self.request.query_params.get("status") or "").strip()
         severity_q = (self.request.query_params.get("severity") or "").strip()
         source_q = (self.request.query_params.get("source") or "").strip()

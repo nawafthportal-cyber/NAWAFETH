@@ -6,6 +6,7 @@ from celery import Celery
 
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+os.environ.setdefault("DJANGO_ENV", "dev")
 
 app = Celery("nawafeth")
 app.config_from_object("django.conf:settings", namespace="CELERY")

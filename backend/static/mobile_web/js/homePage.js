@@ -1021,6 +1021,10 @@ const HomePage = (() => {
       nested ? nested.file_url : rawPromo.target_spotlight_item_file
     );
     if (!fileUrl) return null;
+    const rawCaption = _readBannerString(nested ? nested.caption : rawPromo.title).trim();
+    const caption = (rawCaption === 'لمحة ممولة' || rawCaption === 'ترويج ممول')
+      ? ''
+      : rawCaption;
     return {
       id: _readBannerInt(nested ? nested.id : rawPromo.target_spotlight_item_id),
       provider_id: _readBannerInt(nested ? nested.provider_id : rawPromo.target_provider_id),
@@ -1035,12 +1039,13 @@ const HomePage = (() => {
       ) || 'image',
       file_url: fileUrl,
       thumbnail_url: _readBannerString(nested ? nested.thumbnail_url : ''),
-      caption: _readBannerString(nested ? nested.caption : rawPromo.title) || 'لمحة ممولة',
+      caption,
       likes_count: _readBannerInt(nested ? nested.likes_count : 0),
       saves_count: _readBannerInt(nested ? nested.saves_count : 0),
       is_liked: !!(nested && nested.is_liked),
       is_saved: !!(nested && nested.is_saved),
       section_title: 'ترويج ممول',
+      sponsored_badge_only: true,
       source: 'spotlight',
     };
   }
@@ -1484,7 +1489,9 @@ const HomePage = (() => {
       const thumb = ApiClient.mediaUrl(item.thumbnail_url || item.file_url || '');
       const mediaUrl = ApiClient.mediaUrl(item.file_url || '');
       const isVideo = String(item.file_type || '').toLowerCase() === 'video' && !!mediaUrl;
-      const caption = (item.caption || '').trim() || 'لمحة';
+      const caption = item.sponsored_badge_only
+        ? ((item.section_title || '').trim() || 'ترويج ممول')
+        : ((item.caption || '').trim() || 'لمحة');
 
       // Always a div — click opens SpotlightViewer, NOT provider page
       const reel = UI.el('div', {

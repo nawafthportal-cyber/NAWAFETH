@@ -59,6 +59,12 @@ services:
         value: "1"
       - key: MEDIA_VIDEO_OPTIMIZE_THREADS
         value: "1"
+      - key: PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED
+        value: "1"
+      - key: PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES
+        value: "10"
+      - key: PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT
+        value: "200"
       - key: INSTALL_FFMPEG_ON_BUILD
         value: "1"
       - key: REQUIRE_FFMPEG
@@ -69,6 +75,24 @@ services:
         value: "1"
       - key: FEATURE_ANALYTICS_KPI_SURFACES
         value: "1"
+      - key: FEATURE_RBAC_ENFORCE
+        value: "1"
+      - key: RBAC_AUDIT_ONLY
+        value: "0"
+      - key: SUBSCRIPTION_REFRESH_INTERVAL_SECONDS
+        value: "300"
+      - key: PROMO_PUBLIC_ENDPOINT_CACHE_SECONDS
+        value: "60"
+      - key: SITE_TEMPLATE_PAYLOAD_CACHE_TTL
+        value: "300"
+      - key: SITE_PUBLIC_PAYLOAD_CACHE_TTL
+        value: "300"
+      - key: URGENT_DISPATCH_INLINE_INTERVAL_SECONDS
+        value: "30"
+      - key: API_DEFAULT_LIMIT
+        value: "50"
+      - key: API_MAX_LIMIT
+        value: "100"
 
   - type: keyvalue
     name: nawafeth-redis

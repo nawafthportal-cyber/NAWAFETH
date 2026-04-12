@@ -136,6 +136,36 @@ class PlatformConfig(models.Model):
     upload_max_file_size_mb = models.PositiveIntegerField(
         "الحد الأقصى لحجم الملف (MB)", default=100,
     )
+    promo_asset_image_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات الترويج - الصور (MB)",
+        default=10,
+        help_text="الحد الأعلى لحجم الصورة المرفقة في طلبات الترويج.",
+    )
+    promo_asset_video_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات الترويج - الفيديو (MB)",
+        default=20,
+        help_text="الحد الأعلى لحجم الفيديو المرفق في طلبات الترويج.",
+    )
+    promo_asset_pdf_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات الترويج - PDF (MB)",
+        default=10,
+        help_text="الحد الأعلى لحجم ملف PDF المرفق في طلبات الترويج.",
+    )
+    promo_asset_other_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات الترويج - ملفات إضافية (MB)",
+        default=10,
+        help_text="الحد الأعلى لحجم أي مرفق إضافي (غير صورة/فيديو/PDF) في طلبات الترويج.",
+    )
+    promo_home_banner_image_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات بنر الرئيسية - صورة (MB)",
+        default=10,
+        help_text="الحد الأعلى لصورة بنر الصفحة الرئيسية ضمن طلبات الترويج.",
+    )
+    promo_home_banner_video_max_file_size_mb = models.PositiveIntegerField(
+        "حد مرفقات بنر الرئيسية - فيديو MP4 (MB)",
+        default=20,
+        help_text="الحد الأعلى لفيديو بنر الصفحة الرئيسية (MP4) ضمن طلبات الترويج.",
+    )
 
     # ── التميز ──
     excellence_review_cycle_days = models.PositiveIntegerField(

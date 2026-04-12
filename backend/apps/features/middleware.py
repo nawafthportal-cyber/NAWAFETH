@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from django.conf import settings
+from django.core.cache import cache
 from django.db import DatabaseError
 
 from apps.subscriptions.models import Subscription
@@ -22,6 +24,19 @@ class SubscriptionRefreshMiddleware:
             if user is not None and user.is_authenticated:
                 user_id = getattr(user, "id", None)
                 if user_id is not None:
+                    interval_seconds = max(
+                        60,
+                        int(getattr(settings, "SUBSCRIPTION_REFRESH_INTERVAL_SECONDS", 300) or 300),
+                    )
+                    throttle_key = f"subscriptions:refresh:user:{user_id}"
+                    should_refresh = True
+                    try:
+                        should_refresh = bool(cache.add(throttle_key, "1", timeout=interval_seconds))
+                    except Exception:
+                        # If cache is unavailable, keep the previous behavior.
+                        should_refresh = True
+                    if not should_refresh:
+                        return self.get_response(request)
                     sub = Subscription.objects.filter(user_id=user_id).order_by("-id").first()
                     if sub:
                         try:

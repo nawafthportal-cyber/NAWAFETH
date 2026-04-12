@@ -38,10 +38,37 @@ RBAC_AUDIT_ONLY = env_bool("RBAC_AUDIT_ONLY", True)
 FEATURE_ANALYTICS_EVENTS = env_bool("FEATURE_ANALYTICS_EVENTS", False)
 FEATURE_ANALYTICS_KPI_SURFACES = env_bool("FEATURE_ANALYTICS_KPI_SURFACES", False)
 PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", False)
+SUBSCRIPTION_REFRESH_INTERVAL_SECONDS = max(
+    60,
+    int(os.getenv("SUBSCRIPTION_REFRESH_INTERVAL_SECONDS", "300") or "300"),
+)
 PROMO_INLINE_SCHEDULER_ENABLED = env_bool("PROMO_INLINE_SCHEDULER_ENABLED", True)
 PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS = max(
     30,
     int(os.getenv("PROMO_INLINE_SCHEDULER_INTERVAL_SECONDS", "60") or "60"),
+)
+PROMO_PUBLIC_ENDPOINT_CACHE_SECONDS = max(
+    15,
+    int(os.getenv("PROMO_PUBLIC_ENDPOINT_CACHE_SECONDS", "60") or "60"),
+)
+SITE_TEMPLATE_PAYLOAD_CACHE_TTL = max(
+    30,
+    int(os.getenv("SITE_TEMPLATE_PAYLOAD_CACHE_TTL", "300") or "300"),
+)
+SITE_PUBLIC_PAYLOAD_CACHE_TTL = max(
+    30,
+    int(os.getenv("SITE_PUBLIC_PAYLOAD_CACHE_TTL", "300") or "300"),
+)
+API_DEFAULT_LIMIT = max(1, int(os.getenv("API_DEFAULT_LIMIT", "50") or "50"))
+API_MAX_LIMIT = max(API_DEFAULT_LIMIT, int(os.getenv("API_MAX_LIMIT", "100") or "100"))
+PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED = env_bool("PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED", True)
+PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES = max(
+    1,
+    int(os.getenv("PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES", "30") or "30"),
+)
+PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT = max(
+    1,
+    int(os.getenv("PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT", "200") or "200"),
 )
 
 # Upload media optimization
@@ -284,6 +311,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "core.auto_complete_expired_promos",
         "schedule": timedelta(hours=1),
     },
+    "core-cleanup-incomplete-promos": {
+        "task": "core.cleanup_incomplete_promo_requests",
+        "schedule": timedelta(minutes=10),
+    },
     "analytics-rebuild-daily-stats": {
         "task": "analytics.rebuild_daily_stats",
         "schedule": crontab(hour=2, minute=20),
@@ -456,6 +487,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.DefaultLimitOffsetPagination",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.UserRateThrottle",
         "rest_framework.throttling.AnonRateThrottle",
@@ -491,6 +523,10 @@ CORS_ALLOWED_ORIGINS = [o.strip() for o in os.getenv("CORS_ALLOWED_ORIGINS", "")
 
 # ✅ Marketplace
 URGENT_REQUEST_EXPIRY_MINUTES = int(os.getenv("URGENT_REQUEST_EXPIRY_MINUTES", "15"))
+URGENT_DISPATCH_INLINE_INTERVAL_SECONDS = max(
+    10,
+    int(os.getenv("URGENT_DISPATCH_INLINE_INTERVAL_SECONDS", "30") or "30"),
+)
 
 # VAT
 DEFAULT_VAT_PERCENT = 15  # السعودية 15%

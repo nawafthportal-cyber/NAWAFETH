@@ -6,6 +6,7 @@ from .views import (
     PromoPricingGuideView,
     MyPromoRequestsListView,
     PromoRequestDetailView,
+    PromoRequestDiscardView,
     PromoAddAssetView,
     PromoPreparePaymentView,
 
@@ -26,6 +27,7 @@ urlpatterns = [
     path("requests/create/", PromoRequestCreateView.as_view(), name="create"),
     path("requests/my/", MyPromoRequestsListView.as_view(), name="my"),
     path("requests/<int:pk>/", PromoRequestDetailView.as_view(), name="detail"),
+    path("requests/<int:pk>/discard/", PromoRequestDiscardView.as_view(), name="discard"),
     path("requests/<int:pk>/assets/", PromoAddAssetView.as_view(), name="add_asset"),
     path("requests/<int:pk>/prepare-payment/", PromoPreparePaymentView.as_view(), name="prepare_payment"),
 

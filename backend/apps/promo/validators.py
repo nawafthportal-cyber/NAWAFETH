@@ -25,6 +25,77 @@ ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".gif", ".mp4", ".pdf"}
 _IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif"}
 _VIDEO_EXTENSIONS = {".mp4"}
 
+_DEFAULT_PROMO_ASSET_LIMITS_MB = {
+    "image": 10,
+    "video": 20,
+    "pdf": 10,
+    "other": 10,
+    "home_banner_image": 10,
+    "home_banner_video": 20,
+}
+
+
+def _platform_config_limit_mb(field_name: str, default: int) -> int:
+    try:
+        from apps.core.models import PlatformConfig
+
+        raw = getattr(PlatformConfig.load(), field_name, default)
+    except Exception:
+        raw = default
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = int(default)
+    return max(1, min(parsed, 1024))
+
+
+def promo_asset_upload_limit_mb(*, asset_type: str, requires_home_banner_dims: bool) -> int:
+    normalized_asset_type = str(asset_type or "").strip().lower()
+    if normalized_asset_type not in {"image", "video", "pdf", "other"}:
+        normalized_asset_type = "other"
+
+    if requires_home_banner_dims:
+        if normalized_asset_type == "video":
+            return _platform_config_limit_mb(
+                "promo_home_banner_video_max_file_size_mb",
+                _DEFAULT_PROMO_ASSET_LIMITS_MB["home_banner_video"],
+            )
+        return _platform_config_limit_mb(
+            "promo_home_banner_image_max_file_size_mb",
+            _DEFAULT_PROMO_ASSET_LIMITS_MB["home_banner_image"],
+        )
+
+    if normalized_asset_type == "image":
+        return _platform_config_limit_mb(
+            "promo_asset_image_max_file_size_mb",
+            _DEFAULT_PROMO_ASSET_LIMITS_MB["image"],
+        )
+    if normalized_asset_type == "video":
+        return _platform_config_limit_mb(
+            "promo_asset_video_max_file_size_mb",
+            _DEFAULT_PROMO_ASSET_LIMITS_MB["video"],
+        )
+    if normalized_asset_type == "pdf":
+        return _platform_config_limit_mb(
+            "promo_asset_pdf_max_file_size_mb",
+            _DEFAULT_PROMO_ASSET_LIMITS_MB["pdf"],
+        )
+    return _platform_config_limit_mb(
+        "promo_asset_other_max_file_size_mb",
+        _DEFAULT_PROMO_ASSET_LIMITS_MB["other"],
+    )
+
+
+def promo_asset_upload_limits_payload() -> dict[str, int]:
+    return {
+        "image": promo_asset_upload_limit_mb(asset_type="image", requires_home_banner_dims=False),
+        "video": promo_asset_upload_limit_mb(asset_type="video", requires_home_banner_dims=False),
+        "pdf": promo_asset_upload_limit_mb(asset_type="pdf", requires_home_banner_dims=False),
+        "other": promo_asset_upload_limit_mb(asset_type="other", requires_home_banner_dims=False),
+        "home_banner_image": promo_asset_upload_limit_mb(asset_type="image", requires_home_banner_dims=True),
+        "home_banner_video": promo_asset_upload_limit_mb(asset_type="video", requires_home_banner_dims=True),
+    }
+
 
 def _home_banner_required_dimensions() -> tuple[int, int]:
     raw = getattr(settings, "PROMO_HOME_BANNER_REQUIRED_DIMENSIONS", (1920, 840))
@@ -182,11 +253,12 @@ def validate_home_banner_media_dimensions(file_obj, *, asset_type: str | None = 
 
 
 def validate_file_size(file_obj):
+    max_size_mb = _platform_config_limit_mb("upload_max_file_size_mb", MAX_FILE_SIZE_MB)
     validate_secure_upload(
         file_obj,
         allowed_extensions=IMAGE_EXTENSIONS | VIDEO_EXTENSIONS | DOCUMENT_EXTENSIONS,
         allowed_mime_types=IMAGE_MIME_TYPES | VIDEO_MIME_TYPES | DOCUMENT_MIME_TYPES,
-        max_size_mb=MAX_FILE_SIZE_MB,
+        max_size_mb=max_size_mb,
         rename=False,
     )
 

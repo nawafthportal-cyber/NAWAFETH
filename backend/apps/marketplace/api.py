@@ -8,6 +8,7 @@ from datetime import timedelta
 import logging
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -73,6 +74,22 @@ from .views import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def _dispatch_ready_urgent_windows_once(*, now=None, limit: int = 200) -> None:
+	now = now or timezone.now()
+	interval_seconds = max(
+		10,
+		int(getattr(settings, "URGENT_DISPATCH_INLINE_INTERVAL_SECONDS", 30) or 30),
+	)
+	cache_key = "marketplace:inline_dispatch:ready_windows:tick"
+	try:
+		if not cache.add(cache_key, now.isoformat(), timeout=interval_seconds):
+			return
+	except Exception:
+		# Cache degradation should not block request flow.
+		pass
+	dispatch_ready_urgent_windows(now=now, limit=limit)
 
 
 def _infer_attachment_type(uploaded_file) -> str:
@@ -160,7 +177,7 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 			)
 		if is_urgent and dispatch_mode in {"all", "nearest"}:
 			ensure_dispatch_windows_for_urgent_request(service_request, now=now)
-			dispatch_ready_urgent_windows(now=now, limit=200)
+			_dispatch_ready_urgent_windows_once(now=now, limit=200)
 
 
 class MyClientRequestsView(generics.ListAPIView):
@@ -281,7 +298,7 @@ class UrgentRequestAcceptView(APIView):
 
 	def post(self, request):
 		_expire_urgent_requests()
-		dispatch_ready_urgent_windows(limit=200)
+		_dispatch_ready_urgent_windows_once(limit=200)
 		serializer = UrgentRequestAcceptSerializer(data=request.data)
 		serializer.is_valid(raise_exception=True)
 
@@ -382,7 +399,7 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 		if not user_has_active_subscription(self.request.user):
 			return ServiceRequest.objects.none()
 		now = timezone.now()
-		dispatch_ready_urgent_windows(now=now, limit=200)
+		_dispatch_ready_urgent_windows_once(now=now, limit=200)
 
 		if not provider.accepts_urgent or not urgent_requests_enabled_for_user(self.request.user):
 			return ServiceRequest.objects.none()

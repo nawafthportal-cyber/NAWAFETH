@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import logging
 import os
 from decimal import Decimal
 
@@ -28,6 +29,8 @@ from .models import (
     PromoSearchScope,
     PromoServiceType,
 )
+
+logger = logging.getLogger("apps.promo")
 
 DEFAULT_PROMO_PRICING_RULES: tuple[dict[str, str | int | Decimal], ...] = (
     {
@@ -175,6 +178,13 @@ _PAYMENT_IMMUTABLE_REQUEST_STATUSES = {
     PromoRequestStatus.EXPIRED,
 }
 
+_INCOMPLETE_REQUEST_STATUSES = {
+    PromoRequestStatus.NEW,
+    PromoRequestStatus.IN_REVIEW,
+    PromoRequestStatus.QUOTED,
+    PromoRequestStatus.PENDING_PAYMENT,
+}
+
 
 def _ensure_required_assets_uploaded(pr: PromoRequest) -> None:
     required_service_types = {
@@ -200,6 +210,83 @@ def _ensure_required_assets_uploaded(pr: PromoRequest) -> None:
             "لا يمكن اعتماد التسعير لأن المرفقات غير مكتملة. "
             f"يرجى رفع مرفق وربطه مباشرةً بكل بند من البنود التالية: {labels_text}."
         )
+
+
+@transaction.atomic
+def discard_incomplete_promo_request(*, pr: PromoRequest, by_user=None, reason: str = "") -> bool:
+    locked = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+
+    if locked.status not in _INCOMPLETE_REQUEST_STATUSES:
+        return False
+
+    invoice = locked.invoice
+    if invoice is not None and invoice.is_payment_effective():
+        return False
+
+    promo_id = int(locked.id)
+    invoice_id = int(invoice.id) if invoice is not None else None
+    locked.delete()
+
+    # Promo uses unified-request mirror rows; remove stale mirror after hard delete.
+    try:
+        from apps.unified_requests.models import UnifiedRequest
+
+        UnifiedRequest.objects.filter(
+            source_app="promo",
+            source_model="PromoRequest",
+            source_object_id=str(promo_id),
+        ).delete()
+    except Exception:
+        pass
+
+    if invoice_id is not None:
+        orphan_invoice = Invoice.objects.filter(pk=invoice_id).first()
+        if (
+            orphan_invoice is not None
+            and not orphan_invoice.is_payment_effective()
+            and not orphan_invoice.promo_requests.exists()
+        ):
+            orphan_invoice.delete()
+
+    logger.info(
+        "promo_incomplete_request_discarded promo_id=%s invoice_id=%s by_user=%s reason=%s",
+        promo_id,
+        invoice_id,
+        getattr(by_user, "id", None),
+        (reason or "").strip()[:120],
+    )
+    return True
+
+
+def cleanup_incomplete_unpaid_promo_requests(*, now=None, max_age_minutes: int = 30, limit: int = 200) -> int:
+    now = now or timezone.now()
+    max_age_minutes = max(1, int(max_age_minutes or 30))
+    limit = max(1, int(limit or 200))
+    cutoff = now - timezone.timedelta(minutes=max_age_minutes)
+    request_ids = list(
+        PromoRequest.objects.filter(
+            status__in=_INCOMPLETE_REQUEST_STATUSES,
+            created_at__lte=cutoff,
+        )
+        .order_by("id")
+        .values_list("id", flat=True)[:limit]
+    )
+
+    deleted = 0
+    for request_id in request_ids:
+        try:
+            pr = PromoRequest.objects.only("id").get(pk=request_id)
+            if discard_incomplete_promo_request(pr=pr, by_user=None, reason="auto_cleanup"):
+                deleted += 1
+        except PromoRequest.DoesNotExist:
+            continue
+        except Exception as exc:
+            logger.warning(
+                "promo_incomplete_cleanup_failed promo_id=%s error=%s",
+                request_id,
+                str(exc),
+            )
+    return deleted
 
 def _platform_config():
     from apps.core.models import PlatformConfig

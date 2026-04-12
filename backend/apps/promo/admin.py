@@ -1,6 +1,19 @@
 from django.contrib import admin
 
-from .models import HomeBanner, PromoAdPrice, PromoAsset, PromoInquiryProfile, PromoPricingRule, PromoRequest, PromoRequestItem
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
+from .models import (
+    HomeBanner,
+    PromoAdPrice,
+    PromoAdType,
+    PromoAsset,
+    PromoInquiryProfile,
+    PromoPricingRule,
+    PromoRequest,
+    PromoRequestItem,
+    PromoServiceType,
+)
+from .validators import promo_asset_upload_limit_mb
 
 
 class PromoAssetInline(admin.TabularInline):
@@ -61,7 +74,7 @@ class PromoInquiryProfileAdmin(admin.ModelAdmin):
 
 
 @admin.register(PromoRequestItem)
-class PromoRequestItemAdmin(admin.ModelAdmin):
+class PromoRequestItemAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "request",
@@ -82,13 +95,44 @@ class PromoRequestItemAdmin(admin.ModelAdmin):
 
 
 @admin.register(PromoAsset)
-class PromoAssetAdmin(admin.ModelAdmin):
-    list_display = ("id", "request", "item", "asset_type", "title", "uploaded_by", "uploaded_at")
+class PromoAssetAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
+    list_display = (
+        "id",
+        "request",
+        "item",
+        "asset_type",
+        "file_size_mb",
+        "max_allowed_size_mb",
+        "title",
+        "uploaded_by",
+        "uploaded_at",
+    )
     list_filter = ("asset_type",)
     search_fields = ("request__code", "title", "uploaded_by__phone", "uploaded_by__username")
     ordering = ("-uploaded_at", "-id")
     list_select_related = ("request", "item", "uploaded_by")
     readonly_fields = ("uploaded_at",)
+
+    def _requires_home_banner_dims(self, obj: PromoAsset) -> bool:
+        item = getattr(obj, "item", None)
+        if item is not None and str(getattr(item, "service_type", "") or "").strip() == PromoServiceType.HOME_BANNER:
+            return True
+        return str(getattr(getattr(obj, "request", None), "ad_type", "") or "").strip() == PromoAdType.BANNER_HOME
+
+    def file_size_mb(self, obj: PromoAsset) -> str:
+        size_bytes = int(getattr(getattr(obj, "file", None), "size", 0) or 0)
+        size_mb = size_bytes / (1024 * 1024) if size_bytes else 0
+        return f"{size_mb:.2f}"
+
+    file_size_mb.short_description = "الحجم الفعلي (MB)"
+
+    def max_allowed_size_mb(self, obj: PromoAsset) -> int:
+        return promo_asset_upload_limit_mb(
+            asset_type=str(getattr(obj, "asset_type", "") or ""),
+            requires_home_banner_dims=self._requires_home_banner_dims(obj),
+        )
+
+    max_allowed_size_mb.short_description = "الحد المسموح (MB)"
 
 
 @admin.register(PromoAdPrice)

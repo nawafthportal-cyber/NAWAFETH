@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from apps.verification.services import verification_pricing_for_plan
 
 from .capabilities import plan_capabilities_for_plan, plan_capabilities_for_tier
-from .models import PlanTier, SubscriptionPlan, Subscription
+from .models import PlanTier, SubscriptionPlan, Subscription, SubscriptionInquiryProfile, SubscriptionStatus
 from .offers import subscription_offer_for_plan, subscription_offer_for_tier
 
 
@@ -437,3 +437,21 @@ class SubscriptionAdmin(admin.ModelAdmin):
     list_filter = ("status", "auto_renew")
     search_fields = ("user__phone", "plan__code")
     ordering = ("-id",)
+
+
+@admin.register(SubscriptionInquiryProfile)
+class SubscriptionInquiryProfileAdmin(admin.ModelAdmin):
+    list_display = ("ticket", "linked_subscription", "updated_at")
+    search_fields = ("ticket__code", "ticket__requester__phone", "operator_comment")
+    ordering = ("-updated_at", "-id")
+    list_select_related = ("ticket", "ticket__requester")
+
+    @admin.display(description="الاشتراك المرتبط")
+    def linked_subscription(self, obj):
+        requester = getattr(obj.ticket, "requester", None)
+        if requester is None:
+            return "-"
+        subscription = requester.subscriptions.filter(
+            status__in=(SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE)
+        ).select_related("plan").order_by("-end_at", "-id").first()
+        return subscription or "-"

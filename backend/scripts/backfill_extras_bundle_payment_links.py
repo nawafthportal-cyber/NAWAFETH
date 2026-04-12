@@ -11,6 +11,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+os.environ.setdefault("DJANGO_ENV", "dev")
 django.setup()
 
 from apps.billing.models import Invoice, PaymentAttempt  # noqa: E402

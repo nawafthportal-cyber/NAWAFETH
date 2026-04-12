@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import (
     UnifiedRequest,
     UnifiedRequestMetadata,
@@ -36,7 +38,7 @@ class UnifiedRequestAdmin(admin.ModelAdmin):
 
 
 @admin.register(UnifiedRequestMetadata)
-class UnifiedRequestMetadataAdmin(admin.ModelAdmin):
+class UnifiedRequestMetadataAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "request", "updated_by", "updated_at")
     search_fields = ("request__code", "request__summary", "updated_by__phone", "updated_by__username")
     ordering = ("-id",)
@@ -45,7 +47,7 @@ class UnifiedRequestMetadataAdmin(admin.ModelAdmin):
 
 
 @admin.register(UnifiedRequestAssignmentLog)
-class UnifiedRequestAssignmentLogAdmin(admin.ModelAdmin):
+class UnifiedRequestAssignmentLogAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = (
         "id",
         "request",
@@ -64,7 +66,7 @@ class UnifiedRequestAssignmentLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(UnifiedRequestStatusLog)
-class UnifiedRequestStatusLogAdmin(admin.ModelAdmin):
+class UnifiedRequestStatusLogAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "request", "from_status", "to_status", "changed_by", "created_at")
     list_filter = ("from_status", "to_status")
     search_fields = ("request__code", "note", "changed_by__phone", "changed_by__username")

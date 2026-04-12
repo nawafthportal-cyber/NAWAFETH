@@ -1,4 +1,7 @@
 from django.contrib import admin
+
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import (
     VerifiedBadge,
     VerificationBlueProfile,
@@ -62,7 +65,7 @@ class VerificationBlueProfileAdmin(admin.ModelAdmin):
 
 
 @admin.register(VerificationDocument)
-class VerificationDocumentAdmin(admin.ModelAdmin):
+class VerificationDocumentAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "request", "doc_type", "title", "is_approved", "uploaded_by", "uploaded_at")
     list_filter = ("doc_type", "is_approved")
     search_fields = ("request__code", "title", "decision_note", "uploaded_by__phone")
@@ -80,7 +83,7 @@ class VerificationInquiryProfileAdmin(admin.ModelAdmin):
 
 
 @admin.register(VerificationRequirement)
-class VerificationRequirementAdmin(admin.ModelAdmin):
+class VerificationRequirementAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "request", "badge_type", "code", "title", "is_approved", "sort_order", "created_at")
     list_filter = ("badge_type", "is_approved")
     search_fields = ("request__code", "code", "title", "decision_note")
@@ -90,7 +93,7 @@ class VerificationRequirementAdmin(admin.ModelAdmin):
 
 
 @admin.register(VerificationRequirementAttachment)
-class VerificationRequirementAttachmentAdmin(admin.ModelAdmin):
+class VerificationRequirementAttachmentAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "requirement", "uploaded_by", "uploaded_at")
     search_fields = ("requirement__request__code", "requirement__code", "uploaded_by__phone", "uploaded_by__username")
     ordering = ("-id",)

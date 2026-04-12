@@ -10,6 +10,7 @@ from django.test import RequestFactory, SimpleTestCase, TestCase, override_setti
 from django.utils import timezone
 
 from apps.core.middleware import InlinePromoSchedulerMiddleware
+from apps.core.models import PlatformConfig
 from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
 from apps.providers.models import ProviderProfile
@@ -17,9 +18,12 @@ from apps.promo.serializers import PromoRequestCreateSerializer, PromoRequestDet
 from apps.promo.services import (
     _locked_promo_request_queryset,
     calculate_sponsorship_end_at,
+    cleanup_incomplete_unpaid_promo_requests,
+    discard_incomplete_promo_request,
     quote_and_create_invoice,
     set_promo_ops_status,
 )
+from apps.promo.validators import promo_asset_upload_limit_mb
 
 
 class PromoPaymentWorkflowTests(TestCase):
@@ -204,6 +208,162 @@ class PromoPaymentWorkflowTests(TestCase):
         sql = str(_locked_promo_request_queryset().filter(pk=request_obj.pk).query).upper()
 
         self.assertNotIn("JOIN", sql)
+
+
+class PromoIncompleteRequestCleanupTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000061", password="secret")
+
+    def test_discard_incomplete_request_deletes_unpaid_draft(self):
+        pr = PromoRequest.objects.create(
+            requester=self.user,
+            title="مسودة ناقصة",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+
+        deleted = discard_incomplete_promo_request(pr=pr, by_user=self.user, reason="test")
+
+        self.assertTrue(deleted)
+        self.assertFalse(PromoRequest.objects.filter(pk=pr.pk).exists())
+
+    def test_discard_incomplete_request_keeps_paid_request(self):
+        invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة مدفوعة",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        pr = PromoRequest.objects.create(
+            requester=self.user,
+            title="طلب مدفوع بانتظار التنفيذ",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=invoice,
+        )
+        invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="keep-paid",
+            event_id=f"keep-paid-{pr.pk}",
+            amount=Decimal("100.00"),
+            currency="SAR",
+        )
+        invoice.save()
+
+        deleted = discard_incomplete_promo_request(pr=pr, by_user=self.user, reason="should_not_delete")
+
+        self.assertFalse(deleted)
+        self.assertTrue(PromoRequest.objects.filter(pk=pr.pk).exists())
+
+    def test_cleanup_incomplete_unpaid_requests_only(self):
+        old_unpaid = PromoRequest.objects.create(
+            requester=self.user,
+            title="قديم غير مدفوع",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+        PromoRequest.objects.filter(pk=old_unpaid.pk).update(
+            created_at=timezone.now() - timezone.timedelta(hours=3)
+        )
+
+        paid_invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة مدفوعة",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        paid_request = PromoRequest.objects.create(
+            requester=self.user,
+            title="مدفوع يجب ألا يُحذف",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=paid_invoice,
+        )
+        PromoRequest.objects.filter(pk=paid_request.pk).update(
+            created_at=timezone.now() - timezone.timedelta(hours=3)
+        )
+        paid_invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference="paid-keep",
+            event_id=f"paid-keep-{paid_request.pk}",
+            amount=Decimal("100.00"),
+            currency="SAR",
+        )
+        paid_invoice.save()
+
+        removed = cleanup_incomplete_unpaid_promo_requests(
+            now=timezone.now(),
+            max_age_minutes=30,
+            limit=50,
+        )
+
+        self.assertEqual(removed, 1)
+        self.assertFalse(PromoRequest.objects.filter(pk=old_unpaid.pk).exists())
+        self.assertTrue(PromoRequest.objects.filter(pk=paid_request.pk).exists())
+
+
+class PromoAssetUploadLimitConfigTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.cfg = PlatformConfig.load()
+        self.cfg.promo_asset_image_max_file_size_mb = 5
+        self.cfg.promo_asset_video_max_file_size_mb = 15
+        self.cfg.promo_asset_pdf_max_file_size_mb = 7
+        self.cfg.promo_asset_other_max_file_size_mb = 3
+        self.cfg.promo_home_banner_image_max_file_size_mb = 8
+        self.cfg.promo_home_banner_video_max_file_size_mb = 22
+        self.cfg.save()
+
+    def test_validator_reads_per_asset_limits_from_platform_config(self):
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="image", requires_home_banner_dims=False),
+            5,
+        )
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="video", requires_home_banner_dims=False),
+            15,
+        )
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="pdf", requires_home_banner_dims=False),
+            7,
+        )
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="other", requires_home_banner_dims=False),
+            3,
+        )
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="image", requires_home_banner_dims=True),
+            8,
+        )
+        self.assertEqual(
+            promo_asset_upload_limit_mb(asset_type="video", requires_home_banner_dims=True),
+            22,
+        )
+
+    def test_pricing_guide_exposes_upload_limits_payload(self):
+        response = self.client.get("/api/promo/pricing/guide/")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["asset_upload_limits_mb"]["image"], 5)
+        self.assertEqual(payload["asset_upload_limits_mb"]["video"], 15)
+        self.assertEqual(payload["asset_upload_limits_mb"]["pdf"], 7)
+        self.assertEqual(payload["asset_upload_limits_mb"]["other"], 3)
+        self.assertEqual(payload["asset_upload_limits_mb"]["home_banner_image"], 8)
+        self.assertEqual(payload["asset_upload_limits_mb"]["home_banner_video"], 22)
 
 
 class PromoLegacyWebRedirectTests(SimpleTestCase):

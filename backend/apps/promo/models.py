@@ -320,6 +320,30 @@ class PromoAsset(models.Model):
     uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
+    def clean(self):
+        super().clean()
+        if not self.file:
+            return
+
+        from apps.uploads.validators import validate_user_file_size
+        from .validators import promo_asset_upload_limit_mb
+
+        requires_home_banner_dims = False
+        item = getattr(self, "item", None)
+        if item is not None and str(getattr(item, "service_type", "") or "").strip() == PromoServiceType.HOME_BANNER:
+            requires_home_banner_dims = True
+        elif str(getattr(getattr(self, "request", None), "ad_type", "") or "").strip() == PromoAdType.BANNER_HOME:
+            requires_home_banner_dims = True
+
+        normalized_asset_type = str(self.asset_type or "").strip().lower()
+        limit_mb = promo_asset_upload_limit_mb(
+            asset_type=normalized_asset_type,
+            requires_home_banner_dims=requires_home_banner_dims,
+        )
+        validate_user_file_size(self.file, limit_mb)
+        if requires_home_banner_dims and normalized_asset_type in {HomeBannerMediaType.IMAGE, HomeBannerMediaType.VIDEO}:
+            validate_home_banner_media_dimensions(self.file, asset_type=normalized_asset_type)
+
     def __str__(self):
         return f"{self.request.code} asset#{self.pk}"
 
@@ -450,6 +474,16 @@ class HomeBanner(models.Model):
                 errors["media_type"] = "نوع الوسائط المحدد لا يطابق الملف المرفوع."
             else:
                 try:
+                    from apps.uploads.validators import validate_user_file_size
+                    from .validators import promo_asset_upload_limit_mb
+
+                    validate_user_file_size(
+                        self.media_file,
+                        promo_asset_upload_limit_mb(
+                            asset_type=detected_type,
+                            requires_home_banner_dims=True,
+                        ),
+                    )
                     self.media_file = normalize_home_banner_media_upload(
                         self.media_file,
                         asset_type=detected_type,

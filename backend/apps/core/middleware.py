@@ -153,12 +153,23 @@ class InlinePromoSchedulerMiddleware:
 
         path = str(getattr(request, "path_info", "") or "").strip()
         if not path:
-            return False
+            return True
+        if not path.startswith("/api/"):
+            return True
 
         static_url = str(getattr(settings, "STATIC_URL", "/static/") or "/static/").strip()
         media_url = str(getattr(settings, "MEDIA_URL", "/media/") or "/media/").strip()
         skipped_prefixes = tuple(
-            prefix for prefix in (static_url, media_url, "/healthz", "/admin/jsi18n/") if prefix
+            prefix
+            for prefix in (
+                static_url,
+                media_url,
+                "/healthz",
+                "/api/health",
+                "/api/core/health",
+                "/admin/jsi18n/",
+            )
+            if prefix
         )
         return path.startswith(skipped_prefixes)
 

@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment, ServiceRequestDispatch
 
 
@@ -40,7 +42,7 @@ class OfferAdmin(admin.ModelAdmin):
 
 
 @admin.register(RequestStatusLog)
-class RequestStatusLogAdmin(admin.ModelAdmin):
+class RequestStatusLogAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
 	list_display = ("id", "request", "actor", "from_status", "to_status", "created_at")
 	list_filter = ("from_status", "to_status")
 	search_fields = ("request__title", "actor__phone")
@@ -48,7 +50,7 @@ class RequestStatusLogAdmin(admin.ModelAdmin):
 
 
 @admin.register(ServiceRequestAttachment)
-class ServiceRequestAttachmentAdmin(admin.ModelAdmin):
+class ServiceRequestAttachmentAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
 	list_display = ("id", "request", "file_type", "created_at")
 	list_filter = ("file_type",)
 	search_fields = ("request__title", "request__client__phone")
@@ -57,7 +59,7 @@ class ServiceRequestAttachmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(ServiceRequestDispatch)
-class ServiceRequestDispatchAdmin(admin.ModelAdmin):
+class ServiceRequestDispatchAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
 	list_display = (
 		"id",
 		"request",

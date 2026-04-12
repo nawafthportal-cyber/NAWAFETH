@@ -9,6 +9,7 @@ import logging
 from datetime import timedelta
 
 from celery import shared_task
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 
@@ -167,4 +168,23 @@ def auto_complete_expired_promos() -> int:
 
     count = expire_due_promos(now=timezone.now())
     logger.info("auto_complete_expired_promos expired %d campaigns", count)
+    return count
+
+
+@shared_task(name="core.cleanup_incomplete_promo_requests")
+def cleanup_incomplete_promo_requests() -> int:
+    """
+    Remove promo requests that stayed incomplete/unpaid beyond the configured grace period.
+    """
+    if not bool(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED", True)):
+        return 0
+
+    from apps.promo.services import cleanup_incomplete_unpaid_promo_requests
+
+    count = cleanup_incomplete_unpaid_promo_requests(
+        now=timezone.now(),
+        max_age_minutes=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES", 30) or 30),
+        limit=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT", 200) or 200),
+    )
+    logger.info("cleanup_incomplete_promo_requests removed %d promo drafts", count)
     return count

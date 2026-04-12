@@ -1,4 +1,7 @@
 from django.contrib import admin
+
+from apps.core.admin_mixins import HiddenFromAdminIndexMixin
+
 from .models import SupportTicket, SupportAttachment, SupportComment, SupportTeam, SupportStatusLog
 
 
@@ -37,7 +40,7 @@ class SupportTicketAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupportAttachment)
-class SupportAttachmentAdmin(admin.ModelAdmin):
+class SupportAttachmentAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "ticket", "uploaded_by", "created_at")
     search_fields = ("ticket__code", "uploaded_by__phone", "uploaded_by__username")
     ordering = ("-id",)
@@ -46,7 +49,7 @@ class SupportAttachmentAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupportComment)
-class SupportCommentAdmin(admin.ModelAdmin):
+class SupportCommentAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "ticket", "is_internal", "created_by", "created_at")
     list_filter = ("is_internal",)
     search_fields = ("ticket__code", "text", "created_by__phone", "created_by__username")
@@ -56,7 +59,7 @@ class SupportCommentAdmin(admin.ModelAdmin):
 
 
 @admin.register(SupportStatusLog)
-class SupportStatusLogAdmin(admin.ModelAdmin):
+class SupportStatusLogAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     list_display = ("id", "ticket", "from_status", "to_status", "changed_by", "created_at")
     list_filter = ("from_status", "to_status")
     search_fields = ("ticket__code", "note", "changed_by__phone", "changed_by__username")
