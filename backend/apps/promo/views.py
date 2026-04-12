@@ -51,14 +51,13 @@ from .serializers import (
 from .permissions import IsOwnerOrBackofficePromo
 from .home_banner_media import (
     maybe_autofit_home_banner_image as _maybe_autofit_home_banner_image,
-    maybe_autofit_home_banner_video as _maybe_autofit_home_banner_video,
-    transcode_home_banner_video_to_required_dims as _transcode_home_banner_video_to_required_dims,
 )
 from .services import (
     preview_promo_request,
     quote_and_create_invoice,
     reject_request,
     discard_incomplete_promo_request,
+    cleanup_incomplete_unpaid_promo_requests,
     ensure_default_pricing_rules,
     promo_min_campaign_hours,
     _sync_promo_to_unified,
@@ -747,9 +746,23 @@ class MyPromoRequestsListView(generics.ListAPIView):
     serializer_class = PromoRequestDetailSerializer
 
     def get_queryset(self):
+        if bool(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED", True)):
+            try:
+                cleanup_incomplete_unpaid_promo_requests(
+                    now=timezone.now(),
+                    max_age_minutes=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES", 30) or 30),
+                    limit=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT", 200) or 200),
+                )
+            except Exception:
+                pass
+        hidden_unpaid_draft_statuses = (
+            PromoRequestStatus.NEW,
+            PromoRequestStatus.IN_REVIEW,
+        )
         return (
             PromoRequest.objects.select_related("requester", "requester__provider_profile", "invoice")
             .filter(requester=self.request.user)
+            .exclude(status__in=hidden_unpaid_draft_statuses, invoice__isnull=True)
             .prefetch_related("items", "items__assets", "assets")
             .order_by("-updated_at", "-id")
         )
@@ -1175,16 +1188,11 @@ class PromoAddAssetView(_PromoAssetUploadContextMixin, generics.CreateAPIView):
                 asset_type=asset_type,
                 required_validation=requires_home_banner_dims,
             )
-            file_obj = _maybe_autofit_home_banner_video(
-                file_obj,
-                asset_type=asset_type,
-                required_validation=requires_home_banner_dims,
-            )
             if requires_home_banner_dims:
                 validate_user_file_size(file_obj, effective_upload_limit_mb)
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
-            # Home-banner videos already pass through strict normalization/validation.
-            # Skip generic optimizer to avoid a second ffmpeg pass in request lifecycle.
+            # Server-side video autofit/transcoding is intentionally skipped here to keep
+            # request lifecycle lightweight. Videos must already match required dimensions.
             if not (requires_home_banner_dims and asset_type == "video"):
                 file_obj = optimize_upload_for_storage(file_obj, declared_type=asset_type)
             if requires_home_banner_dims:
@@ -1265,8 +1273,24 @@ class BackofficePromoRequestsListView(generics.ListAPIView):
     serializer_class = PromoRequestDetailSerializer
 
     def get_queryset(self):
+        if bool(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_ENABLED", True)):
+            try:
+                cleanup_incomplete_unpaid_promo_requests(
+                    now=timezone.now(),
+                    max_age_minutes=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_MAX_AGE_MINUTES", 30) or 30),
+                    limit=int(getattr(settings, "PROMO_INCOMPLETE_REQUEST_CLEANUP_LIMIT", 200) or 200),
+                )
+            except Exception:
+                pass
         user = self.request.user
-        qs = PromoRequest.objects.prefetch_related("items").all().order_by("-updated_at", "-id")
+        qs = (
+            PromoRequest.objects.prefetch_related("items")
+            .exclude(
+                status__in=(PromoRequestStatus.NEW, PromoRequestStatus.IN_REVIEW),
+                invoice__isnull=True,
+            )
+            .order_by("-updated_at", "-id")
+        )
 
         ap = getattr(user, "access_profile", None)
         if not ap:

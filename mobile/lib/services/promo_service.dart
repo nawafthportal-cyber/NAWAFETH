@@ -232,15 +232,9 @@ class PromoService {
       title: title,
       itemId: itemId,
     );
-    if (directResponse != null) {
+    if (directResponse != null &&
+        !_shouldFallbackAfterDirectFailure(directResponse)) {
       return directResponse;
-    }
-    if (assetType.trim().toLowerCase() == 'video') {
-      return ApiResponse(
-        statusCode: 400,
-        error:
-            'رفع الفيديو عبر الخادم غير مسموح. يرجى إعادة المحاولة باستخدام الرفع المباشر.',
-      );
     }
     return _uploadAssetMultipartLegacy(
       requestId: requestId,
@@ -399,5 +393,34 @@ class PromoService {
     if (assetType.toLowerCase() == 'video') return 'video/mp4';
     if (assetType.toLowerCase() == 'image') return 'image/jpeg';
     return 'application/octet-stream';
+  }
+
+  static bool _shouldFallbackAfterDirectFailure(ApiResponse response) {
+    if (response.isSuccess) return false;
+    final statusCode = response.statusCode;
+    if (statusCode <= 0) return true;
+    if (statusCode == 404 ||
+        statusCode == 405 ||
+        statusCode == 408 ||
+        statusCode == 429 ||
+        statusCode == 500 ||
+        statusCode == 502 ||
+        statusCode == 503 ||
+        statusCode == 504) {
+      return true;
+    }
+    final detail = ((response.dataAsMap?['detail'] as String?) ??
+            response.error ??
+            '')
+        .toLowerCase()
+        .trim();
+    if (detail.isEmpty) return false;
+    if (detail.contains('cors')) return true;
+    if (detail.contains('cloudflare')) return true;
+    if (detail.contains('التخزين') && detail.contains('مباشر')) return true;
+    if (detail.contains('غير متاح') && detail.contains('الرفع المباشر')) {
+      return true;
+    }
+    return false;
   }
 }

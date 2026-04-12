@@ -1861,18 +1861,30 @@ var PromotionPage = (function () {
     var normalizedType = String(assetType || "").trim().toLowerCase();
     var directRes = await uploadPromoAssetDirect(requestId, file, normalizedType, itemId, title, options);
     if (directRes === null) {
-      if (normalizedType === "video") {
-        return {
-          ok: false,
-          status: 400,
-          data: {
-            detail: "فيديوهات الترويج تتطلب رفعًا مباشرًا إلى التخزين السحابي. تعذر استخدام الرفع المباشر حاليًا."
-          }
-        };
-      }
+      return uploadPromoAssetLegacy(requestId, file, normalizedType, itemId, title);
+    }
+    if (!directRes.ok && shouldFallbackAfterDirectUploadFailure(directRes)) {
       return uploadPromoAssetLegacy(requestId, file, normalizedType, itemId, title);
     }
     return directRes;
+  }
+
+  function shouldFallbackAfterDirectUploadFailure(response) {
+    if (!response || typeof response !== "object") return true;
+    var statusCode = Number(response.status || 0);
+    if (!Number.isFinite(statusCode) || statusCode <= 0) return true;
+    if ([404, 405, 408, 429, 500, 502, 503, 504].indexOf(statusCode) >= 0) return true;
+    var detail = String(
+      response && response.data && (response.data.detail || response.data.error)
+        ? (response.data.detail || response.data.error)
+        : ""
+    ).toLowerCase();
+    if (!detail) return false;
+    if (detail.indexOf("cors") >= 0) return true;
+    if (detail.indexOf("cloudflare") >= 0) return true;
+    if (detail.indexOf("التخزين") >= 0 && detail.indexOf("مباشر") >= 0) return true;
+    if (detail.indexOf("غير متاح") >= 0 && detail.indexOf("الرفع المباشر") >= 0) return true;
+    return false;
   }
 
   function updateUploadUi(options, event) {

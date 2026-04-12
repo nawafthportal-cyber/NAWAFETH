@@ -3,10 +3,11 @@ from __future__ import annotations
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from apps.billing.models import Invoice
+from apps.billing.models import Invoice, InvoiceStatus
 from .models import PromoAdPrice, PromoPricingRule, PromoRequest
 from .services import (
     apply_effective_payment,
+    discard_incomplete_promo_request,
     revoke_after_payment_reversal,
     sync_legacy_ad_price_from_pricing_rule,
     sync_pricing_rules_from_legacy_ad_type,
@@ -28,6 +29,12 @@ def activate_promo_on_invoice_paid(sender, instance: Invoice, created, **kwargs)
     try:
         if instance.is_payment_effective():
             apply_effective_payment(pr=pr)
+        elif instance.status in {InvoiceStatus.CANCELLED, InvoiceStatus.FAILED}:
+            discard_incomplete_promo_request(
+                pr=pr,
+                by_user=pr.requester,
+                reason=f"invoice_{instance.status}",
+            )
         else:
             revoke_after_payment_reversal(pr=pr)
     except Exception:

@@ -318,6 +318,102 @@ class PromoIncompleteRequestCleanupTests(TestCase):
         self.assertTrue(PromoRequest.objects.filter(pk=paid_request.pk).exists())
 
 
+class PromoRequestsListVisibilityTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000171", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود قائمة",
+            bio="bio",
+            city="الرياض",
+        )
+        refresh = RefreshToken.for_user(self.user)
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {refresh.access_token}"
+
+    def _list_rows(self):
+        response = self.client.get("/api/promo/requests/my/", HTTP_HOST="127.0.0.1")
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        if isinstance(payload, dict) and isinstance(payload.get("results"), list):
+            return payload["results"]
+        if isinstance(payload, list):
+            return payload
+        return []
+
+    def test_my_requests_hides_unpaid_new_drafts_without_invoice(self):
+        now = timezone.now()
+        hidden = PromoRequest.objects.create(
+            requester=self.user,
+            title="draft-hidden",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=now + timezone.timedelta(days=1),
+            end_at=now + timezone.timedelta(days=2),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+        visible_invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة مرئية",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        visible = PromoRequest.objects.create(
+            requester=self.user,
+            title="pending-visible",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=now + timezone.timedelta(days=1),
+            end_at=now + timezone.timedelta(days=2),
+            status=PromoRequestStatus.PENDING_PAYMENT,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=visible_invoice,
+        )
+
+        rows = self._list_rows()
+        ids = {int(row.get("id")) for row in rows if row.get("id")}
+        self.assertNotIn(hidden.id, ids)
+        self.assertIn(visible.id, ids)
+
+
+class PromoFailedInvoiceAutoDiscardTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000172", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود فشل دفع",
+            bio="bio",
+            city="الرياض",
+        )
+
+    def test_failed_invoice_discards_incomplete_promo_request(self):
+        now = timezone.now()
+        invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة ترويج",
+            reference_type="promo_request",
+            subtotal=Decimal("100.00"),
+            vat_percent=Decimal("0.00"),
+        )
+        pr = PromoRequest.objects.create(
+            requester=self.user,
+            title="طلب بانتظار الدفع",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=now + timezone.timedelta(days=1),
+            end_at=now + timezone.timedelta(days=2),
+            status=PromoRequestStatus.PENDING_PAYMENT,
+            ops_status=PromoOpsStatus.NEW,
+            invoice=invoice,
+        )
+
+        invoice.status = "failed"
+        invoice.save(update_fields=["status", "updated_at"])
+
+        self.assertFalse(PromoRequest.objects.filter(pk=pr.pk).exists())
+        self.assertFalse(Invoice.objects.filter(pk=invoice.pk).exists())
+
+
 class PromoAssetUploadLimitConfigTests(TestCase):
     def setUp(self):
         cache.clear()
