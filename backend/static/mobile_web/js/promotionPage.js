@@ -1798,10 +1798,6 @@ var PromotionPage = (function () {
         uploadHeaders[key] = upload.headers[key];
       });
     }
-    if (!uploadHeaders["Content-Type"] && !uploadHeaders["content-type"]) {
-      uploadHeaders["Content-Type"] = initBody.content_type;
-    }
-
     var putResponse = null;
     if (onStatus) {
       onStatus({
@@ -1826,10 +1822,14 @@ var PromotionPage = (function () {
       putResponse = { ok: false, status: 0 };
     }
     if (!putResponse || !putResponse.ok) {
+      var putStatus = putResponse ? Number(putResponse.status || 0) : 0;
+      var putErrorDetail = putStatus === 0
+        ? "تعذر الاتصال بتخزين الملفات مباشرة. تحقق من إعدادات Cloudflare R2 CORS (السماح بـ PUT/HEAD/POST من نطاق المنصة)."
+        : "فشل رفع الملف مباشرة إلى التخزين (رمز " + putStatus + ").";
       return {
         ok: false,
-        status: putResponse ? putResponse.status : 0,
-        data: { detail: "فشل رفع الملف مباشرة إلى التخزين." }
+        status: putStatus,
+        data: { detail: putErrorDetail }
       };
     }
     if (onProgress) {

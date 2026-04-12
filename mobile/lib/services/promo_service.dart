@@ -312,10 +312,6 @@ class PromoService {
         }
       });
     }
-    if (!uploadHeaders.keys
-        .any((k) => k.toLowerCase() == 'content-type')) {
-      uploadHeaders['Content-Type'] = contentType;
-    }
     final method = ((upload['method'] as String?) ?? 'PUT').toUpperCase();
 
     final uploadUri = Uri.tryParse(uploadUrl);

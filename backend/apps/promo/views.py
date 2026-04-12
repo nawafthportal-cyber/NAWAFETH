@@ -78,6 +78,9 @@ PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS = max(
     60,
     min(int(getattr(settings, "PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS", 900) or 900), 3600),
 )
+PROMO_DIRECT_UPLOAD_SIGN_CONTENT_TYPE = bool(
+    getattr(settings, "PROMO_DIRECT_UPLOAD_SIGN_CONTENT_TYPE", False)
+)
 
 
 class _UploadDescriptor:
@@ -938,7 +941,7 @@ class PromoAssetDirectUploadInitView(_PromoAssetUploadContextMixin, APIView):
         try:
             s3_client = _promo_build_s3_client()
             put_params = {"Bucket": bucket, "Key": object_key}
-            if content_type:
+            if PROMO_DIRECT_UPLOAD_SIGN_CONTENT_TYPE and content_type:
                 put_params["ContentType"] = content_type
             presigned_url = s3_client.generate_presigned_url(
                 "put_object",
@@ -953,7 +956,11 @@ class PromoAssetDirectUploadInitView(_PromoAssetUploadContextMixin, APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        upload_headers = {"Content-Type": content_type} if content_type else {}
+        upload_headers = (
+            {"Content-Type": content_type}
+            if PROMO_DIRECT_UPLOAD_SIGN_CONTENT_TYPE and content_type
+            else {}
+        )
         return Response(
             {
                 "upload": {

@@ -214,7 +214,9 @@ def _ensure_required_assets_uploaded(pr: PromoRequest) -> None:
 
 @transaction.atomic
 def discard_incomplete_promo_request(*, pr: PromoRequest, by_user=None, reason: str = "") -> bool:
-    locked = PromoRequest.objects.select_for_update().select_related("invoice").get(pk=pr.pk)
+    # Keep the lock query free from nullable outer joins (e.g., nullable invoice FK),
+    # otherwise PostgreSQL may reject SELECT ... FOR UPDATE.
+    locked = _get_locked_promo_request(pr=pr)
 
     if locked.status not in _INCOMPLETE_REQUEST_STATUSES:
         return False
