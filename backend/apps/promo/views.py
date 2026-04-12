@@ -723,7 +723,10 @@ class PromoAddAssetView(generics.CreateAPIView):
             if requires_home_banner_dims:
                 validate_user_file_size(file_obj, user_max_upload_mb(pr.requester))
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
-            file_obj = optimize_upload_for_storage(file_obj, declared_type=asset_type)
+            # Home-banner videos already pass through strict normalization/validation.
+            # Skip generic optimizer to avoid a second ffmpeg pass in request lifecycle.
+            if not (requires_home_banner_dims and asset_type == "video"):
+                file_obj = optimize_upload_for_storage(file_obj, declared_type=asset_type)
             if requires_home_banner_dims:
                 validate_home_banner_media_dimensions(file_obj, asset_type=asset_type)
         except ValidationError as exc:

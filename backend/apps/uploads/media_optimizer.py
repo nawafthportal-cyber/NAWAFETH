@@ -8,7 +8,7 @@ from io import BytesIO
 from pathlib import Path
 
 from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.uploadedfile import SimpleUploadedFile, TemporaryUploadedFile
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -262,6 +262,24 @@ def _stream_uploaded_file(uploaded_file, target_path: str) -> int:
     return written
 
 
+def _temporary_upload_from_path(source_path: str, *, target_name: str, content_type: str):
+    size = int(os.path.getsize(source_path))
+    upload = TemporaryUploadedFile(
+        name=target_name,
+        content_type=content_type,
+        size=size,
+        charset=None,
+    )
+    with open(source_path, "rb") as source_handle:
+        while True:
+            chunk = source_handle.read(1024 * 1024)
+            if not chunk:
+                break
+            upload.write(chunk)
+    upload.seek(0)
+    return upload
+
+
 def _optimize_video(uploaded_file):
     ffmpeg_bin = _resolve_ffmpeg_binary()
     if not ffmpeg_bin:
@@ -276,6 +294,7 @@ def _optimize_video(uploaded_file):
     max_width = _int_setting("MEDIA_VIDEO_MAX_WIDTH", 1920, minimum=320, maximum=7680)
     max_height = _int_setting("MEDIA_VIDEO_MAX_HEIGHT", 1080, minimum=240, maximum=4320)
     crf = _int_setting("MEDIA_VIDEO_OPTIMIZE_CRF", 22, minimum=18, maximum=35)
+    ffmpeg_threads = _int_setting("MEDIA_VIDEO_OPTIMIZE_THREADS", 1, minimum=1, maximum=4)
     min_ratio = _float_setting("MEDIA_VIDEO_MIN_SAVINGS_RATIO", 0.1, minimum=0.0, maximum=0.8)
 
     if source_size and source_size < min_mb * 1024 * 1024:
@@ -312,6 +331,8 @@ def _optimize_video(uploaded_file):
             filter_expr,
             "-c:v",
             "libx264",
+            "-threads",
+            str(ffmpeg_threads),
             "-preset",
             "veryfast",
             "-crf",
@@ -346,14 +367,12 @@ def _optimize_video(uploaded_file):
             savings_ratio = (source_size - output_size) / float(source_size)
             if savings_ratio < min_ratio:
                 return uploaded_file
-
-        with open(output_path, "rb") as handle:
-            payload = handle.read()
-
-    if not payload:
-        return uploaded_file
-    target_name = _optimized_name(source_name, ".mp4", force_suffix=True)
-    return SimpleUploadedFile(target_name, payload, content_type="video/mp4")
+        target_name = _optimized_name(source_name, ".mp4", force_suffix=True)
+        return _temporary_upload_from_path(
+            output_path,
+            target_name=target_name,
+            content_type="video/mp4",
+        )
 
 
 def optimize_upload_for_storage(uploaded_file, *, declared_type: str | None = None):

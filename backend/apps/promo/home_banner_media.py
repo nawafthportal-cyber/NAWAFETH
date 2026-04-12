@@ -9,7 +9,7 @@ import tempfile
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.files.uploadedfile import SimpleUploadedFile, TemporaryUploadedFile
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -69,6 +69,16 @@ def _home_banner_video_autofit_timeout_seconds() -> int:
     return max(5, min(parsed, 300))
 
 
+def _home_banner_video_autofit_threads() -> int:
+    raw = getattr(settings, "PROMO_HOME_BANNER_VIDEO_AUTOFIT_THREADS", 1)
+    try:
+        parsed = int(raw)
+    except Exception:
+        parsed = 1
+    # Keep memory footprint predictable on tiny instances.
+    return max(1, min(parsed, 2))
+
+
 def _stream_uploaded_file_to_path(file_obj, target_path: str) -> int:
     written = 0
     try:
@@ -98,6 +108,24 @@ def _stream_uploaded_file_to_path(file_obj, target_path: str) -> int:
         pass
 
     return written
+
+
+def _temporary_upload_from_path(source_path: str, *, target_name: str, content_type: str):
+    size = int(os.path.getsize(source_path))
+    upload = TemporaryUploadedFile(
+        name=target_name,
+        content_type=content_type,
+        size=size,
+        charset=None,
+    )
+    with open(source_path, "rb") as source_handle:
+        while True:
+            chunk = source_handle.read(1024 * 1024)
+            if not chunk:
+                break
+            upload.write(chunk)
+    upload.seek(0)
+    return upload
 
 
 def transcode_home_banner_image_to_required_dims(file_obj):
@@ -216,6 +244,8 @@ def transcode_home_banner_video_to_required_dims(file_obj):
             filter_expr,
             "-c:v",
             "libx264",
+            "-threads",
+            str(_home_banner_video_autofit_threads()),
             "-preset",
             "veryfast",
             "-crf",
@@ -256,16 +286,17 @@ def transcode_home_banner_video_to_required_dims(file_obj):
                 "الناتج بعد المعالجة التلقائية أكبر من الحد المسموح. "
                 "يرجى رفع فيديو MP4 مُحسّن بالأبعاد المعتمدة 1920x840."
             )
+        base_name, _ = os.path.splitext(source_name)
+        target_name = f"{base_name or 'banner-video'}-fit.mp4"
+        transformed_file = _temporary_upload_from_path(
+            output_path,
+            target_name=target_name,
+            content_type="video/mp4",
+        )
 
-        with open(output_path, "rb") as output_handle:
-            transformed_bytes = output_handle.read()
-
-    if not transformed_bytes:
+    if int(getattr(transformed_file, "size", 0) or 0) <= 0:
         raise ValidationError("فشل تجهيز فيديو البنر بعد المعالجة.")
-
-    base_name, _ = os.path.splitext(source_name)
-    target_name = f"{base_name or 'banner-video'}-fit.mp4"
-    return SimpleUploadedFile(target_name, transformed_bytes, content_type="video/mp4")
+    return transformed_file
 
 
 def maybe_autofit_home_banner_image(file_obj, *, asset_type: str, required_validation: bool):
