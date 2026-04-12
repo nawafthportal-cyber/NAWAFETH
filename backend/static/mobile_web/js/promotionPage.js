@@ -152,6 +152,71 @@ var PromotionPage = (function () {
     portfolio_showcase: { loaded: false, loading: false, items: [], selectedId: 0 },
     snapshots: { loaded: false, loading: false, items: [], selectedId: 0 }
   };
+  var uploadStatusState = {
+    root: null,
+    label: null,
+    detail: null,
+    percent: null,
+    bar: null,
+    progressWrap: null
+  };
+
+  function getUploadStatusState() {
+    if (!uploadStatusState.root) {
+      uploadStatusState.root = document.getElementById("promo-upload-status");
+      uploadStatusState.label = document.getElementById("promo-upload-status-label");
+      uploadStatusState.detail = document.getElementById("promo-upload-status-detail");
+      uploadStatusState.percent = document.getElementById("promo-upload-status-percent");
+      uploadStatusState.bar = document.getElementById("promo-upload-progress-bar");
+      uploadStatusState.progressWrap = uploadStatusState.root
+        ? uploadStatusState.root.querySelector(".promo-upload-progress")
+        : null;
+    }
+    return uploadStatusState;
+  }
+
+  function setUploadStatus(state, label, detail, percent) {
+    var ui = getUploadStatusState();
+    if (!ui.root) return;
+    var normalizedState = String(state || "").trim().toLowerCase();
+    if (["waiting", "uploading", "success", "failed"].indexOf(normalizedState) < 0) {
+      normalizedState = "waiting";
+    }
+    var rawPercent = Number(percent);
+    var safePercent = Number.isFinite(rawPercent)
+      ? Math.max(0, Math.min(100, Math.round(rawPercent)))
+      : 0;
+    ui.root.hidden = false;
+    ui.root.classList.remove("state-waiting", "state-uploading", "state-success", "state-failed");
+    ui.root.classList.add("state-" + normalizedState);
+    if (ui.label) {
+      ui.label.textContent = String(label || "جاري تجهيز الرفع");
+    }
+    if (ui.detail) {
+      ui.detail.textContent = String(detail || "");
+    }
+    if (ui.percent) {
+      ui.percent.textContent = safePercent + "%";
+    }
+    if (ui.bar) {
+      ui.bar.style.width = safePercent + "%";
+    }
+    if (ui.progressWrap) {
+      ui.progressWrap.setAttribute("aria-valuenow", String(safePercent));
+    }
+  }
+
+  function resetUploadStatus() {
+    var ui = getUploadStatusState();
+    if (!ui.root) return;
+    ui.root.hidden = true;
+    ui.root.classList.remove("state-waiting", "state-uploading", "state-success", "state-failed");
+    if (ui.label) ui.label.textContent = "جاهز للرفع";
+    if (ui.detail) ui.detail.textContent = "";
+    if (ui.percent) ui.percent.textContent = "0%";
+    if (ui.bar) ui.bar.style.width = "0%";
+    if (ui.progressWrap) ui.progressWrap.setAttribute("aria-valuenow", "0");
+  }
 
   function init() {
     deepLinkedRequestId = getDeepLinkedRequestId();
@@ -1604,8 +1669,235 @@ var PromotionPage = (function () {
     return !invoiceId && row && (status === "new" || status === "in_review");
   }
 
+  function guessAssetContentType(file, assetType) {
+    var explicitType = String(file && file.type || "").trim().toLowerCase();
+    if (explicitType) return explicitType;
+    var ext = String(fileExtension(file && file.name) || "").toLowerCase();
+    if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+    if (ext === ".png") return "image/png";
+    if (ext === ".gif") return "image/gif";
+    if (ext === ".mp4") return "video/mp4";
+    if (ext === ".pdf") return "application/pdf";
+    if (assetType === "video") return "video/mp4";
+    if (assetType === "image") return "image/jpeg";
+    return "application/octet-stream";
+  }
+
+  function uploadToPresignedUrl(opts) {
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      var method = String(opts && opts.method || "PUT").toUpperCase();
+      var url = String(opts && opts.url || "");
+      if (!url) {
+        resolve({ ok: false, status: 0 });
+        return;
+      }
+      try {
+        xhr.open(method, url, true);
+      } catch (_) {
+        resolve({ ok: false, status: 0 });
+        return;
+      }
+      xhr.timeout = 180000;
+      var headers = opts && opts.headers && typeof opts.headers === "object" ? opts.headers : {};
+      Object.keys(headers).forEach(function (key) {
+        try {
+          xhr.setRequestHeader(key, String(headers[key]));
+        } catch (_) {}
+      });
+      if (xhr.upload && typeof (opts && opts.onProgress) === "function") {
+        xhr.upload.addEventListener("progress", function (event) {
+          if (!event || !event.lengthComputable || !event.total) return;
+          opts.onProgress((event.loaded / event.total) * 100);
+        });
+      }
+      xhr.onload = function () {
+        var statusCode = Number(xhr.status || 0);
+        resolve({ ok: statusCode >= 200 && statusCode < 300, status: statusCode });
+      };
+      xhr.onerror = function () {
+        resolve({ ok: false, status: Number(xhr.status || 0) });
+      };
+      xhr.ontimeout = function () {
+        resolve({ ok: false, status: 0 });
+      };
+      xhr.onabort = function () {
+        resolve({ ok: false, status: Number(xhr.status || 0) });
+      };
+      try {
+        xhr.send(opts ? opts.file : null);
+      } catch (_) {
+        resolve({ ok: false, status: 0 });
+      }
+    });
+  }
+
+  async function uploadPromoAssetLegacy(requestId, file, assetType, itemId, title) {
+    var fd = new FormData();
+    fd.append("file", file, file.name);
+    fd.append("asset_type", assetType);
+    if (itemId) fd.append("item_id", String(itemId));
+    if (title) fd.append("title", String(title));
+    return ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
+      method: "POST",
+      body: fd,
+      formData: true
+    });
+  }
+
+  async function uploadPromoAssetDirect(requestId, file, assetType, itemId, title, options) {
+    var opts = options && typeof options === "object" ? options : {};
+    var onStatus = typeof opts.onStatus === "function" ? opts.onStatus : null;
+    var onProgress = typeof opts.onProgress === "function" ? opts.onProgress : null;
+    if (onStatus) {
+      onStatus({
+        state: "waiting",
+        label: "جاري تجهيز الرفع المباشر",
+        detail: "جاري طلب رابط رفع مؤقت...",
+        progress: 0
+      });
+    }
+    var initBody = {
+      asset_type: assetType,
+      file_name: String(file && file.name || "asset"),
+      file_size: Number(file && file.size || 0),
+      content_type: guessAssetContentType(file, assetType)
+    };
+    if (itemId) initBody.item_id = String(itemId);
+    if (title) initBody.title = String(title);
+
+    var initRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/init-upload/", {
+      method: "POST",
+      body: initBody
+    });
+    if (!initRes || !initRes.ok) {
+      var initDetail = String(
+        initRes && initRes.data && (initRes.data.detail || initRes.data.error)
+          ? (initRes.data.detail || initRes.data.error)
+          : ""
+      );
+      if (!initRes || initRes.status === 404 || initRes.status === 405) {
+        return null;
+      }
+      if (initRes.status === 400 && initDetail.indexOf("غير متاح") >= 0) {
+        return null;
+      }
+      return initRes;
+    }
+
+    var upload = initRes.data && initRes.data.upload ? initRes.data.upload : null;
+    var uploadUrl = upload && upload.url ? String(upload.url) : "";
+    var objectKey = upload && (upload.object_key || upload.key) ? String(upload.object_key || upload.key) : "";
+    if (!uploadUrl || !objectKey) {
+      return { ok: false, status: 0, data: { detail: "استجابة الرفع المباشر غير مكتملة." } };
+    }
+    var uploadMethod = String(upload.method || "PUT").toUpperCase();
+    var uploadHeaders = {};
+    if (upload.headers && typeof upload.headers === "object") {
+      Object.keys(upload.headers).forEach(function (key) {
+        uploadHeaders[key] = upload.headers[key];
+      });
+    }
+    if (!uploadHeaders["Content-Type"] && !uploadHeaders["content-type"]) {
+      uploadHeaders["Content-Type"] = initBody.content_type;
+    }
+
+    var putResponse = null;
+    if (onStatus) {
+      onStatus({
+        state: "uploading",
+        label: "جاري رفع الملف إلى التخزين السحابي",
+        detail: "يتم الآن رفع الملف مباشرة دون المرور عبر الخادم...",
+        progress: 0
+      });
+    }
+    if (onProgress) {
+      onProgress(0);
+    }
+    try {
+      putResponse = await uploadToPresignedUrl({
+        method: uploadMethod,
+        url: uploadUrl,
+        headers: uploadHeaders,
+        file: file,
+        onProgress: onProgress
+      });
+    } catch (_) {
+      putResponse = { ok: false, status: 0 };
+    }
+    if (!putResponse || !putResponse.ok) {
+      return {
+        ok: false,
+        status: putResponse ? putResponse.status : 0,
+        data: { detail: "فشل رفع الملف مباشرة إلى التخزين." }
+      };
+    }
+    if (onProgress) {
+      onProgress(100);
+    }
+    if (onStatus) {
+      onStatus({
+        state: "waiting",
+        label: "جاري تثبيت الملف",
+        detail: "تم رفع الملف، وجارٍ ربطه بطلب الترويج...",
+        progress: 100
+      });
+    }
+
+    var completeBody = {
+      asset_type: assetType,
+      object_key: objectKey,
+      content_type: initBody.content_type
+    };
+    if (itemId) completeBody.item_id = String(itemId);
+    if (title) completeBody.title = String(title);
+    return ApiClient.request("/api/promo/requests/" + requestId + "/assets/complete-upload/", {
+      method: "POST",
+      body: completeBody
+    });
+  }
+
+  async function uploadPromoAsset(requestId, file, assetType, itemId, title, options) {
+    var normalizedType = String(assetType || "").trim().toLowerCase();
+    var directRes = await uploadPromoAssetDirect(requestId, file, normalizedType, itemId, title, options);
+    if (directRes === null) {
+      if (normalizedType === "video") {
+        return {
+          ok: false,
+          status: 400,
+          data: {
+            detail: "فيديوهات الترويج تتطلب رفعًا مباشرًا إلى التخزين السحابي. تعذر استخدام الرفع المباشر حاليًا."
+          }
+        };
+      }
+      return uploadPromoAssetLegacy(requestId, file, normalizedType, itemId, title);
+    }
+    return directRes;
+  }
+
+  function updateUploadUi(options, event) {
+    var opts = options && typeof options === "object" ? options : {};
+    var state = String(event && event.state || "waiting").trim().toLowerCase();
+    var label = String(event && event.label || "جاري رفع المرفقات");
+    var detail = String(event && event.detail || "");
+    var progress = Number(event && event.progress);
+    setUploadStatus(state, label, detail, Number.isFinite(progress) ? progress : 0);
+    if (opts.submitButton) {
+      if (state === "uploading") {
+        opts.submitButton.textContent = "جاري الرفع... " + String(Math.max(0, Math.min(100, Math.round(progress || 0)))) + "%";
+      } else if (state === "waiting") {
+        opts.submitButton.textContent = label;
+      } else if (state === "success") {
+        opts.submitButton.textContent = "تم رفع المرفقات";
+      } else if (state === "failed") {
+        opts.submitButton.textContent = "فشل رفع المرفقات";
+      }
+    }
+  }
+
   async function uploadAssetsToRequest(requestId) {
     var singleItemId = null;
+    var singleServiceType = "";
     try {
       var detailRes = await ApiClient.get("/api/promo/requests/" + requestId + "/");
       var detailItems = detailRes && detailRes.ok && detailRes.data && Array.isArray(detailRes.data.items)
@@ -1613,6 +1905,7 @@ var PromotionPage = (function () {
         : [];
       if (detailItems.length === 1 && detailItems[0] && detailItems[0].id) {
         singleItemId = detailItems[0].id;
+        singleServiceType = String(detailItems[0].service_type || "").trim();
       }
     } catch (_) {}
 
@@ -1628,10 +1921,15 @@ var PromotionPage = (function () {
         var MAX_RETRIES = 3;
         for (var i = 0; i < files.length; i++) {
           var f = files[i];
-          if (isFileTooLargeForService(f, service)) {
+          var uploadType = detectAssetType(f.name);
+          var statusMeta = {
+            submitButton: null,
+            fileName: String(f && f.name || "ملف")
+          };
+          if (isFileTooLargeForService(f, singleServiceType)) {
             failures.push(
               String(f.name || "مرفق")
-              + ": حجم الملف أكبر من الحد المسموح (" + resolveUploadLimitMb(service, detectAssetType(f.name)) + "MB)"
+              + ": حجم الملف أكبر من الحد المسموح (" + resolveUploadLimitMb(singleServiceType, uploadType) + "MB)"
             );
             continue;
           }
@@ -1639,16 +1937,48 @@ var PromotionPage = (function () {
           var lastRes = null;
           for (var attempt = 0; attempt < MAX_RETRIES && !ok; attempt++) {
             if (attempt > 0) await new Promise(function (r) { setTimeout(r, 1000 * Math.pow(2, attempt - 1)); });
-            var fd = new FormData();
-            fd.append("file", f, f.name);
-            fd.append("asset_type", detectAssetType(f.name));
-            if (singleItemId) fd.append("item_id", String(singleItemId));
-            lastRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
-              method: "POST", body: fd, formData: true
+            if (attempt > 0) {
+              updateUploadUi(statusMeta, {
+                state: "waiting",
+                label: "إعادة محاولة الرفع",
+                detail: "إعادة رفع " + statusMeta.fileName + " (المحاولة " + (attempt + 1) + " من " + MAX_RETRIES + ")",
+                progress: 0
+              });
+            }
+            lastRes = await uploadPromoAsset(requestId, f, uploadType, singleItemId, "", {
+              onStatus: function (event) {
+                var eventDetail = String(event && event.detail || "").trim();
+                updateUploadUi(statusMeta, Object.assign({}, event, {
+                  detail: eventDetail ? (statusMeta.fileName + " - " + eventDetail) : statusMeta.fileName
+                }));
+              },
+              onProgress: function (percent) {
+                updateUploadUi(statusMeta, {
+                  state: "uploading",
+                  label: "جاري رفع الملف",
+                  detail: statusMeta.fileName,
+                  progress: percent
+                });
+              }
             });
             if (lastRes.ok) ok = true;
           }
-          if (!ok) failures.push(f.name + ": " + extractError(lastRes, "تعذر رفع المرفق"));
+          if (ok) {
+            updateUploadUi(statusMeta, {
+              state: "success",
+              label: "اكتمل رفع الملف",
+              detail: statusMeta.fileName,
+              progress: 100
+            });
+          } else {
+            updateUploadUi(statusMeta, {
+              state: "failed",
+              label: "فشل رفع الملف",
+              detail: statusMeta.fileName,
+              progress: 0
+            });
+            failures.push(f.name + ": " + extractError(lastRes, "تعذر رفع المرفق"));
+          }
         }
         if (failures.length) {
           await discardIncompleteRequest(requestId, "manual_asset_upload_failed");
@@ -2081,6 +2411,7 @@ var PromotionPage = (function () {
     if (!form) return;
     form.addEventListener("submit", async function (e) {
       e.preventDefault();
+      resetUploadStatus();
       if (!selectedServices.length) {
         alert("اختر خدمة واحدة على الأقل");
         return;
@@ -2157,6 +2488,12 @@ var PromotionPage = (function () {
       createdRequestId = parseInt(String(createResult.requestId || "0"), 10) || 0;
 
       if (createResult.uploadFailures.length) {
+        setUploadStatus(
+          "failed",
+          "فشل رفع المرفقات",
+          String(createResult.uploadFailures[0] || "تعذر رفع المرفقات المطلوبة."),
+          0
+        );
         await discardIncompleteRequest(createdRequestId, "asset_upload_failed");
         alert(
           "تم إلغاء الطلب تلقائيًا لأن المرفقات المطلوبة لم تكتمل.\n"
@@ -2227,6 +2564,7 @@ var PromotionPage = (function () {
 
     var uploadFailures = [];
     submitButton.textContent = "جاري رفع المرفقات...";
+    setUploadStatus("waiting", "جاري تجهيز رفع المرفقات", "يتم تجهيز رفع الملفات مباشرة إلى التخزين السحابي.", 0);
     var MAX_UPLOAD_RETRIES = 3;
     for (var x = 0; x < selectedServices.length; x += 1) {
       var s = selectedServices[x];
@@ -2244,29 +2582,70 @@ var PromotionPage = (function () {
         }
         var uploadFile = sourceFile;
         var uploadType = detectAssetType(sourceFile.name);
+        var statusMeta = {
+          submitButton: submitButton,
+          fileName: String(uploadFile && uploadFile.name || "ملف")
+        };
         var uploadOk = false;
         var lastUploadRes = null;
         for (var attempt = 0; attempt < MAX_UPLOAD_RETRIES && !uploadOk; attempt += 1) {
           if (attempt > 0) {
             submitButton.textContent = "إعادة محاولة رفع " + uploadFile.name + " (" + (attempt + 1) + "/" + MAX_UPLOAD_RETRIES + ")...";
+            updateUploadUi(statusMeta, {
+              state: "waiting",
+              label: "إعادة محاولة الرفع",
+              detail: "إعادة رفع " + statusMeta.fileName + " (المحاولة " + (attempt + 1) + " من " + MAX_UPLOAD_RETRIES + ")",
+              progress: 0
+            });
             await new Promise(function (r) { setTimeout(r, 1000 * Math.pow(2, attempt - 1)); });
           }
-          var fd = new FormData();
-          fd.append("file", uploadFile, uploadFile.name);
-          fd.append("asset_type", uploadType);
-          if (ids[s + ":" + x]) fd.append("item_id", String(ids[s + ":" + x]));
-          else if (singleItemId) fd.append("item_id", String(singleItemId));
-          lastUploadRes = await ApiClient.request("/api/promo/requests/" + requestId + "/assets/", {
-            method: "POST",
-            body: fd,
-            formData: true
-          });
+          var itemIdForUpload = ids[s + ":" + x] ? String(ids[s + ":" + x]) : (singleItemId ? String(singleItemId) : null);
+          lastUploadRes = await uploadPromoAsset(
+            requestId,
+            uploadFile,
+            uploadType,
+            itemIdForUpload,
+            SERVICE_LABELS[s] || s || "",
+            {
+              onStatus: function (event) {
+                var eventDetail = String(event && event.detail || "").trim();
+                updateUploadUi(statusMeta, Object.assign({}, event, {
+                  detail: eventDetail ? (statusMeta.fileName + " - " + eventDetail) : statusMeta.fileName
+                }));
+              },
+              onProgress: function (percent) {
+                updateUploadUi(statusMeta, {
+                  state: "uploading",
+                  label: "جاري الرفع المباشر",
+                  detail: statusMeta.fileName,
+                  progress: percent
+                });
+              }
+            }
+          );
           if (lastUploadRes.ok) uploadOk = true;
         }
         if (!uploadOk) {
+          updateUploadUi(statusMeta, {
+            state: "failed",
+            label: "فشل رفع الملف",
+            detail: statusMeta.fileName,
+            progress: 0
+          });
           uploadFailures.push((uploadFile.name || "ملف") + ": " + extractError(lastUploadRes, "تعذر رفع المرفق"));
+        } else {
+          updateUploadUi(statusMeta, {
+            state: "success",
+            label: "اكتمل رفع الملف",
+            detail: statusMeta.fileName,
+            progress: 100
+          });
         }
       }
+    }
+
+    if (!uploadFailures.length) {
+      setUploadStatus("success", "اكتمل رفع المرفقات", "تم رفع جميع الملفات وربطها بالطلب.", 100);
     }
 
     var requestCode = (createRes.data && createRes.data.code) || "";
@@ -2608,6 +2987,7 @@ var PromotionPage = (function () {
   }
 
   function resetForm() {
+    resetUploadStatus();
     if (homeBannerEditor.previewUrl) {
       try { URL.revokeObjectURL(homeBannerEditor.previewUrl); } catch (e) {}
     }

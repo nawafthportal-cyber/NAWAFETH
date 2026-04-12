@@ -18,3 +18,13 @@ flutter run -d emulator-5554
 ولعرض أسماء المحاكيات المتاحة أولًا:
 
 emulator -list-avds
+
+
+تحديث قاعدة البيانات 
+python manage.py showmigrations
+python manage.py migrate
+
+
+ولو تريد جمع الملفات الثابتة بعد التحديث:
+python manage.py collectstatic --noinput
+

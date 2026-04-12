@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import logging
+import posixpath
+import uuid
+from importlib import import_module
+from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 
@@ -69,6 +74,111 @@ PUBLIC_PROMO_CACHE_SECONDS = max(
     15,
     int(getattr(settings, "PROMO_PUBLIC_ENDPOINT_CACHE_SECONDS", 60) or 60),
 )
+PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS = max(
+    60,
+    min(int(getattr(settings, "PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS", 900) or 900), 3600),
+)
+
+
+class _UploadDescriptor:
+    def __init__(self, *, name: str, size: int, content_type: str = ""):
+        self.name = str(name or "")
+        self.size = int(size or 0)
+        self.content_type = str(content_type or "")
+
+
+def _promo_direct_upload_storage_ready() -> bool:
+    if not bool(getattr(settings, "USE_R2_MEDIA", False)):
+        return False
+    bucket = str(getattr(settings, "AWS_STORAGE_BUCKET_NAME", "") or "").strip()
+    endpoint = str(getattr(settings, "AWS_S3_ENDPOINT_URL", "") or "").strip()
+    access_key = str(getattr(settings, "AWS_ACCESS_KEY_ID", "") or "").strip()
+    secret_key = str(getattr(settings, "AWS_SECRET_ACCESS_KEY", "") or "").strip()
+    if not all([bucket, endpoint, access_key, secret_key]):
+        return False
+    default_backend = ""
+    try:
+        default_backend = str((getattr(settings, "STORAGES", {}) or {}).get("default", {}).get("BACKEND", "") or "")
+    except Exception:
+        default_backend = ""
+    return default_backend == "storages.backends.s3.S3Storage"
+
+
+def _promo_build_s3_client():
+    boto3 = import_module("boto3")
+    BotoConfig = import_module("botocore.config").Config
+    return boto3.client(
+        "s3",
+        endpoint_url=str(getattr(settings, "AWS_S3_ENDPOINT_URL", "") or "").strip(),
+        aws_access_key_id=str(getattr(settings, "AWS_ACCESS_KEY_ID", "") or "").strip(),
+        aws_secret_access_key=str(getattr(settings, "AWS_SECRET_ACCESS_KEY", "") or "").strip(),
+        region_name=str(getattr(settings, "AWS_S3_REGION_NAME", "auto") or "auto").strip(),
+        config=BotoConfig(
+            signature_version=str(getattr(settings, "AWS_S3_SIGNATURE_VERSION", "s3v4") or "s3v4").strip(),
+            s3={"addressing_style": str(getattr(settings, "AWS_S3_ADDRESSING_STYLE", "path") or "path").strip()},
+            connect_timeout=5,
+            read_timeout=20,
+            retries={"max_attempts": 2, "mode": "standard"},
+        ),
+    )
+
+
+def _promo_safe_upload_ext(file_name: str) -> str:
+    return Path(str(file_name or "").strip()).suffix.lower()
+
+
+def _promo_upload_is_video(*, file_obj, asset_type: str) -> bool:
+    if str(asset_type or "").strip().lower() == "video":
+        return True
+    content_type = str(getattr(file_obj, "content_type", "") or "").strip().lower()
+    if content_type.startswith("video/"):
+        return True
+    return _promo_safe_upload_ext(str(getattr(file_obj, "name", "") or "")) in {".mp4", ".mov", ".avi", ".mkv", ".webm"}
+
+
+def _promo_guess_content_type(*, file_name: str, asset_type: str, fallback: str) -> str:
+    inferred = str(fallback or "").strip().lower()
+    if inferred:
+        return inferred
+    ext = _promo_safe_upload_ext(file_name)
+    if ext in {".jpg", ".jpeg"}:
+        return "image/jpeg"
+    if ext == ".png":
+        return "image/png"
+    if ext == ".gif":
+        return "image/gif"
+    if ext == ".mp4":
+        return "video/mp4"
+    if ext == ".pdf":
+        return "application/pdf"
+    if str(asset_type or "").strip().lower() == "video":
+        return "video/mp4"
+    if str(asset_type or "").strip().lower() == "image":
+        return "image/jpeg"
+    return "application/octet-stream"
+
+
+def _promo_build_direct_upload_key(*, promo_request: PromoRequest, item: PromoRequestItem | None, user_id: int, file_name: str) -> str:
+    now = timezone.now()
+    ext = _promo_safe_upload_ext(file_name)
+    item_marker = f"item-{int(getattr(item, 'id', 0) or 0)}" if item is not None else "item-0"
+    return posixpath.join(
+        "promo",
+        "assets",
+        f"{now:%Y}",
+        f"{now:%m}",
+        f"req-{int(promo_request.id)}",
+        f"user-{int(user_id)}",
+        item_marker,
+        f"{uuid.uuid4().hex}{ext}",
+    )
+
+
+def _promo_delete_object_quietly(*, client, bucket: str, key: str):
+    try:
+        client.delete_object(Bucket=bucket, Key=key)
+    except Exception:
+        pass
 
 
 def _position_rank_case(field_name: str = "position"):
@@ -677,24 +787,347 @@ class PromoRequestDiscardView(APIView):
         )
 
 
-class PromoAddAssetView(generics.CreateAPIView):
+class _PromoAssetUploadContextMixin:
+    _ALLOWED_UPLOAD_STATUSES = (
+        PromoRequestStatus.NEW,
+        PromoRequestStatus.IN_REVIEW,
+        PromoRequestStatus.REJECTED,
+    )
+
+    def _get_promo_request_for_upload(self, request, *, pk: int):
+        pr = get_object_or_404(PromoRequest.objects.prefetch_related("items"), pk=pk)
+        self.check_object_permissions(request, pr)
+        if pr.status not in self._ALLOWED_UPLOAD_STATUSES:
+            return None, Response(
+                {"detail": "لا يمكن رفع مواد الإعلان في هذه المرحلة."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return pr, None
+
+    def _resolve_upload_item(self, request, *, promo_request: PromoRequest):
+        item_id_raw = str(request.data.get("item_id") or "").strip()
+        if item_id_raw:
+            try:
+                item_id = int(item_id_raw)
+            except (TypeError, ValueError):
+                return None, Response(
+                    {"detail": "معرف بند الخدمة غير صالح."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item = PromoRequestItem.objects.filter(id=item_id, request=promo_request).first()
+            if item is None:
+                return None, Response(
+                    {"detail": "بند الخدمة المحدد غير موجود أو لا يتبع هذا الطلب."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return item, None
+
+        request_items = list(promo_request.items.all())
+        if len(request_items) == 1:
+            return request_items[0], None
+        return None, Response(
+            {
+                "detail": (
+                    "يجب اختيار بند الخدمة قبل رفع المرفق. "
+                    "هذا الطلب يحتوي على خدمات متعددة، وكل مرفق يجب أن يُربط ببند محدد."
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def _ensure_item_upload_capacity(self, *, promo_request: PromoRequest, item: PromoRequestItem):
+        if not _is_platform_banner_ad_type(promo_request.ad_type):
+            return None
+        if item.service_type != PromoServiceType.HOME_BANNER:
+            return None
+        from apps.subscriptions.capabilities import banner_image_limit_for_user
+
+        banner_limit = banner_image_limit_for_user(promo_request.requester)
+        item_asset_count = item.assets.count()
+        if item_asset_count >= banner_limit:
+            return Response(
+                {
+                    "detail": (
+                        f"تم الوصول إلى الحد الأقصى لمرفقات بند "
+                        f"\"{item.get_service_type_display()}\" في باقتك الحالية ({banner_limit})."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return None
+
+    def _normalized_asset_type(self, request) -> str:
+        return str(request.data.get("asset_type") or "image").strip().lower()
+
+    def _validate_descriptor_limits(self, *, file_obj, promo_request: PromoRequest, item: PromoRequestItem, asset_type: str):
+        from apps.uploads.validators import validate_user_file_size
+        from .validators import validate_extension
+
+        requires_home_banner_dims = _requires_home_banner_dimensions_validation(promo_request, item)
+        effective_upload_limit_mb = promo_asset_upload_limit_mb(
+            asset_type=asset_type,
+            requires_home_banner_dims=requires_home_banner_dims,
+        )
+        validate_extension(file_obj)
+        validate_user_file_size(file_obj, effective_upload_limit_mb)
+        return requires_home_banner_dims, effective_upload_limit_mb
+
+
+class PromoAssetDirectUploadInitView(_PromoAssetUploadContextMixin, APIView):
+    permission_classes = [IsOwnerOrBackofficePromo]
+
+    def post(self, request, pk: int):
+        if not _promo_direct_upload_storage_ready():
+            return Response(
+                {"detail": "الرفع المباشر غير متاح حالياً على بيئة التخزين."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        promo_request, error_response = self._get_promo_request_for_upload(request, pk=pk)
+        if error_response is not None:
+            return error_response
+
+        item, error_response = self._resolve_upload_item(request, promo_request=promo_request)
+        if error_response is not None:
+            return error_response
+
+        capacity_error = self._ensure_item_upload_capacity(promo_request=promo_request, item=item)
+        if capacity_error is not None:
+            return capacity_error
+
+        asset_type = self._normalized_asset_type(request)
+        file_name = str(request.data.get("file_name") or "").strip()
+        if not file_name:
+            return Response(
+                {"detail": "اسم الملف مطلوب لتهيئة الرفع المباشر."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            file_size = int(request.data.get("file_size") or 0)
+        except Exception:
+            file_size = 0
+        file_size = max(0, file_size)
+        content_type = _promo_guess_content_type(
+            file_name=file_name,
+            asset_type=asset_type,
+            fallback=str(request.data.get("content_type") or ""),
+        )
+        descriptor = _UploadDescriptor(
+            name=file_name,
+            size=file_size,
+            content_type=content_type,
+        )
+        try:
+            self._validate_descriptor_limits(
+                file_obj=descriptor,
+                promo_request=promo_request,
+                item=item,
+                asset_type=asset_type,
+            )
+        except ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        bucket = str(getattr(settings, "AWS_STORAGE_BUCKET_NAME", "") or "").strip()
+        object_key = _promo_build_direct_upload_key(
+            promo_request=promo_request,
+            item=item,
+            user_id=int(getattr(request.user, "id", 0) or 0),
+            file_name=file_name,
+        )
+
+        try:
+            s3_client = _promo_build_s3_client()
+            put_params = {"Bucket": bucket, "Key": object_key}
+            if content_type:
+                put_params["ContentType"] = content_type
+            presigned_url = s3_client.generate_presigned_url(
+                "put_object",
+                Params=put_params,
+                ExpiresIn=PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS,
+                HttpMethod="PUT",
+            )
+        except Exception as exc:
+            logger.exception("promo_direct_upload_init_failed request_id=%s error=%s", getattr(request, "request_id", "-"), exc)
+            return Response(
+                {"detail": "تعذر تجهيز رابط رفع مباشر حالياً. حاول مرة أخرى."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        upload_headers = {"Content-Type": content_type} if content_type else {}
+        return Response(
+            {
+                "upload": {
+                    "method": "PUT",
+                    "url": presigned_url,
+                    "headers": upload_headers,
+                    "object_key": object_key,
+                    "expires_in": PROMO_DIRECT_UPLOAD_EXPIRES_SECONDS,
+                },
+                "item_id": int(item.id),
+                "asset_type": asset_type,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class PromoAssetDirectUploadCompleteView(_PromoAssetUploadContextMixin, APIView):
+    permission_classes = [IsOwnerOrBackofficePromo]
+
+    def post(self, request, pk: int):
+        if not _promo_direct_upload_storage_ready():
+            return Response(
+                {"detail": "الرفع المباشر غير متاح حالياً على بيئة التخزين."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        promo_request, error_response = self._get_promo_request_for_upload(request, pk=pk)
+        if error_response is not None:
+            return error_response
+
+        item, error_response = self._resolve_upload_item(request, promo_request=promo_request)
+        if error_response is not None:
+            return error_response
+
+        capacity_error = self._ensure_item_upload_capacity(promo_request=promo_request, item=item)
+        if capacity_error is not None:
+            return capacity_error
+
+        asset_type = self._normalized_asset_type(request)
+        object_key = str(request.data.get("object_key") or request.data.get("key") or "").strip()
+        if not object_key:
+            return Response({"detail": "مفتاح الملف المرفوع غير موجود."}, status=status.HTTP_400_BAD_REQUEST)
+        if not object_key.startswith("promo/assets/"):
+            return Response({"detail": "مسار الملف المرفوع غير صالح."}, status=status.HTTP_400_BAD_REQUEST)
+        expected_request_marker = f"/req-{int(promo_request.id)}/"
+        expected_user_marker = f"/user-{int(getattr(request.user, 'id', 0) or 0)}/"
+        if expected_request_marker not in object_key or expected_user_marker not in object_key:
+            return Response({"detail": "الملف المرفوع لا يطابق هذا الطلب."}, status=status.HTTP_400_BAD_REQUEST)
+
+        bucket = str(getattr(settings, "AWS_STORAGE_BUCKET_NAME", "") or "").strip()
+        s3_client = None
+        delete_on_validation_failure = False
+        try:
+            s3_client = _promo_build_s3_client()
+            head = s3_client.head_object(Bucket=bucket, Key=object_key)
+            delete_on_validation_failure = True
+        except Exception:
+            return Response(
+                {"detail": "تعذر التحقق من الملف المرفوع. حاول إعادة الرفع."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        file_size = int(head.get("ContentLength") or 0)
+        content_type = str(head.get("ContentType") or request.data.get("content_type") or "")
+        descriptor = _UploadDescriptor(
+            name=Path(object_key).name,
+            size=file_size,
+            content_type=content_type,
+        )
+        effective_upload_limit_mb = 0
+        try:
+            requires_home_banner_dims, effective_upload_limit_mb = self._validate_descriptor_limits(
+                file_obj=descriptor,
+                promo_request=promo_request,
+                item=item,
+                asset_type=asset_type,
+            )
+            if requires_home_banner_dims and asset_type in {"image", "video"}:
+                max_validation_bytes = int(
+                    max(
+                        1,
+                        min(
+                            int(getattr(settings, "PROMO_DIRECT_UPLOAD_DIMENSION_CHECK_MAX_MB", 30) or 30),
+                            100,
+                        ),
+                    )
+                    * 1024
+                    * 1024
+                )
+                if file_size > max_validation_bytes:
+                    raise ValidationError(
+                        "تعذر التحقق من أبعاد الملف المرفوع لأن حجمه كبير جدًا للمعالجة الآمنة. "
+                        "يرجى رفع ملف بالأبعاد المعتمدة 1920x840 وحجم أصغر."
+                    )
+                obj = s3_client.get_object(Bucket=bucket, Key=object_key)
+                body = obj.get("Body")
+                payload = body.read(max_validation_bytes + 1)
+                try:
+                    body.close()
+                except Exception:
+                    pass
+                if len(payload) > max_validation_bytes:
+                    raise ValidationError(
+                        "تعذر التحقق من أبعاد الملف المرفوع لأن حجمه يتجاوز حد الفحص الآمن."
+                    )
+                uploaded = SimpleUploadedFile(
+                    Path(object_key).name,
+                    payload,
+                    content_type=content_type or "application/octet-stream",
+                )
+                validate_home_banner_media_dimensions(uploaded, asset_type=asset_type)
+            title = str(request.data.get("title") or "").strip()[:160]
+        except ValidationError as exc:
+            if delete_on_validation_failure and s3_client is not None:
+                _promo_delete_object_quietly(client=s3_client, bucket=bucket, key=object_key)
+            logger.warning(
+                "promo_direct_upload_validation_failed request_id=%s user_id=%s promo_id=%s item_id=%s "
+                "asset_type=%s object_key=%s file_size=%s upload_limit_mb=%s error=%s",
+                getattr(request, "request_id", "-"),
+                getattr(request.user, "id", None),
+                promo_request.id,
+                getattr(item, "id", None),
+                asset_type,
+                object_key,
+                file_size,
+                int(effective_upload_limit_mb or 0),
+                str(exc),
+            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            if delete_on_validation_failure and s3_client is not None:
+                _promo_delete_object_quietly(client=s3_client, bucket=bucket, key=object_key)
+            logger.exception(
+                "promo_direct_upload_finalize_failed request_id=%s promo_id=%s item_id=%s object_key=%s error=%s",
+                getattr(request, "request_id", "-"),
+                promo_request.id,
+                getattr(item, "id", None),
+                object_key,
+                exc,
+            )
+            return Response(
+                {"detail": "تعذر إكمال التحقق من الملف المرفوع. حاول مرة أخرى."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        asset = PromoAsset.objects.create(
+            request=promo_request,
+            item=item,
+            asset_type=asset_type,
+            title=title,
+            file=object_key,
+            uploaded_by=request.user,
+        )
+        serializer = PromoAssetSerializer(asset)
+        return Response(
+            {
+                "detail": f"تم حفظ المرفق وربطه ببند الخدمة: {item.get_service_type_display()}",
+                "asset": serializer.data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class PromoAddAssetView(_PromoAssetUploadContextMixin, generics.CreateAPIView):
     permission_classes = [IsOwnerOrBackofficePromo]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = PromoAssetSerializer
 
     def create(self, request, *args, **kwargs):
-        pr = PromoRequest.objects.prefetch_related("items").get(pk=kwargs["pk"])
-        self.check_object_permissions(request, pr)
+        pr, error_response = self._get_promo_request_for_upload(request, pk=kwargs["pk"])
+        if error_response is not None:
+            return error_response
 
-        if pr.status not in (
-            PromoRequestStatus.NEW,
-            PromoRequestStatus.IN_REVIEW,
-            PromoRequestStatus.REJECTED,
-        ):
-            return Response(
-                {"detail": "لا يمكن رفع مواد الإعلان في هذه المرحلة."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        from apps.uploads.validators import validate_user_file_size
 
         file_obj = request.FILES.get("file")
         if not file_obj:
@@ -703,65 +1136,33 @@ class PromoAddAssetView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        item_id_raw = (request.data.get("item_id") or "").strip()
-        item = None
-        if item_id_raw:
-            try:
-                item_id = int(item_id_raw)
-            except (TypeError, ValueError):
-                return Response(
-                    {"detail": "معرف بند الخدمة غير صالح."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            item = PromoRequestItem.objects.filter(id=item_id, request=pr).first()
-            if item is None:
-                return Response(
-                    {"detail": "بند الخدمة المحدد غير موجود أو لا يتبع هذا الطلب."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        else:
-            request_items = list(pr.items.all())
-            if len(request_items) == 1:
-                item = request_items[0]
-            else:
-                return Response(
-                    {
-                        "detail": (
-                            "يجب اختيار بند الخدمة قبل رفع المرفق. "
-                            "هذا الطلب يحتوي على خدمات متعددة، وكل مرفق يجب أن يُربط ببند محدد."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        asset_type = self._normalized_asset_type(request)
+        if _promo_upload_is_video(file_obj=file_obj, asset_type=asset_type):
+            return Response(
+                {
+                    "detail": (
+                        "رفع فيديوهات الترويج عبر هذا المسار غير مسموح. "
+                        "يجب استخدام الرفع المباشر إلى التخزين السحابي."
+                    ),
+                    "error_code": "direct_upload_required_for_video",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        from apps.subscriptions.capabilities import banner_image_limit_for_user
-        from apps.uploads.validators import validate_user_file_size
-        from .validators import validate_extension
-
-        if _is_platform_banner_ad_type(pr.ad_type):
-            banner_limit = banner_image_limit_for_user(pr.requester)
-            item_asset_count = item.assets.count()
-            if item.service_type == PromoServiceType.HOME_BANNER and item_asset_count >= banner_limit:
-                return Response(
-                    {
-                        "detail": (
-                            f"تم الوصول إلى الحد الأقصى لمرفقات بند "
-                            f"\"{item.get_service_type_display()}\" في باقتك الحالية ({banner_limit})."
-                        )
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-        asset_type = (request.data.get("asset_type") or "image").strip().lower()
-        requires_home_banner_dims = _requires_home_banner_dimensions_validation(pr, item)
-        effective_upload_limit_mb = promo_asset_upload_limit_mb(
-            asset_type=asset_type,
-            requires_home_banner_dims=requires_home_banner_dims,
-        )
+        item, error_response = self._resolve_upload_item(request, promo_request=pr)
+        if error_response is not None:
+            return error_response
+        capacity_error = self._ensure_item_upload_capacity(promo_request=pr, item=item)
+        if capacity_error is not None:
+            return capacity_error
 
         try:
-            validate_extension(file_obj)
-            validate_user_file_size(file_obj, effective_upload_limit_mb)
+            requires_home_banner_dims, effective_upload_limit_mb = self._validate_descriptor_limits(
+                file_obj=file_obj,
+                promo_request=pr,
+                item=item,
+                asset_type=asset_type,
+            )
             file_obj = _maybe_autofit_home_banner_image(
                 file_obj,
                 asset_type=asset_type,

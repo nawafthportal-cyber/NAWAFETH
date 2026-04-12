@@ -326,6 +326,17 @@
         <div id="promo-live-breakdown" class="promo-live-breakdown" hidden></div>
       </div>
 
+      <div id="promo-upload-status" class="promo-upload-status" hidden aria-live="polite">
+        <div class="promo-upload-status-head">
+          <strong id="promo-upload-status-label">جاهز للرفع</strong>
+          <span id="promo-upload-status-percent">0%</span>
+        </div>
+        <p id="promo-upload-status-detail" class="promo-upload-status-detail"></p>
+        <div class="promo-upload-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <span id="promo-upload-progress-bar"></span>
+        </div>
+      </div>
+
       <div class="promo-submit-actions">
         <a href="{% url 'mobile_web:promotion' %}" class="btn btn-secondary">إلغاء</a>
         <button type="submit" class="btn btn-primary" id="promo-submit">استمرار</button>
@@ -591,6 +602,28 @@
   .promo-live-breakdown-item{display:flex;justify-content:space-between;gap:10px;padding:6px 0;font-size:12px;color:#374151;border-bottom:1px dashed #eee}
   .promo-live-breakdown-item:last-child{border-bottom:0}
   .promo-live-breakdown-item strong{color:#4b2d73}
+  .promo-upload-status{margin:14px 0 10px;border:1px solid #dce7dd;border-radius:14px;background:#fbfefb;padding:12px}
+  .promo-upload-status-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .promo-upload-status-head strong{font-size:13px;color:#215832}
+  .promo-upload-status-percent{font-size:12px;font-weight:700;color:#215832}
+  .promo-upload-status-detail{margin:6px 0 0;color:#52606d;font-size:12px;line-height:1.7}
+  .promo-upload-progress{margin-top:8px;width:100%;height:8px;border-radius:999px;background:#edf2f7;overflow:hidden}
+  .promo-upload-progress span{display:block;height:100%;width:0;background:linear-gradient(90deg,#2f7d1e,#46a035);transition:width .2s ease}
+  .promo-upload-status.state-waiting{border-color:#d8c9ea;background:#faf7ff}
+  .promo-upload-status.state-waiting .promo-upload-status-head strong,
+  .promo-upload-status.state-waiting .promo-upload-status-percent{color:#5b2f91}
+  .promo-upload-status.state-waiting .promo-upload-progress span{background:linear-gradient(90deg,#9f7aea,#7c3aed)}
+  .promo-upload-status.state-uploading{border-color:#cfe9ff;background:#f4faff}
+  .promo-upload-status.state-uploading .promo-upload-status-head strong,
+  .promo-upload-status.state-uploading .promo-upload-status-percent{color:#1d4ed8}
+  .promo-upload-status.state-uploading .promo-upload-progress span{background:linear-gradient(90deg,#0ea5e9,#2563eb)}
+  .promo-upload-status.state-success{border-color:#cfead2;background:#f4fff6}
+  .promo-upload-status.state-success .promo-upload-status-head strong,
+  .promo-upload-status.state-success .promo-upload-status-percent{color:#166534}
+  .promo-upload-status.state-failed{border-color:#fecaca;background:#fff7f7}
+  .promo-upload-status.state-failed .promo-upload-status-head strong,
+  .promo-upload-status.state-failed .promo-upload-status-percent{color:#b91c1c}
+  .promo-upload-status.state-failed .promo-upload-progress span{background:linear-gradient(90deg,#ef4444,#dc2626)}
 
   .promo-submit-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .promo-submit-actions .btn{min-height:42px}

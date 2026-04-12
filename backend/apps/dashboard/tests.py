@@ -445,6 +445,7 @@ class PromoDashboardStatusDisplayTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "حالة الطلب: بانتظار المراجعة")
+        self.assertContains(response, "حالة الدفع: مدفوعة")
         self.assertNotContains(response, "حالة الطلب: بانتظار الدفع")
 
 

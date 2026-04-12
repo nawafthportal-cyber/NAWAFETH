@@ -8,6 +8,8 @@ from .views import (
     PromoRequestDetailView,
     PromoRequestDiscardView,
     PromoAddAssetView,
+    PromoAssetDirectUploadInitView,
+    PromoAssetDirectUploadCompleteView,
     PromoPreparePaymentView,
 
     PublicHomeBannersView,
@@ -28,6 +30,8 @@ urlpatterns = [
     path("requests/my/", MyPromoRequestsListView.as_view(), name="my"),
     path("requests/<int:pk>/", PromoRequestDetailView.as_view(), name="detail"),
     path("requests/<int:pk>/discard/", PromoRequestDiscardView.as_view(), name="discard"),
+    path("requests/<int:pk>/assets/init-upload/", PromoAssetDirectUploadInitView.as_view(), name="init_asset_upload"),
+    path("requests/<int:pk>/assets/complete-upload/", PromoAssetDirectUploadCompleteView.as_view(), name="complete_asset_upload"),
     path("requests/<int:pk>/assets/", PromoAddAssetView.as_view(), name="add_asset"),
     path("requests/<int:pk>/prepare-payment/", PromoPreparePaymentView.as_view(), name="prepare_payment"),
 

@@ -298,12 +298,18 @@
                             <div class="actions">
                               <span class="pill brand">حالة الطلب: {{ selected_request_status_label }}</span>
                               <span class="pill accent">حالة التنفيذ: {{ selected_request_ops_status_label }}</span>
+                              {% if selected_request_payment_status_label %}
+                                <span class="pill info">حالة الدفع: {{ selected_request_payment_status_label }}</span>
+                              {% endif %}
                             </div>
                           </div>
 
                           <div class="support-meta-grid">
                             <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
                             <div class="quick-stat"><span>الخدمات</span><strong>{{ selected_request_items|length }}</strong></div>
+                            {% if selected_request_payment_status_label %}
+                              <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
+                            {% endif %}
                             <div class="quick-stat"><span>بداية الحملة</span><strong>{{ selected_request.start_at|date:"d/m/Y - H:i" }}</strong></div>
                             <div class="quick-stat"><span>نهاية الحملة</span><strong>{{ selected_request.end_at|date:"d/m/Y - H:i" }}</strong></div>
                           </div>

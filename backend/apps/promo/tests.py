@@ -4,15 +4,17 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Q
 from django.http import HttpResponse
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.middleware import InlinePromoSchedulerMiddleware
 from apps.core.models import PlatformConfig
 from apps.billing.models import Invoice, InvoiceLineItem
-from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestStatus
+from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
 from apps.providers.models import ProviderProfile
 from apps.promo.serializers import PromoRequestCreateSerializer, PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
 from apps.promo.services import (
@@ -364,6 +366,61 @@ class PromoAssetUploadLimitConfigTests(TestCase):
         self.assertEqual(payload["asset_upload_limits_mb"]["other"], 3)
         self.assertEqual(payload["asset_upload_limits_mb"]["home_banner_image"], 8)
         self.assertEqual(payload["asset_upload_limits_mb"]["home_banner_video"], 22)
+
+
+class PromoAssetLegacyMultipartGuardTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000191", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود اختبار",
+            bio="bio",
+            city="الرياض",
+        )
+        refresh = RefreshToken.for_user(self.user)
+        self.client.defaults["HTTP_AUTHORIZATION"] = f"Bearer {refresh.access_token}"
+        now = timezone.now()
+        self.request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="طلب رفع فيديو",
+            ad_type=PromoAdType.BANNER_HOME,
+            start_at=now + timezone.timedelta(days=1),
+            end_at=now + timezone.timedelta(days=3),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+        )
+        self.item = PromoRequestItem.objects.create(
+            request=self.request_obj,
+            service_type=PromoServiceType.HOME_BANNER,
+            start_at=self.request_obj.start_at,
+            end_at=self.request_obj.end_at,
+            title="بنر رئيسي",
+        )
+
+    def test_legacy_multipart_upload_rejects_video_files(self):
+        video_file = SimpleUploadedFile(
+            "promo-video.mp4",
+            b"fake-video-content",
+            content_type="video/mp4",
+        )
+
+        response = self.client.post(
+            f"/api/promo/requests/{self.request_obj.id}/assets/",
+            data={
+                "asset_type": "video",
+                "item_id": str(self.item.id),
+                "title": "اختبار فيديو",
+                "file": video_file,
+            },
+            HTTP_HOST="127.0.0.1",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        payload = response.json()
+        self.assertEqual(payload.get("error_code"), "direct_upload_required_for_video")
+        self.assertIn("الرفع المباشر", str(payload.get("detail", "")))
+        self.assertFalse(self.request_obj.assets.exists())
 
 
 class PromoLegacyWebRedirectTests(SimpleTestCase):

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:nawafeth/services/api_client.dart';
@@ -224,6 +225,151 @@ class PromoService {
       file,
       declaredType: assetType,
     );
+    final directResponse = await _uploadAssetDirect(
+      requestId: requestId,
+      file: optimized,
+      assetType: assetType,
+      title: title,
+      itemId: itemId,
+    );
+    if (directResponse != null) {
+      return directResponse;
+    }
+    if (assetType.trim().toLowerCase() == 'video') {
+      return ApiResponse(
+        statusCode: 400,
+        error:
+            'رفع الفيديو عبر الخادم غير مسموح. يرجى إعادة المحاولة باستخدام الرفع المباشر.',
+      );
+    }
+    return _uploadAssetMultipartLegacy(
+      requestId: requestId,
+      file: optimized,
+      assetType: assetType,
+      title: title,
+      itemId: itemId,
+    );
+  }
+
+  static Future<ApiResponse?> _uploadAssetDirect({
+    required int requestId,
+    required File file,
+    required String assetType,
+    required String title,
+    int? itemId,
+  }) async {
+    final fileName = _basename(file.path);
+    final fileSize = await file.length();
+    final contentType = _guessContentType(fileName, assetType);
+    final initBody = <String, dynamic>{
+      'asset_type': assetType,
+      'file_name': fileName,
+      'file_size': fileSize,
+      'content_type': contentType,
+    };
+    if (itemId != null) {
+      initBody['item_id'] = itemId.toString();
+    }
+    if (title.trim().isNotEmpty) {
+      initBody['title'] = title.trim();
+    }
+
+    final initRes = await ApiClient.post(
+      '/api/promo/requests/$requestId/assets/init-upload/',
+      body: initBody,
+    );
+    if (!initRes.isSuccess) {
+      final initDetail =
+          (initRes.dataAsMap?['detail'] as String?)?.trim() ?? '';
+      if (initRes.statusCode == 404 || initRes.statusCode == 405) {
+        return null;
+      }
+      if (initRes.statusCode == 400 && initDetail.contains('غير متاح')) {
+        return null;
+      }
+      return initRes;
+    }
+
+    final upload =
+        (initRes.dataAsMap?['upload'] as Map?)?.cast<String, dynamic>() ??
+            const <String, dynamic>{};
+    final uploadUrl = (upload['url'] as String?)?.trim() ?? '';
+    final objectKey =
+        ((upload['object_key'] ?? upload['key']) as String?)?.trim() ?? '';
+    if (uploadUrl.isEmpty || objectKey.isEmpty) {
+      return ApiResponse(
+        statusCode: 0,
+        error: 'استجابة الرفع المباشر غير مكتملة.',
+      );
+    }
+
+    final uploadHeaders = <String, String>{};
+    final rawHeaders = upload['headers'];
+    if (rawHeaders is Map) {
+      rawHeaders.forEach((key, value) {
+        if (key != null && value != null) {
+          uploadHeaders[key.toString()] = value.toString();
+        }
+      });
+    }
+    if (!uploadHeaders.keys
+        .any((k) => k.toLowerCase() == 'content-type')) {
+      uploadHeaders['Content-Type'] = contentType;
+    }
+    final method = ((upload['method'] as String?) ?? 'PUT').toUpperCase();
+
+    final uploadUri = Uri.tryParse(uploadUrl);
+    if (uploadUri == null) {
+      return ApiResponse(
+        statusCode: 0,
+        error: 'رابط الرفع المباشر غير صالح.',
+      );
+    }
+
+    try {
+      final bytes = await file.readAsBytes();
+      final response = await (method == 'PUT'
+              ? http.put(uploadUri, headers: uploadHeaders, body: bytes)
+              : http.post(uploadUri, headers: uploadHeaders, body: bytes))
+          .timeout(const Duration(seconds: 120));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return ApiResponse(
+          statusCode: response.statusCode,
+          error: 'فشل رفع الملف مباشرة إلى التخزين.',
+        );
+      }
+    } on SocketException {
+      return null;
+    } on TimeoutException {
+      return null;
+    } catch (_) {
+      return null;
+    }
+
+    final completeBody = <String, dynamic>{
+      'asset_type': assetType,
+      'object_key': objectKey,
+      'content_type': contentType,
+    };
+    if (itemId != null) {
+      completeBody['item_id'] = itemId.toString();
+    }
+    if (title.trim().isNotEmpty) {
+      completeBody['title'] = title.trim();
+    }
+    return ApiClient.post(
+      '/api/promo/requests/$requestId/assets/complete-upload/',
+      body: completeBody,
+    );
+  }
+
+  static Future<ApiResponse> _uploadAssetMultipartLegacy({
+    required int requestId,
+    required File file,
+    required String assetType,
+    required String title,
+    int? itemId,
+  }) {
     return ApiClient.sendMultipart(
       'POST',
       '/api/promo/requests/$requestId/assets/',
@@ -232,9 +378,30 @@ class PromoService {
         if (title.isNotEmpty) request.fields['title'] = title;
         if (itemId != null) request.fields['item_id'] = itemId.toString();
         request.files.add(
-          await http.MultipartFile.fromPath('file', optimized.path),
+          await http.MultipartFile.fromPath('file', file.path),
         );
       },
     );
+  }
+
+  static String _basename(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/');
+    if (parts.isEmpty) return path;
+    return parts.last.trim().isEmpty ? path : parts.last;
+  }
+
+  static String _guessContentType(String fileName, String assetType) {
+    final ext = fileName.toLowerCase().split('.').length > 1
+        ? '.${fileName.toLowerCase().split('.').last}'
+        : '';
+    if (ext == '.jpg' || ext == '.jpeg') return 'image/jpeg';
+    if (ext == '.png') return 'image/png';
+    if (ext == '.gif') return 'image/gif';
+    if (ext == '.mp4') return 'video/mp4';
+    if (ext == '.pdf') return 'application/pdf';
+    if (assetType.toLowerCase() == 'video') return 'video/mp4';
+    if (assetType.toLowerCase() == 'image') return 'image/jpeg';
+    return 'application/octet-stream';
   }
 }
