@@ -4,6 +4,13 @@ import os
 
 DEBUG = False
 
+# ── Safety: refuse to start production with the insecure default key ─────
+if SECRET_KEY == "dev-secret-key-change-me":
+    raise ValueError(
+        "DJANGO_SECRET_KEY is not set. "
+        "Production MUST use a strong, unique secret key."
+    )
+
 # Keep key operational surfaces enabled in production by default.
 # These can still be turned off explicitly through environment variables.
 FEATURE_MODERATION_CENTER = env_bool("FEATURE_MODERATION_CENTER", True)

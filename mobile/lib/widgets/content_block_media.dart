@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -156,19 +157,14 @@ class _ContentBlockMediaState extends State<ContentBlockMedia> {
                 ),
               ),
             ),
-            Image.network(
-              url,
+            CachedNetworkImage(
+              imageUrl: url,
               fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const Center(child: CircularProgressIndicator());
-              },
-              errorBuilder: (context, error, stackTrace) {
-                return _buildFallbackSurface(
-                  icon: Icons.broken_image_outlined,
-                  label: 'تعذر تحميل الصورة',
-                );
-              },
+              placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+              errorWidget: (_, __, ___) => _buildFallbackSurface(
+                icon: Icons.broken_image_outlined,
+                label: 'تعذر تحميل الصورة',
+              ),
             ),
           ],
         ),

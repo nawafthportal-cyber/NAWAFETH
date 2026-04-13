@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -765,7 +766,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     if (_coverImage != null) {
       coverImageProvider = FileImage(_coverImage!);
     } else if (coverUrl != null) {
-      coverImageProvider = NetworkImage(coverUrl);
+      coverImageProvider = CachedNetworkImageProvider(coverUrl);
     }
 
     // ✅ تحديد مصدر الصورة الشخصية (محلية أولاً، ثم من API)
@@ -774,7 +775,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
     if (_profileImage != null) {
       profileImageProvider = FileImage(_profileImage!);
     } else if (profileUrl != null) {
-      profileImageProvider = NetworkImage(profileUrl);
+      profileImageProvider = CachedNetworkImageProvider(profileUrl);
     }
 
     return Stack(
@@ -1339,7 +1340,7 @@ class _ProviderHomeScreenState extends State<ProviderHomeScreen> {
                   radius: 34,
                   backgroundColor: Colors.white,
                   backgroundImage: (thumbUrl != null && thumbUrl.isNotEmpty)
-                      ? NetworkImage(thumbUrl)
+                      ? CachedNetworkImageProvider(thumbUrl)
                       : null,
                   child: (thumbUrl == null || thumbUrl.isEmpty)
                       ? const Icon(

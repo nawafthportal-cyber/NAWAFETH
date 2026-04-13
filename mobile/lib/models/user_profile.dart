@@ -1,3 +1,5 @@
+import '../constants/saudi_cities.dart';
+
 /// نموذج بيانات المستخدم (من /api/accounts/me/)
 class UserProfile {
   final int id;
@@ -17,6 +19,7 @@ class UserProfile {
   final int? providerProfileId;
   final String? providerDisplayName;
   final String? providerCity;
+  final String? providerCityDisplay;
   final int providerFollowersCount;
   final int providerLikesReceivedCount;
   final double? providerRatingAvg;
@@ -40,6 +43,7 @@ class UserProfile {
     this.providerProfileId,
     this.providerDisplayName,
     this.providerCity,
+    this.providerCityDisplay,
     required this.providerFollowersCount,
     required this.providerLikesReceivedCount,
     this.providerRatingAvg,
@@ -66,6 +70,7 @@ class UserProfile {
       providerProfileId: json['provider_profile_id'] as int?,
       providerDisplayName: json['provider_display_name'] as String?,
       providerCity: json['provider_city'] as String?,
+      providerCityDisplay: json['provider_city_display'] as String?,
       providerFollowersCount: json['provider_followers_count'] as int? ?? 0,
       providerLikesReceivedCount: json['provider_likes_received_count'] as int? ?? 0,
       providerRatingAvg: _parseDouble(json['provider_rating_avg']),
@@ -83,6 +88,10 @@ class UserProfile {
   String get usernameDisplay => username != null && username!.isNotEmpty
       ? (username!.startsWith('@') ? username! : '@$username')
       : '@---';
+
+  String get providerLocationDisplay => SaudiCities.formatCityDisplay(
+        providerCityDisplay ?? providerCity,
+      );
 
   static double? _parseDouble(dynamic value) {
     if (value == null) return null;

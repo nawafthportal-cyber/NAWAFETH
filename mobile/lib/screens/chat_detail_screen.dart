@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_sound/flutter_sound.dart';
@@ -42,11 +44,13 @@ class ChatDetailScreen extends StatefulWidget {
   State<ChatDetailScreen> createState() => _ChatDetailScreenState();
 }
 
-class _ChatDetailScreenState extends State<ChatDetailScreen> {
+class _ChatDetailScreenState extends State<ChatDetailScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
   final FlutterSoundPlayer _player = FlutterSoundPlayer();
+  late final AnimationController _entranceController;
 
   bool _isRecording = false;
   int _recordSeconds = 0;
@@ -83,7 +87,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   int _notificationUnread = 0;
   ValueListenable<UnreadBadges>? _badgeHandle;
   static final RegExp _serviceRequestUrlRegex = RegExp(
-    r'(https?:\/\/[^\s]+|\/service-request\/[^\s]*)',
+    r'(https?:\/\/[^\s]+|\/service-request\/?[^\s]*)',
     caseSensitive: false,
   );
   static final RegExp _paymentUrlRegex = RegExp(
@@ -93,7 +97,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   String get _connectionStatusText {
     if (_isChatConnected) return 'متصل';
-    if (_isReconnecting) return 'جاري إعادة الاتصال...';
+    if (_isReconnecting) return 'جارٍ إعادة الاتصال...';
     return 'غير متصل';
   }
 
@@ -107,7 +111,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   bool get _isAutomatedPlatformThread => _isSystemThread;
 
-  bool get _isReplyRestricted => _replyRestrictedToMe || _isAutomatedPlatformThread;
+  bool get _isReplyRestricted =>
+      _replyRestrictedToMe || _isAutomatedPlatformThread;
 
   String get _replyRestrictionMessage {
     final reason = _replyRestrictionReason.trim();
@@ -149,9 +154,63 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return value.isNotEmpty ? value : 'غير متوفر';
   }
 
+  String get _peerSubtitle {
+    if (_isAutomatedPlatformThread) {
+      return 'رسائل آلية من $_systemThreadDisplayName';
+    }
+    if (_replyRestrictedToMe) {
+      return 'الردود مقيدة لهذه المحادثة';
+    }
+    if (_canShowProviderClientActions) {
+      return 'عميل يتابع معك مباشرة داخل المنصة';
+    }
+    if ((widget.peerProviderId ?? 0) > 0) {
+      return _memberCity == 'غير متوفر'
+          ? 'مقدم خدمة على المنصة'
+          : 'مقدم خدمة في $_memberCity';
+    }
+    return 'رسائل مباشرة داخل نوافذ';
+  }
+
+  String get _composerSupportText {
+    if (_isReplyRestricted) return _replyRestrictionMessage;
+    if (_isRecording) {
+      return 'جارٍ تسجيل رسالة صوتية لمدة ${_formatDuration(_recordSeconds)}';
+    }
+    if (_hasPendingAttachment) {
+      return 'المرفق جاهز. يمكنك إضافة وصف مختصر ثم الإرسال.';
+    }
+    if (_controller.text.trim().isNotEmpty) {
+      return 'الرسالة جاهزة للإرسال.';
+    }
+    if (_canShowProviderClientActions) {
+      return 'يمكنك إرسال نصوص أو مرفقات أو رابط طلب خدمة مباشر لهذا العميل.';
+    }
+    return 'يمكنك إرسال نصوص ومرفقات بشكل مباشر.';
+  }
+
+  String get _pendingAttachmentTitle {
+    if (_pendingType == 'image') return 'صورة جاهزة للإرسال';
+    if (_pendingType == 'audio') {
+      final duration = _pendingDuration == null
+          ? ''
+          : ' (${_formatDuration(_pendingDuration!)})';
+      return 'رسالة صوتية$duration';
+    }
+    if (_pendingType == 'video') return 'فيديو جاهز للإرسال';
+    return 'ملف جاهز للإرسال';
+  }
+
+  bool get _hasPendingAttachment =>
+      _pendingType != null && _pendingType != 'text' && _pendingFile is File;
+
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _scrollController.addListener(_onScroll);
     _badgeHandle = UnreadBadgeService.acquire();
     _badgeHandle?.addListener(_handleBadgeChange);
@@ -159,6 +218,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _resolvedThreadId = widget.threadId;
     _initAccountContext();
     _initChat();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   void _handleBadgeChange() {
@@ -293,7 +357,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final normalizedMessages = page.messages.reversed.toList();
       _syncPeerLabelFromMessages(normalizedMessages);
       setState(() {
-        // الرسائل تأتي مرتبة من الأحدث — نعكسها للعرض
         _messages = normalizedMessages;
         _hasMore = page.hasMore;
         _isLoading = false;
@@ -301,12 +364,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _isReconnecting = false;
       });
 
-      // تمييز كمقروءة
       unawaited(_markThreadReadAndRefresh());
-
-      // التمرير لأسفل
       _scrollToBottom();
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _isLoading = false;
@@ -317,7 +377,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     }
   }
 
-  /// تحميل رسائل أقدم عند التمرير لأعلى
   void _onScroll() {
     if (_scrollController.position.pixels <= 50 &&
         _hasMore &&
@@ -356,14 +415,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     });
   }
 
-  // ✅ إرسال الرسالة
   Future<void> _sendMessage() async {
     if (_isSending) return;
 
-    // التحقق من وجود محتوى
     final text = _controller.text.trim();
     final hasPendingFile =
-        _pendingType != null && _pendingType != "text" && _pendingFile is File;
+        _pendingType != null && _pendingType != 'text' && _pendingFile is File;
 
     if (text.isEmpty && !hasPendingFile) return;
     if (_resolvedThreadId == null) return;
@@ -377,11 +434,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     SendResult result;
 
     if (hasPendingFile && _pendingFile is File) {
-      // إرسال مرفق
       String attachmentType = 'file';
       if (_pendingType == 'image') attachmentType = 'image';
       if (_pendingType == 'audio') attachmentType = 'audio';
-      // الفيديو يُعامل كملف في الباكند
 
       result = await MessagingService.sendAttachment(
         _resolvedThreadId!,
@@ -390,7 +445,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         attachmentType: attachmentType,
       );
     } else {
-      // إرسال نص
       result = await MessagingService.sendTextMessage(_resolvedThreadId!, text);
     }
 
@@ -407,7 +461,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         _isChatConnected = true;
         _isReconnecting = false;
       });
-      // إعادة تحميل الرسائل لجلب الرسالة الجديدة من السيرفر
       await _refreshMessages(forceScroll: true);
     } else {
       final errorText = result.error ?? 'فشل إرسال الرسالة';
@@ -747,60 +800,92 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       _snack(_replyRestrictionMessage, backgroundColor: Colors.orange);
       return;
     }
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.image, color: Colors.deepPurple),
-            title: const Text("اختيار صورة من المعرض",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _pickImage();
-            },
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1F0F172A),
+                blurRadius: 24,
+                offset: Offset(0, 12),
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.camera_alt, color: Colors.deepPurple),
-            title:
-                const Text("تصوير صورة", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _takePhoto();
-            },
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'إضافة مرفق',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'اختر نوع المرفق الذي تريد إرساله ضمن نفس المحادثة.',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF667085),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildSheetActionItem(
+                icon: Icons.image_outlined,
+                label: 'اختيار صورة من المعرض',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickImage();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.camera_alt_outlined,
+                label: 'تصوير صورة',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _takePhoto();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.videocam_outlined,
+                label: 'تسجيل فيديو',
+                caption: 'الحد الأقصى 3 دقائق',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _recordVideo();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.video_library_outlined,
+                label: 'اختيار فيديو من المعرض',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickVideoFromGallery();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.insert_drive_file_outlined,
+                label: 'اختيار ملف',
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _pickFile();
+                },
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.videocam, color: Colors.deepPurple),
-            title: const Text("تسجيل فيديو (حد أقصى 3 دقائق)",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _recordVideo();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.video_library, color: Colors.deepPurple),
-            title: const Text("اختيار فيديو من المعرض",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _pickVideoFromGallery();
-            },
-          ),
-          ListTile(
-            leading:
-                const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
-            title:
-                const Text("اختيار ملف", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _pickFile();
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -810,80 +895,100 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (_isAutomatedPlatformThread) {
       return;
     }
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => Wrap(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.mark_chat_read, color: Colors.blue),
-            title: const Text("اجعلها مقروءة",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () async {
-              Navigator.pop(context);
-              await _markThreadReadAndRefresh();
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("تم تمييز المحادثة كمقروءة",
-                      style: TextStyle(fontFamily: 'Cairo')),
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1F0F172A),
+                blurRadius: 24,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _memberName,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
                 ),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.star, color: Colors.amber),
-            title: const Text("مفضلة", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () async {
-              Navigator.pop(context);
-              await MessagingService.toggleFavorite(_resolvedThreadId!);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("تم تحديث المفضلة",
-                      style: TextStyle(fontFamily: 'Cairo')),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _peerSubtitle,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF667085),
                 ),
-              );
-            },
+              ),
+              const SizedBox(height: 12),
+              _buildSheetActionItem(
+                icon: Icons.mark_chat_read_rounded,
+                label: 'اجعلها مقروءة',
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _markThreadReadAndRefresh();
+                  _snack('تم تمييز المحادثة كمقروءة');
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.star_rounded,
+                label: 'تحديث المفضلة',
+                caption: 'إضافة أو إزالة المحادثة من المفضلة',
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await MessagingService.toggleFavorite(_resolvedThreadId!);
+                  if (!mounted) return;
+                  _snack('تم تحديث المفضلة');
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.block_rounded,
+                label: 'حظر العضو',
+                danger: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showBlockConfirmation();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.report_gmailerrorred_rounded,
+                label: 'الإبلاغ عن عضو',
+                danger: true,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showReportDialog();
+                },
+              ),
+              _buildSheetActionItem(
+                icon: Icons.archive_outlined,
+                label: 'أرشفة المحادثة',
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await MessagingService.toggleArchive(_resolvedThreadId!);
+                  if (!mounted) return;
+                  _snack('تمت أرشفة المحادثة');
+                  Navigator.pop(context);
+                },
+              ),
+            ],
           ),
-          ListTile(
-            leading: const Icon(Icons.block, color: Colors.red),
-            title:
-                const Text("حظر العضو", style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _showBlockConfirmation();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.report, color: Colors.orange),
-            title: const Text("الإبلاغ عن عضو",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () {
-              Navigator.pop(context);
-              _showReportDialog();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.archive_outlined, color: Colors.grey),
-            title: const Text("أرشفة المحادثة",
-                style: TextStyle(fontFamily: "Cairo")),
-            onTap: () async {
-              Navigator.pop(context);
-              await MessagingService.toggleArchive(_resolvedThreadId!);
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("تمت أرشفة المحادثة",
-                      style: TextStyle(fontFamily: 'Cairo')),
-                ),
-              );
-              Navigator.pop(context); // العودة لقائمة المحادثات
-            },
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1633,61 +1738,96 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void _showMessageOptions(ChatMessage msg) {
     final isMe = msg.senderId == _myUserId;
 
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (_) => Wrap(
-        children: [
-          if (msg.body.isNotEmpty)
-            ListTile(
-              leading: const Icon(Icons.copy, color: Colors.deepPurple),
-              title:
-                  const Text("نسخ النص", style: TextStyle(fontFamily: "Cairo")),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("تم نسخ النص",
-                          style: TextStyle(fontFamily: 'Cairo'))),
-                );
-              },
-            ),
-          if (isMe)
-            ListTile(
-              leading: const Icon(Icons.delete_outline, color: Colors.red),
-              title: const Text("حذف الرسالة",
-                  style: TextStyle(fontFamily: "Cairo")),
-              onTap: () async {
-                Navigator.pop(context);
-                final success = await MessagingService.deleteMessage(
-                    _resolvedThreadId!, msg.id);
-                if (success) {
-                  _refreshMessages();
-                } else {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("فشل حذف الرسالة",
-                          style: TextStyle(fontFamily: 'Cairo')),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-            ),
-          if (!isMe)
-            ListTile(
-              leading: const Icon(Icons.report, color: Colors.orange),
-              title: const Text("إبلاغ عن هذه الرسالة",
-                  style: TextStyle(fontFamily: "Cairo")),
-              onTap: () {
-                Navigator.pop(context);
-                _showReportDialog();
-              },
-            ),
-        ],
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => SafeArea(
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1F0F172A),
+                blurRadius: 24,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isMe ? 'خيارات رسالتك' : 'خيارات الرسالة',
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                msg.body.trim().isNotEmpty
+                    ? msg.body.trim()
+                    : (msg.attachmentName.isNotEmpty
+                        ? msg.attachmentName
+                        : 'رسالة بمرفق'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF667085),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (msg.body.isNotEmpty)
+                _buildSheetActionItem(
+                  icon: Icons.copy_rounded,
+                  label: 'نسخ النص',
+                  onTap: () async {
+                    await Clipboard.setData(ClipboardData(text: msg.body));
+                    if (!sheetContext.mounted) return;
+                    Navigator.pop(sheetContext);
+                    _snack('تم نسخ النص');
+                  },
+                ),
+              if (isMe)
+                _buildSheetActionItem(
+                  icon: Icons.delete_outline_rounded,
+                  label: 'حذف الرسالة',
+                  danger: true,
+                  onTap: () async {
+                    Navigator.pop(sheetContext);
+                    final success = await MessagingService.deleteMessage(
+                      _resolvedThreadId!,
+                      msg.id,
+                    );
+                    if (success) {
+                      await _refreshMessages();
+                    } else {
+                      _snack('فشل حذف الرسالة', backgroundColor: Colors.red);
+                    }
+                  },
+                ),
+              if (!isMe)
+                _buildSheetActionItem(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  label: 'إبلاغ عن هذه الرسالة',
+                  danger: true,
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _showReportDialog();
+                  },
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1699,8 +1839,16 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         ? msg.senderTeamName.trim()
         : msg.senderName.trim();
 
-    Color bubbleColor = isMe ? Colors.deepPurple : Colors.grey.shade200;
-    Color textColor = isMe ? Colors.white : Colors.black87;
+    final accent = isMe ? const Color(0xFF5B3FD0) : const Color(0xFF22577A);
+    final bubbleColor = isMe
+        ? const Color(0xFF5B3FD0)
+        : (msg.isSystemGenerated
+            ? const Color(0xFFF6F1FF)
+            : const Color(0xFFFFFFFF));
+    final textColor = isMe ? Colors.white : const Color(0xFF0F172A);
+    final metaColor = isMe
+        ? Colors.white.withValues(alpha: 0.76)
+        : const Color(0xFF667085);
 
     Widget content;
 
@@ -1712,18 +1860,32 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(fullUrl,
-                  width: 200,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.broken_image, size: 48)),
+              borderRadius: BorderRadius.circular(18),
+              child: CachedNetworkImage(
+                imageUrl: fullUrl,
+                width: 220,
+                fit: BoxFit.cover,
+                errorWidget: (_, __, ___) => Container(
+                  width: 220,
+                  height: 120,
+                  alignment: Alignment.center,
+                  color: Colors.black.withValues(alpha: 0.06),
+                  child: const Icon(Icons.broken_image_outlined, size: 42),
+                ),
+              ),
             ),
             if (msg.body.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(msg.body,
-                  style: TextStyle(
-                      color: textColor, fontFamily: "Cairo", fontSize: 15)),
+              const SizedBox(height: 10),
+              Text(
+                msg.body,
+                style: TextStyle(
+                  color: textColor,
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  height: 1.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ],
         );
@@ -1735,15 +1897,15 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           children: [
             InkWell(
               onTap: fullUrl == null ? null : () => _toggleAudioPlayback(msg),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
                 decoration: BoxDecoration(
                   color: isMe
-                      ? Colors.white.withValues(alpha: 0.12)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : const Color(0xFFF7FAFC),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1753,7 +1915,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           ? Icons.stop_circle
                           : Icons.play_circle_fill,
                       color: isMe ? Colors.white : Colors.deepPurple,
-                      size: 30,
+                      size: 32,
                     ),
                     const SizedBox(width: 8),
                     Flexible(
@@ -1765,8 +1927,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 : "تشغيل الرسالة الصوتية"),
                         style: TextStyle(
                           color: isMe ? Colors.white : Colors.black87,
-                          fontFamily: "Cairo",
-                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 12.5,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1776,147 +1939,195 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               ),
             ),
             if (msg.body.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              const SizedBox(height: 10),
               Text(
                 msg.body,
                 style: TextStyle(
                   color: textColor,
-                  fontFamily: "Cairo",
-                  fontSize: 15,
+                  fontFamily: 'Cairo',
+                  fontSize: 13,
+                  height: 1.8,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ],
           ],
         );
       } else {
-        // ملف عادي
-        content = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.insert_drive_file, color: textColor),
-            const SizedBox(width: 8),
-            Flexible(
-              child: Text(
-                msg.attachmentName.isNotEmpty ? msg.attachmentName : "مرفق",
-                style: TextStyle(color: textColor, fontFamily: "Cairo"),
-                overflow: TextOverflow.ellipsis,
-              ),
+        content = InkWell(
+          onTap: fullUrl == null
+              ? null
+              : () {
+                  final uri = Uri.tryParse(fullUrl);
+                  if (uri != null) {
+                    launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: isMe
+                  ? Colors.white.withValues(alpha: 0.14)
+                  : const Color(0xFFF7FAFC),
+              borderRadius: BorderRadius.circular(16),
             ),
-          ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.insert_drive_file_outlined, color: textColor),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    msg.attachmentName.isNotEmpty ? msg.attachmentName : 'مرفق',
+                    style: TextStyle(
+                      color: textColor,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w800,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.open_in_new_rounded, color: textColor, size: 18),
+              ],
+            ),
+          ),
         );
       }
     } else {
-      // نص فقط
       if (_isPaymentUrl(msg.body)) {
         content = _buildPaymentCTA(msg.body, isMe, textColor);
       } else {
-      final servicePayload = _extractServiceRequestPayload(msg.body);
-      if (servicePayload != null) {
-        content = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (servicePayload.helperText.isNotEmpty) ...[
-              Text(
-                servicePayload.helperText,
-                style: TextStyle(
-                    color: textColor, fontFamily: "Cairo", fontSize: 15),
-              ),
-              const SizedBox(height: 8),
+        final servicePayload = _extractServiceRequestPayload(msg.body);
+        if (servicePayload != null) {
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (servicePayload.helperText.isNotEmpty) ...[
+                Text(
+                  servicePayload.helperText,
+                  style: TextStyle(
+                    color: textColor,
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    height: 1.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              _buildServiceRequestAction(servicePayload, isMe, textColor),
             ],
-            _buildServiceRequestAction(servicePayload, isMe, textColor),
-          ],
-        );
-      } else {
-        content = Text(
-          msg.body,
-          style: TextStyle(color: textColor, fontFamily: "Cairo", fontSize: 15),
-        );
-      }
+          );
+        } else {
+          content = Text(
+            msg.body,
+            style: TextStyle(
+              color: textColor,
+              fontFamily: 'Cairo',
+              fontSize: 13,
+              height: 1.8,
+              fontWeight: FontWeight.w700,
+            ),
+          );
+        }
       }
     }
 
-    // تنسيق الوقت
-    final h =
-        msg.createdAt.hour > 12 ? msg.createdAt.hour - 12 : msg.createdAt.hour;
-    final amPm = msg.createdAt.hour >= 12 ? 'م' : 'ص';
-    final m = msg.createdAt.minute.toString().padLeft(2, '0');
-    final timeStr = '$h:$m $amPm';
+    final hour24 = msg.createdAt.hour;
+    final hour = hour24 > 12 ? hour24 - 12 : hour24;
+    final amPm = hour24 >= 12 ? 'م' : 'ص';
+    final minute = msg.createdAt.minute.toString().padLeft(2, '0');
+    final timeStr = '$hour:$minute $amPm';
 
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: () => _showMessageOptions(msg),
         child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-          padding: const EdgeInsets.all(12),
-          constraints: const BoxConstraints(maxWidth: 280),
-          decoration: BoxDecoration(
-            color: bubbleColor,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: isMe ? const Radius.circular(16) : Radius.zero,
-              bottomRight: isMe ? Radius.zero : const Radius.circular(16),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
+          margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 6),
+          constraints: const BoxConstraints(maxWidth: 312),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(22),
+                topRight: const Radius.circular(22),
+                bottomLeft: isMe ? const Radius.circular(22) : const Radius.circular(8),
+                bottomRight: isMe ? const Radius.circular(8) : const Radius.circular(22),
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment:
-                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              if (!isMe && msg.isSystemGenerated) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    systemLabel.isNotEmpty
-                        ? '$systemLabel • رسالة آلية'
-                        : 'رسالة آلية',
-                    style: const TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.deepPurple,
+              border: isMe
+                  ? null
+                  : Border.all(
+                      color: msg.isSystemGenerated
+                          ? const Color(0xFFE4D7FF)
+                          : const Color(0xFFE4EBF1),
                     ),
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0C223D).withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
-              content,
-              const SizedBox(height: 5),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(13, 12, 13, 10),
+              child: Column(
+                crossAxisAlignment:
+                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    timeStr,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isMe ? Colors.white70 : Colors.black54,
-                      fontFamily: "Cairo",
-                    ),
-                  ),
-                  if (isMe) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      msg.readByIds.isNotEmpty ? Icons.done_all : Icons.done,
-                      size: 14,
-                      color: msg.readByIds.length > 1
-                          ? Colors.blue.shade200
-                          : Colors.white60,
+                  if (!isMe && msg.isSystemGenerated) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        systemLabel.isNotEmpty
+                            ? '$systemLabel • رسالة آلية'
+                            : 'رسالة آلية',
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: accent,
+                        ),
+                      ),
                     ),
                   ],
+                  content,
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        timeStr,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: metaColor,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          msg.readByIds.isNotEmpty ? Icons.done_all : Icons.done,
+                          size: 15,
+                          color: msg.readByIds.length > 1
+                              ? const Color(0xFF93C5FD)
+                              : Colors.white70,
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1925,109 +2136,99 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   // ✅ معاينة قبل الإرسال
   Widget _buildPreview() {
-    if (_pendingType == "image" && _pendingFile != null) {
-      return Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(_pendingFile,
-                width: 50, height: 50, fit: BoxFit.cover),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() {
-              _pendingType = null;
-              _pendingFile = null;
-            }),
-          ),
-        ],
-      );
-    } else if (_pendingType == "file" && _pendingFile != null) {
-      return Row(
-        children: [
-          const Icon(Icons.insert_drive_file, color: Colors.deepPurple),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              (_pendingFile as File).path.split('/').last,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontFamily: "Cairo"),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() {
-              _pendingType = null;
-              _pendingFile = null;
-            }),
-          ),
-        ],
-      );
-    } else if (_pendingType == "audio" && _pendingDuration != null) {
-      return Row(
-        children: [
-          const Icon(Icons.mic, color: Colors.red),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              "رسالة صوتية (${_formatDuration(_pendingDuration!)})",
-              style: const TextStyle(fontFamily: "Cairo"),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() {
-              _pendingType = null;
-              _pendingFile = null;
-              _pendingDuration = null;
-            }),
-          ),
-        ],
-      );
-    } else if (_pendingType == "video" && _pendingFile != null) {
-      return Row(
-        children: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(8)),
+    if (_hasPendingAttachment) {
+      final fileName = _pendingFile is File
+          ? (_pendingFile as File).path.split('/').last
+          : 'مرفق';
+      final icon = _pendingType == 'image'
+          ? Icons.image_outlined
+          : _pendingType == 'audio'
+              ? Icons.mic_none_rounded
+              : _pendingType == 'video'
+                  ? Icons.videocam_outlined
+                  : Icons.insert_drive_file_outlined;
+
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7F9FC),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFDCE6ED)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE9F2F7),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const Icon(Icons.play_circle_outline,
-                  color: Colors.white, size: 24),
-            ],
-          ),
-          const SizedBox(width: 8),
-          const Expanded(
-            child: Text("فيديو جاهز للإرسال",
-                style: TextStyle(fontFamily: "Cairo"),
-                overflow: TextOverflow.ellipsis),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, color: Colors.red),
-            onPressed: () => setState(() {
-              _pendingType = null;
-              _pendingFile = null;
-            }),
-          ),
-        ],
-      );
-    } else {
-      return TextField(
-        controller: _controller,
-        enabled: !_isReplyRestricted,
-        style: const TextStyle(fontFamily: "Cairo"),
-        decoration: InputDecoration(
-            hintText: _isReplyRestricted ? _replyRestrictionMessage : "اكتب رسالة...",
-            border: InputBorder.none),
-        onChanged: (_) => setState(() => _pendingType = "text"),
+              child: Icon(icon, color: const Color(0xFF22577A), size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _pendingAttachmentTitle,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF0F172A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    fileName,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Cairo',
+                      fontSize: 10.8,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF667085),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Color(0xFFB42318)),
+              onPressed: () => setState(() {
+                _pendingType = null;
+                _pendingFile = null;
+                _pendingDuration = null;
+              }),
+            ),
+          ],
+        ),
       );
     }
+
+    return TextField(
+      controller: _controller,
+      enabled: !_isReplyRestricted,
+      minLines: 1,
+      maxLines: 5,
+      style: const TextStyle(
+        fontFamily: 'Cairo',
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      ),
+      decoration: InputDecoration(
+        hintText: _isReplyRestricted ? _replyRestrictionMessage : 'اكتب رسالة...',
+        hintStyle: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF98A2B3),
+        ),
+        border: InputBorder.none,
+      ),
+      onChanged: (_) => setState(() => _pendingType = 'text'),
+    );
   }
 
   String _formatDuration(int sec) {
@@ -2036,10 +2237,652 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     return "$m:$s";
   }
 
+  bool _isSameMessageDay(DateTime left, DateTime right) {
+    return left.year == right.year && left.month == right.month && left.day == right.day;
+  }
+
+  String _formatMessageDay(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final target = DateTime(date.year, date.month, date.day);
+    final diff = today.difference(target).inDays;
+    if (diff == 0) return 'اليوم';
+    if (diff == 1) return 'الأمس';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Widget _buildDayDivider(DateTime date) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: const Color(0xFFE4EBF1)),
+              ),
+              child: Text(
+                _formatMessageDay(date),
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF667085),
+                ),
+              ),
+            ),
+          ),
+          Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSheetActionItem({
+    required IconData icon,
+    required String label,
+    String? caption,
+    required VoidCallback onTap,
+    bool danger = false,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: danger ? const Color(0xFFFFF1F1) : const Color(0xFFF4F8FB),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(
+          icon,
+          color: danger ? const Color(0xFFB42318) : const Color(0xFF22577A),
+          size: 20,
+        ),
+      ),
+      title: Text(
+        label,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: danger ? const Color(0xFFB42318) : const Color(0xFF0F172A),
+        ),
+      ),
+      subtitle: caption == null
+          ? null
+          : Text(
+              caption,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF667085),
+              ),
+            ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildHeroCard(bool isDark) {
+    final headerActions = <Widget>[
+      if (_canShowProviderClientActions)
+        _buildHeroActionButton(
+          icon: Icons.assignment_outlined,
+          label: 'طلبات العميل',
+          onTap: _showClientRequestsSheet,
+        ),
+      if (_canShowProviderClientActions)
+        _buildHeroActionButton(
+          icon: Icons.send_outlined,
+          label: 'رابط الطلب',
+          onTap: _sendServiceRequestLink,
+        ),
+      if (!_isAutomatedPlatformThread)
+        _buildHeroActionButton(
+          icon: Icons.more_horiz_rounded,
+          label: 'خيارات',
+          onTap: _showChatOptions,
+        ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -42,
+            left: -18,
+            child: Container(
+              width: 136,
+              height: 136,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -54,
+            right: -22,
+            child: Container(
+              width: 160,
+              height: 160,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    height: 54,
+                    width: 54,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _memberName.isNotEmpty ? _memberName[0] : 'م',
+                        style: const TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _memberName,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _peerSubtitle,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11.5,
+                            height: 1.8,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.84),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildHeroChip(
+                    icon: Icons.wifi_tethering_rounded,
+                    label: _connectionStatusText,
+                  ),
+                  if (!_isAutomatedPlatformThread)
+                    _buildHeroChip(
+                      icon: Icons.phone_outlined,
+                      label: _memberPhone,
+                    ),
+                  if (!_isAutomatedPlatformThread)
+                    _buildHeroChip(
+                      icon: Icons.location_on_outlined,
+                      label: _memberCity,
+                    ),
+                  if (_isAutomatedPlatformThread)
+                    _buildHeroChip(
+                      icon: Icons.shield_outlined,
+                      label: 'رسائل آلية',
+                    ),
+                ],
+              ),
+              if (headerActions.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: headerActions,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.18)),
+        backgroundColor: Colors.white.withValues(alpha: 0.08),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      icon: Icon(icon, size: 16),
+      label: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBanner() {
+    Color background = const Color(0xFFEAF7F9);
+    Color border = const Color(0xFFCCE0F8);
+    Color foreground = const Color(0xFF22577A);
+    IconData icon = Icons.info_outline_rounded;
+    String text = _composerSupportText;
+
+    if (_isReplyRestricted) {
+      background = const Color(0xFFFFF4E5);
+      border = const Color(0xFFF4C27A);
+      foreground = const Color(0xFF9A5A00);
+      icon = Icons.lock_outline_rounded;
+      text = _replyRestrictionMessage;
+    } else if (!_isChatConnected) {
+      background = const Color(0xFFFFF1F1);
+      border = const Color(0xFFF3C0C4);
+      foreground = const Color(0xFFB42318);
+      icon = Icons.cloud_off_rounded;
+      text = _isReconnecting
+          ? 'جاري إعادة الاتصال بالمحادثة...'
+          : 'الاتصال بالمحادثة غير مستقر حالياً.';
+    } else if (_isRecording) {
+      background = const Color(0xFFFFF1F1);
+      border = const Color(0xFFF3C0C4);
+      foreground = const Color(0xFFB42318);
+      icon = Icons.mic_rounded;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: foreground),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                height: 1.7,
+                fontWeight: FontWeight.w800,
+                color: foreground,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessagesSurface(bool isDark) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Color(0xFF22577A)),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline_rounded, size: 48, color: Colors.red.shade400),
+              const SizedBox(height: 12),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF667085),
+                ),
+              ),
+              const SizedBox(height: 14),
+              ElevatedButton.icon(
+                onPressed: _loadMessages,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF22577A),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text(
+                  'إعادة المحاولة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_messages.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.chat_bubble_outline_rounded,
+                  size: 62, color: Colors.grey.shade400),
+              const SizedBox(height: 14),
+              Text(
+                'لا توجد رسائل بعد',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: isDark ? Colors.white : const Color(0xFF0F172A),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'ابدأ المحادثة بإرسال رسالة أو مرفق بشكل مباشر.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11.5,
+                  height: 1.8,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? const Color(0xFF92A6BA) : const Color(0xFF52637A),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        if (_isLoadingMore)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF22577A),
+              ),
+            ),
+          ),
+        Expanded(
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final message = _messages[index];
+              final showDivider =
+                  index == 0 || !_isSameMessageDay(_messages[index - 1].createdAt, message.createdAt);
+              return Column(
+                children: [
+                  if (showDivider) _buildDayDivider(message.createdAt),
+                  _buildMessageBubble(message),
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildComposer(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : const Color(0x220E5E85),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: isDark ? 0.10 : 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _composerSupportText,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: _isReplyRestricted
+                  ? const Color(0xFFB42318)
+                  : (isDark ? const Color(0xFFB8C7D9) : const Color(0xFF52637A)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _buildComposerRoundButton(
+                icon: Icons.attach_file_rounded,
+                background: const Color(0xFFEAF7F9),
+                foreground: const Color(0xFF22577A),
+                onPressed: _isReplyRestricted ? null : _showAttachmentOptions,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF102231) : const Color(0xFFF7FAFC),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: const Color(0xFFDCE6ED)),
+                  ),
+                  child: _isRecording
+                      ? Row(
+                          children: [
+                            const Icon(Icons.mic_rounded, color: Color(0xFFB42318)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: LinearProgressIndicator(
+                                value: (_recordSeconds % 10) / 10,
+                                color: const Color(0xFFB42318),
+                                backgroundColor: const Color(0xFFFEE4E2),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              _formatDuration(_recordSeconds),
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFB42318),
+                              ),
+                            ),
+                          ],
+                        )
+                      : _buildPreview(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _buildComposerRoundButton(
+                icon: _isRecording ? Icons.stop_rounded : Icons.mic_none_rounded,
+                background: _isRecording ? const Color(0xFFB42318) : const Color(0xFF5B3FD0),
+                foreground: Colors.white,
+                onPressed: _isRecording ? _stopRecording : (_isReplyRestricted ? null : _startRecording),
+              ),
+              const SizedBox(width: 8),
+              _buildComposerRoundButton(
+                icon: Icons.send_rounded,
+                background: const Color(0xFF22577A),
+                foreground: Colors.white,
+                isLoading: _isSending,
+                onPressed: (_isReplyRestricted || _isSending) ? null : _sendMessage,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildComposerRoundButton({
+    required IconData icon,
+    required Color background,
+    required Color foreground,
+    required VoidCallback? onPressed,
+    bool isLoading = false,
+  }) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        color: onPressed == null ? background.withValues(alpha: 0.45) : background,
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: isLoading
+            ? SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: foreground,
+                ),
+              )
+            : Icon(icon, color: foreground),
+      ),
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
     _liveSyncTimer?.cancel();
+    _entranceController.dispose();
     _badgeHandle?.removeListener(_handleBadgeChange);
     if (_badgeHandle != null) {
       UnreadBadgeService.release();
@@ -2059,13 +2902,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
       appBar: PlatformTopBar(
-        pageLabel: _isAutomatedPlatformThread
-            ? '$_memberName • رسالة آلية'
-            : '$_memberName • $_connectionStatusText',
+        pageLabel: 'الرسائل',
         showBackButton: Navigator.of(context).canPop(),
         showChatAction: false,
         notificationCount: _notificationUnread,
@@ -2078,373 +2920,71 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           await UnreadBadgeService.refresh(force: true);
         },
-        trailingActions: _isAutomatedPlatformThread
-            ? const []
-            : [
-                if (_canShowProviderClientActions)
-                  PlatformTopBarActionButton(
-                    icon: Icons.assignment_ind_outlined,
-                    foreground: const Color(0xFF56316D),
-                    background: Colors.white.withValues(alpha: 0.82),
-                    borderColor: const Color(0xFFDACDED),
-                    onTap: _showClientRequestsSheet,
-                  ),
-                if (_canShowProviderClientActions) const SizedBox(width: 6),
-                if (_canShowProviderClientActions)
-                  PlatformTopBarActionButton(
-                    icon: Icons.send_outlined,
-                    foreground: const Color(0xFF56316D),
-                    background: Colors.white.withValues(alpha: 0.82),
-                    borderColor: const Color(0xFFDACDED),
-                    onTap: _sendServiceRequestLink,
-                  ),
-                if (_canShowProviderClientActions) const SizedBox(width: 6),
-                PlatformTopBarActionButton(
-                  icon: Icons.more_vert,
-                  foreground: const Color(0xFF56316D),
-                  background: Colors.white.withValues(alpha: 0.82),
-                  borderColor: const Color(0xFFDACDED),
-                  onTap: _showChatOptions,
-                ),
-              ],
+        trailingActions: const [],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: _isAutomatedPlatformThread
-                  ? const Color(0xFFF7F2FF)
-                  : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: Colors.deepPurple.withValues(alpha: 0.15)),
-              boxShadow: const [
-                BoxShadow(
-                    color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      _isAutomatedPlatformThread
-                          ? Icons.support_agent_outlined
-                          : Icons.person_outline,
-                      size: 16,
-                      color: Colors.deepPurple,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _memberName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ),
-                    if (_isAutomatedPlatformThread)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: Colors.deepPurple.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'رسالة آلية',
-                          style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontWeight: FontWeight.w700,
-                            fontSize: 11,
-                            color: Colors.deepPurple,
-                          ),
-                        ),
-                      ),
-                    if (_canShowProviderClientActions)
-                      IconButton(
-                        icon: const Icon(
-                          Icons.assignment_outlined,
-                          size: 18,
-                          color: Colors.deepPurple,
-                        ),
-                        onPressed: _showClientRequestsSheet,
-                        tooltip: 'طلبات العميل',
-                        constraints: const BoxConstraints(),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
-                      ),
-                  ],
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? const LinearGradient(
+                  colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                )
+              : const LinearGradient(
+                  colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
                 ),
-                if (_isAutomatedPlatformThread) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.deepPurple.withValues(alpha: 0.12),
-                      ),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.lock_outline,
-                            size: 16, color: Colors.deepPurple),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'هذه المحادثة مخصصة لاستقبال الرسائل الآلية من المنصة فقط.',
-                            style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF4C3575),
-                            ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: _buildEntrance(0, _buildHeroCard(isDark)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: _buildEntrance(1, _buildStatusBanner()),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  child: _buildEntrance(
+                    2,
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF132637)
+                            : Colors.white.withValues(alpha: 0.94),
+                        borderRadius: BorderRadius.circular(26),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.06)
+                              : const Color(0x220E5E85),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0C223D)
+                                .withValues(alpha: isDark ? 0.10 : 0.06),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: _buildMessagesSurface(isDark),
                     ),
                   ),
-                ] else ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.phone_outlined,
-                          size: 15, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _memberPhone,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              color: Colors.black54),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_city_outlined,
-                          size: 15, color: Colors.grey),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _memberCity,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              color: Colors.black54),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: _buildEntrance(3, _buildComposer(isDark)),
+              ),
+            ],
           ),
-
-          if (_isReplyRestricted)
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF4E5),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFFFC266)),
-              ),
-              child: Text(
-                _replyRestrictionMessage,
-                style: const TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF9A5A00),
-                ),
-              ),
-            ),
-
-          // ✅ الرسائل
-          Expanded(
-            child: _isLoading
-                ? const Center(
-                    child: CircularProgressIndicator(color: Colors.deepPurple))
-                : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.error_outline,
-                                size: 48, color: Colors.grey),
-                            const SizedBox(height: 12),
-                            Text(_errorMessage!,
-                                style: const TextStyle(
-                                    fontFamily: 'Cairo', color: Colors.grey)),
-                            const SizedBox(height: 12),
-                            ElevatedButton(
-                              onPressed: _loadMessages,
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.deepPurple),
-                              child: const Text("إعادة المحاولة",
-                                  style: TextStyle(
-                                      fontFamily: 'Cairo',
-                                      color: Colors.white)),
-                            ),
-                          ],
-                        ),
-                      )
-                    : _messages.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.chat_bubble_outline,
-                                    size: 64, color: Colors.grey.shade300),
-                                const SizedBox(height: 16),
-                                const Text("لا توجد رسائل بعد",
-                                    style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 16,
-                                        color: Colors.grey)),
-                                const SizedBox(height: 8),
-                                const Text("ابدأ المحادثة بإرسال رسالة ✨",
-                                    style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 13,
-                                        color: Colors.grey)),
-                              ],
-                            ),
-                          )
-                        : Column(
-                            children: [
-                              if (_isLoadingMore)
-                                const Padding(
-                                  padding: EdgeInsets.all(8),
-                                  child: SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.deepPurple),
-                                  ),
-                                ),
-                              Expanded(
-                                child: ListView.builder(
-                                  controller: _scrollController,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 10),
-                                  itemCount: _messages.length,
-                                  itemBuilder: (context, index) =>
-                                      _buildMessageBubble(_messages[index]),
-                                ),
-                              ),
-                            ],
-                          ),
-          ),
-
-          // ✅ شريط الإدخال
-          if (!_isReplyRestricted)
-            SafeArea(
-              child: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 4,
-                        offset: Offset(0, -2))
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon:
-                          const Icon(Icons.attach_file, color: Colors.deepPurple),
-                      onPressed: _showAttachmentOptions,
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(25),
-                        ),
-                        child: _isRecording
-                            ? Row(
-                                children: [
-                                  const Icon(Icons.mic, color: Colors.red),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: LinearProgressIndicator(
-                                      value: (_recordSeconds % 10) / 10,
-                                      color: Colors.red,
-                                      backgroundColor: Colors.red.shade100,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Text(_formatDuration(_recordSeconds),
-                                      style: const TextStyle(color: Colors.red)),
-                                ],
-                              )
-                            : _buildPreview(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    if (_isRecording)
-                      CircleAvatar(
-                        backgroundColor: Colors.red,
-                        child: IconButton(
-                          icon: const Icon(Icons.stop, color: Colors.white),
-                          onPressed: _stopRecording,
-                        ),
-                      )
-                    else
-                      CircleAvatar(
-                        backgroundColor: Colors.deepPurple,
-                        child: IconButton(
-                          icon: const Icon(Icons.mic, color: Colors.white),
-                          onPressed: _startRecording,
-                        ),
-                      ),
-                    const SizedBox(width: 8),
-                    CircleAvatar(
-                      backgroundColor: Colors.deepPurple,
-                      child: _isSending
-                          ? const Padding(
-                              padding: EdgeInsets.all(10),
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.send, color: Colors.white),
-                              onPressed: _sendMessage,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+        ),
       ),
     );
   }

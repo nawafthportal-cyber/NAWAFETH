@@ -623,7 +623,7 @@ const ProviderDetailPage = (() => {
     const providerTypeLabel = _pickFirstText(p.provider_type_label, p.providerTypeLabel);
     const whatsappRaw = _pickFirstText(p.whatsapp, p.phone, p.phone_number, p.phoneNumber);
     const websiteRaw = String(p.website || '').trim();
-    const cityText = _displayOrUnavailable(p.city, unavailable);
+    const cityText = _displayOrUnavailable(UI.formatCityDisplay(p.city_display || p.city, p.region || p.region_name), unavailable);
     const experienceText = p.years_experience ? p.years_experience + ' سنوات' : unavailable;
     const serviceRangeText = _resolveServiceRangeKm(p) + ' كم';
     const socialCard = document.getElementById('pd-social-card');
@@ -2411,7 +2411,10 @@ const ProviderDetailPage = (() => {
     if (!mapEl) return;
 
     const rangeKm = _resolveServiceRangeKm(provider);
-    const city = _pickFirstText(provider && provider.city);
+    const city = UI.formatCityDisplay(
+      _pickFirstText(provider && (provider.city_display || provider.city)),
+      _pickFirstText(provider && (provider.region || provider.region_name))
+    );
     const center = _resolveServiceRangeCenter(provider);
     const hasPoint = _hasValidGeoPoint(center.lat, center.lng);
 

@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from apps.providers.location_formatter import format_city_display
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
 from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
 from apps.uploads.media_optimizer import optimize_upload_for_storage
@@ -245,6 +246,12 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         if attachments:
             ServiceRequestAttachment.objects.bulk_create(attachments)
 
+        # Schedule deferred video optimisation in background.
+        from apps.uploads.tasks import schedule_video_optimization
+        for att in attachments:
+            if att.file_type == "video":
+                schedule_video_optimization(att, "file")
+
         try:
             from apps.analytics.tracking import safe_track_event
 
@@ -293,6 +300,7 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     review_credibility = serializers.SerializerMethodField()
     review_on_time = serializers.SerializerMethodField()
     review_comment = serializers.SerializerMethodField()
+    city_display = serializers.SerializerMethodField()
 
     def _status_group_value(self, raw: str) -> str:
         s = (raw or "").strip().lower()
@@ -371,6 +379,9 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     def get_review_comment(self, obj):
         return self._review_attr(obj, "comment")
 
+    def get_city_display(self, obj):
+        return format_city_display(getattr(obj, "city", ""))
+
     class Meta:
         model = ServiceRequest
         fields = (
@@ -383,6 +394,7 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
             "status_group",
             "status_label",
             "city",
+            "city_display",
             "created_at",
             "provider",
             "provider_name",

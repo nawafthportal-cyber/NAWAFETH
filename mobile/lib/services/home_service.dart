@@ -7,13 +7,50 @@ import '../models/media_item_model.dart';
 
 /// خدمة الصفحة الرئيسية — تجلب البيانات من الـ API
 class HomeService {
-  static const Duration _cacheTtl = Duration(minutes: 2);
+  static const Duration _cacheTtl = Duration(minutes: 15);
 
   static _CacheEntry<List<CategoryModel>>? _categoriesCache;
   static final Map<int, _CacheEntry<List<ProviderPublicModel>>> _featuredProvidersCache = {};
   static final Map<int, _CacheEntry<List<FeaturedSpecialistModel>>> _featuredSpecialistsCache = {};
   static final Map<int, _CacheEntry<List<BannerModel>>> _homeBannersCache = {};
   static final Map<int, _CacheEntry<List<MediaItemModel>>> _spotlightsCache = {};
+
+  static List<dynamic> _extractList(dynamic data) {
+    if (data is List) return data;
+    if (data is Map) {
+      final map = Map<String, dynamic>.from(data);
+      final results = map['results'];
+      if (results is List) return results;
+    }
+    return const [];
+  }
+
+  static List<BannerModel> _parseBannerList(dynamic data) {
+    return _extractList(data)
+        .whereType<Map>()
+        .map((item) => BannerModel.fromJson(Map<String, dynamic>.from(item)))
+        .where((banner) => (banner.mediaUrl ?? '').isNotEmpty)
+        .toList(growable: false);
+  }
+
+  static List<BannerModel> _dedupeBanners(List<BannerModel> banners) {
+    final seen = <String>{};
+    final result = <BannerModel>[];
+    for (final banner in banners) {
+      final signature = [
+        banner.id,
+        banner.mediaUrl ?? '',
+        banner.linkUrl ?? '',
+        banner.providerId ?? 0,
+        banner.displayOrder,
+      ].join('|');
+      if (!seen.add(signature)) {
+        continue;
+      }
+      result.add(banner);
+    }
+    return List<BannerModel>.unmodifiable(result);
+  }
 
   static HomeCachedData getCachedHomeData({
     int providersLimit = 10,
@@ -131,20 +168,11 @@ class HomeService {
       return List<BannerModel>.from(cached.data);
     }
 
-    List<BannerModel> parseBannerList(dynamic data) {
-      final list = data is List ? data : const [];
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(BannerModel.fromJson)
-          .where((banner) => (banner.mediaUrl ?? '').isNotEmpty)
-          .toList();
-    }
-
     // Promo home banners should not be capped by client-side limit.
     // We fetch all active promo banners, then only use fallback carousel when needed.
     final promoRes = await ApiClient.get('/api/promo/banners/home/');
     final promoBanners = (promoRes.isSuccess && promoRes.data != null)
-        ? parseBannerList(promoRes.data)
+      ? _parseBannerList(promoRes.data)
         : <BannerModel>[];
 
     final remaining = limit > promoBanners.length ? limit - promoBanners.length : 0;
@@ -155,14 +183,14 @@ class HomeService {
       final carouselLimit = promoBanners.isEmpty ? limit : fallbackLimit;
       final carouselRes = await ApiClient.get('/api/promo/home-carousel/?limit=$carouselLimit');
       if (carouselRes.isSuccess && carouselRes.data != null) {
-        carouselBanners = parseBannerList(carouselRes.data);
+        carouselBanners = _parseBannerList(carouselRes.data);
       }
     }
 
-    final parsed = <BannerModel>[
+    final parsed = _dedupeBanners(<BannerModel>[
       ...promoBanners,
       ...carouselBanners,
-    ];
+    ]);
 
     if (parsed.isNotEmpty) {
       _homeBannersCache[limit] = _CacheEntry<List<BannerModel>>(

@@ -1,4 +1,5 @@
 import 'excellence_badge_model.dart';
+import '../constants/saudi_cities.dart';
 
 class ServiceProviderLocation {
   final String id;
@@ -6,6 +7,7 @@ class ServiceProviderLocation {
   final String category;           // "صيانة المركبات"
   final String subCategory;        // "ميكانيكا"
   final String city;
+  final String cityDisplay;
   final double latitude;
   final double longitude;
   final double rating;
@@ -32,6 +34,7 @@ class ServiceProviderLocation {
     required this.category,
     required this.subCategory,
     this.city = '',
+    this.cityDisplay = '',
     required this.latitude,
     required this.longitude,
     required this.rating,
@@ -56,6 +59,7 @@ class ServiceProviderLocation {
       category: json['category'] ?? '',
       subCategory: json['subCategory'] ?? json['sub_category'] ?? '',
       city: json['city'] ?? '',
+      cityDisplay: json['city_display'] ?? '',
       latitude: _toDouble(json['lat'] ?? json['latitude']),
       longitude: _toDouble(json['lng'] ?? json['longitude']),
       rating: _toDouble(json['rating_avg'] ?? json['rating']),
@@ -109,6 +113,10 @@ class ServiceProviderLocation {
     return false;
   }
 
+  String get locationDisplay => SaudiCities.formatCityDisplay(
+        cityDisplay.isNotEmpty ? cityDisplay : city,
+      );
+
   // ✅ تحويل إلى JSON
   Map<String, dynamic> toJson() {
     return {
@@ -142,6 +150,7 @@ class ServiceProviderLocation {
     String? category,
     String? subCategory,
     String? city,
+    String? cityDisplay,
     double? latitude,
     double? longitude,
     double? rating,
@@ -163,6 +172,7 @@ class ServiceProviderLocation {
       category: category ?? this.category,
       subCategory: subCategory ?? this.subCategory,
       city: city ?? this.city,
+      cityDisplay: cityDisplay ?? this.cityDisplay,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       rating: rating ?? this.rating,

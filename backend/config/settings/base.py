@@ -30,7 +30,7 @@ def env_json(name: str, default):
 
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key-change-me")
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 FEATURE_MODERATION_CENTER = env_bool("FEATURE_MODERATION_CENTER", False)
 FEATURE_MODERATION_DUAL_WRITE = env_bool("FEATURE_MODERATION_DUAL_WRITE", False)
 FEATURE_RBAC_ENFORCE = env_bool("FEATURE_RBAC_ENFORCE", False)
@@ -150,7 +150,9 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "apps.core.middleware.RequestContextMiddleware",
     "apps.core.middleware.DatabaseOutageShortCircuitMiddleware",
-    "apps.core.middleware.InlinePromoSchedulerMiddleware",
+    # InlinePromoSchedulerMiddleware removed – Celery Beat handles
+    # send_due_promo_messages (every 5 min) and auto_complete_expired_promos
+    # (every 1 hr), making the per-request scheduler redundant overhead.
 
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
@@ -219,6 +221,13 @@ CACHES = (
         }
     }
 )
+
+# ── Sessions ────────────────────────────────────────────────────────
+# Use Redis-backed cache sessions when Redis is available; fall back to
+# the default database backend for local development without Redis.
+if REDIS_URL:
+    SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+    SESSION_CACHE_ALIAS = "default"
 
 # Database
 DATABASE_URL = os.getenv("DATABASE_URL", "")

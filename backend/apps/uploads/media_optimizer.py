@@ -385,5 +385,12 @@ def optimize_upload_for_storage(uploaded_file, *, declared_type: str | None = No
     if media_kind == "image" and _bool_setting("MEDIA_IMAGE_OPTIMIZATION_ENABLED", True):
         return _optimize_image(uploaded_file)
     if media_kind == "video" and _bool_setting("MEDIA_VIDEO_OPTIMIZATION_ENABLED", True):
+        # When deferred mode is active (default), skip inline FFmpeg
+        # transcoding and return the original.  The caller is responsible
+        # for invoking  schedule_video_optimization()  after the model is
+        # saved so that the heavy work runs in a Celery worker instead of
+        # blocking the HTTP thread.
+        if _bool_setting("MEDIA_VIDEO_OPTIMIZATION_DEFERRED", True):
+            return uploaded_file
         return _optimize_video(uploaded_file)
     return uploaded_file

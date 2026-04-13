@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from apps.accounts.models import UserRole
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
 
+from .location_formatter import format_city_display
 from .models import (
     Category,
     ProviderCategory,
@@ -170,3 +171,31 @@ class ProviderRegionCityCatalogTests(TestCase):
         self.assertEqual(profile.city, "جدة")
         self.assertEqual(profile.whatsapp, "0512345678")
         self.assertEqual(payload.get("whatsapp_url"), "https://wa.me/966512345678")
+
+
+class CityDisplayFormatterTests(TestCase):
+    def setUp(self):
+        self.region_riyadh, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=self.region_riyadh,
+            name_ar="الخرج",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+
+    def test_format_city_display_uses_explicit_region(self):
+        self.assertEqual(
+            format_city_display("الخرج", region="منطقة الرياض"),
+            "الرياض - الخرج",
+        )
+
+    def test_format_city_display_infers_region_from_catalog(self):
+        self.assertEqual(format_city_display("الخرج"), "الرياض - الخرج")
+
+    def test_format_city_display_strips_full_region_prefix_variant(self):
+        self.assertEqual(
+            format_city_display("الدمام", region="المنطقة الشرقية"),
+            "الشرقية - الدمام",
+        )

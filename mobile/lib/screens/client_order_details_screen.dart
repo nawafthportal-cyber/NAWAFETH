@@ -27,8 +27,10 @@ class ClientOrderDetailsScreen extends StatefulWidget {
       _ClientOrderDetailsScreenState();
 }
 
-class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
+class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen>
+    with SingleTickerProviderStateMixin {
   static const Color _mainColor = Colors.deepPurple;
+  static const Color _accentColor = Color(0xFF22577A);
 
   ServiceRequest? _order;
   bool _loading = true;
@@ -60,16 +62,26 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   double _ratingOnTime = 0;
   final TextEditingController _ratingCommentController =
       TextEditingController();
+  late final AnimationController _entranceController;
 
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _titleController = TextEditingController();
     _detailsController = TextEditingController();
     _badgeHandle = UnreadBadgeService.acquire();
     _badgeHandle?.addListener(_handleBadgeChange);
     _handleBadgeChange();
     _ensureClientAccount();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   Future<void> _ensureClientAccount() async {
@@ -103,6 +115,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     _reminderController.dispose();
     _rejectInputsReasonController.dispose();
     _ratingCommentController.dispose();
+    _entranceController.dispose();
     super.dispose();
   }
 
@@ -416,23 +429,36 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   Widget _infoRow(String value) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(10),
+        color: const Color(0xFFF8FBFF),
+        border: Border.all(color: const Color(0xFFD7E5F2)),
+        borderRadius: BorderRadius.circular(18),
       ),
-      child: Text(value,
-          style: const TextStyle(
-              fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.bold)),
+      child: Text(
+        value,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+          color: Color(0xFF0F172A),
+        ),
+      ),
     );
   }
 
   Widget _infoLabel(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text,
-          style: const TextStyle(
-              fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.bold)),
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 12.5,
+          fontWeight: FontWeight.w900,
+          color: Color(0xFF0F172A),
+        ),
+      ),
     );
   }
 
@@ -445,17 +471,30 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     return Row(
       children: [
         Expanded(
-            child: Text(title,
-                style: const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold))),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+        ),
         if (canEdit)
           TextButton(
             onPressed: onToggle,
-            child: Text(isEditing ? 'إيقاف' : 'تعديل',
-                style: const TextStyle(
-                    fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+            style: TextButton.styleFrom(
+              foregroundColor: _mainColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            child: Text(
+              isEditing ? 'إيقاف' : 'تعديل',
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontWeight: FontWeight.w900,
+              ),
+            ),
           ),
       ],
     );
@@ -472,11 +511,16 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
       child: Row(
         children: [
           Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontSize: 13,
-                      color: isDark ? Colors.white70 : Colors.black87))),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: isDark ? Colors.white70 : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
           RatingBar.builder(
             initialRating: value,
             minRating: 0,
@@ -511,7 +555,7 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[100],
+        backgroundColor: isDark ? const Color(0xFF0E1726) : const Color(0xFFF2F7FB),
         appBar: PlatformTopBar(
           pageLabel: 'تفاصيل الطلب',
           showBackButton: Navigator.of(context).canPop(),
@@ -528,24 +572,73 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
           },
           onChatsTap: _openChat,
         ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!,
-                            style: const TextStyle(fontFamily: 'Cairo')),
-                        const SizedBox(height: 12),
-                        ElevatedButton(
-                            onPressed: _loadDetail,
-                            child: const Text('إعادة المحاولة',
-                                style: TextStyle(fontFamily: 'Cairo'))),
-                      ],
-                    ),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? const LinearGradient(
+                    colors: [Color(0xFF0E1726), Color(0xFF122235), Color(0xFF17293D)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   )
-                : _buildContent(isDark),
+                : const LinearGradient(
+                    colors: [Color(0xFFEEF5FB), Color(0xFFF4F7FB), Color(0xFFF7F8FC)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+          ),
+          child: _loading
+              ? const Center(
+                  child: CircularProgressIndicator(color: _accentColor),
+                )
+              : _error != null
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.error_outline_rounded,
+                                size: 48, color: Colors.red.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              _error!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Cairo',
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF667085),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            ElevatedButton.icon(
+                              onPressed: _loadDetail,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _accentColor,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                              ),
+                              icon: const Icon(Icons.refresh_rounded, size: 18),
+                              label: const Text(
+                                'إعادة المحاولة',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : _buildContent(isDark),
+        ),
       ),
     );
   }
@@ -553,8 +646,8 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   Widget _buildContent(bool isDark) {
     final order = _order!;
     final statusColor = _statusColor(order.statusGroup);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final borderColor = isDark ? Colors.white10 : Colors.grey.shade200;
+    final cardColor = isDark ? const Color(0xFF132637) : Colors.white.withValues(alpha: 0.96);
+    final borderColor = isDark ? Colors.white10 : const Color(0xFFE4EBF1);
     final canEdit = order.status == 'new';
 
     return SafeArea(
@@ -562,142 +655,32 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
               children: [
-                // ─── Header card ───
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Row(children: [
-                              Text(order.displayId,
-                                  style: TextStyle(
-                                      fontFamily: 'Cairo',
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark
-                                          ? Colors.white
-                                          : Colors.black87)),
-                              const SizedBox(width: 8),
-                              if (order.requestType != 'normal')
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: order.requestType == 'urgent'
-                                        ? Colors.red.withAlpha(25)
-                                        : Colors.blue.withAlpha(25),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(order.requestTypeLabel,
-                                      style: TextStyle(
-                                          fontFamily: 'Cairo',
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: order.requestType == 'urgent'
-                                              ? Colors.red
-                                              : Colors.blue)),
-                                ),
-                            ]),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: statusColor.withAlpha(38),
-                              borderRadius: BorderRadius.circular(20),
-                              border:
-                                  Border.all(color: statusColor.withAlpha(90)),
-                            ),
-                            child: Text(
-                              order.statusLabel.isNotEmpty
-                                  ? order.statusLabel
-                                  : order.statusGroup,
-                              style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: statusColor),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(order.title,
-                          style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 13,
-                              color: isDark ? Colors.white70 : Colors.black54)),
-                      if (order.categoryName != null)
-                        Text(
-                            '${order.categoryName} / ${order.subcategoryName ?? ''}',
-                            style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 12,
-                                color:
-                                    isDark ? Colors.white54 : Colors.black45)),
-                      const SizedBox(height: 6),
-                      Text(_formatDate(order.createdAt),
-                          style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              color: isDark ? Colors.white54 : Colors.black54)),
-                      if (order.providerName != null) ...[
-                        const SizedBox(height: 6),
-                        Row(children: [
-                          const Icon(Icons.person_outline,
-                              size: 16, color: _mainColor),
-                          const SizedBox(width: 4),
-                          Text(order.providerName!,
-                              style: TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 12,
-                                  color: isDark
-                                      ? Colors.white70
-                                      : Colors.black54)),
-                          if (order.providerPhone != null) ...[
-                            const SizedBox(width: 12),
-                            const Icon(Icons.phone,
-                                size: 14, color: _mainColor),
-                            const SizedBox(width: 4),
-                            Text(order.providerPhone!,
-                                style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 12,
-                                    color: isDark
-                                        ? Colors.white54
-                                        : Colors.black45)),
-                          ],
-                        ]),
-                      ],
-                    ],
+                _buildEntrance(
+                  0,
+                  _buildHeroCard(
+                    order: order,
+                    isDark: isDark,
+                    statusColor: statusColor,
                   ),
                 ),
                 const SizedBox(height: 14),
 
                 if (order.requestType == 'competitive') ...[
-                  _competitiveOffersCard(order, cardColor, borderColor, isDark),
+                  _buildEntrance(1, _competitiveOffersCard(order, cardColor, borderColor, isDark)),
                   const SizedBox(height: 12),
                 ],
 
                 // ─── مكتمل: التسليم + التقييم ───
                 if (order.statusGroup == 'completed') ...[
-                  _completedCard(cardColor, borderColor, isDark),
+                  _buildEntrance(2, _completedCard(cardColor, borderColor, isDark)),
                   const SizedBox(height: 12),
                 ],
 
                 // ─── تحت التنفيذ: المالية ───
                 if (order.statusGroup == 'in_progress') ...[
-                  _inProgressCard(order, cardColor, borderColor, isDark),
+                  _buildEntrance(2, _inProgressCard(order, cardColor, borderColor, isDark)),
                   const SizedBox(height: 12),
                 ],
 
@@ -707,132 +690,124 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                         order.estimatedAmount != null ||
                         order.receivedAmt != null ||
                         order.remainingAmt != null)) ...[
-                  _providerInputsDecisionCard(
-                      order, cardColor, borderColor, isDark, canEdit),
+                  _buildEntrance(
+                    2,
+                    _providerInputsDecisionCard(
+                        order, cardColor, borderColor, isDark, canEdit),
+                  ),
                   const SizedBox(height: 12),
                 ],
 
                 // ─── ملغي ───
                 if (order.statusGroup == 'cancelled') ...[
-                  _cancelledCard(order, cardColor, borderColor),
+                  _buildEntrance(2, _cancelledCard(order, cardColor, borderColor)),
                   const SizedBox(height: 12),
                 ],
 
-                // ─── العنوان ───
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _sectionHeader(
-                          title: 'عنوان الطلب',
-                          canEdit: canEdit,
-                          isEditing: _editTitle,
-                          onToggle: () =>
-                              setState(() => _editTitle = !_editTitle)),
-                      TextField(
-                        controller: _titleController,
-                        enabled: _editTitle && canEdit,
-                        decoration:
-                            const InputDecoration(border: OutlineInputBorder()),
-                        style: const TextStyle(fontFamily: 'Cairo'),
-                      ),
-                    ],
+                _buildEntrance(
+                  3,
+                  _surfaceCard(
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader(
+                            title: 'عنوان الطلب',
+                            canEdit: canEdit,
+                            isEditing: _editTitle,
+                            onToggle: () =>
+                                setState(() => _editTitle = !_editTitle)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: _titleController,
+                          enabled: _editTitle && canEdit,
+                          decoration: _inputDecoration(),
+                          style: const TextStyle(fontFamily: 'Cairo'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                // ─── التفاصيل ───
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _sectionHeader(
-                          title: 'تفاصيل الطلب',
-                          canEdit: canEdit,
-                          isEditing: _editDetails,
-                          onToggle: () =>
-                              setState(() => _editDetails = !_editDetails)),
-                      TextField(
-                        controller: _detailsController,
-                        enabled: _editDetails && canEdit,
-                        minLines: 4,
-                        maxLines: 7,
-                        decoration:
-                            const InputDecoration(border: OutlineInputBorder()),
-                        style: const TextStyle(fontFamily: 'Cairo'),
-                      ),
-                      if (canEdit) ...[
+                _buildEntrance(
+                  4,
+                  _surfaceCard(
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _sectionHeader(
+                            title: 'تفاصيل الطلب',
+                            canEdit: canEdit,
+                            isEditing: _editDetails,
+                            onToggle: () =>
+                                setState(() => _editDetails = !_editDetails)),
                         const SizedBox(height: 8),
-                        Text(
+                        TextField(
+                          controller: _detailsController,
+                          enabled: _editDetails && canEdit,
+                          minLines: 4,
+                          maxLines: 7,
+                          decoration: _inputDecoration(),
+                          style: const TextStyle(fontFamily: 'Cairo'),
+                        ),
+                        if (canEdit) ...[
+                          const SizedBox(height: 8),
+                          Text(
                             'تنبيه: سيتم إشعار مقدم الخدمة بأي تعديل في بيانات الطلب.',
                             style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 12,
-                                color:
-                                    isDark ? Colors.white54 : Colors.black54)),
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              color: isDark ? Colors.white54 : const Color(0xFF667085),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
 
-                // ─── المرفقات ───
-                _attachmentsCard(order, cardColor, borderColor, isDark),
+                _buildEntrance(5, _attachmentsCard(order, cardColor, borderColor, isDark)),
                 const SizedBox(height: 12),
 
-                // ─── سجل الحالة ───
                 if (order.statusLogs.isNotEmpty) ...[
-                  _statusLogsCard(order, cardColor, borderColor, isDark),
+                  _buildEntrance(6, _statusLogsCard(order, cardColor, borderColor, isDark)),
                   const SizedBox(height: 12),
                 ],
 
-                // ─── تذكير ───
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: borderColor),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(children: [
-                        Icon(Icons.notifications_none, color: _mainColor),
-                        SizedBox(width: 8),
-                        Expanded(
-                            child: Text('ارسال تنبيه وتذكير للمختص',
-                                style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold))),
-                      ]),
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _reminderController,
-                        minLines: 6,
-                        maxLines: 10,
-                        decoration: InputDecoration(
-                          hintText: 'اكتب رسالتك هنا...',
-                          hintStyle: const TextStyle(fontFamily: 'Cairo'),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                _buildEntrance(
+                  7,
+                  _surfaceCard(
+                    cardColor: cardColor,
+                    borderColor: borderColor,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(children: [
+                          Icon(Icons.notifications_none_rounded, color: _mainColor),
+                          SizedBox(width: 8),
+                          Expanded(
+                              child: Text('ارسال تنبيه وتذكير للمختص',
+                                  style: TextStyle(
+                                      fontFamily: 'Cairo',
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF0F172A)))),
+                        ]),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _reminderController,
+                          minLines: 6,
+                          maxLines: 10,
+                          decoration: _inputDecoration(hintText: 'اكتب رسالتك هنا...'),
+                          style: const TextStyle(fontFamily: 'Cairo'),
                         ),
-                        style: const TextStyle(fontFamily: 'Cairo'),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -850,6 +825,10 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       side: BorderSide(color: Colors.grey.shade400),
+                      backgroundColor: Colors.white.withValues(alpha: 0.9),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
                     child: const Text('رجوع',
                         style: TextStyle(
@@ -864,6 +843,9 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: _mainColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                       ),
                       child: _saving
                           ? const SizedBox(
@@ -888,6 +870,242 @@ class _ClientOrderDetailsScreenState extends State<ClientOrderDetailsScreen> {
   }
 
   // ─── Cards ───
+
+  Widget _buildHeroCard({
+    required ServiceRequest order,
+    required bool isDark,
+    required Color statusColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -36,
+            left: -18,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -56,
+            right: -18,
+            child: Container(
+              width: 154,
+              height: 154,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.inventory_2_outlined,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.displayId,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          order.title,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11.5,
+                            height: 1.8,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.84),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.18),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                    ),
+                    child: Text(
+                      order.statusLabel.isNotEmpty ? order.statusLabel : order.statusGroup,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _heroChip(Icons.local_offer_outlined, order.requestTypeLabel),
+                  if (order.categoryName != null && order.categoryName!.isNotEmpty)
+                    _heroChip(
+                      Icons.category_outlined,
+                      '${order.categoryName}${order.subcategoryName != null && order.subcategoryName!.isNotEmpty ? ' / ${order.subcategoryName}' : ''}',
+                    ),
+                  _heroChip(Icons.schedule_outlined, _formatDate(order.createdAt)),
+                  if (order.providerName != null && order.providerName!.isNotEmpty)
+                    _heroChip(Icons.storefront_outlined, order.providerName!),
+                  if (order.providerPhone != null && order.providerPhone!.isNotEmpty)
+                    _heroChip(Icons.phone_outlined, order.providerPhone!),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _heroChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _surfaceCard({
+    required Color cardColor,
+    required Color borderColor,
+    required Widget child,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: borderColor),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  InputDecoration _inputDecoration({String? hintText}) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: const TextStyle(
+        fontFamily: 'Cairo',
+        fontSize: 12.5,
+        fontWeight: FontWeight.w700,
+        color: Color(0xFF98A2B3),
+      ),
+      filled: true,
+      fillColor: const Color(0xFFF8FBFF),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+      ),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: _mainColor, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    );
+  }
 
   Widget _completedCard(Color cardColor, Color borderColor, bool isDark) {
     final order = _order!;

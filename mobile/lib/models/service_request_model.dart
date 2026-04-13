@@ -2,6 +2,8 @@
 /// تُمثّل بيانات API من /api/marketplace/
 library;
 
+import '../constants/saudi_cities.dart';
+
 // ─── مرفق الطلب ───
 class RequestAttachment {
   final int id;
@@ -109,6 +111,7 @@ class ServiceRequest {
   final String statusGroup;
   final String statusLabel; // Arabic text
   final String? city;
+  final String? cityDisplay;
   final DateTime createdAt;
 
   // مقدم الخدمة
@@ -169,6 +172,7 @@ class ServiceRequest {
     required this.statusGroup,
     required this.statusLabel,
     this.city,
+    this.cityDisplay,
     required this.createdAt,
     this.provider,
     this.providerName,
@@ -224,6 +228,7 @@ class ServiceRequest {
   double? get receivedAmt => _parseAmount(receivedAmount);
   double? get remainingAmt => _parseAmount(remainingAmount);
   double? get actualAmount => _parseAmount(actualServiceAmount);
+  String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
 
   static double? _parseAmount(String? s) {
     if (s == null || s.isEmpty) return null;
@@ -241,6 +246,7 @@ class ServiceRequest {
       statusGroup: (json['status_group'] ?? json['status'] ?? 'new') as String,
       statusLabel: (json['status_label'] ?? '') as String,
       city: json['city'] as String?,
+      cityDisplay: json['city_display'] as String?,
       createdAt: json['created_at'] != null
           ? DateTime.tryParse(json['created_at'] as String) ?? DateTime.now()
           : DateTime.now(),

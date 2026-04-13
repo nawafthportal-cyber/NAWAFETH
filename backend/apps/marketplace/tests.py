@@ -17,7 +17,7 @@ from apps.marketplace.serializers import ServiceRequestListSerializer
 from apps.marketplace.services.dispatch import ensure_dispatch_windows_for_urgent_request
 from apps.marketplace.services.actions import execute_action
 from apps.marketplace.views import provider_requests
-from apps.providers.models import Category, ProviderCategory, ProviderProfile, SubCategory
+from apps.providers.models import Category, ProviderCategory, ProviderProfile, SaudiCity, SaudiRegion, SubCategory
 from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 
 
@@ -203,6 +203,22 @@ class MarketplaceStatusLabelTests(TestCase):
         )
 
         self.assertEqual(serializer.get_status_label(obj), "تم قبول الطلب")
+
+    def test_city_display_is_exposed_for_requests(self):
+        region, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=region,
+            name_ar="الخرج",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+
+        serializer = ServiceRequestListSerializer()
+        obj = SimpleNamespace(city="الخرج")
+
+        self.assertEqual(serializer.get_city_display(obj), "الرياض - الخرج")
 
 
 class MarketplaceLegacyHtmlFlowTests(TestCase):

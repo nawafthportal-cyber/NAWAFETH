@@ -221,4 +221,8 @@ class SupportTicketAddAttachmentView(generics.CreateAPIView):
             file=file_obj,
             uploaded_by=request.user,
         )
+        from apps.uploads.media_optimizer import infer_media_kind
+        if infer_media_kind(file_obj) == "video":
+            from apps.uploads.tasks import schedule_video_optimization
+            schedule_video_optimization(att, "file")
         return Response(SupportAttachmentSerializer(att).data, status=status.HTTP_201_CREATED)

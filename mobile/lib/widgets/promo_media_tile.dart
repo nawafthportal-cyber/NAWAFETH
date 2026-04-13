@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -190,14 +191,11 @@ class _PromoMediaTileState extends State<PromoMediaTile> {
   }
 
   Widget _buildImage(String url) {
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: widget.fit,
-      errorBuilder: (_, __, ___) => widget.fallback ?? _fallbackSurface(Icons.broken_image_outlined),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return const Center(child: CircularProgressIndicator(color: Colors.white));
-      },
+      errorWidget: (_, __, ___) => widget.fallback ?? _fallbackSurface(Icons.broken_image_outlined),
+      placeholder: (_, __) => const Center(child: CircularProgressIndicator(color: Colors.white)),
     );
   }
 

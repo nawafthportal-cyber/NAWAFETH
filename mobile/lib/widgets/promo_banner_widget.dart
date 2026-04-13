@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -297,29 +298,26 @@ class _PromoBannerWidgetState extends State<PromoBannerWidget> {
       ),
       child: Transform.scale(
         scale: widget.backdropScale,
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.cover,
           alignment: widget.mediaAlignment,
           filterQuality: FilterQuality.high,
-          errorBuilder: (_, __, ___) => _fallback(),
+          errorWidget: (_, __, ___) => _fallback(),
         ),
       ),
     );
   }
 
   Widget _buildImage(String url) {
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
       fit: widget.mediaFit,
       alignment: widget.mediaAlignment,
       filterQuality: FilterQuality.high,
-      errorBuilder: (_, __, ___) => _fallback(),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return const Center(
-            child: CircularProgressIndicator(color: Colors.white));
-      },
+      errorWidget: (_, __, ___) => _fallback(),
+      placeholder: (_, __) => const Center(
+          child: CircularProgressIndicator(color: Colors.white)),
     );
   }
 

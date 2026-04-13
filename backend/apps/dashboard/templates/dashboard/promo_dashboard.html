@@ -1,5 +1,5 @@
 {% extends 'dashboard/_base.html' %}
-{% load static %}
+{% load static location_display %}
 {% block title %}لوحة فريق إدارة الترويج{% endblock %}
 {% block body %}
   <div class="dashboard-layout">
@@ -351,7 +351,7 @@
                                 {% if item.search_scope %}<div class="quick-stat"><span>نطاق البحث</span><strong>{{ item.get_search_scope_display }}</strong></div>{% endif %}
                                 {% if item.search_position %}<div class="quick-stat"><span>ترتيب الظهور</span><strong>{{ item.get_search_position_display }}</strong></div>{% endif %}
                                 {% if item.target_category %}<div class="quick-stat"><span>التصنيف</span><strong>{{ item.target_category }}</strong></div>{% endif %}
-                                {% if item.target_city %}<div class="quick-stat"><span>المدينة</span><strong>{{ item.target_city }}</strong></div>{% endif %}
+                                {% if item.target_city %}<div class="quick-stat"><span>المدينة</span><strong>{{ item.target_city|city_display }}</strong></div>{% endif %}
                                 {% if item.send_at %}<div class="quick-stat"><span>وقت الإرسال</span><strong>{{ item.send_at|date:"d/m/Y - H:i" }}</strong></div>{% endif %}
                                 {% if item.redirect_url %}<div class="quick-stat"><span>رابط التحويل</span><strong><a href="{{ item.redirect_url }}" target="_blank" rel="noopener">{{ item.redirect_url }}</a></strong></div>{% endif %}
                               </div>

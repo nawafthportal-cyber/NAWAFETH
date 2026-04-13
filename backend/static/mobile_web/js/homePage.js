@@ -769,7 +769,10 @@ const HomePage = (() => {
       provider_id: providerId,
       display_name: _readBannerString(rawPromo.target_provider_display_name) || 'مختص',
       profile_image: _readBannerString(rawPromo.target_provider_profile_image),
-      city: _readBannerString(rawPromo.target_provider_city),
+      city: UI.formatCityDisplay(
+        _readBannerString(rawPromo.target_provider_city_display) || _readBannerString(rawPromo.target_provider_city),
+        _readBannerString(rawPromo.target_provider_region)
+      ),
       redirect_url: _readBannerString(rawPromo.redirect_url),
       is_verified_blue: !!rawPromo.target_provider_is_verified_blue,
       is_verified_green: !!rawPromo.target_provider_is_verified_green,

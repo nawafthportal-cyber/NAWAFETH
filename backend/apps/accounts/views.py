@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.db import IntegrityError
 from django.utils import timezone
 from django.utils.timezone import timedelta
 import logging
@@ -37,6 +38,7 @@ from .otp import (
     otp_expiry,
 )
 from apps.core.throttling import build_cooldown_payload, throttled_response
+from apps.providers.location_formatter import format_city_display
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import IMAGE_EXTENSIONS, IMAGE_MIME_TYPES, validate_secure_upload
 
@@ -174,8 +176,17 @@ def _me_payload(user: User, *, request=None) -> dict:
             provider_profile_id = pp.id
             provider_display_name = pp.display_name
             provider_city = pp.city
-            provider_followers_count = pp.followers.count()
-            provider_likes_received_count = pp.likes.count()
+            from django.core.cache import cache as _cache
+            _fk = f"provider:{pp.id}:followers"
+            _lk = f"provider:{pp.id}:likes"
+            provider_followers_count = _cache.get(_fk)
+            if provider_followers_count is None:
+                provider_followers_count = pp.followers.count()
+                _cache.set(_fk, provider_followers_count, 300)
+            provider_likes_received_count = _cache.get(_lk)
+            if provider_likes_received_count is None:
+                provider_likes_received_count = pp.likes.count()
+                _cache.set(_lk, provider_likes_received_count, 300)
             provider_rating_avg = pp.rating_avg
             provider_rating_count = pp.rating_count
         except Exception:
@@ -192,6 +203,7 @@ def _me_payload(user: User, *, request=None) -> dict:
         "first_name": getattr(user, "first_name", None),
         "last_name": getattr(user, "last_name", None),
         "city": getattr(user, "city", None),
+        "city_display": format_city_display(getattr(user, "city", None)),
         "profile_image": _safe_media_url(getattr(user, "profile_image", None)),
         "cover_image": _safe_media_url(getattr(user, "cover_image", None)),
         "role_state": role_state,
@@ -203,6 +215,7 @@ def _me_payload(user: User, *, request=None) -> dict:
         "provider_profile_id": provider_profile_id,
         "provider_display_name": provider_display_name,
         "provider_city": provider_city,
+        "provider_city_display": format_city_display(provider_city),
         "provider_followers_count": provider_followers_count,
         "provider_likes_received_count": provider_likes_received_count,
         "provider_rating_avg": provider_rating_avg,
@@ -380,6 +393,11 @@ def me_view(request):
 
         try:
             user.save()
+        except IntegrityError:
+            return Response(
+                {"phone": ["رقم الجوال مستخدم مسبقاً"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as exc:
             # Catch storage backend errors (e.g. R2/S3 403 Forbidden)
             msg = str(exc)
@@ -823,6 +841,46 @@ def complete_registration(request):
         ]
     )
     return Response({"ok": True, "role_state": user.role_state}, status=status.HTTP_200_OK)
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def skip_completion(request):
+    """Allow a phone-only/visitor account to continue as a partial client."""
+    user: User = request.user
+
+    if user.role_state not in (
+        UserRole.VISITOR,
+        UserRole.PHONE_ONLY,
+        UserRole.CLIENT,
+        UserRole.PROVIDER,
+        UserRole.STAFF,
+    ):
+        return Response({"detail": "حالة الحساب غير معروفة"}, status=status.HTTP_400_BAD_REQUEST)
+
+    update_fields: list[str] = []
+    if user.role_state in (UserRole.VISITOR, UserRole.PHONE_ONLY):
+        user.role_state = UserRole.CLIENT
+        update_fields.append("role_state")
+
+    current_username = (user.username or "").strip()
+    normalized_phone = _normalize_phone_local05(user.phone or "")
+    phone_username = normalized_phone.lstrip("@")
+    if not current_username and phone_username:
+        user.username = phone_username
+        update_fields.append("username")
+
+    if update_fields:
+        user.save(update_fields=update_fields)
+
+    return Response(
+        {
+            "ok": True,
+            "role_state": user.role_state,
+            "needs_completion": False,
+            "profile_status": "partial",
+        },
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["GET"])

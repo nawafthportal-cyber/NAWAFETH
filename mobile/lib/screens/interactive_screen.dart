@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../widgets/bottom_nav.dart';
 import '../widgets/custom_drawer.dart';
@@ -387,7 +388,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                     CircleAvatar(
                       radius: 14,
                       backgroundColor: purple.withValues(alpha: 0.1),
-                      backgroundImage: profileUrl != null ? NetworkImage(profileUrl) : null,
+                      backgroundImage: profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
                       child: profileUrl == null
                           ? Text(
                               provider.displayName.isNotEmpty ? provider.displayName[0] : '؟',
@@ -456,8 +457,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                           ],
                         ],
                       ),
-                      if (provider.city != null && provider.city!.isNotEmpty)
-                        Text(provider.city!, style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
+                      if (provider.locationDisplay.trim().isNotEmpty)
+                        Text(provider.locationDisplay, style: TextStyle(fontSize: 9, fontFamily: 'Cairo', color: isDark ? Colors.grey.shade600 : Colors.grey.shade500)),
                     ],
                   ),
                 ),
@@ -466,7 +467,7 @@ class _InteractiveScreenState extends State<InteractiveScreen>
                     builder: (_) => ChatDetailScreen(
                       peerName: provider.displayName,
                       peerPhone: provider.phone,
-                      peerCity: provider.city,
+                      peerCity: provider.locationDisplay,
                       peerProviderId: provider.id,
                     ),
                   )),
@@ -490,8 +491,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: coverUrl != null
-                    ? Image.network(coverUrl, fit: BoxFit.cover, width: double.infinity,
-                        errorBuilder: (_, __, ___) => _imgPlaceholder(isDark))
+                    ? CachedNetworkImage(imageUrl: coverUrl, fit: BoxFit.cover, width: double.infinity,
+                        errorWidget: (_, __, ___) => _imgPlaceholder(isDark))
                     : _imgPlaceholder(isDark),
               ),
             ),
@@ -683,8 +684,8 @@ class _InteractiveScreenState extends State<InteractiveScreen>
         children: [
           // Image
           imageUrl != null
-              ? Image.network(imageUrl, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _brokenImgPlaceholder(isDark))
+              ? CachedNetworkImage(imageUrl: imageUrl, fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => _brokenImgPlaceholder(isDark))
               : _brokenImgPlaceholder(isDark),
 
           // Video icon

@@ -1,5 +1,5 @@
 // ignore_for_file: unused_element
-import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -39,13 +39,21 @@ class ProvidersMapScreen extends StatefulWidget {
   State<ProvidersMapScreen> createState() => _ProvidersMapScreenState();
 }
 
-class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
+class _ProvidersMapScreenState extends State<ProvidersMapScreen>
+  with SingleTickerProviderStateMixin {
+  static const Color _mainColor = Color(0xFF0F766E);
+  static const Color _accentColor = Color(0xFF115E59);
+  static const Color _inkColor = Color(0xFF0F172A);
   MapController? _mapController;
   bool _isMapReady = false;
   Position? _currentPosition;
   bool _isLoadingLocation = true;
   List<Marker> _markers = [];
   ServiceProviderLocation? _selectedProvider;
+
+  late final TextEditingController _searchController;
+  late final AnimationController _entranceController;
+  String _selectedSort = 'nearest';
   
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
@@ -400,12 +408,25 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
   @override
   void initState() {
     super.initState();
+    _searchController = TextEditingController();
+    _searchController.addListener(_filterProviders);
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _mapController = MapController();
     _initializeMap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchController.dispose();
+    _entranceController.dispose();
     _mapController?.dispose();
     _sheetController.dispose();
     super.dispose();
@@ -580,19 +601,159 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
 
   // ✅ تصفية المزودين حسب التصنيف
   void _filterProviders() {
-    setState(() {
-      // لا تصنيف محلي — المزودون جاهزون من الـ API
-      _filteredProviders = List.from(_providers);
+    final query = _searchController.text.trim().toLowerCase();
 
-      // ترتيب حسب المسافة
+    setState(() {
+      _filteredProviders = _providers.where((provider) {
+        if (query.isEmpty) return true;
+        final haystack = [
+          provider.name,
+          provider.category,
+          provider.subCategory,
+          provider.city,
+          provider.cityDisplay,
+        ].join(' ').toLowerCase();
+        return haystack.contains(query);
+      }).toList();
+
       _filteredProviders.sort((a, b) {
-        final distA = a.distanceFromUser ?? double.infinity;
-        final distB = b.distanceFromUser ?? double.infinity;
-        return distA.compareTo(distB);
+        switch (_selectedSort) {
+          case 'rating':
+            return b.rating.compareTo(a.rating);
+          case 'completed':
+            return b.operationsCount.compareTo(a.operationsCount);
+          case 'response':
+            return a.responseTime.compareTo(b.responseTime);
+          case 'nearest':
+          default:
+            final distA = a.distanceFromUser ?? double.infinity;
+            final distB = b.distanceFromUser ?? double.infinity;
+            final byDistance = distA.compareTo(distB);
+            if (byDistance != 0) return byDistance;
+            return b.rating.compareTo(a.rating);
+        }
       });
 
       _createMarkers();
     });
+  }
+
+  void _showSortSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text(
+                  'فرز النتائج',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: _inkColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'اختر طريقة العرض الأنسب للمزوّدين على الخريطة والقائمة.',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ...[
+                  ('nearest', 'الأقرب إليك', Icons.near_me_outlined),
+                  ('rating', 'أعلى تقييم', Icons.star_outline_rounded),
+                  ('completed', 'الأكثر طلبات مكتملة', Icons.verified_outlined),
+                  ('response', 'الأسرع استجابة', Icons.bolt_outlined),
+                ].map((item) {
+                  final key = item.$1;
+                  final selected = _selectedSort == key;
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.pop(context);
+                        setState(() => _selectedSort = key);
+                        _filterProviders();
+                      },
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: selected ? _mainColor.withValues(alpha: 0.08) : Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: selected ? _mainColor : const Color(0xFFE2E8F0),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(item.$3, color: selected ? _mainColor : const Color(0xFF64748B)),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                item.$2,
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: selected ? _mainColor : _inkColor,
+                                ),
+                              ),
+                            ),
+                            if (selected)
+                              const Icon(Icons.check_circle_rounded, color: _mainColor, size: 20),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _sortLabel() {
+    switch (_selectedSort) {
+      case 'rating':
+        return 'أعلى تقييم';
+      case 'completed':
+        return 'الأكثر طلبات';
+      case 'response':
+        return 'الأسرع استجابة';
+      case 'nearest':
+      default:
+        return 'الأقرب';
+    }
   }
 
   // ✅ إنشاء الماركرز
@@ -821,12 +982,12 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
 
     final mediaUrl = value.startsWith('http') ? value : ApiClient.buildMediaUrl(value);
     if (mediaUrl != null && mediaUrl.startsWith('http')) {
-      return Image.network(
-        mediaUrl,
+      return CachedNetworkImage(
+        imageUrl: mediaUrl,
         fit: BoxFit.cover,
         width: width,
         height: height,
-        errorBuilder: (_, __, ___) {
+        errorWidget: (_, __, ___) {
           if (value.startsWith('assets/')) {
             return Image.asset(
               value,
@@ -1082,24 +1243,58 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
   // ✅ شاشة التحميل
   Widget _buildLoadingScreen() {
     return Container(
-      color: Colors.white,
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.deepPurple),
-            ),
-            SizedBox(height: 24),
-            Text(
-              'جارٍ تحديد موقعك...',
-              style: TextStyle(
-                fontSize: 16,
-                fontFamily: 'Cairo',
-                color: Colors.black87,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: _mainColor.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 12),
               ),
-            ),
-          ],
+            ],
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(_mainColor),
+              ),
+              SizedBox(height: 18),
+              Text(
+                'جارٍ تحديد موقعك وتحميل المزوّدين...',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Cairo',
+                  color: _inkColor,
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'سنرتب النتائج على الخريطة حسب موقعك الحالي فور اكتمال التحميل.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontFamily: 'Cairo',
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1108,52 +1303,78 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
   // ✅ حالة فارغة
   Widget _buildEmptyState() {
     return Container(
-      color: Colors.white,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Colors.white],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.search_off,
-                size: 80,
-                color: Colors.grey.shade400,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'لا يوجد مزودون قريبون حالياً',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  fontFamily: 'Cairo',
+          padding: const EdgeInsets.all(28),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: _mainColor.withValues(alpha: 0.10),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'جرب توسيع نطاق البحث أو اختيار تصنيف آخر',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontFamily: 'Cairo',
-                  color: Colors.grey.shade600,
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 88,
+                  height: 88,
+                  decoration: BoxDecoration(
+                    color: _mainColor.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.search_off_rounded, size: 42, color: _mainColor),
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('العودة'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.deepPurple,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 12,
+                const SizedBox(height: 20),
+                const Text(
+                  'لا يوجد مزودون مطابقون حاليًا',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Cairo',
+                    color: _inkColor,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'جرّب توسيع نطاق المدينة، تعديل التخصص، أو العودة لاختيار خدمة مختلفة.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF64748B),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 22),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: const Text('العودة', style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _mainColor,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -1164,7 +1385,6 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
   Widget _buildMapWithSheet() {
     return Stack(
       children: [
-        // الخريطة
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
@@ -1190,178 +1410,312 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
           ],
         ),
 
-        // AppBar شفاف
         Positioned(
           top: 0,
           left: 0,
           right: 0,
           child: SafeArea(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: _buildEntrance(
+                0,
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF115E59), Color(0xFF0F766E), Color(0xFF14B8A6)],
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: [
+                      BoxShadow(
+                        color: _accentColor.withValues(alpha: 0.22),
+                        blurRadius: 24,
+                        offset: const Offset(0, 12),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.category,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Cairo',
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: -36,
+                        left: -18,
+                        child: Container(
+                          width: 126,
+                          height: 126,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withValues(alpha: 0.10),
                           ),
                         ),
-                        if (widget.subCategory != null)
-                          Text(
-                            widget.subCategory!,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontFamily: 'Cairo',
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.deepPurple.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${_filteredProviders.length} مزود',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Cairo',
-                        color: AppColors.deepPurple,
                       ),
-                    ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                InkWell(
+                                  onTap: () => Navigator.pop(context),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.category,
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          fontFamily: 'Cairo',
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      if ((widget.subCategory ?? '').trim().isNotEmpty)
+                                        Text(
+                                          widget.subCategory!,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w700,
+                                            fontFamily: 'Cairo',
+                                            color: Colors.white.withValues(alpha: 0.84),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '${_filteredProviders.length} مزود',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      fontFamily: 'Cairo',
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'استعرض المزوّدين على الخريطة، وابحث بينهم بالاسم أو التخصص، ثم اختر الأنسب مباشرة.',
+                              style: TextStyle(
+                                fontSize: 11.2,
+                                height: 1.7,
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withValues(alpha: 0.86),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: TextField(
+                                controller: _searchController,
+                                style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5, color: _inkColor),
+                                decoration: InputDecoration(
+                                  hintText: 'ابحث بالاسم أو التخصص أو المدينة',
+                                  hintStyle: TextStyle(
+                                    fontFamily: 'Cairo',
+                                    fontSize: 11.5,
+                                    color: Colors.grey.shade500,
+                                  ),
+                                  prefixIcon: const Icon(Icons.search_rounded, color: _mainColor),
+                                  suffixIcon: _searchController.text.trim().isEmpty
+                                      ? null
+                                      : IconButton(
+                                          onPressed: () {
+                                            _searchController.clear();
+                                            _filterProviders();
+                                          },
+                                          icon: const Icon(Icons.close_rounded, size: 18),
+                                        ),
+                                  border: InputBorder.none,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _headerChip(Icons.sort_rounded, _sortLabel()),
+                                if ((widget.cityFilter ?? '').trim().isNotEmpty)
+                                  _headerChip(Icons.location_city_outlined, widget.cityFilter!),
+                                if (widget.urgentOnly)
+                                  _headerChip(Icons.flash_on_rounded, 'عاجل فقط'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                ],
+                ),
               ),
             ),
           ),
         ),
 
-        // زر موقعي
         Positioned(
-          bottom: 280,
+          bottom: 290,
           left: 16,
-          child: FloatingActionButton(
-            mini: true,
-            backgroundColor: Colors.white,
-            onPressed: () {
-              if (_currentPosition != null && _mapController != null) {
-                _moveMapIfReady(
-                  LatLng(
-                    _currentPosition!.latitude,
-                    _currentPosition!.longitude,
-                  ),
-                  14.0,
-                );
-              }
-            },
-            child: const Icon(
-              Icons.my_location,
-              color: AppColors.deepPurple,
+          child: _buildEntrance(
+            1,
+            Column(
+              children: [
+                FloatingActionButton(
+                  heroTag: 'providers-map-location',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  onPressed: () {
+                    if (_currentPosition != null && _mapController != null) {
+                      _moveMapIfReady(
+                        LatLng(
+                          _currentPosition!.latitude,
+                          _currentPosition!.longitude,
+                        ),
+                        14.0,
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.my_location_rounded, color: _mainColor),
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton(
+                  heroTag: 'providers-map-sort',
+                  mini: true,
+                  backgroundColor: Colors.white,
+                  onPressed: _showSortSheet,
+                  child: const Icon(Icons.tune_rounded, color: _mainColor),
+                ),
+              ],
             ),
           ),
         ),
 
-        // القائمة السفلية القابلة للسحب
         DraggableScrollableSheet(
           controller: _sheetController,
           initialChildSize: 0.35,
           minChildSize: 0.15,
           maxChildSize: 0.75,
           builder: (context, scrollController) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(24),
+            return _buildEntrance(
+              2,
+              Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(28),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 20,
+                      offset: Offset(0, -6),
+                    ),
+                  ],
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 16,
-                    offset: Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  // مقبض السحب
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 12),
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
+                child: Column(
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
-                  ),
-                  // العنوان
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.list_alt,
-                          color: AppColors.deepPurple,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'مقدمو الخدمات (${_filteredProviders.length})',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            fontFamily: 'Cairo',
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: _mainColor.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Icon(Icons.map_outlined, color: _mainColor),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'المزوّدون المطابقون',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    fontFamily: 'Cairo',
+                                    color: _inkColor,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${_filteredProviders.length} نتيجة بعد البحث والفرز الحالي',
+                                  style: const TextStyle(
+                                    fontSize: 10.8,
+                                    fontWeight: FontWeight.w700,
+                                    fontFamily: 'Cairo',
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: _showSortSheet,
+                            icon: const Icon(Icons.tune_rounded, size: 16),
+                            label: Text(
+                              _sortLabel(),
+                              style: const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                            ),
+                            style: TextButton.styleFrom(foregroundColor: _mainColor),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Divider(height: 24),
-                  // القائمة
-                  Expanded(
-                    child: ListView.separated(
-                      controller: scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _filteredProviders.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final provider = _filteredProviders[index];
-                        return _buildProviderCard(provider);
-                      },
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 18),
+                        itemCount: _filteredProviders.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final provider = _filteredProviders[index];
+                          return _buildProviderCard(provider);
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -1370,48 +1724,85 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
     );
   }
 
+  Widget _headerChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Cairo',
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ✅ بطاقة مقدم الخدمة
   Widget _buildProviderCard(ServiceProviderLocation provider) {
     final isSelected = _selectedProvider?.id == provider.id;
+    final distanceText = provider.distanceFromUser != null
+        ? '${provider.distanceFromUser!.toStringAsFixed(1)} كم'
+        : 'غير محددة';
 
     return InkWell(
       onTap: () {
         _openProviderProfile(provider);
       },
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(22),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.deepPurple.withValues(alpha: 0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected ? _mainColor.withValues(alpha: 0.06) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isSelected
-                ? AppColors.deepPurple
+                ? _mainColor
                 : Colors.grey.shade200,
             width: isSelected ? 2 : 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: _mainColor.withValues(alpha: 0.08),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
+            ),
+          ],
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // الصورة
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(16),
                   child: Container(
-                    width: 60,
-                    height: 60,
+                    width: 68,
+                    height: 68,
                     color: Colors.grey.shade200,
                     child: _providerImageWidget(
                       provider.profileImage,
-                      width: 60,
-                      height: 60,
+                      width: 68,
+                      height: 68,
                       fallbackIconSize: 32,
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // المعلومات
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1422,16 +1813,35 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                             child: Text(
                               provider.name,
                               style: const TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w900,
+                                fontFamily: 'Cairo',
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          if (provider.verified) ...[
+                            const SizedBox(width: 6),
+                            VerifiedBadgeView(
+                              isVerifiedBlue: provider.isVerifiedBlue,
+                              isVerifiedGreen: provider.isVerifiedGreen,
+                              iconSize: 15,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
+                      Text(
+                        provider.subCategory.isNotEmpty ? provider.subCategory : provider.category,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
                           RatingBarIndicator(
@@ -1448,40 +1858,21 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                             '${provider.rating}',
                             style: const TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w800,
+                              fontFamily: 'Cairo',
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          if (provider.distanceFromUser != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.location_on,
-                                    size: 12,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    '${provider.distanceFromUser!.toStringAsFixed(1)} كم',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _metricBadge(Icons.location_on_outlined, distanceText, const Color(0xFF2563EB)),
+                          _metricBadge(Icons.verified_outlined, '${provider.operationsCount} طلب مكتمل', _mainColor),
+                          if (provider.isUrgentEnabled)
+                            _metricBadge(Icons.flash_on_rounded, 'يقبل عاجل', const Color(0xFFDC2626)),
                         ],
                       ),
                     ],
@@ -1489,8 +1880,14 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                 ),
               ],
             ),
+            if (provider.hasExcellenceBadges) ...[
+              const SizedBox(height: 10),
+              ExcellenceBadgesWrap(
+                badges: provider.excellenceBadges,
+                compact: true,
+              ),
+            ],
             const SizedBox(height: 10),
-            // خيارات التواصل (كما في الصورة)
             Row(
               children: [
                 Expanded(
@@ -1507,30 +1904,72 @@ class _ProvidersMapScreenState extends State<ProvidersMapScreen> {
                       _buildContactIcon(
                         icon: Icons.call,
                         label: 'اتصال',
-                        color: AppColors.deepPurple,
+                        color: _mainColor,
                         onTap: () => _openPhoneCall(provider),
                       ),
                       _buildContactIcon(
                         icon: Icons.chat_bubble_outline,
                         label: 'محادثة',
-                        color: AppColors.deepPurple,
+                        color: _mainColor,
                         onTap: () => _openChat(provider),
                       ),
                     ],
                   ),
                 ),
-                // زر اختياري لعرض نفس الخيارات كبوتوم شيت
                 IconButton(
                   onPressed: () => _showProviderContactActions(provider),
-                  icon: const Icon(
-                    Icons.more_horiz,
-                    color: Colors.grey,
-                  ),
+                  icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF64748B)),
                 ),
               ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _metricBadge(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Cairo',
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -58,6 +59,11 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
   String? _searchBannerProviderName;
   bool _searchBannerImpressionTracked = false;
   String _lastCategoryPopupKey = '';
+
+  // ── Search results cache (5 min) ──
+  static final Map<String, List<ProviderPublicModel>> _searchCache = {};
+  static final Map<String, DateTime> _searchCacheTime = {};
+  static const _searchCacheTtl = Duration(minutes: 5);
 
   @override
   void initState() {
@@ -392,6 +398,33 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
     if (mounted) setState(() => _loadingProviders = true);
     try {
       final q = _searchCtrl.text.trim();
+      final cacheKey = '${q}_${_selectedCatId ?? ''}';
+
+      // Check cache first
+      final cachedAt = _searchCacheTime[cacheKey];
+      if (cachedAt != null &&
+          DateTime.now().difference(cachedAt) < _searchCacheTtl &&
+          _searchCache.containsKey(cacheKey)) {
+        final cached = _searchCache[cacheKey]!;
+        final distanceMap = await _buildDistanceMap(
+          cached,
+          requestPermission:
+              _selectedSort == 'nearest' ? requestLocationPermission : false,
+        );
+        _distanceKmByProviderId
+          ..clear()
+          ..addAll(distanceMap);
+        final sorted = List<ProviderPublicModel>.from(cached);
+        _sortProviders(sorted);
+        if (mounted) {
+          setState(() {
+            _providers = _applySearchPromoOrdering(sorted);
+            _loadError = null;
+          });
+        }
+        if (mounted) setState(() => _loadingProviders = false);
+        return;
+      }
       final queryParameters = <String, String>{'page_size': '30'};
       if (q.isNotEmpty) {
         queryParameters['q'] = q;
@@ -412,6 +445,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
         final providers = list
             .map((e) => ProviderPublicModel.fromJson(e as Map<String, dynamic>))
             .toList();
+        // Store in cache
+        _searchCache[cacheKey] = List<ProviderPublicModel>.from(providers);
+        _searchCacheTime[cacheKey] = DateTime.now();
         final distanceMap = await _buildDistanceMap(
           providers,
           requestPermission:
@@ -1668,9 +1704,9 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                   fit: StackFit.expand,
                   children: [
                     coverUrl != null
-                        ? Image.network(coverUrl,
+                        ? CachedNetworkImage(imageUrl: coverUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _gradientBox(purple))
+                            errorWidget: (_, __, ___) => _gradientBox(purple))
                         : _gradientBox(purple),
                     // Gradient overlay
                     Container(
@@ -1696,7 +1732,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                               radius: 18,
                               backgroundColor: purple.withValues(alpha: 0.1),
                               backgroundImage: profileUrl != null
-                                  ? NetworkImage(profileUrl)
+                                  ? CachedNetworkImageProvider(profileUrl)
                                   : null,
                               child: profileUrl == null
                                   ? Text(
@@ -1792,7 +1828,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                         ],
                       ],
                     ),
-                    if (p.city != null) ...[
+                    if (p.locationDisplay.trim().isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -1805,7 +1841,7 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                           ),
                           const SizedBox(width: 2),
                           Text(
-                            p.city!,
+                            p.locationDisplay,
                             style: TextStyle(
                               fontSize: 9.5,
                               fontFamily: 'Cairo',

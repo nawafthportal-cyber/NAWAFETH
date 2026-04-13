@@ -3,29 +3,19 @@
 {% block title %}لوحة إدارة الصلاحيات وتقارير المنصة{% endblock %}
 {% block body %}
   <div class="dashboard-layout admin-control-page">
-    <header class="dash-header">
-      <div class="hero-panel panel fade-in admin-control-hero">
-        <div class="admin-control-hero-copy">
-          <span class="pill brand">Admin Control</span>
-          <h1>لوحة إدارة الصلاحيات وتقارير المنصة</h1>
-          <p class="subtitle">واجهة موحدة لإدارة الحسابات التشغيلية، حوكمة الوصول، ومتابعة مؤشرات الأداء ضمن نفس هوية المنصة الحالية.</p>
-          <div class="hero-stats">
-            <span class="pill brand">إجمالي الحسابات: {{ access_summary.total }}</span>
-            <span class="pill mint">الحسابات النشطة: {{ access_summary.active }}</span>
-            <span class="pill danger">الحسابات المسحوبة: {{ access_summary.revoked }}</span>
-          </div>
-        </div>
-        <div class="admin-control-hero-grid">
-          <article class="admin-control-hero-card"><span>إجمالي الحسابات</span><strong data-animate-number>{{ access_summary.total }}</strong><small>كل الحسابات التشغيلية المسجلة.</small></article>
-          <article class="admin-control-hero-card"><span>طلبات الفترة</span><strong data-animate-number>{{ reports.requests_summary.total }}</strong><small>الطلبات خلال الفترة الحالية.</small></article>
-          <article class="admin-control-hero-card"><span>التحقق OTP</span><strong data-animate-number>{{ reports.users_summary.app_logins }}</strong><small>حركة تسجيل الدخول والتحقق.</small></article>
-          <article class="admin-control-hero-card"><span>فواتير مدفوعة</span><strong data-animate-number>{{ reports.payment_summary.paid_invoices }}</strong><small>الدفعات الناجحة في الفترة المختارة.</small></article>
-        </div>
-      </div>
-    </header>
-
     <main class="dash-shell">
       <section class="panel content-panel">
+        <div class="admin-control-page-header">
+          <div class="admin-control-page-header__brand">
+            <span class="admin-control-page-header__badge">Admin</span>
+            <h1 class="admin-control-page-header__title">إدارة الصلاحيات والتقارير</h1>
+          </div>
+          <div class="admin-control-page-header__stats">
+            <span class="admin-control-page-stat"><span>الحسابات</span><strong data-animate-number>{{ access_summary.total }}</strong></span>
+            <span class="admin-control-page-stat is-active"><span>نشطة</span><strong data-animate-number>{{ access_summary.active }}</strong></span>
+            <span class="admin-control-page-stat is-revoked"><span>مسحوبة</span><strong data-animate-number>{{ access_summary.revoked }}</strong></span>
+          </div>
+        </div>
         {% if messages %}
           <ul class="alert-list" id="alertsList">
             {% for message in messages %}

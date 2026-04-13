@@ -28,8 +28,12 @@ class ProviderOrderDetailsScreen extends StatefulWidget {
 }
 
 class _ProviderOrderDetailsScreenState
-    extends State<ProviderOrderDetailsScreen> {
-  static const Color _mainColor = Colors.deepPurple;
+    extends State<ProviderOrderDetailsScreen>
+    with SingleTickerProviderStateMixin {
+  static const Color _mainColor = Color(0xFF0F766E);
+  static const Color _accentColor = Color(0xFF115E59);
+  static const Color _inkColor = Color(0xFF0F172A);
+  late final AnimationController _entranceController;
 
   ServiceRequest? _order;
   bool _loading = true;
@@ -69,10 +73,19 @@ class _ProviderOrderDetailsScreenState
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _badgeHandle = UnreadBadgeService.acquire();
     _badgeHandle?.addListener(_handleBadgeChange);
     _handleBadgeChange();
     _ensureProviderAccount();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   Future<void> _ensureProviderAccount() async {
@@ -106,6 +119,7 @@ class _ProviderOrderDetailsScreenState
     _offerPriceController.dispose();
     _offerDurationDaysController.dispose();
     _offerNoteController.dispose();
+    _entranceController.dispose();
     super.dispose();
   }
 
@@ -406,75 +420,91 @@ class _ProviderOrderDetailsScreenState
   }
 
   Widget _sectionTitle(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text,
-          style: const TextStyle(
-              fontFamily: 'Cairo', fontWeight: FontWeight.bold, fontSize: 14)),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Cairo',
+          fontWeight: FontWeight.w900,
+          fontSize: 14,
+          color: isDark ? Colors.white : _inkColor,
+        ),
+      ),
     );
   }
 
   Widget _pill(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withAlpha(35),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: color.withAlpha(90)),
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withAlpha(80)),
       ),
       child: Text(text,
           style: TextStyle(
               color: color,
               fontFamily: 'Cairo',
-              fontSize: 12,
-              fontWeight: FontWeight.bold)),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800)),
     );
   }
 
   Widget _infoLine(
       {required IconData icon, required String label, required String value}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(children: [
       Icon(icon, size: 18, color: _mainColor),
       const SizedBox(width: 8),
       Text(label,
-          style: const TextStyle(
+          style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
-              color: Colors.black87)),
+              color: isDark ? Colors.white70 : _inkColor)),
       const SizedBox(width: 8),
       Expanded(
           child: Text(value,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+              style: TextStyle(
                   fontFamily: 'Cairo',
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black54))),
+                  color: isDark ? Colors.white60 : const Color(0xFF64748B)))),
     ]);
   }
 
   Widget _readOnlyBox(
       {required String label, required String value, int maxLines = 3}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
-          style: const TextStyle(
-              fontFamily: 'Cairo', fontWeight: FontWeight.w700, fontSize: 13)),
+          style: TextStyle(
+              fontFamily: 'Cairo',
+              fontWeight: FontWeight.w800,
+              fontSize: 12.5,
+              color: isDark ? Colors.white70 : _inkColor)),
       const SizedBox(height: 8),
       Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _mainColor.withAlpha(50)),
+          color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
         ),
         child: Text(value.trim().isEmpty ? '-' : value,
             maxLines: maxLines,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-                fontFamily: 'Cairo', fontSize: 13, height: 1.35)),
+            style: TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 13,
+                height: 1.6,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : _inkColor)),
       ),
     ]);
   }
@@ -486,30 +516,21 @@ class _ProviderOrderDetailsScreenState
     String? hint,
     TextInputType? keyboardType,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
       enabled: enabled,
       maxLines: maxLines,
       keyboardType: keyboardType,
-      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _mainColor.withAlpha(70)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _mainColor.withAlpha(170), width: 1.3),
-        ),
-        disabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: _mainColor.withAlpha(35)),
-        ),
+      style: TextStyle(
+        fontFamily: 'Cairo',
+        fontSize: 13,
+        color: isDark ? Colors.white : _inkColor,
+      ),
+      decoration: _inputDecoration(
+        hint: hint,
+        isDark: isDark,
+        enabled: enabled,
       ),
     );
   }
@@ -519,32 +540,52 @@ class _ProviderOrderDetailsScreenState
     required DateTime? value,
     required VoidCallback onPick,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onPick,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _mainColor.withAlpha(70)),
-          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
+          color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
         ),
         child: Row(children: [
-          const Icon(Icons.calendar_month, size: 18, color: _mainColor),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _mainColor.withAlpha(18),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.calendar_month, size: 18, color: _mainColor),
+          ),
           const SizedBox(width: 8),
           Expanded(
               child: Text(
                   value == null ? label : '$label: ${_formatDateOnly(value)}',
-                  style: const TextStyle(fontFamily: 'Cairo', fontSize: 13))),
-          const Icon(Icons.expand_more, color: Colors.black45),
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : _inkColor,
+                  ))),
+          Icon(Icons.expand_more, color: isDark ? Colors.white38 : Colors.black45),
         ]),
       ),
     );
   }
 
   Widget _moneyField(String label, TextEditingController controller) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontFamily: 'Cairo', fontSize: 12)),
+      Text(label,
+          style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white70 : _inkColor)),
       const SizedBox(height: 6),
       _textField(
         controller: controller,
@@ -555,25 +596,380 @@ class _ProviderOrderDetailsScreenState
     ]);
   }
 
+  InputDecoration _inputDecoration({
+    required String? hint,
+    required bool isDark,
+    required bool enabled,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(
+        fontFamily: 'Cairo',
+        fontSize: 13,
+        color: isDark ? Colors.white30 : Colors.grey.shade500,
+      ),
+      filled: true,
+      fillColor: isDark
+          ? Colors.white.withValues(alpha: enabled ? 0.04 : 0.02)
+          : enabled
+              ? const Color(0xFFF6FBFA)
+              : const Color(0xFFF8FAFC),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
+      ),
+      focusedBorder: const OutlineInputBorder(
+        borderRadius: BorderRadius.all(Radius.circular(18)),
+        borderSide: BorderSide(color: _mainColor, width: 1.2),
+      ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+      ),
+    );
+  }
+
+  Widget _surfaceCard({
+    required IconData icon,
+    required String title,
+    String? description,
+    required Widget child,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF102928) : Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: _mainColor.withAlpha(12),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _mainColor.withAlpha(18),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: _mainColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? Colors.white : _inkColor,
+                      ),
+                    ),
+                    if (description != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        description,
+                        style: TextStyle(
+                          fontFamily: 'Cairo',
+                          fontSize: 10.8,
+                          height: 1.7,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroCard(ServiceRequest order, Color statusColor) {
+    final categoryLabel = order.categoryName == null
+        ? 'بدون تصنيف'
+        : '${order.categoryName}${(order.subcategoryName ?? '').trim().isEmpty ? '' : ' / ${order.subcategoryName}'}';
+    final locationLabel = order.locationDisplay.trim().isNotEmpty
+        ? order.locationDisplay
+        : ((order.city ?? '').trim().isNotEmpty ? order.city! : 'غير محدد');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF115E59), Color(0xFF0F766E), Color(0xFF14B8A6)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: _accentColor.withValues(alpha: 0.20),
+            blurRadius: 26,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -34,
+            left: -18,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -58,
+            right: -18,
+            child: Container(
+              width: 154,
+              height: 154,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          order.displayId,
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          order.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 13,
+                            height: 1.6,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _pill(
+                    order.statusLabel.isNotEmpty ? order.statusLabel : order.statusGroup,
+                    statusColor,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _summaryChip(Icons.category_outlined, categoryLabel),
+                  _summaryChip(Icons.place_outlined, locationLabel),
+                  _summaryChip(Icons.attach_file_rounded, '${order.attachments.length} مرفقات'),
+                  if (order.requestType != 'normal')
+                    _summaryChip(Icons.flash_on_rounded, order.requestTypeLabel),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _formatDate(order.createdAt),
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white.withValues(alpha: 0.84),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _summaryChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4FBFA),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              CircularProgressIndicator(color: _mainColor),
+              SizedBox(height: 12),
+              Text(
+                'جار تحميل تفاصيل الطلب...',
+                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(String message) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF4FBFA),
+        body: Center(
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: _mainColor.withAlpha(12),
+                  blurRadius: 18,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 34, color: Color(0xFF94A3B8)),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton.icon(
+                  onPressed: _loadDetail,
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text(
+                    'إعادة المحاولة',
+                    style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _mainColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    );
+  }
+
   // ─── Main build ───
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     if (!_accountChecked || _loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return _buildLoadingState();
     }
     if (!_isProviderAccount) return const Scaffold(body: SizedBox.shrink());
     if (_error != null) {
-      return Scaffold(
-          body: Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text(_error!, style: const TextStyle(fontFamily: 'Cairo')),
-        const SizedBox(height: 12),
-        ElevatedButton(
-            onPressed: _loadDetail,
-            child: const Text('إعادة المحاولة',
-                style: TextStyle(fontFamily: 'Cairo'))),
-      ])));
+      return _buildErrorState(_error!);
     }
 
     final order = _order!;
@@ -593,7 +989,7 @@ class _ProviderOrderDetailsScreenState
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: isDark ? const Color(0xFF081B1A) : const Color(0xFFF4FBFA),
         appBar: PlatformTopBar(
           pageLabel: 'تفاصيل الطلب',
           showBackButton: Navigator.of(context).canPop(),
@@ -610,296 +1006,262 @@ class _ProviderOrderDetailsScreenState
           },
           onChatsTap: _openChat,
         ),
-        body: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            // عنوان
-            Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _mainColor.withAlpha(25),
-                  borderRadius: BorderRadius.circular(22),
-                  border: Border.all(color: _mainColor.withAlpha(70)),
-                ),
-                child: const Text('تفاصيل الطلب',
-                    style: TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: _mainColor)),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ─── بيانات العميل ───
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _mainColor.withAlpha(8),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _mainColor.withAlpha(50)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Row(children: [
-                    Icon(Icons.person_outline, color: _mainColor),
-                    SizedBox(width: 8),
-                    Text('بيانات العميل',
-                        style: TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: _mainColor)),
-                  ]),
-                  const SizedBox(height: 12),
-                  _infoLine(
-                      icon: Icons.badge_outlined,
-                      label: 'الاسم',
-                      value: order.clientName ?? 'غير متوفر'),
-                  const SizedBox(height: 10),
-                  _infoLine(
-                      icon: Icons.phone,
-                      label: 'الجوال',
-                      value: (order.clientPhone ?? '').trim().isEmpty
-                          ? 'غير متوفر'
-                          : order.clientPhone!),
-                  const SizedBox(height: 10),
-                  _infoLine(
-                      icon: Icons.location_on_outlined,
-                      label: 'المدينة',
-                      value: (order.city ?? '').trim().isEmpty
-                          ? 'غير متوفر'
-                          : order.city!),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ─── Header card ───
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: const [
-                  BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 8,
-                      offset: Offset(0, 3)),
-                ],
-              ),
-              child: Row(children: [
-                Expanded(
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? const LinearGradient(
+                    colors: [Color(0xFF081B1A), Color(0xFF0E2524), Color(0xFF14302E)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  )
+                : const LinearGradient(
+                    colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Color(0xFFFFFFFF)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+          ),
+          child: ListView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+            children: [
+              _buildEntrance(0, _buildHeroCard(order, statusColor)),
+              const SizedBox(height: 12),
+              _buildEntrance(
+                1,
+                _surfaceCard(
+                  icon: Icons.person_outline_rounded,
+                  title: 'بيانات العميل',
+                  description: 'راجع بيانات التواصل والموقع قبل بدء التنفيذ أو إرسال التحديثات.',
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(children: [
-                        Text(order.displayId,
-                            style: const TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 6),
-                        if (order.requestType != 'normal')
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: order.requestType == 'urgent'
-                                  ? Colors.red.withAlpha(25)
-                                  : Colors.blue.withAlpha(25),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(order.requestTypeLabel,
-                                style: TextStyle(
-                                    fontFamily: 'Cairo',
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: order.requestType == 'urgent'
-                                        ? Colors.red
-                                        : Colors.blue)),
-                          ),
-                      ]),
-                      const SizedBox(height: 6),
-                      if (order.categoryName != null)
-                        Text(
-                            '${order.categoryName} / ${order.subcategoryName ?? ''}',
-                            style: const TextStyle(
-                                fontFamily: 'Cairo',
-                                fontSize: 12,
-                                color: Colors.black54)),
-                      Text(_formatDate(order.createdAt),
-                          style: const TextStyle(
-                              fontFamily: 'Cairo',
-                              fontSize: 12,
-                              color: Colors.black54)),
+                      _infoLine(
+                        icon: Icons.badge_outlined,
+                        label: 'الاسم',
+                        value: order.clientName ?? 'غير متوفر',
+                      ),
+                      const SizedBox(height: 10),
+                      _infoLine(
+                        icon: Icons.phone_outlined,
+                        label: 'الجوال',
+                        value: (order.clientPhone ?? '').trim().isEmpty
+                            ? 'غير متوفر'
+                            : order.clientPhone!,
+                      ),
+                      const SizedBox(height: 10),
+                      _infoLine(
+                        icon: Icons.location_on_outlined,
+                        label: 'المدينة',
+                        value: order.locationDisplay.trim().isEmpty
+                            ? 'غير متوفر'
+                            : order.locationDisplay,
+                      ),
                     ],
                   ),
                 ),
-                _pill(
-                    order.statusLabel.isNotEmpty
-                        ? order.statusLabel
-                        : order.statusGroup,
-                    statusColor),
-              ]),
-            ),
-            const SizedBox(height: 14),
-
-            // ─── العنوان + التفاصيل ───
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _readOnlyBox(
-                      label: 'عنوان الطلب', value: order.title, maxLines: 2),
-                  const SizedBox(height: 12),
-                  _readOnlyBox(
-                      label: 'تفاصيل الطلب',
-                      value: order.description,
-                      maxLines: 6),
-                ],
               ),
-            ),
-            const SizedBox(height: 14),
-
-            // ─── المرفقات ───
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('مرفقات العميل',
-                      style: TextStyle(
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14)),
-                  if (order.attachments.isEmpty)
-                    const Text('لا توجد مرفقات',
-                        style: TextStyle(
-                            fontFamily: 'Cairo', color: Colors.black54))
-                  else ...[
-                    if (finalDeliveryAttachments.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      const Text('مرفقات التسليم النهائي',
-                          style: TextStyle(
-                              fontFamily: 'Cairo',
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                              color: _mainColor)),
-                      ...finalDeliveryAttachments.map((a) => _attachmentRow(a)),
-                      if (regularAttachments.isNotEmpty)
-                        const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              _buildEntrance(
+                2,
+                _surfaceCard(
+                  icon: Icons.description_outlined,
+                  title: 'ملخص الطلب',
+                  description: 'العنوان والوصف كما أرسلها العميل مع المحافظة على التفاصيل الأصلية.',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _readOnlyBox(label: 'عنوان الطلب', value: order.title, maxLines: 2),
+                      const SizedBox(height: 12),
+                      _readOnlyBox(label: 'تفاصيل الطلب', value: order.description, maxLines: 8),
                     ],
-                    if (regularAttachments.isNotEmpty) ...[
-                      if (finalDeliveryAttachments.isNotEmpty)
-                        const Text('مرفقات الطلب',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _buildEntrance(
+                3,
+                _surfaceCard(
+                  icon: Icons.attach_file_rounded,
+                  title: 'المرفقات',
+                  description: 'افصل بين مرفقات الطلب الأصلية ومرفقات التسليم النهائي عند توفرها.',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (order.attachments.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF6FBFA),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFDCE7E7)),
+                          ),
+                          child: Column(
+                            children: [
+                              const Icon(Icons.inventory_2_outlined, color: _mainColor, size: 28),
+                              const SizedBox(height: 8),
+                              Text(
+                                'لا توجد مرفقات لهذا الطلب حتى الآن.',
+                                style: TextStyle(
+                                  fontFamily: 'Cairo',
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark ? Colors.white : _inkColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else ...[
+                        if (finalDeliveryAttachments.isNotEmpty) ...[
+                          const Text(
+                            'مرفقات التسليم النهائي',
                             style: TextStyle(
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12)),
-                      ...regularAttachments.map((a) => _attachmentRow(a)),
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12.5,
+                              color: _mainColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...finalDeliveryAttachments.map((a) => _attachmentRow(a)),
+                          if (regularAttachments.isNotEmpty) const SizedBox(height: 12),
+                        ],
+                        if (regularAttachments.isNotEmpty) ...[
+                          Text(
+                            finalDeliveryAttachments.isNotEmpty ? 'مرفقات الطلب' : 'مرفقات العميل',
+                            style: TextStyle(
+                              fontFamily: 'Cairo',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12.5,
+                              color: isDark ? Colors.white : _inkColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...regularAttachments.map((a) => _attachmentRow(a)),
+                        ],
+                      ],
                     ],
-                  ],
-                ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-
-            // ─── سجل الحالة ───
-            if (order.statusLogs.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _sectionTitle('سجل تغيير الحالة'),
-                    ...order.statusLogs.map((log) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
+              if (order.statusLogs.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  4,
+                  _surfaceCard(
+                    icon: Icons.timeline_rounded,
+                    title: 'سجل تغيير الحالة',
+                    description: 'تسلسل التحديثات والإجراءات المسجلة على الطلب.',
+                    child: Column(
+                      children: order.statusLogs.map((log) {
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.white.withValues(alpha: 0.04) : const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                          ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.circle,
-                                  size: 8, color: _mainColor),
-                              const SizedBox(width: 8),
+                              Container(
+                                width: 26,
+                                height: 26,
+                                decoration: BoxDecoration(
+                                  color: _statusColor(log.toStatus).withAlpha(18),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.circle,
+                                  size: 10,
+                                  color: _statusColor(log.toStatus),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                        '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
-                                        style: const TextStyle(
-                                            fontFamily: 'Cairo',
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold)),
-                                    if (log.note != null &&
-                                        log.note!.isNotEmpty)
-                                      Text(log.note!,
-                                          style: const TextStyle(
-                                              fontFamily: 'Cairo',
-                                              fontSize: 12,
-                                              color: Colors.black54)),
-                                    if (log.createdAt != null)
-                                      Text(_formatDate(log.createdAt!),
-                                          style: const TextStyle(
-                                              fontFamily: 'Cairo',
-                                              fontSize: 11,
-                                              color: Colors.black38)),
+                                      '${log.fromStatus.isNotEmpty ? log.fromStatus : '—'} → ${log.toStatus}',
+                                      style: TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 12.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white : _inkColor,
+                                      ),
+                                    ),
+                                    if (log.note != null && log.note!.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        log.note!,
+                                        style: TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? Colors.white60 : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ],
+                                    if (log.createdAt != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _formatDate(log.createdAt!),
+                                        style: TextStyle(
+                                          fontFamily: 'Cairo',
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: isDark ? Colors.white38 : Colors.black38,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
                             ],
                           ),
-                        )),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-
-            // ─── Actions section ───
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _sectionTitle('إجراء على الطلب'),
-                  _buildActionsForStatus(order),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // ─── Bottom buttons ───
-            Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    side: BorderSide(color: Colors.grey.shade400),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
+                        );
+                      }).toList(),
+                    ),
                   ),
-                  child: const Text('رجوع',
-                      style: TextStyle(
-                          fontFamily: 'Cairo', fontWeight: FontWeight.bold)),
+                ),
+              ],
+              const SizedBox(height: 12),
+              _buildEntrance(
+                5,
+                _surfaceCard(
+                  icon: Icons.handyman_outlined,
+                  title: 'إجراء على الطلب',
+                  description: 'نفّذ الإجراء المناسب حسب حالة الطلب دون تغيير منطق التدفق الحالي.',
+                  child: _buildActionsForStatus(order),
                 ),
               ),
-            ]),
-          ],
+              const SizedBox(height: 18),
+              _buildEntrance(
+                6,
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      side: BorderSide(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      backgroundColor: Colors.white.withValues(alpha: 0.9),
+                    ),
+                    child: Text(
+                      'رجوع',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? Colors.white70 : _inkColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -18,7 +18,7 @@ from apps.core.middleware import InlinePromoSchedulerMiddleware
 from apps.core.models import PlatformConfig
 from apps.billing.models import Invoice, InvoiceLineItem
 from apps.promo.models import PromoAdType, PromoOpsStatus, PromoRequest, PromoRequestItem, PromoRequestStatus, PromoServiceType
-from apps.providers.models import ProviderProfile
+from apps.providers.models import ProviderProfile, SaudiCity, SaudiRegion
 from apps.promo.serializers import PromoRequestCreateSerializer, PromoRequestDetailSerializer, PromoRequestItemCreateSerializer
 from apps.promo.services import (
     _locked_promo_request_queryset,
@@ -191,6 +191,40 @@ class PromoPaymentWorkflowTests(TestCase):
         self.assertEqual(data["ops_status"], PromoOpsStatus.IN_PROGRESS)
         self.assertEqual(data["provider_status_code"], PromoOpsStatus.IN_PROGRESS)
         self.assertEqual(data["provider_status_label"], "تحت المعالجة")
+
+    def test_detail_serializer_exposes_target_city_display_for_request_and_items(self):
+        region, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=region,
+            name_ar="الخرج",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        request_obj = PromoRequest.objects.create(
+            requester=self.user,
+            title="حملة مدينة",
+            ad_type=PromoAdType.BUNDLE,
+            start_at=timezone.now() + timezone.timedelta(days=1),
+            end_at=timezone.now() + timezone.timedelta(days=7),
+            status=PromoRequestStatus.NEW,
+            ops_status=PromoOpsStatus.NEW,
+            target_city="الخرج",
+        )
+        PromoRequestItem.objects.create(
+            request=request_obj,
+            service_type=PromoServiceType.SPONSORSHIP,
+            title="عنصر مدينة",
+            start_at=request_obj.start_at,
+            end_at=request_obj.end_at,
+            target_city="الخرج",
+        )
+
+        data = PromoRequestDetailSerializer(request_obj).data
+
+        self.assertEqual(data["target_city_display"], "الرياض - الخرج")
+        self.assertEqual(data["items"][0]["target_city_display"], "الرياض - الخرج")
 
     def test_late_payment_does_not_override_rejected_request(self):
         invoice = Invoice.objects.create(

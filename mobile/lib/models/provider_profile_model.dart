@@ -1,4 +1,5 @@
 import 'excellence_badge_model.dart';
+import '../constants/saudi_cities.dart';
 
 /// نموذج بيانات ملف المزود (من /api/providers/me/profile/)
 class ProviderProfileModel {
@@ -15,6 +16,7 @@ class ProviderProfileModel {
   final List<dynamic> socialLinks;
   final List<dynamic> languages;
   final String city;
+  final String? cityDisplay;
   final double? lat;
   final double? lng;
   final int coverageRadiusKm;
@@ -46,6 +48,7 @@ class ProviderProfileModel {
     required this.socialLinks,
     required this.languages,
     required this.city,
+    this.cityDisplay,
     this.lat,
     this.lng,
     required this.coverageRadiusKm,
@@ -86,6 +89,7 @@ class ProviderProfileModel {
       socialLinks: json['social_links'] as List<dynamic>? ?? [],
       languages: json['languages'] as List<dynamic>? ?? [],
       city: json['city'] as String? ?? '',
+      cityDisplay: json['city_display'] as String?,
       lat: _parseDouble(json['lat']),
       lng: _parseDouble(json['lng']),
       coverageRadiusKm: json['coverage_radius_km'] as int? ?? 10,
@@ -106,6 +110,7 @@ class ProviderProfileModel {
   }
 
   bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
+  String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
 
   /// ─── حساب نسبة إكمال الملف التعريفي ───
   ///

@@ -6,6 +6,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 typedef AuthLogoutListener = void Function();
@@ -22,6 +23,10 @@ class AuthService {
   static const String _lastLoginPhoneKey = 'last_login_phone';
   static final Set<AuthLogoutListener> _logoutListeners = <AuthLogoutListener>{};
 
+  static const _secureStorage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
   static void addLogoutListener(AuthLogoutListener listener) {
     _logoutListeners.add(listener);
   }
@@ -35,9 +40,8 @@ class AuthService {
     required String access,
     required String refresh,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_accessTokenKey, access);
-    await prefs.setString(_refreshTokenKey, refresh);
+    await _secureStorage.write(key: _accessTokenKey, value: access);
+    await _secureStorage.write(key: _refreshTokenKey, value: refresh);
   }
 
   /// حفظ بيانات المستخدم الأساسية
@@ -52,14 +56,12 @@ class AuthService {
 
   /// استرجاع access token
   static Future<String?> getAccessToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_accessTokenKey);
+    return _secureStorage.read(key: _accessTokenKey);
   }
 
   /// استرجاع refresh token
   static Future<String?> getRefreshToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_refreshTokenKey);
+    return _secureStorage.read(key: _refreshTokenKey);
   }
 
   /// التحقق من حالة تسجيل الدخول
@@ -125,8 +127,8 @@ class AuthService {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_faceIdEnabledKey, true);
-    await prefs.setString(_faceIdPhoneKey, normalizedPhone);
-    await prefs.setString(_faceIdDeviceTokenKey, normalizedToken);
+    await _secureStorage.write(key: _faceIdPhoneKey, value: normalizedPhone);
+    await _secureStorage.write(key: _faceIdDeviceTokenKey, value: normalizedToken);
   }
 
   static Future<BiometricAuthData?> getBiometricCredentials({
@@ -134,8 +136,8 @@ class AuthService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_faceIdEnabledKey) ?? false;
-    final phone = normalizePhoneLocal05(prefs.getString(_faceIdPhoneKey));
-    final deviceToken = (prefs.getString(_faceIdDeviceTokenKey) ?? '').trim();
+    final phone = normalizePhoneLocal05(await _secureStorage.read(key: _faceIdPhoneKey));
+    final deviceToken = ((await _secureStorage.read(key: _faceIdDeviceTokenKey)) ?? '').trim();
 
     if (enabled && phone != null && deviceToken.isNotEmpty) {
       return BiometricAuthData(phone: phone, deviceToken: deviceToken);
@@ -154,19 +156,17 @@ class AuthService {
   static Future<void> clearBiometricCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_faceIdEnabledKey, false);
-    await prefs.remove(_faceIdPhoneKey);
-    await prefs.remove(_faceIdDeviceTokenKey);
+    await _secureStorage.delete(key: _faceIdPhoneKey);
+    await _secureStorage.delete(key: _faceIdDeviceTokenKey);
   }
 
   static Future<void> saveSecurityPin(String pin) async {
     if (!RegExp(r'^\d{4,6}$').hasMatch(pin)) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_securityPinKey, pin);
+    await _secureStorage.write(key: _securityPinKey, value: pin);
   }
 
   static Future<String?> getSecurityPin() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pin = (prefs.getString(_securityPinKey) ?? '').trim();
+    final pin = ((await _secureStorage.read(key: _securityPinKey)) ?? '').trim();
     if (RegExp(r'^\d{4,6}$').hasMatch(pin)) return pin;
     return null;
   }
@@ -177,15 +177,14 @@ class AuthService {
   }
 
   static Future<void> clearSecurityPin() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_securityPinKey);
+    await _secureStorage.delete(key: _securityPinKey);
   }
 
   /// تسجيل الخروج — مسح جميع البيانات المحفوظة
   static Future<void> logout() async {
+    await _secureStorage.delete(key: _accessTokenKey);
+    await _secureStorage.delete(key: _refreshTokenKey);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_accessTokenKey);
-    await prefs.remove(_refreshTokenKey);
     await prefs.remove(_userIdKey);
     await prefs.remove(_roleStateKey);
     // نبقي isProvider و isProviderRegistered لأنها تُحدّث من API

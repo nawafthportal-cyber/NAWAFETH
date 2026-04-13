@@ -1,4 +1,5 @@
 {% extends 'extras_portal/base_portal.html' %}
+{% load location_display %}
 
 {% block title %}طلب #{{ sr.id }}{% endblock %}
 {% block header %}تفاصيل الطلب #{{ sr.id }}{% endblock %}
@@ -50,7 +51,7 @@
               </div>
               <div>
                 <div class="text-xs font-bold text-slate-500">المدينة</div>
-                <div class="mt-2 text-sm font-bold text-slate-700">{{ sr.city|default:'—' }}</div>
+                <div class="mt-2 text-sm font-bold text-slate-700">{{ sr.city|city_display|default:'—' }}</div>
               </div>
             </div>
           </div>

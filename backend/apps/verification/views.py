@@ -199,6 +199,11 @@ class VerificationAddDocumentView(generics.CreateAPIView):
             mirror_document_to_requirement_attachments(doc=doc)
             mark_request_in_review(vr=vr, changed_by=request.user)
 
+        from apps.uploads.media_optimizer import infer_media_kind
+        if infer_media_kind(file_obj) == "video":
+            from apps.uploads.tasks import schedule_video_optimization
+            schedule_video_optimization(doc, "file")
+
         return Response(VerificationDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
 
@@ -240,6 +245,11 @@ class VerificationAddRequirementAttachmentView(generics.CreateAPIView):
                 uploaded_by=request.user,
             )
             mark_request_in_review(vr=vr, changed_by=request.user)
+
+        from apps.uploads.media_optimizer import infer_media_kind
+        if infer_media_kind(file_obj) == "video":
+            from apps.uploads.tasks import schedule_video_optimization
+            schedule_video_optimization(att, "file")
 
         return Response(VerificationRequirementAttachmentSerializer(att).data, status=status.HTTP_201_CREATED)
 

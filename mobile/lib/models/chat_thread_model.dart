@@ -1,4 +1,5 @@
 import 'excellence_badge_model.dart';
+import '../constants/saudi_cities.dart';
 
 /// نموذج محادثة مباشرة من GET /api/messaging/direct/threads/
 class ChatThread {
@@ -11,6 +12,7 @@ class ChatThread {
   final String peerUsername;
   final String peerPhone;
   final String peerCity;
+  final String peerCityDisplay;
   final String peerProfileImage;
   final List<ExcellenceBadgeModel> peerExcellenceBadges;
   final String lastMessage;
@@ -34,6 +36,7 @@ class ChatThread {
     this.peerUsername = '',
     required this.peerPhone,
     this.peerCity = '',
+    this.peerCityDisplay = '',
     this.peerProfileImage = '',
     this.peerExcellenceBadges = const [],
     required this.lastMessage,
@@ -57,6 +60,7 @@ class ChatThread {
       peerUsername: (json['peer_username'] ?? '') as String,
       peerPhone: (json['peer_phone'] ?? '') as String,
       peerCity: (json['peer_city'] ?? json['city'] ?? json['peer_city_name'] ?? '') as String,
+      peerCityDisplay: (json['peer_city_display'] ?? '') as String,
       peerProfileImage: (json['peer_profile_image'] ?? '') as String,
       peerExcellenceBadges: _parsePeerExcellence(json['peer_excellence_badges']),
       lastMessage: (json['last_message'] ?? '') as String,
@@ -84,6 +88,10 @@ class ChatThread {
     if (username.isNotEmpty) return username;
     return peerPhone.trim();
   }
+
+  String get peerLocationDisplay => SaudiCities.formatCityDisplay(
+        peerCityDisplay.isNotEmpty ? peerCityDisplay : peerCity,
+      );
 }
 
 /// نموذج حالة المحادثة من GET /api/messaging/threads/states/

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -626,10 +627,10 @@ class _AppBadge extends StatelessWidget {
           ],
         ),
         clipBehavior: Clip.antiAlias,
-        child: Image.network(
-          resolvedLogoUrl,
+        child: CachedNetworkImage(
+          imageUrl: resolvedLogoUrl,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => Center(
+          errorWidget: (_, __, ___) => Center(
             child: Text(
               'ن',
               style: TextStyle(
@@ -744,7 +745,7 @@ class _SponsorBadgeState extends State<_SponsorBadge> {
       return;
     }
 
-    final provider = NetworkImage(resolvedUrl);
+    final provider = CachedNetworkImageProvider(resolvedUrl);
     final stream = provider.resolve(const ImageConfiguration());
     final listener = ImageStreamListener(
       (imageInfo, _) {
@@ -799,11 +800,11 @@ class _SponsorBadgeState extends State<_SponsorBadge> {
           ? SizedBox(
               width: _logoBox.width,
               height: _logoBox.height,
-              child: Image.network(
-                resolvedUrl,
+              child: CachedNetworkImage(
+                imageUrl: resolvedUrl,
                 fit: BoxFit.contain,
                 alignment: Alignment.center,
-                errorBuilder: (_, __, ___) => _fallbackText(),
+                errorWidget: (_, __, ___) => _fallbackText(),
               ),
             )
           : _fallbackText(),

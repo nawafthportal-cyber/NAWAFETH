@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:nawafeth/constants/saudi_cities.dart';
 import 'package:nawafeth/models/user_profile.dart';
 import 'package:nawafeth/services/billing_service.dart';
 import 'package:nawafeth/services/profile_service.dart';
@@ -783,8 +784,17 @@ class _PromotionScreenState extends State<PromotionScreen>
           if ((item['target_category'] as String? ?? '').isNotEmpty)
             _line('التصنيف', item['target_category'] as String),
           if ((item['service_type'] as String? ?? '') != 'search_results' &&
-              (item['target_city'] as String? ?? '').isNotEmpty)
-            _line('المدينة', item['target_city'] as String),
+              SaudiCities.formatCityDisplay(
+                    (item['target_city_display'] as String?) ??
+                        (item['target_city'] as String?),
+                  ).isNotEmpty)
+            _line(
+              'المدينة',
+              SaudiCities.formatCityDisplay(
+                (item['target_city_display'] as String?) ??
+                    (item['target_city'] as String?),
+              ),
+            ),
           if (item['send_at'] != null)
             _line('وقت الإرسال', _fmtDate(item['send_at'])),
           if ((item['redirect_url'] as String? ?? '').isNotEmpty)

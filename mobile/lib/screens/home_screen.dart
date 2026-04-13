@@ -1,5 +1,6 @@
 // ignore_for_file: unused_field, unused_element
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -46,7 +47,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<BannerModel> _banners = [];
   List<MediaItemModel> _spotlights = [];
   HomeScreenContent _content = HomeScreenContent.empty();
-  bool _isLoading = true;
+  bool _isCategoriesLoading = true;
+  bool _isBannersLoading = true;
+  bool _isSpotlightsLoading = true;
+  bool _isFeaturedLoading = true;
   int _notificationUnread = 0;
   int _chatUnread = 0;
   bool _promoPopupShown = false;
@@ -93,6 +97,16 @@ class _HomeScreenState extends State<HomeScreen> {
     return <BannerModel>[fallbackBanner];
   }
 
+  List<FeaturedSpecialistModel> get _visibleFeaturedSpecialists {
+    if (_featuredSpecialists.isNotEmpty) return _featuredSpecialists;
+    if (_providers.isEmpty) return const <FeaturedSpecialistModel>[];
+    return _providers
+        .where((provider) => provider.id > 0)
+        .take(10)
+        .map(_providerToFeaturedSpecialist)
+        .toList(growable: false);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -134,7 +148,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _providers = cached.providers;
     _banners = cached.banners;
     _spotlights = cached.spotlights;
-    _isLoading = cached.providers.isEmpty;
+    _isCategoriesLoading = cached.categories.isEmpty;
+    _isBannersLoading = cached.banners.isEmpty;
+    _isSpotlightsLoading = cached.spotlights.isEmpty;
+    _isFeaturedLoading = cached.providers.isEmpty;
     return true;
   }
 
@@ -143,7 +160,12 @@ class _HomeScreenState extends State<HomeScreen> {
     bool showLoader = true,
   }) async {
     if (showLoader && mounted) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isCategoriesLoading = _categories.isEmpty;
+        _isBannersLoading = _heroBanners.isEmpty;
+        _isSpotlightsLoading = _spotlights.isEmpty;
+        _isFeaturedLoading = _visibleFeaturedSpecialists.isEmpty;
+      });
     }
 
     final categoriesFuture =
@@ -160,21 +182,33 @@ class _HomeScreenState extends State<HomeScreen> {
       limit: 16,
       forceRefresh: forceRefresh,
     );
+    final featuredSpecialistsFuture = HomeService.fetchFeaturedSpecialists(
+      limit: 10,
+      forceRefresh: forceRefresh,
+    );
 
     // Fetch promo placements (non-blocking)
-    _loadPromoFeatured(forceRefresh: forceRefresh);
     if (!_promoPopupShown) _loadPromoPopup();
     _loadPromoPortfolioShowcase();
     _loadPromoMessages();
 
     categoriesFuture.then((categories) {
       if (!mounted) return;
-      setState(() => _categories = categories);
+      setState(() {
+        _categories = categories;
+        _isCategoriesLoading = false;
+      });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _isCategoriesLoading = false);
     });
 
     bannersFuture.then((banners) {
       if (!mounted) return;
-      setState(() => _banners = banners);
+      setState(() {
+        _banners = banners;
+        _isBannersLoading = false;
+      });
       _startBannerAutoRotate();
       if (banners.isNotEmpty) {
         _trackBannerImpression(
@@ -182,28 +216,45 @@ class _HomeScreenState extends State<HomeScreen> {
           surface: 'flutter.home.hero_initial',
         );
       }
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _isBannersLoading = false);
     });
 
     spotlightsFuture.then((spotlights) {
       if (!mounted) return;
-      setState(() => _spotlights = spotlights);
-    });
-
-    providersFuture.then((providers) {
-      if (!mounted) return;
       setState(() {
-        _providers = providers;
-        _isLoading = false;
+        _spotlights = spotlights;
+        _isSpotlightsLoading = false;
       });
+    }).catchError((_) {
+      if (!mounted) return;
+      setState(() => _isSpotlightsLoading = false);
     });
 
     try {
-      await Future.wait(
-          [categoriesFuture, providersFuture, bannersFuture, spotlightsFuture]);
+      final providers = await providersFuture;
+      final featuredSpecialists = await featuredSpecialistsFuture;
+      if (!mounted) return;
+      setState(() {
+        _providers = providers;
+        _featuredSpecialists = featuredSpecialists;
+        _isFeaturedLoading = false;
+      });
+      _startFeaturedSpecialistsAutoRotate();
     } catch (_) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
+      setState(() => _isFeaturedLoading = false);
     }
+
+    await Future.wait<dynamic>([
+      categoriesFuture.catchError((_) => const <CategoryModel>[]),
+      providersFuture.catchError((_) => const <ProviderPublicModel>[]),
+      featuredSpecialistsFuture
+          .catchError((_) => const <FeaturedSpecialistModel>[]),
+      bannersFuture.catchError((_) => const <BannerModel>[]),
+      spotlightsFuture.catchError((_) => const <MediaItemModel>[]),
+    ]);
   }
 
   void _startBannerSync() {
@@ -258,20 +309,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       // Keep current banners on transient refresh failures.
     }
-  }
-
-  Future<void> _loadPromoFeatured({bool forceRefresh = false}) async {
-    try {
-      final items = await HomeService.fetchFeaturedSpecialists(
-        limit: 10,
-        forceRefresh: forceRefresh,
-      );
-      if (!mounted) return;
-      setState(() {
-        _featuredSpecialists = items;
-      });
-      _startFeaturedSpecialistsAutoRotate();
-    } catch (_) {}
   }
 
   Future<void> _loadPromoPopup() async {
@@ -399,7 +436,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startFeaturedSpecialistsAutoRotate() {
     _featuredSpecialistsTimer?.cancel();
-    if (_featuredSpecialists.length <= 1) return;
+    if (_visibleFeaturedSpecialists.length <= 1) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_featuredSpecialistsScroll.hasClients) return;
       _featuredSpecialistsTimer?.cancel();
@@ -885,6 +922,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeroBannerBackground() {
     final heroBanners = _heroBanners;
+    if (_isBannersLoading && heroBanners.isEmpty) {
+      return _buildHeroLoadingBackdrop();
+    }
     if (heroBanners.isEmpty) {
       return Container(
         decoration: BoxDecoration(
@@ -920,6 +960,12 @@ class _HomeScreenState extends State<HomeScreen> {
       onPageChanged: (idx) {
         if (_bannerCurrentPage == idx) return;
         setState(() => _bannerCurrentPage = idx);
+        if (idx >= 0 && idx < heroBanners.length) {
+          _trackBannerImpression(
+            heroBanners[idx],
+            surface: 'flutter.home.hero_swipe',
+          );
+        }
         _scheduleNextBannerAutoRotate();
       },
       itemBuilder: (context, index) {
@@ -942,6 +988,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeroContentOverlay() {
+    final visibleFeaturedSpecialists = _visibleFeaturedSpecialists;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
       child: Column(
@@ -990,6 +1037,32 @@ class _HomeScreenState extends State<HomeScreen> {
               fontFamily: 'Cairo',
               fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildHeroMetricChip(
+                icon: Icons.grid_view_rounded,
+                label: 'تصنيف',
+                value: _categories.length,
+                isLoading: _isCategoriesLoading && _categories.isEmpty,
+              ),
+              _buildHeroMetricChip(
+                icon: Icons.workspace_premium_rounded,
+                label: 'مختص',
+                value: visibleFeaturedSpecialists.length,
+                isLoading:
+                    _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty,
+              ),
+              _buildHeroMetricChip(
+                icon: Icons.play_circle_outline_rounded,
+                label: 'لمحة',
+                value: _spotlights.length,
+                isLoading: _isSpotlightsLoading && _spotlights.isEmpty,
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -1132,6 +1205,62 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildHeroMetricChip({
+    required IconData icon,
+    required String label,
+    required int value,
+    required bool isLoading,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: Colors.white),
+          const SizedBox(width: 6),
+          if (isLoading)
+            const _SkeletonBox(
+              width: 40,
+              height: 12,
+              radius: 999,
+              baseColor: Color(0x33FFFFFF),
+              highlightColor: Color(0x66FFFFFF),
+            )
+          else
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: '$value',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' $label',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 9.5,
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _openSearchHome() {
     Navigator.push(
       context,
@@ -1193,6 +1322,102 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildHeroLoadingBackdrop() {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF4F257E), Color(0xFF7B2E87), Color(0xFFF08B46)],
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+            ),
+          ),
+        ),
+        Positioned(
+          top: -28,
+          left: -24,
+          child: Container(
+            width: 132,
+            height: 132,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: -44,
+          right: -18,
+          child: Container(
+            width: 166,
+            height: 166,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+        const Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SkeletonBox(
+                  width: 58,
+                  height: 22,
+                  radius: 999,
+                  baseColor: Color(0x33FFFFFF),
+                  highlightColor: Color(0x66FFFFFF),
+                ),
+                Spacer(),
+                _SkeletonBox(
+                  width: 168,
+                  height: 16,
+                  radius: 8,
+                  baseColor: Color(0x33FFFFFF),
+                  highlightColor: Color(0x66FFFFFF),
+                ),
+                SizedBox(height: 8),
+                _SkeletonBox(
+                  width: 132,
+                  height: 12,
+                  radius: 8,
+                  baseColor: Color(0x33FFFFFF),
+                  highlightColor: Color(0x66FFFFFF),
+                ),
+                SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _SkeletonBox(
+                        height: 42,
+                        radius: 16,
+                        baseColor: Color(0x33FFFFFF),
+                        highlightColor: Color(0x66FFFFFF),
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: _SkeletonBox(
+                        height: 42,
+                        radius: 16,
+                        baseColor: Color(0x33FFFFFF),
+                        highlightColor: Color(0x66FFFFFF),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // =============================================
   //  REELS CAROUSEL
   // =============================================
@@ -1206,70 +1431,78 @@ class _HomeScreenState extends State<HomeScreen> {
       note: 'محتوى قصير وسريع الاستكشاف مناسب للجوال.',
       isDark: isDark,
       margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
-      child: !hasData
-          ? SizedBox(
-              height: 84,
-              child: Center(
-                child: Text(
-                  'لا توجد لمحات حالياً',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white70 : Colors.black54,
-                  ),
-                ),
-              ),
-            )
-          : SizedBox(
-              height: 102,
-              child: Listener(
-                onPointerDown: (_) => _pauseReelsAutoScroll(),
-                onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
-                onPointerCancel: (_) => _pauseReelsAutoScroll(resumeLater: true),
-                child: ListView.builder(
-                  controller: _reelsScroll,
-                  scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
-                  itemCount: _spotlights.length,
-                  itemBuilder: (context, index) {
-                    final item = _spotlights[index];
-                    final thumb = _spotlightThumbUrl(item);
-                    final caption = (item.caption ?? '').trim();
-
-                    return GestureDetector(
-                      onTap: () => _openSpotlightViewer(index),
-                      child: SizedBox(
-                        width: 76,
-                        child: Column(
-                          children: [
-                            _reelMediaRing(
-                              imageUrl: thumb,
-                              isDark: isDark,
-                              fallbackIcon: item.isVideo
-                                  ? Icons.play_arrow_rounded
-                                  : Icons.image_rounded,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              caption.isNotEmpty ? caption : 'لمحة',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.w700,
-                                color: isDark ? Colors.white70 : Colors.black54,
-                              ),
-                            ),
-                          ],
+      child: _buildSectionAnimatedContent(
+        stateKey: _isSpotlightsLoading && !hasData ? 'reels-loading' : hasData ? 'reels-ready' : 'reels-empty',
+        child: _isSpotlightsLoading && !hasData
+            ? _buildReelsSkeleton(isDark)
+            : !hasData
+                ? SizedBox(
+                    height: 84,
+                    child: Center(
+                      child: Text(
+                        'لا توجد لمحات حالياً',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white70 : Colors.black54,
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ),
+                    ),
+                  )
+                : SizedBox(
+                    height: 102,
+                    child: Listener(
+                      onPointerDown: (_) => _pauseReelsAutoScroll(),
+                      onPointerUp: (_) => _pauseReelsAutoScroll(resumeLater: true),
+                      onPointerCancel: (_) =>
+                          _pauseReelsAutoScroll(resumeLater: true),
+                      child: ListView.builder(
+                        controller: _reelsScroll,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _spotlights.length,
+                        itemBuilder: (context, index) {
+                          final item = _spotlights[index];
+                          final thumb = _spotlightThumbUrl(item);
+                          final caption = (item.caption ?? '').trim();
+
+                          return GestureDetector(
+                            onTap: () => _openSpotlightViewer(index),
+                            child: SizedBox(
+                              width: 76,
+                              child: Column(
+                                children: [
+                                  _reelMediaRing(
+                                    imageUrl: thumb,
+                                    isDark: isDark,
+                                    fallbackIcon: item.isVideo
+                                        ? Icons.play_arrow_rounded
+                                        : Icons.image_rounded,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    caption.isNotEmpty ? caption : 'لمحة',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontFamily: 'Cairo',
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+      ),
     );
   }
 
@@ -1417,6 +1650,31 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildSectionAnimatedContent({
+    required String stateKey,
+    required Widget child,
+  }) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final slide = Tween<Offset>(
+          begin: const Offset(0, 0.05),
+          end: Offset.zero,
+        ).animate(animation);
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(position: slide, child: child),
+        );
+      },
+      child: KeyedSubtree(
+        key: ValueKey(stateKey),
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildPromoMessageCard(bool isDark, Color purple) {
     final placement = _promoMessagePlacement;
     if (placement == null) return const SizedBox.shrink();
@@ -1547,10 +1805,10 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             child: ClipOval(
               child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _reelFallback(fallbackIcon),
+                      errorWidget: (_, __, ___) => _reelFallback(fallbackIcon),
                     )
                   : (assetPath != null
                       ? Image.asset(
@@ -1629,101 +1887,113 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'عرض الكل',
         onTap: _openSearchHome,
       ),
-      child: _categories.isEmpty
-          ? SizedBox(
-              height: 76,
-              child: Center(
-                child: Text(
-                  'لا توجد تصنيفات متاحة حالياً',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontFamily: 'Cairo',
-                    fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.white54 : Colors.black45,
-                  ),
-                ),
-              ),
-            )
-          : SizedBox(
-              height: 98,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                itemCount: _categories.length,
-                itemBuilder: (context, index) {
-                  final cat = _categories[index];
-                  final icon = _categoryIcon(cat.name);
-                  return GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SearchProviderScreen(
-                            initialCategoryId: cat.id > 0 ? cat.id : null,
-                          ),
+      child: _buildSectionAnimatedContent(
+        stateKey: _isCategoriesLoading && _categories.isEmpty
+            ? 'categories-loading'
+            : _categories.isEmpty
+                ? 'categories-empty'
+                : 'categories-ready',
+        child: _isCategoriesLoading && _categories.isEmpty
+            ? _buildCategoriesSkeleton(isDark)
+            : _categories.isEmpty
+                ? SizedBox(
+                    height: 76,
+                    child: Center(
+                      child: Text(
+                        'لا توجد تصنيفات متاحة حالياً',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontFamily: 'Cairo',
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white54 : Colors.black45,
                         ),
-                      );
-                    },
-                    child: Container(
-                      width: 84,
-                      margin: const EdgeInsetsDirectional.only(end: 10),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : const Color(0xFFF9F5FD),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : const Color(0xFFECDDFA),
-                        ),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  const Color(0xFF8E37A3).withValues(alpha: 0.15),
-                                  const Color(0xFFF08B46).withValues(alpha: 0.18),
-                                ],
-                                begin: Alignment.topRight,
-                                end: Alignment.bottomLeft,
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                            child: Icon(icon, size: 20, color: purple),
-                          ),
-                          const SizedBox(height: 8),
-                          Expanded(
-                            child: Text(
-                              cat.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w700,
-                                height: 1.45,
-                                fontFamily: 'Cairo',
-                                color:
-                                    isDark ? Colors.white70 : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
-                  );
-                },
-              ),
-            ),
+                  )
+                : SizedBox(
+                    height: 98,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final cat = _categories[index];
+                        final icon = _categoryIcon(cat.name);
+                        return GestureDetector(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => SearchProviderScreen(
+                                  initialCategoryId: cat.id > 0 ? cat.id : null,
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 84,
+                            margin: const EdgeInsetsDirectional.only(end: 10),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.white.withValues(alpha: 0.04)
+                                  : const Color(0xFFF9F5FD),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white.withValues(alpha: 0.06)
+                                    : const Color(0xFFECDDFA),
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        const Color(0xFF8E37A3)
+                                            .withValues(alpha: 0.15),
+                                        const Color(0xFFF08B46)
+                                            .withValues(alpha: 0.18),
+                                      ],
+                                      begin: Alignment.topRight,
+                                      end: Alignment.bottomLeft,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(icon, size: 20, color: purple),
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: Text(
+                                    cat.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.45,
+                                      fontFamily: 'Cairo',
+                                      color: isDark
+                                          ? Colors.white70
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+      ),
     );
   }
 
@@ -1732,6 +2002,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // =============================================
 
   Widget _buildProviders(bool isDark, Color purple) {
+    final visibleFeaturedSpecialists = _visibleFeaturedSpecialists;
     final title = (_content.providersTitle.trim().isEmpty ||
             _content.providersTitle == '...' ||
             _content.providersTitle == 'مقدمو الخدمة')
@@ -1742,61 +2013,66 @@ class _HomeScreenState extends State<HomeScreen> {
       title: title,
       note: 'بطاقات مختصين مضبوطة بصريًا لتناسب شاشات الجوال الصغيرة.',
       isDark: isDark,
-      child: _isLoading
-          ? const SizedBox(
-              height: 156,
-              child: Center(
-                child: CircularProgressIndicator(color: Colors.deepPurple),
-              ),
-            )
-          : _featuredSpecialists.isEmpty
-              ? SizedBox(
-                  height: 92,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.info_outline_rounded,
-                          size: 20,
-                          color:
-                              isDark ? Colors.white24 : Colors.grey.shade300,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'لا يوجد مختصون مميزون حالياً',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontFamily: 'Cairo',
-                            color:
-                                isDark ? Colors.white30 : Colors.grey.shade400,
+      child: _buildSectionAnimatedContent(
+        stateKey: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
+            ? 'providers-loading'
+            : visibleFeaturedSpecialists.isEmpty
+                ? 'providers-empty'
+                : 'providers-ready',
+        child: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
+            ? _buildProvidersSkeleton(isDark)
+            : visibleFeaturedSpecialists.isEmpty
+                ? SizedBox(
+                    height: 92,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.info_outline_rounded,
+                            size: 20,
+                            color: isDark
+                                ? Colors.white24
+                                : Colors.grey.shade300,
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 4),
+                          Text(
+                            'لا يوجد مختصون مميزون حالياً',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontFamily: 'Cairo',
+                              color: isDark
+                                  ? Colors.white30
+                                  : Colors.grey.shade400,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                )
-              : SizedBox(
-                  height: 182,
-                  child: Listener(
-                    onPointerDown: (_) => _pauseFeaturedSpecialistsAutoRotate(),
-                    onPointerUp: (_) =>
-                        _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
-                    onPointerCancel: (_) =>
-                        _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
-                    child: ListView.builder(
-                      controller: _featuredSpecialistsScroll,
-                      scrollDirection: Axis.horizontal,
-                      physics: const BouncingScrollPhysics(),
-                      itemCount: _featuredSpecialists.length,
-                      itemBuilder: (context, index) => _providerCard(
-                        _featuredSpecialists[index],
-                        isDark,
-                        purple,
+                  )
+                : SizedBox(
+                    height: 182,
+                    child: Listener(
+                      onPointerDown: (_) =>
+                          _pauseFeaturedSpecialistsAutoRotate(),
+                      onPointerUp: (_) =>
+                          _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                      onPointerCancel: (_) =>
+                          _pauseFeaturedSpecialistsAutoRotate(resumeLater: true),
+                      child: ListView.builder(
+                        controller: _featuredSpecialistsScroll,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: visibleFeaturedSpecialists.length,
+                        itemBuilder: (context, index) => _providerCard(
+                          visibleFeaturedSpecialists[index],
+                          isDark,
+                          purple,
+                        ),
                       ),
                     ),
                   ),
-                ),
+      ),
     );
   }
 
@@ -1867,10 +2143,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       top: Radius.circular(22),
                     ),
                     child: thumbUrl != null
-                        ? Image.network(
-                            thumbUrl,
+                        ? CachedNetworkImage(
+                            imageUrl: thumbUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
+                            errorWidget: (_, __, ___) =>
                                 _gradientPlaceholder(),
                           )
                         : _gradientPlaceholder(),
@@ -1926,7 +2202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     radius: 16,
                     backgroundColor: purple.withValues(alpha: 0.12),
                     backgroundImage:
-                        profileUrl != null ? NetworkImage(profileUrl) : null,
+                        profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
                     child: profileUrl == null
                         ? Text(
                             item.providerDisplayName.isNotEmpty
@@ -2084,9 +2360,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           background: const Color(0xFFFFF0D9),
                           foreground: const Color(0xFFB56A00),
                         ),
-                      if ((specialist.city ?? '').trim().isNotEmpty)
+                      if (specialist.locationDisplay.trim().isNotEmpty)
                         _buildProviderMetaPill(
-                          label: specialist.city!.trim(),
+                          label: specialist.locationDisplay.trim(),
                           background: const Color(0xFFF3EEFB),
                           foreground: const Color(0xFF7A2B74),
                         ),
@@ -2126,7 +2402,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   backgroundColor:
                       isDark ? const Color(0xFF221B31) : Colors.white,
                   backgroundImage:
-                      profileUrl != null ? NetworkImage(profileUrl) : null,
+                      profileUrl != null ? CachedNetworkImageProvider(profileUrl) : null,
                   child: profileUrl == null
                       ? Text(
                           specialist.displayName.isNotEmpty
@@ -2228,6 +2504,181 @@ class _HomeScreenState extends State<HomeScreen> {
           color: foreground,
         ),
       ),
+    );
+  }
+
+  Widget _buildReelsSkeleton(bool isDark) {
+    return SizedBox(
+      height: 102,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, index) {
+          return SizedBox(
+            width: 76,
+            child: Column(
+              children: [
+                _SkeletonBox(
+                  width: 70,
+                  height: 70,
+                  radius: 999,
+                  baseColor: isDark
+                      ? const Color(0x33FFFFFF)
+                      : const Color(0xFFEFE8F8),
+                  highlightColor: isDark
+                      ? const Color(0x66FFFFFF)
+                      : const Color(0xFFF8F4FC),
+                ),
+                const SizedBox(height: 8),
+                _SkeletonBox(
+                  width: 48,
+                  height: 10,
+                  radius: 6,
+                  baseColor: isDark
+                      ? const Color(0x33FFFFFF)
+                      : const Color(0xFFEFE8F8),
+                  highlightColor: isDark
+                      ? const Color(0x66FFFFFF)
+                      : const Color(0xFFF8F4FC),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildCategoriesSkeleton(bool isDark) {
+    return SizedBox(
+      height: 98,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          return Container(
+            width: 84,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : const Color(0xFFF9F5FD),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFECDDFA),
+              ),
+            ),
+            child: Column(
+              children: [
+                _SkeletonBox(
+                  width: 44,
+                  height: 44,
+                  radius: 14,
+                  baseColor: isDark
+                      ? const Color(0x33FFFFFF)
+                      : const Color(0xFFEFE8F8),
+                  highlightColor: isDark
+                      ? const Color(0x66FFFFFF)
+                      : const Color(0xFFF8F4FC),
+                ),
+                const SizedBox(height: 8),
+                const _SkeletonBox(
+                  width: 52,
+                  height: 10,
+                  radius: 6,
+                ),
+                const SizedBox(height: 5),
+                const _SkeletonBox(
+                  width: 42,
+                  height: 10,
+                  radius: 6,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildProvidersSkeleton(bool isDark) {
+    return SizedBox(
+      height: 182,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 3,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          return Container(
+            width: 146,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF221B2E) : const Color(0xFFFCFAFE),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFE8DDF5),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    _SkeletonBox(width: 42, height: 20, radius: 999),
+                    Spacer(),
+                    _SkeletonBox(width: 24, height: 24, radius: 999),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Center(
+                  child: _SkeletonBox(
+                    width: 74,
+                    height: 74,
+                    radius: 999,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const _SkeletonBox(width: 96, height: 12, radius: 8),
+                const SizedBox(height: 8),
+                Row(
+                  children: const [
+                    _SkeletonBox(width: 48, height: 22, radius: 999),
+                    Spacer(),
+                    _SkeletonBox(width: 32, height: 10, radius: 6),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  FeaturedSpecialistModel _providerToFeaturedSpecialist(
+    ProviderPublicModel provider,
+  ) {
+    return FeaturedSpecialistModel(
+      placementId: provider.id,
+      providerId: provider.id,
+      displayName: provider.displayName,
+      profileImage: provider.profileImage,
+      city: provider.city,
+      cityDisplay: provider.locationDisplay,
+      isVerifiedBlue: provider.isVerifiedBlue,
+      isVerifiedGreen: provider.isVerifiedGreen,
+      ratingAvg: provider.ratingAvg,
+      ratingCount: provider.ratingCount,
+      excellenceBadges: provider.excellenceBadges,
     );
   }
 
@@ -2498,6 +2949,113 @@ class _HomeScreenState extends State<HomeScreen> {
       return Icons.directions_car_rounded;
     }
     return Icons.category_rounded;
+  }
+}
+
+class _SkeletonBox extends StatelessWidget {
+  final double? width;
+  final double? height;
+  final double radius;
+  final Color baseColor;
+  final Color highlightColor;
+
+  const _SkeletonBox({
+    this.width,
+    this.height,
+    this.radius = 12,
+    this.baseColor = const Color(0xFFEFE8F8),
+    this.highlightColor = const Color(0xFFF8F4FC),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerSkeleton(
+      baseColor: baseColor,
+      highlightColor: highlightColor,
+      child: Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: baseColor,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShimmerSkeleton extends StatefulWidget {
+  final Widget child;
+  final Color baseColor;
+  final Color highlightColor;
+
+  const _ShimmerSkeleton({
+    required this.child,
+    required this.baseColor,
+    required this.highlightColor,
+  });
+
+  @override
+  State<_ShimmerSkeleton> createState() => _ShimmerSkeletonState();
+}
+
+class _ShimmerSkeletonState extends State<_ShimmerSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1300),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      child: widget.child,
+      builder: (context, child) {
+        return ShaderMask(
+          shaderCallback: (bounds) {
+            final width = bounds.width == 0 ? 1.0 : bounds.width;
+            final dx = (width * 2.2 * _controller.value) - width;
+            return LinearGradient(
+              colors: [
+                widget.baseColor,
+                widget.highlightColor,
+                widget.baseColor,
+              ],
+              stops: const [0.15, 0.5, 0.85],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              transform: _SlidingGradientTransform(dx),
+            ).createShader(bounds);
+          },
+          blendMode: BlendMode.srcATop,
+          child: child,
+        );
+      },
+    );
+  }
+}
+
+class _SlidingGradientTransform extends GradientTransform {
+  final double slideX;
+
+  const _SlidingGradientTransform(this.slideX);
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    return Matrix4.translationValues(slideX, 0, 0);
   }
 }
 

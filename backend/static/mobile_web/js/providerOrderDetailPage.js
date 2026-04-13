@@ -52,7 +52,7 @@ const ProviderOrderDetailPage = (() => {
 
     setText('pod-client-name', val(o.client_name, 'غير متوفر'));
     setText('pod-client-phone', val(o.client_phone, 'غير متوفر'));
-    setText('pod-client-city', val(o.city, 'غير متوفر'));
+    setText('pod-client-city', val(UI.formatCityDisplay(o.city_display || o.city, o.region || o.region_name), 'غير متوفر'));
 
     const displayId = Number.isFinite(Number(o.id)) ? ('R' + String(o.id).padStart(6, '0')) : val(o.display_id, '-');
     setText('pod-display-id', displayId);

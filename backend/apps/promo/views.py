@@ -25,6 +25,7 @@ from apps.uploads.media_optimizer import optimize_upload_for_storage
 
 from apps.backoffice.policies import PromoQuoteActivatePolicy
 from apps.dashboard.access import dashboard_assignee_user
+from apps.providers.location_formatter import format_city_display
 
 from .models import (
     HomeBanner,
@@ -328,6 +329,7 @@ def _item_is_active_now(*, item: PromoRequestItem, now):
 def _build_request_placement(pr: PromoRequest) -> dict:
     position = getattr(pr, "position", "") or PromoPosition.NORMAL
     service_type = _LEGACY_AD_TYPE_DEFAULT_SERVICE_TYPE.get(pr.ad_type, "")
+    target_city = "" if service_type == PromoServiceType.SEARCH_RESULTS else (pr.target_city or "")
     return {
         "id": pr.id,
         "request_id": pr.id,
@@ -343,7 +345,8 @@ def _build_request_placement(pr: PromoRequest) -> dict:
         "search_scope": "",
         "search_position": "",
         "target_category": pr.target_category or "",
-        "target_city": "" if service_type == PromoServiceType.SEARCH_RESULTS else (pr.target_city or ""),
+        "target_city": target_city,
+        "target_city_display": format_city_display(target_city),
         "redirect_url": pr.redirect_url or "",
         "message_title": pr.message_title or "",
         "message_body": pr.message_body or "",
@@ -364,6 +367,7 @@ def _build_request_placement(pr: PromoRequest) -> dict:
 def _build_item_placement(item: PromoRequestItem) -> dict:
     pr = item.request
     position = item.search_position or pr.position or PromoPosition.NORMAL
+    target_city = "" if item.service_type == PromoServiceType.SEARCH_RESULTS else (item.target_city or pr.target_city or "")
     return {
         "id": item.id,
         "request_id": pr.id,
@@ -379,7 +383,8 @@ def _build_item_placement(item: PromoRequestItem) -> dict:
         "search_scope": item.search_scope or "",
         "search_position": item.search_position or "",
         "target_category": item.target_category or pr.target_category or "",
-        "target_city": "" if item.service_type == PromoServiceType.SEARCH_RESULTS else (item.target_city or pr.target_city or ""),
+        "target_city": target_city,
+        "target_city_display": format_city_display(target_city),
         "redirect_url": item.redirect_url or pr.redirect_url or "",
         "message_title": item.message_title or pr.message_title or "",
         "message_body": item.message_body or pr.message_body or "",
@@ -1224,6 +1229,9 @@ class PromoAddAssetView(_PromoAssetUploadContextMixin, generics.CreateAPIView):
             file=file_obj,
             uploaded_by=request.user,
         )
+        if asset_type == "video":
+            from apps.uploads.tasks import schedule_video_optimization
+            schedule_video_optimization(asset, "file")
 
         serializer = self.get_serializer(asset)
         return Response(

@@ -4,6 +4,7 @@ from rest_framework import serializers
 from django.utils import timezone
 
 from apps.providers.models import ProviderPortfolioItem, ProviderSpotlightItem
+from apps.providers.location_formatter import format_city_display
 from apps.providers.serializers import ProviderPortfolioItemSerializer, ProviderSpotlightItemSerializer
 from apps.subscriptions.capabilities import (
     promotional_chat_controls_enabled_for_user,
@@ -316,6 +317,7 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
     service_type_label = serializers.CharField(source="get_service_type_display", read_only=True)
     search_scope_label = serializers.CharField(source="get_search_scope_display", read_only=True)
     search_position_label = serializers.CharField(source="get_search_position_display", read_only=True)
+    target_city_display = serializers.SerializerMethodField()
 
     class Meta:
         model = PromoRequestItem
@@ -333,6 +335,7 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "search_position_label",
             "target_category",
             "target_city",
+            "target_city_display",
             "target_provider",
             "target_portfolio_item",
             "target_spotlight_item",
@@ -356,10 +359,14 @@ class PromoRequestItemDetailSerializer(serializers.ModelSerializer):
             "assets",
         ]
 
+    def get_target_city_display(self, obj):
+        return format_city_display(getattr(obj, "target_city", ""))
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         if data.get("service_type") == PromoServiceType.SEARCH_RESULTS:
             data["target_city"] = ""
+            data["target_city_display"] = ""
         return data
 
 
@@ -626,6 +633,7 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
     payment_effective = serializers.SerializerMethodField()
     provider_status_code = serializers.SerializerMethodField()
     provider_status_label = serializers.SerializerMethodField()
+    target_city_display = serializers.SerializerMethodField()
 
     class Meta:
         model = PromoRequest
@@ -639,6 +647,7 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "position",
             "target_category",
             "target_city",
+            "target_city_display",
             "target_provider",
             "target_portfolio_item",
             "target_spotlight_item",
@@ -673,6 +682,9 @@ class PromoRequestDetailSerializer(serializers.ModelSerializer):
             "items",
             "assets",
         ]
+
+    def get_target_city_display(self, obj: PromoRequest) -> str:
+        return format_city_display(getattr(obj, "target_city", ""))
 
     def get_provider_display_name(self, obj: PromoRequest) -> str:
         provider = getattr(getattr(obj, "requester", None), "provider_profile", None)
@@ -780,6 +792,7 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     search_position = serializers.CharField(read_only=True, allow_blank=True)
     target_category = serializers.CharField(read_only=True, allow_blank=True)
     target_city = serializers.CharField(read_only=True, allow_blank=True)
+    target_city_display = serializers.SerializerMethodField()
     redirect_url = serializers.CharField(read_only=True, allow_blank=True)
     message_title = serializers.CharField(read_only=True, allow_blank=True)
     message_body = serializers.CharField(read_only=True, allow_blank=True)
@@ -792,6 +805,7 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     target_provider_display_name = serializers.CharField(source="target_provider.display_name", read_only=True)
     target_provider_profile_image = serializers.FileField(source="target_provider.profile_image", read_only=True)
     target_provider_city = serializers.CharField(source="target_provider.city", read_only=True)
+    target_provider_city_display = serializers.SerializerMethodField()
     target_provider_type = serializers.CharField(source="target_provider.provider_type", read_only=True)
     target_provider_is_verified_blue = serializers.SerializerMethodField()
     target_provider_is_verified_green = serializers.SerializerMethodField()
@@ -823,6 +837,17 @@ class PromoActivePlacementSerializer(serializers.Serializer):
     def get_target_provider_rating_avg(self, obj):
         provider = self._target_provider(obj)
         return getattr(provider, "rating_avg", 0) or 0
+
+    def get_target_city_display(self, obj):
+        if isinstance(obj, dict):
+            return format_city_display(obj.get("target_city", ""))
+        return format_city_display(getattr(obj, "target_city", ""))
+
+    def get_target_provider_city_display(self, obj):
+        provider = self._target_provider(obj)
+        if provider is None:
+            return ""
+        return format_city_display(getattr(provider, "city", ""), region=getattr(provider, "region", ""))
 
     def get_target_provider_rating_count(self, obj):
         provider = self._target_provider(obj)

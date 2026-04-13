@@ -1,4 +1,5 @@
 import 'excellence_badge_model.dart';
+import '../constants/saudi_cities.dart';
 
 /// نموذج بيانات مزود الخدمة العام — يطابق ProviderPublicSerializer
 ///
@@ -23,6 +24,7 @@ class ProviderPublicModel {
   final List<dynamic> socialLinks;
   final List<dynamic> languages;
   final String? city;
+  final String? cityDisplay;
   final double? lat;
   final double? lng;
   final double? coverageRadiusKm;
@@ -64,6 +66,7 @@ class ProviderPublicModel {
     this.socialLinks = const [],
     this.languages = const [],
     this.city,
+    this.cityDisplay,
     this.lat,
     this.lng,
     this.coverageRadiusKm,
@@ -108,6 +111,7 @@ class ProviderPublicModel {
       languages:
           json['languages'] is List ? json['languages'] as List<dynamic> : [],
       city: _parseString(json['city']),
+        cityDisplay: _parseString(json['city_display']),
       lat: _parseDouble(json['lat']),
       lng: _parseDouble(json['lng']),
       coverageRadiusKm: _parseDouble(json['coverage_radius_km']),
@@ -147,6 +151,7 @@ class ProviderPublicModel {
 
   /// هل المزود مُوثق (أزرق أو أخضر)
   bool get isVerified => isVerifiedBlue || isVerifiedGreen;
+  String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
 
   bool get hasExcellenceBadges => excellenceBadges.isNotEmpty;
 

@@ -38,6 +38,7 @@ from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
 from apps.moderation.integrations import record_content_action_case, record_support_target_delete_case, sync_review_case
 from apps.notifications.models import DeviceToken
+from apps.providers.location_formatter import format_city_display
 from apps.providers.models import (
     Category,
     ProviderCategory,
@@ -7232,6 +7233,15 @@ def _promo_module_initial_data_from_request(
             or ""
         ),
         "target_city": (
+            ""
+            if service_type == PromoServiceType.SEARCH_RESULTS
+            else (
+                (selected_item.target_city if selected_item else "")
+                or selected_request.target_city
+                or ""
+            )
+        ),
+        "target_city_display": format_city_display(
             ""
             if service_type == PromoServiceType.SEARCH_RESULTS
             else (

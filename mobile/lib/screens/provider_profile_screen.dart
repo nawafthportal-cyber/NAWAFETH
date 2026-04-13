@@ -1,4 +1,5 @@
 // ignore_for_file: unused_field, unused_element
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -64,8 +65,10 @@ class ProviderProfileScreen extends StatefulWidget {
   State<ProviderProfileScreen> createState() => _ProviderProfileScreenState();
 }
 
-class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
-  final Color mainColor = Colors.deepPurple;
+class _ProviderProfileScreenState extends State<ProviderProfileScreen>
+  with SingleTickerProviderStateMixin {
+  final Color mainColor = const Color(0xFF0F766E);
+  late final AnimationController _entranceController;
 
   int _selectedTabIndex = 0;
 
@@ -346,7 +349,7 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     );
   }
 
-  String get providerCityName => _providerDetail?.city ?? '';
+  String get providerCityName => _providerDetail?.locationDisplay ?? '';
   String get providerRegionName => '';
   String get providerCountryName => '';
 
@@ -547,8 +550,17 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     _servicesData = [];
     _loadProviderData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   Future<void> _loadProviderData() async {
@@ -1081,10 +1093,10 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            qrImageUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: qrImageUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) {
+                            errorWidget: (_, __, ___) {
                               return const Center(
                                 child: Icon(
                                   Icons.qr_code,
@@ -1459,9 +1471,15 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   }
 
   @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : const Color(0xFFF5F5FA);
+    final bgColor = isDark ? const Color(0xFF0B1A1A) : const Color(0xFFF4FBFA);
     final textColor = isDark ? Colors.white : Colors.black;
     final secondaryTextColor = isDark ? Colors.grey[400] : Colors.grey;
 
@@ -1470,121 +1488,66 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         body: _isLoading
-            ? Center(child: CircularProgressIndicator(color: mainColor))
-            : CustomScrollView(
+            ? _buildLoadingShell(isDark)
+            : Container(
+                decoration: BoxDecoration(
+                  gradient: isDark
+                      ? const LinearGradient(
+                          colors: [Color(0xFF0B1A1A), Color(0xFF102726), Color(0xFF163130)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        )
+                      : const LinearGradient(
+                          colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Color(0xFFFFFFFF)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                ),
+                child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  // ── Header ──
                   SliverToBoxAdapter(
-                      child: _buildProviderHeader(
-                          isDark, bgColor, textColor, secondaryTextColor)),
-
-                  // ── Highlights ──
-                  if (_highlightsVideos.isNotEmpty)
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      sliver: SliverToBoxAdapter(
-                          child: _highlightsRow(isDark: isDark)),
-                    ),
-
-                  // ── Quick Action Buttons ──
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-                    sliver:
-                        SliverToBoxAdapter(child: _buildActionButtons(isDark)),
-                  ),
-
-                  // ── Tabs ──
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: SizedBox(
-                        height: 64,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: tabs.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(width: 10),
-                          itemBuilder: (context, index) {
-                            final isSelected = _selectedTabIndex == index;
-                            return GestureDetector(
-                              onTap: () =>
-                                  setState(() => _selectedTabIndex = index),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 8),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? mainColor.withValues(alpha: 0.12)
-                                      : (isDark
-                                          ? Colors.white.withValues(alpha: 0.06)
-                                          : Colors.white),
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? mainColor.withValues(alpha: 0.35)
-                                        : (isDark
-                                            ? Colors.white
-                                                .withValues(alpha: 0.08)
-                                            : Colors.grey.shade200),
-                                  ),
-                                  boxShadow: isSelected
-                                      ? null
-                                      : (isDark
-                                          ? null
-                                          : [
-                                              BoxShadow(
-                                                  color: Colors.black
-                                                      .withValues(alpha: 0.03),
-                                                  blurRadius: 6,
-                                                  offset: const Offset(0, 2)),
-                                            ]),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(tabs[index]['icon'],
-                                        size: 18,
-                                        color: isSelected
-                                            ? mainColor
-                                            : (isDark
-                                                ? Colors.grey[300]
-                                                : Colors.grey.shade600)),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      tabs[index]['title'],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontFamily: 'Cairo',
-                                        fontSize: 10.5,
-                                        height: 1.1,
-                                        fontWeight: FontWeight.w700,
-                                        color: isSelected
-                                            ? mainColor
-                                            : (isDark
-                                                ? Colors.white70
-                                                : Colors.black87),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                    child: _buildEntrance(
+                      0,
+                      _buildProviderHeader(
+                        isDark,
+                        bgColor,
+                        textColor,
+                        secondaryTextColor,
                       ),
                     ),
                   ),
 
-                  // ── Tab Content ──
+                  if (_highlightsVideos.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: _buildEntrance(1, _highlightsRow(isDark: isDark)),
+                      ),
+                    ),
+
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildEntrance(2, _buildActionButtons(isDark)),
+                    ),
+                  ),
+
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: _buildEntrance(3, _buildTabsBar(isDark)),
+                    ),
+                  ),
+
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-                    sliver: SliverToBoxAdapter(child: _buildTabContent()),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildEntrance(4, _buildTabContent()),
+                    ),
                   ),
                 ],
+              ),
               ),
       ),
     );
@@ -1599,34 +1562,34 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     ImageProvider<Object>? coverProvider;
     final coverImageUrl = _normalizeMediaUrl(_providerDetail?.coverImage);
     if (coverImageUrl.startsWith('http')) {
-      coverProvider = NetworkImage(coverImageUrl);
+      coverProvider = CachedNetworkImageProvider(coverImageUrl);
     }
 
     ImageProvider<Object>? avatarProvider;
     if (providerImage.startsWith('http')) {
-      avatarProvider = NetworkImage(providerImage);
+      avatarProvider = CachedNetworkImageProvider(providerImage);
     }
 
     return SizedBox(
-      height: 340,
+      height: 388,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           // ── Cover ──
           Container(
-            height: 150,
+            height: 170,
             width: double.infinity,
             decoration: BoxDecoration(
               gradient: coverProvider == null
                   ? LinearGradient(
                       colors: isDark
                           ? [
-                              Colors.deepPurple.shade900,
-                              Colors.deepPurple.shade700.withValues(alpha: 0.7)
+                              const Color(0xFF0F3B38),
+                              const Color(0xFF0F766E),
                             ]
                           : [
-                              Colors.deepPurple.shade700,
-                              Colors.deepPurple.shade400
+                              const Color(0xFF115E59),
+                              const Color(0xFF14B8A6),
                             ],
                       begin: Alignment.topRight,
                       end: Alignment.bottomLeft,
@@ -1636,26 +1599,54 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                   ? DecorationImage(image: coverProvider, fit: BoxFit.cover)
                   : null,
             ),
-            child: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _headerIconBtn(
-                      _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
-                      _openFavorites,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: -42,
+                  left: -20,
+                  child: Container(
+                    width: 152,
+                    height: 152,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.10),
                     ),
-                    const SizedBox(width: 8),
-                    _headerIconBtn(Icons.ios_share, _showShareAndReportSheet),
-                    const Spacer(),
-                    _headerIconBtn(Icons.arrow_forward_ios_rounded,
-                        () => Navigator.pop(context)),
-                  ],
+                  ),
                 ),
-              ),
+                Positioned(
+                  bottom: -54,
+                  right: -16,
+                  child: Container(
+                    width: 170,
+                    height: 170,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _headerIconBtn(
+                          _isBookmarked ? Icons.bookmark : Icons.bookmark_outline,
+                          _openFavorites,
+                        ),
+                        const SizedBox(width: 8),
+                        _headerIconBtn(Icons.ios_share, _showShareAndReportSheet),
+                        const Spacer(),
+                        _headerIconBtn(Icons.arrow_forward_ios_rounded,
+                            () => Navigator.pop(context)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
@@ -1799,6 +1790,8 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                       ),
                     ),
                   ),
+                const SizedBox(height: 12),
+                _buildOverviewStrip(isDark),
                 const SizedBox(height: 10),
                 // ── Stats Row ──
                 _buildStatsRow(isDark),
@@ -1838,18 +1831,20 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
   Widget _buildStatsRow(bool isDark) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2))
-              ],
+        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1978,78 +1973,86 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
 
   // ── Action Buttons Row ──
   Widget _buildActionButtons(bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: _isFollowing
-                  ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
-                  : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
                 color: _isFollowing
-                    ? mainColor.withValues(alpha: 0.28)
-                    : (isDark
-                        ? Colors.white.withValues(alpha: 0.08)
-                        : mainColor.withValues(alpha: 0.18)),
-              ),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: mainColor.withValues(alpha: 0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-            ),
-            child: TextButton.icon(
-              onPressed: _isFollowLoading ? null : _toggleFollow,
-              icon: _isFollowLoading
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(mainColor),
-                      ),
-                    )
-                  : Icon(
-                      _isFollowing
-                          ? Icons.person_remove_alt_1_rounded
-                          : Icons.person_add_alt_1_rounded,
-                      size: 18,
-                      color: mainColor,
-                    ),
-              label: Text(
-                _isFollowing ? 'متابَع' : 'متابعة',
-                style: TextStyle(
-                  fontFamily: 'Cairo',
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: mainColor,
+                    ? mainColor.withValues(alpha: isDark ? 0.18 : 0.12)
+                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: _isFollowing
+                      ? mainColor.withValues(alpha: 0.28)
+                      : (isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : mainColor.withValues(alpha: 0.18)),
                 ),
               ),
-              style: TextButton.styleFrom(
-                foregroundColor: mainColor,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+              child: TextButton.icon(
+                onPressed: _isFollowLoading ? null : _toggleFollow,
+                icon: _isFollowLoading
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(mainColor),
+                        ),
+                      )
+                    : Icon(
+                        _isFollowing
+                            ? Icons.person_remove_alt_1_rounded
+                            : Icons.person_add_alt_1_rounded,
+                        size: 18,
+                        color: mainColor,
+                      ),
+                label: Text(
+                  _isFollowing ? 'متابَع' : 'متابعة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: mainColor,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: mainColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        const SizedBox(width: 8),
-        _actionIconBtn(
-            Icons.chat_bubble_outline_rounded, _openInAppChat, isDark),
-        const SizedBox(width: 8),
-        _actionIconBtn(Icons.call_outlined, _openPhoneCall, isDark),
-        const SizedBox(width: 8),
-        _actionIconBtn(FontAwesomeIcons.whatsapp, _openWhatsApp, isDark),
-      ],
+          const SizedBox(width: 8),
+          _actionIconBtn(
+              Icons.chat_bubble_outline_rounded, _openInAppChat, isDark),
+          const SizedBox(width: 8),
+          _actionIconBtn(Icons.call_outlined, _openPhoneCall, isDark),
+          const SizedBox(width: 8),
+          _actionIconBtn(FontAwesomeIcons.whatsapp, _openWhatsApp, isDark),
+        ],
+      ),
     );
   }
 
@@ -2516,20 +2519,270 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: isDark
-            ? null
-            : [
-                BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2))
-              ],
+        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: 0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          )
+        ],
       ),
       child: child,
+    );
+  }
+
+  Widget _buildLoadingShell(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? const LinearGradient(
+                colors: [Color(0xFF0B1A1A), Color(0xFF102726), Color(0xFF163130)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              )
+            : const LinearGradient(
+                colors: [Color(0xFFEFFCFA), Color(0xFFF7FFFD), Color(0xFFFFFFFF)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+      ),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF102726) : Colors.white,
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: mainColor.withValues(alpha: 0.10),
+                blurRadius: 22,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: Color(0xFF0F766E)),
+              SizedBox(height: 16),
+              Text(
+                'جار تحميل ملف مقدم الخدمة...',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'يتم تجهيز البيانات، الإحصاءات، والخدمات والمعرض لعرضها بشكل كامل.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverviewStrip(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _overviewItem(
+              label: 'المدينة',
+              value: providerCityName.isNotEmpty ? providerCityName : 'غير محددة',
+              isDark: isDark,
+            ),
+          ),
+          _dividerVertical(isDark),
+          Expanded(
+            child: _overviewItem(
+              label: 'الخبرة',
+              value: providerExperienceYears.isNotEmpty ? providerExperienceYears : 'غير مذكورة',
+              isDark: isDark,
+            ),
+          ),
+          _dividerVertical(isDark),
+          Expanded(
+            child: _overviewItem(
+              label: 'نطاق الخدمة',
+              value: _geoScopeDisplayValue(),
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _overviewItem({
+    required String label,
+    required String value,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.2,
+              fontWeight: FontWeight.w700,
+              color: isDark ? Colors.white60 : const Color(0xFF64748B),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 11,
+              height: 1.4,
+              fontWeight: FontWeight.w800,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabsBar(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.white.withValues(alpha: 0.98),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.10) : const Color(0xFFE2E8F0),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: mainColor.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: SizedBox(
+        height: 64,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: tabs.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, index) {
+            final isSelected = _selectedTabIndex == index;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedTabIndex = index),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? mainColor.withValues(alpha: 0.12)
+                      : (isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC)),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isSelected
+                        ? mainColor.withValues(alpha: 0.35)
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.08)
+                            : Colors.grey.shade200),
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      tabs[index]['icon'],
+                      size: 18,
+                      color: isSelected
+                          ? mainColor
+                          : (isDark ? Colors.grey[300] : Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      tabs[index]['title'],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10.5,
+                        height: 1.1,
+                        fontWeight: FontWeight.w700,
+                        color: isSelected
+                            ? mainColor
+                            : (isDark ? Colors.white70 : Colors.black87),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
     );
   }
 
@@ -3369,11 +3622,11 @@ class _ProviderProfileScreenState extends State<ProviderProfileScreen> {
                     borderRadius:
                         const BorderRadius.vertical(top: Radius.circular(14)),
                     child: normalizedMedia.startsWith('http')
-                        ? Image.network(
-                            normalizedMedia,
+                        ? CachedNetworkImage(
+                            imageUrl: normalizedMedia,
                             fit: BoxFit.cover,
                             width: double.infinity,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorWidget: (_, __, ___) => Container(
                               color: Colors.grey.shade200,
                               child: const Center(
                                 child: Icon(Icons.image,

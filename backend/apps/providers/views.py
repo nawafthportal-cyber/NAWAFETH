@@ -1,5 +1,7 @@
 import logging
 
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from rest_framework import generics, permissions, status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
@@ -260,6 +262,7 @@ class ProviderSubcategoriesPublicListView(generics.ListAPIView):
 		)
 
 
+@method_decorator(cache_page(60 * 60 * 24), name="dispatch")  # 24 hours
 class CategoryListView(generics.ListAPIView):
 	queryset = Category.objects.filter(is_active=True)
 	serializer_class = CategorySerializer
@@ -267,6 +270,7 @@ class CategoryListView(generics.ListAPIView):
 	permission_classes = [permissions.AllowAny]
 
 
+@method_decorator(cache_page(60 * 60 * 24), name="dispatch")  # 24 hours
 class RegionCityCatalogView(generics.ListAPIView):
 	queryset = SaudiRegion.objects.filter(is_active=True).prefetch_related("cities").order_by("sort_order", "id")
 	serializer_class = SaudiRegionSerializer
@@ -955,6 +959,13 @@ class ProviderPublicStatsView(APIView):
 		if not provider:
 			raise NotFound("provider_not_found")
 
+		from django.core.cache import cache as _cache
+
+		cache_key = f"provider:{provider_id}:public_stats:{role}"
+		cached = _cache.get(cache_key)
+		if cached is not None:
+			return Response(cached, status=status.HTTP_200_OK)
+
 		# Import locally to avoid hard coupling at import time.
 		from apps.marketplace.models import ServiceRequest, RequestStatus
 
@@ -998,26 +1009,37 @@ class ProviderPublicStatsView(APIView):
 		media_likes_count = portfolio_likes_count + spotlight_likes_count
 		media_saves_count = portfolio_saves_count + spotlight_saves_count
 
-		return Response(
-			{
-				"provider_id": provider_id,
-				"completed_requests": completed_requests,
-				"followers_count": followers_count,
-				"following_count": following_count,
-				# Backward-compatible: keep profile likes on legacy key.
-				"likes_count": profile_likes_count,
-				"profile_likes_count": profile_likes_count,
-				"portfolio_likes_count": portfolio_likes_count,
-				"spotlight_likes_count": spotlight_likes_count,
-				"media_likes_count": media_likes_count,
-				"portfolio_saves_count": portfolio_saves_count,
-				"spotlight_saves_count": spotlight_saves_count,
-				"media_saves_count": media_saves_count,
-				"rating_avg": getattr(provider, "rating_avg", 0) or 0,
-				"rating_count": getattr(provider, "rating_count", 0) or 0,
-			},
-			status=status.HTTP_200_OK,
-		)
+		payload = {
+			"provider_id": provider_id,
+			"completed_requests": completed_requests,
+			"followers_count": followers_count,
+			"following_count": following_count,
+			# Backward-compatible: keep profile likes on legacy key.
+			"likes_count": profile_likes_count,
+			"profile_likes_count": profile_likes_count,
+			"portfolio_likes_count": portfolio_likes_count,
+			"spotlight_likes_count": spotlight_likes_count,
+			"media_likes_count": media_likes_count,
+			"portfolio_saves_count": portfolio_saves_count,
+			"spotlight_saves_count": spotlight_saves_count,
+			"media_saves_count": media_saves_count,
+			"rating_avg": getattr(provider, "rating_avg", 0) or 0,
+			"rating_count": getattr(provider, "rating_count", 0) or 0,
+		}
+		_cache.set(cache_key, payload, 300)  # 5 minutes
+		return Response(payload, status=status.HTTP_200_OK)
+
+
+def _invalidate_provider_counters(provider_id: int) -> None:
+	"""Delete cached follower/like counts so they are recalculated on next read."""
+	from django.core.cache import cache as _cache
+	_cache.delete_many([
+		f"provider:{provider_id}:followers",
+		f"provider:{provider_id}:likes",
+		f"provider:{provider_id}:public_stats:client",
+		f"provider:{provider_id}:public_stats:provider",
+		f"provider:{provider_id}:public_stats:shared",
+	])
 
 
 class FollowProviderView(APIView):
@@ -1027,6 +1049,7 @@ class FollowProviderView(APIView):
 		role = get_active_role(request)
 		provider = generics.get_object_or_404(ProviderProfile, id=provider_id)
 		ProviderFollow.objects.get_or_create(user=request.user, provider=provider, role_context=role)
+		_invalidate_provider_counters(provider_id)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -1036,6 +1059,7 @@ class UnfollowProviderView(APIView):
 	def post(self, request, provider_id: int):
 		role = get_active_role(request)
 		ProviderFollow.objects.filter(user=request.user, provider_id=provider_id, role_context=role).delete()
+		_invalidate_provider_counters(provider_id)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -1046,6 +1070,7 @@ class LikeProviderView(APIView):
 		role = get_active_role(request)
 		provider = generics.get_object_or_404(ProviderProfile, id=provider_id)
 		ProviderLike.objects.get_or_create(user=request.user, provider=provider, role_context=role)
+		_invalidate_provider_counters(provider_id)
 		return Response({"ok": True}, status=status.HTTP_200_OK)
 
 
@@ -1055,4 +1080,5 @@ class UnlikeProviderView(APIView):
 	def post(self, request, provider_id: int):
 		role = get_active_role(request)
 		ProviderLike.objects.filter(user=request.user, provider_id=provider_id, role_context=role).delete()
+		_invalidate_provider_counters(provider_id)
 		return Response({"ok": True}, status=status.HTTP_200_OK)

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'chat_detail_screen.dart'; // ✅ لفتح المحادثة
@@ -242,7 +243,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                     radius: 26,
                     backgroundColor: Colors.grey.shade200,
                     backgroundImage: _safeImages.first.startsWith('http')
-                        ? NetworkImage(_safeImages.first)
+                        ? CachedNetworkImageProvider(_safeImages.first)
                         : AssetImage(_safeImages.first) as ImageProvider,
                   ),
                   const SizedBox(width: 10),
@@ -399,12 +400,12 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: _safeImages[currentIndex].startsWith('http')
-                        ? Image.network(
-                            _safeImages[currentIndex],
+                        ? CachedNetworkImage(
+                            imageUrl: _safeImages[currentIndex],
                             fit: BoxFit.cover,
                             width: double.infinity,
                             height: 220,
-                            errorBuilder: (_, __, ___) => Container(
+                            errorWidget: (_, __, ___) => Container(
                               height: 220,
                               color: Colors.grey.shade200,
                               child: const Center(
@@ -473,11 +474,11 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: _safeImages[index].startsWith('http')
-                              ? Image.network(
-                                  _safeImages[index],
+                              ? CachedNetworkImage(
+                                  imageUrl: _safeImages[index],
                                   width: 70,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorWidget: (_, __, ___) => Container(
                                     width: 70,
                                     color: Colors.grey.shade200,
                                     child: const Icon(Icons.image, size: 20, color: Colors.grey),

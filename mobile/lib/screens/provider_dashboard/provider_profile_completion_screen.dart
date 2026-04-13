@@ -657,7 +657,7 @@ class _BasicInfoDetailsScreenState extends State<_BasicInfoDetailsScreen> {
   String _contactValue() {
     final phone = (_userProfile?.phone ?? '').trim();
     final whatsapp = (_providerProfile?.whatsapp ?? '').trim();
-    final city = (_providerProfile?.city ?? '').trim();
+    final city = (_providerProfile?.locationDisplay ?? '').trim();
 
     final lines = <String>[];
     if (phone.isNotEmpty) lines.add('الجوال: $phone');

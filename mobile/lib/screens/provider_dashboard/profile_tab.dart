@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:nawafeth/constants/saudi_cities.dart';
@@ -132,7 +133,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
               .map((e) => e is Map ? (e['name'] ?? e.toString()) : e.toString())
               .join('، ')
           : '',
-      'location': p.city,
+      'location': p.locationDisplay,
       'details': p.aboutDetails ?? '',
       'qualification': p.qualifications.isNotEmpty
           ? p.qualifications
@@ -317,7 +318,7 @@ class _ProfileTabState extends State<ProfileTab> with TickerProviderStateMixin {
                   CircleAvatar(
                     radius: 34,
                     backgroundColor: mainColor.withAlpha(25),
-                    backgroundImage: hasImage ? NetworkImage(profileImage) : null,
+                    backgroundImage: hasImage ? CachedNetworkImageProvider(profileImage) : null,
                     child: hasImage
                         ? null
                         : Text(

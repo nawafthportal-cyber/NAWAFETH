@@ -286,13 +286,17 @@ const ProviderOrdersPage = (() => {
     return state.assignedOrders.filter((order) => _statusGroup(order) === state.selectedStatusGroup);
   }
 
+  function _orderCityText(order) {
+    return UI.formatCityDisplay(order && (order.city_display || order.city), order && (order.region || order.region_name));
+  }
+
   function _filteredOrders() {
     const list = _currentOrders();
     const filtered = !state.searchText ? list.slice() : list.filter((o) => {
       const id = String(o.display_id || o.id || '').toLowerCase();
       const title = String(o.title || '').toLowerCase();
       const client = String(o.client_name || '').toLowerCase();
-      const city = String(o.city || '').toLowerCase();
+      const city = (_orderCityText(o) + ' ' + String(o.city || '')).toLowerCase();
       return (
         id.includes(state.searchText) ||
         title.includes(state.searchText) ||
@@ -320,8 +324,8 @@ const ProviderOrdersPage = (() => {
         return tb - ta;
       }
       if (state.sortBy === 'city') {
-        const ca = String(a.city || '').trim();
-        const cb = String(b.city || '').trim();
+        const ca = _orderCityText(a);
+        const cb = _orderCityText(b);
         const cityResult = ca.localeCompare(cb, 'ar');
         if (cityResult !== 0) return cityResult;
         return tb - ta;
@@ -431,10 +435,11 @@ const ProviderOrdersPage = (() => {
       className: 'order-meta',
       textContent: _metaLine(order),
     }));
-    if (order.city) {
+    const cityText = _orderCityText(order);
+    if (cityText) {
       body.appendChild(UI.el('p', {
         className: 'order-date',
-        textContent: 'المدينة: ' + String(order.city),
+        textContent: 'المدينة: ' + cityText,
       }));
     }
 

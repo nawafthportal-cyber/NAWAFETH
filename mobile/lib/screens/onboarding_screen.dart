@@ -178,6 +178,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
     return Scaffold(
       body: DecoratedBox(
         decoration: const BoxDecoration(
@@ -193,7 +194,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            padding: EdgeInsets.symmetric(
+              horizontal: (size.width * 0.052).clamp(14.0, 24.0),
+              vertical: size.height < 700 ? 8.0 : 16.0,
+            ),
             child: _buildBody(),
           ),
         ),
@@ -332,12 +336,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     required OnboardItem item,
     required bool isActive,
   }) {
+    final size = MediaQuery.sizeOf(context);
+    final sw = size.width;
+    final sh = size.height;
+    final isSmall = sh < 700;
+    final double titleSize = (sw * 0.058).clamp(16.0, 22.0);
+    final double bodySize = (sw * 0.04).clamp(12.5, 15.0);
+    final double mediaBox = (sh * 0.22).clamp(120.0, 172.0);
+    final double cardPad = isSmall ? 14.0 : 20.0;
+    final double gapMedia = isSmall ? 10.0 : 20.0;
+    final double gapTitle = isSmall ? 6.0 : 12.0;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
       child: Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxWidth: 560),
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        padding: EdgeInsets.fromLTRB(cardPad, cardPad, cardPad, cardPad - 4),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.94),
           borderRadius: BorderRadius.circular(32),
@@ -377,7 +392,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: isSmall ? 8 : 14),
                     BounceInDown(
                       child: ContentBlockMedia(
                         mediaUrl: item.mediaUrl,
@@ -386,9 +401,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         borderRadius: 28,
                         aspectRatio: 1.04,
                         fallback: Container(
-                          width: 172,
-                          height: 172,
-                          padding: const EdgeInsets.all(26),
+                          width: mediaBox,
+                          height: mediaBox,
+                          padding: EdgeInsets.all(isSmall ? 18.0 : 26.0),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               begin: Alignment.topLeft,
@@ -412,32 +427,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: gapMedia),
                     FadeInUp(
                       delay: const Duration(milliseconds: 180),
                       child: Text(
                         item.title,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 22,
+                          fontSize: titleSize,
                           fontWeight: FontWeight.w800,
                           height: 1.35,
-                          color: Color(0xFF24163C),
+                          color: const Color(0xFF24163C),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: gapTitle),
                     FadeInUp(
                       delay: const Duration(milliseconds: 320),
                       child: Text(
                         item.desc,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 15,
+                          fontSize: bodySize,
                           height: 1.85,
-                          color: Color(0xFF6F6482),
+                          color: const Color(0xFF6F6482),
                         ),
                       ),
                     ),
@@ -453,8 +468,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildBottomControls() {
+    final size = MediaQuery.sizeOf(context);
+    final isSmall = size.height < 700;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
+      padding: EdgeInsets.fromLTRB(4, isSmall ? 10 : 18, 4, isSmall ? 6 : 10),
       child: Column(
         children: [
           Row(
@@ -484,7 +502,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          SizedBox(height: isSmall ? 14 : 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -510,7 +528,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       backgroundColor: Colors.transparent,
                       shadowColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size(148, 54),
+                      minimumSize: Size(148, isSmall ? 48 : 54),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(999),
                       ),

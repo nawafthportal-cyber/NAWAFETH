@@ -24,6 +24,7 @@ from apps.core.unread_badges import (
 )
 from apps.marketplace.models import ServiceRequest
 from apps.providers.models import ProviderProfile
+from apps.providers.location_formatter import format_city_display
 from apps.subscriptions.capabilities import direct_chat_quota_for_user
 from apps.support.models import SupportTicket, SupportTicketType, SupportPriority, SupportTicketEntrypoint
 
@@ -199,6 +200,9 @@ class SendMessageView(APIView):
 			attachment_name=attachment_name,
 			created_at=timezone.now(),
 		)
+		if attachment_type == "video":
+			from apps.uploads.tasks import schedule_video_optimization
+			schedule_video_optimization(message, "attachment")
 		_unarchive_for_participants(thread)
 		_invalidate_direct_thread_badges(thread)
 
@@ -383,6 +387,9 @@ class DirectThreadSendMessageView(APIView):
 			attachment_name=attachment_name,
 			created_at=timezone.now(),
 		)
+		if attachment_type == "video":
+			from apps.uploads.tasks import schedule_video_optimization
+			schedule_video_optimization(message, "attachment")
 		_unarchive_for_participants(thread)
 
 		return Response(
@@ -481,6 +488,11 @@ class MyDirectThreadsListView(APIView):
 				"peer_last_name": getattr(peer, "last_name", "") or "",
 				"peer_username": getattr(peer, "username", "") or "",
 				"peer_phone": getattr(peer, "phone", ""),
+				"peer_city": getattr(peer_provider, "city", "") if peer_provider else getattr(peer, "city", ""),
+				"peer_city_display": format_city_display(
+					getattr(peer_provider, "city", "") if peer_provider else getattr(peer, "city", ""),
+					region=getattr(peer_provider, "region", "") if peer_provider else "",
+				),
 				"last_message": last_msg.body if last_msg else "",
 				"last_message_at": last_msg.created_at.isoformat() if last_msg else t.created_at.isoformat(),
 				"unread_count": unread,

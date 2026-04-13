@@ -1,5 +1,5 @@
 {% extends 'dashboard/_base.html' %}
-{% load static %}
+{% load static location_display %}
 {% block title %}تحليلات التشغيل{% endblock %}
 {% block body %}
   <div class="dashboard-layout">
@@ -31,7 +31,7 @@
                 {% for item in provider_data.items %}
                   <tr>
                     <td>{{ item.display_name }}</td>
-                    <td>{{ item.city }}</td>
+                    <td>{{ item.city|city_display }}</td>
                     <td>{{ item.requests_received }}</td>
                   </tr>
                 {% empty %}

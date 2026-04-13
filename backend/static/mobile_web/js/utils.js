@@ -4,6 +4,55 @@
 'use strict';
 
 const UI = (() => {
+  const REGION_CITY_FALLBACK = [
+    { name_ar: 'منطقة الرياض', cities: ['الرياض', 'الخرج', 'الدلم', 'الدرعية', 'الدوادمي', 'الزلفي', 'السليل', 'القويعية', 'المجمعة', 'المزاحمية', 'ثادق', 'حوطة بني تميم', 'شقراء', 'ضرما', 'عفيف', 'الأفلاج'] },
+    { name_ar: 'منطقة مكة المكرمة', cities: ['مكة المكرمة', 'جدة', 'الطائف', 'الجموم', 'رابغ', 'القنفذة', 'الليث', 'تربة', 'رنية', 'ظلم'] },
+    { name_ar: 'منطقة المدينة المنورة', cities: ['المدينة المنورة', 'ينبع', 'بدر', 'خيبر', 'العلا'] },
+    { name_ar: 'المنطقة الشرقية', cities: ['الدمام', 'الخبر', 'الظهران', 'الأحساء', 'الجبيل', 'الخفجي', 'القطيف', 'حفر الباطن'] },
+    { name_ar: 'منطقة القصيم', cities: ['بريدة', 'عنيزة', 'الرس', 'البكيرية', 'البدائع', 'المذنب'] },
+    { name_ar: 'منطقة عسير', cities: ['أبها', 'خميس مشيط', 'بيشة', 'محايل عسير', 'النماص', 'تنومة', 'سراة عبيدة'] },
+    { name_ar: 'منطقة تبوك', cities: ['تبوك', 'ضباء', 'الوجه', 'حقل', 'أملج'] },
+    { name_ar: 'منطقة حائل', cities: ['حائل'] },
+    { name_ar: 'منطقة الجوف', cities: ['سكاكا', 'القريات', 'طبرجل'] },
+    { name_ar: 'منطقة الحدود الشمالية', cities: ['عرعر', 'رفحاء', 'طريف'] },
+    { name_ar: 'منطقة نجران', cities: ['نجران', 'شرورة'] },
+    { name_ar: 'منطقة جازان', cities: ['جازان', 'صامطة', 'صبيا'] },
+    { name_ar: 'منطقة الباحة', cities: ['الباحة', 'بلجرشي', 'العرضيات'] },
+  ];
+  const CITY_TO_REGION = Object.create(null);
+
+  REGION_CITY_FALLBACK.forEach((entry) => {
+    const regionName = String(entry && entry.name_ar || '').replace(/^(?:منطقة|المنطقة)\s+/, '').trim();
+    (Array.isArray(entry && entry.cities) ? entry.cities : []).forEach((cityName) => {
+      const city = String(cityName || '').trim();
+      if (!city || !regionName || CITY_TO_REGION[city]) return;
+      CITY_TO_REGION[city] = regionName;
+    });
+  });
+
+  function _cleanText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function _stripRegionPrefix(value) {
+    return _cleanText(value).replace(/^(?:منطقة|المنطقة)\s+/, '').trim();
+  }
+
+  function formatCityDisplay(city, region) {
+    const cityText = _cleanText(city);
+    const regionText = _stripRegionPrefix(region);
+
+    if (!cityText) return '';
+    if (cityText.includes(' - ')) return cityText;
+    if (regionText) {
+      if (cityText === regionText || cityText.startsWith(regionText + ' - ')) return cityText;
+      return regionText + ' - ' + cityText;
+    }
+
+    const inferredRegion = CITY_TO_REGION[cityText] || '';
+    if (!inferredRegion || inferredRegion === cityText) return cityText;
+    return inferredRegion + ' - ' + cityText;
+  }
 
   /**
    * Safely create a text node (never innerHTML for user data).
@@ -209,5 +258,5 @@ const UI = (() => {
     return wrap;
   }
 
-  return { el, text, icon, categoryIconKey, lazyImg, normalizeExcellenceBadges, buildExcellenceBadges };
+  return { el, text, icon, categoryIconKey, lazyImg, normalizeExcellenceBadges, buildExcellenceBadges, formatCityDisplay };
 })();

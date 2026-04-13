@@ -4,7 +4,7 @@ from rest_framework.test import APIClient
 
 from apps.messaging.models import Thread, create_system_message
 from apps.notifications.models import Notification
-from apps.providers.models import ProviderProfile
+from apps.providers.models import ProviderProfile, SaudiCity, SaudiRegion
 
 
 class DirectThreadRoleIsolationTests(TestCase):
@@ -15,6 +15,8 @@ class DirectThreadRoleIsolationTests(TestCase):
             password="secret",
             role_state="client",
         )
+        self.sender.city = "الخرج"
+        self.sender.save(update_fields=["city"])
         self.recipient = user_model.objects.create_user(
             phone="0501000002",
             password="secret",
@@ -25,6 +27,17 @@ class DirectThreadRoleIsolationTests(TestCase):
             provider_type="individual",
             display_name="مزود ثنائي الدور",
             bio="bio",
+            city="الخرج",
+            region="منطقة الرياض",
+        )
+        region, _ = SaudiRegion.objects.update_or_create(
+            name_ar="منطقة الرياض",
+            defaults={"sort_order": 1, "is_active": True},
+        )
+        SaudiCity.objects.update_or_create(
+            region=region,
+            name_ar="الخرج",
+            defaults={"sort_order": 1, "is_active": True},
         )
         self.sender_api = APIClient()
         self.sender_api.force_authenticate(user=self.sender)
@@ -57,6 +70,8 @@ class DirectThreadRoleIsolationTests(TestCase):
         provider_threads_response = self.recipient_api.get("/api/messaging/direct/threads/?mode=provider")
         self.assertEqual(provider_threads_response.status_code, 200)
         self.assertEqual(len(provider_threads_response.data), 1)
+        self.assertEqual(provider_threads_response.data[0]["peer_city"], "الخرج")
+        self.assertEqual(provider_threads_response.data[0]["peer_city_display"], "الرياض - الخرج")
 
         client_threads_response = self.recipient_api.get("/api/messaging/direct/threads/?mode=client")
         self.assertEqual(client_threads_response.status_code, 200)

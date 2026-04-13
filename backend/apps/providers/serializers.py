@@ -26,6 +26,7 @@ from .models import (
     SubCategory,
     sync_provider_accepts_urgent_flag,
 )
+from .location_formatter import format_city_display
 
 
 def _safe_file_url(field_file):
@@ -292,6 +293,7 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     selected_subcategories = serializers.SerializerMethodField()
     subcategory_ids = serializers.SerializerMethodField()
     whatsapp_url = serializers.SerializerMethodField()
+    city_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -312,6 +314,7 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
             "languages",
             "region",
             "city",
+            "city_display",
             "lat",
             "lng",
             "coverage_radius_km",
@@ -446,6 +449,9 @@ class ProviderProfileMeSerializer(ProviderSeoValidationMixin, serializers.ModelS
     def get_subcategory_ids(self, obj):
         return [row["id"] for row in self._provider_subcategory_rows(obj)]
 
+    def get_city_display(self, obj):
+        return format_city_display(getattr(obj, "city", ""), region=getattr(obj, "region", ""))
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["profile_image"] = _safe_file_url(getattr(instance, "profile_image", None))
@@ -469,6 +475,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
     selected_subcategories = serializers.SerializerMethodField()
     subcategory_ids = serializers.SerializerMethodField()
     whatsapp_url = serializers.SerializerMethodField()
+    city_display = serializers.SerializerMethodField()
 
     class Meta:
         model = ProviderProfile
@@ -491,6 +498,7 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
             "languages",
             "region",
             "city",
+            "city_display",
             "lat",
             "lng",
             "coverage_radius_km",
@@ -582,6 +590,9 @@ class ProviderPublicSerializer(serializers.ModelSerializer):
 
     def get_subcategory_ids(self, obj):
         return [row["id"] for row in self._provider_subcategory_rows(obj)]
+
+    def get_city_display(self, obj):
+        return format_city_display(getattr(obj, "city", ""), region=getattr(obj, "region", ""))
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

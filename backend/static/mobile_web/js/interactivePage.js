@@ -352,7 +352,7 @@ const InteractivePage = (() => {
     });
     if (excellence) nameRow.appendChild(excellence);
 
-    const cityText = String(provider.city || '').trim() || 'غير محدد';
+    const cityText = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name) || 'غير محدد';
     const rating = Number(provider.rating_avg || provider.ratingAvg || 0);
     const ratingText = Number.isFinite(rating) && rating > 0 ? rating.toFixed(1) : '0.0';
     const categoryText = String(provider.primary_category_name || '').trim();

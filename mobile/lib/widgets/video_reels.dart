@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'video_full_screen.dart';
 
@@ -139,10 +140,10 @@ class _VideoThumbnailWidgetState extends State<VideoThumbnailWidget>
 
   Widget _buildLogoImage() {
     if (_isNetworkLogo) {
-      return Image.network(
-        widget.logo,
+      return CachedNetworkImage(
+        imageUrl: widget.logo,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _logoFallback(),
+        errorWidget: (_, __, ___) => _logoFallback(),
       );
     }
     if (widget.logo.startsWith('assets/')) {

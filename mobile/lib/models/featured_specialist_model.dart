@@ -1,4 +1,5 @@
 import 'excellence_badge_model.dart';
+import '../constants/saudi_cities.dart';
 
 class FeaturedSpecialistModel {
   final int placementId;
@@ -6,6 +7,7 @@ class FeaturedSpecialistModel {
   final String displayName;
   final String? profileImage;
   final String? city;
+  final String? cityDisplay;
   final String? redirectUrl;
   final bool isVerifiedBlue;
   final bool isVerifiedGreen;
@@ -19,6 +21,7 @@ class FeaturedSpecialistModel {
     required this.displayName,
     this.profileImage,
     this.city,
+    this.cityDisplay,
     this.redirectUrl,
     this.isVerifiedBlue = false,
     this.isVerifiedGreen = false,
@@ -36,6 +39,7 @@ class FeaturedSpecialistModel {
       displayName: _parseString(json['target_provider_display_name']) ?? 'مختص',
       profileImage: _parseString(json['target_provider_profile_image']),
       city: _parseString(json['target_provider_city']),
+      cityDisplay: _parseString(json['target_provider_city_display']),
       redirectUrl: _parseString(json['redirect_url']),
       isVerifiedBlue: _parseBool(json['target_provider_is_verified_blue']),
       isVerifiedGreen: _parseBool(json['target_provider_is_verified_green']),
@@ -48,6 +52,7 @@ class FeaturedSpecialistModel {
   }
 
   bool get isVerified => isVerifiedBlue || isVerifiedGreen;
+  String get locationDisplay => SaudiCities.formatCityDisplay(cityDisplay ?? city);
 
   String get ratingLabel => ratingAvg > 0 ? ratingAvg.toStringAsFixed(1) : 'جديد';
 

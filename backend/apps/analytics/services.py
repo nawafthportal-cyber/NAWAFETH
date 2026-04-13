@@ -13,6 +13,7 @@ from apps.billing.models import Invoice
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
 from apps.marketplace.models import RequestStatusLog, ServiceRequest
 from apps.promo.models import PromoRequest
+from apps.providers.location_formatter import format_city_display
 from apps.subscriptions.models import Subscription, SubscriptionStatus
 from apps.verification.models import VerificationRequest
 
@@ -442,6 +443,7 @@ def provider_kpis(*, start_date=None, end_date=None, provider_id=None, limit: in
             "provider_id",
             "provider__display_name",
             "provider__city",
+            "provider__region",
             "provider__user__phone",
         )
         .annotate(
@@ -472,6 +474,10 @@ def provider_kpis(*, start_date=None, end_date=None, provider_id=None, limit: in
             "display_name": row["provider__display_name"] or "",
             "phone": row["provider__user__phone"] or "",
             "city": row["provider__city"] or "",
+            "city_display": format_city_display(
+                row["provider__city"] or "",
+                region=row["provider__region"] or "",
+            ),
             "profile_views": int(row["profile_views"] or 0),
             "chat_starts": int(row["chat_starts"] or 0),
             "requests_received": received,

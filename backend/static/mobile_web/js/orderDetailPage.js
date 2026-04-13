@@ -233,7 +233,8 @@ const OrderDetailPage = (() => {
       }
       if (_order.provider_name) lines.push('مقدم الخدمة: ' + _order.provider_name);
       if (_order.provider_phone) lines.push('رقم مقدم الخدمة: ' + _order.provider_phone);
-      if (_order.city) lines.push('المدينة: ' + _order.city);
+      const cityDisplay = UI.formatCityDisplay(_order.city_display || _order.city, _order.region || _order.region_name);
+      if (cityDisplay) lines.push('المدينة: ' + cityDisplay);
 
       lines.forEach((line) => {
         meta.appendChild(UI.el('div', { className: 'order-meta-line', textContent: line }));

@@ -29,12 +29,17 @@ class ServiceRequestFormScreen extends StatefulWidget {
       _ServiceRequestFormScreenState();
 }
 
-class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
+class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
+  with SingleTickerProviderStateMixin {
   static const Color _mainColor = Colors.deepPurple;
+  static const Color _accentColor = Color(0xFF0F766E);
+  static const Color _surfaceColor = Color(0xFFF8FBFF);
+  static const Color _inkColor = Color(0xFF0F172A);
 
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _detailsController = TextEditingController();
+  late final AnimationController _entranceController;
   String? _selectedCity;
 
   // ─── نوع الطلب ───
@@ -68,9 +73,18 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
     // إذا جاء من صفحة مزود → نوع عادي تلقائياً
     if (widget.providerId != null) _requestType = 'normal';
     _loadCategories();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _entranceController.forward();
+      }
+    });
   }
 
   @override
@@ -79,6 +93,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     _detailsController.dispose();
     // _selectedCity — لا يحتاج dispose
     if (_recorderInitialized) _recorder.closeRecorder();
+    _entranceController.dispose();
     super.dispose();
   }
 
@@ -177,59 +192,93 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
   }
 
   void _showAttachmentOptions() {
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (_) => Directionality(
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Directionality(
         textDirection: TextDirection.rtl,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Text('إضافة مرفق',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 20),
-            ListTile(
-              leading: const Icon(Icons.photo_camera, color: _mainColor),
-              title: const Text('تصوير صورة'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
+        child: SafeArea(
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1F0F172A),
+                  blurRadius: 24,
+                  offset: Offset(0, 12),
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: _mainColor),
-              title: const Text('اختيار صورة من المعرض'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'إضافة مرفق',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: _inkColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'أرفق صورًا أو فيديوهات أو ملفات داعمة قبل إرسال الطلب.',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF667085),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildSheetActionItem(
+                  icon: Icons.photo_camera_outlined,
+                  label: 'تصوير صورة',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickImage(ImageSource.camera);
+                  },
+                ),
+                _buildSheetActionItem(
+                  icon: Icons.photo_library_outlined,
+                  label: 'اختيار صورة من المعرض',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickImage(ImageSource.gallery);
+                  },
+                ),
+                _buildSheetActionItem(
+                  icon: Icons.videocam_outlined,
+                  label: 'تصوير فيديو',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickVideo(ImageSource.camera);
+                  },
+                ),
+                _buildSheetActionItem(
+                  icon: Icons.video_library_outlined,
+                  label: 'اختيار فيديو من المعرض',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickVideo(ImageSource.gallery);
+                  },
+                ),
+                _buildSheetActionItem(
+                  icon: Icons.attach_file_rounded,
+                  label: 'اختيار ملف',
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    _pickFile();
+                  },
+                ),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.videocam, color: _mainColor),
-              title: const Text('تصوير فيديو'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickVideo(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.video_library, color: _mainColor),
-              title: const Text('اختيار فيديو من المعرض'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickVideo(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.attach_file, color: _mainColor),
-              title: const Text('اختيار ملف'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile();
-              },
-            ),
-          ]),
+          ),
         ),
       ),
     );
@@ -315,6 +364,51 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     }
   }
 
+  String get _requestTypeLabel {
+    switch (_effectiveRequestType) {
+      case 'competitive':
+        return 'تنافسي';
+      case 'urgent':
+        return 'عاجل';
+      default:
+        return 'عادي';
+    }
+  }
+
+  String get _requestTypeDescription {
+    switch (_effectiveRequestType) {
+      case 'competitive':
+        return 'يستقبل عروضًا من عدة مقدمي خدمات حتى الموعد الذي تحدده.';
+      case 'urgent':
+        return 'يُعرض بشكل أسرع للطلبات التي تحتاج تنفيذًا عاجلًا.';
+      default:
+        return _isProviderRequest
+            ? 'الطلب سيُرسل مباشرة إلى مقدم الخدمة المحدد.'
+            : 'يوجَّه مباشرة إلى مقدم الخدمة الذي اخترته من داخل المحادثة.';
+    }
+  }
+
+  int get _attachmentsCount =>
+      _images.length + _videos.length + _files.length + (_audioPath == null ? 0 : 1);
+
+  String? get _selectedCategoryName {
+    if (_selectedCategoryId == null) return null;
+    final category = _categories.cast<Map<String, dynamic>>().where(
+          (entry) => entry['id'] == _selectedCategoryId,
+        );
+    if (category.isEmpty) return null;
+    return category.first['name'] as String?;
+  }
+
+  String? get _selectedSubcategoryName {
+    if (_selectedSubcategoryId == null) return null;
+    final sub = _subcategories.where(
+      (entry) => entry['id'] == _selectedSubcategoryId,
+    );
+    if (sub.isEmpty) return null;
+    return sub.first['name'] as String?;
+  }
+
   // ─── Build ───
 
   @override
@@ -322,7 +416,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: _surfaceColor,
         appBar: PlatformTopBar(
           pageLabel: widget.providerName != null
               ? 'طلب خدمة من ${widget.providerName}'
@@ -331,172 +425,184 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
           showNotificationAction: false,
           showChatAction: false,
         ),
-        body: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-            children: [
-              // ─── نوع الطلب ───
-              _label('نوع الطلب'),
-              const SizedBox(height: 6),
-              _requestTypePicker(),
-              const SizedBox(height: 14),
-
-              // ─── التصنيف ───
-              _label('القسم'),
-              const SizedBox(height: 6),
-              _categoryDropdown(),
-              const SizedBox(height: 10),
-
-              _label('التصنيف الفرعي'),
-              const SizedBox(height: 6),
-              _subcategoryDropdown(),
-              const SizedBox(height: 14),
-
-              // ─── المدينة ───
-              _label('المدينة'),
-              const SizedBox(height: 6),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCity,
-                decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
-                isExpanded: true,
-                menuMaxHeight: 300,
-                items: SaudiCities.all
-                    .map((city) => DropdownMenuItem(
-                          value: city,
-                          child: Text(
-                            city,
-                            style: const TextStyle(
-                                fontFamily: 'Cairo', fontSize: 12.5),
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFF1F7FF), Color(0xFFF8FBFF), Color(0xFFFFFFFF)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 18),
+              children: [
+                _buildEntrance(0, _buildHeroCard()),
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  1,
+                  _buildSectionCard(
+                    icon: Icons.tune_rounded,
+                    title: 'إعداد الطلب',
+                    description: 'حدد نوع الطلب والقسم والتصنيف الفرعي بدقة.',
+                    child: Column(
+                      children: [
+                        _requestTypePicker(),
+                        const SizedBox(height: 14),
+                        _categoryDropdown(),
+                        const SizedBox(height: 12),
+                        _subcategoryDropdown(),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  2,
+                  _buildSectionCard(
+                    icon: Icons.place_outlined,
+                    title: 'الموقع والعنوان',
+                    description: 'أضف المدينة والعنوان المختصر ليظهر الطلب بشكل أوضح.',
+                    child: Column(
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedCity,
+                          decoration: _inputDeco(hint: 'اختر المدينة (اختياري)'),
+                          isExpanded: true,
+                          menuMaxHeight: 300,
+                          items: SaudiCities.all
+                              .map((city) => DropdownMenuItem(
+                                    value: city,
+                                    child: Text(
+                                      city,
+                                      style: const TextStyle(
+                                        fontFamily: 'Cairo',
+                                        fontSize: 12.5,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                          onChanged: (value) => setState(() => _selectedCity = value),
+                        ),
+                        if (_selectedCity != null) ...[
+                          const SizedBox(height: 6),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => setState(() => _selectedCity = null),
+                              icon: const Icon(Icons.close_rounded, size: 16),
+                              label: const Text(
+                                'إلغاء اختيار المدينة',
+                                style: TextStyle(fontFamily: 'Cairo'),
+                              ),
+                            ),
                           ),
-                        ))
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedCity = v),
-              ),
-              if (_selectedCity != null) ...[
-                const SizedBox(height: 6),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => setState(() => _selectedCity = null),
-                    icon: const Icon(Icons.close, size: 16),
-                    label: const Text('إلغاء اختيار المدينة'),
+                        ],
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: _titleController,
+                          maxLength: 50,
+                          style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                          decoration: _inputDeco(
+                            hint: 'اكتب عنوان الطلب...',
+                            counter: '${_titleController.text.length}/50',
+                          ),
+                          validator: (value) => (value == null || value.trim().isEmpty)
+                              ? 'يرجى إدخال عنوان الطلب'
+                              : null,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ],
-              const SizedBox(height: 14),
-
-              // ─── عنوان الطلب ───
-              _label('عنوان الطلب'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _titleController,
-                maxLength: 50,
-                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-                decoration: _inputDeco(
-                  hint: 'اكتب عنوان الطلب...',
-                  counter: '${_titleController.text.length}/50',
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'يرجى إدخال عنوان الطلب'
-                    : null,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 14),
-
-              // ─── تفاصيل الطلب ───
-              _label('تفاصيل الطلب'),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: _detailsController,
-                maxLength: 500,
-                maxLines: 5,
-                style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
-                decoration: _inputDeco(
-                  hint: 'اكتب تفاصيل الطلب بشكل دقيق...',
-                  counter: '${_detailsController.text.length}/500',
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'يرجى إدخال تفاصيل الطلب'
-                    : null,
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 14),
-
-              // ─── آخر موعد لاستلام العروض ───
-              _label('آخر موعد لاستلام العروض (اختياري)'),
-              const SizedBox(height: 6),
-              _deadlineTile(),
-              const SizedBox(height: 14),
-
-              // ─── المرفقات ───
-              _label('المرفقات'),
-              const SizedBox(height: 6),
-              _attachmentsPreview(),
-              const SizedBox(height: 6),
-              ElevatedButton.icon(
-                onPressed: _showAttachmentOptions,
-                icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('إضافة مرفق',
-                    style: TextStyle(color: Colors.white, fontSize: 12.5)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _mainColor,
-                  padding: const EdgeInsets.symmetric(vertical: 11),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // ─── رسالة صوتية ───
-              _label('رسالة صوتية (اختياري)'),
-              const SizedBox(height: 6),
-              _audioPart(),
-              const SizedBox(height: 20),
-
-              // ─── أزرار ───
-              Row(children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _submitting ? null : _submitRequest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _mainColor,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  3,
+                  _buildSectionCard(
+                    icon: Icons.notes_rounded,
+                    title: 'تفاصيل الطلب',
+                    description: 'اشرح المطلوب بدقة حتى تصل عروض مناسبة بشكل أسرع.',
+                    child: TextFormField(
+                      controller: _detailsController,
+                      maxLength: 500,
+                      maxLines: 6,
+                      style: const TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                      decoration: _inputDeco(
+                        hint: 'اكتب تفاصيل الطلب بشكل دقيق...',
+                        counter: '${_detailsController.text.length}/500',
+                      ),
+                      validator: (value) => (value == null || value.trim().isEmpty)
+                          ? 'يرجى إدخال تفاصيل الطلب'
+                          : null,
+                      onChanged: (_) => setState(() {}),
                     ),
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
-                        : const Text('تقديم الطلب',
-                            style: TextStyle(
-                                fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  4,
+                  _buildSectionCard(
+                    icon: Icons.event_outlined,
+                    title: 'موعد استقبال العروض',
+                    description: 'يمكنك تركه فارغًا أو تحديد تاريخ مناسب خلال 365 يومًا.',
+                    child: _deadlineTile(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  5,
+                  _buildSectionCard(
+                    icon: Icons.attach_file_rounded,
+                    title: 'المرفقات',
+                    description: 'أضف صورًا أو فيديوهات أو ملفات توضيحية تدعم وصفك.',
+                    child: Column(
+                      children: [
+                        _attachmentsPreview(),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showAttachmentOptions,
+                            icon: const Icon(Icons.add_rounded, color: Colors.white),
+                            label: const Text(
+                              'إضافة مرفق',
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: _mainColor, width: 2),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                                fontSize: 12.5,
+                                fontFamily: 'Cairo',
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _mainColor,
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: const Text('إلغاء',
-                        style: TextStyle(
-                            fontSize: 13.5,
-                            color: _mainColor,
-                            fontWeight: FontWeight.bold)),
                   ),
                 ),
-              ]),
-            ],
+                const SizedBox(height: 12),
+                _buildEntrance(
+                  6,
+                  _buildSectionCard(
+                    icon: Icons.mic_none_rounded,
+                    title: 'رسالة صوتية',
+                    description: 'أضف توضيحًا صوتيًا مختصرًا إذا كان الشرح الكتابي لا يكفي.',
+                    child: _audioPart(),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _buildEntrance(7, _buildActions()),
+              ],
+            ),
           ),
         ),
       ),
@@ -505,92 +611,165 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   // ─── Sub-widgets ───
 
-  Widget _label(String text) => Text(
-        text,
-        style: const TextStyle(
-          fontFamily: 'Cairo',
-          fontSize: 13.5,
-          fontWeight: FontWeight.w800,
-          color: _mainColor,
-        ),
-      );
-
   InputDecoration _inputDeco({String? hint, String? counter}) =>
       InputDecoration(
         hintText: hint,
-        hintStyle: TextStyle(
+        hintStyle: const TextStyle(
           fontFamily: 'Cairo',
           fontSize: 12.5,
-          color: Colors.grey.shade600,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF98A2B3),
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: const Color(0xFFF8FBFF),
         counterText: counter,
-        counterStyle: TextStyle(
+        counterStyle: const TextStyle(
           fontFamily: 'Cairo',
           fontSize: 11,
-          color: Colors.grey.shade600,
+          color: Color(0xFF667085),
         ),
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFD7E5F2)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _mainColor, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFDC2626)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: Color(0xFFDC2626), width: 1.2),
         ),
       );
 
   Widget _requestTypePicker() {
     // إذا جاء من صفحة مزود محدد → نوع عادي فقط.
     if (_isProviderRequest) {
-      return Container(
-        width: 110,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: _mainColor.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: _mainColor.withValues(alpha: 0.3)),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_rounded, color: _mainColor, size: 16),
-            SizedBox(width: 6),
-            Text(
-              'عادي',
-              style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: _mainColor,
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: _mainColor.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: _mainColor.withValues(alpha: 0.22)),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.verified_rounded, color: _mainColor, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'طلب عادي مباشر',
+                style: TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: _mainColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       );
     }
 
-    final types = <String, String>{
-      'normal': 'عادي',
-      'competitive': 'تنافسي',
-      'urgent': 'عاجل',
-    };
-    return Wrap(
-      spacing: 8,
-      children: types.entries.map((e) {
-        final selected = _requestType == e.key;
-        return ChoiceChip(
-          visualDensity: VisualDensity.compact,
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          label: Text(
-            e.value,
-            style: const TextStyle(fontFamily: 'Cairo', fontSize: 12.5),
+    final types = <Map<String, String>>[
+      {
+        'key': 'normal',
+        'label': 'عادي',
+        'hint': 'موجه لمقدم خدمة محدد',
+      },
+      {
+        'key': 'competitive',
+        'label': 'تنافسي',
+        'hint': 'استقبال عدة عروض',
+      },
+      {
+        'key': 'urgent',
+        'label': 'عاجل',
+        'hint': 'عرض سريع للطلبات المستعجلة',
+      },
+    ];
+
+    return Row(
+      children: types.map((entry) {
+        final selected = _requestType == entry['key'];
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsetsDirectional.only(
+              start: entry == types.first ? 0 : 6,
+            ),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => setState(() => _requestType = entry['key']!),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: selected
+                      ? const LinearGradient(
+                          colors: [Color(0xFF5B3FD0), Color(0xFF7C4DFF)],
+                          begin: Alignment.topRight,
+                          end: Alignment.bottomLeft,
+                        )
+                      : null,
+                  color: selected ? null : const Color(0xFFF8FBFF),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: selected
+                        ? Colors.transparent
+                        : const Color(0xFFD7E5F2),
+                  ),
+                  boxShadow: selected
+                      ? [
+                          BoxShadow(
+                            color: _mainColor.withValues(alpha: 0.20),
+                            blurRadius: 18,
+                            offset: const Offset(0, 10),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      entry['label']!,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w900,
+                        color: selected ? Colors.white : _inkColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      entry['hint']!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                        color: selected
+                            ? Colors.white.withValues(alpha: 0.84)
+                            : const Color(0xFF667085),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-          selected: selected,
-          selectedColor: _mainColor.withAlpha(50),
-          onSelected: (val) {
-            if (val) setState(() => _requestType = e.key);
-          },
         );
       }).toList(),
     );
@@ -598,17 +777,26 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   Widget _categoryDropdown() {
     if (_categoriesLoading) {
-      return const Center(
-        child: SizedBox(
-          height: 18,
-          width: 18,
-          child: CircularProgressIndicator(strokeWidth: 2.2),
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFD7E5F2)),
+        ),
+        child: const Center(
+          child: SizedBox(
+            height: 20,
+            width: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.2),
+          ),
         ),
       );
     }
     return DropdownButtonFormField<int>(
       initialValue: _selectedCategoryId,
       decoration: _inputDeco(hint: 'اختر القسم'),
+      borderRadius: BorderRadius.circular(18),
       items: _categories
           .map((c) => DropdownMenuItem<int>(
               value: c['id'] as int,
@@ -630,6 +818,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     return DropdownButtonFormField<int>(
       initialValue: _selectedSubcategoryId,
       decoration: _inputDeco(hint: 'اختر التصنيف'),
+      borderRadius: BorderRadius.circular(18),
       items: subs
           .map((s) => DropdownMenuItem<int>(
               value: s['id'] as int,
@@ -645,119 +834,189 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
     return InkWell(
       onTap: _selectDeadline,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
-            color: Colors.white, borderRadius: BorderRadius.circular(12)),
+          color: const Color(0xFFF8FBFF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFD7E5F2)),
+        ),
         child: Row(children: [
-          const Icon(Icons.calendar_today, color: _mainColor, size: 18),
+          const Icon(Icons.calendar_today_outlined, color: _mainColor, size: 18),
           const SizedBox(width: 10),
-          Text(
-            _quoteDeadline == null
-                ? 'اضغط لتحديد التاريخ'
-                : DateFormat('dd/MM/yyyy').format(_quoteDeadline!),
-            style: TextStyle(
+          Expanded(
+            child: Text(
+              _quoteDeadline == null
+                  ? 'اضغط لتحديد التاريخ'
+                  : DateFormat('dd/MM/yyyy').format(_quoteDeadline!),
+              style: TextStyle(
                 fontFamily: 'Cairo',
                 fontSize: 12.5,
-                color: _quoteDeadline == null ? Colors.grey : Colors.black),
+                fontWeight: FontWeight.w800,
+                color: _quoteDeadline == null
+                    ? const Color(0xFF98A2B3)
+                    : _inkColor,
+              ),
+            ),
           ),
+          if (_quoteDeadline != null)
+            IconButton(
+              onPressed: () => setState(() => _quoteDeadline = null),
+              icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFFB42318)),
+            ),
         ]),
       ),
     );
   }
 
   Widget _attachmentsPreview() {
-    if (_images.isEmpty && _videos.isEmpty && _files.isEmpty) {
-      return const SizedBox.shrink();
-    }
     return Container(
-      padding: const EdgeInsets.all(10),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD7E5F2)),
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(
+          children: [
+            _buildInfoPill(
+              icon: Icons.layers_outlined,
+              label: _attachmentsCount == 0
+                  ? 'لا توجد مرفقات'
+                  : 'عدد المرفقات: $_attachmentsCount',
+            ),
+          ],
+        ),
+        if (_images.isEmpty && _videos.isEmpty && _files.isEmpty) ...[
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE4EBF1)),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.cloud_upload_outlined, color: _mainColor, size: 26),
+                SizedBox(height: 8),
+                Text(
+                  'لا توجد مرفقات مضافة حتى الآن',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: _inkColor,
+                  ),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'يمكنك دعم الطلب بصور أو فيديوهات أو ملفات توضّح المطلوب.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF667085),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         if (_images.isNotEmpty) ...[
+          const SizedBox(height: 14),
           const Text(
-            'الصور:',
+            'الصور',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
+              color: _inkColor,
             ),
           ),
           const SizedBox(height: 8),
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: 10,
+            runSpacing: 10,
             children: _images
-                .map((img) => Stack(children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(img,
-                            width: 80, height: 80, fit: BoxFit.cover),
-                      ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        child: GestureDetector(
-                          onTap: () => setState(() => _images.remove(img)),
-                          child: Container(
-                            decoration: const BoxDecoration(
-                                color: Colors.red, shape: BoxShape.circle),
-                            child: const Icon(Icons.close,
-                                color: Colors.white, size: 18),
+                .map((image) => Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(14),
+                          child: Image.file(
+                            image,
+                            width: 84,
+                            height: 84,
+                            fit: BoxFit.cover,
                           ),
                         ),
-                      ),
-                    ]))
+                        PositionedDirectional(
+                          top: 6,
+                          start: 6,
+                          child: InkWell(
+                            onTap: () => setState(() => _images.remove(image)),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFB42318),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ))
                 .toList(),
           ),
-          const SizedBox(height: 12),
         ],
         if (_videos.isNotEmpty) ...[
+          const SizedBox(height: 14),
           const Text(
-            'الفيديوهات:',
+            'الفيديوهات',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
+              color: _inkColor,
             ),
           ),
           const SizedBox(height: 8),
-          ..._videos.map((v) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.video_file, color: _mainColor),
-                title: Text(v.path.split('/').last,
-                    style:
-                        const TextStyle(fontFamily: 'Cairo', fontSize: 11.5)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => setState(() => _videos.remove(v)),
-                ),
-              )),
-          const SizedBox(height: 12),
+          ..._videos.map(
+            (video) => _buildAttachmentListItem(
+              icon: Icons.videocam_outlined,
+              name: video.path.split('/').last,
+              onRemove: () => setState(() => _videos.remove(video)),
+            ),
+          ),
         ],
         if (_files.isNotEmpty) ...[
+          const SizedBox(height: 14),
           const Text(
-            'الملفات:',
+            'الملفات',
             style: TextStyle(
               fontFamily: 'Cairo',
               fontSize: 12,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w900,
+              color: _inkColor,
             ),
           ),
           const SizedBox(height: 8),
-          ..._files.map((f) => ListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.attach_file, color: _mainColor),
-                title: Text(f.path.split('/').last,
-                    style:
-                        const TextStyle(fontFamily: 'Cairo', fontSize: 11.5)),
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => setState(() => _files.remove(f)),
-                ),
-              )),
+          ..._files.map(
+            (file) => _buildAttachmentListItem(
+              icon: Icons.insert_drive_file_outlined,
+              name: file.path.split('/').last,
+              onRemove: () => setState(() => _files.remove(file)),
+            ),
+          ),
         ],
       ]),
     );
@@ -765,37 +1024,482 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen> {
 
   Widget _audioPart() {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(12)),
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFD7E5F2)),
+      ),
       child: Column(children: [
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          IconButton(
-            onPressed: _toggleRecording,
-            icon: Icon(_isRecording ? Icons.stop : Icons.mic, size: 34),
-            color: _isRecording ? Colors.red : _mainColor,
+        Row(children: [
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: _isRecording
+                  ? const Color(0xFFFFF1F1)
+                  : _mainColor.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              onPressed: _toggleRecording,
+              icon: Icon(_isRecording ? Icons.stop_rounded : Icons.mic_none_rounded),
+              color: _isRecording ? const Color(0xFFB42318) : _mainColor,
+            ),
           ),
           const SizedBox(width: 8),
-          Text(
-            _isRecording
-                ? 'جاري التسجيل... اضغط للإيقاف'
-                : _audioPath != null
-                    ? 'تم التسجيل ✓'
-                    : 'اضغط للبدء بالتسجيل',
-            style: TextStyle(
-                fontFamily: 'Cairo',
-                fontSize: 12,
-                color: _isRecording ? Colors.red : Colors.grey[700]),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _isRecording
+                      ? 'جاري تسجيل الرسالة الصوتية'
+                      : _audioPath != null
+                          ? 'تم تجهيز الرسالة الصوتية'
+                          : 'أضف ملاحظة صوتية قصيرة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w900,
+                    color: _isRecording ? const Color(0xFFB42318) : _inkColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _isRecording
+                      ? 'اضغط للإيقاف وحفظ التسجيل الحالي.'
+                      : _audioPath != null
+                          ? 'يمكنك حذف التسجيل أو إبقاؤه ضمن الطلب.'
+                          : 'التسجيل اختياري لكنه مفيد للحالات التي تحتاج شرحًا إضافيًا.',
+                  style: const TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF667085),
+                  ),
+                ),
+              ],
+            ),
           ),
         ]),
         if (_audioPath != null)
-          TextButton.icon(
-            onPressed: () => setState(() => _audioPath = null),
-            icon: const Icon(Icons.delete, size: 18),
-            label: const Text('حذف التسجيل'),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _audioPath = null),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text(
+                'حذف التسجيل',
+                style: TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.w800),
+              ),
+              style: TextButton.styleFrom(foregroundColor: const Color(0xFFB42318)),
+            ),
           ),
       ]),
+    );
+  }
+
+  Widget _buildHeroCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF183B64), Color(0xFF22577A), Color(0xFF0F766E)],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: 0.16),
+            blurRadius: 28,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -36,
+            left: -18,
+            child: Container(
+              width: 132,
+              height: 132,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.10),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -56,
+            right: -18,
+            child: Container(
+              width: 154,
+              height: 154,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.assignment_add,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.providerName != null
+                              ? 'طلب خدمة من ${widget.providerName}'
+                              : 'طلب خدمة جديدة',
+                          style: const TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _requestTypeDescription,
+                          style: TextStyle(
+                            fontFamily: 'Cairo',
+                            fontSize: 11.5,
+                            height: 1.8,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.84),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildHeroChip(icon: Icons.local_offer_outlined, label: _requestTypeLabel),
+                  _buildHeroChip(
+                    icon: Icons.category_outlined,
+                    label: _selectedCategoryName ?? 'القسم غير محدد',
+                  ),
+                  if (_selectedSubcategoryName != null)
+                    _buildHeroChip(
+                      icon: Icons.account_tree_outlined,
+                      label: _selectedSubcategoryName!,
+                    ),
+                  if (_selectedCity != null)
+                    _buildHeroChip(icon: Icons.location_on_outlined, label: _selectedCity!),
+                  if (_attachmentsCount > 0)
+                    _buildHeroChip(icon: Icons.attach_file_rounded, label: '$_attachmentsCount مرفقات'),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({
+    required IconData icon,
+    required String title,
+    required String description,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: const Color(0x220E5E85)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0C223D).withValues(alpha: 0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _mainColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: _mainColor, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: _inkColor,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 11,
+                        height: 1.8,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF667085),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoPill({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE4EBF1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: _accentColor),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+              color: _inkColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentListItem({
+    required IconData icon,
+    required String name,
+    required VoidCallback onRemove,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4EBF1)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _mainColor.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: _mainColor, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              name,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontFamily: 'Cairo',
+                fontSize: 11.5,
+                fontWeight: FontWeight.w800,
+                color: _inkColor,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB42318)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActions() {
+    return Row(children: [
+      Expanded(
+        child: ElevatedButton(
+          onPressed: _submitting ? null : _submitRequest,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _mainColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: _submitting
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text(
+                  'تقديم الطلب',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+        ),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: OutlinedButton(
+          onPressed: () => Navigator.pop(context),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: _mainColor,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            side: const BorderSide(color: _mainColor, width: 1.5),
+            backgroundColor: Colors.white.withValues(alpha: 0.9),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+            ),
+          ),
+          child: const Text(
+            'إلغاء',
+            style: TextStyle(
+              fontFamily: 'Cairo',
+              fontSize: 13.5,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _buildSheetActionItem({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF4F8FB),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: _mainColor, size: 20),
+      ),
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Cairo',
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: _inkColor,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Widget _buildEntrance(int index, Widget child) {
+    final begin = (0.08 * index).clamp(0.0, 0.8).toDouble();
+    final end = (begin + 0.34).clamp(0.0, 1.0).toDouble();
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(begin, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.06),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
     );
   }
 }

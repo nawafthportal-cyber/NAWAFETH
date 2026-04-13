@@ -672,7 +672,7 @@ const SearchPage = (() => {
 
   function _buildProviderCard(provider) {
     const displayName = (provider.display_name || '').trim() || 'مزود خدمة';
-    const city = (provider.city || '').trim();
+    const city = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name);
     const profileUrl = ApiClient.mediaUrl(provider.profile_image);
     const coverUrl = ApiClient.mediaUrl(provider.cover_image);
     const initial = displayName.charAt(0) || '؟';

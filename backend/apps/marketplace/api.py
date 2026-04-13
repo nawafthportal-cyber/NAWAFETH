@@ -1053,7 +1053,7 @@ class RequestCompleteView(APIView):
 			sr.save(update_fields=["status", "delivered_at", "actual_service_amount"])
 
 			if attachments:
-				ServiceRequestAttachment.objects.bulk_create(
+				created_atts = ServiceRequestAttachment.objects.bulk_create(
 					[
 						ServiceRequestAttachment(
 							request=sr,
@@ -1063,6 +1063,10 @@ class RequestCompleteView(APIView):
 						for attachment in attachments
 					]
 				)
+				from apps.uploads.tasks import schedule_video_optimization
+				for att in created_atts:
+					if att.file_type == "video":
+						schedule_video_optimization(att, "file")
 
 			RequestStatusLog.objects.create(
 				request=sr,

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
@@ -193,10 +194,10 @@ class _MyQrScreenState extends State<MyQrScreen> {
                                           ),
                                         ),
                                       ),
-                                      child: Image.network(
-                                        payload.qrImageUrl,
+                                      child: CachedNetworkImage(
+                                        imageUrl: payload.qrImageUrl,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (_, __, ___) {
+                                        errorWidget: (_, __, ___) {
                                           return const Center(
                                             child: Text(
                                               'تعذر تحميل صورة QR',

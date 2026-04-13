@@ -9,17 +9,23 @@ const SignupPage = (() => {
   let _next = '/';
   let _debounce = null;
   let _usernameAvailable = null;
+  let _regionCatalog = [];
+  let _skipLoading = false;
 
-  const SAUDI_CITIES = [
-    'أبها', 'الأحساء', 'الأفلاج', 'الباحة', 'البكيرية', 'البدائع', 'الجبيل', 'الجموم',
-    'الحريق', 'الحوطة', 'الخبر', 'الخرج', 'الخفجي', 'الدرعية', 'الدلم', 'الدمام',
-    'الدوادمي', 'الرس', 'الرياض', 'الزلفي', 'السليل', 'الطائف', 'الظهران', 'العرضيات',
-    'العلا', 'القريات', 'القصيم', 'القطيف', 'القنفذة', 'القويعية', 'الليث', 'المجمعة',
-    'المدينة المنورة', 'المذنب', 'المزاحمية', 'النماص', 'الوجه', 'أملج', 'بدر', 'بريدة',
-    'بلجرشي', 'بيشة', 'تبوك', 'تربة', 'تنومة', 'ثادق', 'جازان', 'جدة', 'حائل',
-    'حفر الباطن', 'حقل', 'حوطة بني تميم', 'خميس مشيط', 'خيبر', 'رابغ', 'رفحاء', 'رنية',
-    'سراة عبيدة', 'سكاكا', 'شرورة', 'شقراء', 'صامطة', 'صبيا', 'ضباء', 'ضرما', 'طبرجل',
-    'طريف', 'ظلم', 'عرعر', 'عفيف', 'عنيزة', 'محايل عسير', 'مكة المكرمة', 'نجران', 'ينبع',
+  const REGION_CITY_FALLBACK = [
+    { name_ar: 'منطقة الرياض', cities: ['الرياض', 'الخرج', 'الدلم', 'الدرعية', 'الدوادمي', 'الزلفي', 'السليل', 'القويعية', 'المجمعة', 'المزاحمية', 'ثادق', 'حوطة بني تميم', 'شقراء', 'ضرما', 'عفيف', 'الأفلاج'] },
+    { name_ar: 'منطقة مكة المكرمة', cities: ['مكة المكرمة', 'جدة', 'الطائف', 'الجموم', 'رابغ', 'القنفذة', 'الليث', 'تربة', 'رنية', 'ظلم'] },
+    { name_ar: 'منطقة المدينة المنورة', cities: ['المدينة المنورة', 'ينبع', 'بدر', 'خيبر', 'العلا'] },
+    { name_ar: 'المنطقة الشرقية', cities: ['الدمام', 'الخبر', 'الظهران', 'الأحساء', 'الجبيل', 'الخفجي', 'القطيف', 'حفر الباطن'] },
+    { name_ar: 'منطقة القصيم', cities: ['بريدة', 'عنيزة', 'الرس', 'البكيرية', 'البدائع', 'المذنب'] },
+    { name_ar: 'منطقة عسير', cities: ['أبها', 'خميس مشيط', 'بيشة', 'محايل عسير', 'النماص', 'تنومة', 'سراة عبيدة'] },
+    { name_ar: 'منطقة تبوك', cities: ['تبوك', 'ضباء', 'الوجه', 'حقل', 'أملج'] },
+    { name_ar: 'منطقة حائل', cities: ['حائل'] },
+    { name_ar: 'منطقة الجوف', cities: ['سكاكا', 'القريات', 'طبرجل'] },
+    { name_ar: 'منطقة الحدود الشمالية', cities: ['عرعر', 'رفحاء', 'طريف'] },
+    { name_ar: 'منطقة نجران', cities: ['نجران', 'شرورة'] },
+    { name_ar: 'منطقة جازان', cities: ['جازان', 'صامطة', 'صبيا'] },
+    { name_ar: 'منطقة الباحة', cities: ['الباحة', 'بلجرشي', 'العرضيات'] },
   ];
 
   function init() {
@@ -34,8 +40,9 @@ const SignupPage = (() => {
       return;
     }
     _loadContent();
-    _initCities();
+    _loadRegionCatalog();
     _bindEvents();
+    _initMotion();
   }
 
   async function _loadContent() {
@@ -59,6 +66,9 @@ const SignupPage = (() => {
     const submitBtn = document.getElementById('btn-complete-signup');
     if (submitBtn) submitBtn.addEventListener('click', _submit);
 
+    const skipBtn = document.getElementById('btn-skip-signup');
+    if (skipBtn) skipBtn.addEventListener('click', _skipCompletion);
+
     const usernameInput = document.getElementById('username');
     if (usernameInput) {
       usernameInput.addEventListener('input', () => {
@@ -71,7 +81,6 @@ const SignupPage = (() => {
       'first-name',
       'last-name',
       'email',
-      'city',
       'password',
       'password-confirm',
       'accept-terms',
@@ -83,24 +92,278 @@ const SignupPage = (() => {
         _clearGeneralError();
       });
     });
+
+    const regionSelect = document.getElementById('region');
+    if (regionSelect) {
+      regionSelect.addEventListener('change', () => {
+        _clearError('region');
+        _clearError('city');
+        _clearGeneralError();
+        _populateCityOptions(_value('region').trim());
+      });
+    }
+
+    const citySelect = document.getElementById('city');
+    if (citySelect) {
+      citySelect.addEventListener('change', () => {
+        _clearError('city');
+        _clearGeneralError();
+        _updateCityHint(_value('region').trim(), _value('city').trim());
+        _pulseElement(document.getElementById('signup-city-group'));
+        _pulseElement(document.getElementById('signup-location-callout'), 'is-updated');
+        _setLocationCalloutText(_value('region').trim(), _value('city').trim());
+      });
+    }
+
+    _bindFieldMotion();
   }
 
-  function _initCities() {
-    const select = document.getElementById('city');
-    if (!select) return;
-    select.innerHTML = '';
+  function _initMotion() {
+    const pageBody = document.body;
+    if (!pageBody) return;
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        pageBody.classList.add('signup-animate-in');
+      });
+    });
+  }
+
+  function _bindFieldMotion() {
+    const fields = document.querySelectorAll('.page-signup .form-input, .page-signup .form-select');
+    fields.forEach((field) => {
+      const group = field.closest('.form-group');
+      if (!group) return;
+
+      field.addEventListener('focus', () => {
+        group.classList.add('is-live');
+      });
+
+      field.addEventListener('blur', () => {
+        group.classList.remove('is-live');
+      });
+
+      const activityEvent = field.tagName === 'SELECT' ? 'change' : 'input';
+      field.addEventListener(activityEvent, () => {
+        if (_value(field.id).trim()) {
+          _pulseElement(group);
+        }
+      });
+    });
+  }
+
+  function _pulseElement(element, className = 'is-highlighted') {
+    if (!element) return;
+    element.classList.remove(className);
+    window.requestAnimationFrame(() => {
+      element.classList.add(className);
+      window.setTimeout(() => element.classList.remove(className), 760);
+    });
+  }
+
+  async function _loadRegionCatalog() {
+    _setLocationLoadingState(true);
+
+    let catalog = [];
+    const res = await ApiClient.get('/api/providers/geo/regions-cities/');
+    if (res.ok && res.data) {
+      const payload = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data.results)
+          ? res.data.results
+          : [];
+      catalog = _normalizeRegionCatalog(payload);
+    }
+
+    if (!catalog.length) {
+      catalog = _normalizeRegionCatalog(REGION_CITY_FALLBACK);
+    }
+
+    _regionCatalog = catalog;
+    _renderRegionOptions();
+    _setLocationLoadingState(false);
+    _updateRegionHint(catalog.length ? 'اختر المنطقة أولًا.' : 'تعذر تحميل المناطق.', catalog.length ? null : false);
+    _setLocationCalloutText('', '');
+  }
+
+  function _normalizeRegionCatalog(items) {
+    if (!Array.isArray(items)) return [];
+
+    return items
+      .map((item) => {
+        const rawName = _extractDisplayValue(item, ['name_ar', 'name', 'region']);
+        const cities = Array.isArray(item && item.cities)
+          ? item.cities
+              .map((city) => {
+                if (typeof city === 'string') return city.trim();
+                return _extractDisplayValue(city, ['name_ar', 'name', 'city']);
+              })
+              .filter(Boolean)
+          : [];
+        const uniqueCities = Array.from(new Set(cities));
+        if (!rawName || !uniqueCities.length) return null;
+        return {
+          value: rawName,
+          label: _regionDisplayName(rawName),
+          cities: uniqueCities,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.label.localeCompare(right.label, 'ar'));
+  }
+
+  function _extractDisplayValue(item, keys) {
+    if (!item) return '';
+    for (const key of keys) {
+      const value = typeof item === 'object' ? item[key] : '';
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim();
+      }
+    }
+    return '';
+  }
+
+  function _regionDisplayName(name) {
+    return String(name || '').replace(/^منطقة\s+/, '').trim() || String(name || '').trim();
+  }
+
+  function _renderRegionOptions() {
+    const regionSelect = document.getElementById('region');
+    if (!regionSelect) return;
+
+    const currentRegion = _value('region').trim();
+    regionSelect.innerHTML = '';
 
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = 'اختر المدينة';
-    select.appendChild(placeholder);
+    placeholder.textContent = 'اختر المنطقة';
+    regionSelect.appendChild(placeholder);
 
-    SAUDI_CITIES.forEach((city) => {
+    _regionCatalog.forEach((region) => {
+      const option = document.createElement('option');
+      option.value = region.value;
+      option.textContent = region.label;
+      regionSelect.appendChild(option);
+    });
+
+    if (_findRegion(currentRegion)) {
+      regionSelect.value = currentRegion;
+    }
+
+    _populateCityOptions(regionSelect.value, _value('city').trim());
+  }
+
+  function _populateCityOptions(regionValue, selectedCity) {
+    const citySelect = document.getElementById('city');
+    if (!citySelect) return;
+    const cityGroup = document.getElementById('signup-city-group');
+    const regionGroup = document.getElementById('signup-region-group');
+
+    const region = _findRegion(regionValue);
+    citySelect.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = region ? 'اختر المدينة' : 'اختر المنطقة أولًا';
+    citySelect.appendChild(placeholder);
+    citySelect.disabled = !region;
+    if (regionGroup && regionValue) {
+      _pulseElement(regionGroup);
+    }
+
+    if (!region) {
+      _setLocationCalloutText('', '');
+      _updateCityHint('', '');
+      return;
+    }
+
+    region.cities.forEach((city) => {
       const option = document.createElement('option');
       option.value = city;
       option.textContent = city;
-      select.appendChild(option);
+      citySelect.appendChild(option);
     });
+
+    if (selectedCity && region.cities.includes(selectedCity)) {
+      citySelect.value = selectedCity;
+    }
+
+    _updateRegionHint('تم تحديد المنطقة.', true);
+    _updateCityHint(regionValue, citySelect.value);
+    _setLocationCalloutText(regionValue, citySelect.value);
+    _pulseElement(cityGroup);
+    _pulseElement(document.getElementById('signup-location-callout'), 'is-updated');
+  }
+
+  function _findRegion(regionValue) {
+    return _regionCatalog.find((region) => region.value === regionValue) || null;
+  }
+
+  function _setLocationLoadingState(loading) {
+    const regionSelect = document.getElementById('region');
+    const citySelect = document.getElementById('city');
+    if (regionSelect) regionSelect.disabled = loading;
+    if (citySelect) {
+      citySelect.disabled = true;
+      if (loading) {
+        citySelect.innerHTML = '<option value="">جاري تحميل المدن...</option>';
+      }
+    }
+    _updateRegionHint(loading ? 'جاري تحميل المناطق...' : 'اختر المنطقة أولًا.', loading ? null : null);
+    _updateCityHint('', '');
+    _setLocationCalloutText('', '');
+  }
+
+  function _setLocationCalloutText(regionValue, cityValue) {
+    const text = document.getElementById('signup-location-callout-text');
+    if (!text) return;
+
+    const region = _findRegion(regionValue);
+    if (!region) {
+      text.textContent = 'اختر المنطقة أولًا ثم المدينة.';
+      return;
+    }
+
+    if (!cityValue) {
+      text.textContent = 'تم تحديد ' + region.label + '. اختر المدينة الآن.';
+      return;
+    }
+
+    text.textContent = region.label + ' - ' + cityValue;
+  }
+
+  function _updateRegionHint(message, state) {
+    _setHintState('region-hint', message, state);
+  }
+
+  function _updateCityHint(regionValue, cityValue) {
+    if (!regionValue) {
+      _setHintState('city-hint', 'اختر المدينة.', null);
+      return;
+    }
+
+    const region = _findRegion(regionValue);
+    if (!region) {
+      _setHintState('city-hint', 'تعذر تحميل المدن.', false);
+      return;
+    }
+
+    if (cityValue) {
+      _setHintState('city-hint', 'تم تحديد المدينة.', true);
+      return;
+    }
+
+    _setHintState('city-hint', 'اختر مدينة من ' + region.label + '.', null);
+  }
+
+  function _setHintState(id, message, state) {
+    const hint = document.getElementById(id);
+    if (!hint) return;
+    hint.textContent = message || '';
+    hint.classList.remove('ok');
+    hint.classList.remove('bad');
+    if (state === true) hint.classList.add('ok');
+    if (state === false) hint.classList.add('bad');
   }
 
   function _checkUsernameDebounced() {
@@ -166,6 +429,7 @@ const SignupPage = (() => {
     const lastName = _value('last-name').trim();
     const username = _value('username').trim();
     const email = _value('email').trim();
+    const region = _value('region').trim();
     const city = _value('city').trim();
     const password = _value('password');
     const passwordConfirm = _value('password-confirm');
@@ -176,7 +440,14 @@ const SignupPage = (() => {
     if (!lastName) valid = _setError('last-name', 'الاسم الأخير مطلوب') && false;
     if (!username) valid = _setError('username', 'اسم المستخدم مطلوب') && false;
     if (!email) valid = _setError('email', 'البريد الإلكتروني مطلوب') && false;
+    if (!region) valid = _setError('region', 'المنطقة الإدارية مطلوبة') && false;
     if (!city) valid = _setError('city', 'المدينة مطلوبة') && false;
+    if (region && city) {
+      const selectedRegion = _findRegion(region);
+      if (!selectedRegion || !selectedRegion.cities.includes(city)) {
+        valid = _setError('city', 'المدينة المختارة لا تتبع المنطقة المحددة') && false;
+      }
+    }
     const passwordIssue = _passwordIssue(password);
     if (passwordIssue) valid = _setError('password', passwordIssue) && false;
     if (password !== passwordConfirm) valid = _setError('password-confirm', 'كلمة المرور وتأكيدها غير متطابقين') && false;
@@ -250,13 +521,59 @@ const SignupPage = (() => {
     _setGeneralError(msg);
   }
 
+  async function _skipCompletion() {
+    if (_skipLoading) return;
+
+    _clearAllErrors();
+    _clearGeneralError();
+    _setSkipLoading(true);
+
+    const res = await ApiClient.request('/api/accounts/skip-completion/', {
+      method: 'POST',
+      body: {},
+    });
+
+    _setSkipLoading(false);
+
+    if (!res.ok) {
+      const msg = (res.data && (res.data.detail || res.data.error)) || 'تعذر تخطي إكمال البيانات';
+      _setGeneralError(msg);
+      return;
+    }
+
+    if (typeof Auth.saveTokens === 'function') {
+      Auth.saveTokens({ role_state: (res.data && res.data.role_state) || 'client' });
+    }
+    if (typeof Auth.clearProfileCache === 'function') {
+      Auth.clearProfileCache();
+    }
+    window.location.href = _next;
+  }
+
   function _setLoading(loading) {
     const btn = document.getElementById('btn-complete-signup');
     const text = document.getElementById('complete-signup-text');
     const spinner = document.getElementById('complete-signup-spinner');
     if (btn) btn.disabled = loading;
+    const skipBtn = document.getElementById('btn-skip-signup');
+    if (skipBtn) skipBtn.disabled = loading || _skipLoading;
     if (text) text.classList.toggle('hidden', loading);
     if (spinner) spinner.classList.toggle('hidden', !loading);
+  }
+
+  function _setSkipLoading(loading) {
+    _skipLoading = !!loading;
+    const skipBtn = document.getElementById('btn-skip-signup');
+    const skipText = document.getElementById('skip-signup-text');
+    const skipIcon = document.getElementById('skip-signup-icon');
+    const skipSpinner = document.getElementById('skip-signup-spinner');
+    const submitBtn = document.getElementById('btn-complete-signup');
+
+    if (skipBtn) skipBtn.disabled = _skipLoading;
+    if (submitBtn) submitBtn.disabled = _skipLoading;
+    if (skipText) skipText.classList.toggle('hidden', _skipLoading);
+    if (skipIcon) skipIcon.classList.toggle('hidden', _skipLoading);
+    if (skipSpinner) skipSpinner.classList.toggle('hidden', !_skipLoading);
   }
 
   function _setGeneralError(message) {
@@ -264,6 +581,7 @@ const SignupPage = (() => {
     if (!el) return;
     el.textContent = message;
     el.classList.remove('hidden');
+    _pulseElement(el);
   }
 
   function _clearGeneralError() {
@@ -279,6 +597,7 @@ const SignupPage = (() => {
       'last-name': 'err-last-name',
       username: 'err-username',
       email: 'err-email',
+      region: 'err-region',
       city: 'err-city',
       password: 'err-password',
       'password-confirm': 'err-password-confirm',
@@ -299,6 +618,7 @@ const SignupPage = (() => {
       'last-name': 'err-last-name',
       username: 'err-username',
       email: 'err-email',
+      region: 'err-region',
       city: 'err-city',
       password: 'err-password',
       'password-confirm': 'err-password-confirm',
@@ -318,6 +638,7 @@ const SignupPage = (() => {
       'last-name',
       'username',
       'email',
+      'region',
       'city',
       'password',
       'password-confirm',

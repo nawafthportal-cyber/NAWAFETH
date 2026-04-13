@@ -532,7 +532,7 @@ const ChatsPage = (() => {
     if (_meaningfulValue(thread.peer_city)) {
       metaRow.appendChild(UI.el('span', {
         className: 'thread-label-chip city-chip',
-        textContent: String(thread.peer_city).trim(),
+        textContent: UI.formatCityDisplay(thread.peer_city),
       }));
     }
 
@@ -904,7 +904,7 @@ const ChatsPage = (() => {
   function _threadSubtitle(thread, kind) {
     if (kind === 'team') return 'متابعة مباشرة مع فريق المنصة';
     if (kind === 'provider') return _meaningfulValue(thread.peer_city)
-      ? 'مقدم خدمة في ' + String(thread.peer_city).trim()
+      ? 'مقدم خدمة في ' + UI.formatCityDisplay(thread.peer_city)
       : 'مقدم خدمة على المنصة';
     if (kind === 'client') return _meaningfulValue(thread.client_label)
       ? String(thread.client_label).trim()

@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
@@ -250,21 +251,16 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
     }
     return InteractiveViewer(
       child: Center(
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: url,
           fit: BoxFit.contain,
-          loadingBuilder: (_, child, progress) {
-            if (progress == null) return child;
-            return Center(
-              child: CircularProgressIndicator(
-                color: Colors.white70,
-                value: progress.expectedTotalBytes != null
-                    ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                    : null,
-              ),
-            );
-          },
-          errorBuilder: (_, __, ___) => const Icon(
+          progressIndicatorBuilder: (_, __, progress) => Center(
+            child: CircularProgressIndicator(
+              color: Colors.white70,
+              value: progress.progress,
+            ),
+          ),
+          errorWidget: (_, __, ___) => const Icon(
             Icons.broken_image_outlined,
             size: 40,
             color: Colors.white70,
@@ -387,10 +383,10 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
       ),
       child: ClipOval(
         child: imageUrl != null && imageUrl.isNotEmpty
-            ? Image.network(
-                imageUrl,
+            ? CachedNetworkImage(
+                imageUrl: imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _defaultAvatarIcon(14),
+                errorWidget: (_, __, ___) => _defaultAvatarIcon(14),
               )
             : _defaultAvatarIcon(14),
       ),
@@ -466,10 +462,10 @@ class _SpotlightViewerPageState extends State<SpotlightViewerPage> {
             ),
             child: ClipOval(
               child: imageUrl != null && imageUrl.isNotEmpty
-                  ? Image.network(
-                      imageUrl,
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _defaultAvatarIcon(24),
+                      errorWidget: (_, __, ___) => _defaultAvatarIcon(24),
                     )
                   : _defaultAvatarIcon(24),
             ),

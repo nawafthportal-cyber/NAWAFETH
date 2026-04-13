@@ -2122,7 +2122,7 @@ var PromotionPage = (function () {
     if (item.search_scope_label) h += lineHtml("نطاق البحث", item.search_scope_label);
     if (item.search_position_label) h += lineHtml("ترتيب الظهور", item.search_position_label);
     if (item.target_category) h += lineHtml("التصنيف", item.target_category);
-    if (item.target_city) h += lineHtml("المدينة", item.target_city);
+    if (item.target_city || item.target_city_display) h += lineHtml("المدينة", UI.formatCityDisplay(item.target_city_display || item.target_city));
     if (item.send_at) h += lineHtml("وقت الإرسال", formatDateTime(item.send_at));
     if (item.redirect_url) h += lineHtml("رابط التحويل", '<a href="' + escapeHtml(item.redirect_url) + '" target="_blank" rel="noopener">' + escapeHtml(item.redirect_url) + '</a>');
     if (item.message_title) h += lineHtml("عنوان الرسالة", item.message_title);

@@ -30,7 +30,9 @@ RUN mkdir -p /app/backend/staticfiles /app/backend/media \
     && chown -R app:app /app/backend \
     && chmod 0755 /app/backend/entrypoint.sh
 
+ENV WEB_CONCURRENCY=4
+
 USER app
 
 ENTRYPOINT ["/app/backend/entrypoint.sh"]
-CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn_worker.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "3", "--threads", "2", "--worker-tmp-dir", "/dev/shm", "--max-requests", "1000", "--max-requests-jitter", "100", "--timeout", "120", "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["gunicorn", "config.asgi:application", "-k", "uvicorn_worker.UvicornWorker", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "4", "--worker-tmp-dir", "/dev/shm", "--max-requests", "1000", "--max-requests-jitter", "100", "--timeout", "120", "--graceful-timeout", "30", "--access-logfile", "-", "--error-logfile", "-"]

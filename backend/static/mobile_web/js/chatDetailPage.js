@@ -213,7 +213,7 @@ const ChatDetailPage = (() => {
     state.peer = {
       name,
       phone: _trim(thread.peer_phone) || 'غير متوفر',
-      city: _trim(thread.peer_city) || 'غير متوفر',
+      city: UI.formatCityDisplay(_trim(thread.peer_city)) || 'غير متوفر',
       avatar: _trim(thread.peer_image || thread.peer_profile_image),
       id: _toInt(thread.peer_id),
       providerId: _toInt(thread.peer_provider_id),
