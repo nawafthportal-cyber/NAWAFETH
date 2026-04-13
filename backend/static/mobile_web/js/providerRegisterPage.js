@@ -10,12 +10,65 @@ var ProviderRegisterPage = (function () {
   var isSubmitting = false;
   var isSuggestionSubmitting = false;
   var toastTimer = null;
+  var STEP_NARRATIVES = {
+    1: {
+      badge: "الخطوة 1 من 3",
+      title: "أساس ملفك الاحترافي",
+      hint: "ابدأ باسم عرض واضح ومنطقة دقيقة حتى يظهر ملفك للعملاء بالصورة الصحيحة.",
+      tip: "كلما كانت البيانات الأولى أوضح، أصبح ظهورك في المنصة أكثر اتساقًا وسهولة للمراجعة والاعتماد."
+    },
+    2: {
+      badge: "الخطوة 2 من 3",
+      title: "اختيار التصنيف المناسب",
+      hint: "حدّد القسم والتصنيف الأقرب لخدمتك حتى تصل للعميل في السياق الصحيح.",
+      tip: "إذا كانت خدمتك متخصصة جدًا، اختر الأقرب ثم استخدم اقتراح التصنيف للحفاظ على سلاسة التسجيل."
+    },
+    3: {
+      badge: "الخطوة 3 من 3",
+      title: "اكتمال ناعم للمعلومات",
+      hint: "أضف وسائل التواصل والخبرة بصورة واضحة ومختصرة قبل إنشاء الحساب.",
+      tip: "ليس المطلوب كثرة بيانات، بل معلومات عملية تمنح العميل انطباعًا مريحًا وتمنح ملفك مظهرًا مكتملًا."
+    },
+    success: {
+      badge: "الملف جاهز",
+      title: "تم إنشاء حسابك بنجاح",
+      hint: "أصبح بإمكانك الآن تطوير ملفك وإضافة خدماتك من لوحة التحكم.",
+      tip: "ابدأ بإكمال الملف التعريفي والخدمة الأولى حتى يظهر حسابك بصورة أقوى داخل المنصة."
+    }
+  };
+  var TOAST_TONES = {
+    success: {
+      title: "تم بنجاح",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+      role: "status",
+      live: "polite"
+    },
+    warning: {
+      title: "تنبيه لطيف",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>',
+      role: "status",
+      live: "polite"
+    },
+    error: {
+      title: "تعذر الإكمال",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9 9 15"/><path d="m9 9 6 6"/></svg>',
+      role: "alert",
+      live: "assertive"
+    },
+    info: {
+      title: "معلومة سريعة",
+      icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>',
+      role: "status",
+      live: "polite"
+    }
+  };
 
   function init() {
     loadRegionsAndCities();
     loadCategories();
     bindEvents();
     syncProviderTypeFromDom();
+    updateStepNarrative(currentStep);
   }
 
   function normalizeProviderType(value) {
@@ -155,6 +208,7 @@ var ProviderRegisterPage = (function () {
     var suggestOpenBtn = document.getElementById("reg-suggest-open");
     var suggestCloseBtn = document.getElementById("reg-suggest-close");
     var suggestSubmitBtn = document.getElementById("reg-suggest-submit");
+    var toastCloseBtn = document.getElementById("reg-toast-close");
     if (suggestOpenBtn) {
       suggestOpenBtn.addEventListener("click", function () {
         toggleSuggestionForm(!isSuggestionFormVisible());
@@ -162,6 +216,29 @@ var ProviderRegisterPage = (function () {
     }
     if (suggestCloseBtn) suggestCloseBtn.addEventListener("click", function () { toggleSuggestionForm(false); });
     if (suggestSubmitBtn) suggestSubmitBtn.addEventListener("click", function () { submitCategorySuggestion(); });
+    if (toastCloseBtn) toastCloseBtn.addEventListener("click", hideToast);
+  }
+
+  function focusField(fieldId) {
+    var field = document.getElementById(fieldId);
+    if (!field || typeof field.focus !== "function") return;
+    try {
+      field.focus({ preventScroll: false });
+    } catch (_) {
+      field.focus();
+    }
+  }
+
+  function updateStepNarrative(stepKey) {
+    var narrative = STEP_NARRATIVES.hasOwnProperty(stepKey) ? STEP_NARRATIVES[stepKey] : STEP_NARRATIVES[1];
+    var badge = document.getElementById("reg-step-badge");
+    var title = document.getElementById("reg-step-title");
+    var hint = document.getElementById("reg-step-hint");
+    var tip = document.getElementById("reg-step-tip");
+    if (badge) badge.textContent = narrative.badge;
+    if (title) title.textContent = narrative.title;
+    if (hint) hint.textContent = narrative.hint;
+    if (tip) tip.textContent = narrative.tip;
   }
 
   function isSuggestionFormVisible() {
@@ -333,18 +410,22 @@ var ProviderRegisterPage = (function () {
       s.classList.toggle("active", hasNumericStep && sn === numericStep);
       s.classList.toggle("done", isSuccessStep || (hasNumericStep && sn < numericStep));
     });
+    updateStepNarrative(isSuccessStep ? "success" : numericStep);
   }
 
   function validateStep1() {
     if (!document.getElementById("reg-display-name").value.trim()) {
+      focusField("reg-display-name");
       showToast("أدخل اسم العرض أولًا.", "warning");
       return false;
     }
     if (!document.getElementById("reg-region").value) {
+      focusField("reg-region");
       showToast("اختر المنطقة أولًا.", "warning");
       return false;
     }
     if (!document.getElementById("reg-city").value) {
+      focusField("reg-city");
       showToast("اختر المدينة أولًا.", "warning");
       return false;
     }
@@ -353,6 +434,7 @@ var ProviderRegisterPage = (function () {
 
   function validateStep2() {
     if (!document.getElementById("reg-subcategory").value) {
+      focusField("reg-subcategory");
       showToast("اختر التصنيف الفرعي أولًا.", "warning");
       return false;
     }
@@ -367,10 +449,21 @@ var ProviderRegisterPage = (function () {
     if (!whatsapp) return true;
 
     if (!/^05\d{8}$/.test(whatsapp)) {
+      focusField("reg-whatsapp");
       showToast("رقم الواتساب يجب أن يبدأ بـ 05 ويتكون من 10 أرقام.", "warning");
       return false;
     }
     return true;
+  }
+
+  function hideToast() {
+    var toast = document.getElementById("reg-toast");
+    if (!toast) return;
+    toast.classList.remove("show");
+    if (toastTimer) {
+      window.clearTimeout(toastTimer);
+      toastTimer = null;
+    }
   }
 
   function apiErrorMessage(data, fallback) {
@@ -386,20 +479,33 @@ var ProviderRegisterPage = (function () {
 
   function showToast(message, type) {
     var toast = document.getElementById("reg-toast");
+    var toastTitle = document.getElementById("reg-toast-title");
+    var toastMessage = document.getElementById("reg-toast-message");
+    var toastIcon = document.getElementById("reg-toast-icon");
+    var toneKey = TOAST_TONES[type] ? type : "info";
+    var tone = TOAST_TONES[toneKey];
     if (!toast) {
       alert(message || "");
       return;
     }
-    toast.textContent = message || "";
-    toast.classList.remove("show", "success", "error", "warning");
-    if (type) toast.classList.add(type);
+    if (toastTitle) toastTitle.textContent = tone.title;
+    if (toastMessage) {
+      toastMessage.textContent = message || "";
+    } else {
+      toast.textContent = message || "";
+    }
+    if (toastIcon) toastIcon.innerHTML = tone.icon;
+    toast.setAttribute("role", tone.role);
+    toast.setAttribute("aria-live", tone.live);
+    toast.classList.remove("show", "success", "error", "warning", "info");
+    toast.classList.add(toneKey);
     requestAnimationFrame(function () {
       toast.classList.add("show");
     });
     if (toastTimer) window.clearTimeout(toastTimer);
     toastTimer = window.setTimeout(function () {
-      toast.classList.remove("show");
-    }, 3200);
+      hideToast();
+    }, 4200);
   }
 
   function setSubmitState(isBusy, label) {

@@ -2,19 +2,1034 @@
 {% block title %}التسجيل كمزود خدمة — نوافــذ{% endblock %}
 {% block body_class %}page-provider-register{% endblock %}
 
+{% block extra_css %}
+<style>
+body.page-provider-register {
+  --reg-ink: #1d1738;
+  --reg-muted: #726c89;
+  --reg-soft: #f6f2ff;
+  --reg-soft-2: #fdfbfd;
+  --reg-brand: #4f2e98;
+  --reg-brand-strong: #341a6e;
+  --reg-cyan: #4ec8d4;
+  --reg-gold: #d39b3f;
+  --reg-success: #198756;
+  --reg-warning: #c77a12;
+  --reg-danger: #ba3f53;
+}
+
+body.page-provider-register .page-content {
+  position: relative;
+  overflow: clip;
+  background:
+    radial-gradient(circle at 14% 12%, rgba(78, 200, 212, 0.18), transparent 24%),
+    radial-gradient(circle at 88% 4%, rgba(79, 46, 152, 0.16), transparent 26%),
+    radial-gradient(circle at 50% 100%, rgba(211, 155, 63, 0.1), transparent 28%),
+    linear-gradient(180deg, #f7f3ff 0%, #fcfbfe 36%, #f8fbff 100%);
+}
+
+body.page-provider-register .provider-reg-shell {
+  position: relative;
+  max-width: min(1340px, calc(100vw - 20px));
+  padding: 18px 10px calc(var(--bottom-nav-height, 84px) + 32px);
+}
+
+body.page-provider-register .provider-reg-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+body.page-provider-register .provider-reg-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(8px);
+  opacity: 0.68;
+}
+
+body.page-provider-register .provider-reg-orb.orb-a {
+  top: 14px;
+  inset-inline-start: -74px;
+  width: 210px;
+  height: 210px;
+  background: radial-gradient(circle at 30% 30%, rgba(78, 200, 212, 0.4), rgba(78, 200, 212, 0));
+}
+
+body.page-provider-register .provider-reg-orb.orb-b {
+  top: 84px;
+  inset-inline-end: -46px;
+  width: 190px;
+  height: 190px;
+  background: radial-gradient(circle at 50% 50%, rgba(79, 46, 152, 0.26), rgba(79, 46, 152, 0));
+}
+
+body.page-provider-register .provider-reg-orb.orb-c {
+  bottom: 180px;
+  inset-inline-start: 18%;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle at 50% 50%, rgba(211, 155, 63, 0.18), rgba(211, 155, 63, 0));
+}
+
+body.page-provider-register .provider-reg-hero {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+body.page-provider-register .provider-reg-header {
+  margin: 0;
+  padding: 18px;
+  border-radius: 32px;
+  border: 1px solid rgba(79, 46, 152, 0.14);
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.95), rgba(247, 241, 255, 0.92)),
+    radial-gradient(circle at top left, rgba(78, 200, 212, 0.14), transparent 40%);
+  box-shadow: 0 26px 60px rgba(46, 30, 88, 0.12);
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+body.page-provider-register .provider-reg-header-copy {
+  display: grid;
+  gap: 10px;
+  flex: 1;
+}
+
+body.page-provider-register .provider-reg-kicker {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(79, 46, 152, 0.08);
+  color: var(--reg-brand-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.page-provider-register .provider-reg-kicker::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--reg-cyan), var(--reg-brand));
+  box-shadow: 0 0 0 4px rgba(78, 200, 212, 0.16);
+}
+
+body.page-provider-register .provider-reg-header h1 {
+  margin: 0;
+  color: var(--reg-ink);
+  font-size: clamp(28px, 5vw, 42px);
+  line-height: 1.15;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+body.page-provider-register .provider-reg-header p {
+  margin: 0;
+  max-width: 56ch;
+  color: #5c5673;
+  font-size: 14px;
+  line-height: 1.9;
+  font-weight: 700;
+}
+
+body.page-provider-register .provider-reg-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.page-provider-register .provider-reg-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background: rgba(255, 255, 255, 0.76);
+  color: #453d60;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+body.page-provider-register .provider-reg-hero-panel {
+  display: grid;
+}
+
+body.page-provider-register .provider-reg-hero-card {
+  position: relative;
+  overflow: hidden;
+  padding: 22px 20px;
+  border-radius: 32px;
+  background:
+    linear-gradient(155deg, rgba(44, 25, 88, 0.97), rgba(73, 42, 144, 0.94)),
+    radial-gradient(circle at top right, rgba(78, 200, 212, 0.26), transparent 36%);
+  color: #fff;
+  box-shadow: 0 28px 65px rgba(39, 23, 80, 0.22);
+}
+
+body.page-provider-register .provider-reg-hero-card::after {
+  content: "";
+  position: absolute;
+  inset: auto auto -42px -24px;
+  width: 150px;
+  height: 150px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(211, 155, 63, 0.32), rgba(211, 155, 63, 0));
+  pointer-events: none;
+}
+
+body.page-provider-register .provider-reg-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fef6db;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+body.page-provider-register .provider-reg-hero-card h2 {
+  margin: 14px 0 8px;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.4;
+}
+
+body.page-provider-register .provider-reg-hero-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.9;
+  font-weight: 700;
+}
+
+body.page-provider-register .provider-reg-checks {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+body.page-provider-register .provider-reg-checks li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.75;
+}
+
+body.page-provider-register .provider-reg-checks li::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 999px;
+  flex: 0 0 18px;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.96) 0 22%, transparent 24%),
+    linear-gradient(135deg, rgba(78, 200, 212, 0.95), rgba(211, 155, 63, 0.95));
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+}
+
+body.page-provider-register .provider-reg-spotlight {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  border-radius: 26px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(249, 247, 255, 0.88)),
+    radial-gradient(circle at top right, rgba(78, 200, 212, 0.12), transparent 34%);
+  box-shadow: 0 18px 40px rgba(46, 30, 88, 0.09);
+}
+
+body.page-provider-register .provider-reg-spotlight-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(79, 46, 152, 0.09);
+  color: var(--reg-brand-strong);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+body.page-provider-register .provider-reg-spotlight-copy {
+  display: grid;
+  gap: 4px;
+}
+
+body.page-provider-register .provider-reg-spotlight-copy strong {
+  color: var(--reg-ink);
+  font-size: 18px;
+  font-weight: 900;
+}
+
+body.page-provider-register .provider-reg-spotlight-copy p,
+body.page-provider-register .provider-reg-spotlight-tip {
+  margin: 0;
+  color: #615b78;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+body.page-provider-register .provider-reg-spotlight-tip {
+  padding-top: 10px;
+  border-top: 1px solid rgba(79, 46, 152, 0.09);
+}
+
+body.page-provider-register .provider-reg-progress {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 26px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 16px 34px rgba(46, 30, 88, 0.08);
+}
+
+body.page-provider-register .wizard-step {
+  gap: 8px;
+}
+
+body.page-provider-register .step-num {
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(79, 46, 152, 0.16);
+  background: linear-gradient(180deg, #ffffff, #f4efff);
+  color: #7a708f;
+  font-size: 15px;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+body.page-provider-register .wizard-step.active .step-num {
+  background: linear-gradient(135deg, var(--reg-brand), #7b4bd2);
+  box-shadow: 0 16px 32px rgba(79, 46, 152, 0.28);
+}
+
+body.page-provider-register .wizard-step.done .step-num {
+  background: linear-gradient(135deg, #19905e, #32b978);
+  box-shadow: 0 12px 24px rgba(25, 144, 94, 0.22);
+}
+
+body.page-provider-register .step-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #7a748f;
+}
+
+body.page-provider-register .wizard-step.active .step-label {
+  color: var(--reg-brand-strong);
+}
+
+body.page-provider-register .wizard-line {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(79, 46, 152, 0.12), rgba(78, 200, 212, 0.12));
+}
+
+body.page-provider-register .wizard-panel.active {
+  animation: providerRegPremiumPanel 0.34s ease;
+}
+
+@keyframes providerRegPremiumPanel {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+body.page-provider-register .reg-step-card,
+body.page-provider-register .reg-success-card {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: 34px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(247, 242, 255, 0.94)),
+    radial-gradient(circle at top right, rgba(78, 200, 212, 0.1), transparent 36%);
+  box-shadow: 0 30px 70px rgba(46, 30, 88, 0.12);
+  padding: 20px;
+}
+
+body.page-provider-register .reg-step-card::before,
+body.page-provider-register .reg-success-card::before {
+  content: "";
+  position: absolute;
+  inset: auto -60px -60px auto;
+  width: 170px;
+  height: 170px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(79, 46, 152, 0.12), rgba(79, 46, 152, 0));
+  pointer-events: none;
+}
+
+body.page-provider-register .reg-step-intro {
+  display: grid;
+  gap: 10px;
+}
+
+body.page-provider-register .reg-step-mini,
+body.page-provider-register .reg-side-badge,
+body.page-provider-register .reg-soft-alert strong,
+body.page-provider-register .reg-success-badge {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+}
+
+body.page-provider-register .reg-step-mini,
+body.page-provider-register .reg-side-badge,
+body.page-provider-register .reg-success-badge {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(79, 46, 152, 0.08);
+  color: var(--reg-brand-strong);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+body.page-provider-register .wizard-panel-head {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+body.page-provider-register .wizard-panel-head h2 {
+  margin: 0;
+  color: var(--reg-ink);
+  font-size: clamp(21px, 3vw, 28px);
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-step-copy,
+body.page-provider-register .reg-side-card p,
+body.page-provider-register .reg-success-copy {
+  margin: 0;
+  color: #615b78;
+  font-size: 14px;
+  line-height: 1.9;
+  font-weight: 700;
+}
+
+body.page-provider-register .reg-soft-alert {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border-radius: 22px;
+  border: 1px solid rgba(79, 46, 152, 0.1);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(244, 249, 255, 0.82));
+}
+
+body.page-provider-register .reg-soft-alert-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--reg-brand), #7b4bd2);
+  box-shadow: 0 12px 24px rgba(79, 46, 152, 0.22);
+}
+
+body.page-provider-register .reg-soft-alert strong {
+  min-height: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--reg-ink);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-soft-alert p {
+  margin: 4px 0 0;
+  color: #5c5770;
+  font-size: 13px;
+  line-height: 1.85;
+  font-weight: 700;
+}
+
+body.page-provider-register .reg-form-layout {
+  display: grid;
+  gap: 14px;
+}
+
+body.page-provider-register .form-group {
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+body.page-provider-register .form-label {
+  margin: 0;
+  color: #332d4f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+body.page-provider-register .form-input,
+body.page-provider-register .form-select {
+  min-height: 54px;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: rgba(112, 97, 149, 0.2);
+  padding-inline: 15px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 8px 18px rgba(35, 24, 65, 0.04);
+  color: var(--reg-ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body.page-provider-register textarea.form-input {
+  min-height: 124px;
+  padding-block: 14px;
+  resize: vertical;
+}
+
+body.page-provider-register .form-input::placeholder {
+  color: #938da9;
+}
+
+body.page-provider-register .form-input:focus,
+body.page-provider-register .form-select:focus {
+  border-color: rgba(79, 46, 152, 0.4);
+  box-shadow:
+    0 0 0 4px rgba(79, 46, 152, 0.1),
+    0 16px 30px rgba(46, 30, 88, 0.1);
+}
+
+body.page-provider-register .form-hint {
+  margin: 0;
+  color: #756f8b;
+  font-size: 12px;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+body.page-provider-register #reg-type-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+body.page-provider-register #reg-type-chips .chip {
+  min-height: 52px;
+  justify-content: center;
+  border-radius: 18px;
+  border-width: 1px;
+  border-color: rgba(112, 97, 149, 0.18);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(245, 240, 255, 0.86));
+  color: #4d4567;
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+}
+
+body.page-provider-register #reg-type-chips .chip.active {
+  background: linear-gradient(135deg, var(--reg-brand), #7b4bd2);
+  color: #fff;
+  box-shadow: 0 16px 28px rgba(79, 46, 152, 0.26);
+}
+
+body.page-provider-register .category-suggest-box {
+  padding: 14px;
+  border: 1px dashed rgba(79, 46, 152, 0.22);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(79, 46, 152, 0.05), rgba(78, 200, 212, 0.04)),
+    rgba(255, 255, 255, 0.6);
+}
+
+body.page-provider-register .category-suggest-trigger {
+  gap: 12px;
+}
+
+body.page-provider-register .category-suggest-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #5f38b5, #3ac0d0);
+  box-shadow: 0 14px 24px rgba(79, 46, 152, 0.2);
+}
+
+body.page-provider-register .category-suggest-copy strong {
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.page-provider-register .category-suggest-copy small {
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+body.page-provider-register .category-suggest-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(79, 46, 152, 0.12);
+}
+
+body.page-provider-register .reg-actions,
+body.page-provider-register .category-suggest-actions,
+body.page-provider-register .reg-success-actions {
+  display: grid;
+  gap: 10px;
+}
+
+body.page-provider-register .btn-split,
+body.page-provider-register .reg-main-btn,
+body.page-provider-register .btn-block {
+  width: 100%;
+}
+
+body.page-provider-register .reg-main-btn,
+body.page-provider-register .btn-primary,
+body.page-provider-register .btn-outline,
+body.page-provider-register .btn-secondary {
+  min-height: 52px;
+  border-radius: 18px;
+  font-weight: 900;
+}
+
+body.page-provider-register .btn-primary {
+  background: linear-gradient(135deg, var(--reg-brand), #7b4bd2);
+  box-shadow: 0 16px 30px rgba(79, 46, 152, 0.24);
+}
+
+body.page-provider-register .btn-primary:hover {
+  background: linear-gradient(135deg, #45238e, #6b39c2);
+  box-shadow: 0 18px 34px rgba(79, 46, 152, 0.28);
+}
+
+body.page-provider-register .btn-outline {
+  border-color: rgba(79, 46, 152, 0.2);
+  color: var(--reg-brand-strong);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+body.page-provider-register .btn-outline:hover {
+  background: rgba(79, 46, 152, 0.07);
+}
+
+body.page-provider-register #reg-suggest-submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+body.page-provider-register #reg-suggest-submit-spinner.spinner {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+}
+
+body.page-provider-register .reg-step-side {
+  display: grid;
+}
+
+body.page-provider-register .reg-side-card {
+  align-self: stretch;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 26px;
+  border: 1px solid rgba(79, 46, 152, 0.1);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(245, 250, 255, 0.84));
+}
+
+body.page-provider-register .reg-side-card h3,
+body.page-provider-register .reg-success-card h2 {
+  margin: 0;
+  color: var(--reg-ink);
+  font-size: 21px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-side-list,
+body.page-provider-register .reg-success-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+body.page-provider-register .reg-side-list li,
+body.page-provider-register .reg-success-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #4e4864;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 800;
+}
+
+body.page-provider-register .reg-side-list li::before,
+body.page-provider-register .reg-success-list li::before {
+  content: "";
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 999px;
+  flex: 0 0 18px;
+  background: linear-gradient(135deg, rgba(79, 46, 152, 0.9), rgba(78, 200, 212, 0.9));
+  box-shadow: 0 0 0 4px rgba(79, 46, 152, 0.08);
+}
+
+body.page-provider-register .reg-success-card {
+  max-width: 980px;
+  margin: 0 auto;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.98), rgba(238, 252, 246, 0.94)),
+    radial-gradient(circle at top right, rgba(25, 135, 86, 0.14), transparent 40%);
+  border-color: rgba(25, 135, 86, 0.16);
+}
+
+body.page-provider-register .success-icon {
+  width: 74px;
+  height: 74px;
+  margin-bottom: 14px;
+  border-radius: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  color: #fff;
+  background: linear-gradient(135deg, #19905e, #43c884);
+  box-shadow: 0 20px 38px rgba(25, 135, 86, 0.22);
+}
+
+body.page-provider-register .reg-success-card p {
+  margin: 10px 0 0;
+  color: #35604c;
+  font-size: 14px;
+  line-height: 1.9;
+  font-weight: 800;
+}
+
+body.page-provider-register .reg-success-card .btn-outline {
+  color: #1e6a47;
+  border-color: rgba(25, 135, 86, 0.2);
+}
+
+body.page-provider-register .reg-toast {
+  position: fixed;
+  inset-inline: 12px;
+  bottom: calc(var(--bottom-nav-height, 84px) + 16px);
+  z-index: 200;
+  width: min(560px, calc(100vw - 24px));
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 15px 16px 18px;
+  border-radius: 24px;
+  border: 1px solid rgba(79, 46, 152, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 24px 55px rgba(36, 24, 68, 0.18);
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(16px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+body.page-provider-register .reg-toast.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+body.page-provider-register .reg-toast.success {
+  border-color: rgba(25, 135, 86, 0.16);
+  background: linear-gradient(145deg, rgba(250, 255, 252, 0.94), rgba(236, 252, 245, 0.92));
+}
+
+body.page-provider-register .reg-toast.warning {
+  border-color: rgba(199, 122, 18, 0.2);
+  background: linear-gradient(145deg, rgba(255, 252, 245, 0.95), rgba(255, 246, 229, 0.92));
+}
+
+body.page-provider-register .reg-toast.error {
+  border-color: rgba(186, 63, 83, 0.18);
+  background: linear-gradient(145deg, rgba(255, 249, 250, 0.95), rgba(255, 239, 242, 0.92));
+}
+
+body.page-provider-register .reg-toast-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: linear-gradient(135deg, var(--reg-brand), #7b4bd2);
+  box-shadow: 0 12px 22px rgba(79, 46, 152, 0.2);
+}
+
+body.page-provider-register .reg-toast.success .reg-toast-icon {
+  background: linear-gradient(135deg, #1f9a65, #41c482);
+}
+
+body.page-provider-register .reg-toast.warning .reg-toast-icon {
+  background: linear-gradient(135deg, #c77a12, #e6a437);
+}
+
+body.page-provider-register .reg-toast.error .reg-toast-icon {
+  background: linear-gradient(135deg, #ba3f53, #dc6277);
+}
+
+body.page-provider-register .reg-toast-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+body.page-provider-register .reg-toast-copy strong {
+  color: var(--reg-ink);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+body.page-provider-register .reg-toast-copy p {
+  margin: 0;
+  color: #5d5874;
+  font-size: 13px;
+  line-height: 1.8;
+  font-weight: 700;
+  white-space: pre-line;
+}
+
+body.page-provider-register .reg-toast-close {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(79, 46, 152, 0.08);
+  color: #4a2c91;
+}
+
+body.page-provider-register .reg-toast-progress {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 4px;
+  background: linear-gradient(90deg, rgba(79, 46, 152, 0.95), rgba(78, 200, 212, 0.95));
+  transform-origin: right center;
+  transform: scaleX(0);
+}
+
+body.page-provider-register .reg-toast.show .reg-toast-progress {
+  animation: providerRegToastTimer 4.2s linear forwards;
+}
+
+@keyframes providerRegToastTimer {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@media (min-width: 900px) {
+  body.page-provider-register .provider-reg-hero {
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.82fr);
+  }
+
+  body.page-provider-register .provider-reg-spotlight {
+    grid-template-columns: auto minmax(0, 1fr) minmax(280px, 0.72fr);
+    align-items: center;
+  }
+
+  body.page-provider-register .reg-step-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(290px, 0.8fr);
+    gap: 18px 20px;
+    align-items: start;
+  }
+
+  body.page-provider-register .reg-step-intro {
+    grid-column: 1 / -1;
+  }
+
+  body.page-provider-register .reg-form-layout {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-content: start;
+  }
+
+  body.page-provider-register .reg-form-layout > .form-group-wide,
+  body.page-provider-register .reg-form-layout > .reg-actions,
+  body.page-provider-register .reg-form-layout > .category-suggest-box,
+  body.page-provider-register .reg-form-layout > .reg-main-btn {
+    grid-column: 1 / -1;
+  }
+
+  body.page-provider-register .reg-actions,
+  body.page-provider-register .category-suggest-actions,
+  body.page-provider-register .reg-success-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body.page-provider-register .reg-toast {
+    inset-inline: auto 28px;
+    bottom: calc(var(--desktop-bottom-dock-height, 0px) + var(--desktop-bottom-dock-offset, 0px) + 24px);
+    margin: 0;
+  }
+}
+
+@media (max-width: 899px) {
+  body.page-provider-register .provider-reg-progress {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  body.page-provider-register .provider-reg-progress::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.page-provider-register .wizard-step {
+    min-width: 94px;
+  }
+}
+
+@media (max-width: 640px) {
+  body.page-provider-register .provider-reg-shell {
+    padding-inline: 8px;
+  }
+
+  body.page-provider-register .provider-reg-header,
+  body.page-provider-register .provider-reg-hero-card,
+  body.page-provider-register .provider-reg-spotlight,
+  body.page-provider-register .provider-reg-progress,
+  body.page-provider-register .reg-step-card,
+  body.page-provider-register .reg-success-card {
+    border-radius: 26px;
+  }
+
+  body.page-provider-register .provider-reg-header {
+    padding: 16px;
+  }
+
+  body.page-provider-register .provider-reg-header h1 {
+    font-size: 28px;
+  }
+
+  body.page-provider-register .provider-reg-header p,
+  body.page-provider-register .reg-step-copy,
+  body.page-provider-register .reg-side-card p,
+  body.page-provider-register .reg-success-copy,
+  body.page-provider-register .reg-toast-copy p {
+    font-size: 13px;
+  }
+
+  body.page-provider-register .reg-toast {
+    width: auto;
+    grid-template-columns: auto 1fr;
+  }
+
+  body.page-provider-register .reg-toast-close {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="page-shell">
-  <div class="page-header provider-reg-header">
-    <button class="btn-back reg-back" onclick="history.back()" aria-label="رجوع">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div class="provider-reg-header-copy">
-      <h1>التسجيل كمزود خدمة</h1>
-      <p>أكمل بياناتك في 3 خطوات</p>
-    </div>
+<main class="page-shell provider-reg-shell" data-current-step="1">
+  <div class="provider-reg-bg" aria-hidden="true">
+    <span class="provider-reg-orb orb-a"></span>
+    <span class="provider-reg-orb orb-b"></span>
+    <span class="provider-reg-orb orb-c"></span>
   </div>
 
-  <!-- Progress -->
+  <section class="provider-reg-hero">
+    <div class="page-header provider-reg-header">
+      <button class="btn-back reg-back" type="button" onclick="history.back()" aria-label="رجوع">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="provider-reg-header-copy">
+        <span class="provider-reg-kicker">بوابة الانضمام الاحترافية</span>
+        <h1>التسجيل كمزود خدمة</h1>
+        <p>صمّم حضورك الأول بشكل أنيق وواضح. هذه الصفحة تمنحك مسارًا سلسًا لإنشاء ملف مزود خدمة جاهز للظهور بثقة على الجوال والديسكتوب.</p>
+        <div class="provider-reg-hero-tags" aria-label="مزايا التسجيل">
+          <span class="provider-reg-tag">3 خطوات واضحة</span>
+          <span class="provider-reg-tag">تلميحات مرافقة لكل مرحلة</span>
+          <span class="provider-reg-tag">تنبيهات ناعمة وواضحة</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="provider-reg-hero-panel">
+      <div class="provider-reg-hero-card">
+        <span class="provider-reg-hero-badge">تجربة سلسة وفاخرة</span>
+        <h2>بداية احترافية لملفك أمام العملاء</h2>
+        <p>ركّز على وضوح الاسم، دقة التصنيف، وطرق التواصل المناسبة. كل خطوة هنا تساعدك على تقديم نفسك بصورة أقوى وأكثر إقناعًا.</p>
+        <ul class="provider-reg-checks">
+          <li>معلومات أولية تبني انطباعًا موثوقًا من اللحظة الأولى.</li>
+          <li>تلميحات عملية تقلل التردد وتوضح المطلوب قبل الإرسال.</li>
+          <li>رسائل تنبيه فخمة وهادئة لتوجيهك بدون إزعاج بصري.</li>
+        </ul>
+      </div>
+    </aside>
+  </section>
+
+  <section class="provider-reg-spotlight" aria-live="polite">
+    <div class="provider-reg-spotlight-badge" id="reg-step-badge">الخطوة 1 من 3</div>
+    <div class="provider-reg-spotlight-copy">
+      <strong id="reg-step-title">أساس ملفك الاحترافي</strong>
+      <p id="reg-step-hint">ابدأ باسم عرض واضح ومنطقة دقيقة حتى يظهر ملفك للعملاء بالصورة الصحيحة.</p>
+    </div>
+    <p class="provider-reg-spotlight-tip" id="reg-step-tip">كلما كانت البيانات الأولى أوضح، أصبح ظهورك في المنصة أكثر اتساقًا وسهولة للمراجعة والاعتماد.</p>
+  </section>
+
   <div class="wizard-progress provider-reg-progress" aria-label="خطوات التسجيل">
     <div class="wizard-step active" data-step="1"><span class="step-num">1</span><span class="step-label">معلومات شخصية</span></div>
     <div class="wizard-line"></div>
@@ -23,141 +1038,254 @@
     <div class="wizard-step" data-step="3"><span class="step-num">3</span><span class="step-label">معلومات التواصل</span></div>
   </div>
 
-  <!-- Step 1: Personal Info -->
   <div class="wizard-panel active" data-panel="1">
     <div class="detail-card reg-step-card">
-      <div class="wizard-panel-head">
-        <h2>معلومات الحساب</h2>
-      </div>
-      <div class="form-group">
-        <label class="form-label">صفة الحساب</label>
-        <div class="chip-group" id="reg-type-chips">
-          <button type="button" class="chip active" data-val="individual">فرد</button>
-          <button type="button" class="chip" data-val="company">منشأة</button>
+      <div class="reg-step-intro">
+        <div class="wizard-panel-head">
+          <span class="reg-step-mini">الخطوة الأولى</span>
+          <h2>معلومات الحساب</h2>
+        </div>
+        <p class="reg-step-copy">هنا تُبنى الهوية الأولى التي يراها العميل. اجعل الاسم واضحًا، والنبذة مختصرة، وحدد موقعك بدقة لرفع جودة ظهورك في المنصة.</p>
+        <div class="reg-soft-alert">
+          <span class="reg-soft-alert-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 4v5c0 4.4-2.9 8.44-7 9-4.1-.56-7-4.6-7-9V7l7-4z"/><path d="M9.5 12.5l1.6 1.6 3.4-3.6"/></svg>
+          </span>
+          <div>
+            <strong>تلميح سريع</strong>
+            <p>اختر اسم عرض يعبّر عن هويتك المهنية مباشرة، وابتعد عن الصيغ العامة جدًا إذا كنت تريد ظهورًا أكثر تميزًا.</p>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">اسم العرض</label>
-        <input id="reg-display-name" type="text" class="form-input" placeholder="الاسم كما سيظهر للعملاء" required>
+      <div class="reg-form-layout">
+        <div class="form-group">
+          <label class="form-label">صفة الحساب</label>
+          <div class="chip-group" id="reg-type-chips">
+            <button type="button" class="chip active" data-val="individual">فرد</button>
+            <button type="button" class="chip" data-val="company">منشأة</button>
+          </div>
+          <p class="form-hint">اختر الصفة الأقرب لطبيعة تقديمك للخدمة حتى تنعكس على طريقة عرض الملف لاحقًا.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">اسم العرض</label>
+          <input id="reg-display-name" type="text" class="form-input" placeholder="الاسم كما سيظهر للعملاء" required>
+          <p class="form-hint">يفضّل أن يكون قصيرًا، سهل التذكر، ويعكس تخصصك أو اسم منشأتك.</p>
+        </div>
+        <div class="form-group form-group-wide">
+          <label class="form-label">نبذة عنك</label>
+          <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
+          <p class="form-hint">اكتب وصفًا هادئًا ومباشرًا يوضح نوع القيمة التي تقدمها للعملاء.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">المنطقة</label>
+          <select id="reg-region" class="form-select" required><option value="">اختر المنطقة</option></select>
+          <p class="form-hint">اختيار المنطقة بدقة يساعد على تحسين ربطك بالطلب المناسب جغرافيًا.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">المدينة</label>
+          <select id="reg-city" class="form-select" required><option value="">اختر المدينة</option></select>
+          <p class="form-hint">حدّد المدينة الأقرب لنطاق خدمتك أو مقر عملك الفعلي.</p>
+        </div>
+        <button class="btn btn-primary btn-block reg-main-btn" id="reg-next-1" type="button">التالي</button>
       </div>
-      <div class="form-group form-group-wide">
-        <label class="form-label">نبذة عنك</label>
-        <textarea id="reg-bio" class="form-input" rows="3" placeholder="وصف مختصر عنك وخدماتك"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">المنطقة</label>
-        <select id="reg-region" class="form-select" required><option value="">اختر المنطقة</option></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">المدينة</label>
-        <select id="reg-city" class="form-select" required><option value="">اختر المدينة</option></select>
-      </div>
-      <button class="btn btn-primary btn-block reg-main-btn" id="reg-next-1">التالي</button>
+      <aside class="reg-step-side">
+        <div class="reg-side-card">
+          <span class="reg-side-badge">انطباع أول</span>
+          <h3>كيف تجعل البداية أقوى؟</h3>
+          <p>ابدأ ببيانات سهلة الفهم ومباشرة. الملف الأنيق لا يحتاج كثرة نصوص، بل يحتاج وضوحًا وانسجامًا في المعلومة.</p>
+          <ul class="reg-side-list">
+            <li>اسم العرض يجب أن يبدو احترافيًا عند ظهوره في القوائم والبطاقات.</li>
+            <li>النبذة الأفضل هي التي تصف المجال والفائدة بدون مبالغة.</li>
+            <li>المنطقة والمدينة تساعدان على توجيه الخدمة بذكاء أكبر داخل المنصة.</li>
+          </ul>
+        </div>
+      </aside>
     </div>
   </div>
 
-  <!-- Step 2: Service Classification -->
   <div class="wizard-panel" data-panel="2">
     <div class="detail-card reg-step-card">
-      <div class="wizard-panel-head">
-        <h2>تصنيف الخدمة</h2>
-      </div>
-      <div class="form-group">
-        <label class="form-label">القسم الرئيسي</label>
-        <select id="reg-category" class="form-select" required><option value="">اختر القسم</option></select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">التصنيف الفرعي</label>
-        <select id="reg-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
-      </div>
-
-      <div class="category-suggest-box form-group-wide" id="reg-suggest-box">
-        <button type="button" class="category-suggest-trigger" id="reg-suggest-open">
-          <span class="category-suggest-icon" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3l1.9 3.85L18 8.1l-3 2.95.72 4.15L12 13.2l-3.72 2 0.72-4.15-3-2.95 4.1-1.25L12 3z" />
-            </svg>
+      <div class="reg-step-intro">
+        <div class="wizard-panel-head">
+          <span class="reg-step-mini">الخطوة الثانية</span>
+          <h2>تصنيف الخدمة</h2>
+        </div>
+        <p class="reg-step-copy">اختر القسم والتصنيف الأقرب لخدمتك حتى يتم تقديمك للعميل بالسياق الصحيح. هذه الخطوة تؤثر مباشرة على دقة ظهورك والطلبات التي قد تصلك.</p>
+        <div class="reg-soft-alert">
+          <span class="reg-soft-alert-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
           </span>
-          <span class="category-suggest-copy">
-            <strong>لم تجد تصنيف خدماتك؟</strong>
-            <small>يمكنك اقتراح تصنيف جديد وسيتم مراجعته من قبل الفريق المعني بالتصنيف.</small>
-          </span>
-        </button>
-
-        <div class="category-suggest-form hidden" id="reg-suggest-form">
-          <div class="form-group">
-            <label class="form-label">تصنيف رئيسي مقترح</label>
-            <input id="reg-suggest-main" type="text" class="form-input" placeholder="مثال: تصميم تفاعلي">
-          </div>
-          <div class="form-group">
-            <label class="form-label">تصنيف فرعي مقترح</label>
-            <input id="reg-suggest-sub" type="text" class="form-input" placeholder="مثال: تصميم صفحة هبوط بالذكاء الاصطناعي">
-          </div>
-          <div class="form-group form-group-wide">
-            <label class="form-label">ملاحظات إضافية (اختياري)</label>
-            <textarea id="reg-suggest-note" class="form-input" rows="2" placeholder="اكتب وصفًا مختصرًا يساعد الفريق على فهم اقتراحك"></textarea>
-          </div>
-          <div class="form-row category-suggest-actions">
-            <button class="btn btn-secondary btn-split" id="reg-suggest-close" type="button">إغلاق</button>
-            <button class="btn btn-primary btn-split" id="reg-suggest-submit" type="button" aria-busy="false">
-              <span id="reg-suggest-submit-text">إرسال الاقتراح</span>
-              <span id="reg-suggest-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
-            </button>
+          <div>
+            <strong>اختيار ذكي</strong>
+            <p>إذا كانت خدمتك متخصصة جدًا، اختر الأقرب لها ثم أرسل اقتراح التصنيف الجديد. بذلك تحافظ على الدقة دون تعطيل التسجيل.</p>
           </div>
         </div>
       </div>
+      <div class="reg-form-layout">
+        <div class="form-group">
+          <label class="form-label">القسم الرئيسي</label>
+          <select id="reg-category" class="form-select" required><option value="">اختر القسم</option></select>
+          <p class="form-hint">ابدأ بالقسم الأوسع الذي تندرج تحته خدمتك بشكل منطقي.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">التصنيف الفرعي</label>
+          <select id="reg-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
+          <p class="form-hint">اختر التصنيف الأكثر قربًا لطبيعة العرض الذي ستقدمه داخل المنصة.</p>
+        </div>
 
-      <div class="form-group form-group-wide">
-        <label class="form-label">اسم الخدمة </label>
-        <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
+        <div class="category-suggest-box form-group-wide" id="reg-suggest-box">
+          <button type="button" class="category-suggest-trigger" id="reg-suggest-open">
+            <span class="category-suggest-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.9 3.85L18 8.1l-3 2.95.72 4.15L12 13.2l-3.72 2 0.72-4.15-3-2.95 4.1-1.25L12 3z" />
+              </svg>
+            </span>
+            <span class="category-suggest-copy">
+              <strong>لم تجد تصنيف خدماتك؟</strong>
+              <small>يمكنك اقتراح تصنيف جديد وسيتم مراجعته من قبل الفريق المعني بالتصنيف مع إبقاء تسجيلك سلسًا.</small>
+            </span>
+          </button>
+
+          <div class="category-suggest-form hidden" id="reg-suggest-form">
+            <div class="form-group">
+              <label class="form-label">تصنيف رئيسي مقترح</label>
+              <input id="reg-suggest-main" type="text" class="form-input" placeholder="مثال: تصميم تفاعلي">
+              <p class="form-hint">اكتب عنوانًا عامًا يصف المجال المقترح بأوضح صورة ممكنة.</p>
+            </div>
+            <div class="form-group">
+              <label class="form-label">تصنيف فرعي مقترح</label>
+              <input id="reg-suggest-sub" type="text" class="form-input" placeholder="مثال: تصميم صفحة هبوط بالذكاء الاصطناعي">
+              <p class="form-hint">اجعل التصنيف الفرعي محددًا ليسهل مراجعته واعتماده لاحقًا.</p>
+            </div>
+            <div class="form-group form-group-wide">
+              <label class="form-label">ملاحظات إضافية (اختياري)</label>
+              <textarea id="reg-suggest-note" class="form-input" rows="2" placeholder="اكتب وصفًا مختصرًا يساعد الفريق على فهم اقتراحك"></textarea>
+              <p class="form-hint">يمكنك توضيح أمثلة للخدمات أو طريقة استخدامها داخل المنصة.</p>
+            </div>
+            <div class="form-row category-suggest-actions">
+              <button class="btn btn-secondary btn-split" id="reg-suggest-close" type="button">إغلاق</button>
+              <button class="btn btn-primary btn-split" id="reg-suggest-submit" type="button" aria-busy="false">
+                <span id="reg-suggest-submit-text">إرسال الاقتراح</span>
+                <span id="reg-suggest-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group form-group-wide">
+          <label class="form-label">اسم الخدمة </label>
+          <input id="reg-service-title" type="text" class="form-input" placeholder="مثال: تصميم مواقع">
+          <p class="form-hint">اسم محدد ومفهوم يساعد على قراءة عرضك بسرعة داخل الملف.</p>
+        </div>
+        <div class="form-group form-group-wide">
+          <label class="form-label">وصف الخدمة</label>
+          <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
+          <p class="form-hint">اكتب ما الذي سيتسلمه العميل أو ما الذي يميز طريقتك في تقديم الخدمة.</p>
+        </div>
+        <div class="form-row reg-actions">
+          <button class="btn btn-outline btn-split" id="reg-back-2" type="button">السابق</button>
+          <button class="btn btn-primary btn-split" id="reg-next-2" type="button">التالي</button>
+        </div>
       </div>
-      <div class="form-group form-group-wide">
-        <label class="form-label">وصف الخدمة</label>
-        <textarea id="reg-service-desc" class="form-input" rows="3" placeholder="وصف مختصر للخدمة"></textarea>
-      </div>
-      <div class="form-row reg-actions">
-        <button class="btn btn-outline btn-split" id="reg-back-2">السابق</button>
-        <button class="btn btn-primary btn-split" id="reg-next-2">التالي</button>
-      </div>
+      <aside class="reg-step-side">
+        <div class="reg-side-card">
+          <span class="reg-side-badge">دقة الظهور</span>
+          <h3>التصنيف يغيّر جودة الوصول</h3>
+          <p>كلما كان اختيارك أدق، أصبح الوصول للطلب المناسب أسرع وأكثر توافقًا مع طبيعة عملك.</p>
+          <ul class="reg-side-list">
+            <li>اختر الأقرب للخدمة الأساسية التي تريد إبرازها أولًا.</li>
+            <li>استخدم خانة الاقتراح عندما يكون السوق أو المجال جديدًا أو متخصصًا جدًا.</li>
+            <li>اسم الخدمة ووصفها القصير يكملان التصنيف ويمنحانك حضورًا أوضح.</li>
+          </ul>
+        </div>
+      </aside>
     </div>
   </div>
 
-  <!-- Step 3: Contact Info -->
   <div class="wizard-panel" data-panel="3">
     <div class="detail-card reg-step-card">
-      <div class="wizard-panel-head">
-        <h2>معلومات التواصل</h2>
+      <div class="reg-step-intro">
+        <div class="wizard-panel-head">
+          <span class="reg-step-mini">الخطوة الثالثة</span>
+          <h2>معلومات التواصل</h2>
+        </div>
+        <p class="reg-step-copy">أضف وسائل التواصل التي تسهّل متابعة المهتمين بك، مع الحفاظ على بساطة البيانات وموثوقيتها. هذه اللمسات تمنح الملف اكتمالًا أنيقًا وواضحًا.</p>
+        <div class="reg-soft-alert">
+          <span class="reg-soft-alert-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>
+          </span>
+          <div>
+            <strong>تواصل هادئ وواضح</strong>
+            <p>أدخل فقط ما تحتاجه فعليًا في هذه المرحلة. يمكنك دائمًا تطوير الملف بعد إنشاء الحساب من لوحة التحكم.</p>
+          </div>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">رقم الواتساب</label>
-        <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05XXXXXXXX" maxlength="10" inputmode="numeric" pattern="05[0-9]{8}" dir="ltr">
+      <div class="reg-form-layout">
+        <div class="form-group">
+          <label class="form-label">رقم الواتساب</label>
+          <input id="reg-whatsapp" type="tel" class="form-input" placeholder="05XXXXXXXX" maxlength="10" inputmode="numeric" pattern="05[0-9]{8}" dir="ltr">
+          <p class="form-hint">أضف رقمًا فعّالًا بصيغة صحيحة إذا كنت ترغب بتسهيل التواصل المباشر لاحقًا.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label">الموقع الإلكتروني (اختياري)</label>
+          <input id="reg-website" type="url" class="form-input" placeholder="https://example.com">
+          <p class="form-hint">يمكنك إضافة موقعك أو صفحة أعمالك لتعزيز الثقة والانطباع الاحترافي.</p>
+        </div>
+        <div class="form-group form-group-wide">
+          <label class="form-label">سنوات الخبرة</label>
+          <input id="reg-experience" type="number" class="form-input" placeholder="5" min="0">
+          <p class="form-hint">رقم تقريبي وواضح يكفي. الهدف هنا إعطاء تصور مبدئي عن خبرتك.</p>
+        </div>
+        <div class="form-row reg-actions">
+          <button class="btn btn-outline btn-split" id="reg-back-3" type="button">السابق</button>
+          <button class="btn btn-primary btn-split" id="reg-submit" type="button">إنشاء الحساب</button>
+        </div>
       </div>
-      <div class="form-group">
-        <label class="form-label">الموقع الإلكتروني (اختياري)</label>
-        <input id="reg-website" type="url" class="form-input" placeholder="https://example.com">
-      </div>
-      <div class="form-group">
-        <label class="form-label">سنوات الخبرة</label>
-        <input id="reg-experience" type="number" class="form-input" placeholder="5" min="0">
-      </div>
-      <div class="form-row reg-actions">
-        <button class="btn btn-outline btn-split" id="reg-back-3">السابق</button>
-        <button class="btn btn-primary btn-split" id="reg-submit">إنشاء الحساب</button>
+      <aside class="reg-step-side">
+        <div class="reg-side-card">
+          <span class="reg-side-badge">اللمسة الأخيرة</span>
+          <h3>قبل إنشاء الحساب</h3>
+          <p>هذه المرحلة تمنح ملفك اكتمالًا مريحًا للمستخدم. الأفضل أن تكون البيانات قابلة للاستخدام فعليًا من اليوم الأول.</p>
+          <ul class="reg-side-list">
+            <li>رقم الواتساب اختياري، لكن إدخاله بشكل صحيح يوفر قناة تواصل أسرع عند الحاجة.</li>
+            <li>الموقع الإلكتروني يضيف بعدًا احترافيًا إذا كانت لديك هوية رقمية جاهزة.</li>
+            <li>سنوات الخبرة تمنح العميل سياقًا أوليًا دون الحاجة لتفاصيل طويلة.</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="wizard-panel" data-panel="success" id="reg-success">
+    <div class="success-card reg-success-card">
+      <span class="reg-success-badge">اكتمل التسجيل</span>
+      <div class="success-icon">✓</div>
+      <h2>تم التسجيل بنجاح!</h2>
+      <p class="reg-success-copy">تم إنشاء حساب مزود الخدمة بنجاح. أصبح بإمكانك الآن الانتقال إلى لوحة التحكم وإكمال التفاصيل التي تمنح ملفك حضورًا أقوى داخل المنصة.</p>
+      <ul class="reg-success-list">
+        <li>أكمل ملفك التعريفي لإظهار تخصصك ومحتواك بشكل أكثر اكتمالًا.</li>
+        <li>أضف خدماتك الأساسية حتى يبدأ ملفك بعرض واضح ومباشر للعملاء.</li>
+        <li>طوّر حضورك تدريجيًا من داخل لوحة التحكم دون الحاجة لإعادة التسجيل.</li>
+      </ul>
+      <div class="reg-success-actions">
+        <a href="/provider-dashboard/" class="btn btn-primary btn-block">الانتقال للوحة التحكم</a>
+        <a href="/profile-completion/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
       </div>
     </div>
   </div>
 
-  <!-- Success -->
-  <div class="wizard-panel" data-panel="success" id="reg-success">
-    <div class="success-card reg-success-card">
-      <div class="success-icon">✓</div>
-      <h2>تم التسجيل بنجاح!</h2>
-      <p>تم إنشاء حساب مزود الخدمة بنجاح. يمكنك الآن إكمال ملفك الشخصي وإضافة خدماتك.</p>
-      <a href="/provider-dashboard/" class="btn btn-primary btn-block">الانتقال للوحة التحكم</a>
-      <a href="/profile-completion/" class="btn btn-outline btn-block">إكمال الملف التعريفي</a>
+  <div id="reg-toast" class="reg-toast" aria-live="polite" aria-atomic="true" role="status">
+    <span class="reg-toast-icon" id="reg-toast-icon" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16v.01"/><path d="M12 8v4"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+    </span>
+    <div class="reg-toast-copy">
+      <strong id="reg-toast-title">تنبيه لطيف</strong>
+      <p id="reg-toast-message">سيظهر هنا أي تنبيه أو رسالة نجاح أثناء التسجيل.</p>
     </div>
+    <button type="button" class="reg-toast-close" id="reg-toast-close" aria-label="إغلاق التنبيه">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <span class="reg-toast-progress" aria-hidden="true"></span>
   </div>
-  <div id="reg-toast" class="reg-toast" aria-live="polite"></div>
 </main>
 {% endblock %}
 

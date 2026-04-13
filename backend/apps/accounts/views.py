@@ -70,7 +70,14 @@ def _phone_candidates(phone: str) -> list[str]:
 
 
 def _otp_app_bypass_allowed(phone: str) -> bool:
-    return bool(getattr(settings, "OTP_APP_BYPASS", False))
+    if not bool(getattr(settings, "OTP_APP_BYPASS", False)):
+        return False
+    allowlist = getattr(settings, "OTP_APP_BYPASS_ALLOWLIST", None) or []
+    # When an allowlist is configured, only those phones may bypass.
+    if allowlist:
+        normalized = _normalize_phone_local05(phone)
+        return any(_normalize_phone_local05(p) == normalized for p in allowlist if p)
+    return True
 
 
 def _is_valid_username(username: str) -> bool:

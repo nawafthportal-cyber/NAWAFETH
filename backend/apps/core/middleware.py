@@ -110,6 +110,10 @@ class DatabaseOutageShortCircuitMiddleware:
 
     @staticmethod
     def _should_short_circuit(path: str) -> bool:
+        # Guard admin panel: return a plain 503 instead of crashing with 500
+        # when the DB is unreachable (session/auth require DB).
+        if path.startswith("/admin-panel"):
+            return True
         if not path.startswith("/api/"):
             return False
         if path.startswith("/api/health") or path.startswith("/api/core/health"):
