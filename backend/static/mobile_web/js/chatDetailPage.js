@@ -752,7 +752,89 @@ const ChatDetailPage = (() => {
   }
 
   /* ── Safe URL linkifier (DOM-only, no innerHTML) ── */
-  const _URL_RE = /(?:https?:\/\/[^\s<>"""'']+|(?:^|\s)(\/(?:promotion|promo-payment|verification|service-request|provider|provider-orders|subscription|chats|chat)(?:\/[^\s<>"""'']*)?(?:\?[^\s<>"""'']*)?))(?=[.,;:!?)'"»\u200F]*(?:\s|$)|$)/gi;
+  const _URL_RE = /(?:https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|mailto:[^\s<>"']+|tel:[^\s<>"']+|(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"']*)?|(?:^|[\s(\[{"'«\u200F])((?:\/[A-Za-z0-9\-._~%!$&'()*+,;=:@/?#]+|[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9\-._~%!$&'()*+,;=:@/?#]+)+(?:\?[^\s<>"']*)?))(?=[.,;:!?)'"»\u200F]*(?:\s|$)|$))/gi;
+
+  function _trimLinkToken(value) {
+    var text = _trim(value);
+    if (!text) return '';
+    while (/[.,;:!?)'"»\]]$/.test(text)) {
+      text = text.slice(0, -1);
+    }
+    return text;
+  }
+
+  function _looksLikePathToken(value) {
+    return /^[A-Za-z][A-Za-z0-9-]*(?:\/[A-Za-z0-9\-._~%!$&'()*+,;=:@]+)+(?:\?[^\s<>"']*)?$/i.test(value || '');
+  }
+
+  function _normalizeMessageHref(rawUrl) {
+    const value = _trimLinkToken(rawUrl);
+    if (!value) return '';
+    if (/^(mailto:|tel:)/i.test(value)) return value;
+    if (value.startsWith('/')) return value;
+    if (/^www\./i.test(value)) return 'https://' + value;
+    if (_looksLikePathToken(value)) return '/' + value.replace(/^\/+/, '');
+    if (/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}(?:[/:?#]|$)/i.test(value)) {
+      return 'https://' + value;
+    }
+    try {
+      return new URL(value, window.location.origin).href;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function _isPaymentLikeHref(href) {
+    const value = _trim(href);
+    if (!value) return false;
+    try {
+      const parsed = new URL(value, window.location.origin);
+      const path = String(parsed.pathname || '').replace(/\/+$/, '').toLowerCase();
+      return path === '/additional-services/payment'
+        || path.indexOf('/additional-services/payment/') === 0
+        || path === '/promo-payment'
+        || path.indexOf('/promo-payment/') === 0
+        || path === '/subscription'
+        || path.indexOf('/subscription/') === 0
+        || path.indexOf('/payment') >= 0
+        || parsed.searchParams.has('invoice_id')
+        || parsed.searchParams.has('request_id');
+    } catch (_) {
+      return /payment|invoice_id|request_id/i.test(value);
+    }
+  }
+
+  function _friendlyLinkLabel(displayText, href) {
+    let label = displayText;
+    try {
+      const u = new URL(href || displayText, window.location.origin);
+      const path = u.pathname.replace(/\/+$/, '');
+      const LABELS = {
+        '/promotion': 'صفحة الترويج',
+        '/verification': 'صفحة التوثيق',
+        '/service-request': 'طلب خدمة',
+        '/provider-orders': 'طلبات المزوّد',
+        '/provider': 'صفحة المزوّد',
+        '/profile-completion': 'إكمال الملف',
+        '/subscription': 'الاشتراك',
+        '/chats': 'الرسائل',
+        '/chat': 'المحادثة',
+        '/additional-services': 'الخدمات الإضافية',
+        '/additional-services/payment': 'رابط دفع الخدمات الإضافية',
+      };
+      const found = Object.entries(LABELS).find(function (entry) {
+        var key = entry[0];
+        return path === key || path.indexOf(key + '/') === 0;
+      });
+      if (found) return found[1];
+      if (/^mailto:/i.test(u.href)) return 'البريد الإلكتروني';
+      if (/^tel:/i.test(u.href)) return 'رقم للتواصل';
+      if (/^https?:\/\//i.test(u.href) && u.hostname) return u.hostname.replace(/^www\./i, '');
+    } catch (_) {
+      return label;
+    }
+    return label;
+  }
 
   function _buildRichTextNode(text, mine) {
     const container = UI.el('div', { className: 'msg-text' });
@@ -771,20 +853,15 @@ const ChatDetailPage = (() => {
       }
 
       // Determine href
-      let href = rawUrl;
-      if (href.startsWith('/')) {
-        // Relative path — keep as-is
-      } else {
-        // Validate full URL
-        try { new URL(href); } catch (_) { href = ''; }
-      }
+      var href = _normalizeMessageHref(rawUrl);
+      var cleanedDisplayText = _trimLinkToken(rawUrl);
 
       if (href) {
-        const isPayment = /\/(promotion|promo-payment|subscription)/.test(href) || /prepare-payment|init-payment|payment/.test(href);
-        const linkNode = _buildInlineLink(href, rawUrl, mine, isPayment);
+        const isPayment = _isPaymentLikeHref(href);
+        const linkNode = _buildInlineLink(href, cleanedDisplayText, mine, isPayment);
         container.appendChild(linkNode);
       } else {
-        container.appendChild(document.createTextNode(rawUrl));
+        container.appendChild(document.createTextNode(cleanedDisplayText));
       }
       cursor = matchEnd;
     }
@@ -821,25 +898,11 @@ const ChatDetailPage = (() => {
     const link = UI.el('a', {
       className: 'msg-inline-link ' + (mine ? 'mine' : 'theirs'),
       href: href,
-      target: '_self',
+      target: /^https?:\/\//i.test(href) && href.indexOf(window.location.origin) !== 0 ? '_blank' : '_self',
       rel: 'noopener',
+      title: displayText || href,
     });
-    // Try human-friendly display
-    let label = displayText;
-    try {
-      const u = new URL(displayText, window.location.origin);
-      const path = u.pathname.replace(/\/+$/, '');
-      const LABELS = {
-        '/promotion': 'صفحة الترويج',
-        '/verification': 'صفحة التوثيق',
-        '/service-request': 'طلب خدمة',
-        '/provider-orders': 'طلبات المزوّد',
-        '/subscription': 'الاشتراك',
-        '/chats': 'الرسائل',
-      };
-      const found = Object.entries(LABELS).find(([k]) => path === k || path.startsWith(k + '/'));
-      if (found) label = found[1];
-    } catch (_) { /* keep raw */ }
+    const label = _friendlyLinkLabel(displayText, href);
     link.appendChild(UI.el('span', { className: 'msg-inline-link-icon', textContent: '🔗' }));
     link.appendChild(UI.el('span', { className: 'msg-inline-link-text', textContent: label }));
     return link;

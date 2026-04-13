@@ -4283,44 +4283,62 @@ body.page-profile .profile-guest-highlight span {
 .msg-inline-link {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 13px;
-  border-radius: 8px;
-  padding: 2px 8px;
-  margin: 2px 0;
-  transition: background .15s ease, box-shadow .15s ease;
-  word-break: break-all;
+  border-radius: 999px;
+  padding: 5px 10px 5px 8px;
+  margin: 3px 0;
+  transition: background .15s ease, box-shadow .15s ease, transform .15s ease, border-color .15s ease;
+  max-width: 100%;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   direction: ltr;
   unicode-bidi: embed;
+  border: 1px solid transparent;
+  box-shadow: 0 6px 14px rgba(15,23,42,.06);
 }
 .msg-inline-link.mine {
   color: #fff;
-  background: rgba(255,255,255,.18);
-  border: 1px solid rgba(255,255,255,.30);
+  background: linear-gradient(135deg, rgba(255,255,255,.22), rgba(255,255,255,.12));
+  border-color: rgba(255,255,255,.28);
 }
 .msg-inline-link.mine:hover {
-  background: rgba(255,255,255,.28);
-  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  background: linear-gradient(135deg, rgba(255,255,255,.3), rgba(255,255,255,.18));
+  box-shadow: 0 10px 18px rgba(0,0,0,.14);
+  transform: translateY(-1px);
 }
 .msg-inline-link.theirs {
-  color: #5e35b1;
-  background: rgba(103,58,183,.08);
-  border: 1px solid rgba(103,58,183,.18);
+  color: #4d2796;
+  background: linear-gradient(135deg, rgba(103,58,183,.08), rgba(78,200,212,.07));
+  border-color: rgba(103,58,183,.16);
 }
 .msg-inline-link.theirs:hover {
-  background: rgba(103,58,183,.14);
-  box-shadow: 0 2px 8px rgba(103,58,183,.12);
+  background: linear-gradient(135deg, rgba(103,58,183,.14), rgba(78,200,212,.12));
+  box-shadow: 0 10px 18px rgba(103,58,183,.12);
+  transform: translateY(-1px);
 }
 .msg-inline-link-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
   flex: 0 0 auto;
+  background: rgba(255,255,255,.22);
+}
+.msg-inline-link.theirs .msg-inline-link-icon {
+  background: rgba(103,58,183,.12);
 }
 .msg-inline-link-text {
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 2px;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-decoration: none;
+  line-height: 1.45;
 }
 
 /* ── Payment CTA card inside message ── */
