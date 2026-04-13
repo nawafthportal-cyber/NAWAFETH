@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
@@ -80,6 +81,7 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         request_type = attrs.get("request_type")
         city = (attrs.get("city") or "").strip()
         dispatch_mode = (attrs.get("dispatch_mode") or "all").strip().lower()
+        quote_deadline = attrs.get("quote_deadline")
         subcategory = attrs.get("subcategory")
         subcategory_ids = list(attrs.get("subcategory_ids") or [])
         attrs["city"] = city
@@ -143,6 +145,15 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     "subcategory_ids": "مزود الخدمة لا يدعم أيًا من التصنيفات المختارة"
                 })
+
+        today = timezone.localdate()
+        if request_type == "competitive":
+            if quote_deadline is not None and quote_deadline < today:
+                raise serializers.ValidationError({
+                    "quote_deadline": "مهلة التسعير يجب أن تكون اليوم أو تاريخًا لاحقًا"
+                })
+        else:
+            attrs["quote_deadline"] = None
 
         optimized_images = []
         for image in attrs.get("images") or []:
@@ -299,6 +310,12 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
         return self._status_group_value(getattr(obj, "status", ""))
 
     def get_status_label(self, obj):
+        if (
+            self.get_status_group(obj) == "new"
+            and str(getattr(obj, "request_type", "")).strip().lower() == "urgent"
+            and bool(getattr(obj, "provider_id", None) or getattr(obj, "provider", None))
+        ):
+            return "تم قبول الطلب"
         group = self.get_status_group(obj)
         return {
             "new": "جديد",

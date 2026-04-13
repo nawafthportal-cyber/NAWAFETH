@@ -3,7 +3,7 @@
 
 {% block title %}{{ page_meta_title|default:"نوافــذ — مقدم خدمة" }}{% endblock %}
 {% block sidebar_search %}active{% endblock %}
-{% block body_class %}page-provider-detail{% endblock %}
+{% block body_class %}page-provider-detail page-provider-detail-premium{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}" />
@@ -23,7 +23,7 @@
 {% endblock %}
 
 {% block content %}
-<main class="page-content pd-page">
+<main class="page-content pd-page pd-page-premium">
   <div id="pd-loading-shell" class="pd-loading-shell" aria-hidden="true">
     <div class="pd-loading-hero nw-skeleton-surface">
       <div class="pd-loading-cover nw-skeleton-block"></div>
@@ -196,29 +196,33 @@
     </div>
 
     <!-- ═══ TABS ═══ -->
-    <div class="pd-tabs" id="pd-tabs">
-      <button class="pd-tab active" data-tab="profile">
+    <div class="pd-tabs" id="pd-tabs" role="tablist" aria-label="تبويبات ملف مقدم الخدمة">
+      <button class="pd-tab active" id="pd-tab-btn-profile" type="button" role="tab" aria-controls="tab-profile" aria-selected="true" tabindex="0" data-tab="profile">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-        <span>الملف الشخصي</span>
+        <span class="pd-tab-text">الملف الشخصي</span>
+        <span class="pd-tab-meta" id="pd-tab-meta-profile">أساسي</span>
       </button>
-      <button class="pd-tab" data-tab="services">
+      <button class="pd-tab" id="pd-tab-btn-services" type="button" role="tab" aria-controls="tab-services" aria-selected="false" tabindex="-1" data-tab="services">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z"/></svg>
-        <span>خدماتي</span>
+        <span class="pd-tab-text">خدماتي</span>
+        <span class="pd-tab-meta" id="pd-tab-meta-services">0</span>
       </button>
-      <button class="pd-tab" data-tab="portfolio">
+      <button class="pd-tab" id="pd-tab-btn-portfolio" type="button" role="tab" aria-controls="tab-portfolio" aria-selected="false" tabindex="-1" data-tab="portfolio">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M22 16V4c0-1.1-.9-2-2-2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2zm-11-4l2.03 2.71L16 11l4 5H8l3-4zM2 6v14c0 1.1.9 2 2 2h14v-2H4V6H2z"/></svg>
-        <span>معرض خدماتي</span>
+        <span class="pd-tab-text">معرض خدماتي</span>
+        <span class="pd-tab-meta" id="pd-tab-meta-portfolio">0</span>
       </button>
-      <button class="pd-tab" data-tab="reviews">
+      <button class="pd-tab" id="pd-tab-btn-reviews" type="button" role="tab" aria-controls="tab-reviews" aria-selected="false" tabindex="-1" data-tab="reviews">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span>المراجعات</span>
+        <span class="pd-tab-text">المراجعات</span>
+        <span class="pd-tab-meta" id="pd-tab-meta-reviews">0</span>
       </button>
     </div>
 
     <!-- ═══ TAB PANELS ═══ -->
     <div class="pd-tab-content">
       <!-- Profile Tab -->
-      <div id="tab-profile" class="pd-panel active">
+      <div id="tab-profile" class="pd-panel active" role="tabpanel" aria-labelledby="pd-tab-btn-profile" tabindex="0">
         <!-- Bio card -->
         <div class="pd-card" id="pd-bio-card">
           <h4 class="pd-card-title">
@@ -270,22 +274,34 @@
           </div>
           <div class="pd-field-divider"></div>
           <div class="pd-field-row">
-            <div class="pd-field">
-              <span class="pd-field-label">الموقع الالكتروني</span>
-              <span class="pd-field-value" id="pd-website">-</span>
-            </div>
-          </div>
-          <div class="pd-field-divider"></div>
-          <div class="pd-field-row">
             <div class="pd-field pd-field-with-action">
               <div class="pd-field-main">
-                <span class="pd-field-label">المدينة</span>
-                <span class="pd-field-value" id="pd-city-name">-</span>
+                <span class="pd-field-label">الموقع الالكتروني</span>
+                <span class="pd-field-value" id="pd-website">-</span>
               </div>
               <button class="pd-field-open-link" id="pd-website-open" type="button" aria-label="فتح الموقع الإلكتروني">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
               </button>
             </div>
+          </div>
+          <div class="pd-field-divider"></div>
+          <div class="pd-field-row">
+            <div class="pd-field">
+              <span class="pd-field-label">المدينة</span>
+              <span class="pd-field-value" id="pd-city-name">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="pd-card" id="pd-service-range-card">
+          <h4 class="pd-card-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="var(--color-primary)"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM7 9c0-2.76 2.24-5 5-5s5 2.24 5 5c0 2.75-2.44 6.63-5 9.88C9.44 15.63 7 11.75 7 9zm5-2a2 2 0 100 4 2 2 0 000-4z"/></svg>
+            نطاق الخدمة على الخريطة
+          </h4>
+          <p class="pd-map-title" id="pd-service-range-summary">سيظهر نطاق الخدمة بعد تحميل بيانات مقدم الخدمة.</p>
+          <div class="pd-map-wrap">
+            <div id="pd-service-range-map" class="pd-map-container" aria-label="خريطة نطاق خدمة مقدم الخدمة"></div>
+            <div id="pd-service-range-map-empty" class="pd-map-empty hidden">لم يحدد مقدم الخدمة موقعًا دقيقًا على الخريطة بعد.</div>
           </div>
         </div>
 
@@ -338,7 +354,7 @@
       </div>
 
       <!-- Services Tab -->
-      <div id="tab-services" class="pd-panel">
+      <div id="tab-services" class="pd-panel" role="tabpanel" aria-labelledby="pd-tab-btn-services" tabindex="0" hidden>
         <section class="pd-services-hero">
           <div class="pd-services-hero-badge">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7L12 3 4 7l8 4 8-4z"/><path d="M4 12l8 4 8-4"/><path d="M4 17l8 4 8-4"/></svg>
@@ -371,7 +387,7 @@
       </div>
 
       <!-- Portfolio Tab -->
-      <div id="tab-portfolio" class="pd-panel">
+      <div id="tab-portfolio" class="pd-panel" role="tabpanel" aria-labelledby="pd-tab-btn-portfolio" tabindex="0" hidden>
         <section class="pd-portfolio-hero">
           <div class="pd-portfolio-hero-badge">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="4" ry="4"/><path d="M10 8l6 4-6 4z"/></svg>
@@ -400,7 +416,7 @@
       </div>
 
       <!-- Reviews Tab -->
-      <div id="tab-reviews" class="pd-panel">
+      <div id="tab-reviews" class="pd-panel" role="tabpanel" aria-labelledby="pd-tab-btn-reviews" tabindex="0" hidden>
         <div class="pd-tab-loading-shell" id="pd-reviews-loading" aria-hidden="true">
           <div class="pd-review-skeleton-summary nw-skeleton-surface">
             <span class="nw-skeleton-block rating"></span>
@@ -425,5 +441,5 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="{% static 'mobile_web/js/spotlightViewer.js' %}"></script>
-<script src="{% static 'mobile_web/js/providerDetailPage.js' %}"></script>
+  <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260413-tabsrev1"></script>
 {% endblock %}

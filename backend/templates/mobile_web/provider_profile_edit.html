@@ -1,18 +1,21 @@
 {% extends "mobile_web/base.html" %}{% load static %}
 {% block title %}تعديل الملف الشخصي — نوافــذ{% endblock %}
-{% block body_class %}page-provider-profile-edit{% endblock %}
+{% block body_class %}page-provider-profile-edit page-provider-profile-edit-premium{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 {% endblock %}
 
 {% block content %}
-<main class="page-shell pe-page-shell">
+<main class="page-shell pe-page-shell pe-page-shell-premium">
   <div class="page-header pe-page-header">
     <button class="btn-back" type="button" onclick="history.back()" aria-label="رجوع">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <h1 id="pe-page-title" class="pe-page-title">الملف الشخصي</h1>
+    <div class="pe-page-title-wrap">
+      <h1 id="pe-page-title" class="pe-page-title">الملف الشخصي</h1>
+      <p class="pe-page-subtitle">رتّب ملفك خطوة بخطوة، وحدث كل قسم بشكل واضح ليظهر للعملاء بصورة احترافية.</p>
+    </div>
   </div>
 
   <div id="pe-loading" class="loading-center pe-loading"><div class="spinner"></div></div>
@@ -47,9 +50,52 @@
 
         <section class="pe-tabs-card" aria-label="أقسام الملف الشخصي">
           <div class="tabs-row" id="pe-tabs" role="tablist" aria-label="أقسام تعديل الملف الشخصي">
-            <button class="tab active" type="button" data-tab="account" role="tab" aria-selected="true">معلومات الحساب</button>
-            <button class="tab" type="button" data-tab="general" role="tab" aria-selected="false">معلومات عامة</button>
-            <button class="tab" type="button" data-tab="extra" role="tab" aria-selected="false">معلومات إضافية</button>
+            <button class="tab active" id="pe-tab-account" type="button" data-tab="account" role="tab" aria-controls="pe-panel-account" aria-selected="true" tabindex="0">
+              <span class="pe-tab-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </span>
+              <span class="pe-tab-main">معلومات الحساب</span>
+              <span class="pe-tab-sub">الهوية والبيانات الأساسية</span>
+            </button>
+            <button class="tab" id="pe-tab-general" type="button" data-tab="general" role="tab" aria-controls="pe-panel-general" aria-selected="false" tabindex="-1">
+              <span class="pe-tab-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h12"/><path d="M10 5a17.3 17.3 0 0 1-4 12"/><path d="M12 17h8"/><path d="M16 5l4 12"/><path d="M18 11h-4"/></svg>
+              </span>
+              <span class="pe-tab-main">معلومات عامة</span>
+              <span class="pe-tab-sub">اللغات والموقع ونطاق الخدمة</span>
+            </button>
+            <button class="tab" id="pe-tab-extra" type="button" data-tab="extra" role="tab" aria-controls="pe-panel-extra" aria-selected="false" tabindex="-1">
+              <span class="pe-tab-icon" aria-hidden="true">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>
+              </span>
+              <span class="pe-tab-main">معلومات إضافية</span>
+              <span class="pe-tab-sub">الخبرات والروابط والظهور</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="detail-card pe-workflow-card" id="pe-workflow-card" aria-live="polite">
+          <div class="pe-workflow-head">
+            <p class="pe-helper-kicker">خارطة الإجراءات</p>
+            <h3 class="pe-workflow-title">أنجز ملفك في 3 خطوات واضحة</h3>
+          </div>
+          <div class="pe-workflow-progress" id="pe-workflow-progress">
+            <button type="button" class="pe-workflow-step is-active" data-tab-target="account">
+              <span class="pe-workflow-step-index">1</span>
+              <span class="pe-workflow-step-label">الحساب</span>
+            </button>
+            <button type="button" class="pe-workflow-step" data-tab-target="general">
+              <span class="pe-workflow-step-index">2</span>
+              <span class="pe-workflow-step-label">العام</span>
+            </button>
+            <button type="button" class="pe-workflow-step" data-tab-target="extra">
+              <span class="pe-workflow-step-index">3</span>
+              <span class="pe-workflow-step-label">الإضافي</span>
+            </button>
+          </div>
+          <div class="pe-workflow-tip">
+            <strong id="pe-current-action">ابدأ بتحديث معلومات الحساب الأساسية.</strong>
+            <p id="pe-current-hint">كلما كانت بياناتك الأساسية واضحة، زادت ثقة العميل وسهُل اتخاذ القرار.</p>
           </div>
         </section>
 
@@ -57,6 +103,10 @@
           <p class="pe-helper-kicker">القسم الحالي</p>
           <h2 id="pe-section-label" class="pe-helper-title">معلومات الحساب</h2>
           <p id="pe-section-summary" class="pe-helper-desc">حدّث اسم الحساب، صفته، رقم الجوال، النبذة، المدينة، والبريد الإلكتروني من نفس الواجهة.</p>
+          <div class="pe-helper-points" id="pe-helper-points">
+            <span>احفظ كل حقل فور تعديله لضمان عدم فقدان البيانات.</span>
+            <span>استخدم عبارات واضحة ومختصرة في النبذة والعنوان.</span>
+          </div>
         </section>
 
         <a href="/provider-portfolio/" class="detail-card pe-portfolio-link pe-portfolio-link-no-icon">
@@ -83,9 +133,9 @@
           <p class="pe-section-intro" id="pe-section-intro"></p>
         </section>
 
-        <div class="tab-panel pe-panel-grid active" data-panel="account" id="pe-panel-account"></div>
-        <div class="tab-panel pe-panel-grid" data-panel="general" id="pe-panel-general"></div>
-        <div class="tab-panel pe-panel-grid" data-panel="extra" id="pe-panel-extra"></div>
+        <div class="tab-panel pe-panel-grid active" data-panel="account" id="pe-panel-account" role="tabpanel" aria-labelledby="pe-tab-account" tabindex="0"></div>
+        <div class="tab-panel pe-panel-grid" data-panel="general" id="pe-panel-general" role="tabpanel" aria-labelledby="pe-tab-general" tabindex="0" hidden></div>
+        <div class="tab-panel pe-panel-grid" data-panel="extra" id="pe-panel-extra" role="tabpanel" aria-labelledby="pe-tab-extra" tabindex="0" hidden></div>
       </section>
     </div>
   </div>
@@ -94,5 +144,5 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/providerProfileEditPage.js' %}?v=20260413-editpremium2"></script>
 {% endblock %}

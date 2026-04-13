@@ -12,6 +12,8 @@ const ProviderOrderDetailPage = (() => {
   };
   const TYPE_LABEL = { normal: 'عادي', competitive: 'تنافسي', urgent: 'عاجل' };
   const STATUS_COLOR = { new: '#A56800', in_progress: '#E67E22', completed: '#2E7D32', cancelled: '#C62828' };
+  const STATUS_LABEL_AR = { new: 'جديد', in_progress: 'تحت التنفيذ', completed: 'مكتمل', cancelled: 'ملغي', canceled: 'ملغي' };
+  const FILE_TYPE_LABEL_AR = { image: 'صورة', video: 'فيديو', audio: 'صوت', document: 'مستند' };
 
   function init() {
     if (!Auth.isLoggedIn()) return showGate();
@@ -104,41 +106,52 @@ const ProviderOrderDetailPage = (() => {
     const fh = byId('pod-final-attachments');
     const rh = byId('pod-regular-attachments');
     const rhTitle = byId('pod-regular-heading');
+    const fhTitle = byId('pod-final-heading');
+    const fCount = byId('pod-final-count');
+    const rCount = byId('pod-regular-count');
     fh.innerHTML = '';
     rh.innerHTML = '';
+    if (fhTitle) fhTitle.textContent = 'مرفقات مزود الخدمة';
+    if (rhTitle) rhTitle.textContent = 'مرفقات العميل';
     if (!list.length) {
       empty.style.display = '';
       fw.style.display = 'none';
       rw.style.display = 'none';
+      if (fCount) fCount.textContent = '٠';
+      if (rCount) rCount.textContent = '٠';
       return;
     }
     empty.style.display = 'none';
-    const deliveredAt = asDate(o.delivered_at);
+    const completionMoment = resolveCompletionMoment(o);
     const finals = [];
     const regular = [];
     list.forEach((a) => {
-      const created = asDate(a.created_at);
-      if (deliveredAt && created && created.getTime() >= deliveredAt.getTime()) finals.push(a);
+      if (isProviderAttachment(a, completionMoment, o)) finals.push(a);
       else regular.push(a);
     });
+    finals.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
+    regular.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
+    if (fCount) fCount.textContent = arDigits(finals.length);
+    if (rCount) rCount.textContent = arDigits(regular.length);
+    fw.classList.add('is-provider');
+    rw.classList.add('is-client');
     if (finals.length) {
       fw.style.display = '';
-      finals.forEach((a) => fh.appendChild(attachmentRow(a)));
+      finals.forEach((a) => fh.appendChild(attachmentRow(a, true)));
     } else fw.style.display = 'none';
     if (regular.length) {
       rw.style.display = '';
-      rhTitle.style.display = finals.length ? '' : 'none';
-      regular.forEach((a) => rh.appendChild(attachmentRow(a)));
+      regular.forEach((a) => rh.appendChild(attachmentRow(a, false)));
     } else rw.style.display = 'none';
   }
 
-  function attachmentRow(a) {
+  function attachmentRow(a, isProviderFile) {
     const path = str(a.file_url) || str(a.file) || str(a.url);
     const href = path ? ApiClient.mediaUrl(path) : '';
     const type = (str(a.file_type) || 'document').toLowerCase();
-    const name = path ? path.split('/').pop() : val(a.original_name, 'ملف');
+    const name = attachmentName(path, a);
     const el = document.createElement(href ? 'a' : 'div');
-    el.className = 'pod-attachment-row';
+    el.className = 'pod-attachment-row' + (isProviderFile ? ' is-final' : '');
     if (href) {
       el.href = href;
       el.target = '_blank';
@@ -146,40 +159,77 @@ const ProviderOrderDetailPage = (() => {
     }
     const code = document.createElement('span');
     code.className = 'pod-attachment-icon';
-    code.textContent = type === 'image' ? 'IMG' : type === 'video' ? 'VID' : type === 'audio' ? 'AUD' : 'DOC';
+    code.textContent = fileTypeCode(type);
+    const body = document.createElement('span');
+    body.className = 'pod-attachment-body';
     const title = document.createElement('span');
     title.className = 'pod-attachment-name';
     title.textContent = name || 'ملف';
+    body.appendChild(title);
+
+    const meta = document.createElement('span');
+    meta.className = 'pod-attachment-meta';
     const badge = document.createElement('span');
     badge.className = 'pod-attachment-type';
-    badge.textContent = type.toUpperCase();
+    badge.textContent = fileTypeLabel(type);
+    meta.appendChild(badge);
+    const createdAt = asDate(a && a.created_at);
+    if (createdAt) {
+      const date = document.createElement('span');
+      date.className = 'pod-attachment-date';
+      date.textContent = fmtDateTime(createdAt);
+      meta.appendChild(date);
+    }
+    body.appendChild(meta);
+
+    const open = document.createElement('span');
+    open.className = 'pod-attachment-open';
+    open.textContent = href ? 'فتح' : 'غير متاح';
+
     el.appendChild(code);
-    el.appendChild(title);
-    el.appendChild(badge);
+    el.appendChild(body);
+    el.appendChild(open);
     return el;
   }
 
   function renderLogs(o) {
     const section = byId('pod-logs-section');
     const root = byId('pod-logs');
-    const logs = Array.isArray(o.status_logs) ? o.status_logs : [];
+    const logs = Array.isArray(o.status_logs) ? o.status_logs.slice() : [];
+    logs.sort((a, b) => toMs(b && b.created_at) - toMs(a && a.created_at));
     root.innerHTML = '';
     if (!logs.length) {
       section.style.display = 'none';
       return;
     }
     section.style.display = '';
-    logs.forEach((log) => {
+    logs.forEach((log, idx) => {
       const row = document.createElement('div');
       row.className = 'pod-log-item';
+      if (idx === logs.length - 1) row.classList.add('is-last');
       const dot = document.createElement('span');
       dot.className = 'pod-log-dot';
+      const targetGroup = statusGroupFromRaw(log.to_status);
+      const dotColor = STATUS_COLOR[targetGroup] || '#673AB7';
+      dot.style.backgroundColor = dotColor;
+      dot.style.boxShadow = '0 0 0 4px ' + dotColor + '29';
       const body = document.createElement('div');
       body.className = 'pod-log-body';
       const title = document.createElement('p');
       title.className = 'pod-log-title';
-      title.textContent = val(log.from_status, '—') + ' → ' + val(log.to_status, '—');
+      const fromLabel = statusLabelFromRaw(log.from_status);
+      const toLabel = statusLabelFromRaw(log.to_status);
+      title.textContent = fromLabel === toLabel
+        ? ('تحديث على الحالة: ' + toLabel)
+        : ('من ' + fromLabel + ' إلى ' + toLabel);
       body.appendChild(title);
+      const actor = str(log.actor_name);
+      if (actor && actor !== '-') {
+        const p = document.createElement('p');
+        p.className = 'pod-log-actor';
+        p.textContent = 'بواسطة: ' + actor;
+        body.appendChild(p);
+      }
       const note = str(log.note);
       if (note) {
         const p = document.createElement('p');
@@ -214,8 +264,9 @@ const ProviderOrderDetailPage = (() => {
   }
 
   function renderAssignedNewActions(root, o) {
+    const showAccept = str(o.request_type).toLowerCase() !== 'urgent';
     root.innerHTML = `
-      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>قبول الطلب</button>
+      ${showAccept ? '<button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>قبول الطلب</button>' : ''}
       <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
@@ -244,7 +295,8 @@ const ProviderOrderDetailPage = (() => {
       rbox.style.display = '';
       setText('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
     } else rbox.style.display = 'none';
-    byId('pod-accept-btn').addEventListener('click', acceptOrder);
+    const acceptBtn = byId('pod-accept-btn');
+    if (acceptBtn) acceptBtn.addEventListener('click', acceptOrder);
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
     setActionLoading(false);
@@ -621,6 +673,70 @@ const ProviderOrderDetailPage = (() => {
     if (group === 'completed') return 'مكتمل';
     if (group === 'cancelled') return 'ملغي';
     return 'جديد';
+  }
+
+  function statusLabelFromRaw(raw) {
+    const key = str(raw).toLowerCase();
+    return STATUS_LABEL_AR[key] || val(raw, '—');
+  }
+
+  function statusGroupFromRaw(raw) {
+    const key = str(raw).toLowerCase();
+    if (key === 'in_progress') return 'in_progress';
+    if (key === 'completed') return 'completed';
+    if (key === 'cancelled' || key === 'canceled') return 'cancelled';
+    return 'new';
+  }
+
+  function resolveCompletionMoment(order) {
+    const logs = Array.isArray(order && order.status_logs) ? order.status_logs : [];
+    let marker = null;
+    logs.forEach((log) => {
+      if (str(log && log.to_status).toLowerCase() !== 'completed') return;
+      const created = asDate(log && log.created_at);
+      if (!created) return;
+      if (!marker || created.getTime() > marker.getTime()) marker = created;
+    });
+    if (marker) return marker;
+    return asDate(order && order.delivered_at);
+  }
+
+  function isProviderAttachment(attachment, completionMoment, order) {
+    const created = asDate(attachment && attachment.created_at);
+    if (!created) return false;
+    if (completionMoment) {
+      return created.getTime() >= (completionMoment.getTime() - 120000);
+    }
+    const deliveredAt = asDate(order && order.delivered_at);
+    if (!deliveredAt) return false;
+    return created.getTime() >= deliveredAt.getTime();
+  }
+
+  function fileTypeCode(type) {
+    if (type === 'image') return 'IMG';
+    if (type === 'video') return 'VID';
+    if (type === 'audio') return 'AUD';
+    return 'DOC';
+  }
+
+  function fileTypeLabel(type) {
+    return FILE_TYPE_LABEL_AR[type] || 'ملف';
+  }
+
+  function attachmentName(path, attachment) {
+    if (!path) return val(attachment && attachment.original_name, 'ملف');
+    const cleanPath = String(path).split('?')[0].split('#')[0];
+    const name = cleanPath.split('/').pop() || '';
+    try {
+      return decodeURIComponent(name) || 'ملف';
+    } catch (_) {
+      return name || 'ملف';
+    }
+  }
+
+  function toMs(v) {
+    const d = asDate(v);
+    return d ? d.getTime() : 0;
   }
 
   function requestType(o) {

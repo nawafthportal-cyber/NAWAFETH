@@ -107,6 +107,19 @@
     let isSaving = false;
     let hasQueuedSave = false;
 
+    function readJsonSafely(response) {
+      return response.text().then((text) => {
+        if (!text) {
+          return {};
+        }
+        try {
+          return JSON.parse(text);
+        } catch (_) {
+          return {};
+        }
+      });
+    }
+
     function setIndicator(text, color) {
       indicator.textContent = text;
       if (color) {
@@ -132,13 +145,17 @@
         const response = await fetch(form.getAttribute("action") || window.location.href, {
           method: "POST",
           body: buildAutosaveFormData(),
-          headers: { "X-Requested-With": "XMLHttpRequest" },
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+          },
           credentials: "same-origin",
         });
-        if (response.ok) {
-          setIndicator("تم الحفظ تلقائيًا", "#15803d");
+        const payload = await readJsonSafely(response);
+        if (response.ok && payload && payload.ok) {
+          setIndicator(payload.message || "تم الحفظ تلقائيًا", "#15803d");
         } else {
-          setIndicator("تعذر الحفظ التلقائي - استخدم زر حفظ", "#b91c1c");
+          setIndicator((payload && payload.message) || "تعذر الحفظ التلقائي - استخدم زر حفظ", "#b91c1c");
         }
       } catch (_) {
         setIndicator("تعذر الحفظ التلقائي - تحقق من الاتصال", "#b91c1c");

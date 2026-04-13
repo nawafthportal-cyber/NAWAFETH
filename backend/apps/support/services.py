@@ -34,6 +34,18 @@ def _ticket_reference(ticket: SupportTicket) -> str:
     return (ticket.code or "").strip() or f"HD{ticket.id}"
 
 
+def _ticket_requester_audience_mode(ticket: SupportTicket) -> str:
+    requester = getattr(ticket, "requester", None)
+    if requester is None:
+        return "client"
+    try:
+        if getattr(requester, "provider_profile", None) is not None:
+            return "provider"
+    except Exception:
+        pass
+    return "client"
+
+
 def notify_ticket_requester_about_comment(*, ticket: SupportTicket, comment, by_user):
     if not ticket.requester_id or comment is None:
         return None
@@ -74,7 +86,7 @@ def notify_ticket_requester_about_comment(*, ticket: SupportTicket, comment, by_
             "comment_id": getattr(comment, "id", None),
         },
         pref_key="report_status_change",
-        audience_mode="shared",
+        audience_mode=_ticket_requester_audience_mode(ticket),
     )
 
 
@@ -184,7 +196,7 @@ def change_ticket_status(*, ticket: SupportTicket, new_status: str, by_user, not
             "to_status": new_status,
         },
         pref_key="report_status_change",
-        audience_mode="shared",
+        audience_mode=_ticket_requester_audience_mode(ticket),
     )
     return ticket
 

@@ -50,7 +50,7 @@
               <h4>الكبار</h4>
               <p>أكثر 100 مختص من عدد المتابعين (الأعلى في الفئة/التصنيف).</p>
               <div class="criteria-count" data-badge-count="top_100_club">
-                {{ badge_tabs.0.count|default:0 }}
+                {% for badge in badge_tabs %}{% if badge.code == 'top_100_club' %}{{ badge.count }}{% endif %}{% endfor %}
               </div>
             </article>
             <article class="excellence-criteria-card">

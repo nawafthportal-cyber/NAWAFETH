@@ -408,6 +408,22 @@ def _extras_bundle_invoice_user(request_obj):
     return requester or specialist
 
 
+def extras_bundle_target_provider_user(request_obj):
+    specialist = _extras_bundle_specialist_user(request_obj)
+    if _extras_bundle_is_provider_user(specialist):
+        return specialist
+
+    requester = getattr(request_obj, "requester", None)
+    if _extras_bundle_is_provider_user(requester):
+        return requester
+
+    invoice_user = getattr(extras_bundle_invoice_for_request(request_obj), "user", None)
+    if _extras_bundle_is_provider_user(invoice_user):
+        return invoice_user
+
+    return None
+
+
 def _extras_bundle_message_recipients(*, request_obj, invoice: Invoice | None = None) -> list:
     recipients_by_id: dict[int, object] = {}
 
@@ -598,7 +614,7 @@ def _extras_bundle_section_access_deadline(section_key: str, bundle: dict, activ
 
 
 def activate_bundle_portal_subscription_for_request(*, request_obj):
-    subscription_user = _extras_bundle_invoice_user(request_obj)
+    subscription_user = extras_bundle_target_provider_user(request_obj)
     provider = getattr(subscription_user, "provider_profile", None)
     if provider is None:
         return None

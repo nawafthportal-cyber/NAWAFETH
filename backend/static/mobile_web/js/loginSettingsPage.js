@@ -10,8 +10,10 @@ const LoginSettingsPage = (() => {
   let _profile = null;
   let _mode = "client";
   let _toastTimer = null;
+  let _inlineAlertTimer = null;
   let _currentAction = null;
   let _biometricAvailable = false;
+  let _biometricChecked = false;
 
   function init() {
     if (!Auth.isLoggedIn()) {
@@ -21,6 +23,8 @@ const LoginSettingsPage = (() => {
 
     _mode = _resolveMode();
     _bindEvents();
+    _renderProfile();
+    _syncSecurityHints();
     _loadProfile();
     _initBiometric();
   }
@@ -43,15 +47,24 @@ const LoginSettingsPage = (() => {
     _on("ls-action-pin", "click", () => _openModal("pin"));
     _on("ls-action-faceid", "click", _handleFaceIdAction);
 
+    _on("ls-modal-close", "click", _closeModal);
     _on("ls-modal-cancel", "click", _closeModal);
     _on("ls-modal-save", "click", _saveCurrentAction);
 
     const modal = document.getElementById("ls-action-modal");
     if (modal) {
       modal.addEventListener("click", (event) => {
-        if (event.target === modal) _closeModal();
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (target === modal || target.closest('[data-ls-close="true"]')) {
+          _closeModal();
+        }
       });
     }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") _closeModal();
+    });
   }
 
   async function _loadProfile() {
@@ -60,9 +73,14 @@ const LoginSettingsPage = (() => {
       window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
       return;
     }
+
     if (res.ok && res.data) {
       _profile = res.data;
+      _renderProfile();
+      return;
     }
+
+    _notify("تعذر تحميل بيانات الحساب حاليًا.", "error");
   }
 
   function _openModal(action) {
@@ -80,7 +98,15 @@ const LoginSettingsPage = (() => {
     fieldsEl.innerHTML = config.fields;
 
     const modal = document.getElementById("ls-action-modal");
-    if (modal) modal.classList.remove("hidden");
+    if (modal) {
+      modal.classList.remove("hidden");
+      _showInlineAlert(config.hint, "info", 2800);
+
+      window.setTimeout(() => {
+        const firstInput = modal.querySelector("input");
+        if (firstInput) firstInput.focus();
+      }, 20);
+    }
   }
 
   function _closeModal() {
@@ -94,43 +120,72 @@ const LoginSettingsPage = (() => {
       return {
         title: "تغيير اسم العضوية",
         desc: "أدخل اسم العضوية الجديد. يسمح فقط بالأحرف الإنجليزية والأرقام و (_) و (.)",
+        hint: "قم بتعديل اسم العضوية ثم احفظ التغييرات.",
         fields:
-          '<input id="ls-input-username" type="text" class="form-input" maxlength="50" placeholder="اسم العضوية الجديد" value="' + _escape(_norm(_profile && _profile.username)) + '" dir="ltr">',
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-username">اسم العضوية الجديد</label>' +
+          '<input id="ls-input-username" type="text" class="form-input" maxlength="50" placeholder="اسم العضوية الجديد" value="' + _escape(_norm(_profile && _profile.username)) + '" dir="ltr">' +
+          "</div>",
       };
     }
     if (action === "password") {
       return {
         title: "تغيير كلمة المرور",
         desc: "أدخل كلمة المرور الحالية ثم الجديدة (8 أحرف على الأقل).",
+        hint: "يفضل استخدام كلمة مرور قوية يصعب توقعها.",
         fields:
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-current-password">كلمة المرور الحالية</label>' +
           '<input id="ls-input-current-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الحالية" dir="ltr">' +
+          "</div>" +
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-new-password">كلمة المرور الجديدة</label>' +
           '<input id="ls-input-new-password" type="password" class="form-input" maxlength="128" placeholder="كلمة المرور الجديدة" dir="ltr">' +
-          '<input id="ls-input-new-password-confirm" type="password" class="form-input" maxlength="128" placeholder="تأكيد كلمة المرور الجديدة" dir="ltr">',
+          "</div>" +
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-new-password-confirm">تأكيد كلمة المرور الجديدة</label>' +
+          '<input id="ls-input-new-password-confirm" type="password" class="form-input" maxlength="128" placeholder="تأكيد كلمة المرور الجديدة" dir="ltr">' +
+          "</div>",
       };
     }
     if (action === "email") {
       return {
         title: "تغيير البريد الإلكتروني",
         desc: "أدخل البريد الإلكتروني الجديد المرتبط بحسابك.",
+        hint: "تأكد من صحة البريد حتى تصلك الإشعارات بشكل صحيح.",
         fields:
-          '<input id="ls-input-email" type="email" class="form-input" maxlength="255" placeholder="example@mail.com" value="' + _escape(_norm(_profile && _profile.email)) + '" dir="ltr">',
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-email">البريد الإلكتروني</label>' +
+          '<input id="ls-input-email" type="email" class="form-input" maxlength="255" placeholder="example@mail.com" value="' + _escape(_norm(_profile && _profile.email)) + '" dir="ltr">' +
+          "</div>",
       };
     }
     if (action === "phone") {
       return {
         title: "تغيير رقم الجوال",
         desc: "أدخل رقم الجوال بالصيغة 05XXXXXXXX.",
+        hint: "استخدم رقم جوال سعودي صحيح يبدأ بـ 05.",
         fields:
-          '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" value="' + _escape(_norm(_profile && _profile.phone)) + '" dir="ltr">',
+          '<div class="ls-modal-field">' +
+          '<label for="ls-input-phone">رقم الجوال</label>' +
+          '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" value="' + _escape(_norm(_profile && _profile.phone)) + '" dir="ltr">' +
+          "</div>",
       };
     }
 
     return {
       title: "إضافة رمز دخول أمان",
       desc: "احفظ الرمز في مكان آمن. يستخدم هذا الرمز للدخول السريع داخل الجهاز.",
+      hint: "يمكنك إضافة رمز من 4 إلى 6 أرقام لحماية إضافية.",
       fields:
+        '<div class="ls-modal-field">' +
+        '<label for="ls-input-pin">رمز الأمان</label>' +
         '<input id="ls-input-pin" type="password" class="form-input" maxlength="6" placeholder="رمز الأمان (4-6 أرقام)" dir="ltr">' +
-        '<input id="ls-input-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="تأكيد الرمز" dir="ltr">',
+        "</div>" +
+        '<div class="ls-modal-field">' +
+        '<label for="ls-input-pin-confirm">تأكيد الرمز</label>' +
+        '<input id="ls-input-pin-confirm" type="password" class="form-input" maxlength="6" placeholder="تأكيد الرمز" dir="ltr">' +
+        "</div>",
     };
   }
 
@@ -162,7 +217,7 @@ const LoginSettingsPage = (() => {
   async function _saveUsername() {
     const username = _norm(_val("ls-input-username"));
     if (!username) {
-      _toast("اسم العضوية مطلوب", true);
+      _notify("اسم العضوية مطلوب", "error");
       return;
     }
 
@@ -172,11 +227,14 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _toast(_extractError(res, "تعذر تغيير اسم العضوية."), true);
+      _notify(_extractError(res, "تعذر تغيير اسم العضوية."), "error");
       return;
     }
 
-    if (_profile) _profile.username = username;
+    if (!_profile) _profile = {};
+    _profile.username = username;
+    _renderProfile();
+    _showInlineAlert("تم تعديل اسم العضوية وحفظه بنجاح.", "success", 3200);
     _closeModal();
     _toast("تم تغيير اسم العضوية بنجاح");
   }
@@ -187,7 +245,7 @@ const LoginSettingsPage = (() => {
     const newPasswordConfirm = _val("ls-input-new-password-confirm");
 
     if (!currentPassword || !newPassword || !newPasswordConfirm) {
-      _toast("يرجى تعبئة جميع الحقول.", true);
+      _notify("يرجى تعبئة جميع الحقول.", "error");
       return;
     }
 
@@ -201,27 +259,36 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _toast(_extractError(res, "تعذر تغيير كلمة المرور."), true);
+      _notify(_extractError(res, "تعذر تغيير كلمة المرور."), "error");
       return;
     }
 
+    _showInlineAlert("تم تغيير كلمة المرور بنجاح.", "success", 3400);
     _closeModal();
     _toast("تم تغيير كلمة المرور بنجاح");
   }
 
   async function _saveEmail() {
     const email = _norm(_val("ls-input-email"));
+    if (!email) {
+      _notify("يرجى إدخال البريد الإلكتروني.", "error");
+      return;
+    }
+
     const res = await ApiClient.request(_withMode("/api/accounts/me/"), {
       method: "PATCH",
       body: { email: email },
     });
 
     if (!res.ok) {
-      _toast(_extractError(res, "تعذر تحديث البريد الإلكتروني."), true);
+      _notify(_extractError(res, "تعذر تحديث البريد الإلكتروني."), "error");
       return;
     }
 
-    if (_profile) _profile.email = email;
+    if (!_profile) _profile = {};
+    _profile.email = email;
+    _renderProfile();
+    _showInlineAlert("تم تعديل البريد الإلكتروني وحفظه.", "success", 3200);
     _closeModal();
     _toast("تم تحديث البريد الإلكتروني بنجاح");
   }
@@ -229,7 +296,7 @@ const LoginSettingsPage = (() => {
   async function _savePhone() {
     const phone = _normalizePhone05(_val("ls-input-phone"));
     if (!phone) {
-      _toast("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX", true);
+      _notify("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX", "error");
       return;
     }
 
@@ -239,11 +306,14 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _toast(_extractError(res, "تعذر تحديث رقم الجوال."), true);
+      _notify(_extractError(res, "تعذر تحديث رقم الجوال."), "error");
       return;
     }
 
-    if (_profile) _profile.phone = phone;
+    if (!_profile) _profile = {};
+    _profile.phone = phone;
+    _renderProfile();
+    _showInlineAlert("تم تحديث رقم الجوال بنجاح.", "success", 3200);
     _closeModal();
     _toast("تم تحديث رقم الجوال بنجاح");
   }
@@ -253,15 +323,17 @@ const LoginSettingsPage = (() => {
     const pinConfirm = _norm(_val("ls-input-pin-confirm"));
 
     if (!/^\d{4,6}$/.test(pin)) {
-      _toast("رمز الأمان يجب أن يكون من 4 إلى 6 أرقام.", true);
+      _notify("رمز الأمان يجب أن يكون من 4 إلى 6 أرقام.", "error");
       return;
     }
     if (pin !== pinConfirm) {
-      _toast("تأكيد الرمز غير مطابق.", true);
+      _notify("تأكيد الرمز غير مطابق.", "error");
       return;
     }
 
     _storageSet(SECURITY_PIN_KEY, pin);
+    _syncSecurityHints();
+    _showInlineAlert("تم حفظ رمز الأمان لهذا الجهاز.", "success", 3400);
     _closeModal();
     _toast("تم حفظ رمز الأمان.");
   }
@@ -271,18 +343,22 @@ const LoginSettingsPage = (() => {
     if (!btn) return;
 
     if (!window.PublicKeyCredential) {
+      _biometricChecked = true;
       _biometricAvailable = false;
       btn.disabled = true;
-      btn.textContent = "الدخول بمعرف الوجه (غير مدعوم على هذا الجهاز)";
+      btn.textContent = "غير مدعوم";
+      _syncSecurityHints();
       return;
     }
 
     PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
       .then((available) => {
+        _biometricChecked = true;
         _biometricAvailable = !!available;
         _updateFaceButton();
       })
       .catch(() => {
+        _biometricChecked = true;
         _biometricAvailable = false;
         _updateFaceButton();
       });
@@ -294,17 +370,20 @@ const LoginSettingsPage = (() => {
 
     if (!_biometricAvailable) {
       btn.disabled = true;
-      btn.textContent = "الدخول بمعرف الوجه (غير مدعوم على هذا الجهاز)";
+      btn.textContent = "غير مدعوم";
+      _syncSecurityHints();
       return;
     }
 
+    const enabled = !!_getStoredBiometricData();
     btn.disabled = false;
-    btn.textContent = _getStoredBiometricData() ? "إلغاء الدخول بمعرف الوجه" : "الدخول بمعرف الوجه";
+    btn.textContent = enabled ? "إلغاء التفعيل" : "تفعيل";
+    _syncSecurityHints();
   }
 
   async function _handleFaceIdAction() {
     if (!_biometricAvailable) {
-      _toast("الجهاز لا يدعم البصمة/الوجه", true);
+      _notify("الجهاز لا يدعم البصمة/الوجه", "error");
       return;
     }
 
@@ -319,7 +398,7 @@ const LoginSettingsPage = (() => {
   async function _enrollFaceId() {
     const phone = _normalizePhone05(_norm(_profile && _profile.phone));
     if (!phone) {
-      _toast("يرجى تحديث رقم الجوال أولاً", true);
+      _notify("يرجى تحديث رقم الجوال أولاً", "error");
       return;
     }
 
@@ -366,7 +445,7 @@ const LoginSettingsPage = (() => {
 
       const token = _extractDeviceToken(enrollRes);
       if (!enrollRes.ok || !token) {
-        _toast(_extractError(enrollRes, "فشل تفعيل معرف الوجه."), true);
+        _notify(_extractError(enrollRes, "فشل تفعيل معرف الوجه."), "error");
         return;
       }
 
@@ -377,12 +456,13 @@ const LoginSettingsPage = (() => {
       _storageSet(FACE_ID_ENABLED_KEY, "1");
 
       _updateFaceButton();
+      _showInlineAlert("تم تفعيل الدخول بمعرف الوجه على هذا الجهاز.", "success", 3600);
       _toast("تم تفعيل الدخول بمعرف الوجه بنجاح");
     } catch (err) {
       if (err && err.name === "NotAllowedError") {
-        _toast("تم إلغاء عملية التحقق.", true);
+        _notify("تم إلغاء عملية التحقق.", "error");
       } else {
-        _toast("فشل تفعيل معرف الوجه.", true);
+        _notify("فشل تفعيل معرف الوجه.", "error");
       }
     } finally {
       if (btn) btn.disabled = false;
@@ -400,13 +480,79 @@ const LoginSettingsPage = (() => {
     });
 
     if (!res.ok) {
-      _toast(_extractError(res, "تعذر إلغاء التفعيل من الخادم."), true);
+      _notify(_extractError(res, "تعذر إلغاء التفعيل من الخادم."), "error");
       return;
     }
 
     _clearStoredBiometricData();
     _updateFaceButton();
+    _showInlineAlert("تم إلغاء تفعيل الدخول بمعرف الوجه.", "success", 3400);
     _toast("تم إلغاء تفعيل معرف الوجه");
+  }
+
+  function _renderProfile() {
+    const username = _norm(_profile && _profile.username) || "غير محدد";
+    const email = _norm(_profile && _profile.email) || "غير مضاف";
+    const phone = _norm(_profile && _profile.phone) || "غير مضاف";
+
+    _setText("ls-value-username", username);
+    _setText("ls-value-email", email);
+    _setText("ls-value-phone", phone);
+
+    _setText("ls-view-username", username);
+    _setText("ls-view-email", email);
+    _setText("ls-view-phone", phone);
+  }
+
+  function _syncSecurityHints() {
+    _setText("ls-pin-hint", _hasPinConfigured() ? "مفعل على هذا الجهاز" : "غير مفعل");
+
+    if (!_biometricChecked) {
+      _setText("ls-faceid-hint", "تحقق من توفر الميزة على جهازك.");
+      return;
+    }
+
+    if (!_biometricAvailable) {
+      _setText("ls-faceid-hint", "غير مدعوم على هذا الجهاز");
+      return;
+    }
+
+    _setText("ls-faceid-hint", _getStoredBiometricData() ? "مفعل على هذا الجهاز" : "غير مفعل");
+  }
+
+  function _hasPinConfigured() {
+    const pin = _norm(_storageGet(SECURITY_PIN_KEY));
+    return /^\d{4,6}$/.test(pin);
+  }
+
+  function _notify(message, type) {
+    const variant = type === "error" ? "error" : type === "info" ? "info" : "success";
+    _showInlineAlert(message, variant);
+    _toast(message, variant === "error");
+  }
+
+  function _showInlineAlert(message, type, durationMs) {
+    const alertEl = document.getElementById("ls-inline-alert");
+    if (!alertEl) return;
+
+    const variant = type === "error" ? "is-error" : type === "info" ? "is-info" : "is-success";
+    alertEl.textContent = _norm(message);
+    alertEl.classList.remove("hidden", "is-error", "is-info", "is-success");
+    alertEl.classList.add(variant);
+
+    if (_inlineAlertTimer) window.clearTimeout(_inlineAlertTimer);
+
+    const timeout = Number.isFinite(durationMs)
+      ? durationMs
+      : type === "error"
+        ? 4600
+        : 3200;
+
+    if (timeout > 0) {
+      _inlineAlertTimer = window.setTimeout(() => {
+        alertEl.classList.add("hidden");
+      }, timeout);
+    }
   }
 
   function _extractError(res, fallback) {
@@ -488,6 +634,11 @@ const LoginSettingsPage = (() => {
   function _on(id, eventName, handler) {
     const el = document.getElementById(id);
     if (el) el.addEventListener(eventName, handler);
+  }
+
+  function _setText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
   }
 
   function _val(id) {

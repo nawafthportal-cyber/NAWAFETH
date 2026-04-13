@@ -1,6 +1,6 @@
 {% extends "mobile_web/base.html" %}{% load static %}
 {% block title %}الخدمات الإضافية — نوافــذ{% endblock %}
-{% block body_class %}page-additional-services{% endblock %}
+{% block body_class %}page-additional-services page-additional-services-premium{% endblock %}
 
 {% block content %}
 <main class="page-shell as-page">
@@ -14,6 +14,11 @@
     <div>
       <h2>ابنِ باقتك الإضافية باحتراف</h2>
       <p>اختر من الباقات الثلاث في صفحة واحدة، ثم حدّد تفاصيلك وأرسل الطلب مباشرة لفريق الخدمات الإضافية.</p>
+      <ul class="as-hero-points" aria-label="مزايا الخدمة">
+        <li>تجميع كامل للاختيارات في صفحة واحدة</li>
+        <li>إرسال مباشر لفريق المراجعة والاعتماد</li>
+        <li>متابعة حالة الطلبات بشكل واضح</li>
+      </ul>
     </div>
     <div class="as-hero-badge">للمزودين فقط</div>
   </section>
@@ -23,7 +28,16 @@
     <strong class="as-provider-value">{{ additional_services_provider_display_name|default:"-" }}</strong>
   </section>
 
-  <div id="as-loading" class="loading-center"><div class="spinner"></div></div>
+  <div id="as-loading" class="as-loading-screen" aria-live="polite">
+    <div class="as-loading-orb" aria-hidden="true"></div>
+    <strong>جاري تجهيز لوحة الخدمات الإضافية</strong>
+    <p>لحظات ونحمّل لك الخيارات والطلبات الأخيرة.</p>
+    <div class="as-loading-skeleton" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+  </div>
   <div id="as-error" class="detail-card as-error" hidden></div>
 
   <div id="as-content" hidden>
@@ -158,6 +172,7 @@
     id="as-config"
     data-catalog-url="{% url 'extras:catalog' %}"
     data-my-url="{% url 'extras:my_extras' %}"
+    data-me-url="{% url 'accounts:me' %}"
     data-buy-url-template="{% url 'extras:buy_extra' sku='__SKU__' %}"
     data-bundle-create-url="{% url 'extras:bundle_request_create' %}"
     data-bundle-my-url="{% url 'extras:bundle_request_my' %}"
@@ -167,5 +182,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/additionalServicesPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/additionalServicesPage.js' %}?v=20260413-premium2"></script>
 {% endblock %}

@@ -1078,6 +1078,11 @@ def _promo_message_recipient_users(*, item: PromoRequestItem):
     return User.objects.filter(id__in=recipient_ids).select_related("provider_profile").order_by("id")
 
 
+def _promo_recipient_audience_mode(*, recipient) -> str:
+    role_state = str(getattr(recipient, "role_state", "") or "").strip().lower()
+    return "provider" if role_state == "provider" else "client"
+
+
 def _get_or_create_direct_thread(*, user_a, user_b, context_mode: str):
     from apps.messaging.models import Thread
 
@@ -1162,8 +1167,7 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None, allow_expir
         delivered = False
 
         if item.use_notification_channel:
-            recipient_role = str(getattr(recipient, "role_state", "") or "").strip().lower()
-            notification_audience_mode = "provider" if recipient_role == "provider" else "client"
+            notification_audience_mode = _promo_recipient_audience_mode(recipient=recipient)
             notification_pref_key = (
                 "ads_and_offers" if notification_audience_mode == "provider" else "platform_recommendations"
             )
@@ -1185,10 +1189,15 @@ def dispatch_promo_message_item(*, item: PromoRequestItem, now=None, allow_expir
             delivered = delivered or notification is not None
 
         if item.use_chat_channel:
+            chat_context_mode = (
+                Thread.ContextMode.PROVIDER
+                if _promo_recipient_audience_mode(recipient=recipient) == "provider"
+                else Thread.ContextMode.CLIENT
+            )
             thread = _get_or_create_direct_thread(
                 user_a=sender_user,
                 user_b=recipient,
-                context_mode=Thread.ContextMode.PROVIDER,
+                context_mode=chat_context_mode,
             )
             if not _is_blocked_by_other(thread, sender_user.id):
                 if body:

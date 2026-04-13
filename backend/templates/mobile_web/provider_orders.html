@@ -4,68 +4,126 @@
 
 {% block content %}
 <main class="page-shell">
-  <div id="auth-gate" class="auth-gate" style="display:none">
-    <div class="auth-gate-inner">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#663D90" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-      <h2>تسجيل الدخول مطلوب</h2>
-      <a href="/login/?next=/provider-orders/" class="btn btn-primary">تسجيل الدخول</a>
+  <div id="auth-gate" class="auth-gate auth-gate-unified" style="display:none">
+    <div class="auth-gate-unified-icon" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+        <path d="M7 11V7a5 5 0 0110 0v4"></path>
+      </svg>
     </div>
+    <h2 class="auth-gate-unified-title">تسجيل الدخول مطلوب</h2>
+    <p class="auth-gate-unified-desc">يرجى تسجيل الدخول للوصول إلى لوحة إدارة الطلبات الخاصة بك.</p>
+    <a href="/login/?next=/provider-orders/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
   </div>
 
   <div id="porders-content" style="display:none">
-    <div class="page-header">
-      <a href="/provider-dashboard/" class="btn-back">
+    <div class="page-header po-header">
+      <a href="/provider-dashboard/" class="btn-back po-back-btn" aria-label="العودة للوحة المزود">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
       </a>
-      <h1>إدارة الطلبات</h1>
+      <div class="po-header-copy">
+        <span class="po-header-eyebrow">لوحة مزود الخدمة</span>
+        <h1>إدارة الطلبات</h1>
+        <p class="po-header-subtitle">تجربة إدارة متكاملة للطلبات المسندة، عروض الأسعار، والطلبات العاجلة مع وصول سريع للتفاصيل والتنفيذ.</p>
+      </div>
+      <div class="po-header-stats" aria-label="ملخص سريع للطلبات">
+        <div class="po-header-stat po-header-stat-assigned">
+          <span>المسندة</span>
+          <strong id="po-kpi-assigned">0</strong>
+        </div>
+        <div class="po-header-stat po-header-stat-competitive">
+          <span>عروض الأسعار</span>
+          <strong id="po-kpi-competitive">0</strong>
+        </div>
+        <div class="po-header-stat po-header-stat-urgent">
+          <span>العاجلة</span>
+          <strong id="po-kpi-urgent">0</strong>
+        </div>
+      </div>
     </div>
 
-    <!-- Search -->
-    <div class="search-bar po-search">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="po-search" placeholder="بحث" class="search-input">
+    <div class="po-smart-bar" aria-live="polite">
+      <div class="po-smart-bar-copy">
+        <strong id="po-active-view-label">المسندة لي</strong>
+        <span id="po-visible-count-label">0 طلب ظاهر</span>
+        <small id="po-sort-hint-label">الترتيب: الأحدث</small>
+      </div>
+      <div class="po-smart-bar-actions">
+        <div class="po-sort-wrap">
+          <label for="po-sort-select" class="po-sort-label">الترتيب</label>
+          <select id="po-sort-select" class="po-sort-select">
+            <option value="newest">الأحدث</option>
+            <option value="oldest">الأقدم</option>
+            <option value="status">حسب الحالة</option>
+            <option value="city">حسب المدينة</option>
+            <option value="amount_desc">الأعلى قيمة</option>
+            <option value="deadline">الأقرب موعدًا</option>
+          </select>
+        </div>
+        <button type="button" class="po-toolbar-btn" id="po-refresh-btn">تحديث البيانات</button>
+        <button type="button" class="po-toolbar-btn po-toolbar-btn-light" id="po-clear-search-btn">مسح البحث</button>
+      </div>
     </div>
 
-    <!-- Main Tabs -->
-    <div class="status-tabs po-main-tabs" id="po-request-tabs">
-      <button class="status-tab active" data-tab="assigned">
-        المسندة لي
-        <span class="po-tab-count" id="po-count-assigned">0</span>
-      </button>
-      <button class="status-tab" data-tab="competitive">
-        عروض الأسعار
-        <span class="po-tab-count" id="po-count-competitive">0</span>
-      </button>
-      <button class="status-tab" data-tab="urgent">
-        العاجلة المتاحة
-        <span class="po-tab-count" id="po-count-urgent">0</span>
-      </button>
-    </div>
+    <section class="po-controls-panel" aria-label="أدوات التحكم والفلترة">
+      <!-- Search -->
+      <div class="search-bar po-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="po-search" placeholder="بحث برقم الطلب أو العنوان أو العميل أو المدينة" class="search-input">
+      </div>
 
-    <!-- Assigned Status Filters -->
-    <div class="status-tabs" id="po-status-tabs">
-      <button class="status-tab active" data-group="">الكل</button>
-      <button class="status-tab" data-group="new">جديد</button>
-      <button class="status-tab" data-group="in_progress">تحت التنفيذ</button>
-      <button class="status-tab" data-group="completed">مكتمل</button>
-      <button class="status-tab" data-group="cancelled">ملغي</button>
-    </div>
+      <!-- Main Tabs -->
+      <div class="status-tabs po-main-tabs" id="po-request-tabs">
+        <button class="status-tab active" data-tab="assigned">
+          المسندة لي
+          <span class="po-tab-count" id="po-count-assigned">0</span>
+        </button>
+        <button class="status-tab" data-tab="competitive">
+          عروض الأسعار
+          <span class="po-tab-count" id="po-count-competitive">0</span>
+        </button>
+        <button class="status-tab" data-tab="urgent">
+          العاجلة المتاحة
+          <span class="po-tab-count" id="po-count-urgent">0</span>
+        </button>
+      </div>
 
-    <div id="po-error" class="form-error hidden"></div>
+      <!-- Assigned Status Filters -->
+      <div class="status-tabs" id="po-status-tabs">
+        <button class="status-tab active" data-group="">الكل</button>
+        <button class="status-tab" data-group="new">جديد</button>
+        <button class="status-tab" data-group="in_progress">تحت التنفيذ</button>
+        <button class="status-tab" data-group="completed">مكتمل</button>
+        <button class="status-tab" data-group="cancelled">ملغي</button>
+      </div>
 
-    <!-- Orders List -->
-    <div id="po-list" class="orders-list"></div>
-    <div id="po-empty" class="empty-state" style="display:none">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-      <p>لا توجد طلبات</p>
-    </div>
-    <div id="po-loading" class="loading-center">
-      <div class="spinner"></div>
-    </div>
+      <div class="po-status-legend" id="po-status-legend" aria-hidden="true">
+        <span><i class="po-legend-dot po-legend-new"></i> جديد</span>
+        <span><i class="po-legend-dot po-legend-progress"></i> تحت التنفيذ</span>
+        <span><i class="po-legend-dot po-legend-completed"></i> مكتمل</span>
+        <span><i class="po-legend-dot po-legend-cancelled"></i> ملغي</span>
+      </div>
+    </section>
+
+    <section class="po-results-board" aria-label="نتائج الطلبات">
+      <div id="po-error" class="form-error hidden"></div>
+
+      <!-- Orders List -->
+      <div id="po-list" class="orders-list"></div>
+      <div id="po-empty" class="empty-state po-empty-state" style="display:none">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <p>لا توجد طلبات</p>
+        <small>جرب تغيير التبويب أو كلمات البحث لعرض نتائج أخرى.</small>
+      </div>
+      <div id="po-loading" class="loading-center po-loading-state">
+        <div class="spinner"></div>
+        <p>جاري تحميل الطلبات...</p>
+      </div>
+    </section>
   </div>
 </main>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/providerOrdersPage.js' %}?v=20260413-desktopfix-1"></script>
 {% endblock %}

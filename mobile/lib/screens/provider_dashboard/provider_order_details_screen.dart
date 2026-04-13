@@ -942,33 +942,36 @@ class _ProviderOrderDetailsScreenState
   Widget _assignedNewActions(ServiceRequest order) {
     final rejectedByClient = order.providerInputsApproved == false;
     final rejectionNote = (order.providerInputsDecisionNote ?? '').trim();
+    final showAcceptButton = order.requestType != 'urgent';
 
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: _actionLoading ? null : _accept,
-          icon: const Icon(Icons.check_circle_outline, color: Colors.white),
-          label: _actionLoading
-              ? const SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white))
-              : const Text('قبول الطلب',
-                  style: TextStyle(
-                      fontFamily: 'Cairo',
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      if (showAcceptButton) ...[
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _actionLoading ? null : _accept,
+            icon: const Icon(Icons.check_circle_outline, color: Colors.white),
+            label: _actionLoading
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('قبول الطلب',
+                    style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+            ),
           ),
         ),
-      ),
-      const SizedBox(height: 12),
+        const SizedBox(height: 12),
+      ],
       if (rejectedByClient) ...[
         _readOnlyBox(
           label: 'سبب رفض العميل للتفاصيل السابقة',

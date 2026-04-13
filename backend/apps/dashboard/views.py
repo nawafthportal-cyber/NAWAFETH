@@ -675,12 +675,18 @@ def _resolve_granted_permissions(level: str, dashboard_codes: list[str], selecte
     if not allowed_codes:
         return AccessPermission.objects.none()
     allowed_permissions = active_permissions.filter(dashboard_code__in=allowed_codes)
+
+    # Granular permissions are no longer selected manually in the add/edit form.
+    # For user-level accounts, grant all active permissions within allowed dashboards.
+    if level == AccessLevel.USER:
+        return allowed_permissions
+
     normalized_permission_codes = [
         str(code).strip() for code in (selected_permission_codes or []) if str(code).strip()
     ]
-    if not normalized_permission_codes:
-        return AccessPermission.objects.none()
-    return allowed_permissions.filter(code__in=normalized_permission_codes)
+    if normalized_permission_codes:
+        return allowed_permissions.filter(code__in=normalized_permission_codes)
+    return allowed_permissions
 
 
 def _normalize_dashboards_for_level(level: str, dashboard_codes: list[str]) -> list[str]:
@@ -6357,6 +6363,14 @@ def _verification_redirect_with_state(
     return redirect(f"{base}?{normalized_query}") if normalized_query else redirect(base)
 
 
+def _verification_ajax_response(*, ok: bool, message: str = "", status: int = 200, **extra):
+    payload = {"ok": bool(ok)}
+    if message:
+        payload["message"] = message
+    payload.update(extra)
+    return JsonResponse(payload, status=status, json_dumps_params={"ensure_ascii": False})
+
+
 def _extract_first_http_url(text: str) -> str:
     match = re.search(r"https?://[^\s]+", text or "")
     if not match:
@@ -6369,6 +6383,7 @@ def _extract_first_http_url(text: str) -> str:
 def verification_dashboard(request):
     can_write = dashboard_allowed(request.user, "verify", write=True)
     access_profile = active_access_profile_for_user(request.user)
+    is_ajax_request = request.headers.get("X-Requested-With") == "XMLHttpRequest"
     assignee_choices = _dashboard_assignee_choices("verify")
     verification_team = _verification_support_team()
     team_choices = [(str(verification_team.id), verification_team.name_ar)] if verification_team else []
@@ -6573,14 +6588,20 @@ def verification_dashboard(request):
         if action in {"save_request", "continue_request_review", "finalize_request"}:
             raw_request_id = (request.POST.get("verification_request_id") or "").strip()
             if not raw_request_id.isdigit():
+                if is_ajax_request and action == "save_request":
+                    return _verification_ajax_response(ok=False, message="تعذر تحديد طلب التوثيق المطلوب.", status=400)
                 messages.error(request, "تعذر تحديد طلب التوثيق المطلوب.")
                 return _verification_redirect_with_state(request)
             target_request = verification_requests_base_qs.filter(id=int(raw_request_id)).first()
             if target_request is None:
+                if is_ajax_request and action == "save_request":
+                    return _verification_ajax_response(ok=False, message="طلب التوثيق المحدد غير متاح لهذا الحساب.", status=404)
                 messages.error(request, "طلب التوثيق المحدد غير متاح لهذا الحساب.")
                 return _verification_redirect_with_state(request)
             if access_profile and access_profile.level == AccessLevel.USER:
                 if target_request.assigned_to_id and target_request.assigned_to_id != request.user.id:
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="غير مصرح: الطلب ليس ضمن المهام المكلف بها.", status=403)
                     return HttpResponseForbidden("غير مصرح: الطلب ليس ضمن المهام المكلف بها.")
 
             posted_request_stage = (request.POST.get("request_stage") or "review").strip().lower()
@@ -6593,6 +6614,8 @@ def verification_dashboard(request):
             if not post_form.is_valid():
                 selected_request = target_request
                 request_form = post_form
+                if is_ajax_request and action == "save_request":
+                    return _verification_ajax_response(ok=False, message="يرجى مراجعة حقول نموذج طلب التوثيق.", status=400)
                 messages.error(request, "يرجى مراجعة حقول نموذج طلب التوثيق.")
                 return _verification_redirect_with_state(
                     request,
@@ -6605,9 +6628,13 @@ def verification_dashboard(request):
             if assigned_to_id is not None:
                 assignee = dashboard_assignee_user(assigned_to_id, "verify", write=True)
                 if assignee is None:
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="المكلف المختار لا يملك صلاحية لوحة التوثيق.", status=400)
                     messages.error(request, "المكلف المختار لا يملك صلاحية لوحة التوثيق.")
                     return _verification_redirect_with_state(request, request_id=target_request.id)
                 if access_profile and access_profile.level == AccessLevel.USER and assignee.id != request.user.id:
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="لا يمكنك تعيين الطلب لمستخدم آخر.", status=403)
                     return HttpResponseForbidden("لا يمكنك تعيين الطلب لمستخدم آخر.")
             else:
                 assignee = None
@@ -6623,6 +6650,8 @@ def verification_dashboard(request):
             requested_status = (post_form.cleaned_data.get("status") or "").strip()
             if requested_status:
                 if not _verification_request_is_editable(target_request):
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="لا يمكن تعديل حالة هذا الطلب في مرحلته الحالية.", status=409)
                     messages.error(request, "لا يمكن تعديل حالة هذا الطلب في مرحلته الحالية.")
                     return _verification_redirect_with_state(
                         request,
@@ -6631,6 +6660,8 @@ def verification_dashboard(request):
                     )
 
                 if requested_status == VERIFICATION_REQUEST_OPS_STATUS_COMPLETED:
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="حالة مكتمل تُحتسب تلقائيًا بعد اعتماد الطلب في مرحلة الملخص النهائي.", status=400)
                     messages.error(request, "حالة مكتمل تُحتسب تلقائيًا بعد اعتماد الطلب في مرحلة الملخص النهائي.")
                     return _verification_redirect_with_state(
                         request,
@@ -6662,6 +6693,8 @@ def verification_dashboard(request):
 
             if action in {"save_request", "continue_request_review"}:
                 if not _verification_request_is_editable(target_request):
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message="هذا الطلب في مرحلة لاحقة ولا يمكن تعديل بنوده من شاشة المراجعة.", status=409)
                     messages.error(request, "هذا الطلب في مرحلة لاحقة ولا يمكن تعديل بنوده من شاشة المراجعة.")
                     return _verification_redirect_with_state(
                         request,
@@ -6713,6 +6746,8 @@ def verification_dashboard(request):
                     )
 
                 if validation_errors:
+                    if is_ajax_request and action == "save_request":
+                        return _verification_ajax_response(ok=False, message=validation_errors[0], status=400)
                     for error in validation_errors:
                         messages.error(request, error)
                     return _verification_redirect_with_state(
@@ -6750,6 +6785,13 @@ def verification_dashboard(request):
                     if action == "continue_request_review"
                     else f"تم تحديث مراجعة طلب التوثيق {target_request.code or target_request.id} بنجاح."
                 )
+                if is_ajax_request and action == "save_request":
+                    return _verification_ajax_response(
+                        ok=True,
+                        message=message_text,
+                        request_stage=next_stage,
+                        status_label=_verification_request_ops_status_label(target_request),
+                    )
                 messages.success(request, message_text)
                 return _verification_redirect_with_state(
                     request,

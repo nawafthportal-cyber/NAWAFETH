@@ -266,37 +266,39 @@ const OrderDetailPage = (() => {
     if (!section || !grid || !_order) return;
 
     const group = _statusGroup(_order);
-    const rows = [];
+    const cards = [];
 
     if (group === 'new' || group === 'in_progress') {
-      if (_order.expected_delivery_at) rows.push(['موعد التسليم المتوقع', _formatDateOnly(_order.expected_delivery_at)]);
+      if (_order.expected_delivery_at) cards.push(_readonlyInfoCard('موعد التسليم المتوقع', _formatDateOnly(_order.expected_delivery_at)));
       if (_order.estimated_service_amount !== null && _order.estimated_service_amount !== undefined) {
-        rows.push(['قيمة الخدمة المقدرة', _formatMoney(_order.estimated_service_amount)]);
+        cards.push(_readonlyInfoCard('قيمة الخدمة المقدرة', _formatMoney(_order.estimated_service_amount)));
       }
       if (_order.received_amount !== null && _order.received_amount !== undefined) {
-        rows.push(['المبلغ المستلم', _formatMoney(_order.received_amount)]);
+        cards.push(_readonlyInfoCard('المبلغ المستلم', _formatMoney(_order.received_amount)));
       }
       if (_order.remaining_amount !== null && _order.remaining_amount !== undefined) {
-        rows.push(['المبلغ المتبقي', _formatMoney(_order.remaining_amount)]);
+        cards.push(_readonlyInfoCard('المبلغ المتبقي', _formatMoney(_order.remaining_amount)));
       }
       title.textContent = 'تفاصيل التنفيذ';
     }
 
     if (group === 'completed') {
-      if (_order.delivered_at) rows.push(['موعد التسليم الفعلي', _formatDateOnly(_order.delivered_at)]);
+      if (_order.delivered_at) cards.push(_readonlyInfoCard('موعد التسليم الفعلي', _formatDateOnly(_order.delivered_at)));
       if (_order.actual_service_amount !== null && _order.actual_service_amount !== undefined) {
-        rows.push(['قيمة الخدمة الفعلية', _formatMoney(_order.actual_service_amount)]);
+        cards.push(_readonlyInfoCard('قيمة الخدمة الفعلية', _formatMoney(_order.actual_service_amount)));
       }
+      const completionAttachments = _splitAttachments(_order).provider;
+      cards.push(_readonlyAttachmentsCard('المرفقات', completionAttachments));
       title.textContent = 'بيانات الإكمال';
     }
 
     grid.innerHTML = '';
-    if (!rows.length) {
+    if (!cards.length) {
       section.classList.add('hidden');
       return;
     }
 
-    rows.forEach(([label, value]) => grid.appendChild(_readonlyInfoCard(label, value)));
+    cards.forEach((card) => grid.appendChild(card));
     section.classList.remove('hidden');
   }
 
@@ -552,9 +554,11 @@ const OrderDetailPage = (() => {
 
     items.forEach((log) => {
       const row = UI.el('div', { className: 'order-log-row' });
+      const fromLabel = _statusLabelFromCode(log.from_status);
+      const toLabel = _statusLabelFromCode(log.to_status);
       row.appendChild(UI.el('div', {
         className: 'order-log-title',
-        textContent: (log.from_status || '—') + ' → ' + (log.to_status || '—'),
+        textContent: fromLabel + ' → ' + toLabel,
       }));
       if (log.note) row.appendChild(UI.el('div', { className: 'order-log-note', textContent: log.note }));
       if (log.created_at) row.appendChild(UI.el('div', { className: 'order-log-time', textContent: _formatDate(log.created_at) }));
@@ -567,6 +571,33 @@ const OrderDetailPage = (() => {
     item.appendChild(UI.el('div', { className: 'order-info-label', textContent: label }));
     item.appendChild(UI.el('div', { className: 'order-info-value', textContent: value || '-' }));
     return item;
+  }
+
+  function _readonlyAttachmentsCard(label, attachments) {
+    const item = UI.el('div', { className: 'order-info-item order-info-item-attachments' });
+    item.appendChild(UI.el('div', { className: 'order-info-label', textContent: label }));
+
+    const body = document.createElement('div');
+    body.className = 'order-info-attachments-list';
+
+    if (!Array.isArray(attachments) || !attachments.length) {
+      body.appendChild(UI.el('div', { className: 'order-info-value', textContent: 'لا توجد مرفقات' }));
+      item.appendChild(body);
+      return item;
+    }
+
+    attachments.forEach((attachment) => body.appendChild(_buildAttachmentLine(attachment)));
+    item.appendChild(body);
+    return item;
+  }
+
+  function _statusLabelFromCode(raw) {
+    const code = String(raw || '').trim().toLowerCase();
+    if (code === 'new') return 'جديد';
+    if (code === 'in_progress') return 'تحت التنفيذ';
+    if (code === 'completed') return 'مكتمل';
+    if (code === 'cancelled' || code === 'canceled') return 'ملغي';
+    return String(raw || '—') || '—';
   }
 
   function _renderOffersSection() {

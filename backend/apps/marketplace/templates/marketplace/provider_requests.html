@@ -59,7 +59,7 @@
             فتح التفاصيل
           </a>
 
-          {% if tab == 'available' %}
+          {% if tab == 'available' and provider and obj.request_type == 'urgent' %}
             <form method="post" action="{% url 'marketplace:request_action' obj.id %}">
               {% csrf_token %}
               <button name="action" value="accept" type="submit"

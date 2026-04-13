@@ -158,9 +158,27 @@ const ProfilePage = (() => {
 
   /* ──────── Mode toggle render ──────── */
   function _renderModeToggle() {
+    const canSwitch = _canSwitchToProvider();
+
+    const intro = document.getElementById('profile-head-intro');
+    if (intro) {
+      intro.textContent = canSwitch
+        ? 'إدارة الحساب، الوصول السريع، والتحويل بين وضعي العميل ومقدم الخدمة من مكان واحد.'
+        : 'إدارة الحساب والوصول السريع إلى أدواتك من مكان واحد.';
+    }
+
+    const commandSub = document.getElementById('profile-command-sub');
+    if (commandSub) {
+      commandSub.textContent = canSwitch
+        ? 'كل ما تحتاجه لإدارة حسابك والتنقل بين وضعي المنصة في لوحة واحدة أكثر وضوحًا وأناقة.'
+        : 'كل ما تحتاجه لإدارة حسابك والوصول السريع إلى أدواتك في لوحة واحدة واضحة وأنيقة.';
+    }
+
+    const dock = document.getElementById('profile-switch-dock');
+    if (dock) dock.classList.toggle('hidden', !canSwitch);
+
     const toggle = document.getElementById('profile-mode-toggle');
     if (!toggle) return;
-    const canSwitch = _canSwitchToProvider();
     toggle.classList.toggle('hidden', !canSwitch);
 
     const clientBtn = document.getElementById('mode-client-btn');

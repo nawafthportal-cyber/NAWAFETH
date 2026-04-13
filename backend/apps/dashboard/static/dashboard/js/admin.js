@@ -188,7 +188,7 @@
     const dashboardChecks = Array.from(form.querySelectorAll("input[name='dashboards']"));
     const permissionChecks = Array.from(form.querySelectorAll("input[name='permissions']"));
     const profileIdInput = form.querySelector("input[name='profile_id']");
-    if (!levelSelect || !dashboardChecks.length || !permissionChecks.length) {
+    if (!levelSelect || !dashboardChecks.length) {
       return;
     }
 
@@ -342,6 +342,9 @@
     }
 
     function applyPermissionRules(selectedLevel) {
+      if (!permissionChecks.length) {
+        return;
+      }
       const selectedDashboardCodes = new Set(
         getSelectedDashboardInputs().map((input) => String(input.value || "").trim().toLowerCase())
       );
@@ -446,6 +449,9 @@
     }
 
     function validatePermissions(selectedLevel) {
+      if (!permissionChecks.length) {
+        return "";
+      }
       if (selectedLevel !== "user") {
         return "";
       }

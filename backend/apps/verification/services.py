@@ -977,6 +977,60 @@ def _notify_requester_review_outcome(*, vr: VerificationRequest, by_user, reqs=N
         pass
 
 
+def _notify_requester_payment_reversal(*, vr: VerificationRequest, from_status: str, to_status: str) -> None:
+    try:
+        from apps.notifications.models import EventType
+        from apps.notifications.services import create_notification
+    except Exception:
+        return
+
+    request_code = vr.code or f"AD{vr.id:06d}"
+    status_labels = {
+        VerificationStatus.NEW: "جديد",
+        VerificationStatus.IN_REVIEW: "تحت المعالجة",
+        VerificationStatus.REJECTED: "مرفوض",
+        VerificationStatus.APPROVED: "معتمد",
+        VerificationStatus.PENDING_PAYMENT: "بانتظار الدفع",
+        VerificationStatus.ACTIVE: "مفعّل",
+        VerificationStatus.EXPIRED: "منتهي",
+    }
+    from_label = status_labels.get(from_status, from_status)
+    to_label = status_labels.get(to_status, to_status)
+    body = (
+        f"تم تحديث حالة طلب التوثيق ({request_code}) من {from_label} إلى {to_label} "
+        "بسبب تراجع/إلغاء حالة الدفع. يرجى مراجعة الطلب."
+    )
+    notification_url = (
+        verification_payment_page_url(vr=vr)
+        if to_status == VerificationStatus.PENDING_PAYMENT
+        else f"/verification/?request_id={vr.id}"
+    )
+
+    try:
+        create_notification(
+            user=vr.requester,
+            title="تحديث حالة التوثيق بعد تراجع الدفع",
+            body=body[:500],
+            kind="warn",
+            url=notification_url,
+            event_type=EventType.STATUS_CHANGED,
+            request_id=vr.id,
+            meta={
+                "verification_request_id": vr.id,
+                "verification_request_code": request_code,
+                "from_status": from_status,
+                "to_status": to_status,
+                "payment_reversed": True,
+                "invoice_id": vr.invoice_id,
+                "invoice_status": getattr(vr.invoice, "status", ""),
+            },
+            pref_key="verification_completed",
+            audience_mode="provider",
+        )
+    except Exception:
+        pass
+
+
 @transaction.atomic
 def decide_document(*, doc: VerificationDocument, is_approved: bool, note: str, by_user):
     doc = VerificationDocument.objects.select_for_update().select_related("request").get(pk=doc.pk)
@@ -1223,6 +1277,7 @@ def revoke_after_payment_reversal(*, vr: VerificationRequest):
     if not vr.invoice or vr.invoice.is_payment_effective():
         return vr
 
+    old_status = vr.status
     if vr.invoice.requires_payment_confirmation():
         vr.status = VerificationStatus.PENDING_PAYMENT
     elif vr.status == VerificationStatus.ACTIVE:
@@ -1252,4 +1307,10 @@ def revoke_after_payment_reversal(*, vr: VerificationRequest):
         pass
 
     _sync_verification_to_unified(vr=vr, changed_by=vr.requester)
+    if old_status != vr.status:
+        _notify_requester_payment_reversal(
+            vr=vr,
+            from_status=old_status,
+            to_status=vr.status,
+        )
     return vr

@@ -38,7 +38,7 @@
           <div class="title-row">
             <div class="admin-control-title-stack">
               <h2>إدارة الصلاحيات</h2>
-              <p class="subtitle">إنشاء الحسابات التشغيلية وربطها باللوحات والصلاحيات الدقيقة المناسبة لكل دور.</p>
+              <p class="subtitle">إنشاء الحسابات التشغيلية وربطها باللوحات والصلاحيات المناسبة لكل دور.</p>
             </div>
             <div class="actions">
               <a href="?section=access&new=1" class="primary-btn access-new-btn" id="openAccessFormBtn" aria-controls="accessFormShell" aria-expanded="{{ access_form_open|yesno:'true,false' }}">
@@ -90,11 +90,6 @@
                   <label for="{{ access_form.dashboards.id_for_label }}">لوحات التحكم المسموحة</label>
                   <div class="checks" id="accessDashboardsChecks">{{ access_form.dashboards }}</div>
                   {% if access_form.dashboards.errors %}<div class="field-errors">{% for err in access_form.dashboards.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
-                </div>
-                <div class="field full" data-field-shell data-field-name="permissions">
-                  <label for="{{ access_form.permissions.id_for_label }}">الصلاحيات الدقيقة</label>
-                  <div class="checks" id="accessPermissionsChecks">{{ access_form.permissions }}</div>
-                  {% if access_form.permissions.errors %}<div class="field-errors">{% for err in access_form.permissions.errors %}<small class="field-error" data-field-error>{{ err }}</small>{% endfor %}</div>{% endif %}
                 </div>
               </div>
               {% if access_form.non_field_errors %}

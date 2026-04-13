@@ -106,9 +106,13 @@ def _latest_portal_bundle_context(provider: ProviderProfile) -> dict[str, object
         UnifiedRequest.objects.select_related("metadata_record", "requester")
         .filter(
             request_type=UnifiedRequestType.EXTRAS,
-            requester=provider.user,
             status="closed",
             source_model__in=["ExtrasBundleRequest", "ExtrasServiceRequest"],
+        )
+        .filter(
+            Q(requester=provider.user)
+            | Q(metadata_record__payload__specialist_identifier__in=_portal_provider_identifiers(provider))
+            | Q(metadata_record__payload__specialist_label__in=_portal_provider_identifiers(provider))
         )
         .order_by("-updated_at", "-id")
     )
@@ -159,28 +163,158 @@ def _latest_portal_bundle_context(provider: ProviderProfile) -> dict[str, object
     }
 
 
+def _portal_provider_identifiers(provider: ProviderProfile) -> list[str]:
+    identifiers: list[str] = []
+    for raw_value in (
+        getattr(provider.user, "username", None),
+        getattr(provider.user, "phone", None),
+        getattr(provider, "display_name", None),
+    ):
+        value = str(raw_value or "").strip()
+        if value and value not in identifiers:
+            identifiers.append(value)
+    return identifiers
+
+
+def _portal_section_payload(section_context: dict[str, object] | None) -> dict[str, object]:
+    payload = section_context.get("section_payload") if isinstance(section_context, dict) else None
+    return payload if isinstance(payload, dict) else {}
+
+
+def _portal_section_option_keys(section_context: dict[str, object] | None) -> list[str]:
+    if not isinstance(section_context, dict):
+        return []
+    return [str(key or "").strip() for key in list(section_context.get("option_keys") or []) if str(key or "").strip()]
+
+
+def _portal_section_has_option(section_context: dict[str, object] | None, option_key: str) -> bool:
+    normalized = str(option_key or "").strip()
+    if not normalized:
+        return False
+    return normalized in set(_portal_section_option_keys(section_context))
+
+
+def _portal_safe_int(value, default: int = 0, *, minimum: int | None = None) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = default
+    if minimum is not None and parsed < minimum:
+        return minimum
+    return parsed
+
+
+def _portal_bundle_requests_queryset(provider: ProviderProfile):
+    identifiers = _portal_provider_identifiers(provider)
+    return (
+        UnifiedRequest.objects.select_related("metadata_record", "requester")
+        .filter(
+            request_type=UnifiedRequestType.EXTRAS,
+            status="closed",
+            source_model__in=["ExtrasBundleRequest", "ExtrasServiceRequest"],
+        )
+        .filter(
+            Q(requester=provider.user)
+            | Q(metadata_record__payload__specialist_identifier__in=identifiers)
+            | Q(metadata_record__payload__specialist_label__in=identifiers)
+        )
+        .order_by("-updated_at", "-id")
+    )
+
+
+def _latest_portal_section_context(provider: ProviderProfile, section_key: str) -> dict[str, object]:
+    for request_obj in _portal_bundle_requests_queryset(provider):
+        bundle = extras_bundle_payload_for_request(request_obj)
+        if not bundle:
+            continue
+
+        section_payload = bundle.get(section_key) if isinstance(bundle.get(section_key), dict) else {}
+        option_keys = [
+            str(key or "").strip()
+            for key in list(section_payload.get("options") or [])
+            if str(key or "").strip()
+        ]
+        if not option_keys:
+            continue
+
+        return {
+            "request_obj": request_obj,
+            "bundle": bundle,
+            "invoice": extras_bundle_invoice_for_request(request_obj),
+            "section_key": section_key,
+            "section_payload": section_payload,
+            "option_keys": option_keys,
+            "option_labels": [option_label_for(section_key, key) for key in option_keys],
+            "section_label": section_title_for(section_key),
+        }
+
+    return {
+        "request_obj": None,
+        "bundle": {},
+        "invoice": None,
+        "section_key": section_key,
+        "section_payload": {},
+        "option_keys": [],
+        "option_labels": [],
+        "section_label": section_title_for(section_key),
+    }
+
+
 def _portal_shell_context(provider: ProviderProfile, *, active_section: str) -> dict[str, object]:
+    section_contexts = {
+        section_key: _latest_portal_section_context(provider, section_key)
+        for section_key in PORTAL_SECTION_ORDER
+    }
     bundle_context = _latest_portal_bundle_context(provider)
+    active_section_context = section_contexts.get(active_section) or {
+        "request_obj": None,
+        "option_keys": [],
+        "option_labels": [],
+        "section_label": section_title_for(active_section),
+    }
     portal_subscription = getattr(provider, "extras_portal_subscription", None)
     portal_subscription_active = _portal_subscription_is_active(portal_subscription)
     nav_items = []
-    for section in bundle_context.get("enabled_sections", []):
-        section_key = str(section.get("key") or "").strip()
+    enabled_sections = []
+    section_option_keys: dict[str, list[str]] = {}
+    for section_key in PORTAL_SECTION_ORDER:
+        section_context = section_contexts[section_key]
+        option_keys = list(section_context.get("option_keys") or [])
+        if not option_keys:
+            continue
+        section_option_keys[section_key] = option_keys
+        enabled_sections.append(
+            {
+                "key": section_key,
+                "label": section_context.get("section_label") or section_title_for(section_key),
+                "option_count": len(option_keys),
+                "option_labels": list(section_context.get("option_labels") or []),
+            }
+        )
         url_name = PORTAL_SECTION_URL_NAME.get(section_key)
         if not url_name:
             continue
         nav_items.append(
             {
                 "key": section_key,
-                "label": section.get("label") or section_title_for(section_key),
-                "option_count": int(section.get("option_count") or 0),
+                "label": section_context.get("section_label") or section_title_for(section_key),
+                "option_count": len(option_keys),
                 "url_name": url_name,
                 "active": section_key == active_section,
             }
         )
 
+    if enabled_sections:
+        bundle_context["enabled_sections"] = enabled_sections
+        bundle_context["section_option_keys"] = section_option_keys
+
+    current_request_obj = active_section_context.get("request_obj") or bundle_context.get("request_obj")
+
     return {
         "portal_bundle_context": bundle_context,
+        "portal_section_contexts": section_contexts,
+        "portal_current_section_context": active_section_context,
+        "portal_current_request_obj": current_request_obj,
         "portal_nav_items": nav_items,
         "portal_subscription": portal_subscription,
         "portal_subscription_active": portal_subscription_active,
@@ -530,13 +664,13 @@ def _placeholder_card(*, key: str, label: str, helper_text: str) -> dict[str, ob
 
 
 def _latest_reports_bundle_context(provider: ProviderProfile) -> dict[str, object]:
-    portal_bundle_context = _latest_portal_bundle_context(provider)
-    request_obj = portal_bundle_context.get("request_obj")
-    bundle = portal_bundle_context.get("bundle") if isinstance(portal_bundle_context.get("bundle"), dict) else {}
-    reports_section = bundle.get(PORTAL_SECTION_REPORTS) if isinstance(bundle.get(PORTAL_SECTION_REPORTS), dict) else {}
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_REPORTS)
+    request_obj = section_context.get("request_obj")
+    bundle = section_context.get("bundle") if isinstance(section_context.get("bundle"), dict) else {}
+    reports_section = section_context.get("section_payload") if isinstance(section_context.get("section_payload"), dict) else {}
     selected_option_keys = [
         key
-        for key in list(portal_bundle_context.get("section_option_keys", {}).get(PORTAL_SECTION_REPORTS, []) or [])
+        for key in list(section_context.get("option_keys", []) or [])
         if key in dict(EXTRAS_REPORT_OPTIONS)
     ]
     if selected_option_keys:
@@ -549,7 +683,7 @@ def _latest_reports_bundle_context(provider: ProviderProfile) -> dict[str, objec
             "request_obj": request_obj,
             "bundle": bundle,
             "reports_section": reports_section,
-            "invoice": portal_bundle_context.get("invoice"),
+            "invoice": section_context.get("invoice"),
             "selected_option_keys": selected_option_keys,
             "selected_option_labels": [option_label_for(PORTAL_SECTION_REPORTS, key) for key in selected_option_keys],
             "start_at": _parse_report_window_datetime(start_raw, end_of_day=False),
@@ -775,16 +909,28 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         {"title": "رسائل وتفاعلات", "value": messages_count, "tone": "from-amber-500 to-orange-500"},
     ]
 
-    selected_option_rows = [
-        {
-            "key": key,
-            "label": option_label_for(PORTAL_SECTION_REPORTS, key),
-            "status": "جاهز للعرض",
-            "status_class": "bg-emerald-100 text-emerald-700",
-            "summary": "تم تفعيل هذا البند داخل اشتراك التقارير الحالي ويجري عرضه وفق الفترة الزمنية المعتمدة.",
-        }
-        for key in bundle_context.get("selected_option_keys", [])
-    ]
+    selected_option_rows = []
+    for key in bundle_context.get("selected_option_keys", []):
+        card = option_cards_by_key.get(key, {})
+        card_kind = str(card.get("kind") or "")
+        is_ready = card_kind in {"stats", "list"}
+        selected_option_rows.append(
+            {
+                "key": key,
+                "label": option_label_for(PORTAL_SECTION_REPORTS, key),
+                "status": "جاهز للعرض" if is_ready else "مفعّل بانتظار البيانات",
+                "status_class": (
+                    "bg-emerald-100 text-emerald-700"
+                    if is_ready
+                    else "bg-amber-100 text-amber-700"
+                ),
+                "summary": (
+                    "تم تفعيل هذا البند داخل اشتراك التقارير الحالي ويجري عرضه وفق الفترة الزمنية المعتمدة."
+                    if is_ready
+                    else str(card.get("helper_text") or "الخيار مفعّل داخل الاشتراك الحالي، لكنه ينتظر توفر بيانات مرتبطة به داخل النظام.")
+                ),
+            }
+        )
 
     return {
         **shell_context,
@@ -893,6 +1039,13 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     if section_response is not None:
         return section_response
     provider_user = provider.user
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
+    clients_payload = _portal_section_payload(section_context)
+    clients_option_keys = _portal_section_option_keys(section_context)
+    clients_option_labels = list(section_context.get("option_labels") or [])
+    clients_subscription_years = _portal_safe_int(clients_payload.get("subscription_years", 1), default=1, minimum=1)
+    bulk_message_limit = _portal_safe_int(clients_payload.get("bulk_message_count", 0), default=0, minimum=0)
+    clients_supports_bulk_messages = _portal_section_has_option(section_context, "bulk_messages")
 
     clients_qs = (
         User.objects.filter(requests__provider=provider)
@@ -931,6 +1084,10 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     ]
 
     form = BulkMessageForm(request.POST or None, request.FILES or None)
+    if request.method == "POST" and not clients_supports_bulk_messages:
+        messages.error(request, "إرسال الرسائل الجماعية غير مفعّل في طلب الخدمات الإضافية الحالي.")
+        return redirect("extras_portal:clients")
+
     if request.method == "POST" and form.is_valid():
         selected_ids = request.POST.getlist("client_ids")
         recipient_ids = [int(i) for i in selected_ids if str(i).isdigit()]
@@ -998,6 +1155,12 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
         {
             **_portal_shell_context(provider, active_section=PORTAL_SECTION_CLIENTS),
             "provider": provider,
+            "clients_section_context": section_context,
+            "clients_option_keys": clients_option_keys,
+            "clients_option_labels": clients_option_labels,
+            "clients_subscription_years": clients_subscription_years,
+            "bulk_message_limit": bulk_message_limit,
+            "clients_supports_bulk_messages": clients_supports_bulk_messages,
             "clients": clients,
             "clients_total_count": clients_total_count,
             "clients_with_phone_count": clients_with_phone_count,
@@ -1014,14 +1177,34 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
     section_response = _portal_require_section(provider, PORTAL_SECTION_FINANCE)
     if section_response is not None:
         return section_response
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_FINANCE)
+    finance_payload = _portal_section_payload(section_context)
+    finance_option_keys = _portal_section_option_keys(section_context)
+    finance_option_labels = list(section_context.get("option_labels") or [])
+    finance_subscription_years = _portal_safe_int(finance_payload.get("subscription_years", 1), default=1, minimum=1)
+    supports_bank_qr_registration = _portal_section_has_option(section_context, "bank_qr_registration")
+    supports_financial_statement = _portal_section_has_option(section_context, "financial_statement")
+    supports_finance_export = _portal_section_has_option(section_context, "finance_export")
+    requested_account_name = " ".join(
+        part for part in [
+            str(finance_payload.get("qr_first_name") or "").strip(),
+            str(finance_payload.get("qr_last_name") or "").strip(),
+        ]
+        if part
+    ).strip()
+    requested_iban = str(finance_payload.get("iban") or "").strip()
 
     settings_obj = ExtrasPortalFinanceSettings.objects.filter(provider=provider).first()
 
     form = FinanceSettingsForm(request.POST or None, request.FILES or None, initial={
         "bank_name": getattr(settings_obj, "bank_name", ""),
-        "account_name": getattr(settings_obj, "account_name", ""),
-        "iban": getattr(settings_obj, "iban", ""),
+        "account_name": getattr(settings_obj, "account_name", "") or requested_account_name,
+        "iban": getattr(settings_obj, "iban", "") or requested_iban,
     })
+
+    if request.method == "POST" and not supports_bank_qr_registration:
+        messages.error(request, "بيانات QR والبنك ليست ضمن البنود المفعّلة في طلب الخدمات الإضافية الحالي.")
+        return redirect("extras_portal:finance")
 
     if request.method == "POST" and form.is_valid():
         if not settings_obj:
@@ -1037,11 +1220,13 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
 
     since_days = 30
     since = timezone.now() - timedelta(days=since_days)
-    statement_qs = (
-        ServiceRequest.objects.filter(provider=provider, created_at__gte=since)
-        .select_related("client")
-        .order_by("-id")
-    )
+    statement_qs = ServiceRequest.objects.none()
+    if supports_financial_statement:
+        statement_qs = (
+            ServiceRequest.objects.filter(provider=provider, created_at__gte=since)
+            .select_related("client")
+            .order_by("-id")
+        )
     statement = list(statement_qs[:500])
 
     totals = statement_qs.aggregate(
@@ -1062,6 +1247,12 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         "outstanding_requests": statement_qs.exclude(remaining_amount__isnull=True).exclude(remaining_amount=0).count(),
         "finance_profile_completion": finance_profile_completion,
     }
+    finance_display_values = {
+        "bank_name": getattr(settings_obj, "bank_name", "") or "",
+        "account_name": getattr(settings_obj, "account_name", "") or requested_account_name,
+        "iban": getattr(settings_obj, "iban", "") or requested_iban,
+        "qr_image": getattr(settings_obj, "qr_image", None),
+    }
 
     return render(
         request,
@@ -1069,6 +1260,16 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
         {
             **_portal_shell_context(provider, active_section=PORTAL_SECTION_FINANCE),
             "provider": provider,
+            "finance_section_context": section_context,
+            "finance_option_keys": finance_option_keys,
+            "finance_option_labels": finance_option_labels,
+            "finance_subscription_years": finance_subscription_years,
+            "supports_bank_qr_registration": supports_bank_qr_registration,
+            "supports_financial_statement": supports_financial_statement,
+            "supports_finance_export": supports_finance_export,
+            "requested_account_name": requested_account_name,
+            "requested_iban": requested_iban,
+            "finance_display_values": finance_display_values,
             "finance_settings": settings_obj,
             "form": form,
             "statement": statement,
@@ -1085,6 +1286,10 @@ def portal_finance_export_xlsx(request: HttpRequest) -> HttpResponse:
     section_response = _portal_require_section(provider, PORTAL_SECTION_FINANCE)
     if section_response is not None:
         return section_response
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_FINANCE)
+    if not _portal_section_has_option(section_context, "finance_export"):
+        messages.error(request, "تصدير البيانات المالية غير مفعّل في طلب الخدمات الإضافية الحالي.")
+        return redirect("extras_portal:finance")
     from apps.core.models import PlatformConfig
     _limit = PlatformConfig.load().export_xlsx_max_rows
     qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]
@@ -1127,6 +1332,10 @@ def portal_finance_export_pdf(request: HttpRequest) -> HttpResponse:
     section_response = _portal_require_section(provider, PORTAL_SECTION_FINANCE)
     if section_response is not None:
         return section_response
+    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_FINANCE)
+    if not _portal_section_has_option(section_context, "finance_export"):
+        messages.error(request, "تصدير البيانات المالية غير مفعّل في طلب الخدمات الإضافية الحالي.")
+        return redirect("extras_portal:finance")
     from apps.core.models import PlatformConfig
     _limit = PlatformConfig.load().export_pdf_max_rows
     qs = ServiceRequest.objects.filter(provider=provider).select_related("client").order_by("-id")[:_limit]

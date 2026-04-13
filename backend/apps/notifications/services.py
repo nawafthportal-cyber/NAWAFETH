@@ -171,6 +171,20 @@ NOTIFICATION_CATALOG = {
         "audience_modes": ("client", "provider", "shared"),
         "required_tier": CanonicalPlanTier.BASIC,
     },
+    "subscription_expiry": {
+        "title": "تذكير انتهاء الاشتراك",
+        "tier": NotificationTier.BASIC,
+        "default_enabled": True,
+        "audience_modes": ("provider",),
+        "required_tier": CanonicalPlanTier.BASIC,
+    },
+    "verification_expiry": {
+        "title": "تذكير انتهاء التوثيق",
+        "tier": NotificationTier.BASIC,
+        "default_enabled": True,
+        "audience_modes": ("provider",),
+        "required_tier": CanonicalPlanTier.BASIC,
+    },
     "service_reply": {
         "title": "رد على طلب خدمة",
         "tier": NotificationTier.BASIC,

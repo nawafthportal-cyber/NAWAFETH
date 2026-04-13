@@ -289,6 +289,58 @@ def _dispatch_subscription_activation_communications(*, sub: Subscription, actor
     )
 
 
+def _send_subscription_lifecycle_notification(*, sub: Subscription, transition: str) -> None:
+    try:
+        from apps.notifications.models import EventType
+        from apps.notifications.services import create_notification
+    except Exception:
+        return
+
+    transition_key = str(transition or "").strip().lower()
+    plan_title = str(getattr(getattr(sub, "plan", None), "title", "") or "اشتراكك").strip()
+    end_label = timezone.localtime(sub.end_at).strftime("%d/%m/%Y") if sub.end_at else ""
+    grace_label = timezone.localtime(sub.grace_end_at).strftime("%d/%m/%Y") if sub.grace_end_at else ""
+
+    if transition_key == "grace":
+        title = "اشتراكك دخل فترة السماح"
+        body = f"انتهت مدة اشتراكك ({plan_title}) وبدأت فترة السماح."
+        if grace_label:
+            body += f" تنتهي فترة السماح بتاريخ {grace_label}."
+        kind = "warn"
+    elif transition_key == "expired":
+        title = "انتهى اشتراكك"
+        body = f"انتهت صلاحية اشتراكك ({plan_title})."
+        if end_label:
+            body += f" تاريخ الانتهاء: {end_label}."
+        body += " يمكنك التجديد من صفحة الباقات."
+        kind = "warn"
+    else:
+        return
+
+    try:
+        create_notification(
+            user=sub.user,
+            title=title,
+            body=body[:500],
+            kind=kind,
+            url="/plans/",
+            event_type=EventType.STATUS_CHANGED,
+            request_id=sub.id,
+            meta={
+                "subscription_id": sub.id,
+                "plan_id": sub.plan_id,
+                "subscription_status": sub.status,
+                "transition": transition_key,
+                "end_at": sub.end_at.isoformat() if sub.end_at else None,
+                "grace_end_at": sub.grace_end_at.isoformat() if sub.grace_end_at else None,
+            },
+            pref_key="subscription_expiry",
+            audience_mode="provider",
+        )
+    except Exception:
+        pass
+
+
 def is_current_subscription_status(status: str) -> bool:
     return str(status or "").strip().lower() in CURRENT_SUBSCRIPTION_STATUSES
 
@@ -1071,6 +1123,7 @@ def refresh_subscription_status(*, sub: Subscription) -> Subscription:
         sub.save(update_fields=["status", "updated_at"])
         normalize_user_current_subscriptions(user=sub.user, preferred_subscription_id=sub.id)
         _sync_subscription_to_unified(sub=sub, changed_by=None)
+        _send_subscription_lifecycle_notification(sub=sub, transition="grace")
         return sub
 
     if sub.grace_end_at and now > sub.grace_end_at and sub.status in (SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE):
@@ -1078,6 +1131,7 @@ def refresh_subscription_status(*, sub: Subscription) -> Subscription:
         sub.save(update_fields=["status", "updated_at"])
         normalize_user_current_subscriptions(user=sub.user)
         _sync_subscription_to_unified(sub=sub, changed_by=None)
+        _send_subscription_lifecycle_notification(sub=sub, transition="expired")
         return sub
 
     return sub

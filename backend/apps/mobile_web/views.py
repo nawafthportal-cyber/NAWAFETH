@@ -141,6 +141,22 @@ class MobileWebSearchView(TemplateView):
     template_name = "mobile_web/search.html"
 
 
+class MobileWebSearchProvidersView(RedirectView):
+    """
+    Transitional route: keep handling legacy /search-providers/ links by
+    redirecting to the canonical /search/ endpoint while preserving query params.
+    """
+
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        target = reverse("search")
+        query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
+        if query_string:
+            return f"{target}?{query_string}"
+        return target
+
+
 class MobileWebOrdersView(TemplateView):
     template_name = "mobile_web/orders.html"
 
@@ -208,6 +224,28 @@ class MobileWebLegacyRequestChatRedirectView(RedirectView):
             target = reverse("provider_order_detail", kwargs={"request_id": request_id})
         else:
             target = reverse("order_detail", kwargs={"request_id": request_id})
+        query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
+        if query_string:
+            return f"{target}?{query_string}"
+        return target
+
+
+class MobileWebLegacyRequestRedirectView(RedirectView):
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        request_id = kwargs.get("request_id")
+        mode = str(self.request.GET.get("mode") or "").strip().lower()
+        if mode not in {"client", "provider"}:
+            user = getattr(self.request, "user", None)
+            role_state = str(getattr(user, "role_state", "") or "").strip().lower()
+            mode = "provider" if role_state == "provider" else "client"
+
+        if mode == "provider":
+            target = reverse("provider_order_detail", kwargs={"request_id": request_id})
+        else:
+            target = reverse("order_detail", kwargs={"request_id": request_id})
+
         query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
         if query_string:
             return f"{target}?{query_string}"
@@ -373,7 +411,7 @@ class MobileWebAdditionalServicesView(TemplateView):
             try:
                 provider_profile = user.provider_profile
             except Exception:
-                provider_profile = None
+                provider_profile = ProviderProfile.objects.filter(user_id=getattr(user, "id", None)).only("display_name").first()
 
             if provider_profile is not None:
                 provider_name = str(getattr(provider_profile, "display_name", "") or "").strip()
@@ -382,9 +420,6 @@ class MobileWebAdditionalServicesView(TemplateView):
                 first_name = str(getattr(user, "first_name", "") or "").strip()
                 last_name = str(getattr(user, "last_name", "") or "").strip()
                 provider_name = " ".join(part for part in [first_name, last_name] if part).strip()
-
-            if not provider_name:
-                provider_name = str(getattr(user, "username", "") or getattr(user, "phone", "") or "").strip()
 
         option_groups = {
             "reports": {
@@ -441,7 +476,3 @@ class MobileWebProfileCompletionView(TemplateView):
 
 class MobileWebProvidersMapView(TemplateView):
     template_name = "mobile_web/providers_map.html"
-
-
-class MobileWebSearchProvidersView(TemplateView):
-    template_name = "mobile_web/search_providers.html"

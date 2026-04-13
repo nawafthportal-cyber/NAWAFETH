@@ -28,6 +28,7 @@ var AdditionalServicesPage = (function () {
   var endpoints = {
     catalogUrl: "/api/extras/catalog/",
     myUrl: "/api/extras/my/",
+    meUrl: "/api/accounts/me/",
     buyUrlTemplate: "/api/extras/buy/__SKU__/",
     bundleCreateUrl: "/api/extras/bundle-requests/",
     bundleMyUrl: "/api/extras/bundle-requests/my/",
@@ -134,10 +135,44 @@ var AdditionalServicesPage = (function () {
     if (!root) return;
     endpoints.catalogUrl = asText(root.getAttribute("data-catalog-url")) || endpoints.catalogUrl;
     endpoints.myUrl = asText(root.getAttribute("data-my-url")) || endpoints.myUrl;
+    endpoints.meUrl = asText(root.getAttribute("data-me-url")) || endpoints.meUrl;
     endpoints.buyUrlTemplate = asText(root.getAttribute("data-buy-url-template")) || endpoints.buyUrlTemplate;
     endpoints.bundleCreateUrl = asText(root.getAttribute("data-bundle-create-url")) || endpoints.bundleCreateUrl;
     endpoints.bundleMyUrl = asText(root.getAttribute("data-bundle-my-url")) || endpoints.bundleMyUrl;
     endpoints.portalHomeUrl = asText(root.getAttribute("data-portal-home-url")) || endpoints.portalHomeUrl;
+  }
+
+  function pickProviderDisplayName(payload) {
+    var data = payload && typeof payload === "object" ? payload : {};
+    var profile = (data.provider_profile && typeof data.provider_profile === "object") ? data.provider_profile : null;
+    var direct = asText(data.provider_display_name) || asText(profile && profile.display_name);
+    if (direct) return direct;
+
+    var full = asText(data.full_name);
+    if (full) return full;
+
+    var first = asText(data.first_name);
+    var last = asText(data.last_name);
+    return [first, last].filter(Boolean).join(" ").trim();
+  }
+
+  async function hydrateProviderDisplayName() {
+    var valueEl = document.querySelector(".as-provider-value");
+    if (!valueEl) return;
+
+    var current = asText(valueEl.textContent);
+    if (current && current !== "-" && current !== "—") return;
+
+    try {
+      var res = await ApiClient.get(endpoints.meUrl);
+      if (!res || !res.ok) return;
+      var providerName = pickProviderDisplayName(res.data);
+      if (providerName) {
+        valueEl.textContent = providerName;
+      }
+    } catch (_) {
+      // Keep the existing placeholder if account data is unavailable.
+    }
   }
 
   function statusCode(value) {
@@ -1000,6 +1035,7 @@ var AdditionalServicesPage = (function () {
   function init() {
     readConfig();
     parseOptionGroups();
+    hydrateProviderDisplayName();
     hideSuccess();
     bindGeneralEvents();
     bindCardsEvents();

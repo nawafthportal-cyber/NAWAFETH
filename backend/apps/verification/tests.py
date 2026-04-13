@@ -2,16 +2,23 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.billing.models import Invoice
+from apps.billing.models import Invoice, InvoiceStatus
+from apps.notifications.models import Notification
 from apps.core.models import PlatformConfig
 from apps.providers.models import ProviderProfile
 from apps.subscriptions.configuration import canonical_subscription_plan_for_tier
 from apps.subscriptions.tiering import CanonicalPlanTier
 
-from .models import VerificationBadgeType, VerificationRequest, VerificationRequirement
-from .services import _locked_verification_request_queryset, verification_billing_policy, verification_invoice_preview_for_request
+from .models import VerificationBadgeType, VerificationRequest, VerificationRequirement, VerificationStatus
+from .services import (
+    _locked_verification_request_queryset,
+    revoke_after_payment_reversal,
+    verification_billing_policy,
+    verification_invoice_preview_for_request,
+)
 
 
 class VerificationVatPricingTests(TestCase):
@@ -87,3 +94,43 @@ class VerificationSubscriptionRequirementTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["code"][0], "verification_subscription_required")
         self.assertEqual(VerificationRequest.objects.filter(requester=self.user).count(), 0)
+
+
+class VerificationPaymentReversalNotificationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000502", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود توثيق",
+            bio="نبذة مختصرة",
+        )
+        self.invoice = Invoice.objects.create(
+            user=self.user,
+            title="فاتورة توثيق",
+            subtotal="100.00",
+            vat_percent="15.00",
+            reference_type="verify_request",
+            reference_id="ADTEST",
+            status=InvoiceStatus.PENDING,
+        )
+        self.request = VerificationRequest.objects.create(
+            requester=self.user,
+            status=VerificationStatus.ACTIVE,
+            invoice=self.invoice,
+            activated_at=timezone.now() - timezone.timedelta(days=10),
+            expires_at=timezone.now() + timezone.timedelta(days=355),
+        )
+
+    def test_revoke_after_payment_reversal_notifies_requester(self):
+        revoke_after_payment_reversal(vr=self.request)
+        self.request.refresh_from_db()
+
+        self.assertEqual(self.request.status, VerificationStatus.PENDING_PAYMENT)
+        self.assertIsNone(self.request.activated_at)
+        self.assertIsNone(self.request.expires_at)
+
+        notification = Notification.objects.filter(user=self.user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertIn("تراجع الدفع", notification.title)
+        self.assertIn("بانتظار الدفع", notification.body)

@@ -1,12 +1,462 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 
-{% block title %}نوافــذ — إضافة خدمة{% endblock %}
+{% block title %}نوافــذ — طلـب خدمة{% endblock %}
 {% block sidebar_add_service %}active{% endblock %}
 {% block body_class %}page-add-service{% endblock %}
 
 {% block extra_css %}
 <style>
+  body.page-add-service .page-content {
+    background:
+      radial-gradient(circle at 95% 6%, rgba(37, 99, 235, 0.16), transparent 35%),
+      radial-gradient(circle at 8% 14%, rgba(16, 185, 129, 0.14), transparent 32%),
+      linear-gradient(180deg, #f6f8fc 0%, #f3f5f9 100%);
+    min-height: calc(100vh - 64px);
+    padding: 18px 12px 24px;
+  }
+
+  body.page-add-service .container.asv2-shell {
+    width: min(1180px, 100%);
+    margin: 0 auto;
+    display: grid;
+    gap: 14px;
+  }
+
+  body.page-add-service .asv2-hero {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(37, 99, 235, 0.14);
+    border-radius: 24px;
+    padding: 16px;
+    background:
+      linear-gradient(135deg, #ffffff 0%, #eef8ff 52%, #f4fffb 100%);
+    box-shadow: 0 14px 34px rgba(16, 24, 40, 0.08);
+    display: grid;
+    gap: 14px;
+  }
+
+  body.page-add-service .asv2-hero::before {
+    content: "";
+    position: absolute;
+    inset-inline-end: -110px;
+    top: -120px;
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2), transparent 65%);
+    pointer-events: none;
+  }
+
+  body.page-add-service .asv2-hero::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: -90px;
+    bottom: -140px;
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.18), transparent 66%);
+    pointer-events: none;
+  }
+
+  body.page-add-service .asv2-hero-top,
+  body.page-add-service .asv2-hero-main,
+  body.page-add-service .asv2-hero-quick,
+  body.page-add-service .asv2-hero-actions {
+    position: relative;
+    z-index: 1;
+  }
+
+  body.page-add-service .asv2-hero-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  body.page-add-service .asv2-kicker {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(30, 64, 175, 0.24);
+    background: rgba(30, 64, 175, 0.08);
+    color: #1d3d8f;
+    font-size: 11px;
+    font-weight: 900;
+  }
+
+  body.page-add-service .asv2-orders-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 34px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(30, 64, 175, 0.26);
+    background: rgba(255, 255, 255, 0.84);
+    color: #1e3a8a;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+
+  body.page-add-service .asv2-orders-link:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.14);
+  }
+
+  body.page-add-service .asv2-hero-main h1 {
+    margin: 0;
+    color: #0f172a;
+    font-size: clamp(30px, 4.6vw, 46px);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+  }
+
+  body.page-add-service .asv2-hero-main p {
+    margin: 8px 0 0;
+    color: #334155;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  body.page-add-service .asv2-hero-quick {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body.page-add-service .asv2-hero-quick span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    border-radius: 12px;
+    border: 1px solid rgba(15, 23, 42, 0.12);
+    background: rgba(255, 255, 255, 0.86);
+    color: #1f2937;
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+    padding: 0 10px;
+  }
+
+  body.page-add-service .asv2-hero-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  body.page-add-service .asv2-hero-btn {
+    min-height: 40px;
+    border-radius: 12px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 12.5px;
+    font-weight: 900;
+    transition: transform .16s ease, box-shadow .16s ease;
+  }
+
+  body.page-add-service .asv2-hero-btn.primary {
+    color: #fff;
+    background: linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
+    box-shadow: 0 10px 20px rgba(14, 116, 144, 0.24);
+  }
+
+  body.page-add-service .asv2-hero-btn.secondary {
+    color: #0f172a;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(15, 23, 42, 0.14);
+  }
+
+  body.page-add-service .asv2-hero-btn:hover {
+    transform: translateY(-1px);
+  }
+
+  body.page-add-service .asv2-panel {
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    border-radius: 22px;
+    padding: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  body.page-add-service .asv2-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  body.page-add-service .asv2-panel-head h2 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 900;
+  }
+
+  body.page-add-service .asv2-count {
+    min-width: 38px;
+    height: 30px;
+    border-radius: 999px;
+    padding: 0 12px;
+    border: 1px solid rgba(14, 116, 144, 0.32);
+    background: rgba(14, 116, 144, 0.1);
+    color: #0e7490;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 900;
+  }
+
+  body.page-add-service .asv2-action-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  body.page-add-service .asv2-action-card {
+    border-radius: 16px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    background: linear-gradient(160deg, #ffffff 0%, #f8fbff 100%);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 20px;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: inherit;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+
+  body.page-add-service .asv2-action-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(14, 116, 144, 0.28);
+    box-shadow: 0 14px 24px rgba(14, 116, 144, 0.14);
+  }
+
+  body.page-add-service .asv2-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+
+  body.page-add-service .asv2-icon.search {
+    background: linear-gradient(135deg, #2563eb 0%, #0ea5e9 100%);
+  }
+
+  body.page-add-service .asv2-icon.urgent {
+    background: linear-gradient(135deg, #f97316 0%, #ef4444 100%);
+  }
+
+  body.page-add-service .asv2-icon.quote {
+    background: linear-gradient(135deg, #0f766e 0%, #14b8a6 100%);
+  }
+
+  body.page-add-service .asv2-action-title {
+    margin: 0;
+    color: #0f172a;
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1.25;
+  }
+
+  body.page-add-service .asv2-action-copy {
+    min-width: 0;
+  }
+
+  body.page-add-service .asv2-action-sub {
+    margin: 2px 0 0;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  body.page-add-service .asv2-arrow {
+    color: rgba(15, 23, 42, 0.46);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.page-add-service .asv2-categories-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-item {
+    border-radius: 14px;
+    border: 1px solid rgba(15, 23, 42, 0.09);
+    background: linear-gradient(160deg, #ffffff 0%, #f7fbff 100%);
+    padding: 12px 10px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-item:hover {
+    transform: translateY(-2px);
+    border-color: rgba(37, 99, 235, 0.22);
+    box-shadow: 0 12px 20px rgba(37, 99, 235, 0.12);
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(37, 99, 235, 0.1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-name {
+    font-size: 12.5px;
+    font-weight: 900;
+    color: #0f172a;
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-meta {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  body.page-add-service .asv2-categories-grid .cat-link-hint {
+    margin-top: 2px;
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #0e7490;
+  }
+
+  body.page-add-service .asv2-categories-grid .skeleton-cat {
+    pointer-events: none;
+  }
+
+  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-icon,
+  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-name {
+    background: linear-gradient(90deg, #e8edf3 25%, #f4f7fb 50%, #e8edf3 75%);
+    background-size: 200% 100%;
+    animation: asv2-shimmer 1.2s linear infinite;
+  }
+
+  body.page-add-service .asv2-categories-grid .skeleton-cat .cat-name {
+    width: 70%;
+    height: 12px;
+    border-radius: 8px;
+    color: transparent;
+  }
+
+  body.page-add-service .add-service-cats-message {
+    grid-column: 1 / -1;
+    border: 1px dashed rgba(15, 23, 42, 0.16);
+    border-radius: 14px;
+    background: rgba(248, 250, 252, 0.9);
+    min-height: 110px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  @keyframes asv2-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  @media (min-width: 768px) {
+    body.page-add-service .page-content {
+      padding: 24px 20px 32px;
+    }
+
+    body.page-add-service .container.asv2-shell {
+      gap: 16px;
+    }
+
+    body.page-add-service .asv2-hero {
+      padding: 20px;
+    }
+
+    body.page-add-service .asv2-hero-main p {
+      font-size: 15px;
+    }
+
+    body.page-add-service .asv2-action-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    body.page-add-service .asv2-categories-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+  }
+
+  @media (min-width: 1100px) {
+    body.page-add-service .container.asv2-shell {
+      grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    body.page-add-service .asv2-hero {
+      grid-column: 1 / -1;
+      padding: 24px;
+    }
+
+    body.page-add-service .asv2-hero-main h1 {
+      font-size: clamp(38px, 3.2vw, 54px);
+    }
+
+    body.page-add-service .asv2-hero-quick {
+      grid-template-columns: repeat(6, minmax(0, max-content));
+      justify-content: start;
+    }
+
+    body.page-add-service .asv2-hero-quick span {
+      min-width: 136px;
+      min-height: 44px;
+      font-size: 12.5px;
+    }
+
+    body.page-add-service .asv2-panel {
+      padding: 16px;
+      border-radius: 24px;
+    }
+
+    body.page-add-service .asv2-action-grid {
+      grid-template-columns: 1fr;
+    }
+
+    body.page-add-service .asv2-categories-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
   @media (max-width: 1023px) {
     body.page-add-service #bottom-nav {
       display: flex !important;
@@ -21,124 +471,80 @@
 
 {% block content %}
 <main class="page-content">
-  <div class="container add-service-layout">
-    <section class="add-service-hero">
-      <div class="add-service-gradient-header">
-        <div class="add-service-hero-copy">
-          <div class="add-service-hero-head">
-            <span class="add-service-hero-kicker">ابدأ الآن</span>
-            <a href="/orders/" class="add-service-top-link" data-mode-orders-link="true">طلباتي</a>
-          </div>
-          <div class="add-service-title-wrap">
-            <h1 class="mw-page-title">إضافة خدمة</h1>
-            <p>اختر المسار المناسب لبدء طلبك خلال ثوانٍ.</p>
-          </div>
-          <h2>اختر الطريقة الأنسب للوصول إلى المزوّد المناسب</h2>
-          <p class="page-subtitle">ابدأ بالبحث المباشر، أو اطلب خدمة عاجلة، أو اجمع عروض أسعار متعددة ثم تابع الطلب بسهولة من صفحة طلباتي.</p>
-          <div class="add-service-hero-actions">
-            <a href="/request-quote/" class="add-service-hero-btn primary" data-auth-required="true">طلب عروض أسعار</a>
-            <a href="/search/" class="add-service-hero-btn ghost">تصفح المزودين</a>
-          </div>
-          <div class="add-service-hero-overview" aria-hidden="true">
-            <div class="add-service-overview-card">
-              <strong>بحث مباشر</strong>
-              <span>الوصول إلى المزوّد حسب التخصص</span>
-            </div>
-            <div class="add-service-overview-card">
-              <strong>طلب عاجل</strong>
-              <span>إشعار سريع للمزوّدين المؤهلين</span>
-            </div>
-            <div class="add-service-overview-card">
-              <strong>عروض أسعار</strong>
-              <span>مقارنة عدة عروض قبل الاختيار</span>
-            </div>
-          </div>
-        </div>
-        <div class="add-service-hero-art" aria-hidden="true">
-          <svg width="58" height="58" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-            <rect x="3.5" y="4.5" width="17" height="15" rx="3"></rect>
-            <path d="M8 10h8"></path>
-            <path d="M8 14h5"></path>
-            <path d="M17 2v5"></path>
-            <path d="M14.5 4.5H19.5"></path>
-          </svg>
-        </div>
+  <div class="container asv2-shell">
+    <section class="asv2-hero">
+      <div class="asv2-hero-top">
+        <span class="asv2-kicker">لوحة بدء الطلب</span>
+        <a href="/orders/" class="asv2-orders-link" data-mode-orders-link="true">طلباتي</a>
+      </div>
+      <div class="asv2-hero-main">
+        <h1>طلــب خدمة</h1>
+        <p>اختر مسارك وابدأ مباشرة</p>
+      </div>
+      <div class="asv2-hero-quick" aria-hidden="true">
+        <span>بحث مباشر</span>
+        <span>إشعار عاجل</span>
+        <span>عروض تنافسية</span>
+      </div>
+      <div class="asv2-hero-actions">
+        <a href="/search/" class="asv2-hero-btn secondary">تصفح المزودين</a>
+        <a href="/request-quote/" class="asv2-hero-btn primary" data-auth-required="true">طلب عروض أسعار</a>
       </div>
     </section>
 
-    <section class="add-service-actions-panel">
-      <div class="add-service-section-head">
-        <div>
-          <h3>خيارات الطلب</h3>
-          <p>اختر الطريقة التي تناسب احتياجك الحالي.</p>
-        </div>
+    <section class="asv2-panel">
+      <div class="asv2-panel-head">
+        <h2>مسارات الطلب</h2>
       </div>
 
-      <div class="service-actions-grid">
-      <!-- Search Provider -->
-      <a href="/search/" class="service-action-card">
-        <div class="sac-icon purple-bg">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#673AB7"><circle cx="11" cy="11" r="8" fill="none" stroke="#673AB7" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="#673AB7" stroke-width="2"/></svg>
-        </div>
-        <div class="sac-body">
-          <div class="sac-head">
-            <h3>البحث عن مزود خدمة</h3>
-            <span class="sac-badge">مباشر</span>
+      <div class="asv2-action-grid">
+        <a href="/search/" class="asv2-action-card">
+          <span class="asv2-icon search" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </span>
+          <div class="asv2-action-copy">
+            <h3 class="asv2-action-title">بحث مباشر</h3>
+            <small class="asv2-action-sub">فلترة حسب التخصص</small>
           </div>
-          <p>استعرض مزودي الخدمات حسب الموقع والتخصص</p>
-        </div>
-        <span class="sac-arrow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#bbb"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
-        </span>
-      </a>
+          <span class="asv2-arrow" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </span>
+        </a>
 
-      <!-- Urgent Request -->
-      <a href="/urgent-request/" class="service-action-card" data-auth-required="true">
-        <div class="sac-icon orange-bg">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#FF9800"><path d="M11 15h2v2h-2v-2zm0-8h2v6h-2V7zm1-5C6.47 2 2 6.5 2 12a10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2z"/></svg>
-        </div>
-        <div class="sac-body">
-          <div class="sac-head">
-            <h3>طلب خدمة عاجلة</h3>
-            <span class="sac-badge">أسرع تنفيذ</span>
+        <a href="/urgent-request/" class="asv2-action-card" data-auth-required="true">
+          <span class="asv2-icon urgent" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          </span>
+          <div class="asv2-action-copy">
+            <h3 class="asv2-action-title">طلب عاجل</h3>
+            <small class="asv2-action-sub">إشعار فوري للمؤهلين</small>
           </div>
-          <p>أرسل طلبًا عاجلًا وسيتم إشعار المزودين فورًا</p>
-        </div>
-        <span class="sac-arrow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#bbb"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
-        </span>
-      </a>
+          <span class="asv2-arrow" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </span>
+        </a>
 
-      <!-- Request Quote -->
-      <a href="/request-quote/" class="service-action-card" data-auth-required="true">
-        <div class="sac-icon teal-bg">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#009688"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-        </div>
-        <div class="sac-body">
-          <div class="sac-head">
-            <h3>طلب عروض أسعار</h3>
-            <span class="sac-badge">تنافسي</span>
+        <a href="/request-quote/" class="asv2-action-card" data-auth-required="true">
+          <span class="asv2-icon quote" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </span>
+          <div class="asv2-action-copy">
+            <h3 class="asv2-action-title">عروض أسعار</h3>
+            <small class="asv2-action-sub">قارن ثم اختر العرض</small>
           </div>
-          <p>صف خدمتك وانتظر عروضًا متعددة من المزودين</p>
-        </div>
-        <span class="sac-arrow">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="#bbb"><path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/></svg>
-        </span>
-      </a>
+          <span class="asv2-arrow" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+          </span>
+        </a>
       </div>
     </section>
 
-    <!-- Categories -->
-    <section class="section-block add-service-categories-panel">
-      <div class="add-service-section-head">
-        <div>
-          <h3 class="section-title">التصنيفات المتوفرة</h3>
-          <p>انقر على أي تصنيف لعرض المزوّدين المطابقين له فقط.</p>
-        </div>
-        <span class="add-service-count-pill" id="cats-count">0</span>
+    <section class="asv2-panel">
+      <div class="asv2-panel-head">
+        <h2>التصنيفات</h2>
+        <span class="asv2-count" id="cats-count">0</span>
       </div>
-      <p class="add-service-section-subtitle">اختر تصنيفًا مناسبًا لعرض مزودين متخصصين بسرعة.</p>
-      <div class="categories-grid" id="cats-grid">
+      <div class="categories-grid asv2-categories-grid" id="cats-grid">
         <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
         <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
         <div class="cat-item shimmer skeleton-cat"><div class="cat-icon"></div><div class="cat-name"></div></div>
@@ -150,5 +556,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/addServicePage.js' %}"></script>
+<script src="{% static 'mobile_web/js/addServicePage.js' %}?v=20260413-as-redesign-1"></script>
 {% endblock %}

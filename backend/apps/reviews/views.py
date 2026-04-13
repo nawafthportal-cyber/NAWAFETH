@@ -112,6 +112,7 @@ class ProviderReviewReplyView(APIView):
 					"provider_id": review.provider_id,
 					"reply_action": "edit" if is_edit else "create",
 				},
+				pref_key="service_reply",
 				audience_mode="client",
 			)
 
@@ -155,6 +156,7 @@ class ProviderReviewReplyView(APIView):
 					"provider_id": review.provider_id,
 					"reply_action": "delete",
 				},
+				pref_key="service_reply",
 				audience_mode="client",
 			)
 

@@ -77,23 +77,35 @@
       </section>
 
       <section id="pod-attachments-section" class="pod-card">
-        <h3 class="pod-section-title">مرفقات العميل</h3>
-        <p id="pod-attachments-empty" class="pod-muted">لا توجد مرفقات</p>
+        <div class="pod-section-head">
+          <h3 class="pod-section-title">المرفقات</h3>
+          <span class="pod-section-kicker">مرفقات العميل ومزود الخدمة</span>
+        </div>
+        <p id="pod-attachments-empty" class="pod-muted">لا توجد مرفقات لهذا الطلب حتى الآن.</p>
 
-        <div id="pod-final-attachments-wrap" style="display:none">
-          <h4 class="pod-subsection-title">مرفقات التسليم النهائي</h4>
-          <div id="pod-final-attachments"></div>
+        <div id="pod-final-attachments-wrap" class="pod-attachment-group" style="display:none">
+          <div class="pod-subsection-head">
+            <h4 id="pod-final-heading" class="pod-subsection-title">مرفقات مزود الخدمة</h4>
+            <span class="pod-count-pill" id="pod-final-count">0</span>
+          </div>
+          <div id="pod-final-attachments" class="pod-attachment-grid"></div>
         </div>
 
-        <div id="pod-regular-attachments-wrap" style="display:none">
-          <h4 id="pod-regular-heading" class="pod-subsection-title">مرفقات الطلب</h4>
-          <div id="pod-regular-attachments"></div>
+        <div id="pod-regular-attachments-wrap" class="pod-attachment-group" style="display:none">
+          <div class="pod-subsection-head">
+            <h4 id="pod-regular-heading" class="pod-subsection-title">مرفقات العميل</h4>
+            <span class="pod-count-pill" id="pod-regular-count">0</span>
+          </div>
+          <div id="pod-regular-attachments" class="pod-attachment-grid"></div>
         </div>
       </section>
 
       <section class="pod-card" id="pod-logs-section" style="display:none">
-        <h3 class="pod-section-title">سجل تغيير الحالة</h3>
-        <div id="pod-logs"></div>
+        <div class="pod-section-head">
+          <h3 class="pod-section-title">سجل التغييرات</h3>
+          <span class="pod-section-kicker">بتوقيت المنصة</span>
+        </div>
+        <div id="pod-logs" class="pod-timeline"></div>
       </section>
 
       <section id="pod-actions-section" class="pod-card">
@@ -111,5 +123,5 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/providerOrderDetailPage.js' %}?v=20260413-hotfix-2"></script>
 {% endblock %}

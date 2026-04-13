@@ -3,7 +3,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/notification_model.dart';
+import '../services/api_client.dart';
 import '../services/notification_service.dart';
 import '../services/account_mode_service.dart';
 import '../services/unread_badge_service.dart';
@@ -13,7 +15,11 @@ import 'client_order_details_screen.dart';
 import 'contact_screen.dart';
 import 'my_chats_screen.dart';
 import 'notification_settings_screen.dart';
+import 'plans_screen.dart';
+import 'provider_dashboard/promotion_screen.dart';
 import 'provider_dashboard/provider_order_details_screen.dart';
+import 'provider_profile_screen.dart';
+import 'verification_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -97,14 +103,39 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
   }
 
-  Widget? _destinationForNotification(NotificationModel notification) {
-    final rawUrl = (notification.url ?? '').trim();
-    if (rawUrl.isEmpty) return null;
+  String _normalizePath(String rawPath) {
+    final trimmed = rawPath.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed.startsWith('/') ? trimmed : '/$trimmed';
+  }
 
-    final uri = Uri.tryParse(rawUrl);
-    final path = (uri?.path ?? rawUrl).trim();
-    final normalizedPath = path.toLowerCase();
+  Uri? _tryParseNotificationUri(String rawUrl) {
+    final raw = rawUrl.trim();
+    if (raw.isEmpty) return null;
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null) {
+      return parsed;
+    }
+    if (raw.startsWith('/')) {
+      return Uri.tryParse('https://local.invalid$raw');
+    }
+    return Uri.tryParse('https://local.invalid/$raw');
+  }
 
+  bool _isPromoPreviewLink(
+      {required String normalizedPath, required Uri? uri}) {
+    if (normalizedPath != '/notifications' &&
+        normalizedPath != '/notifications/') {
+      return false;
+    }
+    return (uri?.queryParameters['promo_item_id'] ?? '').trim().isNotEmpty;
+  }
+
+  Widget? _destinationForNotification({
+    required String path,
+    required String normalizedPath,
+    required Uri? uri,
+  }) {
     if (normalizedPath == '/contact' || normalizedPath == '/contact/') {
       final ticketId =
           int.tryParse((uri?.queryParameters['ticket'] ?? '').trim());
@@ -148,7 +179,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     final threadMatch =
-        RegExp(r'^/threads/(\d+)(?:/chat)?/?$', caseSensitive: false)
+        RegExp(r'^/(?:threads|chat)/(\d+)(?:/chat)?/?$', caseSensitive: false)
             .firstMatch(path);
     if (threadMatch != null) {
       final threadId = int.tryParse(threadMatch.group(1) ?? '');
@@ -160,29 +191,194 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     }
 
+    if (normalizedPath == '/plans' || normalizedPath == '/plans/') {
+      return const PlansScreen();
+    }
+
+    if (normalizedPath == '/verification' ||
+        normalizedPath == '/verification/') {
+      return const VerificationScreen();
+    }
+
+    if (normalizedPath == '/promotion' || normalizedPath == '/promotion/') {
+      return const PromotionScreen();
+    }
+
+    final providerProfileMatch =
+        RegExp(r'^/provider/(\d+)/?$', caseSensitive: false).firstMatch(path);
+    if (providerProfileMatch != null) {
+      final providerId = int.tryParse(providerProfileMatch.group(1) ?? '');
+      if (providerId != null) {
+        return ProviderProfileScreen(providerId: providerId.toString());
+      }
+    }
+
     return null;
   }
 
-  Future<void> _openNotification(NotificationModel notification) async {
-    final destination = _destinationForNotification(notification);
-    if (destination == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'لا يوجد مسار متاح لهذا الإشعار حاليًا',
-            style: TextStyle(fontFamily: 'Cairo'),
+  Uri? _resolveExternalUri(String rawUrl) {
+    final raw = rawUrl.trim();
+    if (raw.isEmpty) return null;
+
+    final parsed = Uri.tryParse(raw);
+    if (parsed != null &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https')) {
+      return parsed;
+    }
+
+    try {
+      final base = Uri.parse(ApiClient.baseUrl);
+      final relative = raw.startsWith('/') ? raw : '/$raw';
+      return base.resolve(relative);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> _openExternalUri(Uri uri) async {
+    try {
+      return await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _showPromoPreview(NotificationModel notification) async {
+    final payload =
+        await NotificationService.fetchPromoPreview(notification.id);
+    if (!mounted || payload == null) {
+      return false;
+    }
+
+    final title = (payload['title'] as String? ?? notification.title).trim();
+    final body = (payload['body'] as String? ?? notification.body).trim();
+    final attachments = (payload['attachments'] as List? ?? [])
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(
+          title.isEmpty ? 'رسالة دعائية' : title,
+          style:
+              const TextStyle(fontFamily: 'Cairo', fontWeight: FontWeight.bold),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (body.isNotEmpty)
+                  Text(
+                    body,
+                    style: const TextStyle(fontFamily: 'Cairo', fontSize: 14),
+                  ),
+                if (attachments.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text(
+                    'المرفقات',
+                    style: TextStyle(
+                      fontFamily: 'Cairo',
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  for (final attachment in attachments)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      leading: const Icon(Icons.attachment_outlined),
+                      title: Text(
+                        (attachment['title'] as String?)?.trim().isNotEmpty ==
+                                true
+                            ? (attachment['title'] as String).trim()
+                            : ((attachment['file_name'] as String?) ?? 'مرفق'),
+                        style:
+                            const TextStyle(fontFamily: 'Cairo', fontSize: 13),
+                      ),
+                      subtitle: Text(
+                        (attachment['asset_type'] as String? ?? '').trim(),
+                        style:
+                            const TextStyle(fontFamily: 'Cairo', fontSize: 11),
+                      ),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        onPressed: () async {
+                          final fileUrl =
+                              (attachment['file_url'] as String? ?? '').trim();
+                          final fileUri = _resolveExternalUri(fileUrl);
+                          if (fileUri == null) return;
+                          await _openExternalUri(fileUri);
+                        },
+                      ),
+                    ),
+                ],
+              ],
+            ),
           ),
         ),
-      );
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('إغلاق', style: TextStyle(fontFamily: 'Cairo')),
+          ),
+        ],
+      ),
+    );
+    return true;
+  }
+
+  Future<void> _openNotification(NotificationModel notification) async {
+    final rawUrl = (notification.url ?? '').trim();
+    if (rawUrl.isEmpty) {
       return;
     }
 
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => destination),
+    final uri = _tryParseNotificationUri(rawUrl);
+    final path = _normalizePath((uri?.path ?? rawUrl).trim());
+    final normalizedPath = path.toLowerCase();
+
+    if (_isPromoPreviewLink(normalizedPath: normalizedPath, uri: uri)) {
+      final opened = await _showPromoPreview(notification);
+      if (opened) {
+        await UnreadBadgeService.refresh(force: true);
+        return;
+      }
+    }
+
+    final destination = _destinationForNotification(
+      path: path,
+      normalizedPath: normalizedPath,
+      uri: uri,
     );
-    await UnreadBadgeService.refresh(force: true);
+    if (destination != null) {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => destination),
+      );
+      await UnreadBadgeService.refresh(force: true);
+      return;
+    }
+
+    final externalUri = _resolveExternalUri(rawUrl);
+    if (externalUri != null && await _openExternalUri(externalUri)) {
+      await UnreadBadgeService.refresh(force: true);
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'لا يوجد مسار متاح لهذا الإشعار حاليًا',
+          style: TextStyle(fontFamily: 'Cairo'),
+        ),
+      ),
+    );
   }
 
   Future<void> _loadNotifications() async {
@@ -648,28 +844,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           Expanded(
                             child: RefreshIndicator(
-                        onRefresh: _loadNotifications,
-                        color: Colors.deepPurple,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.all(16),
-                          itemCount:
-                              _notifications.length + (_isLoadingMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == _notifications.length) {
-                              return const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.deepPurple),
-                                ),
-                              );
-                            }
-                            return _notificationCard(
-                                _notifications[index], index);
-                          },
-                        ),
-                      ),
+                              onRefresh: _loadNotifications,
+                              color: Colors.deepPurple,
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.all(16),
+                                itemCount: _notifications.length +
+                                    (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index == _notifications.length) {
+                                    return const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.deepPurple),
+                                      ),
+                                    );
+                                  }
+                                  return _notificationCard(
+                                      _notifications[index], index);
+                                },
+                              ),
+                            ),
                           ),
                         ],
                       ),

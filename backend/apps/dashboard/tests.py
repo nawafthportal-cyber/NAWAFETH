@@ -129,7 +129,7 @@ class AdminControlAccessProfileSaveTests(TestCase):
         session[SESSION_OTP_VERIFIED_KEY] = True
         session.save()
 
-    def test_save_user_persists_selected_permissions_subset_for_user_level(self):
+    def test_save_user_grants_dashboard_permissions_for_user_level(self):
         response = self.client.post(
             reverse("dashboard:admin_control_home"),
             {
@@ -151,10 +151,10 @@ class AdminControlAccessProfileSaveTests(TestCase):
             list(created_profile.allowed_dashboards.values_list("code", flat=True)),
             ["support"],
         )
-        self.assertEqual(
-            list(created_profile.granted_permissions.values_list("code", flat=True)),
-            ["support.view"],
-        )
+        granted_codes = list(created_profile.granted_permissions.values_list("code", flat=True))
+        self.assertGreaterEqual(len(granted_codes), 1)
+        self.assertTrue(all(code.startswith("support.") for code in granted_codes))
+        self.assertNotIn("promo.manage", granted_codes)
 
     def test_save_user_rejects_permission_outside_selected_dashboard(self):
         response = self.client.post(
@@ -885,7 +885,7 @@ class ExtrasDashboardTests(TestCase):
         self.assertContains(detail_response, f"تفاصيل الاشتراك: {bundle_request.code}")
         self.assertContains(detail_response, "مؤشرات المنصة")
         self.assertContains(detail_response, "تمت عملية السداد بنجاح")
-        self.assertContains(detail_response, "إجراءات التجديد والحذف ستُربط")
+        self.assertContains(detail_response, "التجديد والحذف لكل خدمة")
 
     def test_extras_dashboard_uses_client_package_for_priority_number_and_color(self):
         response = self.client.get(reverse("dashboard:extras_dashboard"))
@@ -1140,7 +1140,7 @@ class ExtrasDashboardTests(TestCase):
         self.assertTrue(
             Message.objects.filter(
                 thread=requester_thread,
-                body__icontains="رابط الدفع المباشر",
+                body__icontains="للدفع اضغط على الرابط التالي",
             ).filter(body__icontains=bundle_request.code).exists()
         )
 
@@ -1150,7 +1150,7 @@ class ExtrasDashboardTests(TestCase):
         self.assertTrue(
             Message.objects.filter(
                 thread=specialist_thread,
-                body__icontains="رابط الدفع المباشر",
+                body__icontains="للدفع اضغط على الرابط التالي",
             ).filter(body__icontains=bundle_request.code).exists()
         )
 
@@ -1309,6 +1309,69 @@ class ExtrasDashboardTests(TestCase):
             .filter(body__icontains=bundle_request.code)
             .exists()
         )
+
+    def test_extras_dashboard_close_bundle_request_activates_specialist_provider_when_request_owner_differs(self):
+        bundle_request = self._create_bundle_request(
+            requester_user=self.request_owner,
+            specialist_user=self.requester,
+        )
+
+        self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "issue_extras_invoice",
+                "request_id": str(bundle_request.id),
+                "redirect_query": f"section=overview&request={bundle_request.id}",
+                "status": "in_progress",
+                "assigned_to": str(self.staff_user.id),
+                "operator_comment": "إصدار فاتورة الطلب.",
+                "invoice_line_title[]": ["تقارير إحصائية", "إدارة عملاء"],
+                "invoice_line_amount[]": ["500.00", "300.00"],
+            },
+        )
+
+        bundle_request = self._reload_request_with_metadata(bundle_request)
+        invoice = Invoice.objects.get(id=bundle_request.metadata_record.payload.get("invoice_id"))
+        invoice.mark_payment_confirmed(
+            provider="mock",
+            provider_reference=f"extras-bundle-{invoice.id}",
+            event_id=f"extras-bundle-paid-{invoice.id}",
+            amount=invoice.total,
+            currency=invoice.currency,
+        )
+        invoice.save(
+            update_fields=[
+                "status",
+                "paid_at",
+                "cancelled_at",
+                "payment_confirmed",
+                "payment_confirmed_at",
+                "payment_provider",
+                "payment_reference",
+                "payment_event_id",
+                "payment_amount",
+                "payment_currency",
+                "updated_at",
+            ]
+        )
+
+        response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "save_extras_request",
+                "request_id": str(bundle_request.id),
+                "redirect_query": f"section=overview&request={bundle_request.id}",
+                "status": "closed",
+                "assigned_to": str(self.staff_user.id),
+                "operator_comment": "تم اكتمال التفعيل.",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        portal_subscription = ExtrasPortalSubscription.objects.filter(provider=self.requester_provider_profile).first()
+        self.assertIsNotNone(portal_subscription)
+        self.assertEqual(portal_subscription.status, ExtrasPortalSubscriptionStatus.ACTIVE)
+
 
 
 @override_settings(

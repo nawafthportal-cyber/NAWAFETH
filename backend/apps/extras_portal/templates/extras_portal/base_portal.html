@@ -72,11 +72,11 @@
           <div class="text-xs font-bold text-slate-500">الحساب الحالي</div>
           <div class="mt-2 text-lg font-extrabold text-slate-900">{{ provider.display_name|default:request.user.username }}</div>
           <div class="mt-1 text-sm text-slate-500" dir="ltr">{{ request.user.phone|default:request.user.username }}</div>
-          {% if portal_bundle_context.request_obj %}
+          {% if portal_current_request_obj %}
             <div class="mt-4 grid gap-3">
               <div class="rounded-2xl bg-slate-50 px-4 py-3">
                 <div class="text-xs font-bold text-slate-500">رقم الطلب</div>
-                <div class="mt-1 text-sm font-extrabold text-slate-900">{{ portal_bundle_context.request_obj.code }}</div>
+                <div class="mt-1 text-sm font-extrabold text-slate-900">{{ portal_current_request_obj.code }}</div>
               </div>
               <div class="rounded-2xl bg-slate-50 px-4 py-3">
                 <div class="text-xs font-bold text-slate-500">الأقسام المفعلة</div>
@@ -119,8 +119,8 @@
             <div>
               <div class="flex flex-wrap items-center gap-2">
                 <span class="portal-pill inline-flex rounded-full px-3 py-1 text-xs font-bold">بوابة مستقلة</span>
-                {% if portal_bundle_context.request_obj %}
-                  <span class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{{ portal_bundle_context.request_obj.code }}</span>
+                {% if portal_current_request_obj %}
+                  <span class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{{ portal_current_request_obj.code }}</span>
                 {% endif %}
               </div>
               <h1 class="mt-3 text-2xl font-extrabold text-slate-900 sm:text-3xl">{% block header %}بوابة الخدمات الإضافية{% endblock %}</h1>

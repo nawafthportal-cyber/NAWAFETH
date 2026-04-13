@@ -5,7 +5,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.marketplace.models import RequestStatus, RequestStatusLog, ServiceRequest
+from apps.marketplace.models import RequestStatus, RequestStatusLog, RequestType, ServiceRequest
 from apps.providers.models import ProviderProfile
 
 logger = logging.getLogger(__name__)
@@ -16,6 +16,16 @@ class ActionResult:
     ok: bool
     message: str
     new_status: str | None = None
+
+
+def _log_request_status_change(*, sr: ServiceRequest, actor, from_status: str, note: str) -> None:
+    RequestStatusLog.objects.create(
+        request=sr,
+        actor=actor,
+        from_status=from_status,
+        to_status=sr.status,
+        note=(note or "")[:255],
+    )
 
 
 def _role_flags(user, sr: ServiceRequest):
@@ -42,7 +52,7 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
     if is_client:
         if sr.status == RequestStatus.NEW:
             acts.append("send")
-            if sr.provider_id is None:
+            if sr.provider_id is None or sr.request_type == RequestType.URGENT:
                 acts.append("cancel")
             has_provider_inputs = any(
                 [
@@ -57,22 +67,21 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
             acts.append("reopen")
         return acts
 
-    # Provider (even if not assigned yet) may accept when NEW.
+    # Legacy HTML pages only expose a safe subset of provider actions.
+    # Full provider lifecycle now flows through dedicated API endpoints that
+    # validate request-type specific constraints and required payloads.
     if sr.status == RequestStatus.NEW:
         user_id = getattr(user, "id", None)
         if user_id:
             if has_provider_profile is None:
                 has_provider_profile = ProviderProfile.objects.filter(user_id=user_id).exists()
             if has_provider_profile:
-                acts.append("accept")
+                if sr.provider_id is None and sr.request_type == RequestType.URGENT:
+                    acts.append("accept")
+                elif is_provider and sr.request_type != RequestType.COMPETITIVE:
+                    acts.append("accept")
 
-    # Assigned provider actions
     if is_provider:
-        if sr.status == RequestStatus.NEW:
-            acts.append("start")
-        elif sr.status == RequestStatus.IN_PROGRESS:
-            acts.append("complete")
-            acts.append("cancel")
         return acts
 
     return acts
@@ -85,6 +94,7 @@ def execute_action(
     request_id: int,
     action: str,
     provider_profile: ProviderProfile | None = None,
+    note: str = "",
 ) -> ActionResult:
     sr = (
         ServiceRequest.objects.select_for_update()
@@ -108,54 +118,102 @@ def execute_action(
     if action == "cancel":
         if not (is_staff or is_provider or is_client):
             raise PermissionDenied("غير مصرح")
+        old = sr.status
+        cleaned_note = str(note or "").strip()
         if is_client and not is_staff:
-            if sr.provider_id is not None:
+            urgent_pending_with_provider = bool(
+                sr.request_type == RequestType.URGENT
+                and sr.status == RequestStatus.NEW
+                and sr.provider_id is not None
+            )
+            if sr.provider_id is not None and not urgent_pending_with_provider:
                 raise PermissionDenied("لا يمكن إلغاء الطلب بعد قبول مزود الخدمة")
             sr.cancel(allowed_statuses=[RequestStatus.NEW])
+            if cleaned_note:
+                note = cleaned_note
+            elif urgent_pending_with_provider:
+                note = "إلغاء الطلب العاجل من العميل بعد قبول مزود الخدمة"
+            else:
+                note = "إلغاء الطلب من العميل"
         else:
             sr.cancel(allowed_statuses=[RequestStatus.NEW, RequestStatus.IN_PROGRESS])
+            if is_staff:
+                note = cleaned_note or "إلغاء الطلب من فريق الإدارة"
+            elif is_provider:
+                note = cleaned_note or "إلغاء الطلب من مزود الخدمة"
+            else:
+                note = cleaned_note or "إلغاء الطلب"
+        _log_request_status_change(sr=sr, actor=user, from_status=old, note=note)
         return ActionResult(True, "تم إلغاء الطلب", sr.status)
 
     # accept
     if action == "accept":
         if sr.status != RequestStatus.NEW:
             raise ValidationError("لا يمكن قبول الطلب الآن")
+        old = sr.status
 
         if is_staff:
             if not provider_profile:
                 raise ValidationError("اختر مزودًا لقبول الطلب")
             sr.accept(provider_profile)
+            _log_request_status_change(
+                sr=sr,
+                actor=user,
+                from_status=old,
+                note="قبول الطلب وإسناده لمزود الخدمة",
+            )
             return ActionResult(True, "تم بدء التنفيذ وإسناده", sr.status)
 
         if not provider_profile:
             raise ValidationError("لا يوجد ملف مزود مرتبط بهذا الحساب")
 
         sr.accept(provider_profile)
+        _log_request_status_change(
+            sr=sr,
+            actor=user,
+            from_status=old,
+            note="قبول الطلب وبدء التنفيذ من مزود الخدمة",
+        )
         return ActionResult(True, "تم بدء التنفيذ", sr.status)
 
     # start
     if action == "start":
         if not (is_staff or is_provider):
             raise PermissionDenied("غير مصرح")
+        old = sr.status
         sr.start()
+        _log_request_status_change(
+            sr=sr,
+            actor=user,
+            from_status=old,
+            note="بدء التنفيذ",
+        )
         return ActionResult(True, "تم بدء التنفيذ", sr.status)
 
     # complete
     if action == "complete":
         if not (is_staff or is_provider):
             raise PermissionDenied("غير مصرح")
+        old = sr.status
         sr.complete()
+        _log_request_status_change(
+            sr=sr,
+            actor=user,
+            from_status=old,
+            note="تم إكمال الطلب. يرجى مراجعة الطلب وتقييم الخدمة.",
+        )
         return ActionResult(True, "تم إكمال الطلب", sr.status)
 
     # reopen — client + staff only, CANCELLED → NEW
     if action == "reopen":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
+        old = sr.status
         sr.reopen()
         RequestStatusLog.objects.create(
             request=sr,
             actor=user,
-            from_status=RequestStatus.CANCELLED,
+            from_status=old,
             to_status=RequestStatus.NEW,
             note="إعادة فتح الطلب",
         )

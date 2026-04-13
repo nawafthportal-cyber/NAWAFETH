@@ -51,6 +51,40 @@
 
       <aside class="space-y-4">
         <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
+          <div class="text-sm font-bold text-slate-500">تفاصيل التفعيل الحالي</div>
+          <div class="mt-4 grid gap-3">
+            <div class="rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">رقم طلب التفعيل</div>
+              <div class="mt-2 text-lg font-extrabold text-slate-900">{{ portal_current_request_obj.code|default:'-' }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">مدة التفعيل</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ finance_subscription_years }} سنة</div>
+              </div>
+              <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">الحساب المطلوب</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ requested_account_name|default:'غير محدد' }}</div>
+              </div>
+            </div>
+            <div class="rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">IBAN المطلوب في الطلب</div>
+              <div class="mt-2 break-all text-sm font-extrabold text-slate-900">{{ requested_iban|default:'غير محدد' }}</div>
+            </div>
+            <div class="rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">البنود المفعلة في هذا القسم</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for label in finance_option_labels %}
+                  <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{{ label }}</span>
+                {% empty %}
+                  <span class="text-sm font-bold text-slate-500">لا توجد بنود ظاهرة.</span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
           <div class="text-sm font-bold text-slate-500">ملخص التحصيل</div>
           <div class="mt-4 grid gap-3">
             <div class="rounded-2xl bg-slate-50 px-4 py-4">
@@ -73,10 +107,16 @@
         <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
           <div class="text-sm font-bold text-slate-500">تصدير الفترة الحالية</div>
           <div class="mt-1 text-base font-extrabold text-slate-900">ملفات كشف الحساب</div>
-          <div class="mt-4 grid grid-cols-2 gap-3">
-            <a href="{% url 'extras_portal:finance_export_pdf' %}" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">PDF</a>
-            <a href="{% url 'extras_portal:finance_export_xlsx' %}" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50">Excel</a>
-          </div>
+          {% if supports_finance_export %}
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <a href="{% url 'extras_portal:finance_export_pdf' %}" class="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800">PDF</a>
+              <a href="{% url 'extras_portal:finance_export_xlsx' %}" class="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50">Excel</a>
+            </div>
+          {% else %}
+            <div class="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-bold leading-7 text-amber-800">
+              التصدير غير مفعّل في الطلب الحالي. سيظهر هنا تلقائيًا إذا تم اعتماد بند «تصدير البيانات المالية» ضمن اشتراك الإدارة المالية.
+            </div>
+          {% endif %}
         </div>
       </aside>
     </div>
@@ -124,60 +164,66 @@
         <div class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{{ form.non_field_errors.0 }}</div>
       {% endif %}
 
-      <form method="post" enctype="multipart/form-data" class="mt-5 space-y-4">
-        {% csrf_token %}
-        <div>
-          <label class="mb-2 block text-sm font-bold text-slate-700">اسم البنك</label>
-          <input name="bank_name" value="{{ form.bank_name.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-          {% if form.bank_name.errors %}
-            <div class="mt-2 text-sm font-bold text-rose-600">{{ form.bank_name.errors.0 }}</div>
-          {% endif %}
+      {% if supports_bank_qr_registration %}
+        <form method="post" enctype="multipart/form-data" class="mt-5 space-y-4">
+          {% csrf_token %}
+          <div>
+            <label class="mb-2 block text-sm font-bold text-slate-700">اسم البنك</label>
+            <input name="bank_name" value="{{ form.bank_name.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            {% if form.bank_name.errors %}
+              <div class="mt-2 text-sm font-bold text-rose-600">{{ form.bank_name.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-bold text-slate-700">اسم الحساب</label>
+            <input name="account_name" value="{{ form.account_name.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
+            {% if form.account_name.errors %}
+              <div class="mt-2 text-sm font-bold text-rose-600">{{ form.account_name.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-bold text-slate-700">IBAN</label>
+            <input name="iban" value="{{ form.iban.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100" placeholder="SA..">
+            {% if form.iban.errors %}
+              <div class="mt-2 text-sm font-bold text-rose-600">{{ form.iban.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <div>
+            <label class="mb-2 block text-sm font-bold text-slate-700">رمز QR</label>
+            <input type="file" name="qr_image" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white">
+            {% if form.qr_image.errors %}
+              <div class="mt-2 text-sm font-bold text-rose-600">{{ form.qr_image.errors.0 }}</div>
+            {% endif %}
+          </div>
+          <button class="inline-flex w-full items-center justify-center rounded-[20px] bg-sky-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-sky-700">حفظ البيانات المالية</button>
+        </form>
+      {% else %}
+        <div class="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-5 text-sm font-bold leading-7 text-amber-800">
+          بند «خدمة تسجيل الحساب البنكي للمختص (QR)» غير مفعّل في الطلب الحالي، لذلك تعرض الصفحة البيانات المطلوبة في الطلب فقط دون تمكين تعديل إعدادات QR من هذه الشاشة.
         </div>
-        <div>
-          <label class="mb-2 block text-sm font-bold text-slate-700">اسم الحساب</label>
-          <input name="account_name" value="{{ form.account_name.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100">
-          {% if form.account_name.errors %}
-            <div class="mt-2 text-sm font-bold text-rose-600">{{ form.account_name.errors.0 }}</div>
-          {% endif %}
-        </div>
-        <div>
-          <label class="mb-2 block text-sm font-bold text-slate-700">IBAN</label>
-          <input name="iban" value="{{ form.iban.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-100" placeholder="SA..">
-          {% if form.iban.errors %}
-            <div class="mt-2 text-sm font-bold text-rose-600">{{ form.iban.errors.0 }}</div>
-          {% endif %}
-        </div>
-        <div>
-          <label class="mb-2 block text-sm font-bold text-slate-700">رمز QR</label>
-          <input type="file" name="qr_image" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white">
-          {% if form.qr_image.errors %}
-            <div class="mt-2 text-sm font-bold text-rose-600">{{ form.qr_image.errors.0 }}</div>
-          {% endif %}
-        </div>
-        <button class="inline-flex w-full items-center justify-center rounded-[20px] bg-sky-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-sky-700">حفظ البيانات المالية</button>
-      </form>
+      {% endif %}
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2">
         <div class="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
           <div class="text-xs font-bold text-slate-500">اسم البنك الحالي</div>
-          <div class="mt-2 text-sm font-extrabold text-slate-900">{{ finance_settings.bank_name|default:'غير محدد' }}</div>
+          <div class="mt-2 text-sm font-extrabold text-slate-900">{{ finance_display_values.bank_name|default:'غير محدد' }}</div>
         </div>
         <div class="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
           <div class="text-xs font-bold text-slate-500">اسم الحساب الحالي</div>
-          <div class="mt-2 text-sm font-extrabold text-slate-900">{{ finance_settings.account_name|default:'غير محدد' }}</div>
+          <div class="mt-2 text-sm font-extrabold text-slate-900">{{ finance_display_values.account_name|default:'غير محدد' }}</div>
         </div>
       </div>
 
       <div class="mt-3 rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-4">
         <div class="text-xs font-bold text-slate-500">IBAN الحالي</div>
-        <div class="mt-2 break-all text-sm font-extrabold text-slate-900">{{ finance_settings.iban|default:'غير محدد' }}</div>
+        <div class="mt-2 break-all text-sm font-extrabold text-slate-900">{{ finance_display_values.iban|default:'غير محدد' }}</div>
       </div>
 
-      {% if finance_settings and finance_settings.qr_image %}
+      {% if finance_display_values.qr_image %}
         <div class="mt-5 rounded-[26px] border border-slate-200 bg-slate-50 p-4">
           <div class="text-sm font-bold text-slate-700">رمز QR الحالي</div>
           <div class="mt-4 flex justify-center rounded-[24px] bg-white p-4">
-            <img src="{{ finance_settings.qr_image.url }}" class="h-44 w-44 object-contain" alt="QR">
+            <img src="{{ finance_display_values.qr_image.url }}" class="h-44 w-44 object-contain" alt="QR">
           </div>
         </div>
       {% endif %}
@@ -192,38 +238,44 @@
         <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">{{ finance_summary.statement_count }} سجل</div>
       </div>
 
-      <div class="mt-5 overflow-x-auto">
-        <table class="min-w-full overflow-hidden rounded-[24px] border border-slate-200 text-sm">
-          <thead class="bg-slate-50 text-slate-600">
-            <tr>
-              <th class="px-4 py-4 text-right font-bold">رقم الطلب</th>
-              <th class="px-4 py-4 text-right font-bold">العميل</th>
-              <th class="px-4 py-4 text-right font-bold">الحالة</th>
-              <th class="px-4 py-4 text-right font-bold">تاريخ الإنشاء</th>
-              <th class="px-4 py-4 text-right font-bold">المستلم</th>
-              <th class="px-4 py-4 text-right font-bold">المتبقي</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in statement %}
-              <tr class="statement-row border-t border-slate-200 align-top">
-                <td class="px-4 py-4 font-extrabold text-slate-900"><a href="{% url 'extras_portal:invoice_detail' r.id %}" class="text-sky-600 transition hover:text-sky-700 hover:underline">#{{ r.id }}</a></td>
-                <td class="px-4 py-4 text-slate-600">{{ r.client.phone|default:'—' }}</td>
-                <td class="px-4 py-4">
-                  <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {% if r.status == 'completed' %}bg-emerald-100 text-emerald-700{% elif r.status == 'canceled' %}bg-rose-100 text-rose-700{% elif r.status == 'in_progress' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ r.get_status_display }}</span>
-                </td>
-                <td class="px-4 py-4 text-slate-600">{{ r.created_at|date:'Y-m-d H:i' }}</td>
-                <td class="px-4 py-4 font-bold text-emerald-700">{{ r.received_amount|default:0|floatformat:2 }}</td>
-                <td class="px-4 py-4 font-bold text-amber-700">{{ r.remaining_amount|default:0|floatformat:2 }}</td>
-              </tr>
-            {% empty %}
+      {% if supports_financial_statement %}
+        <div class="mt-5 overflow-x-auto">
+          <table class="min-w-full overflow-hidden rounded-[24px] border border-slate-200 text-sm">
+            <thead class="bg-slate-50 text-slate-600">
               <tr>
-                <td colspan="6" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا توجد بيانات مالية ضمن الفترة الحالية.</td>
+                <th class="px-4 py-4 text-right font-bold">رقم الطلب</th>
+                <th class="px-4 py-4 text-right font-bold">العميل</th>
+                <th class="px-4 py-4 text-right font-bold">الحالة</th>
+                <th class="px-4 py-4 text-right font-bold">تاريخ الإنشاء</th>
+                <th class="px-4 py-4 text-right font-bold">المستلم</th>
+                <th class="px-4 py-4 text-right font-bold">المتبقي</th>
               </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {% for r in statement %}
+                <tr class="statement-row border-t border-slate-200 align-top">
+                  <td class="px-4 py-4 font-extrabold text-slate-900"><a href="{% url 'extras_portal:invoice_detail' r.id %}" class="text-sky-600 transition hover:text-sky-700 hover:underline">#{{ r.id }}</a></td>
+                  <td class="px-4 py-4 text-slate-600">{{ r.client.phone|default:'—' }}</td>
+                  <td class="px-4 py-4">
+                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {% if r.status == 'completed' %}bg-emerald-100 text-emerald-700{% elif r.status == 'canceled' %}bg-rose-100 text-rose-700{% elif r.status == 'in_progress' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ r.get_status_display }}</span>
+                  </td>
+                  <td class="px-4 py-4 text-slate-600">{{ r.created_at|date:'Y-m-d H:i' }}</td>
+                  <td class="px-4 py-4 font-bold text-emerald-700">{{ r.received_amount|default:0|floatformat:2 }}</td>
+                  <td class="px-4 py-4 font-bold text-amber-700">{{ r.remaining_amount|default:0|floatformat:2 }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="6" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا توجد بيانات مالية ضمن الفترة الحالية.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-5 text-sm font-bold leading-7 text-amber-800">
+          بند «كشف حساب شامل» غير مفعّل في الطلب الحالي، لذلك لن تظهر سجلات كشف الحساب التفصيلية في هذه الصفحة حتى يتم اعتماد هذا البند ضمن اشتراك الإدارة المالية.
+        </div>
+      {% endif %}
     </section>
   </div>
 {% endblock %}

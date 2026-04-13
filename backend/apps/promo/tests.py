@@ -1272,7 +1272,7 @@ class InlinePromoSchedulerMiddlewareTests(PromoMessageEndToEndTests):
         item.save(update_fields=["send_at", "updated_at"])
 
         middleware = InlinePromoSchedulerMiddleware(lambda request: HttpResponse("ok"))
-        response = middleware(RequestFactory().get("/promotion/"))
+        response = middleware(RequestFactory().get("/api/promo/requests/my/"))
 
         self.assertEqual(response.status_code, 200)
         item.refresh_from_db()

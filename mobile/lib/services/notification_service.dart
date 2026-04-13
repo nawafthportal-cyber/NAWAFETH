@@ -195,6 +195,17 @@ class NotificationService {
       return DeleteOldResult(success: false, deleted: 0, retentionDays: 90);
     }
   }
+
+  // ─── 12. معاينة إشعار دعائي ───
+  static Future<Map<String, dynamic>?> fetchPromoPreview(int notifId) async {
+    try {
+      final res = await ApiClient.get('$_base/promo-preview/$notifId/');
+      if (!res.isSuccess) return null;
+      return res.dataAsMap;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 // ─── أنواع مساعدة ───

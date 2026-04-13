@@ -51,6 +51,36 @@
 
       <aside class="space-y-4">
         <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
+          <div class="text-sm font-bold text-slate-500">تفاصيل التفعيل الحالي</div>
+          <div class="mt-4 grid gap-3">
+            <div class="rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">رقم طلب التفعيل</div>
+              <div class="mt-2 text-lg font-extrabold text-slate-900">{{ portal_current_request_obj.code|default:'-' }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">مدة التفعيل</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ clients_subscription_years }} سنة</div>
+              </div>
+              <div class="rounded-2xl bg-slate-50 px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">حد الرسائل</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ bulk_message_limit }} رسالة</div>
+              </div>
+            </div>
+            <div class="rounded-2xl bg-slate-50 px-4 py-4">
+              <div class="text-xs font-bold text-slate-500">البنود المفعلة في هذا القسم</div>
+              <div class="mt-3 flex flex-wrap gap-2">
+                {% for label in clients_option_labels %}
+                  <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{{ label }}</span>
+                {% empty %}
+                  <span class="text-sm font-bold text-slate-500">لا توجد بنود ظاهرة.</span>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
           <div class="text-sm font-bold text-slate-500">ملخص الرسائل</div>
           <div class="mt-4 grid gap-3">
             <div class="rounded-2xl bg-slate-50 px-4 py-4">
@@ -191,38 +221,44 @@
           <p class="mt-2 text-sm leading-7 text-slate-600">استخدم هذه المساحة للتذكير أو الحملات الترويجية أو الرسائل التشغيلية، مع إمكانية الجدولة لوقت لاحق.</p>
         </div>
 
-        <div class="mt-5 space-y-4">
-          <div>
-            <label class="mb-2 block text-sm font-bold text-slate-700">نص الرسالة</label>
-            <textarea name="body" rows="6" class="w-full rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="اكتب الرسالة التي ستصل إلى العملاء المحددين">{{ form.body.value|default:'' }}</textarea>
-            {% if form.body.errors %}
-              <div class="mt-2 text-sm font-bold text-rose-600">{{ form.body.errors.0 }}</div>
-            {% endif %}
-          </div>
-
-          <div class="grid gap-4 md:grid-cols-2">
+        {% if clients_supports_bulk_messages %}
+          <div class="mt-5 space-y-4">
             <div>
-              <label class="mb-2 block text-sm font-bold text-slate-700">مرفق اختياري</label>
-              <input type="file" name="attachment" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white">
-              {% if form.attachment.errors %}
-                <div class="mt-2 text-sm font-bold text-rose-600">{{ form.attachment.errors.0 }}</div>
+              <label class="mb-2 block text-sm font-bold text-slate-700">نص الرسالة</label>
+              <textarea name="body" rows="6" class="w-full rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="اكتب الرسالة التي ستصل إلى العملاء المحددين">{{ form.body.value|default:'' }}</textarea>
+              {% if form.body.errors %}
+                <div class="mt-2 text-sm font-bold text-rose-600">{{ form.body.errors.0 }}</div>
               {% endif %}
             </div>
-            <div>
-              <label class="mb-2 block text-sm font-bold text-slate-700">وقت الإرسال</label>
-              <input type="datetime-local" name="send_at" value="{{ form.send_at.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100">
-              {% if form.send_at.errors %}
-                <div class="mt-2 text-sm font-bold text-rose-600">{{ form.send_at.errors.0 }}</div>
-              {% endif %}
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="mb-2 block text-sm font-bold text-slate-700">مرفق اختياري</label>
+                <input type="file" name="attachment" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white">
+                {% if form.attachment.errors %}
+                  <div class="mt-2 text-sm font-bold text-rose-600">{{ form.attachment.errors.0 }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <label class="mb-2 block text-sm font-bold text-slate-700">وقت الإرسال</label>
+                <input type="datetime-local" name="send_at" value="{{ form.send_at.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                {% if form.send_at.errors %}
+                  <div class="mt-2 text-sm font-bold text-rose-600">{{ form.send_at.errors.0 }}</div>
+                {% endif %}
+              </div>
             </div>
-          </div>
 
-          <div class="rounded-[24px] border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-            عند تحديد وقت مستقبلي، سيظهر السجل ضمن قسم العمليات المجدولة في الأسفل. أما إذا تُرك الحقل فارغًا فسيتم التعامل معه كإرسال فوري.
-          </div>
+            <div class="rounded-[24px] border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
+              السعة المعتمدة في هذا الطلب هي {{ bulk_message_limit }} رسالة جماعية. عند تحديد وقت مستقبلي، سيظهر السجل ضمن قسم العمليات المجدولة في الأسفل. أما إذا تُرك الحقل فارغًا فسيتم التعامل معه كإرسال فوري.
+            </div>
 
-          <button class="inline-flex w-full items-center justify-center rounded-[20px] bg-emerald-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-emerald-700">إرسال أو جدولة الرسالة</button>
-        </div>
+            <button class="inline-flex w-full items-center justify-center rounded-[20px] bg-emerald-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-emerald-700">إرسال أو جدولة الرسالة</button>
+          </div>
+        {% else %}
+          <div class="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-5 text-sm font-bold leading-7 text-amber-800">
+            إرسال الرسائل الجماعية غير مفعّل في طلب الخدمات الإضافية الحالي. يمكنك الاستفادة من البنود الأخرى المفعلة في قسم إدارة العملاء، بينما تظل ميزة الرسائل مرتبطة بطلب يفعّل بند «إرسال الرسائل الجماعية لعملائي».
+          </div>
+        {% endif %}
       </section>
 
       <section class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">

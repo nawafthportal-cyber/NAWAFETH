@@ -36,6 +36,8 @@ const ProviderDetailPage = (() => {
   };
   let _currentProfile = null;
   let _isOwnProviderProfile = false;
+  let _serviceRangeMap = null;
+  let _serviceRangeLayer = null;
 
   function init() {
     const match = window.location.pathname.match(/\/provider\/(\d+)(?:\/[^/?#]+)?\/?/);
@@ -62,17 +64,133 @@ const ProviderDetailPage = (() => {
 
   /* ── Tabs ── */
   function _bindTabs() {
-    document.getElementById('pd-tabs').addEventListener('click', e => {
+    const tabsRoot = document.getElementById('pd-tabs');
+    if (!tabsRoot) return;
+
+    tabsRoot.addEventListener('click', e => {
       const btn = e.target.closest('.pd-tab');
-      if (!btn) return;
-      document.querySelectorAll('.pd-tab').forEach(t => t.classList.remove('active'));
-      btn.classList.add('active');
-      _activeTab = btn.dataset.tab;
-      document.querySelectorAll('.pd-panel').forEach(p => p.classList.remove('active'));
-      const panel = document.getElementById('tab-' + _activeTab);
-      if (panel) panel.classList.add('active');
-      _syncPortfolioPreviewPlayback();
+      if (!btn || !tabsRoot.contains(btn)) return;
+      const tabName = String(btn.dataset.tab || '').trim();
+      if (!tabName) return;
+      _setActiveTab(tabName, { scrollIntoView: true });
     });
+
+    tabsRoot.addEventListener('keydown', e => {
+      const currentBtn = e.target.closest('.pd-tab');
+      if (!currentBtn || !tabsRoot.contains(currentBtn)) return;
+
+      const tabs = _tabButtons();
+      if (!tabs.length) return;
+      const currentIndex = tabs.indexOf(currentBtn);
+      if (currentIndex < 0) return;
+
+      const dir = String(document.documentElement.getAttribute('dir') || 'ltr').toLowerCase();
+      const forwardKey = dir === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
+      const backwardKey = dir === 'rtl' ? 'ArrowRight' : 'ArrowLeft';
+
+      let targetIndex = -1;
+      if (e.key === forwardKey) {
+        targetIndex = (currentIndex + 1) % tabs.length;
+      } else if (e.key === backwardKey) {
+        targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+      } else if (e.key === 'Home') {
+        targetIndex = 0;
+      } else if (e.key === 'End') {
+        targetIndex = tabs.length - 1;
+      } else if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        _setActiveTab(String(currentBtn.dataset.tab || '').trim(), { focusTab: true, scrollIntoView: true });
+        return;
+      } else {
+        return;
+      }
+
+      e.preventDefault();
+      const targetBtn = tabs[targetIndex];
+      if (!targetBtn) return;
+      _setActiveTab(String(targetBtn.dataset.tab || '').trim(), { focusTab: true, scrollIntoView: true });
+    });
+
+    _setActiveTab(_activeTab || 'profile');
+    _setTabMeta('profile', 'أساسي');
+    _setTabMeta('services', '...');
+    _setTabMeta('portfolio', '...');
+    _setTabMeta('reviews', '...');
+  }
+
+  function _tabButtons() {
+    return Array.from(document.querySelectorAll('#pd-tabs .pd-tab'));
+  }
+
+  function _setActiveTab(nextTab, opts = {}) {
+    const tabName = String(nextTab || '').trim();
+    if (!tabName) return;
+
+    const buttons = _tabButtons();
+    const activeButton = buttons.find((btn) => String(btn.dataset.tab || '').trim() === tabName);
+    if (!activeButton) return;
+
+    _activeTab = tabName;
+    buttons.forEach((btn) => {
+      const isActive = btn === activeButton;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      btn.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+
+    document.querySelectorAll('.pd-panel').forEach((panel) => {
+      const isActive = panel.id === ('tab-' + tabName);
+      panel.classList.toggle('active', isActive);
+      if (isActive) {
+        panel.removeAttribute('hidden');
+      } else {
+        panel.setAttribute('hidden', 'hidden');
+      }
+    });
+
+    _syncPortfolioPreviewPlayback();
+    if (_activeTab === 'profile') {
+      _syncServiceRangeMapSize();
+    }
+
+    if (opts.scrollIntoView) {
+      _ensureActiveTabVisible();
+    }
+
+    if (opts.focusTab && typeof activeButton.focus === 'function') {
+      try {
+        activeButton.focus({ preventScroll: true });
+      } catch (_) {
+        activeButton.focus();
+      }
+    }
+  }
+
+  function _ensureActiveTabVisible() {
+    const active = document.querySelector('#pd-tabs .pd-tab.active');
+    if (!active || typeof active.scrollIntoView !== 'function') return;
+    try {
+      active.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    } catch (_) {
+      active.scrollIntoView();
+    }
+  }
+
+  function _setTabMeta(tabName, value) {
+    const el = document.getElementById('pd-tab-meta-' + tabName);
+    if (!el) return;
+    const text = String(value === null || value === undefined ? '' : value).trim();
+    if (!text) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      return;
+    }
+    el.textContent = text;
+    el.classList.remove('hidden');
+  }
+
+  function _formatTabCount(count) {
+    return _safeInt(count).toLocaleString('ar-SA');
   }
 
   function _setInitialShellLoading(loading) {
@@ -555,6 +673,19 @@ const ProviderDetailPage = (() => {
     _setSocialRow('instagram', 'pd-social-instagram', 'pd-social-open-instagram', unavailable);
     _setSocialRow('x', 'pd-social-x', 'pd-social-open-x', unavailable);
     _setSocialRow('snapchat', 'pd-social-snapchat', 'pd-social-open-snapchat', unavailable);
+
+    try {
+      _renderServiceRangeMap(p);
+    } catch (_) {
+      _setText('pd-service-range-summary', 'تعذر عرض نطاق الخدمة على الخريطة حالياً.');
+      const mapEl = document.getElementById('pd-service-range-map');
+      const emptyEl = document.getElementById('pd-service-range-map-empty');
+      if (mapEl) mapEl.classList.add('hidden');
+      if (emptyEl) {
+        emptyEl.textContent = 'تعذر عرض الخريطة حالياً.';
+        emptyEl.classList.remove('hidden');
+      }
+    }
   }
 
   async function _openConnectionsSheet(kind) {
@@ -1112,6 +1243,7 @@ const ProviderDetailPage = (() => {
     _setTabLoadingState('services', true);
     const res = await ApiClient.get('/api/providers/' + _providerId + '/services/');
     if (!res.ok) {
+      _setTabMeta('services', '0');
       _setTabLoadingState('services', false);
       return;
     }
@@ -1124,6 +1256,7 @@ const ProviderDetailPage = (() => {
     if (countEl) {
       countEl.textContent = _serviceCountLabel(list.length);
     }
+    _setTabMeta('services', _formatTabCount(list.length));
 
     if (!list.length) {
       if (emptyEl) emptyEl.classList.remove('hidden');
@@ -1249,6 +1382,7 @@ const ProviderDetailPage = (() => {
     _setTabLoadingState('portfolio', true);
     const res = await ApiClient.get(_withMode('/api/providers/' + _providerId + '/portfolio/'));
     if (!res.ok) {
+      _setTabMeta('portfolio', '0');
       _setTabLoadingState('portfolio', false);
       return;
     }
@@ -1523,6 +1657,7 @@ const ProviderDetailPage = (() => {
     const sectionsEl = document.getElementById('pd-portfolio-sections-total');
     if (totalEl) totalEl.textContent = String(_safeInt(totalItems)) + ' عنصر';
     if (sectionsEl) sectionsEl.textContent = String(_safeInt(totalSections)) + ' قسم';
+    _setTabMeta('portfolio', _formatTabCount(totalItems));
   }
 
   function _syncPortfolioEngagementTotals() {
@@ -1665,15 +1800,7 @@ const ProviderDetailPage = (() => {
   }
 
   function _switchToTab(nextTab) {
-    const btn = document.querySelector('.pd-tab[data-tab="' + nextTab + '"]');
-    if (!btn) return;
-    document.querySelectorAll('.pd-tab').forEach((tabBtn) => tabBtn.classList.remove('active'));
-    btn.classList.add('active');
-    _activeTab = nextTab;
-    document.querySelectorAll('.pd-panel').forEach((panel) => panel.classList.remove('active'));
-    const panel = document.getElementById('tab-' + nextTab);
-    if (panel) panel.classList.add('active');
-    _syncPortfolioPreviewPlayback();
+    _setActiveTab(nextTab, { scrollIntoView: true });
   }
 
   /* ═══ Reviews ═══ */
@@ -1738,6 +1865,7 @@ const ProviderDetailPage = (() => {
     const listEl = document.getElementById('pd-reviews-list');
     const emptyEl = document.getElementById('pd-reviews-empty');
     _setTabLoadingState('reviews', true);
+    let ratingCountForMeta = 0;
 
     const [ratingRes, reviewsRes] = await Promise.all([
       ApiClient.get('/api/reviews/providers/' + _providerId + '/rating/'),
@@ -1748,6 +1876,7 @@ const ProviderDetailPage = (() => {
     if (ratingRes.ok && ratingRes.data && summaryEl) {
       const r = ratingRes.data;
       const ratingCount = _safeInt(r.rating_count || r.count || 0);
+      ratingCountForMeta = ratingCount;
       const ratingAvgRaw = r.rating_avg !== undefined && r.rating_avg !== null ? r.rating_avg : r.average;
       const ratingAvg = Number.parseFloat(ratingAvgRaw);
       const distribution = r.distribution || {};
@@ -1785,6 +1914,11 @@ const ProviderDetailPage = (() => {
       reviews = Array.isArray(reviewsRes.data) ? reviewsRes.data : (reviewsRes.data.results || []);
     }
 
+    if (!ratingCountForMeta) {
+      ratingCountForMeta = reviews.length;
+    }
+    _setTabMeta('reviews', _formatTabCount(ratingCountForMeta));
+
     if (listEl) listEl.textContent = '';
 
     if (!reviews.length) {
@@ -1797,8 +1931,14 @@ const ProviderDetailPage = (() => {
     if (!listEl) return;
 
     const marqueeReviews = reviews.slice();
-    if (marqueeReviews.length === 1) {
-      marqueeReviews.push(reviews[0]);
+    if (marqueeReviews.length <= 2) {
+      const staticList = UI.el('div', { className: 'pd-reviews-static' });
+      marqueeReviews.forEach((review) => {
+        staticList.appendChild(_buildReviewCard(review));
+      });
+      listEl.appendChild(staticList);
+      _setTabLoadingState('reviews', false);
+      return;
     }
 
     const marquee = UI.el('div', { className: 'pd-reviews-marquee' });
@@ -2216,6 +2356,139 @@ const ProviderDetailPage = (() => {
       return Math.round(radiusRaw);
     }
     return 5;
+  }
+
+  function _parseCoordinate(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const normalized = String(value).trim().replace(',', '.');
+    if (!normalized) return null;
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function _resolveServiceRangeCenter(provider) {
+    const lat = _parseCoordinate(
+      provider && (provider.lat ?? provider.latitude ?? provider.location_lat ?? provider.locationLat)
+    );
+    const lng = _parseCoordinate(
+      provider && (provider.lng ?? provider.longitude ?? provider.location_lng ?? provider.locationLng)
+    );
+    return { lat, lng };
+  }
+
+  function _hasValidGeoPoint(lat, lng) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return false;
+    return Math.abs(lat) > 0.000001 || Math.abs(lng) > 0.000001;
+  }
+
+  function _serviceRangeSummaryText(city, rangeKm, hasMapPoint) {
+    const cityText = _trimText(city);
+    if (hasMapPoint) {
+      if (cityText) return 'تغطية تصل إلى ' + rangeKm + ' كم حول ' + cityText + '.';
+      return 'تغطية تصل إلى ' + rangeKm + ' كم حول موقع مقدم الخدمة.';
+    }
+    if (cityText) {
+      return 'النطاق المحدد ' + rangeKm + ' كم داخل مدينة ' + cityText + ' دون نقطة خريطة دقيقة.';
+    }
+    return 'لا تتوفر إحداثيات دقيقة لعرض نطاق الخدمة على الخريطة حالياً.';
+  }
+
+  function _syncServiceRangeMapSize() {
+    if (!_serviceRangeMap) return;
+    setTimeout(() => {
+      try {
+        _serviceRangeMap.invalidateSize();
+      } catch (_) {}
+    }, 120);
+  }
+
+  function _renderServiceRangeMap(provider) {
+    const mapEl = document.getElementById('pd-service-range-map');
+    const emptyEl = document.getElementById('pd-service-range-map-empty');
+    const summaryEl = document.getElementById('pd-service-range-summary');
+    if (!mapEl) return;
+
+    const rangeKm = _resolveServiceRangeKm(provider);
+    const city = _pickFirstText(provider && provider.city);
+    const center = _resolveServiceRangeCenter(provider);
+    const hasPoint = _hasValidGeoPoint(center.lat, center.lng);
+
+    if (summaryEl) {
+      summaryEl.textContent = _serviceRangeSummaryText(city, rangeKm, hasPoint);
+    }
+
+    if (typeof L === 'undefined') {
+      mapEl.classList.add('hidden');
+      if (emptyEl) {
+        emptyEl.textContent = 'تعذر تحميل الخريطة حالياً.';
+        emptyEl.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (!hasPoint) {
+      mapEl.classList.add('hidden');
+      if (emptyEl) {
+        emptyEl.textContent = 'لم يحدد مقدم الخدمة موقعًا دقيقًا على الخريطة بعد.';
+        emptyEl.classList.remove('hidden');
+      }
+      if (_serviceRangeLayer) _serviceRangeLayer.clearLayers();
+      return;
+    }
+
+    mapEl.classList.remove('hidden');
+    if (emptyEl) emptyEl.classList.add('hidden');
+
+    if (!_serviceRangeMap) {
+      _serviceRangeMap = L.map(mapEl, {
+        scrollWheelZoom: false,
+      });
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        subdomains: 'abcd',
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap &copy; CARTO',
+      }).addTo(_serviceRangeMap);
+    }
+
+    if (!_serviceRangeMap._loaded) {
+      _serviceRangeMap.setView([center.lat, center.lng], 12);
+    }
+
+    if (_serviceRangeLayer) {
+      _serviceRangeLayer.clearLayers();
+    } else {
+      _serviceRangeLayer = L.layerGroup().addTo(_serviceRangeMap);
+    }
+
+    const radiusMeters = Math.max(1000, rangeKm * 1000);
+    const circle = L.circle([center.lat, center.lng], {
+      radius: radiusMeters,
+      color: '#7C3AED',
+      weight: 2,
+      fillColor: '#8B5CF6',
+      fillOpacity: 0.18,
+    });
+    const marker = L.circleMarker([center.lat, center.lng], {
+      radius: 7,
+      color: '#FFFFFF',
+      weight: 2,
+      fillColor: '#7C3AED',
+      fillOpacity: 1,
+    });
+
+    _serviceRangeLayer.addLayer(circle);
+    _serviceRangeLayer.addLayer(marker);
+
+    const targetBounds = L.latLng(center.lat, center.lng).toBounds(radiusMeters * 2);
+    if (targetBounds && targetBounds.isValid()) {
+      _serviceRangeMap.fitBounds(targetBounds, { padding: [20, 20], maxZoom: 14 });
+    } else {
+      _serviceRangeMap.setView([center.lat, center.lng], 12);
+    }
+
+    _syncServiceRangeMapSize();
   }
 
   function _resolvePortfolioSections(grouped) {

@@ -18,6 +18,7 @@ from .services import (
     _locked_subscription_queryset,
     activate_subscription_after_payment,
     apply_effective_payment,
+    refresh_subscription_status,
     start_subscription_checkout,
 )
 
@@ -504,3 +505,61 @@ class SubscriptionCheckoutDurationTests(TestCase):
         my_response = self.api_client.get("/api/subscriptions/my/")
         self.assertEqual(my_response.status_code, 200)
         self.assertFalse(any(int(row["id"]) == subscription_id for row in my_response.json()))
+
+
+class SubscriptionLifecycleNotificationTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(phone="0500000490", password="secret")
+        ProviderProfile.objects.create(
+            user=self.user,
+            provider_type="individual",
+            display_name="مزود حالات الاشتراك",
+            bio="نبذة مختصرة",
+        )
+        self.plan = SubscriptionPlan.objects.create(
+            code="pro_lifecycle_notify",
+            tier=PlanTier.PRO,
+            title="الاحترافية - إشعارات الحالة",
+            period=PlanPeriod.MONTH,
+            price="199.00",
+        )
+
+    def test_refresh_subscription_status_sends_grace_notification(self):
+        now = timezone.now()
+        sub = Subscription.objects.create(
+            user=self.user,
+            plan=self.plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=now - timezone.timedelta(days=45),
+            end_at=now - timezone.timedelta(days=1),
+            grace_end_at=now + timezone.timedelta(days=5),
+        )
+
+        refresh_subscription_status(sub=sub)
+        sub.refresh_from_db()
+
+        self.assertEqual(sub.status, SubscriptionStatus.GRACE)
+        notification = Notification.objects.filter(user=self.user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertIn("فترة السماح", notification.title)
+        self.assertEqual(notification.kind, "warn")
+
+    def test_refresh_subscription_status_sends_expired_notification(self):
+        now = timezone.now()
+        sub = Subscription.objects.create(
+            user=self.user,
+            plan=self.plan,
+            status=SubscriptionStatus.GRACE,
+            start_at=now - timezone.timedelta(days=60),
+            end_at=now - timezone.timedelta(days=25),
+            grace_end_at=now - timezone.timedelta(days=1),
+        )
+
+        refresh_subscription_status(sub=sub)
+        sub.refresh_from_db()
+
+        self.assertEqual(sub.status, SubscriptionStatus.EXPIRED)
+        notification = Notification.objects.filter(user=self.user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertIn("انتهى اشتراكك", notification.title)
+        self.assertEqual(notification.kind, "warn")

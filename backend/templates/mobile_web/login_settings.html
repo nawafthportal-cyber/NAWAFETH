@@ -1,42 +1,129 @@
 {% extends "mobile_web/base.html" %}
 {% load static %}
 {% block title %}إعدادات الدخول — نوافــذ{% endblock %}
-{% block body_class %}page-login-settings{% endblock %}
+{% block body_class %}page-login-settings page-login-settings-premium{% endblock %}
 {% block sidebar_settings %}active{% endblock %}
 {% block bnav_profile %}active{% endblock %}
 
 {% block content %}
 <main class="page-shell ls-page">
-  <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1>إعدادات الدخول</h1>
-  </div>
+  <section class="detail-card ls-hero-card" aria-label="ملخص إعدادات الدخول">
+    <div class="ls-hero-top">
+      <button type="button" class="btn-back ls-back-btn" onclick="history.back()" aria-label="رجوع">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="ls-hero-copy">
+        <p class="ls-hero-kicker">الهوية والأمان</p>
+        <h1>إعدادات الدخول</h1>
+        <p class="ls-hero-subtitle">البيانات معروضة مسبقًا ويمكن تعديلها مباشرة من نفس الصفحة بسهولة.</p>
+      </div>
+    </div>
+    <div class="ls-hero-meta">
+      <div class="ls-hero-meta-item">
+        <span>اسم العضوية</span>
+        <strong id="ls-value-username">—</strong>
+      </div>
+      <div class="ls-hero-meta-item">
+        <span>البريد الإلكتروني</span>
+        <strong id="ls-value-email">—</strong>
+      </div>
+      <div class="ls-hero-meta-item">
+        <span>رقم الجوال</span>
+        <strong id="ls-value-phone">—</strong>
+      </div>
+    </div>
+  </section>
 
-  <section class="ls-actions" aria-label="إعدادات الدخول">
-    <button type="button" class="ls-action-btn" id="ls-action-username">تغيير اسم العضوية</button>
-    <button type="button" class="ls-action-btn" id="ls-action-password">تغيير كلمة المرور</button>
-    <button type="button" class="ls-action-btn" id="ls-action-email">تغيير البريد الإلكتروني</button>
-    <button type="button" class="ls-action-btn" id="ls-action-phone">تغيير رقم الجوال</button>
-    <button type="button" class="ls-action-btn" id="ls-action-pin">إضافة رمز دخول أمان</button>
-    <button type="button" class="ls-action-btn" id="ls-action-faceid">الدخول بمعرف الوجه</button>
+  <div id="ls-inline-alert" class="ls-inline-alert hidden" aria-live="polite"></div>
+
+  <section class="detail-card ls-settings-card" aria-label="بيانات تسجيل الدخول">
+    <div class="ls-section-head">
+      <h2>بيانات تسجيل الدخول</h2>
+      <p>يمكنك تعديل كل حقل وحفظه فورًا، مع إشعارات واضحة عند النجاح أو وجود خطأ.</p>
+    </div>
+
+    <div class="ls-settings-grid">
+      <article class="ls-setting-item">
+        <div class="ls-setting-content">
+          <h3>اسم العضوية</h3>
+          <p id="ls-view-username">غير مضاف</p>
+        </div>
+        <button type="button" class="ls-edit-btn" id="ls-action-username">تعديل</button>
+      </article>
+
+      <article class="ls-setting-item">
+        <div class="ls-setting-content">
+          <h3>البريد الإلكتروني</h3>
+          <p id="ls-view-email">غير مضاف</p>
+        </div>
+        <button type="button" class="ls-edit-btn" id="ls-action-email">تعديل</button>
+      </article>
+
+      <article class="ls-setting-item">
+        <div class="ls-setting-content">
+          <h3>رقم الجوال</h3>
+          <p id="ls-view-phone">غير مضاف</p>
+        </div>
+        <button type="button" class="ls-edit-btn" id="ls-action-phone">تعديل</button>
+      </article>
+
+      <article class="ls-setting-item ls-setting-item-password">
+        <div class="ls-setting-content">
+          <h3>كلمة المرور</h3>
+          <p>محمية ولا يمكن عرضها. يمكنك تغييرها في أي وقت.</p>
+        </div>
+        <button type="button" class="ls-edit-btn ls-edit-btn-strong" id="ls-action-password">تغيير</button>
+      </article>
+    </div>
+  </section>
+
+  <section class="detail-card ls-security-card" aria-label="خيارات الأمان الإضافية">
+    <div class="ls-section-head">
+      <h2>الأمان الإضافي</h2>
+      <p>فعّل وسائل حماية إضافية لحسابك على هذا الجهاز.</p>
+    </div>
+
+    <div class="ls-security-grid">
+      <article class="ls-security-item">
+        <div class="ls-setting-content">
+          <h3>رمز دخول الأمان</h3>
+          <p id="ls-pin-hint">غير مفعل</p>
+        </div>
+        <button type="button" class="ls-edit-btn" id="ls-action-pin">إضافة أو تعديل</button>
+      </article>
+
+      <article class="ls-security-item">
+        <div class="ls-setting-content">
+          <h3>الدخول بمعرف الوجه</h3>
+          <p id="ls-faceid-hint">تحقق من توفر الميزة على جهازك.</p>
+        </div>
+        <button type="button" class="ls-edit-btn" id="ls-action-faceid">الدخول بمعرف الوجه</button>
+      </article>
+    </div>
   </section>
 </main>
 
-<div id="ls-action-modal" class="ls-modal hidden" role="dialog" aria-modal="true">
-  <div class="ls-modal-card">
-    <h3 id="ls-modal-title"></h3>
+<div id="ls-action-modal" class="ls-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ls-modal-title">
+  <div class="ls-modal-backdrop" data-ls-close="true"></div>
+  <section class="ls-modal-card">
+    <div class="ls-modal-head">
+      <h3 id="ls-modal-title"></h3>
+      <button type="button" class="ls-modal-close" id="ls-modal-close" aria-label="إغلاق">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
     <p id="ls-modal-desc"></p>
     <div id="ls-modal-fields"></div>
     <div class="ls-modal-actions">
       <button type="button" class="btn btn-secondary" id="ls-modal-cancel">إلغاء</button>
-      <button type="button" class="btn btn-primary" id="ls-modal-save">حفظ</button>
+      <button type="button" class="btn btn-primary" id="ls-modal-save">حفظ التغييرات</button>
     </div>
-  </div>
+  </section>
 </div>
 
 <div id="ls-toast" class="ls-toast" aria-live="polite"></div>
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'mobile_web/js/loginSettingsPage.js' %}"></script>
+<script src="{% static 'mobile_web/js/loginSettingsPage.js' %}?v=20260413-lspremium2"></script>
 {% endblock %}

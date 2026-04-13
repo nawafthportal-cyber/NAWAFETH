@@ -368,14 +368,26 @@ class UrgentRequestAcceptView(APIView):
 
 			old = service_request.status
 			service_request.provider = provider
-			service_request.status = RequestStatus.IN_PROGRESS
-			service_request.save(update_fields=["provider", "status"])
+			# Keep urgent request in NEW until client approves provider inputs.
+			service_request.status = RequestStatus.NEW
+			service_request.provider_inputs_approved = None
+			service_request.provider_inputs_decided_at = None
+			service_request.provider_inputs_decision_note = ""
+			service_request.save(
+				update_fields=[
+					"provider",
+					"status",
+					"provider_inputs_approved",
+					"provider_inputs_decided_at",
+					"provider_inputs_decision_note",
+				]
+			)
 			RequestStatusLog.objects.create(
 				request=service_request,
 				actor=request.user,
 				from_status=old,
 				to_status=service_request.status,
-				note="قبول طلب عاجل من المزود",
+				note="تم قبول الطلب العاجل من مزود الخدمة بانتظار إرسال تفاصيل التنفيذ",
 			)
 
 		return Response(
@@ -640,17 +652,58 @@ class ProviderAssignedRequestRejectView(APIView):
 				return Response({"detail": "لا يمكن رفض الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
 
 			old = sr.status
-			sr.status = RequestStatus.CANCELLED
-			sr.canceled_at = canceled_at
-			sr.cancel_reason = cancel_reason
-			sr.save(update_fields=["status", "canceled_at", "cancel_reason"])
+			if sr.request_type == RequestType.URGENT:
+				# Return urgent request to the shared pool for eligible providers.
+				sr.provider = None
+				sr.status = RequestStatus.NEW
+				sr.expected_delivery_at = None
+				sr.estimated_service_amount = None
+				sr.received_amount = None
+				sr.remaining_amount = None
+				sr.provider_inputs_approved = None
+				sr.provider_inputs_decided_at = None
+				sr.provider_inputs_decision_note = ""
+				sr.canceled_at = None
+				sr.cancel_reason = ""
+				sr.save(
+					update_fields=[
+						"provider",
+						"status",
+						"expected_delivery_at",
+						"estimated_service_amount",
+						"received_amount",
+						"remaining_amount",
+						"provider_inputs_approved",
+						"provider_inputs_decided_at",
+						"provider_inputs_decision_note",
+						"canceled_at",
+						"cancel_reason",
+					]
+				)
+			else:
+				sr.status = RequestStatus.CANCELLED
+				sr.canceled_at = canceled_at
+				sr.cancel_reason = cancel_reason
+				sr.save(update_fields=["status", "canceled_at", "cancel_reason"])
 			RequestStatusLog.objects.create(
 				request=sr,
 				actor=request.user,
 				from_status=old,
 				to_status=sr.status,
-				note=note or f"إلغاء من المزود: {cancel_reason}",
+				note=(
+					note
+					or (
+						f"اعتذار مزود الخدمة عن الطلب العاجل: {cancel_reason}"
+						if sr.request_type == RequestType.URGENT
+						else f"إلغاء من المزود: {cancel_reason}"
+					)
+				),
 			)
+
+			if sr.request_type == RequestType.URGENT:
+				now = timezone.now()
+				ensure_dispatch_windows_for_urgent_request(sr, now=now)
+				_dispatch_ready_urgent_windows_once(now=now, limit=200)
 
 		return Response({"ok": True, "request_id": sr.id, "status": sr.status}, status=status.HTTP_200_OK)
 
@@ -782,6 +835,12 @@ class CreateOfferView(APIView):
 		if service_request.status != RequestStatus.NEW:
 			return Response(
 				{"detail": "لا يمكن إرسال عرض في هذه الحالة"},
+				status=status.HTTP_400_BAD_REQUEST,
+			)
+
+		if service_request.quote_deadline and timezone.localdate() > service_request.quote_deadline:
+			return Response(
+				{"detail": "انتهت مهلة استقبال عروض الأسعار لهذا الطلب"},
 				status=status.HTTP_400_BAD_REQUEST,
 			)
 
@@ -1023,11 +1082,13 @@ class RequestCancelView(APIView):
 	permission_classes = [IsAtLeastClient]
 
 	def post(self, request, request_id):
+		reason = str(request.data.get("reason") or "").strip()
 		try:
 			result = execute_action(
 				user=request.user,
 				request_id=request_id,
 				action="cancel",
+				note=reason,
 			)
 		except PermissionDenied:
 			return Response(

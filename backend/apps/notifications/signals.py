@@ -9,7 +9,7 @@ from apps.marketplace.models import (
 )
 from apps.messaging.models import Message
 
-from .models import EventType
+from .models import EventLog, EventType
 from .services import create_notification
 
 
@@ -71,6 +71,12 @@ def notify_offer_selected(sender, instance: Offer, created, **kwargs):
     if instance.status != OfferStatus.SELECTED:
         return
     sr = instance.request
+    if EventLog.objects.filter(
+        event_type=EventType.OFFER_SELECTED,
+        target_user_id=instance.provider.user_id,
+        offer_id=instance.id,
+    ).exists():
+        return
     create_notification(
         user=instance.provider.user,
         title="تم اختيار عرضك",

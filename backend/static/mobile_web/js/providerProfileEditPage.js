@@ -132,6 +132,21 @@ var ProviderProfileEditPage = (function () {
     }
   };
 
+  var TAB_WORKFLOW = {
+    account: {
+      action: "راجع الهوية الأساسية وصياغة النبذة بشكل احترافي.",
+      hint: "الاسم والصفة والنبذة هي أول ما يراه العميل، اجعلها دقيقة ومباشرة."
+    },
+    general: {
+      action: "حدد اللغات والموقع ونطاق التغطية بدقة.",
+      hint: "اختيار نطاق خدمة واضح يساعد العملاء القريبين منك على الوصول إليك بسرعة."
+    },
+    extra: {
+      action: "أكمل الروابط والمؤهلات لتحسين الثقة والظهور.",
+      hint: "المعلومات الإضافية المكتملة ترفع جودة الصفحة وتزيد فرص التواصل الفعال."
+    }
+  };
+
   var SECTION_META = {
     basic: {
       label: "البيانات الأساسية",
@@ -1220,6 +1235,30 @@ var ProviderProfileEditPage = (function () {
     var summaryNode = document.getElementById("pe-section-summary");
     if (labelNode) labelNode.textContent = meta.label;
     if (summaryNode) summaryNode.textContent = meta.summary;
+
+    var workflowMeta = TAB_WORKFLOW[tabName] || TAB_WORKFLOW.account;
+    if (initialSection && SECTION_CONFIG[initialSection]) {
+      workflowMeta = {
+        action: "الخطوة الحالية: " + (SECTION_CONFIG[initialSection].heading || meta.label),
+        hint: SECTION_CONFIG[initialSection].intro || (TAB_WORKFLOW[tabName] && TAB_WORKFLOW[tabName].hint) || ""
+      };
+    }
+
+    var actionNode = document.getElementById("pe-current-action");
+    var hintNode = document.getElementById("pe-current-hint");
+    if (actionNode) actionNode.textContent = workflowMeta.action || "";
+    if (hintNode) hintNode.textContent = workflowMeta.hint || "";
+
+    document.querySelectorAll(".pe-workflow-step").forEach(function (step) {
+      var target = String(step.getAttribute("data-tab-target") || "").trim();
+      var isActive = target === tabName;
+      step.classList.toggle("is-active", isActive);
+      if (isActive) {
+        step.setAttribute("aria-current", "step");
+      } else {
+        step.removeAttribute("aria-current");
+      }
+    });
   }
 
   function formatCoord(value) {
@@ -1878,8 +1917,24 @@ var ProviderProfileEditPage = (function () {
       var isActive = t === tabBtn;
       t.classList.toggle("active", isActive);
       t.setAttribute("aria-selected", isActive ? "true" : "false");
+      t.setAttribute("tabindex", isActive ? "0" : "-1");
     });
-    document.querySelectorAll(".tab-panel").forEach(function (p) { p.classList.toggle("active", p.dataset.panel === name); });
+    document.querySelectorAll(".tab-panel").forEach(function (p) {
+      var isActive = p.dataset.panel === name;
+      p.classList.toggle("active", isActive);
+      if (isActive) {
+        p.removeAttribute("hidden");
+      } else {
+        p.setAttribute("hidden", "hidden");
+      }
+    });
+    if (typeof tabBtn.scrollIntoView === "function") {
+      try {
+        tabBtn.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      } catch (_err) {
+        tabBtn.scrollIntoView();
+      }
+    }
     closeAllEditors();
     if (!preserveSection) initialSection = null;
     updateSectionHelper(name);
@@ -1925,26 +1980,92 @@ var ProviderProfileEditPage = (function () {
     field.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  function focusFieldPreview(fieldKey) {
+    var field = document.querySelector('.pe-field[data-key="' + fieldKey + '"]');
+    if (!field) return;
+    closeAllEditors();
+    field.classList.remove("is-editing");
+    field.style.boxShadow = "0 0 0 2px rgba(15,118,110,0.24)";
+    setTimeout(function () { field.style.boxShadow = ""; }, 1600);
+    if (field.classList.contains("pe-map-field")) ensureServiceMap();
+    field.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   function applyEntryNavigation() {
     if (isSectionFlowActive()) {
       var sectionCfg = SECTION_CONFIG[initialSection];
       if (sectionCfg && sectionCfg.tab) activateTab(sectionCfg.tab, true);
       if (!initialFocus || (sectionCfg && sectionCfg.mode === "summary")) return;
-      setTimeout(function () { openFieldEditor(initialFocus); }, 80);
+      setTimeout(function () { focusFieldPreview(initialFocus); }, 80);
       return;
     }
     var tabToOpen = initialTab || (initialFocus ? resolveTabByField(initialFocus) : null);
     if (tabToOpen) activateTab(tabToOpen);
     if (!initialFocus) return;
-    setTimeout(function () { openFieldEditor(initialFocus); }, 80);
+    setTimeout(function () { focusFieldPreview(initialFocus); }, 80);
   }
 
   function bindTabs() {
-    document.getElementById("pe-tabs").addEventListener("click", function (e) {
+    var tabsWrap = document.getElementById("pe-tabs");
+    if (!tabsWrap) return;
+
+    tabsWrap.addEventListener("click", function (e) {
       var tab = e.target.closest(".tab");
-      if (!tab) return;
+      if (!tab || !tabsWrap.contains(tab)) return;
+      initialFocus = null;
       activateTab(tab.dataset.tab);
     });
+
+    tabsWrap.addEventListener("keydown", function (e) {
+      var current = e.target.closest(".tab");
+      if (!current || !tabsWrap.contains(current)) return;
+
+      var tabs = Array.from(tabsWrap.querySelectorAll(".tab"));
+      if (!tabs.length) return;
+      var index = tabs.indexOf(current);
+      if (index < 0) return;
+
+      var dir = String((document.documentElement && document.documentElement.getAttribute("dir")) || "rtl").toLowerCase();
+      var forwardKey = dir === "rtl" ? "ArrowLeft" : "ArrowRight";
+      var backwardKey = dir === "rtl" ? "ArrowRight" : "ArrowLeft";
+
+      var nextIndex = -1;
+      if (e.key === forwardKey) {
+        nextIndex = (index + 1) % tabs.length;
+      } else if (e.key === backwardKey) {
+        nextIndex = (index - 1 + tabs.length) % tabs.length;
+      } else if (e.key === "Home") {
+        nextIndex = 0;
+      } else if (e.key === "End") {
+        nextIndex = tabs.length - 1;
+      } else if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        initialFocus = null;
+        activateTab(current.dataset.tab);
+        return;
+      } else {
+        return;
+      }
+
+      e.preventDefault();
+      var target = tabs[nextIndex];
+      if (!target) return;
+      initialFocus = null;
+      activateTab(target.dataset.tab);
+      if (typeof target.focus === "function") target.focus();
+    });
+
+    var workflow = document.getElementById("pe-workflow-progress");
+    if (workflow) {
+      workflow.addEventListener("click", function (e) {
+        var step = e.target.closest(".pe-workflow-step");
+        if (!step || !workflow.contains(step)) return;
+        var targetTab = String(step.getAttribute("data-tab-target") || "").trim();
+        if (!targetTab) return;
+        initialFocus = null;
+        activateTab(targetTab);
+      });
+    }
   }
 
   document.addEventListener("DOMContentLoaded", init);
