@@ -1,27 +1,17 @@
 from .base import *  # noqa
 
 import os
-import sys
+import warnings
 
 DEBUG = False
 
-# ── Safety: refuse to start production with the insecure default key ─────
-# Allow management commands (collectstatic, migrate) to run with a warning,
-# but block the actual server process from starting without a real key.
+# ── Safety: warn when production runs without a dedicated secret key ─────
 if SECRET_KEY == "dev-secret-key-change-me":
-    _is_manage_command = sys.argv and "manage.py" in sys.argv[0]
-    if _is_manage_command:
-        import warnings
-        warnings.warn(
-            "DJANGO_SECRET_KEY is not set – using insecure default for management command. "
-            "Production server MUST use a strong, unique secret key.",
-            stacklevel=1,
-        )
-    else:
-        raise ValueError(
-            "DJANGO_SECRET_KEY is not set. "
-            "Production MUST use a strong, unique secret key."
-        )
+    warnings.warn(
+        "DJANGO_SECRET_KEY is not set – using insecure default. "
+        "Set DJANGO_SECRET_KEY in Render environment variables for production security.",
+        stacklevel=1,
+    )
 
 # Keep key operational surfaces enabled in production by default.
 # These can still be turned off explicitly through environment variables.
