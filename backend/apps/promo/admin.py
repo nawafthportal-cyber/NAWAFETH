@@ -30,13 +30,50 @@ class PromoRequestItemInline(admin.TabularInline):
 
 @admin.register(PromoRequest)
 class PromoRequestAdmin(admin.ModelAdmin):
-    list_display = ("code", "requester", "ad_type", "status", "ops_status", "start_at", "end_at", "subtotal", "invoice", "created_at")
+    list_display = ("code", "requester", "ad_type", "status", "ops_status", "assigned_to", "start_at", "end_at", "subtotal", "invoice", "created_at")
     list_filter = ("ad_type", "status", "ops_status")
-    search_fields = ("code", "title", "requester__phone")
+    search_fields = ("code", "title", "requester__phone", "target_category", "target_city", "reject_reason")
     ordering = ("-id",)
     inlines = [PromoRequestItemInline, PromoAssetInline]
-    readonly_fields = ("created_at", "updated_at", "reviewed_at", "activated_at", "ops_started_at", "ops_completed_at")
-    list_select_related = ("requester", "assigned_to", "invoice")
+    readonly_fields = ("created_at", "updated_at", "reviewed_at", "activated_at", "ops_started_at", "ops_completed_at", "assigned_at")
+    list_select_related = ("requester", "assigned_to", "invoice", "target_provider")
+    fieldsets = (
+        ("الطلب", {
+            "fields": (
+                "code",
+                ("requester", "invoice"),
+                ("status", "ops_status"),
+                ("assigned_to", "assigned_at"),
+                "ad_type",
+                "title",
+            ),
+        }),
+        ("الجدولة والاستهداف", {
+            "fields": (
+                ("start_at", "end_at"),
+                "position",
+                ("target_category", "target_city"),
+                "target_provider",
+                "target_portfolio_item",
+                "target_spotlight_item",
+                "redirect_url",
+            ),
+        }),
+        ("المالية", {
+            "fields": ("subtotal", "total_days", "quote_note", "reject_reason"),
+        }),
+        ("الرسائل الدعائية", {
+            "fields": ("message_title", "message_body"),
+            "classes": ("collapse",),
+        }),
+        ("مقاييس العرض", {
+            "fields": (("mobile_scale", "tablet_scale", "desktop_scale"),),
+            "classes": ("collapse",),
+        }),
+        ("التواريخ", {
+            "fields": (("created_at", "updated_at"), ("reviewed_at", "activated_at"), ("ops_started_at", "ops_completed_at")),
+        }),
+    )
 
 
 @admin.register(HomeBanner)
@@ -83,15 +120,64 @@ class PromoRequestItemAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
         "start_at",
         "end_at",
         "send_at",
+        "message_sent_at",
+        "message_recipients_count",
         "subtotal",
         "duration_days",
         "sort_order",
     )
-    list_filter = ("service_type", "search_scope", "search_position")
-    search_fields = ("request__code", "title", "target_category", "target_city", "pricing_rule_code")
+    list_filter = ("service_type", "search_scope", "search_position", "use_notification_channel", "use_chat_channel")
+    search_fields = ("request__code", "title", "target_category", "target_city", "pricing_rule_code", "sponsor_name", "message_dispatch_error")
     ordering = ("request", "sort_order", "id")
-    list_select_related = ("request", "target_provider", "target_portfolio_item")
+    list_select_related = ("request", "target_provider", "target_portfolio_item", "target_spotlight_item")
     readonly_fields = ("created_at", "updated_at")
+    fieldsets = (
+        ("البند", {
+            "fields": (
+                "request",
+                "service_type",
+                "title",
+                ("start_at", "end_at"),
+                "send_at",
+                ("subtotal", "duration_days", "pricing_rule_code"),
+                "sort_order",
+            ),
+        }),
+        ("الاستهداف", {
+            "fields": (
+                ("target_category", "target_city"),
+                "target_provider",
+                "target_portfolio_item",
+                "target_spotlight_item",
+                ("search_scope", "search_position"),
+                "redirect_url",
+            ),
+            "classes": ("collapse",),
+        }),
+        ("الرسائل الدعائية", {
+            "fields": (
+                ("use_notification_channel", "use_chat_channel"),
+                "message_title",
+                "message_body",
+                "message_sent_at",
+                "message_recipients_count",
+                "message_dispatch_error",
+            ),
+            "classes": ("collapse",),
+        }),
+        ("الرعاية", {
+            "fields": (
+                "sponsor_name",
+                "sponsor_url",
+                "sponsorship_months",
+            ),
+            "classes": ("collapse",),
+        }),
+        ("تشغيلي", {
+            "fields": ("attachment_specs", "operator_note", "created_at", "updated_at"),
+            "classes": ("collapse",),
+        }),
+    )
 
 
 @admin.register(PromoAsset)

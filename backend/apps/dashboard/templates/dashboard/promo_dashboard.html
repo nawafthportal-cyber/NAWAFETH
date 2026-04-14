@@ -65,7 +65,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>العميل</th>
+                  <th>مزود الخدمة</th>
                   <th>الأولوية</th>
                   <th>النوع</th>
                   <th>تاريخ الاستلام</th>
@@ -116,7 +116,7 @@
                             <input type="hidden" name="assigned_team" value="{{ promo_support_team.id|default:selected_inquiry.assigned_team_id|default:'' }}">
                             <div class="support-meta-grid promo-inquiry-meta-grid">
                               <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
-                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_inquiry_requester_name }}</strong></div>
                               <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
                               <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
                             </div>
@@ -241,7 +241,7 @@
           </div>
 
           <form method="get" class="toolbar">
-            <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم العميل أو رقم الطلب...">
+            <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم مزود الخدمة أو رقم الطلب...">
             <select class="input-control" name="ops">
               <option value="">كل حالات التنفيذ</option>
               <option value="new" {% if filters.ops == 'new' %}selected{% endif %}>جديد</option>
@@ -263,7 +263,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>العميل</th>
+                  <th>مزود الخدمة</th>
                   <th>الأولوية</th>
                   <th>تاريخ الاعتماد</th>
                   <th>حالة التنفيذ</th>
@@ -305,7 +305,7 @@
                           </div>
 
                           <div class="support-meta-grid">
-                            <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                            <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_request_requester_name }}</strong></div>
                             <div class="quick-stat"><span>الخدمات</span><strong>{{ selected_request_items|length }}</strong></div>
                             {% if selected_request_payment_status_label %}
                               <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>

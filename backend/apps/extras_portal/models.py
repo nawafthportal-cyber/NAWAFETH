@@ -99,3 +99,112 @@ class ExtrasPortalScheduledMessageRecipient(models.Model):
                 name="uniq_extras_portal_scheduled_message_user",
             )
         ]
+
+
+class PotentialClientSource(models.TextChoices):
+    MANUAL = "manual", "يدوي"
+    CONTACT_LIST = "contact_list", "من قائمة التواصل"
+    SYSTEM = "system", "تلقائي"
+
+
+class ProviderPotentialClient(models.Model):
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="potential_clients",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="potential_client_tags",
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=PotentialClientSource.choices,
+        default=PotentialClientSource.MANUAL,
+    )
+    notes = models.CharField(max_length=255, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["provider", "user"],
+                name="uniq_potential_client_provider_user",
+            )
+        ]
+        ordering = ["-created_at"]
+
+
+class LoyaltyProgram(models.Model):
+    provider = models.OneToOneField(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="loyalty_program",
+    )
+    name = models.CharField(max_length=120, default="برنامج الولاء")
+    points_per_completed_request = models.PositiveIntegerField(default=10)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return f"LoyaltyProgram provider={self.provider_id} active={self.is_active}"
+
+
+class LoyaltyMembership(models.Model):
+    program = models.ForeignKey(
+        LoyaltyProgram,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="loyalty_memberships",
+    )
+    points_balance = models.IntegerField(default=0)
+    total_earned = models.IntegerField(default=0)
+    total_redeemed = models.IntegerField(default=0)
+    joined_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["program", "user"],
+                name="uniq_loyalty_membership_program_user",
+            )
+        ]
+        ordering = ["-points_balance"]
+
+
+class LoyaltyTransactionType(models.TextChoices):
+    EARN = "earn", "كسب"
+    REDEEM = "redeem", "استبدال"
+    ADJUSTMENT = "adjustment", "تعديل"
+
+
+class LoyaltyTransaction(models.Model):
+    membership = models.ForeignKey(
+        LoyaltyMembership,
+        on_delete=models.CASCADE,
+        related_name="transactions",
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=LoyaltyTransactionType.choices,
+    )
+    points = models.IntegerField()
+    description = models.CharField(max_length=255, blank=True, default="")
+    request = models.ForeignKey(
+        "marketplace.ServiceRequest",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="loyalty_transactions",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]

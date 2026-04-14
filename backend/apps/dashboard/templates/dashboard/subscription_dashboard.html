@@ -61,7 +61,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>العميل</th>
+                  <th>مزود الخدمة</th>
                   <th>الأولوية</th>
                   <th>النوع</th>
                   <th>تاريخ الاستلام</th>
@@ -104,7 +104,7 @@
 
                             <div class="support-meta-grid promo-inquiry-meta-grid">
                               <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_inquiry.code }}</strong></div>
-                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_inquiry.requester.username|default:selected_inquiry.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_inquiry_requester_name }}</strong></div>
                               <div class="quick-stat"><span>نوع الطلب</span><strong>{{ selected_inquiry.get_ticket_type_display }}</strong></div>
                               <div class="quick-stat"><span>وقت الاستلام</span><strong>{{ selected_inquiry.created_at|date:"d/m/Y - H:i" }}</strong></div>
                             </div>
@@ -187,7 +187,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>العميل</th>
+                  <th>مزود الخدمة</th>
                   <th>الأولوية</th>
                   <th>تاريخ الاعتماد</th>
                   <th>الحالة</th>
@@ -228,7 +228,7 @@
 
                             <div class="support-meta-grid promo-inquiry-meta-grid">
                               <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
-                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_request_requester_name }}</strong></div>
                               <div class="quick-stat"><span>نوع الاشتراك</span><strong>{{ selected_request_subscription.plan.title|default:'-' }}</strong></div>
                               <div class="quick-stat"><span>حالة الدفع</span><strong>{{ selected_request_payment_status_label }}</strong></div>
                               <div class="quick-stat"><span>مدة الاشتراك الحالية</span><strong>{{ selected_request_subscription.duration_count }}</strong></div>
@@ -241,8 +241,8 @@
                                 <div class="input-control static-field" style="white-space: pre-wrap; line-height: 1.8;">{{ selected_request_content_text }}</div>
                               </div>
                               <div class="field">
-                                <label>اسم العميل</label>
-                                <div class="input-control static-field"><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                                <label>اسم مزود الخدمة</label>
+                                <div class="input-control static-field"><strong>{{ selected_request_requester_name }}</strong></div>
                               </div>
                               <div class="field">
                                 <label for="{{ selected_request_form.status.id_for_label }}">حالة الطلب</label>
@@ -306,7 +306,7 @@
             <input type="hidden" name="inquiry_q" value="{{ filters.inquiry_q }}">
             <input type="hidden" name="request_q" value="{{ filters.request_q }}">
             <input type="hidden" name="request_status" value="{{ filters.request_status }}">
-            <input class="input-control" type="search" name="account_q" value="{{ filters.account_q }}" placeholder="بحث باسم العميل، الباقة، رقم الفاتورة...">
+            <input class="input-control" type="search" name="account_q" value="{{ filters.account_q }}" placeholder="بحث باسم مزود الخدمة، الباقة، رقم الفاتورة...">
             <select class="input-control" name="account_status">
               <option value="">كل حالات الاشتراك</option>
               {% for code, label in account_status_choices %}
@@ -327,7 +327,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>اسم المشترك</th>
+                  <th>اسم مزود الخدمة</th>
                   <th>الأولوية</th>
                   <th>الباقة</th>
                   <th>حالة الاشتراك</th>

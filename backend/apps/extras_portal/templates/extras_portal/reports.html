@@ -2,7 +2,7 @@
 
 {% block title %}التقارير{% endblock %}
 {% block header %}لوحة التقارير{% endblock %}
-{% block header_subtitle %}تعرض هذه الصفحة بنود التقارير المشتركة في آخر طلب مكتمل، مع نفس الفترة الزمنية المعتمدة داخل الطلب وسهولة التصدير المباشر.{% endblock %}
+{% block header_subtitle %}تعرض هذه الصفحة جميع طلبات التقارير المكتملة والمدفوعة، مع نفس الفترة الزمنية المعتمدة داخل كل طلب وسهولة التصدير المباشر.{% endblock %}
 
 {% block extra_head %}
   <style>
@@ -36,7 +36,7 @@
           <div>
             <h2 class="text-2xl font-extrabold text-slate-900 sm:text-3xl">لوحة التقارير المرتبطة بطلب الخدمات الإضافية</h2>
             <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-              تظهر هنا البنود المشتركة فقط كما تم اعتمادها في الطلب المكتمل، مع نفس الفترة التشغيلية وسهولة التصدير بصيغة PDF أو Excel.
+              تظهر هنا جميع بنود التقارير المعتمدة عبر الطلبات المكتملة والمدفوعة، مع ربط كل بند بطلبه وفترته التشغيلية وإتاحة التصدير حسب نفس الطلب.
             </p>
           </div>
 
@@ -122,15 +122,55 @@
     <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">البنود المشتركة في التقرير</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">هذه القائمة تمثل البنود المعتمدة داخل اشتراك التقارير الحالي، ولا تظهر أي بنود أخرى خارج الطلب.</p>
+          <h3 class="text-2xl font-extrabold text-slate-900">طلبات التقارير المفعلة</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">كل بطاقة تمثل طلب تقارير مغلقًا ومدفوعًا تم تفعيله لهذا المزود داخل بوابة الخدمات الإضافية.</p>
+        </div>
+        <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">{{ report_request_count }} طلب تقارير مفعّل</div>
+      </div>
+      <div class="mt-5 grid gap-4 xl:grid-cols-2">
+        {% for report_request in report_request_summaries %}
+          <article class="rounded-[26px] border border-slate-200 bg-slate-50/80 p-5">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div class="text-xs font-bold text-slate-500">رقم الطلب</div>
+                <div class="mt-1 text-lg font-extrabold text-slate-900">{{ report_request.request_code }}</div>
+              </div>
+              <span class="inline-flex rounded-full bg-emerald-100 px-3 py-2 text-xs font-bold text-emerald-700">تم السداد {{ report_request.payment_confirmed_label }}</span>
+            </div>
+            <div class="mt-4 grid grid-cols-2 gap-3">
+              <div class="rounded-2xl bg-white px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">بداية الفترة</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ report_request.start_label }}</div>
+              </div>
+              <div class="rounded-2xl bg-white px-4 py-4">
+                <div class="text-xs font-bold text-slate-500">نهاية الفترة</div>
+                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ report_request.end_label }}</div>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              {% for label in report_request.option_labels %}
+                <span class="inline-flex rounded-full bg-white px-3 py-2 text-xs font-bold text-slate-700">{{ label }}</span>
+              {% endfor %}
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">جميع البنود المفعلة في التقارير</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">هذه القائمة تمثل كل البنود المعتمدة داخل طلبات التقارير المدفوعة، مع إظهار الطلب والفترة الخاصة بكل بند.</p>
         </div>
       </div>
       <div class="mt-5 overflow-x-auto">
         <table class="min-w-full overflow-hidden rounded-[24px] border border-slate-200 text-sm">
           <thead class="bg-slate-50 text-slate-600">
             <tr>
+              <th class="px-4 py-4 text-right font-bold">الطلب</th>
               <th class="px-4 py-4 text-right font-bold">البند</th>
+              <th class="px-4 py-4 text-right font-bold">الفترة</th>
               <th class="px-4 py-4 text-right font-bold">الحالة</th>
               <th class="px-4 py-4 text-right font-bold">الوصف</th>
               <th class="px-4 py-4 text-right font-bold">التصدير</th>
@@ -139,14 +179,20 @@
           <tbody>
             {% for row in selected_option_rows %}
               <tr class="border-t border-slate-200 align-top">
+                <td class="px-4 py-4 font-bold text-slate-700">{{ row.request_code }}</td>
                 <td class="px-4 py-4 font-extrabold text-slate-900">{{ row.label }}</td>
+                <td class="px-4 py-4 text-slate-600">{{ row.start_label }}<br>{{ row.end_label }}</td>
                 <td class="px-4 py-4"><span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {{ row.status_class }}">{{ row.status }}</span></td>
                 <td class="px-4 py-4 leading-7 text-slate-600">{{ row.summary }}</td>
                 <td class="px-4 py-4">
-                  <div class="flex flex-wrap gap-2">
-                    <a href="{% url 'extras_portal:reports_export_pdf' %}" class="inline-flex rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">PDF</a>
-                    <a href="{% url 'extras_portal:reports_export_xlsx' %}" class="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900">Excel</a>
-                  </div>
+                  {% if row.can_export %}
+                    <div class="flex flex-wrap gap-2">
+                      <a href="{% url 'extras_portal:reports_export_pdf' %}?request={{ row.request_id }}" class="inline-flex rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white">PDF</a>
+                      <a href="{% url 'extras_portal:reports_export_xlsx' %}?request={{ row.request_id }}" class="inline-flex rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-900">Excel</a>
+                    </div>
+                  {% else %}
+                    <span class="text-xs text-slate-400">—</span>
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -155,65 +201,71 @@
       </div>
     </section>
 
-    {% for group in report_option_groups %}
+    {% for request_group in report_request_groups %}
       <section class="mt-8">
         <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h3 class="text-2xl font-extrabold text-slate-900">{{ group.title }}</h3>
-            <p class="mt-2 text-sm leading-7 text-slate-600">{{ group.description }}</p>
+            <h3 class="text-2xl font-extrabold text-slate-900">تفاصيل الطلب {{ request_group.request_code }}</h3>
+            <p class="mt-2 text-sm leading-7 text-slate-600">الفترة المعتمدة: {{ request_group.start_label }} إلى {{ request_group.end_label }} • تم السداد {{ request_group.payment_confirmed_label }}</p>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
-          {% for card in group.cards %}
-            <article class="option-card rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)] {% if card.wide %}xl:col-span-2{% endif %}">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div class="flex items-start gap-3">
-                  <div class="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl {{ card.accent_class }}">
-                    <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
-                      <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm4.39 8.53-4.77 4.77a1 1 0 0 1-1.41 0L7.61 12.7a1 1 0 1 1 1.41-1.41l1.9 1.89 4.06-4.06a1 1 0 0 1 1.41 1.41Z"></path>
-                    </svg>
+        {% for group in request_group.option_groups %}
+          <div class="mb-4">
+            <h4 class="text-xl font-extrabold text-slate-900">{{ group.title }}</h4>
+            <p class="mt-2 text-sm leading-7 text-slate-600">{{ group.description }}</p>
+          </div>
+          <div class="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {% for card in group.cards %}
+              <article class="option-card rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)] {% if card.wide %}xl:col-span-2{% endif %}">
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="flex items-start gap-3">
+                    <div class="mt-1 flex h-11 w-11 items-center justify-center rounded-2xl {{ card.accent_class }}">
+                      <svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
+                        <path d="M12 2a10 10 0 1 0 10 10A10.01 10.01 0 0 0 12 2Zm4.39 8.53-4.77 4.77a1 1 0 0 1-1.41 0L7.61 12.7a1 1 0 1 1 1.41-1.41l1.9 1.89 4.06-4.06a1 1 0 0 1 1.41 1.41Z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 class="text-lg font-extrabold text-slate-900">{{ card.title }}</h4>
+                      <p class="mt-2 text-sm leading-7 text-slate-600">{{ card.helper_text }}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 class="text-lg font-extrabold text-slate-900">{{ card.title }}</h4>
-                    <p class="mt-2 text-sm leading-7 text-slate-600">{{ card.helper_text }}</p>
-                  </div>
+                  <span class="inline-flex items-center rounded-full px-3 py-2 text-sm font-bold {{ card.badge_class }}">{{ card.badge }}</span>
                 </div>
-                <span class="inline-flex items-center rounded-full px-3 py-2 text-sm font-bold {{ card.badge_class }}">{{ card.badge }}</span>
-              </div>
 
-              {% if card.kind == 'stats' %}
-                <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {% for stat in card.stats %}
-                    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <div class="text-xs font-bold text-slate-500">{{ stat.label }}</div>
-                      <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ stat.value }}</div>
-                    </div>
-                  {% endfor %}
-                </div>
-              {% elif card.kind == 'list' %}
-                <div class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
-                  {% if card.entries %}
-                    <div class="grid gap-3 sm:grid-cols-2">
-                      {% for entry in card.entries %}
-                        <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-                          <div class="text-base font-extrabold text-slate-900">{{ entry.primary }}</div>
-                          <div class="mt-1 text-sm text-slate-500">{{ entry.secondary }}</div>
-                        </div>
-                      {% endfor %}
-                    </div>
-                  {% else %}
-                    <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm font-bold text-slate-500">{{ card.empty_message }}</div>
-                  {% endif %}
-                </div>
-              {% else %}
-                <div class="mt-5 rounded-[24px] border border-amber-100 bg-amber-50 px-4 py-5 text-sm leading-7 text-slate-700">
-                  {{ card.placeholder_text }}
-                </div>
-              {% endif %}
-            </article>
-          {% endfor %}
-        </div>
+                {% if card.kind == 'stats' %}
+                  <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {% for stat in card.stats %}
+                      <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                        <div class="text-xs font-bold text-slate-500">{{ stat.label }}</div>
+                        <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ stat.value }}</div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                {% elif card.kind == 'list' %}
+                  <div class="mt-5 rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
+                    {% if card.entries %}
+                      <div class="grid gap-3 sm:grid-cols-2">
+                        {% for entry in card.entries %}
+                          <div class="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                            <div class="text-base font-extrabold text-slate-900">{{ entry.primary }}</div>
+                            <div class="mt-1 text-sm text-slate-500">{{ entry.secondary }}</div>
+                          </div>
+                        {% endfor %}
+                      </div>
+                    {% else %}
+                      <div class="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-sm font-bold text-slate-500">{{ card.empty_message }}</div>
+                    {% endif %}
+                  </div>
+                {% else %}
+                  <div class="mt-5 rounded-[24px] border border-amber-100 bg-amber-50 px-4 py-5 text-sm leading-7 text-slate-700">
+                    {{ card.placeholder_text }}
+                  </div>
+                {% endif %}
+              </article>
+            {% endfor %}
+          </div>
+        {% endfor %}
       </section>
     {% endfor %}
   {% else %}

@@ -375,3 +375,81 @@ class ProviderLike(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "provider", "role_context"], name="uniq_like_user_provider_role"),
         ]
+
+
+class ContentShareChannel(models.TextChoices):
+    WHATSAPP = "whatsapp", "واتساب"
+    TWITTER = "twitter", "تويتر"
+    COPY_LINK = "copy_link", "نسخ الرابط"
+    OTHER = "other", "أخرى"
+
+
+class ContentShareContentType(models.TextChoices):
+    PROFILE = "profile", "الملف الشخصي"
+    PORTFOLIO = "portfolio", "معرض الأعمال"
+    SPOTLIGHT = "spotlight", "الأضواء"
+
+
+class ProviderContentShare(models.Model):
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="content_shares",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="provider_content_shares",
+    )
+    content_type = models.CharField(
+        max_length=20,
+        choices=ContentShareContentType.choices,
+        default=ContentShareContentType.PROFILE,
+        db_index=True,
+    )
+    content_id = models.PositiveIntegerField(null=True, blank=True)
+    channel = models.CharField(
+        max_length=20,
+        choices=ContentShareChannel.choices,
+        default=ContentShareChannel.OTHER,
+    )
+    session_id = models.CharField(max_length=64, blank=True, default="")
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+
+class ProviderContentComment(models.Model):
+    provider = models.ForeignKey(
+        ProviderProfile,
+        on_delete=models.CASCADE,
+        related_name="content_comments",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="provider_content_comments",
+    )
+    portfolio_item = models.ForeignKey(
+        "ProviderPortfolioItem",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    spotlight_item = models.ForeignKey(
+        "ProviderSpotlightItem",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="comments",
+    )
+    body = models.TextField(max_length=1000)
+    is_approved = models.BooleanField(default=True)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-created_at"]

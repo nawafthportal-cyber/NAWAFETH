@@ -434,9 +434,10 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
 @admin.register(Subscription)
 class SubscriptionAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "plan", "status", "start_at", "end_at", "grace_end_at", "auto_renew")
-    list_filter = ("status", "auto_renew")
-    search_fields = ("user__phone", "plan__code")
+    list_filter = ("status", "auto_renew", "plan__tier")
+    search_fields = ("user__phone", "plan__code", "plan__title")
     ordering = ("-id",)
+    list_select_related = ("user", "plan")
 
 
 @admin.register(SubscriptionInquiryProfile)

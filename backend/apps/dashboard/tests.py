@@ -680,6 +680,35 @@ class ExtrasDashboardTests(TestCase):
     def _reload_request_with_metadata(self, request_obj):
         return UnifiedRequest.objects.select_related("metadata_record", "requester", "assigned_user").get(pk=request_obj.pk)
 
+    def _update_bundle_sections(self, request_obj, *, reports=None, clients=None, finance=None, summary_text=None):
+        request_obj = self._reload_request_with_metadata(request_obj)
+        payload = dict(request_obj.metadata_record.payload or {})
+        bundle = dict(payload.get("bundle") or {})
+        sections = {
+            "reports": reports if reports is not None else bundle.get("reports", {}),
+            "clients": clients if clients is not None else bundle.get("clients", {}),
+            "finance": finance if finance is not None else bundle.get("finance", {}),
+        }
+        bundle.update(sections)
+        bundle["summary_sections"] = [
+            {
+                "key": key,
+                "title": title,
+                "items": list((section or {}).get("options") or []),
+            }
+            for key, title, section in (
+                ("reports", "التقارير", sections["reports"]),
+                ("clients", "إدارة العملاء", sections["clients"]),
+                ("finance", "الإدارة المالية", sections["finance"]),
+            )
+        ]
+        payload["bundle"] = bundle
+        request_obj.metadata_record.payload = payload
+        request_obj.metadata_record.save(update_fields=["payload"])
+        request_obj.summary = summary_text or request_obj.summary
+        request_obj.save(update_fields=["summary", "updated_at"])
+        return self._reload_request_with_metadata(request_obj)
+
     def _bundle_system_thread_for(self, recipient):
         return (
             Thread.objects.filter(
@@ -726,10 +755,33 @@ class ExtrasDashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "لوحة التحكم للتقارير")
+        self.assertContains(response, 'id="reportsSpecialistIdentifier"', html=False)
+        self.assertContains(response, reverse("dashboard:extras_specialist_search_api"))
+        self.assertContains(response, 'data-specialist-selector', html=False)
+        self.assertContains(response, 'data-specialist-results', html=False)
+        self.assertContains(response, "اعتماد مزود الخدمة")
+        self.assertContains(response, "الإرسال النهائي لن ينجح قبل اعتماد مزود خدمة صالح")
+        self.assertNotContains(response, '<datalist id="extrasSpecialistSearchOptions">', html=False)
         self.assertContains(response, "بداية التقرير")
         self.assertContains(response, "نهاية التقرير")
         self.assertContains(response, "تفعيل خيارات الإحصاءات والتقارير المطلوبة")
         self.assertNotContains(response, "قائمة استفسارات الخدمات الإضافية")
+        self.assertEqual(response.context["specialist_display_name"], "لم يتم تحديد مزود الخدمة بعد")
+
+    def test_extras_specialist_search_api_returns_matching_specialists(self):
+        response = self.client.get(
+            reverse("dashboard:extras_specialist_search_api"),
+            {"q": "مزود"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["ok"])
+        self.assertEqual(payload["q"], "مزود")
+        self.assertTrue(payload["rows"])
+        first_row = payload["rows"][0]
+        self.assertEqual(first_row["identifier"], self.requester.username)
+        self.assertEqual(first_row["display_name"], self.requester_provider_profile.display_name)
 
     def test_extras_dashboard_reports_section_can_save_report_options(self):
         specialist_identifier = self.requester.username or self.requester.phone or ""
@@ -754,12 +806,49 @@ class ExtrasDashboardTests(TestCase):
         self.assertTrue(session_payload.get("reports", {}).get("start_at"))
         self.assertTrue(session_payload.get("reports", {}).get("end_at"))
 
+    def test_extras_dashboard_reports_section_can_clear_specialist_identifier(self):
+        specialist_identifier = self.requester.username or self.requester.phone or ""
+
+        first_response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "save_extras_bundle_reports",
+                "redirect_section": "reports",
+                "specialist_identifier": specialist_identifier,
+                "reports_options": ["platform_metrics"],
+            },
+        )
+
+        self.assertEqual(first_response.status_code, 302)
+        self.assertEqual(
+            self.client.session.get("dashboard_extras_bundle_draft", {}).get("specialist_identifier"),
+            specialist_identifier,
+        )
+
+        second_response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "save_extras_bundle_reports",
+                "redirect_section": "reports",
+                "specialist_identifier": "",
+                "reports_options": ["platform_metrics"],
+            },
+        )
+
+        self.assertEqual(second_response.status_code, 302)
+        self.assertEqual(
+            self.client.session.get("dashboard_extras_bundle_draft", {}).get("specialist_identifier"),
+            "",
+        )
+
     def test_extras_dashboard_clients_section_renders_management_page(self):
         response = self.client.get(f"{reverse('dashboard:extras_dashboard')}?section=clients")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "بيانات اعتماد الخدمة")
         self.assertContains(response, "الخدمات المطلوبة")
+        self.assertContains(response, 'id="clientsSpecialistIdentifier"', html=False)
+        self.assertContains(response, 'data-specialist-confirm', html=False)
         self.assertContains(response, "اعتماد")
         self.assertContains(response, "إلغاء")
 
@@ -768,6 +857,8 @@ class ExtrasDashboardTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "الإدارة المالية")
+        self.assertContains(response, 'id="financeSpecialistIdentifier"', html=False)
+        self.assertContains(response, 'data-specialist-confirm', html=False)
         self.assertContains(response, "مدة الاشتراك (بالسنوات)")
         self.assertContains(response, "IBAN")
         self.assertContains(response, "خيارات باقة الخدمات المالية المعتمدة")
@@ -799,12 +890,101 @@ class ExtrasDashboardTests(TestCase):
         self.assertEqual(finance_payload.get("iban"), "SA0380000000608010167519")
         self.assertEqual(finance_payload.get("options"), ["bank_qr_registration", "electronic_payments"])
 
+    def test_extras_dashboard_reports_section_lists_only_report_requests(self):
+        report_request = self._create_bundle_request()
+        finance_request = self._create_bundle_request(requester_user=self.request_owner)
+        finance_request = self._update_bundle_sections(
+            finance_request,
+            reports={"enabled": False, "options": [], "start_at": "", "end_at": ""},
+            clients={"enabled": False, "options": [], "subscription_years": 1, "bulk_message_count": 0},
+            finance={"enabled": True, "options": ["electronic_payments"], "subscription_years": 1},
+            summary_text="طلب خدمات إضافية - الإدارة المالية",
+        )
+
+        response = self.client.get(
+            f"{reverse('dashboard:extras_dashboard')}?section=reports&request={report_request.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "طلبات التقارير")
+        self.assertContains(response, report_request.code)
+        self.assertEqual(
+            [row["id"] for row in response.context["active_section_request_rows"]],
+            [report_request.id],
+        )
+        self.assertContains(response, f"تفاصيل الطلب: {report_request.code}")
+
+    def test_extras_dashboard_clients_section_lists_only_client_requests(self):
+        clients_request = self._create_bundle_request()
+        finance_request = self._create_bundle_request(requester_user=self.request_owner)
+        finance_request = self._update_bundle_sections(
+            finance_request,
+            reports={"enabled": False, "options": [], "start_at": "", "end_at": ""},
+            clients={"enabled": False, "options": [], "subscription_years": 1, "bulk_message_count": 0},
+            finance={"enabled": True, "options": ["electronic_payments"], "subscription_years": 1},
+            summary_text="طلب خدمات إضافية - الإدارة المالية",
+        )
+
+        response = self.client.get(
+            f"{reverse('dashboard:extras_dashboard')}?section=clients&request={clients_request.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "طلبات إدارة العملاء")
+        self.assertContains(response, clients_request.code)
+        self.assertEqual(
+            [row["id"] for row in response.context["active_section_request_rows"]],
+            [clients_request.id],
+        )
+        self.assertContains(response, f"تفاصيل الطلب: {clients_request.code}")
+
+    def test_extras_dashboard_finance_section_lists_only_finance_requests(self):
+        bundle_request = self._create_bundle_request()
+        bundle_request = self._update_bundle_sections(
+            bundle_request,
+            reports={"enabled": False, "options": [], "start_at": "", "end_at": ""},
+            clients={"enabled": False, "options": [], "subscription_years": 1, "bulk_message_count": 0},
+            finance={
+                "enabled": True,
+                "options": ["bank_qr_registration", "electronic_payments"],
+                "subscription_years": 1,
+                "qr_first_name": "أحمد",
+                "qr_last_name": "محمد",
+                "iban": "SA0380000000608010167519",
+            },
+            summary_text="طلب خدمات إضافية - الإدارة المالية",
+        )
+
+        response = self.client.get(
+            f"{reverse('dashboard:extras_dashboard')}?section=finance&request={bundle_request.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "طلبات الإدارة المالية")
+        self.assertContains(response, bundle_request.code)
+        self.assertEqual(
+            [row["id"] for row in response.context["active_section_request_rows"]],
+            [bundle_request.id],
+        )
+        self.assertContains(response, f"تفاصيل الطلب: {bundle_request.code}")
+
+    def test_extras_dashboard_selected_request_detail_uses_provider_display_name(self):
+        bundle_request = self._create_bundle_request(requester_user=self.requester)
+
+        response = self.client.get(
+            f"{reverse('dashboard:extras_dashboard')}?section=overview&request={bundle_request.id}"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "اسم مزود الخدمة")
+        self.assertContains(response, self.requester_provider_profile.display_name)
+
     def test_extras_dashboard_subscribers_section_renders_management_page(self):
         response = self.client.get(f"{reverse('dashboard:extras_dashboard')}?section=subscribers")
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "بيانات مشتركي الخدمات الإضافية")
-        self.assertContains(response, "ابحث باسم العميل أو رقم الطلب أو اسم الخدمة")
+        self.assertContains(response, "ابحث باسم مزود الخدمة أو رقم الطلب أو اسم الخدمة")
         self.assertNotContains(response, "تم فصل هذه الصفحة عن الصفحة الرئيسية")
         self.assertNotContains(response, self.extra_purchase.title)
 
@@ -1090,6 +1270,66 @@ class ExtrasDashboardTests(TestCase):
         self.assertEqual(requests_page.status_code, 200)
         self.assertContains(requests_page, created_request.code)
         self.assertContains(requests_page, "جديد")
+
+    def test_extras_bundle_flow_blocks_submit_without_specialist(self):
+        response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "save_extras_bundle_reports",
+                "specialist_identifier": "",
+                "reports_options": ["platform_metrics"],
+                "continue_to_summary": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        submit_response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "submit_extras_bundle_request",
+                "specialist_identifier": "",
+            },
+            follow=True,
+        )
+
+        self.assertContains(submit_response, "حدد مزود الخدمة أولاً قبل إنشاء طلب الخدمات الإضافية.")
+        self.assertFalse(
+            UnifiedRequest.objects.filter(
+                request_type=UnifiedRequestType.EXTRAS,
+                source_app="dashboard",
+                source_model="ExtrasServiceRequest",
+            ).exists()
+        )
+
+    def test_extras_bundle_flow_blocks_submit_with_invalid_specialist(self):
+        response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "save_extras_bundle_reports",
+                "specialist_identifier": "ghost-user-404",
+                "reports_options": ["platform_metrics"],
+                "continue_to_summary": "1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+
+        submit_response = self.client.post(
+            reverse("dashboard:extras_dashboard"),
+            {
+                "action": "submit_extras_bundle_request",
+                "specialist_identifier": "ghost-user-404",
+            },
+            follow=True,
+        )
+
+        self.assertContains(submit_response, "تعذر العثور على مزود الخدمة المحدد. راجع اسم مزود الخدمة ثم أعد المحاولة.")
+        self.assertFalse(
+            UnifiedRequest.objects.filter(
+                request_type=UnifiedRequestType.EXTRAS,
+                source_app="dashboard",
+                source_model="ExtrasServiceRequest",
+            ).exists()
+        )
 
     def test_extras_dashboard_renders_bundle_request_details_with_durations_inline(self):
         bundle_request = self._create_bundle_request()
@@ -1677,7 +1917,8 @@ class SubscriptionDashboardTests(TestCase):
 
         collapsed_response = self.client.get(base_url)
         self.assertEqual(collapsed_response.status_code, 200)
-        self.assertNotContains(collapsed_response, "اسم مزود الخدمة")
+        self.assertNotContains(collapsed_response, "تفاصيل الطلب:")
+        self.assertNotContains(collapsed_response, "تجديد الباقة")
 
         expanded_response = self.client.get(f"{base_url}&account={self.subscription.id}")
         self.assertEqual(expanded_response.status_code, 200)

@@ -15,6 +15,7 @@ class AnalyticsEventAdmin(admin.ModelAdmin):
     list_filter = ("channel", "event_name", "source_app", "object_type")
     search_fields = ("event_name", "surface", "source_app", "object_type", "object_id", "dedupe_key", "session_id")
     readonly_fields = ("created_at",)
+    list_select_related = ("actor",)
 
 
 @admin.register(ProviderDailyStats)

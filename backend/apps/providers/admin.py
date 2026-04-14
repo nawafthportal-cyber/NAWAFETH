@@ -5,6 +5,8 @@ from apps.core.admin_mixins import HiddenFromAdminIndexMixin
 from .models import (
     Category,
     ProviderCategory,
+    ProviderContentComment,
+    ProviderContentShare,
     ProviderFollow,
     ProviderLike,
     ProviderPortfolioItem,
@@ -192,3 +194,27 @@ class ProviderLikeAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
     ordering = ("-id",)
     list_select_related = ("user", "provider", "provider__user")
     readonly_fields = ("created_at",)
+
+
+@admin.register(ProviderContentShare)
+class ProviderContentShareAdmin(admin.ModelAdmin):
+    list_display = ("id", "provider", "user", "content_type", "channel", "created_at")
+    list_filter = ("content_type", "channel")
+    search_fields = ("provider__display_name", "provider__user__phone", "user__phone", "user__username")
+    ordering = ("-id",)
+    list_select_related = ("provider", "provider__user", "user")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(ProviderContentComment)
+class ProviderContentCommentAdmin(admin.ModelAdmin):
+    list_display = ("id", "provider", "user", "body_preview", "is_approved", "created_at")
+    list_filter = ("is_approved",)
+    search_fields = ("provider__display_name", "provider__user__phone", "user__phone", "user__username", "body")
+    ordering = ("-id",)
+    list_select_related = ("provider", "provider__user", "user")
+    readonly_fields = ("created_at",)
+
+    @admin.display(description="معاينة")
+    def body_preview(self, obj):
+        return (obj.body or "")[:80]

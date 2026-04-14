@@ -1183,12 +1183,41 @@ def _support_priority_row_class(priority: str) -> str:
     return "priority-1"
 
 
+def _dashboard_user_identifier(user_obj, *, prefer_phone: bool = False) -> str:
+    if user_obj is None:
+        return "-"
+
+    primary = getattr(user_obj, "phone", "") if prefer_phone else getattr(user_obj, "username", "")
+    secondary = getattr(user_obj, "username", "") if prefer_phone else getattr(user_obj, "phone", "")
+    label = str(primary or secondary or f"user-{getattr(user_obj, 'id', '0')}").strip()
+    return label or "-"
+
+
+def _dashboard_requester_display_name(user_obj) -> str:
+    if user_obj is None:
+        return "-"
+
+    provider_profile = getattr(user_obj, "provider_profile", None)
+    provider_name = str(getattr(provider_profile, "display_name", "") or "").strip()
+    if provider_name:
+        return provider_name
+
+    full_name = " ".join(
+        part.strip()
+        for part in [
+            str(getattr(user_obj, "first_name", "") or ""),
+            str(getattr(user_obj, "last_name", "") or ""),
+        ]
+        if part and part.strip()
+    ).strip()
+    if full_name:
+        return full_name
+
+    return _dashboard_user_identifier(user_obj, prefer_phone=True)
+
+
 def _support_requester_label(ticket: SupportTicket) -> str:
-    requester = ticket.requester
-    label = (getattr(requester, "username", "") or requester.phone or f"user-{requester.id}").strip()
-    if not label.startswith("@"):
-        label = f"@{label}"
-    return label
+    return _dashboard_requester_display_name(ticket.requester)
 
 
 def _support_assignee_label(ticket: SupportTicket) -> str:
@@ -1245,7 +1274,7 @@ def _support_attachment_rows(ticket: SupportTicket) -> list[dict]:
 
 def _support_queryset_for_user(user):
     qs = (
-        SupportTicket.objects.select_related("requester", "assigned_team", "assigned_to")
+        SupportTicket.objects.select_related("requester", "requester__provider_profile", "assigned_team", "assigned_to")
         .filter(entrypoint=SupportTicketEntrypoint.CONTACT_PLATFORM)
         .order_by("-created_at", "-id")
     )
@@ -1669,11 +1698,7 @@ def _subscription_duration_label(plan_obj: SubscriptionPlan | None, duration_cou
 
 
 def _subscription_provider_name(sub: Subscription) -> str:
-    provider_profile = getattr(getattr(sub, "user", None), "provider_profile", None)
-    display_name = str(getattr(provider_profile, "display_name", "") or "").strip()
-    if display_name:
-        return display_name
-    return _promo_requester_label(getattr(sub, "user", None))
+    return _dashboard_requester_display_name(getattr(sub, "user", None))
 
 
 def _subscription_payment_amount_text(invoice: Invoice | None) -> str:
@@ -1855,6 +1880,7 @@ def support_dashboard(request, ticket_id: int | None = None):
         tickets_qs = tickets_qs.filter(
             Q(code__icontains=query_filter)
             | Q(description__icontains=query_filter)
+            | Q(requester__provider_profile__display_name__icontains=query_filter)
             | Q(requester__username__icontains=query_filter)
             | Q(requester__phone__icontains=query_filter)
         )
@@ -2017,6 +2043,7 @@ def support_dashboard(request, ticket_id: int | None = None):
         {
             "tickets": _serialize_support_rows(tickets),
             "selected_ticket": selected_ticket,
+            "selected_ticket_requester_name": _support_requester_label(selected_ticket) if selected_ticket else "",
             "selected_ticket_attachments": _support_attachment_rows(selected_ticket) if selected_ticket else [],
             "support_form": support_form,
             "summary": _support_summary(tickets),
@@ -2106,7 +2133,7 @@ def _dashboard_priority_class_for_user(user, *, subscriptions_by_user_id: dict[i
 
 def _subscription_unified_queryset_for_user(user):
     qs = (
-        UnifiedRequest.objects.select_related("requester", "assigned_user", "metadata_record")
+        UnifiedRequest.objects.select_related("requester", "requester__provider_profile", "assigned_user", "metadata_record")
         .filter(request_type=UnifiedRequestType.SUBSCRIPTION)
         .order_by("-updated_at", "-id")
     )
@@ -2720,6 +2747,7 @@ def subscription_dashboard(request):
         subscription_inquiries_qs = subscription_inquiries_qs.filter(
             Q(code__icontains=inquiry_q)
             | Q(description__icontains=inquiry_q)
+            | Q(requester__provider_profile__display_name__icontains=inquiry_q)
             | Q(requester__username__icontains=inquiry_q)
             | Q(requester__phone__icontains=inquiry_q)
         )
@@ -2752,7 +2780,7 @@ def subscription_dashboard(request):
         raw_subscription_id = str(selected_request.source_object_id or "").strip()
         if raw_subscription_id.isdigit():
             selected_request_subscription = (
-                Subscription.objects.select_related("user", "plan", "invoice")
+                Subscription.objects.select_related("user", "user__provider_profile", "plan", "invoice")
                 .filter(pk=int(raw_subscription_id))
                 .first()
             )
@@ -2810,6 +2838,7 @@ def subscription_dashboard(request):
         subscription_requests_qs = subscription_requests_qs.filter(
             Q(code__icontains=request_q)
             | Q(summary__icontains=request_q)
+            | Q(requester__provider_profile__display_name__icontains=request_q)
             | Q(requester__username__icontains=request_q)
             | Q(requester__phone__icontains=request_q)
         )
@@ -2825,7 +2854,8 @@ def subscription_dashboard(request):
     subscription_accounts_qs = _subscription_accounts_queryset_for_user(request.user)
     if account_q:
         subscription_accounts_qs = subscription_accounts_qs.filter(
-            Q(user__username__icontains=account_q)
+            Q(user__provider_profile__display_name__icontains=account_q)
+            | Q(user__username__icontains=account_q)
             | Q(user__phone__icontains=account_q)
             | Q(plan__title__icontains=account_q)
             | Q(plan__code__icontains=account_q)
@@ -2857,10 +2887,12 @@ def subscription_dashboard(request):
         "subscription_requests": subscription_request_rows,
         "subscription_accounts": subscription_account_rows,
         "selected_inquiry": selected_inquiry,
+        "selected_inquiry_requester_name": _promo_requester_label(selected_inquiry.requester) if selected_inquiry else "",
         "selected_inquiry_status_label": _subscription_inquiry_status_label(
             selected_inquiry.status if selected_inquiry else ""
         ),
         "selected_request": selected_request,
+        "selected_request_requester_name": _promo_requester_label(selected_request.requester) if selected_request else "",
         "selected_request_subscription": selected_request_subscription,
         "selected_request_status_label": _subscription_request_status_label(selected_request_status_code),
         "selected_request_form": selected_request_form,
@@ -2985,7 +3017,7 @@ def _extras_inquiries_queryset_for_user(user):
 
 def _extras_unified_queryset_for_user(user):
     qs = (
-        UnifiedRequest.objects.select_related("requester", "assigned_user", "metadata_record")
+        UnifiedRequest.objects.select_related("requester", "requester__provider_profile", "assigned_user", "metadata_record")
         .filter(request_type=UnifiedRequestType.EXTRAS)
         .order_by("-updated_at", "-id")
     )
@@ -3006,7 +3038,7 @@ def _extras_purchase_map(unified_requests: list[UnifiedRequest]) -> dict[int, Ex
         return {}
     return {
         purchase.id: purchase
-        for purchase in ExtraPurchase.objects.select_related("user", "invoice").filter(id__in=purchase_ids)
+        for purchase in ExtraPurchase.objects.select_related("user", "user__provider_profile", "invoice").filter(id__in=purchase_ids)
     }
 
 
@@ -3038,6 +3070,36 @@ def _extras_request_operator_comment(request_obj: UnifiedRequest | None) -> str:
     return str(payload.get("operator_comment", "") or "").strip()[:300]
 
 
+def _extras_request_active_bundle_sections(request_obj: UnifiedRequest | None) -> list[dict]:
+    if request_obj is None:
+        return []
+    sections: list[dict] = []
+    for section in extras_bundle_detail_sections_for_request(request_obj):
+        section_key = str(section.get("key") or "").strip()
+        section_items = list(section.get("items") or [])
+        if not section_key or not section_items:
+            continue
+        sections.append(
+            {
+                "key": section_key,
+                "title": str(section.get("title") or "").strip(),
+                "items": section_items,
+                "meta_lines": list(section.get("meta_lines") or []),
+            }
+        )
+    return sections
+
+
+def _extras_request_section_detail(request_obj: UnifiedRequest | None, section_key: str) -> dict | None:
+    normalized_key = str(section_key or "").strip().lower()
+    if not normalized_key:
+        return None
+    for section in _extras_request_active_bundle_sections(request_obj):
+        if str(section.get("key") or "").strip().lower() == normalized_key:
+            return section
+    return None
+
+
 def _extras_request_rows(extras_requests: list[UnifiedRequest]) -> list[dict]:
     purchase_map = _extras_purchase_map(extras_requests)
     subscriptions_by_user_id = _effective_subscriptions_map_for_users(
@@ -3048,6 +3110,7 @@ def _extras_request_rows(extras_requests: list[UnifiedRequest]) -> list[dict]:
         raw_purchase_id = str(request_obj.source_object_id or "").strip()
         purchase_id = int(raw_purchase_id) if raw_purchase_id.isdigit() else 0
         purchase = purchase_map.get(purchase_id)
+        bundle_sections = _extras_request_active_bundle_sections(request_obj)
         request_status_code = canonical_status_for_workflow(
             request_type=UnifiedRequestType.EXTRAS,
             status=request_obj.status,
@@ -3077,6 +3140,12 @@ def _extras_request_rows(extras_requests: list[UnifiedRequest]) -> list[dict]:
                 "purchase_type": purchase.get_extra_type_display() if purchase is not None else "-",
                 "payment_status": _extras_payment_status_label(purchase),
                 "invoice_code": getattr(getattr(purchase, "invoice", None), "code", "") or "-",
+                "bundle_section_keys": [section["key"] for section in bundle_sections],
+                "bundle_section_titles": [section["title"] for section in bundle_sections if section.get("title")],
+                "bundle_section_titles_text": " / ".join(
+                    section["title"] for section in bundle_sections if section.get("title")
+                ),
+                "bundle_item_count": sum(len(section.get("items") or []) for section in bundle_sections),
                 "start_at": _format_dt(getattr(purchase, "start_at", None)),
                 "end_at": _format_dt(getattr(purchase, "end_at", None)),
                 "credits_total": int(getattr(purchase, "credits_total", 0) or 0),
@@ -3099,6 +3168,17 @@ def _extras_requests_summary(rows: list[dict]) -> dict:
         "returned": by_status.get(UnifiedRequestStatus.RETURNED, 0),
         "closed": by_status.get(UnifiedRequestStatus.CLOSED, 0),
     }
+
+
+def _extras_request_rows_for_section(rows: list[dict], section_key: str) -> list[dict]:
+    normalized_key = str(section_key or "").strip().lower()
+    if not normalized_key:
+        return list(rows)
+    return [
+        row
+        for row in rows
+        if normalized_key in {str(value or "").strip().lower() for value in row.get("bundle_section_keys") or []}
+    ]
 
 
 def _extras_dashboard_url_with_state(
@@ -3280,7 +3360,7 @@ def _extras_nav_items(active_key: str) -> list[dict]:
 
 
 def _extras_purchases_queryset_for_user(user):
-    qs = ExtraPurchase.objects.select_related("user", "invoice").order_by("-updated_at", "-id")
+    qs = ExtraPurchase.objects.select_related("user", "user__provider_profile", "invoice").order_by("-updated_at", "-id")
     access_profile = active_access_profile_for_user(user)
     if access_profile and access_profile.level == AccessLevel.USER:
         allowed_ids: list[int] = []
@@ -3476,7 +3556,7 @@ def _extras_finance_summary(rows: list[dict]) -> dict:
 
 
 def _extras_portal_subscriptions_queryset_for_user(user):
-    qs = ExtrasPortalSubscription.objects.select_related("provider", "provider__user").order_by("-updated_at", "-id")
+    qs = ExtrasPortalSubscription.objects.select_related("provider", "provider__user", "provider__user__provider_profile").order_by("-updated_at", "-id")
     access_profile = active_access_profile_for_user(user)
     if access_profile and access_profile.level == AccessLevel.USER:
         allowed_requester_ids = {
@@ -3837,6 +3917,60 @@ def _extras_resolve_specialist(identifier: str):
     return _get_user_by_identifier(normalized_identifier)
 
 
+def _extras_specialist_search_rows(query: str, *, limit: int = 8) -> list[dict]:
+    normalized_query = str(query or "").strip()
+    if len(normalized_query) < 2:
+        return []
+
+    User = get_user_model()
+    users = (
+        User.objects.filter(is_active=True)
+        .select_related("provider_profile")
+        .filter(
+            Q(username__icontains=normalized_query)
+            | Q(phone__icontains=normalized_query)
+            | Q(provider_profile__display_name__icontains=normalized_query)
+        )
+        .order_by("username", "phone", "id")[: max(1, int(limit or 8))]
+    )
+
+    rows: list[dict] = []
+    for user_obj in users:
+        provider_profile = getattr(user_obj, "provider_profile", None)
+        display_name = str(getattr(provider_profile, "display_name", "") or "").strip()
+        username = str(getattr(user_obj, "username", "") or "").strip()
+        phone = str(getattr(user_obj, "phone", "") or "").strip()
+        identifier = username or phone
+        if not identifier:
+            continue
+        display_text_parts = [segment for segment in [display_name, username, phone] if segment]
+        rows.append(
+            {
+                "identifier": identifier,
+                "username": username,
+                "phone": phone,
+                "display_name": display_name or username or phone,
+                "display_text": " - ".join(display_text_parts) if display_text_parts else identifier,
+            }
+        )
+    return rows
+
+
+@dashboard_staff_required
+@require_dashboard_access("extras")
+def extras_specialist_search_api(request):
+    query = (request.GET.get("q") or "").strip()
+    rows = _extras_specialist_search_rows(query)
+    return JsonResponse(
+        {
+            "ok": True,
+            "q": query,
+            "rows": rows,
+        },
+        json_dumps_params={"ensure_ascii": False},
+    )
+
+
 @dashboard_staff_required
 @require_dashboard_access("extras")
 def extras_dashboard(request):
@@ -3882,8 +4016,8 @@ def extras_dashboard(request):
             return HttpResponseForbidden("لا تملك صلاحية تعديل طلبات الخدمات الإضافية.")
 
         action = (request.POST.get("action") or "").strip()
-        posted_specialist_identifier = (request.POST.get("specialist_identifier") or "").strip()
-        if posted_specialist_identifier:
+        if "specialist_identifier" in request.POST:
+            posted_specialist_identifier = (request.POST.get("specialist_identifier") or "").strip()
             bundle_draft["specialist_identifier"] = posted_specialist_identifier
             _extras_bundle_save_draft(request, bundle_draft)
 
@@ -3991,12 +4125,16 @@ def extras_dashboard(request):
                 return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
 
             specialist_identifier = str(bundle_draft.get("specialist_identifier", "") or "").strip()
-            specialist_user = _extras_resolve_specialist(specialist_identifier)
-            if specialist_identifier and specialist_user is None:
-                messages.error(request, "تعذر العثور على المختص المحدد. راجع اسم المختص ثم أعد المحاولة.")
+            if not specialist_identifier:
+                messages.error(request, "حدد مزود الخدمة أولاً قبل إنشاء طلب الخدمات الإضافية.")
                 return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
 
-            requester_user = specialist_user or request.user
+            specialist_user = _extras_resolve_specialist(specialist_identifier)
+            if specialist_user is None:
+                messages.error(request, "تعذر العثور على مزود الخدمة المحدد. راجع اسم مزود الخدمة ثم أعد المحاولة.")
+                return _extras_redirect_to_section(EXTRAS_DASHBOARD_SECTION_REQUEST_SUMMARY)
+
+            requester_user = specialist_user
             summary_sections = _extras_bundle_summary_sections(bundle_draft)
             selected_section_titles = [row["title"] for row in summary_sections if row.get("items")]
             summary_text = (
@@ -4426,6 +4564,7 @@ def extras_dashboard(request):
         extras_inquiries_qs = extras_inquiries_qs.filter(
             Q(code__icontains=inquiry_q)
             | Q(description__icontains=inquiry_q)
+            | Q(requester__provider_profile__display_name__icontains=inquiry_q)
             | Q(requester__username__icontains=inquiry_q)
             | Q(requester__phone__icontains=inquiry_q)
         )
@@ -4453,7 +4592,7 @@ def extras_dashboard(request):
         raw_purchase_id = str(selected_request.source_object_id or "").strip()
         if raw_purchase_id.isdigit():
             selected_request_purchase = (
-                ExtraPurchase.objects.select_related("user", "invoice")
+                ExtraPurchase.objects.select_related("user", "user__provider_profile", "invoice")
                 .filter(pk=int(raw_purchase_id))
                 .first()
             )
@@ -4552,6 +4691,7 @@ def extras_dashboard(request):
         extras_requests_qs = extras_requests_qs.filter(
             Q(code__icontains=request_q)
             | Q(summary__icontains=request_q)
+            | Q(requester__provider_profile__display_name__icontains=request_q)
             | Q(requester__username__icontains=request_q)
             | Q(requester__phone__icontains=request_q)
         )
@@ -4561,8 +4701,29 @@ def extras_dashboard(request):
         extras_request_rows = [
             row for row in extras_request_rows if row.get("request_status_code") == request_status_filter
         ]
+    active_section_request_rows = list(extras_request_rows)
+    active_section_request_summary = _extras_requests_summary(active_section_request_rows)
+    selected_request_matches_active_section = True
+    selected_request_focus_section = None
+    if active_section in {
+        EXTRAS_DASHBOARD_SECTION_REPORTS,
+        EXTRAS_DASHBOARD_SECTION_CLIENTS,
+        EXTRAS_DASHBOARD_SECTION_FINANCE,
+    }:
+        active_section_request_rows = _extras_request_rows_for_section(extras_request_rows, active_section)
+        active_section_request_summary = _extras_requests_summary(active_section_request_rows)
+        selected_request_focus_section = _extras_request_section_detail(selected_request, active_section)
+        selected_request_matches_active_section = bool(
+            selected_request is not None and selected_request_focus_section is not None
+        )
     for row in extras_request_rows:
         row["is_selected"] = bool(selected_request is not None and row.get("id") == selected_request.id)
+    for row in active_section_request_rows:
+        row["is_selected"] = bool(
+            selected_request_matches_active_section
+            and selected_request is not None
+            and row.get("id") == selected_request.id
+        )
 
     extras_purchases_base_qs = _extras_purchases_queryset_for_user(request.user)
     extras_finance_qs = extras_purchases_base_qs
@@ -4570,6 +4731,7 @@ def extras_dashboard(request):
         extras_finance_qs = extras_finance_qs.filter(
             Q(sku__icontains=finance_q)
             | Q(title__icontains=finance_q)
+            | Q(user__provider_profile__display_name__icontains=finance_q)
             | Q(user__username__icontains=finance_q)
             | Q(user__phone__icontains=finance_q)
             | Q(invoice__code__icontains=finance_q)
@@ -4599,11 +4761,19 @@ def extras_dashboard(request):
 
     specialist_identifier = str(bundle_draft.get("specialist_identifier", "") or "").strip()
     specialist_user = _extras_resolve_specialist(specialist_identifier)
-    specialist_display_name = (
-        (getattr(specialist_user, "username", "") or getattr(specialist_user, "phone", "") or "").strip()
-        if specialist_user is not None
+    specialist_lookup_error = (
+        "تعذر العثور على مزود الخدمة المحدد. أدخل اسم المستخدم أو رقم الجوال الصحيح."
+        if specialist_identifier and specialist_user is None
         else ""
     )
+    specialist_display_name = ""
+    if specialist_user is not None:
+        provider_profile = getattr(specialist_user, "provider_profile", None)
+        specialist_display_name = (
+            str(getattr(provider_profile, "display_name", "") or "").strip()
+            or str(getattr(specialist_user, "username", "") or "").strip()
+            or str(getattr(specialist_user, "phone", "") or "").strip()
+        )
     report_start_at = _parse_datetime_local(bundle_draft.get("reports", {}).get("start_at", ""))
     report_end_at = _parse_datetime_local(bundle_draft.get("reports", {}).get("end_at", ""))
     client_years = max(1, int(bundle_draft.get("clients", {}).get("subscription_years", 1) or 1))
@@ -4639,21 +4809,12 @@ def extras_dashboard(request):
     elif active_section == EXTRAS_DASHBOARD_SECTION_REQUEST_CREATED:
         active_section = EXTRAS_DASHBOARD_MAIN_SECTION
 
-    if active_section == EXTRAS_DASHBOARD_SECTION_CLIENTS and not specialist_display_name:
-        specialist_display_name = (
-            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
-            or "لم يتم تحديد المختص بعد"
-        )
-    if active_section == EXTRAS_DASHBOARD_SECTION_REPORTS and not specialist_display_name:
-        specialist_display_name = (
-            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
-            or "لم يتم تحديد المختص بعد"
-        )
-    if active_section == EXTRAS_DASHBOARD_SECTION_FINANCE and not specialist_display_name:
-        specialist_display_name = (
-            (getattr(request.user, "username", "") or getattr(request.user, "phone", "") or "").strip()
-            or "لم يتم تحديد المختص بعد"
-        )
+    if active_section in {
+        EXTRAS_DASHBOARD_SECTION_CLIENTS,
+        EXTRAS_DASHBOARD_SECTION_REPORTS,
+        EXTRAS_DASHBOARD_SECTION_FINANCE,
+    } and not specialist_display_name:
+        specialist_display_name = "لم يتم تحديد مزود الخدمة بعد"
 
     finance_qr_first_name = str(bundle_draft.get("finance", {}).get("qr_first_name", "") or "").strip()
     finance_qr_last_name = str(bundle_draft.get("finance", {}).get("qr_last_name", "") or "").strip()
@@ -4670,9 +4831,9 @@ def extras_dashboard(request):
 
     hero_subtitle = {
         EXTRAS_DASHBOARD_SECTION_OVERVIEW: "الصفحة الرئيسية تعرض فقط قائمة استفسارات الخدمات الإضافية وقائمة طلبات الخدمات الإضافية.",
-        EXTRAS_DASHBOARD_SECTION_REPORTS: "اعتمد إعدادات التقارير من صفحة مستقلة تتضمن الفترة الزمنية وخيارات الإحصاءات المطلوبة.",
-        EXTRAS_DASHBOARD_SECTION_CLIENTS: "اعتمد خدمات إدارة العملاء من صفحة مستقلة، مع معاينة للمدة والزمن والخدمات المحددة.",
-        EXTRAS_DASHBOARD_SECTION_FINANCE: "القسم الفرعي للإدارة المالية مفصول عن الصفحة الرئيسية وسيتم استكمال محتواه التشغيلي لاحقًا.",
+        EXTRAS_DASHBOARD_SECTION_REPORTS: "يعرض هذا القسم طلبات التقارير الخاصة بالخدمات الإضافية مع إمكانية مراجعة البنود، متابعة الحالة، والتسعير اليدوي من نفس الصفحة.",
+        EXTRAS_DASHBOARD_SECTION_CLIENTS: "يعرض هذا القسم طلبات إدارة العملاء مع أدوات تشغيل ومراجعة إدارية، مع الإبقاء على نموذج إعداد طلب جديد داخل نفس المسار.",
+        EXTRAS_DASHBOARD_SECTION_FINANCE: "يعرض هذا القسم طلبات الإدارة المالية الجاهزة للمعالجة الإدارية، مع استمرار دعم إعداد طلبات جديدة وخيارات البيانات المالية.",
         EXTRAS_DASHBOARD_SECTION_SUBSCRIBERS: "يعرض هذا القسم سجلات المشتركين الفعلية للخدمات الإضافية اعتمادًا على اشتراك البوابة وآخر طلب مكتمل وفاتورته المعتمدة.",
     }.get(active_section, "")
     active_section_label = {
@@ -4702,14 +4863,18 @@ def extras_dashboard(request):
         "active_section_label": active_section_label,
         "extras_inquiries": _subscription_inquiry_rows(extras_inquiries),
         "extras_requests": extras_request_rows,
+        "active_section_request_rows": active_section_request_rows,
+        "active_section_request_summary": active_section_request_summary,
         "extras_finance_rows": extras_finance_rows,
         "extras_subscribers_rows": extras_subscribers_rows,
         "selected_subscriber_row": selected_subscriber_row,
         "selected_inquiry": selected_inquiry,
+        "selected_inquiry_requester_name": _promo_requester_label(selected_inquiry.requester) if selected_inquiry else "",
         "selected_inquiry_status_label": _subscription_inquiry_status_label(
             selected_inquiry.status if selected_inquiry else ""
         ),
         "selected_request": selected_request,
+        "selected_request_requester_name": _promo_requester_label(selected_request.requester) if selected_request else "",
         "selected_request_purchase": selected_request_purchase,
         "selected_request_invoice": selected_request_invoice,
         "selected_request_invoice_details": selected_request_invoice_details,
@@ -4717,6 +4882,8 @@ def extras_dashboard(request):
         "selected_request_invoice_action_label": selected_request_invoice_action_label,
         "selected_request_payment_status_label": selected_request_payment_status_label,
         "selected_request_bundle_sections": selected_request_bundle_sections,
+        "selected_request_focus_section": selected_request_focus_section,
+        "selected_request_matches_active_section": selected_request_matches_active_section,
         "selected_request_form": selected_request_form,
         "selected_request_status_label": _extras_request_status_label(selected_request_status_code),
         "selected_request_status_help_text": (
@@ -4769,6 +4936,8 @@ def extras_dashboard(request):
         "finance_preview_end_at": _extras_human_datetime(finance_preview_end_at),
         "specialist_identifier": specialist_identifier,
         "specialist_display_name": specialist_display_name,
+        "specialist_lookup_error": specialist_lookup_error,
+        "extras_specialist_search_api_url": reverse("dashboard:extras_specialist_search_api"),
         "created_request": created_request,
         "created_request_code": getattr(created_request, "code", "") or "",
         "inquiry_form": inquiry_form,
@@ -4911,7 +5080,7 @@ def _promo_inquiries_queryset_for_user(user):
 
 def _promo_requests_queryset_for_user(user):
     qs = (
-        PromoRequest.objects.select_related("requester", "assigned_to", "invoice")
+        PromoRequest.objects.select_related("requester", "requester__provider_profile", "assigned_to", "invoice")
         .prefetch_related("items", "assets", "assets__uploaded_by", "assets__item")
         .order_by("-updated_at", "-id")
     )
@@ -4922,10 +5091,7 @@ def _promo_requests_queryset_for_user(user):
 
 
 def _promo_requester_label(user_obj) -> str:
-    label = (getattr(user_obj, "username", "") or getattr(user_obj, "phone", "") or f"user-{user_obj.id}").strip()
-    if not label.startswith("@"):
-        label = f"@{label}"
-    return label
+    return _dashboard_requester_display_name(user_obj)
 
 
 def _promo_assignee_label(promo_request: PromoRequest) -> str:
@@ -5279,6 +5445,7 @@ def promo_dashboard(request, request_id: int | None = None):
         inquiries_qs = inquiries_qs.filter(
             Q(code__icontains=inquiry_q)
             | Q(description__icontains=inquiry_q)
+            | Q(requester__provider_profile__display_name__icontains=inquiry_q)
             | Q(requester__username__icontains=inquiry_q)
             | Q(requester__phone__icontains=inquiry_q)
         )
@@ -5289,6 +5456,7 @@ def promo_dashboard(request, request_id: int | None = None):
         promo_requests_qs = promo_requests_qs.filter(
             Q(code__icontains=request_q)
             | Q(title__icontains=request_q)
+            | Q(requester__provider_profile__display_name__icontains=request_q)
             | Q(requester__username__icontains=request_q)
             | Q(requester__phone__icontains=request_q)
         )
@@ -5649,7 +5817,9 @@ def promo_dashboard(request, request_id: int | None = None):
             "inquiry_summary": _promo_inquiry_summary(inquiries),
             "request_summary": _promo_requests_summary(promo_requests),
             "selected_inquiry": selected_inquiry,
+            "selected_inquiry_requester_name": _promo_requester_label(selected_inquiry.requester) if selected_inquiry else "",
             "selected_request": selected_request,
+            "selected_request_requester_name": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_status_label": _promo_request_operational_status_label(selected_request),
             "selected_request_ops_status_label": _promo_request_ops_status_label(selected_request),
             "selected_request_payment_status_label": _promo_request_payment_status_label(selected_request),
@@ -5740,7 +5910,7 @@ def _verification_inquiries_queryset_for_user(user):
 
 def _verification_requests_queryset_for_user(user):
     qs = (
-        VerificationRequest.objects.select_related("requester", "assigned_to", "invoice")
+        VerificationRequest.objects.select_related("requester", "requester__provider_profile", "assigned_to", "invoice")
         .prefetch_related(
             "documents",
             "requirements",
@@ -6405,6 +6575,7 @@ def verification_dashboard(request):
         inquiries_qs = inquiries_qs.filter(
             Q(code__icontains=inquiry_q)
             | Q(description__icontains=inquiry_q)
+            | Q(requester__provider_profile__display_name__icontains=inquiry_q)
             | Q(requester__username__icontains=inquiry_q)
             | Q(requester__phone__icontains=inquiry_q)
         )
@@ -6415,6 +6586,7 @@ def verification_dashboard(request):
         verification_requests_qs = verification_requests_qs.filter(
             Q(code__icontains=request_q)
             | Q(admin_note__icontains=request_q)
+            | Q(requester__provider_profile__display_name__icontains=request_q)
             | Q(requester__username__icontains=request_q)
             | Q(requester__phone__icontains=request_q)
         )
@@ -7023,7 +7195,9 @@ def verification_dashboard(request):
             "request_summary": _verification_request_summary(verification_requests),
             "verified_accounts_summary": _verification_verified_accounts_summary(verified_accounts),
             "selected_inquiry": selected_inquiry,
+            "selected_inquiry_requester_name": _promo_requester_label(selected_inquiry.requester) if selected_inquiry else "",
             "selected_request": selected_request,
+            "selected_request_requester_name": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_status_label": _verification_request_ops_status_label(selected_request) if selected_request else "",
             "selected_verified_badge": selected_verified_badge,
             "selected_verified_badge_detail": selected_verified_badge_detail,
@@ -7169,7 +7343,7 @@ def _promo_module_initial_data_from_request(
         return {"request_id": ""}
 
     requester_identifier = (
-        (selected_request.requester.username or selected_request.requester.phone or "").strip()
+        _promo_requester_label(selected_request.requester)
         if getattr(selected_request, "requester", None)
         else ""
     )
@@ -7473,6 +7647,7 @@ def _promo_module_preview_payload(*, service_type: str, module_meta: dict, clean
         "title": (cleaned.get("title") or module_meta["label"]).strip() or module_meta["label"],
         "service_label": dict(PromoServiceType.choices).get(service_type, module_meta["label"]),
         "request_id": cleaned.get("request_id") or "",
+        "requester_name": (cleaned.get("requester_identifier") or "").strip(),
         "requester_identifier": (cleaned.get("requester_identifier") or "").strip(),
         "start_at": _format_dt(cleaned.get("start_at")),
         "end_at": _format_dt(cleaned.get("end_at")),
@@ -7546,7 +7721,7 @@ def promo_module(request, module_key: str):
     )
 
     module_items_qs = (
-        PromoRequestItem.objects.select_related("request", "request__requester")
+        PromoRequestItem.objects.select_related("request", "request__requester", "request__requester__provider_profile")
         .filter(request__in=requests_base_qs, service_type=service_type)
         .order_by("-created_at", "-id")
     )
@@ -7554,6 +7729,7 @@ def promo_module(request, module_key: str):
         module_items_qs = module_items_qs.filter(
             Q(request__code__icontains=query_filter)
             | Q(title__icontains=query_filter)
+            | Q(request__requester__provider_profile__display_name__icontains=query_filter)
             | Q(request__requester__username__icontains=query_filter)
             | Q(request__requester__phone__icontains=query_filter)
         )

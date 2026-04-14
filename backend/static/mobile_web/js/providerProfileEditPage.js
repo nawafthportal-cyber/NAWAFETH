@@ -213,7 +213,7 @@ var ProviderProfileEditPage = (function () {
         { value: "individual", label: "فرد" },
         { value: "company", label: "منشأة" }
       ] },
-      { key: "mobilePhone", label: "رقم الجوال", icon: "phone", hint: "رقم الجوال الأساسي المرتبط بالحساب وطرق الدخول.", inputType: "tel", inputMode: "numeric", maxLength: "10", placeholder: "05XXXXXXXX", dir: "ltr" },
+      { key: "mobilePhone", label: "رقم الجوال", icon: "phone", hint: "رقم الجوال المرتبط بتسجيل الدخول. لتغييره اذهب إلى إعدادات الحساب.", readOnly: true },
       { key: "about", label: "نبذة عنك", icon: "info", hint: "تعريف مختصر بك أو بجهتك كما يراه العميل.", multiline: true, wide: true },
       { key: "location", label: "المدينة", icon: "location", hint: "اختر المدينة الأساسية التي تعمل منها.", isCity: true },
       { key: "accountEmail", label: "البريد الإلكتروني", icon: "email", hint: "البريد الإلكتروني الأساسي المرتبط بحسابك.", inputType: "email", inputMode: "email", placeholder: "name@example.com", dir: "ltr", autocomplete: "email" }
@@ -1546,6 +1546,7 @@ var ProviderProfileEditPage = (function () {
         (!f.readOnly ? '<button type="button" class="pe-edit-btn" data-key="' + f.key + '" aria-label="تحرير ' + escapeHtml(f.label) + '"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>' : '') +
       '</div>' +
       '<div class="pe-field-display">' + displayValue(val, f) + '</div>' +
+      (f.key === "mobilePhone" ? '<div class="pe-field-readonly-action"><a href="/login-settings/" class="pe-inline-link">تغيير رقم الجوال ←</a></div>' : '') +
       (!f.readOnly ? '<div class="pe-field-edit" style="display:none">' +
         (f.isCity ? '<select class="form-select pe-input" data-key="' + f.key + '"><option value="">اختر المدينة</option>' + CITIES.map(function (c) { return '<option' + (c === val ? ' selected' : '') + '>' + c + '</option>'; }).join("") + '</select>'
           : f.isChoice ? '<select class="form-select pe-input" data-key="' + f.key + '">' + (Array.isArray(f.options) ? f.options.map(function (option) { return '<option value="' + escapeHtml(option.value) + '"' + (String(option.value) === String(val) ? ' selected' : '') + '>' + escapeHtml(option.label) + '</option>'; }).join("") : "") + '</select>'

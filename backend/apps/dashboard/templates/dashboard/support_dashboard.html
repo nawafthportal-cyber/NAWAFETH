@@ -48,7 +48,7 @@
           </div>
 
           <form method="get" class="toolbar">
-            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الطلب، اسم العميل، الوصف...">
+            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الطلب، اسم مقدم الطلب، الوصف...">
             <select class="input-control" name="status">
               <option value="">كل الحالات</option>
               {% for code,label in status_choices %}
@@ -81,7 +81,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>اسم العميل</th>
+                  <th>اسم مقدم الطلب</th>
                   <th>الأولوية</th>
                   <th>نوع الطلب</th>
                   <th>تاريخ الاستلام</th>
@@ -121,7 +121,7 @@
                           </div>
 
                           <div class="support-meta-grid">
-                            <div class="quick-stat"><span>اسم العميل</span><strong>{% if selected_ticket.requester.username %}@{{ selected_ticket.requester.username }}{% else %}@{{ selected_ticket.requester.phone }}{% endif %}</strong></div>
+                            <div class="quick-stat"><span>اسم مقدم الطلب</span><strong>{{ selected_ticket_requester_name }}</strong></div>
                             <div class="quick-stat"><span>تاريخ الاستلام</span><strong>{{ selected_ticket.created_at|date:"d/m/Y - H:i" }}</strong></div>
                             <div class="quick-stat"><span>المكلف الحالي</span><strong>{% if selected_ticket.assigned_to %}{{ selected_ticket.assigned_to.username|default:selected_ticket.assigned_to.phone }}{% else %}غير مكلف{% endif %}</strong></div>
                             <div class="quick-stat"><span>الفريق</span><strong>{% if selected_ticket.assigned_team %}{{ selected_ticket.assigned_team.name_ar }}{% else %}غير محدد{% endif %}</strong></div>

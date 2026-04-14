@@ -70,8 +70,12 @@
             <div class="rounded-2xl bg-slate-50 px-4 py-4">
               <div class="text-xs font-bold text-slate-500">البنود المفعلة في هذا القسم</div>
               <div class="mt-3 flex flex-wrap gap-2">
-                {% for label in clients_option_labels %}
-                  <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{{ label }}</span>
+                {% for opt in clients_option_labels %}
+                  {% if opt.unavailable %}
+                    <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{{ opt.text }} – قيد التطوير</span>
+                  {% else %}
+                    <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{{ opt.text }}</span>
+                  {% endif %}
                 {% empty %}
                   <span class="text-sm font-bold text-slate-500">لا توجد بنود ظاهرة.</span>
                 {% endfor %}
@@ -292,4 +296,211 @@
       </section>
     </div>
   </form>
+
+  {# ───────── قائمة متابعي المختص ───────── #}
+  {% if clients_supports_all_followers %}
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">قائمة متابعي المختص</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">جميع المستخدمين الذين يتابعون ملف مزود الخدمة الحالي.</p>
+        </div>
+        <div class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{{ followers_total_count }} متابع</div>
+      </div>
+
+      <div class="mt-5 overflow-x-auto">
+        <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-slate-50 text-slate-600">
+              <tr>
+                <th class="px-4 py-4 text-right font-bold">المتابع</th>
+                <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
+                <th class="px-4 py-4 text-right font-bold">الجوال</th>
+                <th class="px-4 py-4 text-right font-bold">تاريخ المتابعة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for f in followers_list %}
+                <tr class="clients-table-row border-t border-slate-200 align-top">
+                  <td class="px-4 py-4 font-extrabold text-slate-900">
+                    {% if f.user.first_name or f.user.last_name %}
+                      {{ f.user.first_name|default:'' }} {{ f.user.last_name|default:'' }}
+                    {% elif f.user.username %}
+                      {{ f.user.username }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td class="px-4 py-4 text-slate-600">{{ f.user.username|default:'—' }}</td>
+                  <td class="px-4 py-4 text-slate-600">{{ f.user.phone|default:'—' }}</td>
+                  <td class="px-4 py-4 text-slate-600">{{ f.created_at|date:'Y-m-d H:i' }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="4" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا يوجد متابعون مسجلون حالياً.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  {# ───────── العملاء المحتملون ───────── #}
+  {% if clients_supports_potential %}
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">العملاء المحتملون</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">قائمة بالعملاء الذين تم ترشيحهم كعملاء محتملين من قائمة التواصل أو يدوياً من خلال لوحة الإدارة.</p>
+        </div>
+        <div class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{{ potential_clients_total }} عميل محتمل</div>
+      </div>
+
+      <div class="mt-5 overflow-x-auto">
+        <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-slate-50 text-slate-600">
+              <tr>
+                <th class="px-4 py-4 text-right font-bold">العميل</th>
+                <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
+                <th class="px-4 py-4 text-right font-bold">المصدر</th>
+                <th class="px-4 py-4 text-right font-bold">ملاحظات</th>
+                <th class="px-4 py-4 text-right font-bold">تاريخ الإضافة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for pc in potential_clients_list %}
+                <tr class="clients-table-row border-t border-slate-200 align-top">
+                  <td class="px-4 py-4 font-extrabold text-slate-900">
+                    {% if pc.user.first_name or pc.user.last_name %}
+                      {{ pc.user.first_name|default:'' }} {{ pc.user.last_name|default:'' }}
+                    {% elif pc.user.username %}
+                      {{ pc.user.username }}
+                    {% else %}
+                      —
+                    {% endif %}
+                  </td>
+                  <td class="px-4 py-4 text-slate-600">{{ pc.user.username|default:'—' }}</td>
+                  <td class="px-4 py-4">
+                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {% if pc.source == 'contact_list' %}bg-cyan-100 text-cyan-700{% elif pc.source == 'system' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ pc.get_source_display }}</span>
+                  </td>
+                  <td class="px-4 py-4 text-slate-600">{{ pc.notes|default:'—' }}</td>
+                  <td class="px-4 py-4 text-slate-600">{{ pc.created_at|date:'Y-m-d H:i' }}</td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا يوجد عملاء محتملون مسجلون حالياً. يمكن إضافتهم من لوحة الإدارة.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  {% endif %}
+
+  {# ───────── برنامج الولاء ───────── #}
+  {% if clients_supports_loyalty and loyalty_program %}
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">برنامج الولاء</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">إعدادات برنامج الولاء المرتبط بمزود الخدمة الحالي. يمنح العملاء نقاطاً عند إتمام الطلبات.</p>
+        </div>
+        <span class="inline-flex rounded-full px-4 py-2 text-sm font-bold {% if loyalty_program.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-700{% endif %}">{% if loyalty_program.is_active %}نشط{% else %}معطّل{% endif %}</span>
+      </div>
+
+      <div class="mt-5 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
+          <div class="text-xs font-bold text-slate-500">اسم البرنامج</div>
+          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.name }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
+          <div class="text-xs font-bold text-slate-500">النقاط لكل طلب مكتمل</div>
+          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.points_per_completed_request }} نقطة</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
+          <div class="text-xs font-bold text-slate-500">تاريخ الإنشاء</div>
+          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.created_at|date:'Y-m-d' }}</div>
+        </div>
+      </div>
+
+      <div class="mt-4 rounded-[24px] border border-amber-100 bg-amber-50/90 p-4 text-sm leading-7 text-slate-700">
+        <div class="font-bold text-amber-700">ملاحظة تشغيلية</div>
+        <div class="mt-2">يتم منح النقاط تلقائياً عند إتمام كل طلب خدمة مكتمل. يمكن تعديل إعدادات البرنامج من لوحة الإدارة.</div>
+      </div>
+    </section>
+  {% endif %}
+
+  {# ───────── نظام نقاط العملاء ───────── #}
+  {% if clients_supports_points %}
+    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h3 class="text-2xl font-extrabold text-slate-900">نظام نقاط العملاء</h3>
+          <p class="mt-2 text-sm leading-7 text-slate-600">متابعة أرصدة نقاط الولاء لكل عميل وإجمالي النقاط المكتسبة والمستبدلة.</p>
+        </div>
+        <div class="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">{{ loyalty_summary.members }} عضو</div>
+      </div>
+
+      <div class="mt-5 grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-emerald-50 px-4 py-5">
+          <div class="text-xs font-bold text-emerald-700">إجمالي النقاط المكتسبة</div>
+          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.total_earned }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-amber-50 px-4 py-5">
+          <div class="text-xs font-bold text-amber-700">إجمالي النقاط المستبدلة</div>
+          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.total_redeemed }}</div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-violet-50 px-4 py-5">
+          <div class="text-xs font-bold text-violet-700">الأعضاء النشطون</div>
+          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.members }}</div>
+        </div>
+      </div>
+
+      {% if loyalty_memberships %}
+        <div class="mt-5 overflow-x-auto">
+          <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
+            <table class="min-w-full text-sm">
+              <thead class="sticky top-0 bg-slate-50 text-slate-600">
+                <tr>
+                  <th class="px-4 py-4 text-right font-bold">العميل</th>
+                  <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
+                  <th class="px-4 py-4 text-right font-bold">الرصيد الحالي</th>
+                  <th class="px-4 py-4 text-right font-bold">مكتسب</th>
+                  <th class="px-4 py-4 text-right font-bold">مستبدل</th>
+                  <th class="px-4 py-4 text-right font-bold">تاريخ الانضمام</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in loyalty_memberships %}
+                  <tr class="clients-table-row border-t border-slate-200 align-top">
+                    <td class="px-4 py-4 font-extrabold text-slate-900">
+                      {% if m.user.first_name or m.user.last_name %}
+                        {{ m.user.first_name|default:'' }} {{ m.user.last_name|default:'' }}
+                      {% elif m.user.username %}
+                        {{ m.user.username }}
+                      {% else %}
+                        —
+                      {% endif %}
+                    </td>
+                    <td class="px-4 py-4 text-slate-600">{{ m.user.username|default:'—' }}</td>
+                    <td class="px-4 py-4"><span class="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">{{ m.points_balance }} نقطة</span></td>
+                    <td class="px-4 py-4 text-emerald-700 font-bold">{{ m.total_earned }}</td>
+                    <td class="px-4 py-4 text-amber-700 font-bold">{{ m.total_redeemed }}</td>
+                    <td class="px-4 py-4 text-slate-600">{{ m.joined_at|date:'Y-m-d' }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% else %}
+        <div class="mt-5 rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-bold text-slate-500">لا يوجد أعضاء في برنامج الولاء حالياً. سيتم إضافتهم تلقائياً عند إتمام طلبات الخدمة.</div>
+      {% endif %}
+    </section>
+  {% endif %}
+
 {% endblock %}

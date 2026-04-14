@@ -68,7 +68,7 @@
                 <thead>
                   <tr>
                     <th>رقم الطلب</th>
-                    <th>العميل</th>
+                    <th>مزود الخدمة</th>
                     <th>الأولوية</th>
                     <th>النوع</th>
                     <th>تاريخ الاستلام</th>
@@ -158,7 +158,7 @@
                                 <div class="field full">
                                   <label for="{{ inquiry_form.operator_comment.id_for_label }}">تعليق المكلف بالطلب</label>
                                   {{ inquiry_form.operator_comment }}
-                                  <p class="field-hint">اكتب طلب معلومات إضافية من العميل أو ألصق رابط صفحة طلب التوثيق داخل التعليق.</p>
+                                  <p class="field-hint">اكتب طلب معلومات إضافية من مزود الخدمة أو ألصق رابط صفحة طلب التوثيق داخل التعليق.</p>
                                 </div>
                               </div>
 
@@ -203,7 +203,7 @@
               <input type="hidden" name="tab" value="{{ filters.tab }}">
               <input type="hidden" name="inquiry_q" value="{{ filters.inquiry_q }}">
               <input type="hidden" name="accounts_q" value="{{ filters.accounts_q }}">
-              <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم العميل أو رقم طلب التوثيق...">
+              <input class="input-control" type="search" name="request_q" value="{{ filters.request_q }}" placeholder="بحث باسم مزود الخدمة أو رقم طلب التوثيق...">
               <div class="actions">
                 <button class="primary-btn light" type="submit">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
@@ -218,7 +218,7 @@
                 <thead>
                   <tr>
                     <th>رقم الطلب</th>
-                    <th>العميل</th>
+                    <th>مزود الخدمة</th>
                     <th>الأولوية</th>
                     <th>تاريخ الاعتماد</th>
                     <th>الحالة</th>
@@ -257,7 +257,7 @@
                             </div>
 
                             <div class="support-meta-grid">
-                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+                              <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_request_requester_name }}</strong></div>
                               <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code }}</strong></div>
                               <div class="quick-stat"><span>تاريخ الطلب</span><strong>{{ selected_request.requested_at|date:"d/m/Y - H:i" }}</strong></div>
                               <div class="quick-stat"><span>الفاتورة</span><strong>{{ selected_request.invoice.code|default:"لم تصدر بعد" }}</strong></div>
@@ -527,7 +527,7 @@
                                   <p><strong>في حالة الاعتماد يتم بشكل آلي:</strong></p>
                                   <p>✓ إرسال رسالة تهنئة للعميل في حالة اعتماد أي طلب توثيق.</p>
                                   <p>✓ رابط دفع رسوم التوثيق مع بيان تفاصيل الرسوم.</p>
-                                  <p>✓ بعد إتمام عملية سداد الرسوم يتم إظهار علامات التوثيق المناسبة في حساب العميل حسب ما تم اعتماده.</p>
+                                  <p>✓ بعد إتمام عملية سداد الرسوم يتم إظهار علامات التوثيق المناسبة في حساب مزود الخدمة حسب ما تم اعتماده.</p>
                                   <p>✓ يتم إضافة بيانات التوثيق في قائمة البيانات الموثقة.</p>
                                   <p>✓ رسالة للعميل ببنود التوثيق المرفوضة وسبب الرفض.</p>
                                   {% if selected_request_invoice_summary %}
@@ -586,7 +586,7 @@
 
             <form method="get" class="toolbar">
               <input type="hidden" name="tab" value="{{ filters.tab }}">
-              <input class="input-control" type="search" name="accounts_q" value="{{ filters.accounts_q }}" placeholder="بحث باسم العميل أو رمز التوثيق...">
+              <input class="input-control" type="search" name="accounts_q" value="{{ filters.accounts_q }}" placeholder="بحث باسم مزود الخدمة أو رمز التوثيق...">
               <div class="actions">
                 <button class="primary-btn light" type="submit">تحديث</button>
                 <a class="ghost-btn" href="{% url 'dashboard:verification_dashboard' %}?tab=verified_accounts">مسح</a>
@@ -597,7 +597,7 @@
               <table class="dash-table" id="verifiedAccountsTable">
                 <thead>
                   <tr>
-                    <th>اسم العميل</th>
+                    <th>اسم مزود الخدمة</th>
                     <th>رمز التوثيق</th>
                     <th>نوع التوثيق</th>
                     <th>تاريخ تفعيل التوثيق</th>
@@ -662,7 +662,7 @@
                             </div>
 
                             <div class="verification-blue-summary-grid verified-account-summary-grid">
-                              <div class="quick-stat"><span>اسم العميل</span><strong>{{ selected_verified_badge_detail.requester_name }}</strong></div>
+                              <div class="quick-stat"><span>اسم مزود الخدمة</span><strong>{{ selected_verified_badge_detail.requester_name }}</strong></div>
                               <div class="quick-stat"><span>رمز التوثيق</span><strong>{{ selected_verified_badge_detail.verification_code }}</strong></div>
                               <div class="quick-stat"><span>نوع التوثيق</span><strong>{{ selected_verified_badge_detail.badge_type_label }}</strong></div>
                               <div class="quick-stat"><span>تاريخ تفعيل التوثيق</span><strong>{{ selected_verified_badge_detail.activated_at_label }}</strong></div>
@@ -671,7 +671,7 @@
                             </div>
 
                             <div class="field full verified-account-name-field">
-                              <label>اسم العميل أو المنشأة الموثق</label>
+                              <label>اسم مزود الخدمة أو المنشأة الموثقة</label>
                               <div class="input-control static-field"><strong>{{ selected_verified_badge_detail.verified_name }}</strong></div>
                             </div>
 

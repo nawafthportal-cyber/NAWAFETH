@@ -14,6 +14,8 @@ from .views import (
     me_view,
     otp_send,
     otp_verify,
+    request_phone_change_view,
+    confirm_phone_change_view,
     username_availability,
     wallet_view,
 )
@@ -35,6 +37,8 @@ urlpatterns = [
     path("token/", ThrottledTokenObtainPairView.as_view(), name="token"),
     path("token/refresh/", ThrottledTokenRefreshView.as_view(), name="token_refresh"),
     path("me/", me_view, name="me"),
+    path("me/request-phone-change/", request_phone_change_view, name="request_phone_change"),
+    path("me/confirm-phone-change/", confirm_phone_change_view, name="confirm_phone_change"),
     path("logout/", logout_view, name="logout"),
     path("delete/", delete_account_view, name="delete_account"),
 ]

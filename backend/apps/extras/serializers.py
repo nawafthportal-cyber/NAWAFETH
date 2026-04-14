@@ -6,6 +6,9 @@ from .option_catalog import (
     EXTRAS_CLIENT_OPTIONS,
     EXTRAS_FINANCE_OPTIONS,
     EXTRAS_REPORT_OPTIONS,
+    UNAVAILABLE_CLIENT_OPTIONS,
+    UNAVAILABLE_FINANCE_OPTIONS,
+    UNAVAILABLE_REPORT_OPTIONS,
     normalize_option_keys,
 )
 
@@ -43,6 +46,11 @@ class ExtrasReportsSelectionSerializer(serializers.Serializer):
     def validate(self, attrs):
         attrs = dict(attrs)
         attrs["options"] = normalize_option_keys(list(attrs.get("options", [])), EXTRAS_REPORT_OPTIONS)
+        rejected = [key for key in attrs["options"] if key in UNAVAILABLE_REPORT_OPTIONS]
+        if rejected:
+            raise serializers.ValidationError(
+                {"options": "بعض الخيارات المحددة غير متاحة حالياً: " + "، ".join(rejected)}
+            )
         enabled = bool(attrs.get("enabled", False))
         if attrs["options"] and not enabled:
             enabled = True
@@ -73,6 +81,11 @@ class ExtrasClientsSelectionSerializer(serializers.Serializer):
     def validate(self, attrs):
         attrs = dict(attrs)
         attrs["options"] = normalize_option_keys(list(attrs.get("options", [])), EXTRAS_CLIENT_OPTIONS)
+        rejected = [key for key in attrs["options"] if key in UNAVAILABLE_CLIENT_OPTIONS]
+        if rejected:
+            raise serializers.ValidationError(
+                {"options": "بعض الخيارات المحددة غير متاحة حالياً: " + "، ".join(rejected)}
+            )
         enabled = bool(attrs.get("enabled", False))
         if attrs["options"] and not enabled:
             enabled = True
@@ -100,6 +113,11 @@ class ExtrasFinanceSelectionSerializer(serializers.Serializer):
     def validate(self, attrs):
         attrs = dict(attrs)
         attrs["options"] = normalize_option_keys(list(attrs.get("options", [])), EXTRAS_FINANCE_OPTIONS)
+        rejected = [key for key in attrs["options"] if key in UNAVAILABLE_FINANCE_OPTIONS]
+        if rejected:
+            raise serializers.ValidationError(
+                {"options": "بعض الخيارات المحددة غير متاحة حالياً: " + "، ".join(rejected)}
+            )
         enabled = bool(attrs.get("enabled", False))
         if attrs["options"] and not enabled:
             enabled = True

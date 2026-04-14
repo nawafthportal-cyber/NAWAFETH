@@ -7,7 +7,9 @@ const LoginSettingsPage = (() => {
   const FACE_ID_DEVICE_TOKEN_KEY = "nw_faceid_device_token";
   const FACE_ID_CRED_ID_KEY = "nw_faceid_cred_id";
 
-  let _profile = null;
+  let _phoneStep = 1; // 1 = enter new phone, 2 = enter OTP code
+  let _pendingNewPhone = null;
+
   let _mode = "client";
   let _toastTimer = null;
   let _inlineAlertTimer = null;
@@ -102,6 +104,12 @@ const LoginSettingsPage = (() => {
       modal.classList.remove("hidden");
       _showInlineAlert(config.hint, "info", 2800);
 
+      // For phone action: label the save button for step 1
+      const saveBtn = document.getElementById("ls-modal-save");
+      if (saveBtn) {
+        saveBtn.textContent = action === "phone" ? "إرسال رمز التحقق" : "حفظ";
+      }
+
       window.setTimeout(() => {
         const firstInput = modal.querySelector("input");
         if (firstInput) firstInput.focus();
@@ -113,6 +121,8 @@ const LoginSettingsPage = (() => {
     const modal = document.getElementById("ls-action-modal");
     if (modal) modal.classList.add("hidden");
     _currentAction = null;
+    _phoneStep = 1;
+    _pendingNewPhone = null;
   }
 
   function _modalConfig(action) {
@@ -163,12 +173,12 @@ const LoginSettingsPage = (() => {
     if (action === "phone") {
       return {
         title: "تغيير رقم الجوال",
-        desc: "أدخل رقم الجوال بالصيغة 05XXXXXXXX.",
+        desc: "سيتم إرسال رمز تحقق إلى الرقم الجديد للتأكيد قبل تغيير رقم تسجيل الدخول.",
         hint: "استخدم رقم جوال سعودي صحيح يبدأ بـ 05.",
         fields:
           '<div class="ls-modal-field">' +
-          '<label for="ls-input-phone">رقم الجوال</label>' +
-          '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" value="' + _escape(_norm(_profile && _profile.phone)) + '" dir="ltr">' +
+          '<label for="ls-input-phone">رقم الجوال الجديد</label>' +
+          '<input id="ls-input-phone" type="tel" class="form-input" maxlength="10" placeholder="05XXXXXXXX" dir="ltr">' +
           "</div>",
       };
     }
@@ -206,7 +216,11 @@ const LoginSettingsPage = (() => {
       return;
     }
     if (action === "phone") {
-      await _savePhone();
+      if (_phoneStep === 1) {
+        await _requestPhoneChange();
+      } else {
+        await _confirmPhoneChange();
+      }
       return;
     }
     if (action === "pin") {
@@ -293,29 +307,76 @@ const LoginSettingsPage = (() => {
     _toast("تم تحديث البريد الإلكتروني بنجاح");
   }
 
-  async function _savePhone() {
+  async function _requestPhoneChange() {
     const phone = _normalizePhone05(_val("ls-input-phone"));
     if (!phone) {
       _notify("صيغة رقم الجوال يجب أن تكون 05XXXXXXXX", "error");
       return;
     }
 
-    const res = await ApiClient.request(_withMode("/api/accounts/me/"), {
-      method: "PATCH",
+    const saveBtn = document.getElementById("ls-modal-save");
+    if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "جاري الإرسال..."; }
+
+    const res = await ApiClient.request("/api/accounts/me/request-phone-change/", {
+      method: "POST",
       body: { phone: phone },
     });
 
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = "تأكيد الرمز وتغيير"; }
+
     if (!res.ok) {
-      _notify(_extractError(res, "تعذر تحديث رقم الجوال."), "error");
+      _notify(_extractError(res, "تعذر إرسال رمز التحقق."), "error");
+      return;
+    }
+
+    _pendingNewPhone = phone;
+    _phoneStep = 2;
+
+    // Replace fields area with OTP input
+    const fieldsEl = document.getElementById("ls-modal-fields");
+    const descEl = document.getElementById("ls-modal-desc");
+    if (descEl) descEl.textContent = "أدخل رمز التحقق المرسل إلى " + phone + " للتأكيد.";
+    if (fieldsEl) {
+      fieldsEl.innerHTML =
+        '<div class="ls-modal-field">' +
+        '<label for="ls-input-phone-otp">رمز التحقق</label>' +
+        '<input id="ls-input-phone-otp" type="tel" class="form-input" maxlength="4" placeholder="XXXX" dir="ltr" inputmode="numeric">' +
+        "</div>";
+      const otpInput = document.getElementById("ls-input-phone-otp");
+      if (otpInput) otpInput.focus();
+    }
+
+    _showInlineAlert("تم إرسال رمز التحقق إلى الرقم الجديد. أدخله لتأكيد التغيير.", "info", 4000);
+  }
+
+  async function _confirmPhoneChange() {
+    const code = (_val("ls-input-phone-otp") || "").trim();
+    if (!code || code.length !== 4) {
+      _notify("أدخل رمز التحقق المكون من 4 أرقام", "error");
+      return;
+    }
+    if (!_pendingNewPhone) {
+      _notify("حدث خطأ، يرجى البدء من جديد", "error");
+      _closeModal();
+      return;
+    }
+
+    const res = await ApiClient.request("/api/accounts/me/confirm-phone-change/", {
+      method: "POST",
+      body: { phone: _pendingNewPhone, code: code },
+    });
+
+    if (!res.ok) {
+      _notify(_extractError(res, "رمز التحقق غير صحيح أو انتهت صلاحيته."), "error");
       return;
     }
 
     if (!_profile) _profile = {};
-    _profile.phone = phone;
+    _profile.phone = _pendingNewPhone;
     _renderProfile();
-    _showInlineAlert("تم تحديث رقم الجوال بنجاح.", "success", 3200);
+    _showInlineAlert("تم تغيير رقم الجوال بنجاح. استخدم الرقم الجديد لتسجيل الدخول.", "success", 4000);
     _closeModal();
-    _toast("تم تحديث رقم الجوال بنجاح");
+    _toast("تم تغيير رقم الجوال بنجاح");
   }
 
   function _savePin() {

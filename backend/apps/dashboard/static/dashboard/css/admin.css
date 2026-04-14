@@ -9887,6 +9887,148 @@ body.dashboard-body::after {
   background: rgba(255, 255, 255, .92);
 }
 
+.extras-specialist-selector {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(140, 47, 143, .14);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top left, rgba(140, 47, 143, .06), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, .98) 0%, rgba(249, 245, 252, .95) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .75);
+}
+
+.extras-specialist-selector__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.extras-specialist-selector__intro {
+  display: grid;
+  gap: 6px;
+}
+
+.extras-specialist-selector__intro .pill {
+  width: fit-content;
+}
+
+.extras-specialist-selector__intro strong {
+  color: var(--brand-strong);
+  font-size: 1rem;
+}
+
+.extras-specialist-selector__intro p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.9;
+}
+
+.extras-specialist-selector__search {
+  display: grid;
+  gap: 8px;
+}
+
+.extras-specialist-selector__search label {
+  color: var(--brand-strong);
+  font-size: .88rem;
+  font-weight: 800;
+}
+
+.extras-specialist-selector__selection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.extras-specialist-selector__selected-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(140, 47, 143, .12);
+  background: rgba(255, 255, 255, .92);
+}
+
+.extras-specialist-selector__selected-card span,
+.extras-specialist-selector__selected-card small {
+  color: var(--ink-soft);
+}
+
+.extras-specialist-selector__selected-card strong,
+.extras-specialist-selector__selected-card b {
+  color: var(--brand-strong);
+}
+
+.extras-specialist-selector__selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.extras-specialist-selector__selection-actions .accent-btn[disabled] {
+  cursor: not-allowed;
+  filter: grayscale(.12);
+  opacity: .55;
+  box-shadow: none;
+}
+
+.extras-specialist-selector__results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.extras-specialist-result {
+  display: grid;
+  gap: 6px;
+  text-align: right;
+  padding: 14px 16px;
+  border: 1px solid rgba(140, 47, 143, .12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .94);
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+
+.extras-specialist-result:hover,
+.extras-specialist-result.is-active,
+.extras-specialist-result.is-approved {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(57, 24, 66, .08);
+}
+
+.extras-specialist-result:hover,
+.extras-specialist-result.is-active {
+  border-color: rgba(140, 47, 143, .34);
+}
+
+.extras-specialist-result.is-approved {
+  border-color: rgba(19, 166, 115, .28);
+  background: linear-gradient(180deg, rgba(239, 252, 246, .98) 0%, rgba(255, 255, 255, .98) 100%);
+}
+
+.extras-specialist-result strong {
+  color: var(--brand-strong);
+  font-size: .95rem;
+}
+
+.extras-specialist-result span,
+.extras-specialist-result small {
+  color: var(--ink-soft);
+  line-height: 1.8;
+}
+
+.extras-specialist-result__cta {
+  color: var(--info-strong);
+  font-weight: 700;
+}
+
 .extras-report-groups {
   display: grid;
   gap: 16px;
@@ -10433,6 +10575,10 @@ body.dashboard-body::after {
     grid-template-columns: 1fr;
   }
 
+  .extras-specialist-selector__selection {
+    grid-template-columns: 1fr;
+  }
+
   .extras-subscribers-summary {
     grid-template-columns: 1fr 1fr;
   }
@@ -10446,6 +10592,16 @@ body.dashboard-body::after {
   .extras-report-header__icon {
     width: 56px;
     min-width: 56px;
+  }
+
+  .extras-specialist-selector__header,
+  .extras-specialist-selector__selection-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .extras-specialist-selector__results {
+    grid-template-columns: 1fr;
   }
 }
 

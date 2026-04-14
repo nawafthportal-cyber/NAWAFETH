@@ -16,11 +16,23 @@ from apps.accounts.otp import accept_any_otp_code, create_otp, verify_otp
 from apps.analytics.models import ProviderDailyStats
 from apps.dashboard.security import is_safe_redirect_url
 from apps.dashboard.exports import pdf_response, xlsx_response
-from apps.extras.option_catalog import EXTRAS_REPORT_OPTIONS, option_label_for, section_title_for
+from apps.extras.option_catalog import (
+    EXTRAS_REPORT_OPTIONS,
+    UNAVAILABLE_CLIENT_OPTIONS,
+    UNAVAILABLE_FINANCE_OPTIONS,
+    option_label_for,
+    section_title_for,
+)
 from apps.extras.services import extras_bundle_invoice_for_request, extras_bundle_payload_for_request
 from apps.marketplace.models import RequestStatus, ServiceRequest
 from apps.messaging.models import Message, Thread
-from apps.providers.models import ProviderFollow, ProviderPortfolioLike, ProviderProfile
+from apps.providers.models import (
+    ProviderContentComment,
+    ProviderContentShare,
+    ProviderFollow,
+    ProviderPortfolioLike,
+    ProviderProfile,
+)
 from apps.reviews.models import Review
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 
@@ -37,6 +49,9 @@ from .models import (
     ExtrasPortalScheduledMessageRecipient,
     ExtrasPortalSubscription,
     ExtrasPortalSubscriptionStatus,
+    LoyaltyMembership,
+    LoyaltyProgram,
+    ProviderPotentialClient,
 )
 
 
@@ -102,25 +117,9 @@ def _portal_subscription_is_active(subscription: ExtrasPortalSubscription | None
 
 
 def _latest_portal_bundle_context(provider: ProviderProfile) -> dict[str, object]:
-    bundle_requests = (
-        UnifiedRequest.objects.select_related("metadata_record", "requester")
-        .filter(
-            request_type=UnifiedRequestType.EXTRAS,
-            status="closed",
-            source_model__in=["ExtrasBundleRequest", "ExtrasServiceRequest"],
-        )
-        .filter(
-            Q(requester=provider.user)
-            | Q(metadata_record__payload__specialist_identifier__in=_portal_provider_identifiers(provider))
-            | Q(metadata_record__payload__specialist_label__in=_portal_provider_identifiers(provider))
-        )
-        .order_by("-updated_at", "-id")
-    )
-
-    for request_obj in bundle_requests:
-        bundle = extras_bundle_payload_for_request(request_obj)
-        if not bundle:
-            continue
+    for bundle_context in _portal_paid_bundle_contexts(provider):
+        request_obj = bundle_context["request_obj"]
+        bundle = bundle_context["bundle"]
 
         section_option_keys: dict[str, list[str]] = {}
         enabled_sections: list[dict[str, object]] = []
@@ -149,7 +148,7 @@ def _latest_portal_bundle_context(provider: ProviderProfile) -> dict[str, object
         return {
             "request_obj": request_obj,
             "bundle": bundle,
-            "invoice": extras_bundle_invoice_for_request(request_obj),
+            "invoice": bundle_context["invoice"],
             "section_option_keys": section_option_keys,
             "enabled_sections": enabled_sections,
         }
@@ -222,12 +221,31 @@ def _portal_bundle_requests_queryset(provider: ProviderProfile):
     )
 
 
-def _latest_portal_section_context(provider: ProviderProfile, section_key: str) -> dict[str, object]:
+def _portal_paid_bundle_contexts(provider: ProviderProfile) -> list[dict[str, object]]:
+    contexts: list[dict[str, object]] = []
     for request_obj in _portal_bundle_requests_queryset(provider):
         bundle = extras_bundle_payload_for_request(request_obj)
         if not bundle:
             continue
 
+        invoice = extras_bundle_invoice_for_request(request_obj)
+        if invoice is None or not invoice.is_payment_effective():
+            continue
+
+        contexts.append(
+            {
+                "request_obj": request_obj,
+                "bundle": bundle,
+                "invoice": invoice,
+            }
+        )
+    return contexts
+
+
+def _latest_portal_section_context(provider: ProviderProfile, section_key: str) -> dict[str, object]:
+    for bundle_context in _portal_paid_bundle_contexts(provider):
+        request_obj = bundle_context["request_obj"]
+        bundle = bundle_context["bundle"]
         section_payload = bundle.get(section_key) if isinstance(bundle.get(section_key), dict) else {}
         option_keys = [
             str(key or "").strip()
@@ -240,7 +258,7 @@ def _latest_portal_section_context(provider: ProviderProfile, section_key: str) 
         return {
             "request_obj": request_obj,
             "bundle": bundle,
-            "invoice": extras_bundle_invoice_for_request(request_obj),
+            "invoice": bundle_context["invoice"],
             "section_key": section_key,
             "section_payload": section_payload,
             "option_keys": option_keys,
@@ -654,17 +672,17 @@ def _placeholder_card(*, key: str, label: str, helper_text: str) -> dict[str, ob
         "key": key,
         "title": label,
         "kind": "placeholder",
-        "badge": "مفعّل",
+        "badge": "قيد التطوير",
         "badge_class": "bg-amber-100 text-amber-700",
         "accent_class": "bg-amber-100 text-amber-700",
         "wide": False,
-        "placeholder_text": "الخيار مفعّل في اشتراكك، وسيظهر محتواه هنا تلقائيًا عند توفر بيانات مرتبطة به في النظام.",
+        "placeholder_text": "هذا الخيار قيد التطوير وسيتم إتاحته قريباً. لن يتم احتساب رسوم عليه حتى يصبح جاهزاً.",
         "helper_text": helper_text,
     }
 
 
-def _latest_reports_bundle_context(provider: ProviderProfile) -> dict[str, object]:
-    section_context = _latest_portal_section_context(provider, PORTAL_SECTION_REPORTS)
+def _reports_bundle_context_from_section_context(section_context: dict[str, object] | None) -> dict[str, object]:
+    section_context = section_context if isinstance(section_context, dict) else {}
     request_obj = section_context.get("request_obj")
     bundle = section_context.get("bundle") if isinstance(section_context.get("bundle"), dict) else {}
     reports_section = section_context.get("section_payload") if isinstance(section_context.get("section_payload"), dict) else {}
@@ -708,30 +726,60 @@ def _latest_reports_bundle_context(provider: ProviderProfile) -> dict[str, objec
     }
 
 
-def _report_requests_queryset(provider: ProviderProfile, bundle_context: dict[str, object]):
-    qs = ServiceRequest.objects.filter(provider=provider).select_related("client")
-    return _apply_datetime_window(
-        qs,
+def _all_reports_bundle_contexts(provider: ProviderProfile) -> list[dict[str, object]]:
+    contexts: list[dict[str, object]] = []
+    for bundle_context in _portal_paid_bundle_contexts(provider):
+        reports_section = bundle_context["bundle"].get(PORTAL_SECTION_REPORTS)
+        if not isinstance(reports_section, dict):
+            continue
+        option_keys = [
+            str(key or "").strip()
+            for key in list(reports_section.get("options") or [])
+            if str(key or "").strip()
+        ]
+        if not option_keys:
+            continue
+        contexts.append(
+            _reports_bundle_context_from_section_context(
+                {
+                    "request_obj": bundle_context["request_obj"],
+                    "bundle": bundle_context["bundle"],
+                    "invoice": bundle_context["invoice"],
+                    "section_payload": reports_section,
+                    "option_keys": option_keys,
+                }
+            )
+        )
+    return contexts
+
+
+def _latest_reports_bundle_context(provider: ProviderProfile) -> dict[str, object]:
+    contexts = _all_reports_bundle_contexts(provider)
+    if contexts:
+        return contexts[0]
+    return _reports_bundle_context_from_section_context({})
+
+
+def _report_bundle_context_for_request(provider: ProviderProfile, request_id_raw) -> dict[str, object]:
+    contexts = _all_reports_bundle_contexts(provider)
+    request_id_text = str(request_id_raw or "").strip()
+    if request_id_text.isdigit():
+        request_id = int(request_id_text)
+        for context in contexts:
+            if getattr(context.get("request_obj"), "id", None) == request_id:
+                return context
+    if contexts:
+        return contexts[0]
+    return _reports_bundle_context_from_section_context({})
+
+
+def _report_option_card_catalog(provider: ProviderProfile, *, start_at=None, end_at=None) -> dict[str, object]:
+    requests_qs = _apply_datetime_window(
+        ServiceRequest.objects.filter(provider=provider).select_related("client"),
         "created_at",
-        bundle_context.get("start_at"),
-        bundle_context.get("end_at"),
+        start_at,
+        end_at,
     )
-
-
-def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, object]:
-    bundle_context = _latest_reports_bundle_context(provider)
-    shell_context = _portal_shell_context(provider, active_section=PORTAL_SECTION_REPORTS)
-    start_at = bundle_context.get("start_at")
-    end_at = bundle_context.get("end_at")
-
-    portal_subscription = getattr(provider, "extras_portal_subscription", None)
-    subscription_is_active = bool(
-        portal_subscription
-        and portal_subscription.status == ExtrasPortalSubscriptionStatus.ACTIVE
-        and (portal_subscription.ends_at is None or portal_subscription.ends_at > timezone.now())
-    )
-
-    requests_qs = _report_requests_queryset(provider, bundle_context)
     analytics_qs = _apply_date_window(
         ProviderDailyStats.objects.filter(provider=provider),
         "day",
@@ -773,7 +821,6 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         "in_progress_requests": requests_qs.filter(status=RequestStatus.IN_PROGRESS).count(),
         "received_amount": requests_qs.aggregate(v=Sum("received_amount"))["v"] or 0,
     }
-
     platform_visits = analytics_qs.aggregate(v=Sum("profile_views"))["v"] or 0
     followers_count = follows_qs.count()
     likes_count = likes_qs.count()
@@ -786,6 +833,40 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
     positive_reviewers_preview = _make_identity_entries(
         [row.client for row in positive_reviews_qs[:20] if getattr(row, "client", None)]
     )
+
+    shares_qs = _apply_datetime_window(
+        ProviderContentShare.objects.filter(provider=provider).select_related("user").order_by("-created_at"),
+        "created_at",
+        start_at,
+        end_at,
+    )
+    shares_count = shares_qs.count()
+    sharers_preview = _make_identity_entries(
+        [row.user for row in shares_qs[:20] if getattr(row, "user", None)]
+    )
+    sharers_distinct_count = shares_qs.exclude(user=None).values("user_id").distinct().count()
+
+    potential_clients_qs = _apply_datetime_window(
+        ProviderPotentialClient.objects.filter(provider=provider).select_related("user").order_by("-created_at"),
+        "created_at",
+        start_at,
+        end_at,
+    )
+    potential_clients_preview = _make_identity_entries(
+        [row.user for row in potential_clients_qs[:20] if getattr(row, "user", None)]
+    )
+    potential_clients_distinct_count = potential_clients_qs.exclude(user=None).values("user_id").distinct().count()
+
+    comments_qs = _apply_datetime_window(
+        ProviderContentComment.objects.filter(provider=provider, is_approved=True).select_related("user").order_by("-created_at"),
+        "created_at",
+        start_at,
+        end_at,
+    )
+    commenters_preview = _make_identity_entries(
+        [row.user for row in comments_qs[:20] if getattr(row, "user", None)]
+    )
+    commenters_distinct_count = comments_qs.exclude(user=None).values("user_id").distinct().count()
 
     option_cards_by_key: dict[str, dict[str, object]] = {
         "platform_metrics": _stats_card(
@@ -824,10 +905,11 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
                 {"label": "ملغاة", "value": str(requests_qs.filter(status=RequestStatus.CANCELLED).count())},
             ],
         ),
-        "platform_shares": _placeholder_card(
+        "platform_shares": _stats_card(
             key="platform_shares",
             label=option_label_for("reports", "platform_shares"),
-            helper_text="لم يتم العثور على أحداث مشاركة محفوظة لهذا الخيار داخل قاعدة البيانات الحالية.",
+            helper_text="إجمالي عمليات مشاركة ملف مزود الخدمة أو محتواه خلال الفترة المحددة.",
+            stats=[{"label": "عدد المشاركات", "value": str(shares_count)}],
         ),
         "service_requesters": _list_card(
             key="service_requesters",
@@ -836,10 +918,12 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
             total_count=requests_qs.exclude(client=None).values("client_id").distinct().count(),
             helper_text="أحدث المعرفات التي قدمت طلبات خدمة إلى مزود الخدمة خلال الفترة المحددة.",
         ),
-        "potential_clients": _placeholder_card(
+        "potential_clients": _list_card(
             key="potential_clients",
             label=option_label_for("reports", "potential_clients"),
-            helper_text="الخيار مفعّل، لكن لا يوجد حاليًا سجل مخصص لوسم العملاء المحتملين داخل الباكند الحالي.",
+            entries=potential_clients_preview,
+            total_count=potential_clients_distinct_count,
+            helper_text="معرفات المستخدمين الذين تم وسمهم كعملاء محتملين لمزود الخدمة خلال الفترة المحددة.",
         ),
         "content_favoriters": _list_card(
             key="content_favoriters",
@@ -855,10 +939,12 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
             total_count=follows_qs.exclude(user=None).values("user_id").distinct().count(),
             helper_text="المتابعون الظاهرون لمنصتك خلال الفترة المحددة.",
         ),
-        "content_sharers": _placeholder_card(
+        "content_sharers": _list_card(
             key="content_sharers",
             label=option_label_for("reports", "content_sharers"),
-            helper_text="الخيار مفعّل، لكن النظام الحالي لا يحتفظ بسجل منفصل لمعرفات المشاركين للمحتوى.",
+            entries=sharers_preview,
+            total_count=sharers_distinct_count,
+            helper_text="معرفات المستخدمين الذين قاموا بمشاركة ملف مزود الخدمة أو محتواه.",
         ),
         "positive_reviewers": _list_card(
             key="positive_reviewers",
@@ -867,26 +953,148 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
             total_count=positive_reviews_qs.exclude(client=None).values("client_id").distinct().count(),
             helper_text="معرفات أصحاب التقييمات الإيجابية (4 نجوم فأعلى) لخدمات مزود الخدمة.",
         ),
-        "content_commenters": _placeholder_card(
+        "content_commenters": _list_card(
             key="content_commenters",
             label=option_label_for("reports", "content_commenters"),
-            helper_text="الخيار مفعّل، لكن التعليقات على المحتوى لا تملك حاليًا نموذج بيانات مستقل لعرضها من هذه الصفحة.",
+            entries=commenters_preview,
+            total_count=commenters_distinct_count,
+            helper_text="معرفات المستخدمين الذين علقوا على محتوى منصة مزود الخدمة.",
         ),
     }
 
-    report_option_groups: list[dict[str, object]] = []
-    for group in REPORT_OPTION_GROUPS:
-        cards = [
-            option_cards_by_key[key]
-            for key in group["keys"]
-            if key in bundle_context.get("selected_option_keys", []) and key in option_cards_by_key
-        ]
-        if cards:
-            report_option_groups.append(
+    return {
+        "option_cards_by_key": option_cards_by_key,
+        "totals": totals,
+        "platform_visits": platform_visits,
+        "followers_count": followers_count,
+        "likes_count": likes_count,
+        "messages_count": messages_count,
+    }
+
+
+def _report_requests_queryset(provider: ProviderProfile, bundle_context: dict[str, object]):
+    qs = ServiceRequest.objects.filter(provider=provider).select_related("client")
+    return _apply_datetime_window(
+        qs,
+        "created_at",
+        bundle_context.get("start_at"),
+        bundle_context.get("end_at"),
+    )
+
+
+def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, object]:
+    bundle_context = _latest_reports_bundle_context(provider)
+    report_bundle_contexts = _all_reports_bundle_contexts(provider)
+    shell_context = _portal_shell_context(provider, active_section=PORTAL_SECTION_REPORTS)
+    start_at = bundle_context.get("start_at")
+    end_at = bundle_context.get("end_at")
+
+    portal_subscription = getattr(provider, "extras_portal_subscription", None)
+    subscription_is_active = bool(
+        portal_subscription
+        and portal_subscription.status == ExtrasPortalSubscriptionStatus.ACTIVE
+        and (portal_subscription.ends_at is None or portal_subscription.ends_at > timezone.now())
+    )
+
+    latest_option_catalog = _report_option_card_catalog(provider, start_at=start_at, end_at=end_at)
+    totals = latest_option_catalog["totals"]
+    platform_visits = latest_option_catalog["platform_visits"]
+    followers_count = latest_option_catalog["followers_count"]
+    likes_count = latest_option_catalog["likes_count"]
+    messages_count = latest_option_catalog["messages_count"]
+
+    report_request_summaries: list[dict[str, object]] = []
+    report_request_groups: list[dict[str, object]] = []
+    selected_option_rows: list[dict[str, object]] = []
+
+    for report_context in report_bundle_contexts:
+        request_obj = report_context.get("request_obj")
+        request_id = getattr(request_obj, "id", None)
+        request_code = getattr(request_obj, "code", "") or "-"
+        invoice = report_context.get("invoice")
+        payment_confirmed_at = (
+            getattr(invoice, "payment_confirmed_at", None)
+            or getattr(invoice, "paid_at", None)
+            or getattr(request_obj, "updated_at", None)
+        )
+
+        report_request_summaries.append(
+            {
+                "request_id": request_id,
+                "request_code": request_code,
+                "payment_confirmed_label": _format_datetime_label(payment_confirmed_at),
+                "start_label": report_context.get("start_label", "-"),
+                "end_label": report_context.get("end_label", "-"),
+                "option_count": len(report_context.get("selected_option_keys", [])),
+                "option_labels": list(report_context.get("selected_option_labels", [])),
+            }
+        )
+
+        option_catalog = _report_option_card_catalog(
+            provider,
+            start_at=report_context.get("start_at"),
+            end_at=report_context.get("end_at"),
+        )
+        option_cards_by_key = option_catalog["option_cards_by_key"]
+        option_groups: list[dict[str, object]] = []
+        for group in REPORT_OPTION_GROUPS:
+            cards = [
+                option_cards_by_key[key]
+                for key in group["keys"]
+                if key in report_context.get("selected_option_keys", []) and key in option_cards_by_key
+            ]
+            if cards:
+                option_groups.append(
+                    {
+                        "title": group["title"],
+                        "description": group["description"],
+                        "cards": cards,
+                    }
+                )
+
+        report_request_groups.append(
+            {
+                "request_id": request_id,
+                "request_code": request_code,
+                "payment_confirmed_label": _format_datetime_label(payment_confirmed_at),
+                "start_label": report_context.get("start_label", "-"),
+                "end_label": report_context.get("end_label", "-"),
+                "option_groups": option_groups,
+            }
+        )
+
+        for key in report_context.get("selected_option_keys", []):
+            card = option_cards_by_key.get(key, {})
+            card_kind = str(card.get("kind") or "")
+            is_ready = card_kind in {"stats", "list"}
+            is_placeholder = card_kind == "placeholder"
+            if is_ready:
+                row_status = "جاهز للعرض"
+                row_status_class = "bg-emerald-100 text-emerald-700"
+                row_summary = "تم تفعيل هذا البند داخل اشتراك التقارير الحالي ويجري عرضه وفق الفترة الزمنية المعتمدة."
+                row_can_export = True
+            elif is_placeholder:
+                row_status = "قيد التطوير"
+                row_status_class = "bg-amber-100 text-amber-700"
+                row_summary = "هذا الخيار قيد التطوير وسيتم إتاحته قريباً. لن يتم احتساب رسوم عليه حتى يصبح جاهزاً."
+                row_can_export = False
+            else:
+                row_status = "مفعّل"
+                row_status_class = "bg-sky-100 text-sky-700"
+                row_summary = str(card.get("helper_text") or "الخيار مفعّل داخل الاشتراك الحالي.")
+                row_can_export = False
+            selected_option_rows.append(
                 {
-                    "title": group["title"],
-                    "description": group["description"],
-                    "cards": cards,
+                    "key": key,
+                    "request_id": request_id,
+                    "request_code": request_code,
+                    "label": option_label_for(PORTAL_SECTION_REPORTS, key),
+                    "status": row_status,
+                    "status_class": row_status_class,
+                    "summary": row_summary,
+                    "can_export": row_can_export,
+                    "start_label": report_context.get("start_label", "-"),
+                    "end_label": report_context.get("end_label", "-"),
                 }
             )
 
@@ -909,34 +1117,13 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         {"title": "رسائل وتفاعلات", "value": messages_count, "tone": "from-amber-500 to-orange-500"},
     ]
 
-    selected_option_rows = []
-    for key in bundle_context.get("selected_option_keys", []):
-        card = option_cards_by_key.get(key, {})
-        card_kind = str(card.get("kind") or "")
-        is_ready = card_kind in {"stats", "list"}
-        selected_option_rows.append(
-            {
-                "key": key,
-                "label": option_label_for(PORTAL_SECTION_REPORTS, key),
-                "status": "جاهز للعرض" if is_ready else "مفعّل بانتظار البيانات",
-                "status_class": (
-                    "bg-emerald-100 text-emerald-700"
-                    if is_ready
-                    else "bg-amber-100 text-amber-700"
-                ),
-                "summary": (
-                    "تم تفعيل هذا البند داخل اشتراك التقارير الحالي ويجري عرضه وفق الفترة الزمنية المعتمدة."
-                    if is_ready
-                    else str(card.get("helper_text") or "الخيار مفعّل داخل الاشتراك الحالي، لكنه ينتظر توفر بيانات مرتبطة به داخل النظام.")
-                ),
-            }
-        )
-
     return {
         **shell_context,
         "provider": provider,
         "bundle_context": bundle_context,
-        "report_option_groups": report_option_groups,
+        "report_option_groups": report_request_groups[0]["option_groups"] if report_request_groups else [],
+        "report_request_groups": report_request_groups,
+        "report_request_summaries": report_request_summaries,
         "overview_cards": overview_cards,
         "selected_option_rows": selected_option_rows,
         "totals": totals,
@@ -948,15 +1135,16 @@ def _build_reports_dashboard_context(provider: ProviderProfile) -> dict[str, obj
         "subscription_end_label": _format_datetime_label(getattr(portal_subscription, "ends_at", None)),
         "portal_subscription": portal_subscription,
         "portal_subscription_active": subscription_is_active,
-        "selected_option_count": len(bundle_context.get("selected_option_keys", [])),
+        "selected_option_count": len(selected_option_rows),
+        "report_request_count": len(report_request_groups),
         "request_code": getattr(bundle_context.get("request_obj"), "code", "") or "-",
         "payment_note": (
-            f"تمت عملية سداد رسوم التفعيل بنجاح بتاريخ { _format_datetime_label(payment_confirmed_at) }"
+            f"تمت آخر عملية سداد رسوم التفعيل بنجاح بتاريخ { _format_datetime_label(payment_confirmed_at) }"
             if invoice is not None and payment_confirmed_at is not None
-            else "هذه الصفحة مرتبطة بآخر طلب تقارير مكتمل داخل الخدمات الإضافية."
+            else "هذه الصفحة تعرض طلبات التقارير المكتملة والمدفوعة داخل الخدمات الإضافية."
         ),
         "system_note": bundle_context.get("operator_comment")
-        or "رسالة النظام: يتم عرض البيانات هنا وفق الفترة والخيارات المعتمدة في آخر طلب تقارير مكتمل.",
+        or "رسالة النظام: يتم عرض البيانات هنا وفق الطلبات المدفوعة والمغلقة لكل بند تقارير تم تفعيله.",
     }
 
 
@@ -983,8 +1171,12 @@ def portal_reports_export_xlsx(request: HttpRequest) -> HttpResponse:
     from apps.core.models import PlatformConfig
 
     _limit = PlatformConfig.load().export_xlsx_max_rows
-    bundle_context = _latest_reports_bundle_context(provider)
-    qs = _report_requests_queryset(provider, bundle_context).order_by("-id")[:_limit]
+    bundle_context = _report_bundle_context_for_request(provider, request.GET.get("request"))
+    qs = (
+        _report_requests_queryset(provider, bundle_context).order_by("-id")[:_limit]
+        if bundle_context.get("request_obj")
+        else ServiceRequest.objects.none()
+    )
 
     rows = []
     for r in qs:
@@ -1017,8 +1209,12 @@ def portal_reports_export_pdf(request: HttpRequest) -> HttpResponse:
     from apps.core.models import PlatformConfig
 
     _limit = PlatformConfig.load().export_pdf_max_rows
-    bundle_context = _latest_reports_bundle_context(provider)
-    qs = _report_requests_queryset(provider, bundle_context).order_by("-id")[:_limit]
+    bundle_context = _report_bundle_context_for_request(provider, request.GET.get("request"))
+    qs = (
+        _report_requests_queryset(provider, bundle_context).order_by("-id")[:_limit]
+        if bundle_context.get("request_obj")
+        else ServiceRequest.objects.none()
+    )
     rows = []
     for r in qs:
         rows.append([r.id, r.title, r.get_status_display(), getattr(r.client, "phone", ""), r.created_at])
@@ -1042,7 +1238,13 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
     section_context = _latest_portal_section_context(provider, PORTAL_SECTION_CLIENTS)
     clients_payload = _portal_section_payload(section_context)
     clients_option_keys = _portal_section_option_keys(section_context)
-    clients_option_labels = list(section_context.get("option_labels") or [])
+    clients_option_labels = [
+        {
+            "text": option_label_for(PORTAL_SECTION_CLIENTS, key),
+            "unavailable": key in UNAVAILABLE_CLIENT_OPTIONS,
+        }
+        for key in clients_option_keys
+    ]
     clients_subscription_years = _portal_safe_int(clients_payload.get("subscription_years", 1), default=1, minimum=1)
     bulk_message_limit = _portal_safe_int(clients_payload.get("bulk_message_count", 0), default=0, minimum=0)
     clients_supports_bulk_messages = _portal_section_has_option(section_context, "bulk_messages")
@@ -1149,6 +1351,44 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
 
         return redirect("extras_portal:clients")
 
+    # ---------- all_followers ----------
+    clients_supports_all_followers = _portal_section_has_option(section_context, "all_followers")
+    followers_qs = ProviderFollow.objects.filter(provider=provider).select_related("user").order_by("-created_at")
+    followers_list = list(followers_qs[:500]) if clients_supports_all_followers else []
+    followers_total_count = followers_qs.count() if clients_supports_all_followers else 0
+
+    # ---------- potential_clients_contact ----------
+    clients_supports_potential = _portal_section_has_option(section_context, "potential_clients_contact")
+    potential_qs = ProviderPotentialClient.objects.filter(provider=provider).select_related("user").order_by("-created_at")
+    potential_clients_list = list(potential_qs[:500]) if clients_supports_potential else []
+    potential_clients_total = potential_qs.count() if clients_supports_potential else 0
+
+    # ---------- loyalty_program ----------
+    clients_supports_loyalty = _portal_section_has_option(section_context, "loyalty_program")
+    loyalty_program = None
+    if clients_supports_loyalty:
+        loyalty_program, _lp_created = LoyaltyProgram.objects.get_or_create(
+            provider=provider,
+            defaults={"name": "برنامج الولاء", "points_per_completed_request": 10, "is_active": True},
+        )
+
+    # ---------- loyalty_points ----------
+    clients_supports_points = _portal_section_has_option(section_context, "loyalty_points")
+    loyalty_memberships: list = []
+    loyalty_summary: dict[str, int] = {"members": 0, "total_earned": 0, "total_redeemed": 0}
+    if clients_supports_points and loyalty_program:
+        memberships_qs = LoyaltyMembership.objects.filter(program=loyalty_program).select_related("user").order_by("-points_balance")
+        loyalty_memberships = list(memberships_qs[:200])
+        agg = memberships_qs.aggregate(
+            total_earned=Sum("total_earned"),
+            total_redeemed=Sum("total_redeemed"),
+        )
+        loyalty_summary = {
+            "members": memberships_qs.count(),
+            "total_earned": agg["total_earned"] or 0,
+            "total_redeemed": agg["total_redeemed"] or 0,
+        }
+
     return render(
         request,
         "extras_portal/clients.html",
@@ -1167,6 +1407,21 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             "message_summary": message_summary,
             "recent_message_rows": recent_message_rows,
             "form": form,
+            # all_followers
+            "clients_supports_all_followers": clients_supports_all_followers,
+            "followers_list": followers_list,
+            "followers_total_count": followers_total_count,
+            # potential_clients_contact
+            "clients_supports_potential": clients_supports_potential,
+            "potential_clients_list": potential_clients_list,
+            "potential_clients_total": potential_clients_total,
+            # loyalty_program
+            "clients_supports_loyalty": clients_supports_loyalty,
+            "loyalty_program": loyalty_program,
+            # loyalty_points
+            "clients_supports_points": clients_supports_points,
+            "loyalty_memberships": loyalty_memberships,
+            "loyalty_summary": loyalty_summary,
         },
     )
 
@@ -1180,7 +1435,13 @@ def portal_finance(request: HttpRequest) -> HttpResponse:
     section_context = _latest_portal_section_context(provider, PORTAL_SECTION_FINANCE)
     finance_payload = _portal_section_payload(section_context)
     finance_option_keys = _portal_section_option_keys(section_context)
-    finance_option_labels = list(section_context.get("option_labels") or [])
+    finance_option_labels = [
+        {
+            "text": option_label_for(PORTAL_SECTION_FINANCE, key),
+            "unavailable": key in UNAVAILABLE_FINANCE_OPTIONS,
+        }
+        for key in finance_option_keys
+    ]
     finance_subscription_years = _portal_safe_int(finance_payload.get("subscription_years", 1), default=1, minimum=1)
     supports_bank_qr_registration = _portal_section_has_option(section_context, "bank_qr_registration")
     supports_financial_statement = _portal_section_has_option(section_context, "financial_statement")

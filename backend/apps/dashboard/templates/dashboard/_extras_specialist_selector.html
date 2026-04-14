@@ -1,0 +1,54 @@
+<div class="extras-specialist-selector" data-specialist-selector data-search-url="{{ extras_specialist_search_api_url }}" data-specialist-valid="{% if specialist_identifier and not specialist_lookup_error %}true{% else %}false{% endif %}">
+  <input type="hidden" name="specialist_identifier" value="{{ specialist_identifier }}" data-specialist-hidden-input>
+
+  <div class="extras-specialist-selector__header">
+    <div class="extras-specialist-selector__intro">
+      <span class="pill accent">الخطوة الأساسية</span>
+      <strong>اعتماد مزود الخدمة</strong>
+      <p>ابحث عن مزود الخدمة من النتائج المباشرة، ثم اختره واضغط على زر اعتماد مزود الخدمة. الإرسال النهائي لن ينجح قبل اعتماد مزود خدمة صالح.</p>
+    </div>
+    <span class="pill {% if specialist_identifier and not specialist_lookup_error %}mint{% else %}danger{% endif %}" data-specialist-approval-pill>
+      {% if specialist_identifier and not specialist_lookup_error %}
+        تم اعتماد مزود الخدمة
+      {% else %}
+        لم يتم اعتماد مزود الخدمة
+      {% endif %}
+    </span>
+  </div>
+
+  <div class="extras-specialist-selector__search">
+    <label for="{{ specialist_selector_input_id }}">بحث مزود الخدمة</label>
+    <input
+      id="{{ specialist_selector_input_id }}"
+      class="input-control"
+      type="text"
+      value="{% if specialist_identifier and not specialist_lookup_error and specialist_display_name != 'لم يتم تحديد مزود الخدمة بعد' %}{{ specialist_display_name }}{% elif specialist_identifier %}{{ specialist_identifier }}{% endif %}"
+      placeholder="ابحث باسم مزود الخدمة أو اسم المستخدم أو رقم الجوال"
+      autocomplete="off"
+      data-specialist-search-input
+    >
+    <small class="field-hint" data-specialist-search-status>
+      {% if specialist_identifier and not specialist_lookup_error %}
+        مزود الخدمة الحالي معتمد. عدّل البحث فقط إذا كنت تريد استبداله.
+      {% elif specialist_lookup_error %}
+        {{ specialist_lookup_error }}
+      {% else %}
+        ابدأ بكتابة حرفين على الأقل لعرض نتائج البحث المباشر.
+      {% endif %}
+    </small>
+  </div>
+
+  <div class="extras-specialist-selector__selection">
+    <div class="extras-specialist-selector__selected-card">
+      <span>مزود الخدمة المعتمد</span>
+      <strong data-specialist-display-node>{{ specialist_display_name }}</strong>
+      <small>المعرف: <b data-specialist-identifier-node>{{ specialist_identifier|default:'-' }}</b></small>
+    </div>
+    <div class="extras-specialist-selector__selection-actions">
+      <button type="button" class="accent-btn" data-specialist-confirm disabled>اعتماد مزود الخدمة</button>
+      <button type="button" class="ghost-btn" data-specialist-clear {% if not specialist_identifier %}hidden{% endif %}>مسح الاعتماد</button>
+    </div>
+  </div>
+
+  <div class="extras-specialist-selector__results" data-specialist-results hidden></div>
+</div>

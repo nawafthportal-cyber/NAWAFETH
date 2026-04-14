@@ -25,12 +25,14 @@ class ServiceRequestAdmin(admin.ModelAdmin):
 		"request_type",
 		"status",
 		"city",
+		"client",
+		"provider",
 		"created_at",
 	)
 	list_filter = ("request_type", "status", "city")
-	search_fields = ("title", "description")
+	search_fields = ("title", "description", "client__phone", "provider__display_name")
 	inlines = [ServiceRequestAttachmentInline, ServiceRequestDispatchInline]
-	list_select_related = ("client", "provider")
+	list_select_related = ("client", "provider", "provider__user")
 
 
 @admin.register(Offer)

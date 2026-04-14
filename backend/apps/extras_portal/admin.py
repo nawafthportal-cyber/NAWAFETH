@@ -7,6 +7,10 @@ from .models import (
     ExtrasPortalScheduledMessage,
     ExtrasPortalScheduledMessageRecipient,
     ExtrasPortalSubscription,
+    LoyaltyMembership,
+    LoyaltyProgram,
+    LoyaltyTransaction,
+    ProviderPotentialClient,
 )
 
 
@@ -51,3 +55,42 @@ class ExtrasPortalScheduledMessageRecipientAdmin(HiddenFromAdminIndexMixin, admi
     ordering = ("-id",)
     readonly_fields = ("created_at",)
     list_select_related = ("scheduled_message", "user", "scheduled_message__provider", "scheduled_message__provider__user")
+
+
+@admin.register(ProviderPotentialClient)
+class ProviderPotentialClientAdmin(admin.ModelAdmin):
+    list_display = ("id", "provider", "user", "source", "created_at")
+    list_filter = ("source",)
+    search_fields = ("provider__display_name", "provider__user__phone", "user__phone", "user__username")
+    ordering = ("-id",)
+    list_select_related = ("provider", "provider__user", "user")
+    readonly_fields = ("created_at",)
+
+
+@admin.register(LoyaltyProgram)
+class LoyaltyProgramAdmin(admin.ModelAdmin):
+    list_display = ("id", "provider", "name", "points_per_completed_request", "is_active", "created_at")
+    list_filter = ("is_active",)
+    search_fields = ("provider__display_name", "provider__user__phone", "name")
+    ordering = ("-id",)
+    list_select_related = ("provider", "provider__user")
+    readonly_fields = ("created_at", "updated_at")
+
+
+@admin.register(LoyaltyMembership)
+class LoyaltyMembershipAdmin(admin.ModelAdmin):
+    list_display = ("id", "program", "user", "points_balance", "total_earned", "total_redeemed", "joined_at")
+    search_fields = ("program__provider__display_name", "user__phone", "user__username")
+    ordering = ("-id",)
+    list_select_related = ("program", "program__provider", "user")
+    readonly_fields = ("joined_at", "updated_at")
+
+
+@admin.register(LoyaltyTransaction)
+class LoyaltyTransactionAdmin(HiddenFromAdminIndexMixin, admin.ModelAdmin):
+    list_display = ("id", "membership", "transaction_type", "points", "description", "created_at")
+    list_filter = ("transaction_type",)
+    search_fields = ("membership__user__phone", "membership__user__username", "description")
+    ordering = ("-id",)
+    list_select_related = ("membership", "membership__user", "membership__program")
+    readonly_fields = ("created_at",)

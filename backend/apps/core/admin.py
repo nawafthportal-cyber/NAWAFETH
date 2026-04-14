@@ -25,6 +25,11 @@ class PlatformConfigAdmin(admin.ModelAdmin):
             ),
         }),
         ("الترويج", {
+            "description": (
+                "⚠️ تنبيه: حقلا «الأسعار الأساسية legacy» و«مضاعفات المواقع legacy» "
+                "استُبدلا في التحديثات الحديثة بنماذج مستقلة (PromoAdPrice و PromoPricingRule). "
+                "القيم هنا لا تؤثر على التسعير الحي ما لم تكن نماذج الاستبدال فارغة."
+            ),
             "fields": (
                 "promo_vat_percent",
                 "promo_min_campaign_hours",

@@ -16,6 +16,12 @@ EXTRAS_REPORT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("content_commenters", "قائمة بمعرفات المعلقين على محتوى منصتي"),
 )
 
+# Options that appear in the catalog but have no backend data model yet.
+# These must NOT be selectable in the subscription form.
+UNAVAILABLE_REPORT_OPTIONS: frozenset[str] = frozenset({
+    # All 4 previously unavailable report options are now implemented.
+})
+
 
 EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("platform_clients_list", "قوائم عملاء منصتي"),
@@ -31,6 +37,14 @@ EXTRAS_CLIENT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("loyalty_points", "وضع نظام نقاط لعملائي مرتبط بعدد طلباتهم"),
 )
 
+# Client options with no backend implementation yet.
+UNAVAILABLE_CLIENT_OPTIONS: frozenset[str] = frozenset({
+    "export_clients",
+    "list_services",
+    "grouping",
+    "recurring_reminders",
+})
+
 
 EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
     ("bank_qr_registration", "خدمة تسجيل الحساب البنكي للمختص (QR)"),
@@ -39,6 +53,12 @@ EXTRAS_FINANCE_OPTIONS: tuple[tuple[str, str], ...] = (
     ("financial_statement", "كشف حساب شامل (اسم العميل - التاريخ - المبلغ المستلم - المبلغ الباقي - المبلغ النهائي)"),
     ("finance_export", "تصدير البيانات المالية للعمليات المنفذة من خلال منصة مختص إلى ملف PDF أو Excel"),
 )
+
+# Finance options with no backend implementation yet.
+UNAVAILABLE_FINANCE_OPTIONS: frozenset[str] = frozenset({
+    "electronic_payments",
+    "electronic_invoices",
+})
 
 
 SECTION_TITLE_BY_KEY: dict[str, str] = {
@@ -55,8 +75,12 @@ OPTION_MAP_BY_SECTION_KEY: dict[str, dict[str, str]] = {
 }
 
 
-def option_items(options: tuple[tuple[str, str], ...]) -> list[dict[str, str]]:
-    return [{"key": key, "label": label} for key, label in options]
+def option_items(options: tuple[tuple[str, str], ...], *, unavailable: frozenset[str] | None = None) -> list[dict[str, object]]:
+    _unavailable = unavailable or frozenset()
+    return [
+        {"key": key, "label": label, "unavailable": key in _unavailable}
+        for key, label in options
+    ]
 
 
 def option_map(options: tuple[tuple[str, str], ...]) -> dict[str, str]:

@@ -44,6 +44,7 @@ var AdditionalServicesPage = (function () {
     bundleHistory: [],
     buyingSkus: {},
     submitPending: false,
+    paymentReturnHandled: false,
     optionGroups: {
       reports: { title: "خدمات التقارير", items: [] },
       clients: { title: "خدمات إدارة العملاء", items: [] },
@@ -224,6 +225,70 @@ var AdditionalServicesPage = (function () {
     return amount + " " + suffix;
   }
 
+  function searchParams() {
+    try {
+      return new URLSearchParams(window.location.search || "");
+    } catch (_) {
+      return new URLSearchParams("");
+    }
+  }
+
+  function paymentReturnRequestId() {
+    var params = searchParams();
+    if (asText(params.get("payment")).toLowerCase() !== "success") return 0;
+    return asInt(params.get("request_id"), 0);
+  }
+
+  function clearPaymentReturnParams() {
+    if (!window.history || typeof window.history.replaceState !== "function") return;
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("payment");
+      url.searchParams.delete("request_id");
+      url.searchParams.delete("invoice_id");
+      window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+    } catch (_) {
+      // Keep the current URL if replacement fails.
+    }
+  }
+
+  function scrollToBundleHistory(requestId) {
+    var section = document.getElementById("as-bundle-history-section") || document.getElementById("as-bundle-history");
+    if (section && typeof section.scrollIntoView === "function") {
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    if (!requestId) return;
+    window.setTimeout(function () {
+      var card = document.querySelector('.as-card-bundle[data-request-id="' + String(requestId) + '"]');
+      if (!card) return;
+      card.classList.add("as-card-highlight");
+      if (typeof card.scrollIntoView === "function") {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 260);
+  }
+
+  function maybeHandlePaymentReturn() {
+    if (state.paymentReturnHandled) return;
+    var requestId = paymentReturnRequestId();
+    if (!requestId) return;
+
+    state.paymentReturnHandled = true;
+    var matched = state.bundleHistory.find(function (item) {
+      return asInt(item && item.request_id, 0) === requestId;
+    }) || null;
+
+    showSuccess(matched || { request_code: "—", status_label: "تحت المعالجة" }, {
+      eyebrow: "تم السداد بنجاح",
+      message: "تم تسجيل السداد لهذا الطلب بنجاح، والطلب الآن قيد المعالجة لدى فريق الخدمات الإضافية حتى اكتمال التنفيذ.",
+      statusText: "الطلب قيد المعالجة وسنتابع تحديثه لك في هذه الصفحة.",
+      closeLabel: "عرض الطلب"
+    });
+    scrollToBundleHistory(requestId);
+    clearPaymentReturnParams();
+  }
+
   function extractErrorMessage(res, fallback) {
     if (!res) return fallback;
     var data = res.data || {};
@@ -338,7 +403,17 @@ var AdditionalServicesPage = (function () {
     }
 
     root.innerHTML = items.map(function (item) {
-      var checked = isOptionSelected(groupKey, item.key);
+      var isUnavailable = Boolean(item.unavailable);
+      var checked = !isUnavailable && isOptionSelected(groupKey, item.key);
+      if (isUnavailable) {
+        return [
+          '<label class="as-option-item is-unavailable" title="قريباً">',
+            '<input class="as-option-checkbox" type="checkbox" data-group="', escapeHtml(groupKey), '" data-option="', escapeHtml(item.key), '" disabled />',
+            '<span>', escapeHtml(item.label), '</span>',
+            '<span class="as-coming-soon-badge">قريباً</span>',
+          '</label>'
+        ].join("");
+      }
       return [
         '<label class="as-option-item', checked ? ' is-selected' : '', '">',
           '<input class="as-option-checkbox" type="checkbox" data-group="', escapeHtml(groupKey), '" data-option="', escapeHtml(item.key), '"', checked ? ' checked' : '', ' />',
@@ -645,7 +720,8 @@ var AdditionalServicesPage = (function () {
       var canPay = !!paymentUrl && invoiceSummary && invoiceSummary.payment_effective !== true;
 
       return [
-        '<article class="as-card as-card-bundle">',
+      return [
+        '<article class="as-card as-card-bundle" data-request-id="', escapeHtml(item && item.request_id), '">',
           '<div class="as-card-head">',
             '<div class="as-title-wrap">',
               '<strong>', escapeHtml(summary), '</strong>',
@@ -755,16 +831,33 @@ var AdditionalServicesPage = (function () {
     return true;
   }
 
-  function showSuccess(result) {
+  function showSuccess(result, options) {
     var modal = document.getElementById("as-success-modal");
     var codeEl = document.getElementById("as-success-code");
     var statusEl = document.getElementById("as-success-status");
+    var eyebrowEl = document.getElementById("as-success-eyebrow");
+    var messageEl = document.getElementById("as-success-message");
+    var closeEl = document.getElementById("as-success-close");
+    var opts = options && typeof options === "object" ? options : {};
 
     if (codeEl) codeEl.textContent = asText(result && result.request_code) || "—";
 
+    if (eyebrowEl) {
+      eyebrowEl.textContent = asText(opts.eyebrow) || "تم استلام الطلب بنجاح";
+    }
+
+    if (messageEl) {
+      messageEl.textContent = asText(opts.message) || "تم استلام الطلب بنجاح وسيتم التواصل معكم من قبل فريق إدارة الخدمات الإضافية قريبًا.";
+    }
+
     if (statusEl) {
+      var statusText = asText(opts.statusText);
       var label = asText(result && result.status_label) || "تم الاستلام";
-      statusEl.textContent = "الحالة الحالية: " + label;
+      statusEl.textContent = statusText || ("الحالة الحالية: " + label);
+    }
+
+    if (closeEl) {
+      closeEl.textContent = asText(opts.closeLabel) || "حسنًا";
     }
 
     if (modal) {
@@ -817,6 +910,7 @@ var AdditionalServicesPage = (function () {
 
       setError(errors.join(" • "));
       render();
+      maybeHandlePaymentReturn();
     } catch (_) {
       setError("تعذر تحميل البيانات حالياً");
       state.catalogItems = [];

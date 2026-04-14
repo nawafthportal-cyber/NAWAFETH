@@ -42,6 +42,23 @@ const AdditionalServicesPaymentPage = (() => {
     const node = shell();
     return (node && node.dataset && node.dataset.servicesUrl) || '/additional-services/';
   }
+  function servicesRequestsUrl() {
+    try {
+      const url = new URL(servicesUrl(), window.location.origin);
+      if (state.requestId) url.searchParams.set('payment', 'success');
+      if (state.requestId) url.searchParams.set('request_id', String(state.requestId));
+      if (state.invoiceId) url.searchParams.set('invoice_id', String(state.invoiceId));
+      url.hash = 'as-bundle-history-section';
+      return url.toString();
+    } catch (_) {
+      const query = [];
+      if (state.requestId) query.push('payment=success');
+      if (state.requestId) query.push('request_id=' + encodeURIComponent(String(state.requestId)));
+      if (state.invoiceId) query.push('invoice_id=' + encodeURIComponent(String(state.invoiceId)));
+      const suffix = query.length ? ('?' + query.join('&')) : '';
+      return servicesUrl() + suffix + '#as-bundle-history-section';
+    }
+  }
 
   function listUrl() {
     const node = shell();
@@ -576,20 +593,23 @@ const AdditionalServicesPaymentPage = (() => {
     backdrop.className = 'subpay-result-backdrop';
     backdrop.innerHTML = `
       <div class="subpay-result-dialog" role="dialog" aria-modal="true" aria-label="تم الدفع بنجاح">
-        <div class="subpay-result-code">رقم الطلب: ${escapeHtml(state.requestCode || '—')}</div>
+        <div class="subpay-result-code">تم سداد الطلب ${escapeHtml(state.requestCode || '—')} بنجاح</div>
         <div class="subpay-result-body">
-          <p>تمت عملية الدفع بنجاح</p>
-          <p>تم تسجيل السداد لهذا الطلب، وسيستمر الآن تحت معالجة فريق الخدمات الإضافية حتى اكتمال التنفيذ.</p>
-          <p>سيتم إشعارك عند إنجاز الخدمة أو تحديث حالة الطلب.</p>
+          <p>تم استلام السداد وربطه مباشرة بفاتورة طلب الخدمات الإضافية.</p>
+          <p>الطلب قيد المعالجة الآن لدى الفريق المختص، وسيتم إعادتك إلى صفحة طلباتك لعرض آخر حالة.</p>
+          <p>سيصلك إشعار عند تحديث الطلب أو اكتمال التنفيذ.</p>
         </div>
-        <button type="button" class="subpay-result-close">إغلاق</button>
+        <button type="button" class="subpay-result-close">عرض طلباتي الآن</button>
       </div>
     `;
     document.body.appendChild(backdrop);
 
     return new Promise((resolve) => {
       const closeButton = backdrop.querySelector('.subpay-result-close');
+      let closed = false;
       const close = () => {
+        if (closed) return;
+        closed = true;
         backdrop.remove();
         resolve();
       };
@@ -597,6 +617,7 @@ const AdditionalServicesPaymentPage = (() => {
       backdrop.addEventListener('click', (event) => {
         if (event.target === backdrop) close();
       });
+      window.setTimeout(close, 2200);
     });
   }
 
@@ -663,7 +684,7 @@ const AdditionalServicesPaymentPage = (() => {
       setStatusBanner('تم سداد الفاتورة بنجاح. الطلب سيبقى تحت المعالجة لدى فريق الخدمات الإضافية حتى اكتمال التنفيذ.', 'success');
       showToast('تم سداد الفاتورة بنجاح.', 'success');
       await showSuccessDialog();
-      window.location.href = servicesUrl();
+      window.location.href = servicesRequestsUrl();
     } catch (error) {
       const message = (error && error.message) || 'حدث خطأ غير متوقع أثناء الدفع.';
       const fieldId = applyServerFieldError(message);

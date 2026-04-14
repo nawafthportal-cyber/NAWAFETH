@@ -254,13 +254,15 @@ class ExtrasPortalReportsViewTests(TestCase):
         self.assertEqual(context["portal_nav_items"][0]["key"], "reports")
         self.assertTrue(context["portal_nav_items"][0]["active"])
 
-    def test_portal_reports_marks_placeholder_options_as_waiting_for_data(self):
+    def test_portal_reports_renders_newly_implemented_options_as_working_cards(self):
         metadata = self.bundle_request.metadata_record
         payload = metadata.payload
         payload["bundle"]["reports"]["options"] = [
             "platform_metrics",
             "platform_shares",
             "content_commenters",
+            "potential_clients",
+            "content_sharers",
         ]
         metadata.payload = payload
         metadata.save(update_fields=["payload"])
@@ -269,14 +271,17 @@ class ExtrasPortalReportsViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         context = response.context
-        self.assertEqual(context["selected_option_count"], 3)
+        self.assertEqual(context["selected_option_count"], 5)
 
         rows_by_key = {row["key"]: row for row in context["selected_option_rows"]}
         self.assertEqual(rows_by_key["platform_metrics"]["status"], "جاهز للعرض")
-        self.assertEqual(rows_by_key["platform_shares"]["status"], "مفعّل بانتظار البيانات")
-        self.assertEqual(rows_by_key["content_commenters"]["status"], "مفعّل بانتظار البيانات")
-        self.assertIn("لم يتم العثور على أحداث مشاركة محفوظة", rows_by_key["platform_shares"]["summary"])
-        self.assertIn("التعليقات على المحتوى لا تملك حاليًا", rows_by_key["content_commenters"]["summary"])
+        self.assertEqual(rows_by_key["platform_shares"]["status"], "جاهز للعرض")
+        self.assertEqual(rows_by_key["content_commenters"]["status"], "جاهز للعرض")
+        self.assertEqual(rows_by_key["potential_clients"]["status"], "جاهز للعرض")
+        self.assertEqual(rows_by_key["content_sharers"]["status"], "جاهز للعرض")
+        self.assertTrue(rows_by_key["platform_metrics"]["can_export"])
+        self.assertTrue(rows_by_key["platform_shares"]["can_export"])
+        self.assertTrue(rows_by_key["content_commenters"]["can_export"])
 
         cards = [
             card
@@ -285,9 +290,10 @@ class ExtrasPortalReportsViewTests(TestCase):
         ]
         cards_by_key = {card["key"]: card for card in cards}
         self.assertEqual(cards_by_key["platform_metrics"]["kind"], "stats")
-        self.assertEqual(cards_by_key["platform_shares"]["kind"], "placeholder")
-        self.assertEqual(cards_by_key["content_commenters"]["kind"], "placeholder")
-        self.assertContains(response, "مفعّل بانتظار البيانات")
+        self.assertEqual(cards_by_key["platform_shares"]["kind"], "stats")
+        self.assertEqual(cards_by_key["content_commenters"]["kind"], "list")
+        self.assertEqual(cards_by_key["potential_clients"]["kind"], "list")
+        self.assertEqual(cards_by_key["content_sharers"]["kind"], "list")
 
     def test_portal_home_redirects_to_first_enabled_section(self):
         response = self.client.get(reverse("extras_portal:home"))
@@ -494,3 +500,107 @@ class ExtrasPortalMultiRequestSectionsTests(TestCase):
         self.assertEqual(response.context["requested_iban"], "SA0380000000608010167519")
         self.assertEqual(response.context["form"]["account_name"].value(), "أحمد محمد")
         self.assertEqual(response.context["form"]["iban"].value(), "SA0380000000608010167519")
+
+    def test_clients_page_renders_new_features_when_enabled(self):
+        metadata = self.clients_bundle_request.metadata_record
+        payload = metadata.payload
+        payload["bundle"]["clients"]["options"] = [
+            "platform_clients_list",
+            "bulk_messages",
+            "all_followers",
+            "potential_clients_contact",
+            "loyalty_program",
+            "loyalty_points",
+        ]
+        metadata.payload = payload
+        metadata.save(update_fields=["payload"])
+
+        ProviderFollow.objects.create(
+            user=get_user_model().objects.create_user(phone="0500000930", username="follower_one", password="secret"),
+            provider=self.provider_profile,
+        )
+
+        response = self.client.get(reverse("extras_portal:clients"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.context["clients_supports_all_followers"])
+        self.assertTrue(response.context["clients_supports_potential"])
+        self.assertTrue(response.context["clients_supports_loyalty"])
+        self.assertTrue(response.context["clients_supports_points"])
+        self.assertEqual(response.context["followers_total_count"], 1)
+        self.assertIsNotNone(response.context["loyalty_program"])
+        self.assertTrue(response.context["loyalty_program"].is_active)
+        self.assertContains(response, "قائمة متابعي المختص")
+        self.assertContains(response, "العملاء المحتملون")
+        self.assertContains(response, "برنامج الولاء")
+        self.assertContains(response, "نظام نقاط العملاء")
+
+    def test_reports_page_shows_all_paid_report_requests_and_items(self):
+        latest_report_request = self._create_closed_bundle_request(
+            source_object_id="bundle-portal-reports-latest",
+            invoice_id=9204,
+            bundle={
+                "reports": {
+                    "enabled": True,
+                    "options": ["orders_breakdown", "service_requesters"],
+                    "start_at": "2026-04-11",
+                    "end_at": "2026-04-15",
+                },
+                "clients": {"enabled": False, "options": [], "subscription_years": 1},
+                "finance": {"enabled": False, "options": [], "subscription_years": 1},
+            },
+            paid_at=timezone.make_aware(datetime(2026, 4, 14, 19, 40)),
+        )
+
+        response = self.client.get(reverse("extras_portal:reports"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.reports_bundle_request.code)
+        self.assertContains(response, latest_report_request.code)
+        self.assertEqual(response.context["report_request_count"], 2)
+        self.assertEqual(response.context["selected_option_count"], 4)
+        self.assertEqual(
+            [row["request_code"] for row in response.context["selected_option_rows"]],
+            [latest_report_request.code, latest_report_request.code, self.reports_bundle_request.code, self.reports_bundle_request.code],
+        )
+        self.assertEqual(response.context["request_code"], latest_report_request.code)
+        self.assertEqual(
+            [row["request_code"] for row in response.context["report_request_summaries"]],
+            [latest_report_request.code, self.reports_bundle_request.code],
+        )
+
+    def test_reports_page_ignores_newer_unpaid_report_request(self):
+        unpaid_request = UnifiedRequest.objects.create(
+            request_type=UnifiedRequestType.EXTRAS,
+            status="closed",
+            priority="normal",
+            requester=self.provider_user,
+            assigned_team_code="extras",
+            assigned_team_name="فريق إدارة الخدمات الإضافية",
+            source_app="extras",
+            source_model="ExtrasBundleRequest",
+            source_object_id="bundle-portal-reports-unpaid",
+            summary="طلب تقارير غير مدفوع",
+            updated_at=timezone.make_aware(datetime(2026, 4, 15, 19, 40)),
+        )
+        metadata, _ = UnifiedRequestMetadata.objects.get_or_create(request=unpaid_request)
+        metadata.payload = {
+            "bundle": {
+                "reports": {
+                    "enabled": True,
+                    "options": ["orders_breakdown"],
+                    "start_at": "2026-04-12",
+                    "end_at": "2026-04-15",
+                },
+                "clients": {"enabled": False, "options": [], "subscription_years": 1},
+                "finance": {"enabled": False, "options": [], "subscription_years": 1},
+            },
+        }
+        metadata.save(update_fields=["payload"])
+
+        response = self.client.get(reverse("extras_portal:reports"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["request_code"], self.reports_bundle_request.code)
+        self.assertEqual(response.context["report_request_count"], 1)
+        self.assertNotContains(response, unpaid_request.code)

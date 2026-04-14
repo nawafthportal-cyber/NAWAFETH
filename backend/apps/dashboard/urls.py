@@ -16,6 +16,7 @@ urlpatterns = [
     path("support/<int:ticket_id>/", views.support_dashboard, name="support_ticket_detail"),
     path("subscriptions/", views.subscription_dashboard, name="subscription_dashboard"),
     path("extras/", views.extras_dashboard, name="extras_dashboard"),
+    path("extras/specialists/search/", views.extras_specialist_search_api, name="extras_specialist_search_api"),
     path("promo/", views.promo_dashboard, name="promo_dashboard"),
     path("promo/<int:request_id>/", views.promo_dashboard, name="promo_request_detail"),
     path("verification/", views.verification_dashboard, name="verification_dashboard"),

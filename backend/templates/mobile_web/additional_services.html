@@ -144,6 +144,7 @@
     </section>
 
     <section class="detail-card as-block">
+    <section id="as-bundle-history-section" class="detail-card as-block">
       <div class="as-block-head">
         <h3>طلباتي التفصيلية</h3>
         <span class="text-muted" id="as-bundle-history-count"></span>
@@ -155,14 +156,21 @@
   <div id="as-success-modal" class="as-success-modal" hidden>
     <div class="as-success-backdrop" data-success-close="true"></div>
     <section class="as-success-dialog" role="dialog" aria-modal="true" aria-labelledby="as-success-modal-title">
-      <div class="as-success-dialog-head" id="as-success-modal-title">
-        رقم الطلب: <span id="as-success-code">-</span>
+      <div class="as-success-dialog-head">
+        <div class="as-success-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="12" fill="rgba(255,255,255,0.18)"></circle>
+            <path d="M7 12.5 10.2 15.7 17 8.9" stroke="#FFFFFF" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </div>
+        <p class="as-success-eyebrow" id="as-success-eyebrow">تم استلام الطلب بنجاح</p>
+        <div id="as-success-modal-title">رقم الطلب: <span id="as-success-code">-</span></div>
       </div>
       <div class="as-success-dialog-body">
-        <p>تم استلام الطلب بنجاح وسيتم التواصل معكم من قبل فريق إدارة الخدمات الإضافية قريبًا.</p>
+        <p id="as-success-message">تم استلام الطلب بنجاح وسيتم التواصل معكم من قبل فريق إدارة الخدمات الإضافية قريبًا.</p>
         <p id="as-success-status" class="as-success-status"></p>
       </div>
-      <button type="button" id="as-success-close" class="as-success-close-btn">إغلاق</button>
+      <button type="button" id="as-success-close" class="as-success-close-btn">حسنًا</button>
     </section>
   </div>
 

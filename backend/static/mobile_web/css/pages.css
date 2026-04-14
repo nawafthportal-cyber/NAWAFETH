@@ -5506,7 +5506,7 @@ body.page-contact .contact-auth-gate {
 body.page-contact .contact-toast {
   position: fixed;
   left: 50%;
-  bottom: 24px;
+  bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 16px);
   z-index: 1800;
   min-width: 220px;
   max-width: min(92vw, 360px);
@@ -6230,7 +6230,7 @@ body.page-notifications .notif-load-more-btn:disabled {
 body.page-notifications .notif-toast {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 16px);
   transform: translate(-50%, 16px);
   z-index: 1704;
   max-width: min(92vw, 360px);
@@ -8260,7 +8260,7 @@ body.page-notification-settings #notif-settings-error {
 .notif-settings-toast {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 16px);
   transform: translate(-50%, 16px);
   z-index: 1705;
   max-width: min(92vw, 360px);
@@ -8885,7 +8885,7 @@ body.page-my-qr .my-qr-action-btn {
 body.page-my-qr .my-qr-toast {
   position: fixed;
   left: 50%;
-  bottom: 22px;
+  bottom: calc(var(--bottom-nav-height, 68px) + env(safe-area-inset-bottom, 0px) + 16px);
   transform: translate(-50%, 16px);
   z-index: 1706;
   max-width: min(92vw, 360px);

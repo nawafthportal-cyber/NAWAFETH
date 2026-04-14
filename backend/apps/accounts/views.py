@@ -348,16 +348,15 @@ def me_view(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Uniqueness safeguard for phone.
+        # Phone changes require OTP verification via the dedicated endpoints:
+        #   POST /api/accounts/me/request-phone-change/
+        #   POST /api/accounts/me/confirm-phone-change/
+        # Direct mutation here is blocked to prevent silent credential replacement.
         if "phone" in data:
-            new_phone = data.get("phone")
-            if new_phone and new_phone != user.phone:
-                if User.objects.filter(phone=new_phone).exclude(pk=user.pk).exists():
-                    return Response(
-                        {"phone": ["رقم الجوال مستخدم مسبقاً"]},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                user.phone = new_phone
+            return Response(
+                {"phone": ["لتغيير رقم الجوال يجب التحقق عبر رمز OTP. استخدم /api/accounts/me/request-phone-change/"]},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Optional fields (allow clearing by sending empty string)
         for field in ("email", "first_name", "last_name", "city"):
@@ -958,3 +957,149 @@ def wallet_view(request):
     wallet, _ = Wallet.objects.get_or_create(user=user)
     data = WalletSerializer(wallet).data
     return Response(data, status=status.HTTP_200_OK)
+
+
+# ─── Phone change (OTP-verified) ────────────────────────────────────────────
+# Changing the auth phone (User.phone) requires proving ownership of the NEW
+# number via OTP before any database write occurs.  Direct mutation via
+# PATCH /api/accounts/me/ is intentionally blocked.
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@throttle_classes([ScopedRateThrottle])
+def request_phone_change_view(request):
+    """Step 1 – send an OTP to the new phone number the user wants to adopt."""
+    new_phone_raw = (request.data.get("phone") or "").strip()
+    if not new_phone_raw:
+        return Response({"phone": ["رقم الجوال مطلوب"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    new_phone = _normalize_phone_local05(new_phone_raw)
+    if not new_phone or len(_keep_digits(new_phone)) < 9:
+        return Response({"phone": ["صيغة رقم الجوال غير صحيحة، يجب أن تكون 05XXXXXXXX"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_phone == _normalize_phone_local05(request.user.phone or ""):
+        return Response({"phone": ["هذا هو رقم جوالك الحالي"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    if User.objects.filter(phone__in=_phone_candidates(new_phone)).exclude(pk=request.user.pk).exists():
+        return Response({"phone": ["رقم الجوال مستخدم مسبقاً"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    now = timezone.now()
+    cooldown_seconds = int(getattr(settings, "OTP_COOLDOWN_SECONDS", 60))
+    last = OTP.objects.filter(phone=new_phone).order_by("-id").first()
+    if last:
+        remaining = cooldown_seconds - (now - last.created_at).total_seconds()
+        if remaining > 0:
+            return throttled_response("يرجى الانتظار قبل إعادة إرسال الرمز", remaining, code="otp_cooldown")
+
+    dev_code = otp_dev_test_code()
+    test_code = (getattr(settings, "OTP_TEST_CODE", "") or "").strip()
+    if dev_code:
+        code = dev_code
+    elif test_code and _otp_test_authorized(request):
+        code = test_code
+    else:
+        code = generate_otp_code()
+
+    OTP.objects.create(
+        phone=new_phone,
+        ip_address=_client_ip(request),
+        code=code,
+        expires_at=otp_expiry(5),
+    )
+
+    payload = {"ok": True}
+    payload.update(build_cooldown_payload(cooldown_seconds))
+    if otp_dev_bypass_enabled():
+        payload["dev_mode"] = True
+        payload["dev_accept_any_4_digits"] = accept_any_otp_code()
+        if dev_code:
+            payload["dev_code"] = dev_code
+    elif bool(getattr(settings, "DEBUG", False)):
+        payload["dev_code"] = code
+    elif _otp_test_authorized(request):
+        payload["dev_code"] = code
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def confirm_phone_change_view(request):
+    """Step 2 – verify OTP for new phone then update User.phone."""
+    new_phone_raw = (request.data.get("phone") or "").strip()
+    code = (request.data.get("code") or "").strip()
+
+    if not new_phone_raw:
+        return Response({"phone": ["رقم الجوال مطلوب"]}, status=status.HTTP_400_BAD_REQUEST)
+    if not code:
+        return Response({"code": ["رمز التحقق مطلوب"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    new_phone = _normalize_phone_local05(new_phone_raw)
+
+    if User.objects.filter(phone__in=_phone_candidates(new_phone)).exclude(pk=request.user.pk).exists():
+        return Response({"phone": ["رقم الجوال مستخدم مسبقاً"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Dev/test bypass: accept any 4-digit code when OTP_APP_BYPASS is enabled.
+    if _otp_app_bypass_allowed(new_phone):
+        if not (len(code) == 4 and code.isdigit()):
+            return Response({"code": ["الكود يجب أن يكون 4 أرقام"]}, status=status.HTTP_400_BAD_REQUEST)
+        otp = OTP.objects.filter(phone=new_phone, is_used=False).order_by("-id").first()
+        if not otp or otp.expires_at < timezone.now():
+            return Response({"code": ["أعد طلب رمز جديد"]}, status=status.HTTP_400_BAD_REQUEST)
+        otp.is_used = True
+        otp.save(update_fields=["is_used"])
+        try:
+            request.user.phone = new_phone
+            request.user.save(update_fields=["phone"])
+        except IntegrityError:
+            return Response({"phone": ["رقم الجوال مستخدم مسبقاً"]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "phone": new_phone}, status=status.HTTP_200_OK)
+
+    if matches_dev_test_code(code) or accept_any_otp_code():
+        if not (len(code) == 4 and code.isdigit()):
+            return Response({"code": ["الكود يجب أن يكون 4 أرقام"]}, status=status.HTTP_400_BAD_REQUEST)
+        otp = OTP.objects.filter(phone=new_phone, is_used=False).order_by("-id").first()
+        if otp:
+            otp.is_used = True
+            otp.save(update_fields=["is_used"])
+        try:
+            request.user.phone = new_phone
+            request.user.save(update_fields=["phone"])
+        except IntegrityError:
+            return Response({"phone": ["رقم الجوال مستخدم مسبقاً"]}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"ok": True, "phone": new_phone}, status=status.HTTP_200_OK)
+
+    otp = OTP.objects.filter(phone=new_phone, is_used=False).order_by("-id").first()
+    if not otp:
+        return Response({"code": ["الكود غير صحيح"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    if otp.expires_at < timezone.now():
+        return Response({"code": ["انتهت صلاحية الكود"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    max_attempts = int(getattr(settings, "OTP_MAX_ATTEMPTS", 5))
+    if otp.attempts >= max_attempts:
+        otp.is_used = True
+        otp.save(update_fields=["is_used"])
+        return Response({"code": ["تم تجاوز عدد المحاولات، أعد طلب رمز جديد"]}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+    if otp.code != code:
+        otp.attempts += 1
+        if otp.attempts >= max_attempts:
+            otp.is_used = True
+            otp.save(update_fields=["attempts", "is_used"])
+            return Response({"code": ["تم تجاوز عدد المحاولات، أعد طلب رمز جديد"]}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        otp.save(update_fields=["attempts"])
+        return Response({"code": ["الكود غير صحيح"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    otp.is_used = True
+    otp.save(update_fields=["is_used"])
+
+    try:
+        request.user.phone = new_phone
+        request.user.save(update_fields=["phone"])
+    except IntegrityError:
+        return Response({"phone": ["رقم الجوال مستخدم مسبقاً"]}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({"ok": True, "phone": new_phone}, status=status.HTTP_200_OK)
+
+
+request_phone_change_view.throttle_scope = "otp"

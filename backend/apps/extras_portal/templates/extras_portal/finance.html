@@ -74,8 +74,12 @@
             <div class="rounded-2xl bg-slate-50 px-4 py-4">
               <div class="text-xs font-bold text-slate-500">البنود المفعلة في هذا القسم</div>
               <div class="mt-3 flex flex-wrap gap-2">
-                {% for label in finance_option_labels %}
-                  <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{{ label }}</span>
+                {% for opt in finance_option_labels %}
+                  {% if opt.unavailable %}
+                    <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{{ opt.text }} – قيد التطوير</span>
+                  {% else %}
+                    <span class="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{{ opt.text }}</span>
+                  {% endif %}
                 {% empty %}
                   <span class="text-sm font-bold text-slate-500">لا توجد بنود ظاهرة.</span>
                 {% endfor %}

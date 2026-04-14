@@ -10,6 +10,9 @@ from apps.extras.option_catalog import (
     EXTRAS_CLIENT_OPTIONS,
     EXTRAS_FINANCE_OPTIONS,
     EXTRAS_REPORT_OPTIONS,
+    UNAVAILABLE_CLIENT_OPTIONS,
+    UNAVAILABLE_FINANCE_OPTIONS,
+    UNAVAILABLE_REPORT_OPTIONS,
     option_items,
 )
 from apps.providers.models import ProviderProfile
@@ -187,7 +190,22 @@ class MobileWebProviderDetailView(TemplateView):
         if not provider:
             return context
         context.update(_provider_meta_context(self.request, provider))
+        self._track_profile_view(provider)
         return context
+
+    @staticmethod
+    def _track_profile_view(provider):
+        try:
+            from apps.analytics.tracking import safe_track_event
+            safe_track_event(
+                event_name="provider.profile_view",
+                channel="mobile_web",
+                source_app="mobile_web",
+                object_type="ProviderProfile",
+                object_id=str(provider.pk),
+            )
+        except Exception:
+            pass
 
 
 class MobileWebNotificationsView(TemplateView):
@@ -424,15 +442,15 @@ class MobileWebAdditionalServicesView(TemplateView):
         option_groups = {
             "reports": {
                 "title": "خدمات التقارير",
-                "items": option_items(EXTRAS_REPORT_OPTIONS),
+                "items": option_items(EXTRAS_REPORT_OPTIONS, unavailable=UNAVAILABLE_REPORT_OPTIONS),
             },
             "clients": {
                 "title": "خدمات إدارة العملاء",
-                "items": option_items(EXTRAS_CLIENT_OPTIONS),
+                "items": option_items(EXTRAS_CLIENT_OPTIONS, unavailable=UNAVAILABLE_CLIENT_OPTIONS),
             },
             "finance": {
                 "title": "خدمات الإدارة المالية",
-                "items": option_items(EXTRAS_FINANCE_OPTIONS),
+                "items": option_items(EXTRAS_FINANCE_OPTIONS, unavailable=UNAVAILABLE_FINANCE_OPTIONS),
             },
         }
         context["extras_option_groups_json"] = json.dumps(option_groups, ensure_ascii=False)

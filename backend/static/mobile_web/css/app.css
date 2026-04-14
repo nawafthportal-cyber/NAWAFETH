@@ -761,8 +761,8 @@ ul, ol { list-style: none; }
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-md);
   border: 1px solid var(--color-primary-light);
   cursor: pointer;
@@ -1422,7 +1422,7 @@ ul, ol { list-style: none; }
    ==================================================================== */
 #bottom-nav {
   position: fixed; bottom: 0; left: 0; right: 0;
-  height: var(--bottom-nav-height);
+  height: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px));
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -1462,7 +1462,7 @@ ul, ol { list-style: none; }
    ==================================================================== */
 .offline-banner {
   position: fixed;
-  bottom: calc(var(--bottom-nav-height) + var(--space-md));
+  bottom: calc(var(--bottom-nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-md));
   left: 50%; transform: translateX(-50%);
   background: var(--color-error); color: #fff;
   padding: var(--space-sm) var(--space-lg);

@@ -82,7 +82,7 @@
                 <section class="module-block module-block-home-banner">
                   <h4>بنر الصفحة الرئيسية</h4>
                   <div class="home-banner-requester-row">
-                    <span>اسم العميل</span>
+                    <span>اسم مزود الخدمة</span>
                     <strong id="homeBannerRequesterLabel">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
                   <div
@@ -175,16 +175,16 @@
                 </section>
               {% elif is_featured_module %}
                 <section class="module-block module-block-featured-specialists">
-                  <h4>شريط أبرز المختصين</h4>
+                  <h4>شريط أبرز مزودي الخدمة</h4>
                   <div class="featured-specialists-requester-row">
-                    <span>اسم المختص</span>
+                    <span>اسم مزود الخدمة</span>
                     <strong>{{ selected_requester_label|default:"-" }}</strong>
                   </div>
                   <div class="featured-specialists-layout">
                     <div class="featured-specialists-form-panel">
                       <div class="form-grid featured-specialists-form-grid">
                         <div class="field full">
-                          <small>يتم عرض المختص في شريط أبرز المختصين خلال فترة الحملة المعتمدة.</small>
+                          <small>يتم عرض مزود الخدمة في شريط أبرز مزودي الخدمة خلال فترة الحملة المعتمدة.</small>
                         </div>
                         <div class="field">
                           <label for="{{ module_form.request_id.id_for_label }}">رقم طلب الترويج</label>
@@ -201,7 +201,7 @@
                           {% for err in module_form.title.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
-                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
                           {{ module_form.target_provider_id }}
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
@@ -223,7 +223,7 @@
                         <div class="featured-specialists-phone-notch"></div>
                         <div class="featured-specialists-phone-screen">
                           <div class="featured-specialists-phone-topbar"></div>
-                          <div class="featured-specialists-strip-title">موضع شريط أبرز المختصين</div>
+                          <div class="featured-specialists-strip-title">موضع شريط أبرز مزودي الخدمة</div>
                           <div class="featured-specialists-strip-list">
                             <div class="featured-specialists-strip-item is-active">
                               <span class="featured-specialists-avatar"></span>
@@ -247,7 +247,7 @@
                 <section class="module-block module-block-portfolio-showcase">
                   <h4>شريط البنرات والمشاريع</h4>
                   <div class="portfolio-showcase-requester-row">
-                    <span>اسم المختص</span>
+                    <span>اسم مزود الخدمة</span>
                     <strong id="portfolioShowcaseProviderName">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
                   <div
@@ -352,7 +352,7 @@
                 <section class="module-block module-block-snapshots">
                   <h4>شريط اللمحات</h4>
                   <div class="snapshots-requester-row">
-                    <span>اسم المختص</span>
+                    <span>اسم مزود الخدمة</span>
                     <strong id="snapshotsProviderName">{{ selected_requester_label|default:"-" }}</strong>
                   </div>
                   <div
@@ -465,9 +465,9 @@
                   <h4>الظهور في قوائم البحث</h4>
                   <div class="search-module-requester-row">
                     <div class="search-module-requester-copy">
-                      <span>اسم المختص</span>
+                      <span>اسم مزود الخدمة</span>
                       <small id="searchModuleProviderMeta">
-                        يظهر هنا اسم المختص وبياناته الأساسية بعد جلبها من الـ API.
+                        يظهر هنا اسم مزود الخدمة وبياناته الأساسية بعد جلبها من الـ API.
                       </small>
                     </div>
                     <strong
@@ -481,7 +481,7 @@
                       <div class="form-grid search-module-form-grid">
                         <div class="field full">
                           <small>
-                            يتم التحكم هنا في أماكن ظهور المختص داخل نتائج البحث المرتبطة بتصنيفه، مع تحديد أولوية ظهوره خلال فترة الحملة.
+                            يتم التحكم هنا في أماكن ظهور مزود الخدمة داخل نتائج البحث المرتبطة بتصنيفه، مع تحديد أولوية ظهوره خلال فترة الحملة.
                           </small>
                         </div>
                         <div class="field">
@@ -494,12 +494,12 @@
                           <input class="input-control" type="text" value="{{ module_meta.label }}" readonly>
                         </div>
                         <div class="field">
-                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                          <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
                           {{ module_form.target_provider_id }}
                           {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
                         <div class="field">
-                          <label for="{{ module_form.target_category.id_for_label }}">تصنيف المختص</label>
+                          <label for="{{ module_form.target_category.id_for_label }}">تصنيف مزود الخدمة</label>
                           {{ module_form.target_category }}
                           {% for err in module_form.target_category.errors %}<small>{{ err }}</small>{% endfor %}
                         </div>
@@ -529,12 +529,12 @@
 
                       <div class="search-module-insights">
                         <article class="search-module-info-card">
-                          <h5>المجالات المرتبطة بالمختص</h5>
+                          <h5>المجالات المرتبطة بمزود الخدمة</h5>
                           <p>
-                            يتم استخدام هذا المجال لربط الظهور بنتائج البحث ذات العلاقة الفعلية بخدمات المختص.
+                            يتم استخدام هذا المجال لربط الظهور بنتائج البحث ذات العلاقة الفعلية بخدمات مزود الخدمة.
                           </p>
                           <ul class="search-module-category-list" id="searchModuleCategories">
-                            <li class="is-empty">أدخل معرف المختص ليتم جلب تصنيفاته من الـ API.</li>
+                            <li class="is-empty">أدخل معرف مزود الخدمة ليتم جلب تصنيفاته من الـ API.</li>
                           </ul>
                         </article>
                         <article class="search-module-info-card">
@@ -570,10 +570,10 @@
                         </div>
                       </div>
                       <p class="search-module-phone-meta" id="searchModulePreviewSummary">
-                        المعاينة توضح مكان ظهور المختص داخل نتائج البحث حسب القوائم والترتيب المختارين.
+                        المعاينة توضح مكان ظهور مزود الخدمة داخل نتائج البحث حسب القوائم والترتيب المختارين.
                       </p>
                       <p class="search-module-provider-status" id="searchModuleProviderStatus">
-                        أدخل معرف المختص ليتم جلب بياناته من الباكند وتحديث المعاينة.
+                        أدخل معرف مزود الخدمة ليتم جلب بياناته من الباكند وتحديث المعاينة.
                       </p>
                     </div>
                   </div>
@@ -865,7 +865,7 @@
                       {% for err in module_form.end_at.errors %}<small>{{ err }}</small>{% endfor %}
                     </div>
                     <div class="field">
-                      <label for="{{ module_form.target_provider_id.id_for_label }}">معرف المختص</label>
+                      <label for="{{ module_form.target_provider_id.id_for_label }}">معرف مزود الخدمة</label>
                       {{ module_form.target_provider_id }}
                       {% for err in module_form.target_provider_id.errors %}<small>{{ err }}</small>{% endfor %}
                     </div>
@@ -960,7 +960,7 @@
             </div>
             <div class="support-meta-grid">
               <div class="quick-stat"><span>رقم الطلب</span><strong>{{ selected_request.code|default:selected_request.id }}</strong></div>
-              <div class="quick-stat"><span>العميل</span><strong>{{ selected_request.requester.username|default:selected_request.requester.phone }}</strong></div>
+              <div class="quick-stat"><span>مزود الخدمة</span><strong>{{ selected_requester_label }}</strong></div>
               <div class="quick-stat"><span>تاريخ البداية</span><strong>{{ selected_request.start_at|date:"d/m/Y - H:i" }}</strong></div>
               <div class="quick-stat"><span>تاريخ النهاية</span><strong>{{ selected_request.end_at|date:"d/m/Y - H:i" }}</strong></div>
               {% if selected_request_item %}
@@ -1030,7 +1030,7 @@
               <div class="quick-stat"><span>العنوان</span><strong>{{ preview_payload.title }}</strong></div>
               <div class="quick-stat"><span>الخدمة</span><strong>{{ preview_payload.service_label }}</strong></div>
               <div class="quick-stat"><span>الطلب</span><strong>{{ preview_payload.request_id|default:"جديد" }}</strong></div>
-              <div class="quick-stat"><span>العميل</span><strong>{{ preview_payload.requester_identifier|default:"- عبر الربط الداخلي -" }}</strong></div>
+              <div class="quick-stat"><span>مزود الخدمة</span><strong>{{ preview_payload.requester_name|default:"- عبر الربط الداخلي -" }}</strong></div>
               <div class="quick-stat"><span>بداية</span><strong>{{ preview_payload.start_at }}</strong></div>
               <div class="quick-stat"><span>نهاية</span><strong>{{ preview_payload.end_at }}</strong></div>
               {% if is_search_module %}
@@ -1072,7 +1072,7 @@
             <h2>آخر البنود في الوحدة</h2>
           </div>
           <form method="get" class="toolbar">
-            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الطلب أو العميل...">
+            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الطلب أو مزود الخدمة...">
             <div class="actions">
               <button class="primary-btn light" type="submit">تحديث</button>
               <a class="ghost-btn" href="{% url 'dashboard:promo_module' module_meta.key %}">مسح</a>
@@ -1083,7 +1083,7 @@
               <thead>
                 <tr>
                   <th>رقم الطلب</th>
-                  <th>اسم العميل</th>
+                  <th>اسم مزود الخدمة</th>
                   <th>عنوان البند</th>
                   {% if is_featured_module or is_portfolio_module or is_snapshots_module %}
                     <th>بداية/نهاية</th>
