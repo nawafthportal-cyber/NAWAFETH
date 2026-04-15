@@ -118,6 +118,22 @@ class DatabaseOutageShortCircuitMiddleware:
             return False
         if path.startswith("/api/health") or path.startswith("/api/core/health"):
             return False
+        if path.startswith("/api/content/public/"):
+            return False
+        if path.startswith("/api/core/unread-badges/"):
+            return False
+        if path.startswith("/api/public/badges/"):
+            return False
+        if path.startswith("/api/promo/banners/home/"):
+            return False
+        if path.startswith("/api/promo/home-carousel/"):
+            return False
+        if path.startswith("/api/promo/active/"):
+            return False
+        if path.startswith("/api/promo/pricing/guide/"):
+            return False
+        if path.startswith("/api/providers/") and path.endswith("/stats/"):
+            return False
         return True
 
 

@@ -792,6 +792,261 @@ table.dash-table {
   opacity: .45;
 }
 
+/* ── Mobile Card Tables ── */
+.mobile-card-table {
+  width: 100%;
+}
+
+.mobile-card-table tbody tr > td {
+  vertical-align: top;
+}
+
+.mobile-card-table .ticket-link {
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  table.dash-table.mobile-card-table {
+    min-width: 0 !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: transparent;
+  }
+
+  .mobile-card-table thead {
+    display: none;
+  }
+
+  .mobile-card-table tbody {
+    display: grid;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(143, 39, 150, .12);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .98), rgba(250, 247, 253, .96));
+    box-shadow: 0 12px 24px rgba(57, 24, 66, .07);
+  }
+
+  .mobile-card-table tbody > tr.active-ticket:not(.dash-inline-detail-row):not(.subs-account-detail-row) {
+    border-color: rgba(112, 44, 183, .28);
+    box-shadow: 0 0 0 3px rgba(112, 44, 183, .08), 0 16px 30px rgba(57, 24, 66, .09);
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td {
+    display: grid;
+    grid-template-columns: minmax(92px, 112px) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    text-align: right;
+    white-space: normal;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td::before {
+    content: "";
+    color: #816b90;
+    font-size: .74rem;
+    font-weight: 800;
+    line-height: 1.5;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td:first-child {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding-bottom: 10px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid rgba(143, 39, 150, .1);
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td:first-child::before {
+    display: none;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td:first-child .ticket-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    max-width: 100%;
+    padding: 0 14px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(112, 44, 183, .12), rgba(143, 39, 150, .06));
+    border: 1px solid rgba(112, 44, 183, .14);
+    color: #5d2f86;
+    font-weight: 900;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td strong {
+    color: #311742;
+    font-weight: 900;
+  }
+
+  .mobile-card-table tbody > tr:not(.dash-inline-detail-row):not(.subs-account-detail-row) > td .subtitle {
+    margin-top: 4px;
+  }
+
+  .mobile-card-table tbody > tr.dash-inline-detail-row,
+  .mobile-card-table tbody > tr.subs-account-detail-row {
+    display: block;
+    margin-top: -2px;
+  }
+
+  .mobile-card-table tbody > tr.dash-inline-detail-row > td,
+  .mobile-card-table tbody > tr.subs-account-detail-row > td {
+    display: block;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .mobile-card-table tbody > tr.dash-inline-detail-row > td::before,
+  .mobile-card-table tbody > tr.subs-account-detail-row > td::before {
+    display: none;
+  }
+
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(2)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(3)::before { content: "الأولوية"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(4)::before { content: "النوع"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(5)::before { content: "تاريخ الاستلام"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(6)::before { content: "الحالة"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(7)::before { content: "الفريق"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(8)::before { content: "المكلف"; }
+  .mobile-card-table--support tbody > tr:not(.dash-inline-detail-row) > td:nth-child(9)::before { content: "تاريخ التكليف"; }
+
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(2)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(3)::before { content: "الأولوية"; }
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(4)::before { content: "تاريخ الاعتماد"; }
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(5)::before { content: "الحالة"; }
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(6)::before { content: "المكلف"; }
+  .mobile-card-table--request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(7)::before { content: "تاريخ التكليف"; }
+
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(2)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(3)::before { content: "الخدمات"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(4)::before { content: "الأولوية"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(5)::before { content: "تاريخ الاعتماد"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(6)::before { content: "حالة الطلب"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(7)::before { content: "حالة الدفع"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(8)::before { content: "المكلف"; }
+  .mobile-card-table--extras-request tbody > tr:not(.dash-inline-detail-row) > td:nth-child(9)::before { content: "تاريخ التكليف"; }
+
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(2)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(3)::before { content: "الأولوية"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(4)::before { content: "الباقة"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(5)::before { content: "حالة الاشتراك"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(6)::before { content: "المكلف"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(7)::before { content: "بداية الاشتراك"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(8)::before { content: "نهاية الاشتراك"; }
+  .mobile-card-table--subscription-account tbody > tr:not(.subs-account-detail-row) > td:nth-child(9)::before { content: "الفاتورة"; }
+
+  .mobile-card-table--verified tbody > tr > td:nth-child(1)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(1) {
+    grid-template-columns: minmax(92px, 112px) minmax(0, 1fr);
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom: 0;
+  }
+  .mobile-card-table--verified tbody > tr > td:nth-child(1)::before { display: block; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(2)::before { content: "رمز التوثيق"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(3)::before { content: "نوع التوثيق"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(4)::before { content: "تاريخ التفعيل"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(5)::before { content: "تاريخ الانتهاء"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(6)::before { content: "تجديد"; }
+  .mobile-card-table--verified tbody > tr > td:nth-child(7)::before { content: "حذف"; }
+
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(2)::before { content: "مزود الخدمة"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(3)::before { content: "الخدمة"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(4)::before { content: "حالة الاشتراك"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(5)::before { content: "بداية الاشتراك"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(6)::before { content: "نهاية الاشتراك"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(7)::before { content: "حالة الدفع"; }
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(8)::before { content: "الإجراءات"; }
+
+  .mobile-card-table--verified tbody > tr > td:nth-child(6),
+  .mobile-card-table--verified tbody > tr > td:nth-child(7),
+  .mobile-card-table--extras-subscriber tbody > tr:not(.dash-inline-detail-row) > td:nth-child(8) {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-card-table--verified .inline-action-form,
+  .mobile-card-table--extras-subscriber .extras-subscriber-action-set {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mobile-card-table .inline-icon-btn {
+    min-width: 42px;
+    min-height: 42px;
+  }
+
+  .title-row > .actions,
+  .toolbar > .actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .title-row > .actions > *,
+  .toolbar > .actions > * {
+    flex: 1 1 140px;
+  }
+
+  .table-wrap {
+    scroll-padding-inline: 12px;
+    overscroll-behavior-x: contain;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  table.dash-table:not(.mobile-card-table).finance-table,
+  table.dash-table.verification-review-table,
+  table.dash-table.verification-final-summary-table,
+  table.dash-table.promo-pricing-table,
+  .category-table,
+  .admin-report-category-table,
+  .admin-access-matrix__table {
+    min-width: max-content;
+  }
+
+  table.dash-table:not(.mobile-card-table).finance-table th:first-child,
+  table.dash-table:not(.mobile-card-table).finance-table td:first-child,
+  table.dash-table.verification-review-table th:first-child,
+  table.dash-table.verification-review-table td:first-child,
+  table.dash-table.verification-final-summary-table th:first-child,
+  table.dash-table.verification-final-summary-table td:first-child,
+  table.dash-table.promo-pricing-table th:first-child,
+  table.dash-table.promo-pricing-table td:first-child,
+  .category-table th:first-child,
+  .category-table td:first-child,
+  .admin-report-category-table th:first-child,
+  .admin-report-category-table td:first-child,
+  .admin-access-matrix__table th:first-child,
+  .admin-access-matrix__table td:first-child {
+    position: sticky;
+    inset-inline-start: 0;
+    z-index: 1;
+    background: inherit;
+    box-shadow: -8px 0 16px rgba(57, 24, 66, .08);
+  }
+
+  table.dash-table:not(.mobile-card-table).finance-table thead th:first-child,
+  table.dash-table.verification-review-table thead th:first-child,
+  table.dash-table.verification-final-summary-table thead th:first-child,
+  table.dash-table.promo-pricing-table thead th:first-child,
+  .category-table thead th:first-child,
+  .admin-report-category-table thead th:first-child,
+  .admin-access-matrix__table thead th:first-child {
+    z-index: 3;
+  }
+}
+
 /* ── Status Dots ── */
 .status-dot {
   display: inline-block;
@@ -6933,6 +7188,75 @@ table.dash-table {
 
   .admin-control-export-actions {
     width: 100%;
+  }
+}
+
+@media (max-width: 860px) {
+  .table-wrap,
+  .admin-report-table-wrap {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-control-action-set {
+    flex-wrap: wrap;
+  }
+
+  .admin-control-export-actions {
+    width: 100%;
+  }
+
+  .admin-control-export-actions > * {
+    flex: 1 1 180px;
+  }
+
+  .admin-report-item {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-report-item__value {
+    text-align: right;
+  }
+}
+
+@media (max-width: 640px) {
+  table.dash-table,
+  .category-table,
+  .admin-access-matrix__table,
+  .admin-report-category-table {
+    min-width: 640px;
+  }
+
+  .table-wrap,
+  .admin-report-table-wrap {
+    border-radius: 14px;
+  }
+
+  .admin-control-action-set {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .admin-control-action-set .icon-btn,
+  .admin-control-action-set .ghost-btn,
+  .admin-control-action-set .primary-btn,
+  .admin-control-action-set .danger-btn {
+    width: 100%;
+  }
+
+  .admin-control-tag {
+    max-width: none;
+  }
+}
+
+@media (max-width: 480px) {
+  table.dash-table,
+  .category-table,
+  .admin-access-matrix__table,
+  .admin-report-category-table {
+    min-width: 620px;
   }
 }
 

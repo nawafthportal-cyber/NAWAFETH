@@ -195,6 +195,7 @@ from .security import is_safe_redirect_url
 PROMO_REQUEST_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_request_submit_tokens"
 PROMO_INQUIRY_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_inquiry_submit_tokens"
 PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_module_submit_tokens"
+PROMO_MODULE_OPS_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_module_ops_submit_tokens"
 PROMO_PRICING_SUBMIT_TOKENS_SESSION_KEY = "dashboard_promo_pricing_submit_tokens"
 SINGLE_USE_SUBMIT_TOKEN_CACHE_TIMEOUT = 15 * 60
 OTP_RESEND_COOLDOWN_SECONDS = 60
@@ -5462,8 +5463,12 @@ def promo_dashboard(request, request_id: int | None = None):
             | Q(requester__username__icontains=request_q)
             | Q(requester__phone__icontains=request_q)
         )
-    if ops_filter:
+    if ops_filter and ops_filter != "all":
         promo_requests_qs = promo_requests_qs.filter(ops_status=ops_filter)
+    elif ops_filter != "all":
+        # Default: show only new ops_status on main page; in_progress/completed
+        # requests are managed from their respective module sub-pages.
+        promo_requests_qs = promo_requests_qs.filter(ops_status=PromoOpsStatus.NEW)
     promo_requests = list(promo_requests_qs)
 
     selected_inquiry_id_raw = (request.GET.get("inquiry") or "").strip()
@@ -7322,7 +7327,7 @@ def _promo_module_request_candidates_queryset(requests_base_qs, *, service_type:
     return (
         requests_base_qs.filter(filter_q)
         .exclude(status__in=immutable_statuses)
-        .exclude(ops_status__in={PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED})
+        .exclude(ops_status=PromoOpsStatus.COMPLETED)
         .distinct()
         .order_by("-created_at", "-id")
     )
@@ -7792,6 +7797,40 @@ def promo_module(request, module_key: str):
 
         if not can_write:
             return HttpResponseForbidden("لا تملك صلاحية إدارة وحدات الترويج.")
+
+        # Handle ops_status update from module page
+        posted_action = (request.POST.get("action") or "").strip()
+        if posted_action == "update_ops_status":
+            ops_request_id = (request.POST.get("promo_request_id") or "").strip()
+            ops_form_token = (request.POST.get("promo_ops_form_token") or "").strip()
+            if not _consume_single_use_submit_token(
+                request,
+                PROMO_MODULE_OPS_SUBMIT_TOKENS_SESSION_KEY,
+                ops_form_token,
+            ):
+                messages.warning(request, "تم تجاهل محاولة التحديث المكررة. حدّث الصفحة.")
+                sel_id = int(ops_request_id) if ops_request_id.isdigit() else None
+                return _promo_module_redirect_with_state(request, module_key, request_id=sel_id)
+            if ops_request_id.isdigit():
+                ops_target = requests_base_qs.filter(id=int(ops_request_id)).first()
+                if ops_target is not None:
+                    desired_ops = (request.POST.get("ops_status") or "").strip()
+                    if desired_ops and desired_ops != ops_target.ops_status:
+                        try:
+                            ops_target = set_promo_ops_status(
+                                pr=ops_target,
+                                new_status=desired_ops,
+                                by_user=request.user,
+                                note="",
+                            )
+                            _sync_promo_to_unified(pr=ops_target, changed_by=request.user)
+                            messages.success(request, f"تم تحديث حالة التنفيذ للطلب {ops_target.code or ops_target.id}.")
+                        except ValueError as exc:
+                            messages.error(request, str(exc))
+                    return _promo_module_redirect_with_state(request, module_key, request_id=ops_target.id)
+            messages.error(request, "تعذر تحديد الطلب.")
+            return _promo_module_redirect_with_state(request, module_key)
+
         module_action = _promo_module_action(request)
         if module_action != "preview_item":
             submitted_form_token = (request.POST.get("promo_module_form_token") or "").strip()
@@ -7825,10 +7864,10 @@ def promo_module(request, module_key: str):
                         f"لا يمكن إضافة بنود جديدة لطلب بحالة «{promo_request.get_status_display()}».",
                     )
                     return _promo_module_redirect_with_state(request, module_key, request_id=promo_request.id)
-                if promo_request.ops_status in {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED}:
+                if promo_request.ops_status == PromoOpsStatus.COMPLETED:
                     messages.error(
                         request,
-                        f"لا يمكن إضافة بنود جديدة لطلب حالة تنفيذه «{promo_request.get_ops_status_display()}».",
+                        f"لا يمكن تعديل بنود طلب حالة تنفيذه «{promo_request.get_ops_status_display()}».",
                     )
                     return _promo_module_redirect_with_state(request, module_key, request_id=promo_request.id)
                 # For PROMO_MESSAGES: prevent creating a duplicate item if one was already sent
@@ -7933,39 +7972,55 @@ def promo_module(request, module_key: str):
                             scope_suffix = scope_labels.get(scope, scope)
                             item_title = f"{item_title} - {scope_suffix}"[:160]
 
-                        next_sort = int(next_sort) + 10
-                        created_items.append(
-                            PromoRequestItem.objects.create(
-                                request=promo_request,
-                                service_type=service_type,
-                                title=item_title,
-                                start_at=cleaned.get("start_at"),
-                                end_at=cleaned.get("end_at"),
-                                send_at=cleaned.get("send_at"),
-                                search_scope=scope,
-                                search_position=cleaned.get("search_position") or "",
-                                target_provider=target_provider,
-                                target_portfolio_item=target_portfolio_item,
-                                target_spotlight_item=target_spotlight_item,
-                                target_category=cleaned.get("target_category") or "",
-                                target_city=(
-                                    ""
-                                    if service_type == PromoServiceType.SEARCH_RESULTS
-                                    else (cleaned.get("target_city") or "")
-                                ),
-                                redirect_url=cleaned.get("redirect_url") or "",
-                                message_title=cleaned.get("message_title") or "",
-                                message_body=cleaned.get("message_body") or "",
-                                use_notification_channel=bool(cleaned.get("use_notification_channel")),
-                                use_chat_channel=bool(cleaned.get("use_chat_channel")),
-                                sponsor_name=cleaned.get("sponsor_name") or "",
-                                sponsor_url=cleaned.get("sponsor_url") or "",
-                                sponsorship_months=int(cleaned.get("sponsorship_months") or 0),
-                                attachment_specs=cleaned.get("attachment_specs") or "",
-                                operator_note=cleaned.get("operator_note") or "",
-                                sort_order=next_sort,
-                            )
+                        item_fields = dict(
+                            title=item_title,
+                            start_at=cleaned.get("start_at"),
+                            end_at=cleaned.get("end_at"),
+                            send_at=cleaned.get("send_at"),
+                            search_position=cleaned.get("search_position") or "",
+                            target_provider=target_provider,
+                            target_portfolio_item=target_portfolio_item,
+                            target_spotlight_item=target_spotlight_item,
+                            target_category=cleaned.get("target_category") or "",
+                            target_city=(
+                                ""
+                                if service_type == PromoServiceType.SEARCH_RESULTS
+                                else (cleaned.get("target_city") or "")
+                            ),
+                            redirect_url=cleaned.get("redirect_url") or "",
+                            message_title=cleaned.get("message_title") or "",
+                            message_body=cleaned.get("message_body") or "",
+                            use_notification_channel=bool(cleaned.get("use_notification_channel")),
+                            use_chat_channel=bool(cleaned.get("use_chat_channel")),
+                            sponsor_name=cleaned.get("sponsor_name") or "",
+                            sponsor_url=cleaned.get("sponsor_url") or "",
+                            sponsorship_months=int(cleaned.get("sponsorship_months") or 0),
+                            attachment_specs=cleaned.get("attachment_specs") or "",
+                            operator_note=cleaned.get("operator_note") or "",
                         )
+
+                        # Upsert: update existing item instead of creating duplicates
+                        existing_item = promo_request.items.filter(
+                            service_type=service_type,
+                            search_scope=scope,
+                        ).order_by("id").first()
+
+                        if existing_item is not None:
+                            for field_name, field_value in item_fields.items():
+                                setattr(existing_item, field_name, field_value)
+                            existing_item.save(update_fields=list(item_fields.keys()) + ["updated_at"])
+                            created_items.append(existing_item)
+                        else:
+                            next_sort = int(next_sort) + 10
+                            created_items.append(
+                                PromoRequestItem.objects.create(
+                                    request=promo_request,
+                                    service_type=service_type,
+                                    search_scope=scope,
+                                    sort_order=next_sort,
+                                    **item_fields,
+                                )
+                            )
 
                     media_file = cleaned.get("media_file")
                     if media_file is not None and created_items:
@@ -8055,7 +8110,7 @@ def promo_module(request, module_key: str):
         PromoRequestStatus.CANCELLED,
         PromoRequestStatus.REJECTED,
     }
-    _terminal_ops = {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED}
+    _terminal_ops = {PromoOpsStatus.COMPLETED}
     selected_request_is_immutable = False
     selected_request_immutable_reason = ""
     if selected_request is not None:
@@ -8124,6 +8179,12 @@ def promo_module(request, module_key: str):
             "promo_module_form_token": (
                 _issue_single_use_submit_token(request, PROMO_MODULE_SUBMIT_TOKENS_SESSION_KEY)
                 if can_write
+                else ""
+            ),
+            "ops_status_choices": PromoOpsStatus.choices,
+            "promo_ops_form_token": (
+                _issue_single_use_submit_token(request, PROMO_MODULE_OPS_SUBMIT_TOKENS_SESSION_KEY)
+                if can_write and selected_request is not None and not selected_request_is_immutable
                 else ""
             ),
         }

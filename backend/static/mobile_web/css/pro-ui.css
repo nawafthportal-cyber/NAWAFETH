@@ -109,6 +109,38 @@ body.mobile-web-parity .chip.active:hover {
   }
 }
 
+@media (max-width: 420px) {
+  body.mobile-web-parity .form-input,
+  body.mobile-web-parity .form-select,
+  body.mobile-web-parity .form-textarea,
+  body.mobile-web-parity textarea.form-input {
+    min-height: 52px;
+    padding-inline: 14px;
+  }
+
+  body.mobile-web-parity .btn,
+  body.mobile-web-parity .btn-primary,
+  body.mobile-web-parity .btn-primary-lg,
+  body.mobile-web-parity .btn-outlined,
+  body.mobile-web-parity .btn-orange,
+  body.mobile-web-parity .btn-secondary {
+    min-height: 48px;
+  }
+}
+
+@media (max-width: 360px) {
+  body.mobile-web-parity .page-shell {
+    padding: 12px 10px;
+  }
+
+  body.mobile-web-parity .detail-card,
+  body.mobile-web-parity .card,
+  body.mobile-web-parity .auth-card,
+  body.mobile-web-parity .mw-form-card {
+    border-radius: 16px;
+  }
+}
+
 @media (min-width: 1024px) {
   body.mobile-web-parity {
     --desktop-bottom-dock-height: 74px;

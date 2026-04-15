@@ -753,6 +753,54 @@ body.home-mobile-layout .home-section--categories .cat-name {
   gap: 8px;
 }
 
+/* ====================================================================
+   Small-screen carousel hardening
+   ==================================================================== */
+.categories-scroll,
+.providers-scroll,
+.featured-specialists-scroll {
+  max-width: 100%;
+  scroll-padding-inline: 2px;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 640px) {
+  body.home-mobile-layout .reel-caption {
+    max-width: clamp(62px, 22vw, 78px);
+  }
+
+  .categories-scroll .cat-item {
+    flex-basis: clamp(78px, 24vw, 92px);
+    width: clamp(78px, 24vw, 92px);
+  }
+
+  .providers-scroll .provider-card {
+    flex-basis: clamp(146px, 46vw, 166px);
+    width: clamp(146px, 46vw, 166px);
+  }
+
+  .featured-specialists-scroll .featured-specialist-card {
+    flex-basis: clamp(82px, 26vw, 96px);
+    width: clamp(82px, 26vw, 96px);
+  }
+
+  .featured-specialists-scroll .featured-specialist-avatar-shell,
+  .featured-specialists-scroll .featured-specialist-avatar-ring,
+  .featured-specialists-scroll .featured-specialist-avatar,
+  .featured-specialists-scroll .skeleton-featured-specialist .featured-specialist-avatar {
+    width: clamp(68px, 21vw, 78px);
+    height: clamp(68px, 21vw, 78px);
+  }
+
+  .featured-specialists-scroll .featured-specialist-name {
+    white-space: normal;
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+}
+
 .providers-scroll .provider-card.no-cover .provider-info {
   margin-top: 0;
   min-height: 160px;

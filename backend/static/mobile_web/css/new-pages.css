@@ -64,6 +64,60 @@ body.mobile-web-parity #top-navbar.nw-global-topbar {
 .modal-header .btn-icon { font-size: 24px; background: none; border: none; cursor: pointer; color: #999; }
 .modal-body { padding: 20px; }
 
+@media (max-width: 640px) {
+  .page-shell {
+    padding: 14px 12px;
+  }
+
+  .page-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .form-row .half,
+  .form-group.half {
+    min-width: 0;
+  }
+
+  .modal-overlay {
+    padding: 12px 0 0;
+    align-items: flex-end;
+  }
+
+  .modal-sheet {
+    width: min(100%, calc(100vw - 12px));
+    max-height: min(88dvh, calc(100vh - 12px));
+    border-radius: 20px 20px 0 0;
+  }
+
+  .modal-header,
+  .modal-body {
+    padding-inline: 16px;
+  }
+
+  .modal-header {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 360px) {
+  .page-shell {
+    padding: 12px 10px;
+  }
+
+  .detail-card,
+  .success-card {
+    padding: 16px 14px;
+    border-radius: 14px;
+  }
+}
+
 /* ══════════════════════════════════════════════
    TwoFA Page
    ══════════════════════════════════════════════ */

@@ -723,6 +723,55 @@
       grid-template-columns: 1fr;
     }
   }
+
+  @media (max-width: 420px) {
+    body.page-profile.page-profile-remix .mwx-shell {
+      padding-inline: 10px;
+    }
+
+    body.page-profile.page-profile-remix .mwx-head,
+    body.page-profile.page-profile-remix .mwx-hero-card,
+    body.page-profile.page-profile-remix .mwx-command-card,
+    body.page-profile.page-profile-remix .mwx-panel {
+      border-radius: 18px;
+    }
+
+    body.page-profile.page-profile-remix .mwx-cover-copy {
+      max-width: none;
+    }
+
+    body.page-profile.page-profile-remix .mwx-cover-copy strong {
+      font-size: 20px;
+    }
+
+    body.page-profile.page-profile-remix .mwx-identity-row {
+      grid-template-columns: 1fr;
+      align-items: start;
+      margin-top: -32px;
+    }
+
+    body.page-profile.page-profile-remix .mwx-identity-copy {
+      padding-bottom: 0;
+    }
+
+    body.page-profile.page-profile-remix .mwx-upload {
+      width: calc(100% - 28px);
+      justify-content: center;
+    }
+
+    body.page-profile.page-profile-remix .mwx-menu-item {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    body.page-profile.page-profile-remix .mwx-menu-item .mwx-arrow {
+      display: none;
+    }
+
+    body.page-profile.page-profile-remix .mwx-badge {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
 </style>
 {% endblock %}
 

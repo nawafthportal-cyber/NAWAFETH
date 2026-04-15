@@ -830,6 +830,52 @@ body.page-signup .signup-general-error:not(.hidden) {
     width: 100%;
   }
 }
+
+@media (max-width: 420px) {
+  body.page-signup .signup-premium-page {
+    padding: 12px 10px 32px;
+  }
+
+  body.page-signup .signup-shell {
+    gap: 16px;
+    max-width: 100%;
+  }
+
+  body.page-signup .signup-showcase,
+  body.page-signup .signup-card {
+    padding: 18px 14px;
+    border-radius: 20px;
+  }
+
+  body.page-signup .auth-header {
+    padding: 18px 14px;
+    border-radius: 22px;
+  }
+
+  body.page-signup .signup-soft-panel,
+  body.page-signup .terms-check {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-signup .terms-check input {
+    margin-top: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-signup .signup-showcase-badge,
+  body.page-signup .signup-card-badge,
+  body.page-signup .signup-showcase-tag {
+    width: 100%;
+    justify-content: center;
+  }
+
+  body.page-signup .signup-submit-btn,
+  body.page-signup .signup-skip-btn {
+    min-height: 52px;
+    border-radius: 16px;
+  }
+}
 </style>
 {% endblock %}
 

@@ -169,9 +169,22 @@ const OnboardingPage = (() => {
       'data-index': String(idx),
     });
 
+    article.appendChild(UI.el('div', { className: 'onboard-slide-meta' }, [
+      UI.el('span', {
+        className: 'onboard-step-chip',
+        textContent: `الشاشة ${idx + 1}`,
+      }),
+      UI.el('span', {
+        className: 'onboard-step-note',
+        textContent: idx >= _slidesData.length - 1 ? 'جاهز للانطلاق' : 'جولة تعريفية سريعة',
+      }),
+    ]));
     article.appendChild(_buildMedia(slide));
-    article.appendChild(UI.el('h1', { textContent: slide.title || '' }));
-    article.appendChild(UI.el('p', { textContent: slide.desc || '', style: { whiteSpace: 'pre-line' } }));
+
+    article.appendChild(UI.el('div', { className: 'onboard-copy-card' }, [
+      UI.el('h1', { textContent: slide.title || '' }),
+      UI.el('p', { textContent: slide.desc || '', style: { whiteSpace: 'pre-line' } }),
+    ]));
     return article;
   }
 
@@ -239,7 +252,7 @@ const OnboardingPage = (() => {
 
     const btn = document.getElementById('btn-onboard-next');
     if (btn) {
-      btn.textContent = _index >= _slidesData.length - 1 ? '✓' : '←';
+      btn.textContent = _index >= _slidesData.length - 1 ? 'ابدأ الآن' : 'التالي';
     }
   }
 

@@ -547,6 +547,51 @@ body.page-provider-dashboard .btn {
   border-radius: 11px;
 }
 
+@media (max-width: 640px) {
+  body.page-provider-dashboard #auth-gate {
+    margin-inline: 12px;
+    padding: 24px 18px;
+  }
+
+  body.page-provider-dashboard .provider-mode-toggle {
+    margin-inline: clamp(12px, 4vw, 20px);
+  }
+
+  body.page-provider-dashboard .provider-dashboard-strip,
+  body.page-provider-dashboard .provider-extra {
+    margin-inline: clamp(12px, 4vw, 16px);
+  }
+
+  body.page-provider-dashboard .provider-panels {
+    padding-inline: clamp(12px, 4vw, 16px);
+  }
+
+  body.page-provider-dashboard .provider-panel-head {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  body.page-provider-dashboard .provider-percent {
+    margin-inline-start: 0;
+  }
+
+  body.page-provider-dashboard .pd-qr-dialog {
+    width: min(94vw, 360px);
+    padding: 18px 16px;
+  }
+
+  body.page-provider-dashboard .pd-qr-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-provider-dashboard .provider-extra-pill {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
 /* ─── Layout shell ─── */
 body.page-provider-dashboard .pd-layout {
   display: grid;

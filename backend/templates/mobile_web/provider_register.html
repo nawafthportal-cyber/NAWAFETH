@@ -979,6 +979,55 @@ body.page-provider-register .reg-toast.show .reg-toast-progress {
     justify-self: end;
   }
 }
+
+@media (max-width: 420px) {
+  body.page-provider-register .provider-reg-shell {
+    max-width: 100%;
+    padding: 14px 8px calc(var(--bottom-nav-height, 84px) + 24px);
+  }
+
+  body.page-provider-register .provider-reg-header {
+    flex-direction: column;
+  }
+
+  body.page-provider-register .provider-reg-header,
+  body.page-provider-register .provider-reg-hero-card,
+  body.page-provider-register .provider-reg-spotlight,
+  body.page-provider-register .provider-reg-progress,
+  body.page-provider-register .reg-step-card,
+  body.page-provider-register .reg-success-card {
+    padding: 16px 14px;
+    border-radius: 20px;
+  }
+
+  body.page-provider-register .provider-reg-spotlight {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-provider-register .reg-soft-alert,
+  body.page-provider-register .reg-toast {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-provider-register #reg-type-chips {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-provider-register .reg-toast-close {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-provider-register .provider-reg-tag {
+    width: 100%;
+    justify-content: center;
+  }
+
+  body.page-provider-register .wizard-step {
+    min-width: 86px;
+  }
+}
 </style>
 {% endblock %}
 

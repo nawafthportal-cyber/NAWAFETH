@@ -956,13 +956,6 @@ class ProviderPublicStatsView(APIView):
 
 	def get(self, request, provider_id: int):
 		role = get_active_role(request, fallback="client")
-		provider = (
-			ProviderProfile.objects.select_related("user")
-			.filter(id=provider_id, user__is_active=True)
-			.first()
-		)
-		if not provider:
-			raise NotFound("provider_not_found")
 
 		from django.core.cache import cache as _cache
 
@@ -970,6 +963,14 @@ class ProviderPublicStatsView(APIView):
 		cached = _cache.get(cache_key)
 		if cached is not None:
 			return Response(cached, status=status.HTTP_200_OK)
+
+		provider = (
+			ProviderProfile.objects.select_related("user")
+			.filter(id=provider_id, user__is_active=True)
+			.first()
+		)
+		if not provider:
+			raise NotFound("provider_not_found")
 
 		# Import locally to avoid hard coupling at import time.
 		from apps.marketplace.models import ServiceRequest, RequestStatus

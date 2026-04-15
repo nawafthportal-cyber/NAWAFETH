@@ -193,6 +193,21 @@ const OnboardingOverlay = (() => {
     el.className = 'ob-slide';
     el.dataset.index = String(idx);
 
+    const meta = document.createElement('div');
+    meta.className = 'ob-slide-meta';
+
+    const chip = document.createElement('span');
+    chip.className = 'ob-step-chip';
+    chip.textContent = 'الشاشة ' + (idx + 1);
+    meta.appendChild(chip);
+
+    const caption = document.createElement('span');
+    caption.className = 'ob-step-caption';
+    caption.textContent = idx >= _slides.length - 1 ? 'آخر خطوة قبل الدخول' : 'تعرّف سريع على التجربة';
+    meta.appendChild(caption);
+
+    el.appendChild(meta);
+
     const mediaWrap = document.createElement('div');
     mediaWrap.className = 'ob-media';
 
@@ -230,7 +245,7 @@ const OnboardingOverlay = (() => {
     el.appendChild(mediaWrap);
 
     const textWrap = document.createElement('div');
-    textWrap.className = 'ob-text';
+    textWrap.className = 'ob-text ob-copy-card';
     const h = document.createElement('h2');
     h.className = 'ob-title';
     h.textContent = slide.title;
@@ -240,6 +255,12 @@ const OnboardingOverlay = (() => {
     p.textContent = slide.desc;
     p.style.whiteSpace = 'pre-line';
     textWrap.appendChild(p);
+    if (idx === 0) {
+      const hint = document.createElement('div');
+      hint.className = 'ob-gesture-hint';
+      hint.textContent = 'مرر للتنقل أو اضغط التالي';
+      textWrap.appendChild(hint);
+    }
     el.appendChild(textWrap);
     return el;
   }
@@ -340,6 +361,30 @@ const OnboardingOverlay = (() => {
       mediaWrap.appendChild(img);
     }
     wrap.appendChild(mediaWrap);
+
+    const copy = document.createElement('div');
+    copy.className = 'ob-promo-copy';
+
+    const kicker = document.createElement('div');
+    kicker.className = 'ob-promo-kicker';
+    kicker.textContent = 'لمحة قبل الدخول';
+    copy.appendChild(kicker);
+
+    if (_introBlock.title) {
+      const title = document.createElement('h2');
+      title.className = 'ob-promo-title';
+      title.textContent = _introBlock.title;
+      copy.appendChild(title);
+    }
+
+    if (_introBlock.desc) {
+      const desc = document.createElement('p');
+      desc.className = 'ob-promo-desc';
+      desc.textContent = _introBlock.desc;
+      copy.appendChild(desc);
+    }
+
+    wrap.appendChild(copy);
 
     /* ── Bottom action bar (no text, just button) ── */
     const bottomBar = document.createElement('div');

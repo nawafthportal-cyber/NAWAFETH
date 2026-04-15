@@ -722,6 +722,47 @@ body.page-search.page-search-providers .search-map-canvas {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
+
+@media (max-width: 420px) {
+  body.page-search.page-search-providers .searchv3-filters-wrap {
+    padding: 6px;
+  }
+
+  body.page-search.page-search-providers .filter-row {
+    gap: 6px;
+    padding-inline: 0;
+  }
+
+  body.page-search.page-search-providers .filter-chip {
+    min-height: 32px;
+    padding-inline: 11px;
+    font-size: 10.5px;
+  }
+
+  .sort-sheet {
+    width: min(calc(100vw - 16px), 440px);
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+  }
+
+  body.page-search.page-search-providers .search-map-modal {
+    width: min(calc(100vw - 12px), 100vw);
+    max-height: calc(100dvh - 12px);
+  }
+}
+
+@media (max-width: 360px) {
+  body.page-search.page-search-providers .provider-list-media {
+    width: 76px;
+    min-width: 76px;
+    flex-basis: 76px;
+  }
+
+  body.page-search.page-search-providers .search-map-head {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
 </style>
 {% endblock %}
 

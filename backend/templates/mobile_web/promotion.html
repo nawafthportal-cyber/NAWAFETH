@@ -237,6 +237,20 @@
     .promo-modal-card{margin:0;height:100%;max-width:none;border-radius:0;padding:16px}
     .promo-modal-body{max-height:calc(100vh - 170px)}
   }
+
+  @media (max-width:420px){
+    .promo-page-summary{padding:14px}
+    .promo-tabs-row{display:flex;overflow-x:auto;gap:8px}
+    .promo-tabs-row .tab{flex:0 0 auto;min-width:max-content}
+    .promo-quick-card-btn,.promo-requests-new-link,.promo-modal-actions .btn{width:100%}
+    .promo-modal-card{width:min(calc(100vw - 16px),560px);max-height:calc(100dvh - 16px);display:flex;flex-direction:column}
+    .promo-modal-body{flex:1 1 auto}
+  }
+
+  @media (max-width:360px){
+    .promo-line{display:grid;gap:4px}
+    .promo-page-hero-main,.promo-quick-card,.promo-requests-panel{padding:14px}
+  }
 </style>
 {% endblock %}
 

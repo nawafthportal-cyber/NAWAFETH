@@ -2077,3 +2077,132 @@ ul, ol { list-style: none; }
   #top-navbar, #bottom-nav, #sidebar, .sidebar-overlay, #site-footer { display: none !important; }
   body { background: #fff; }
 }
+
+/* ====================================================================
+   Mobile Hardening — shared overflow and small-screen fixes
+   ==================================================================== */
+html,
+body {
+  max-width: 100%;
+}
+
+body.mobile-web-parity,
+body.mobile-web-parity main,
+body.mobile-web-parity .page-content,
+body.mobile-web-parity .container,
+body.mobile-web-parity .page-shell,
+body.mobile-web-parity .detail-card,
+body.mobile-web-parity .card,
+body.mobile-web-parity .auth-card {
+  min-width: 0;
+}
+
+body.mobile-web-parity :where(img, video, iframe, canvas) {
+  max-width: 100%;
+}
+
+body.mobile-web-parity :where(button, .btn, input, select, textarea) {
+  max-width: 100%;
+}
+
+body.mobile-web-parity :where(
+  .table-wrap,
+  .verify-summary-table-wrap,
+  .promo-summary-table-wrap,
+  .promo-requests-table-wrap,
+  .pricing-table-wrap,
+  .admin-report-table-wrap
+) {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.mobile-web-parity :where(
+  .page-header,
+  .form-row,
+  .modal-header,
+  .modal-body,
+  .detail-card,
+  .card,
+  .table-wrap,
+  .verify-summary-table-wrap,
+  .promo-summary-table-wrap,
+  .promo-requests-table-wrap
+) {
+  min-width: 0;
+}
+
+@media (max-width: 389px) {
+  .container {
+    padding-inline: 12px;
+  }
+
+  .topbar-section {
+    min-width: 72px;
+    gap: 6px;
+  }
+
+  .topbar-brand-wrap {
+    --topbar-center-pill-width: 58px;
+    --topbar-center-pill-height: 48px;
+    max-width: calc(100% - 104px);
+  }
+
+  .nav-icon-btn,
+  .nav-menu-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .nav-icon-btn svg,
+  .nav-menu-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .sidebar {
+    width: min(86vw, 296px);
+    max-width: calc(100vw - 12px);
+  }
+
+  .sidebar-header {
+    padding-inline: 14px;
+  }
+
+  .sidebar-link {
+    padding-inline: 14px;
+  }
+
+  #bottom-nav {
+    padding-inline: 4px;
+  }
+}
+
+@media (max-width: 359px) {
+  .container {
+    padding-inline: 10px;
+  }
+
+  .topbar-section {
+    min-width: 64px;
+  }
+
+  .topbar-brand-wrap {
+    max-width: calc(100% - 96px);
+  }
+
+  .bnav-item {
+    gap: 4px;
+    font-size: 10px;
+    min-width: 0;
+  }
+
+  .bnav-item svg {
+    width: 20px;
+    height: 20px;
+  }
+}

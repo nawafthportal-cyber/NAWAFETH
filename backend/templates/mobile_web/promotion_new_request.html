@@ -734,6 +734,35 @@
     .promo-modal-body{max-height:calc(100vh - 170px)}
     .promo-summary-grid{grid-template-columns:1fr}
   }
+
+  @media (max-width:420px){
+    .promo-provider-panel,
+    .promo-provider-copy,
+    .pricing-state-error,
+    .promo-summary-provider-row,
+    .promo-payment-request-row,
+    .promo-payment-amount-row,
+    .promo-line{
+      display:grid;
+      grid-template-columns:1fr;
+      align-items:start;
+    }
+
+    .promo-top-toolbar,
+    .promo-top-actions,
+    .promo-submit-actions,
+    .promo-modal-actions{
+      width:100%;
+    }
+
+    .promo-modal-card{width:min(calc(100vw - 16px),560px);max-height:calc(100dvh - 16px);display:flex;flex-direction:column}
+    .promo-modal-body{flex:1 1 auto}
+  }
+
+  @media (max-width:360px){
+    .promo-top-shell,.promo-service-block,.promo-summary-table-wrap,.promo-payment-view{padding-inline:12px}
+    .promo-summary-actions .btn,.promo-payment-actions .btn{min-width:0}
+  }
 </style>
 {% endblock %}
 

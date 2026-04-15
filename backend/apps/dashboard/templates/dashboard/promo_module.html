@@ -148,6 +148,23 @@
               {% endif %}
             </div>
 
+            {% if can_write and not selected_request_is_immutable %}
+              <form method="post" class="toolbar" data-single-submit-form="true" style="margin-top: 12px;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_ops_status">
+                <input type="hidden" name="promo_request_id" value="{{ selected_request.id }}">
+                <input type="hidden" name="promo_ops_form_token" value="{{ promo_ops_form_token }}">
+                <select class="input-control" name="ops_status">
+                  {% for ops_value, ops_label in ops_status_choices %}
+                    <option value="{{ ops_value }}" {% if ops_value == selected_request.ops_status %}selected{% endif %}>{{ ops_label }}</option>
+                  {% endfor %}
+                </select>
+                <div class="actions">
+                  <button class="primary-btn light" type="submit" data-lock-on-submit="true" data-pending-text="جار الحفظ...">تحديث حالة التنفيذ</button>
+                </div>
+              </form>
+            {% endif %}
+
             <div class="side-card">
               <h4>مرفقات الطلب لهذه الوحدة</h4>
               <div class="timeline-list">

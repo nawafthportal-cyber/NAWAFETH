@@ -2,8 +2,918 @@
 {% load static %}
 
 {% block title %}نوافــذ — تواصل معنا{% endblock %}
-{% block body_class %}page-contact{% endblock %}
+{% block body_class %}page-contact page-contact-premium{% endblock %}
 {% block sidebar_support %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+body.page-contact.page-contact-premium {
+  --contact-ink: #142638;
+  --contact-ink-soft: #5d6b78;
+  --contact-line: rgba(20, 38, 56, 0.1);
+  --contact-card: rgba(255, 255, 255, 0.88);
+  --contact-card-strong: rgba(255, 255, 255, 0.96);
+  --contact-accent: #0f766e;
+  --contact-accent-strong: #115e59;
+  --contact-gold: #b68652;
+  --contact-shadow: 0 28px 60px rgba(20, 38, 56, 0.12);
+  --contact-radius-xl: 32px;
+  --contact-radius-lg: 24px;
+  --contact-radius-md: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 28%),
+    radial-gradient(circle at left 18%, rgba(182, 134, 82, 0.12), transparent 26%),
+    linear-gradient(180deg, #f4f0e8 0%, #f6fbfb 38%, #eef4f7 100%);
+}
+
+body.page-contact.page-contact-premium .page-content {
+  position: relative;
+  padding: 26px 0 calc(var(--bottom-nav-height, 84px) + 34px);
+}
+
+body.page-contact.page-contact-premium .page-content::before,
+body.page-contact.page-contact-premium .page-content::after {
+  content: "";
+  position: fixed;
+  inset: auto;
+  pointer-events: none;
+  z-index: 0;
+  border-radius: 999px;
+  filter: blur(0);
+}
+
+body.page-contact.page-contact-premium .page-content::before {
+  top: 110px;
+  left: min(5vw, 48px);
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.12), transparent 72%);
+}
+
+body.page-contact.page-contact-premium .page-content::after {
+  top: 240px;
+  right: min(4vw, 42px);
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(182, 134, 82, 0.12), transparent 72%);
+}
+
+body.page-contact.page-contact-premium .container {
+  position: relative;
+  z-index: 1;
+  width: min(1280px, calc(100vw - 28px));
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate,
+body.page-contact.page-contact-premium .contact-hero,
+body.page-contact.page-contact-premium .contact-panel,
+body.page-contact.page-contact-premium .contact-toolbar {
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: var(--contact-shadow);
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 18px;
+  justify-items: start;
+  padding: 34px 32px;
+  border-radius: var(--contact-radius-xl);
+  background:
+    linear-gradient(135deg, rgba(16, 37, 56, 0.95), rgba(20, 67, 78, 0.9)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+  color: #f8fafc;
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate::before,
+body.page-contact.page-contact-premium .contact-auth-gate::after,
+body.page-contact.page-contact-premium .contact-hero::before,
+body.page-contact.page-contact-premium .contact-hero::after {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  pointer-events: none;
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate::before {
+  top: -74px;
+  left: -52px;
+  width: 180px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 72%);
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate::after {
+  bottom: -76px;
+  right: -24px;
+  width: 210px;
+  height: 210px;
+  background: radial-gradient(circle, rgba(182, 134, 82, 0.28), transparent 74%);
+}
+
+body.page-contact.page-contact-premium .auth-gate-icon {
+  width: 72px;
+  height: 72px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04));
+  color: #f6f3ee;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+body.page-contact.page-contact-premium .auth-gate-unified-title {
+  margin: 0;
+  font-size: clamp(30px, 3.6vw, 42px);
+  font-weight: 900;
+  line-height: 1.1;
+}
+
+body.page-contact.page-contact-premium .auth-gate-unified-desc {
+  max-width: 620px;
+  margin: 0;
+  color: rgba(248, 250, 252, 0.78);
+  font-size: 16px;
+  line-height: 1.9;
+}
+
+body.page-contact.page-contact-premium .auth-gate-unified-btn {
+  min-width: 180px;
+  min-height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: linear-gradient(135deg, #f4ede2 0%, #e7d6bb 100%);
+  color: #183041;
+  font-weight: 800;
+  box-shadow: 0 14px 28px rgba(7, 18, 30, 0.22);
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate-point {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(248, 250, 252, 0.84);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+body.page-contact.page-contact-premium .contact-auth-gate-point::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #d1b089, #f7e7cc);
+  box-shadow: 0 0 0 4px rgba(247, 231, 204, 0.12);
+}
+
+body.page-contact.page-contact-premium .contact-shell {
+  display: grid;
+  gap: 24px;
+}
+
+body.page-contact.page-contact-premium .contact-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  gap: 26px;
+  align-items: stretch;
+  padding: 32px;
+  border-radius: var(--contact-radius-xl);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.78)),
+    linear-gradient(120deg, rgba(15, 118, 110, 0.12), rgba(182, 134, 82, 0.08));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+body.page-contact.page-contact-premium .contact-hero::before {
+  top: -90px;
+  right: -32px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(15, 118, 110, 0.14), transparent 72%);
+}
+
+body.page-contact.page-contact-premium .contact-hero::after {
+  bottom: -110px;
+  left: -48px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(182, 134, 82, 0.14), transparent 72%);
+}
+
+body.page-contact.page-contact-premium .contact-hero-copy,
+body.page-contact.page-contact-premium .contact-hero-side {
+  position: relative;
+  z-index: 1;
+}
+
+body.page-contact.page-contact-premium .contact-hero-copy {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+body.page-contact.page-contact-premium .contact-hero-eyebrow,
+body.page-contact.page-contact-premium .contact-panel-kicker,
+body.page-contact.page-contact-premium .contact-hero-brief-eyebrow {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--contact-accent-strong);
+  text-transform: uppercase;
+}
+
+body.page-contact.page-contact-premium .contact-hero-eyebrow::before,
+body.page-contact.page-contact-premium .contact-panel-kicker::before,
+body.page-contact.page-contact-premium .contact-hero-brief-eyebrow::before {
+  content: "";
+  width: 30px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(15, 118, 110, 0), rgba(15, 118, 110, 0.9));
+}
+
+body.page-contact.page-contact-premium .contact-hero-title {
+  margin: 0;
+  color: var(--contact-ink);
+  font-size: clamp(32px, 4vw, 54px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 900;
+  max-width: 10ch;
+}
+
+body.page-contact.page-contact-premium .contact-hero-subtitle {
+  margin: 0;
+  max-width: 700px;
+  color: var(--contact-ink-soft);
+  font-size: 16px;
+  line-height: 2;
+}
+
+body.page-contact.page-contact-premium .contact-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-tag,
+body.page-contact.page-contact-premium .contact-panel-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(20, 38, 56, 0.08);
+  background: rgba(255, 255, 255, 0.66);
+  color: var(--contact-ink);
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+body.page-contact.page-contact-premium .contact-hero-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-highlight {
+  display: grid;
+  gap: 8px;
+  padding: 18px 18px 16px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(245, 249, 250, 0.72));
+  border: 1px solid rgba(20, 38, 56, 0.08);
+}
+
+body.page-contact.page-contact-premium .contact-hero-highlight-label {
+  color: var(--contact-accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body.page-contact.page-contact-premium .contact-hero-highlight strong {
+  color: var(--contact-ink);
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+body.page-contact.page-contact-premium .contact-hero-side {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+body.page-contact.page-contact-premium .contact-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-stat {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 18px 16px;
+  min-height: 128px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(19, 42, 61, 0.96), rgba(16, 70, 79, 0.92));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(244, 247, 250, 0.8);
+}
+
+body.page-contact.page-contact-premium .contact-hero-stat strong {
+  font-size: clamp(28px, 3vw, 36px);
+  line-height: 1;
+  font-weight: 900;
+  color: #ffffff;
+}
+
+body.page-contact.page-contact-premium .contact-hero-stat span {
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief {
+  display: grid;
+  gap: 14px;
+  padding: 22px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.68));
+  border: 1px solid rgba(20, 38, 56, 0.08);
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-list {
+  display: grid;
+  gap: 12px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-index {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.14), rgba(15, 118, 110, 0.22));
+  color: var(--contact-accent-strong);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-content {
+  display: grid;
+  gap: 4px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-content strong {
+  color: var(--contact-ink);
+  font-size: 15px;
+}
+
+body.page-contact.page-contact-premium .contact-hero-brief-content p {
+  margin: 0;
+  color: var(--contact-ink-soft);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-copy {
+  display: grid;
+  gap: 4px;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-title {
+  margin: 0;
+  color: var(--contact-ink);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-subtitle {
+  margin: 0;
+  color: var(--contact-ink-soft);
+  font-size: 13px;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn {
+  min-height: 50px;
+  padding: 12px 18px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn-secondary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(244, 247, 248, 0.86));
+  border-color: rgba(20, 38, 56, 0.08);
+  color: var(--contact-ink);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn-primary {
+  background: linear-gradient(135deg, var(--contact-accent), #1b4d64);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(15, 118, 110, 0.22);
+}
+
+body.page-contact.page-contact-premium .contact-toolbar-btn-primary.is-active {
+  background: linear-gradient(135deg, #17344c, #0f766e);
+}
+
+body.page-contact.page-contact-premium .contact-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+body.page-contact.page-contact-premium .contact-panel {
+  padding: 22px;
+  border-radius: var(--contact-radius-lg);
+  background: var(--contact-card);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+body.page-contact.page-contact-premium .contact-panel-list {
+  position: sticky;
+  top: 102px;
+}
+
+body.page-contact.page-contact-premium .contact-panel-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+body.page-contact.page-contact-premium .support-card-title {
+  margin: 6px 0 0;
+  color: var(--contact-ink);
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 900;
+}
+
+body.page-contact.page-contact-premium .contact-panel-subtitle {
+  margin: 8px 0 0;
+  color: var(--contact-ink-soft);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+body.page-contact.page-contact-premium .support-ticket-list {
+  display: grid;
+  gap: 12px;
+}
+
+body.page-contact.page-contact-premium .support-ticket-item {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid rgba(20, 38, 56, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(247, 250, 251, 0.85));
+  color: var(--contact-ink);
+  text-align: right;
+  box-shadow: 0 12px 24px rgba(20, 38, 56, 0.06);
+}
+
+body.page-contact.page-contact-premium .support-ticket-item::before {
+  content: "";
+  position: absolute;
+  top: 16px;
+  bottom: 16px;
+  right: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(15, 118, 110, 0.5), rgba(182, 134, 82, 0.14));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+body.page-contact.page-contact-premium .support-ticket-item:hover,
+body.page-contact.page-contact-premium .support-ticket-item:focus-visible,
+body.page-contact.page-contact-premium .support-ticket-item.active {
+  transform: translateY(-2px);
+  border-color: rgba(15, 118, 110, 0.2);
+  box-shadow: 0 18px 30px rgba(20, 38, 56, 0.1);
+}
+
+body.page-contact.page-contact-premium .support-ticket-item:hover::before,
+body.page-contact.page-contact-premium .support-ticket-item:focus-visible::before,
+body.page-contact.page-contact-premium .support-ticket-item.active::before {
+  opacity: 1;
+}
+
+body.page-contact.page-contact-premium .support-ticket-code,
+body.page-contact.page-contact-premium .ticket-detail-code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(20, 38, 56, 0.06);
+  color: var(--contact-ink);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+body.page-contact.page-contact-premium .support-ticket-status,
+body.page-contact.page-contact-premium .ticket-section-count {
+  min-height: 34px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+body.page-contact.page-contact-premium .support-ticket-meta,
+body.page-contact.page-contact-premium .support-ticket-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+body.page-contact.page-contact-premium .support-ticket-type,
+body.page-contact.page-contact-premium .support-ticket-time,
+body.page-contact.page-contact-premium .support-ticket-footer-label,
+body.page-contact.page-contact-premium .ticket-comment-meta,
+body.page-contact.page-contact-premium .ticket-muted,
+body.page-contact.page-contact-premium .contact-field-hint {
+  color: var(--contact-ink-soft);
+  font-size: 13px;
+}
+
+body.page-contact.page-contact-premium .support-ticket-desc,
+body.page-contact.page-contact-premium .ticket-detail-description,
+body.page-contact.page-contact-premium .ticket-comment-text {
+  color: var(--contact-ink);
+  font-size: 14px;
+  line-height: 1.95;
+}
+
+body.page-contact.page-contact-premium .support-ticket-footer-arrow {
+  color: var(--contact-accent-strong);
+  font-size: 20px;
+  line-height: 1;
+}
+
+body.page-contact.page-contact-premium .contact-list-empty,
+body.page-contact.page-contact-premium .contact-detail-empty {
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(247, 250, 251, 0.9), rgba(255, 255, 255, 0.8));
+  border: 1px dashed rgba(20, 38, 56, 0.14);
+}
+
+body.page-contact.page-contact-premium .contact-empty-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(182, 134, 82, 0.12));
+  color: var(--contact-accent-strong);
+}
+
+body.page-contact.page-contact-premium .ticket-detail-body {
+  display: grid;
+  gap: 18px;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-hero,
+body.page-contact.page-contact-premium .ticket-detail-section,
+body.page-contact.page-contact-premium .ticket-reply-box,
+body.page-contact.page-contact-premium #new-ticket-form {
+  padding: 20px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 252, 252, 0.82));
+  border: 1px solid rgba(20, 38, 56, 0.08);
+}
+
+body.page-contact.page-contact-premium .ticket-detail-head,
+body.page-contact.page-contact-premium .ticket-section-head,
+body.page-contact.page-contact-premium .ticket-reply-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-title-wrap,
+body.page-contact.page-contact-premium .ticket-reply-head {
+  display: grid;
+  gap: 10px;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-title-wrap h3,
+body.page-contact.page-contact-premium .ticket-section-head h4,
+body.page-contact.page-contact-premium .ticket-reply-head h4 {
+  margin: 0;
+  color: var(--contact-ink);
+  font-size: 22px;
+  font-weight: 900;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-meta-card {
+  display: grid;
+  gap: 8px;
+  min-height: 102px;
+  padding: 16px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(20, 38, 56, 0.04), rgba(20, 38, 56, 0.02));
+  border: 1px solid rgba(20, 38, 56, 0.06);
+}
+
+body.page-contact.page-contact-premium .ticket-detail-meta-card span {
+  color: var(--contact-ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+body.page-contact.page-contact-premium .ticket-detail-meta-card strong {
+  color: var(--contact-ink);
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+body.page-contact.page-contact-premium .ticket-attachments-list,
+body.page-contact.page-contact-premium .ticket-comments-list {
+  display: grid;
+  gap: 12px;
+}
+
+body.page-contact.page-contact-premium .ticket-attachment-link,
+body.page-contact.page-contact-premium .ticket-comment {
+  border-radius: 18px;
+  border: 1px solid rgba(20, 38, 56, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+body.page-contact.page-contact-premium .ticket-attachment-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+}
+
+body.page-contact.page-contact-premium .ticket-attachment-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(182, 134, 82, 0.16));
+  color: var(--contact-accent-strong);
+}
+
+body.page-contact.page-contact-premium .ticket-comment {
+  padding: 16px 18px;
+}
+
+body.page-contact.page-contact-premium .ticket-reply-head p {
+  margin: 0;
+  color: var(--contact-ink-soft);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+body.page-contact.page-contact-premium .ticket-reply-actions,
+body.page-contact.page-contact-premium .support-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+body.page-contact.page-contact-premium .form-label {
+  color: var(--contact-ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+body.page-contact.page-contact-premium .form-select,
+body.page-contact.page-contact-premium .form-input,
+body.page-contact.page-contact-premium .form-textarea {
+  min-height: 54px;
+  border-radius: 16px;
+  border: 1px solid rgba(20, 38, 56, 0.1);
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--contact-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+body.page-contact.page-contact-premium .form-textarea,
+body.page-contact.page-contact-premium .contact-description-input,
+body.page-contact.page-contact-premium .ticket-reply-input {
+  min-height: 148px;
+}
+
+body.page-contact.page-contact-premium .form-select:focus,
+body.page-contact.page-contact-premium .form-input:focus,
+body.page-contact.page-contact-premium .form-textarea:focus {
+  border-color: rgba(15, 118, 110, 0.32);
+  box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.1);
+}
+
+body.page-contact.page-contact-premium .contact-file-input::file-selector-button,
+body.page-contact.page-contact-premium .btn-secondary,
+body.page-contact.page-contact-premium .btn-primary {
+  min-height: 48px;
+  padding: 12px 18px;
+  border-radius: 15px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+body.page-contact.page-contact-premium .contact-file-input::file-selector-button,
+body.page-contact.page-contact-premium .btn-secondary {
+  border: 1px solid rgba(20, 38, 56, 0.1);
+  background: linear-gradient(180deg, #ffffff, #f4f7f8);
+  color: var(--contact-ink);
+}
+
+body.page-contact.page-contact-premium .btn-primary {
+  border: 1px solid transparent;
+  background: linear-gradient(135deg, var(--contact-accent), #1b4d64);
+  color: #ffffff;
+  box-shadow: 0 14px 24px rgba(15, 118, 110, 0.2);
+}
+
+body.page-contact.page-contact-premium .support-actions .btn-secondary,
+body.page-contact.page-contact-premium .support-actions .btn-primary {
+  min-width: 138px;
+}
+
+body.page-contact.page-contact-premium .contact-toast {
+  right: 24px;
+  left: auto;
+  bottom: calc(var(--bottom-nav-height, 84px) + 22px);
+  padding: 14px 18px;
+  border-radius: 18px;
+  box-shadow: 0 18px 34px rgba(20, 38, 56, 0.16);
+}
+
+@media (max-width: 1160px) {
+  body.page-contact.page-contact-premium .contact-hero {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-contact.page-contact-premium .contact-layout {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-contact.page-contact-premium .contact-panel-list {
+    position: static;
+  }
+}
+
+@media (max-width: 920px) {
+  body.page-contact.page-contact-premium .contact-hero-highlights {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-contact.page-contact-premium .ticket-detail-meta-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  body.page-contact.page-contact-premium .page-content {
+    padding-top: 16px;
+  }
+
+  body.page-contact.page-contact-premium .container {
+    width: min(100vw - 18px, 100%);
+  }
+
+  body.page-contact.page-contact-premium .contact-auth-gate,
+  body.page-contact.page-contact-premium .contact-hero,
+  body.page-contact.page-contact-premium .contact-panel,
+  body.page-contact.page-contact-premium #new-ticket-form,
+  body.page-contact.page-contact-premium .ticket-detail-hero,
+  body.page-contact.page-contact-premium .ticket-detail-section,
+  body.page-contact.page-contact-premium .ticket-reply-box {
+    padding: 20px 16px;
+    border-radius: 24px;
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-title {
+    max-width: none;
+  }
+
+  body.page-contact.page-contact-premium .contact-hero-stats,
+  body.page-contact.page-contact-premium .ticket-detail-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  body.page-contact.page-contact-premium .contact-toolbar {
+    padding: 14px;
+  }
+
+  body.page-contact.page-contact-premium .contact-toolbar-actions,
+  body.page-contact.page-contact-premium .contact-toolbar-btn,
+  body.page-contact.page-contact-premium .support-actions .btn-secondary,
+  body.page-contact.page-contact-premium .support-actions .btn-primary,
+  body.page-contact.page-contact-premium .ticket-reply-actions .btn-primary {
+    width: 100%;
+  }
+
+  body.page-contact.page-contact-premium .ticket-attachment-link,
+  body.page-contact.page-contact-premium .support-ticket-meta,
+  body.page-contact.page-contact-premium .support-ticket-footer,
+  body.page-contact.page-contact-premium .ticket-section-head,
+  body.page-contact.page-contact-premium .contact-panel-head {
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 420px) {
+  body.page-contact.page-contact-premium .contact-hero,
+  body.page-contact.page-contact-premium .contact-panel,
+  body.page-contact.page-contact-premium .contact-auth-gate {
+    border-radius: 22px;
+  }
+
+  body.page-contact.page-contact-premium .contact-auth-gate-points {
+    display: grid;
+    width: 100%;
+  }
+
+  body.page-contact.page-contact-premium .contact-auth-gate-point,
+  body.page-contact.page-contact-premium .contact-hero-tag,
+  body.page-contact.page-contact-premium .contact-panel-note {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  body.page-contact.page-contact-premium .support-ticket-item,
+  body.page-contact.page-contact-premium .ticket-comment,
+  body.page-contact.page-contact-premium .ticket-attachment-link {
+    border-radius: 18px;
+  }
+}
+</style>
+{% endblock %}
 
 {% block content %}
 <main class="page-content">
@@ -18,6 +928,11 @@
       </div>
       <h2 id="contact-gate-title" class="auth-gate-unified-title">سجّل دخولك</h2>
       <p id="contact-gate-description" class="auth-gate-unified-desc">يجب تسجيل الدخول لعرض تذاكر الدعم</p>
+      <div class="contact-auth-gate-points" aria-hidden="true">
+        <span class="contact-auth-gate-point">عرض سجل البلاغات السابقة</span>
+        <span class="contact-auth-gate-point">متابعة الحالة والتعليقات</span>
+        <span class="contact-auth-gate-point">رفع المرفقات من نفس الواجهة</span>
+      </div>
       <a id="contact-gate-login" href="/login/?next=/contact/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
     </div>
 
@@ -34,48 +949,95 @@
             <span class="contact-hero-tag">سجل كامل للتعليقات</span>
             <span class="contact-hero-tag">رفع مرفقات بسهولة</span>
           </div>
+          <div class="contact-hero-highlights" aria-hidden="true">
+            <article class="contact-hero-highlight">
+              <span class="contact-hero-highlight-label">تجربة واضحة</span>
+              <strong>تفاصيل البلاغ، حالته، ومرفقاته معروضة في لوحة واحدة مرتبة وسهلة التتبع.</strong>
+            </article>
+            <article class="contact-hero-highlight">
+              <span class="contact-hero-highlight-label">تواصل أسرع</span>
+              <strong>أضف تعليقًا جديدًا أو افتح بلاغًا آخر بدون مغادرة نفس الواجهة.</strong>
+            </article>
+          </div>
         </div>
 
-        <div class="contact-hero-stats">
-          <div class="contact-hero-stat">
-            <strong id="support-total-count">0</strong>
-            <span>إجمالي البلاغات</span>
+        <div class="contact-hero-side">
+          <div class="contact-hero-stats">
+            <div class="contact-hero-stat">
+              <strong id="support-total-count">0</strong>
+              <span>إجمالي البلاغات</span>
+            </div>
+            <div class="contact-hero-stat">
+              <strong id="support-open-count">0</strong>
+              <span>قيد المتابعة</span>
+            </div>
+            <div class="contact-hero-stat">
+              <strong id="support-closed-count">0</strong>
+              <span>مغلقة</span>
+            </div>
           </div>
-          <div class="contact-hero-stat">
-            <strong id="support-open-count">0</strong>
-            <span>قيد المتابعة</span>
-          </div>
-          <div class="contact-hero-stat">
-            <strong id="support-closed-count">0</strong>
-            <span>مغلقة</span>
+
+          <div class="contact-hero-brief" aria-hidden="true">
+            <p class="contact-hero-brief-eyebrow">رحلة الدعم باختصار</p>
+            <div class="contact-hero-brief-list">
+              <div class="contact-hero-brief-item">
+                <span class="contact-hero-brief-index">01</span>
+                <div class="contact-hero-brief-content">
+                  <strong>أنشئ البلاغ</strong>
+                  <p>اختر الفريق المناسب ثم اكتب وصفًا واضحًا وأضف ما يلزم من ملفات.</p>
+                </div>
+              </div>
+              <div class="contact-hero-brief-item">
+                <span class="contact-hero-brief-index">02</span>
+                <div class="contact-hero-brief-content">
+                  <strong>تابع التحديثات</strong>
+                  <p>راجع الحالة الحالية وسجل التعليقات بدون التنقل بين أكثر من شاشة.</p>
+                </div>
+              </div>
+              <div class="contact-hero-brief-item">
+                <span class="contact-hero-brief-index">03</span>
+                <div class="contact-hero-brief-content">
+                  <strong>أكمل الحوار</strong>
+                  <p>أضف تعليقًا جديدًا عند الحاجة ليبقى مسار المتابعة واضحًا ومكتملًا.</p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <div class="support-toolbar contact-toolbar">
-        <button class="contact-toolbar-btn contact-toolbar-btn-secondary" id="btn-support-refresh" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
-            <path d="M21 3v6h-6"></path>
-          </svg>
-          <span id="contact-refresh-label">تحديث</span>
-        </button>
-        <button class="contact-toolbar-btn contact-toolbar-btn-primary" id="btn-new-ticket" type="button">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14"></path>
-            <path d="M5 12h14"></path>
-          </svg>
-          <span id="contact-new-ticket-label">بلاغ جديد</span>
-        </button>
+        <div class="contact-toolbar-copy">
+          <p class="contact-toolbar-title">لوحة دعم أنظف وأوضح</p>
+          <p class="contact-toolbar-subtitle">بدّل بين تحديث القائمة وفتح بلاغ جديد من شريط أوامر سريع ومباشر.</p>
+        </div>
+        <div class="contact-toolbar-actions">
+          <button class="contact-toolbar-btn contact-toolbar-btn-secondary" id="btn-support-refresh" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+              <path d="M21 3v6h-6"></path>
+            </svg>
+            <span id="contact-refresh-label">تحديث</span>
+          </button>
+          <button class="contact-toolbar-btn contact-toolbar-btn-primary" id="btn-new-ticket" type="button">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14"></path>
+              <path d="M5 12h14"></path>
+            </svg>
+            <span id="contact-new-ticket-label">بلاغ جديد</span>
+          </button>
+        </div>
       </div>
 
       <div class="support-layout contact-layout">
         <section class="support-card contact-panel contact-panel-list">
           <div class="contact-panel-head">
             <div>
+              <span class="contact-panel-kicker">مركز البلاغات</span>
               <h2 class="support-card-title" id="contact-list-title">قائمة البلاغات</h2>
               <p class="contact-panel-subtitle">تابع جميع البلاغات التي أرسلتها وحالتها الحالية.</p>
             </div>
+            <span class="contact-panel-note">تحديث حي للحالة</span>
           </div>
           <div id="support-list-loading" class="text-center">
             <span class="spinner-inline"></span>
@@ -98,9 +1060,11 @@
           <form id="new-ticket-form" class="hidden">
             <div class="contact-panel-head">
               <div>
+                <span class="contact-panel-kicker">إنشاء بلاغ</span>
                 <h2 class="support-card-title" id="contact-create-title">إنشاء بلاغ جديد</h2>
                 <p class="contact-panel-subtitle">اختر الجهة المناسبة ثم اكتب وصفًا واضحًا للمشكلة أو الطلب.</p>
               </div>
+              <span class="contact-panel-note">نموذج سريع</span>
             </div>
             <div class="form-group">
               <label class="form-label" for="support-team" id="contact-team-label">فريق الدعم</label>
@@ -133,9 +1097,11 @@
           <div id="ticket-detail-view">
             <div class="contact-panel-head">
               <div>
+                <span class="contact-panel-kicker">قراءة ومتابعة</span>
                 <h2 class="support-card-title" id="contact-detail-title">تفاصيل البلاغ</h2>
                 <p class="contact-panel-subtitle" id="contact-detail-helper">هنا ستجد الحالة، الوصف، المرفقات، والتعليقات المرتبطة بالبلاغ.</p>
               </div>
+              <span class="contact-panel-note">تفاصيل كاملة</span>
             </div>
             <div class="empty-hint contact-detail-empty" id="ticket-detail-empty">
               <div class="contact-empty-icon" aria-hidden="true">

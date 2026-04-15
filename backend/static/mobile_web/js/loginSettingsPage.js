@@ -7,6 +7,7 @@ const LoginSettingsPage = (() => {
   const FACE_ID_DEVICE_TOKEN_KEY = "nw_faceid_device_token";
   const FACE_ID_CRED_ID_KEY = "nw_faceid_cred_id";
 
+  let _profile = null;
   let _phoneStep = 1; // 1 = enter new phone, 2 = enter OTP code
   let _pendingNewPhone = null;
 
@@ -31,9 +32,47 @@ const LoginSettingsPage = (() => {
     _initBiometric();
   }
 
-  function _resolveMode() {
-    const mode = (sessionStorage.getItem("nw_account_mode") || "client").toLowerCase();
-    return mode === "provider" ? "provider" : "client";
+  function _resolveMode(profile) {
+    const requestedMode = _readStoredMode();
+    if (requestedMode !== "provider") return "client";
+
+    const currentProfile = profile || _profile;
+    if (_canUseProviderMode(currentProfile)) return "provider";
+
+    const roleState = String(Auth.getRoleState() || "").trim().toLowerCase();
+    return roleState === "provider" ? "provider" : "client";
+  }
+
+  function _readStoredMode() {
+    try {
+      return (sessionStorage.getItem("nw_account_mode") || "client").toLowerCase();
+    } catch (_) {
+      return "client";
+    }
+  }
+
+  function _saveMode(mode) {
+    try {
+      sessionStorage.setItem("nw_account_mode", mode === "provider" ? "provider" : "client");
+    } catch (_) {
+      // ignore storage failures
+    }
+  }
+
+  function _canUseProviderMode(profile) {
+    return !!(
+      profile && (
+        profile.role_state === "provider"
+        || profile.is_provider
+        || profile.has_provider_profile
+      )
+    );
+  }
+
+  function _clearCachedProfile() {
+    if (Auth && typeof Auth.clearProfileCache === "function") {
+      Auth.clearProfileCache();
+    }
   }
 
   function _withMode(path) {
@@ -78,6 +117,9 @@ const LoginSettingsPage = (() => {
 
     if (res.ok && res.data) {
       _profile = res.data;
+      _mode = _resolveMode(_profile);
+      _saveMode(_mode);
+      _clearCachedProfile();
       _renderProfile();
       return;
     }
@@ -247,6 +289,7 @@ const LoginSettingsPage = (() => {
 
     if (!_profile) _profile = {};
     _profile.username = username;
+    _clearCachedProfile();
     _renderProfile();
     _showInlineAlert("تم تعديل اسم العضوية وحفظه بنجاح.", "success", 3200);
     _closeModal();
@@ -301,6 +344,7 @@ const LoginSettingsPage = (() => {
 
     if (!_profile) _profile = {};
     _profile.email = email;
+    _clearCachedProfile();
     _renderProfile();
     _showInlineAlert("تم تعديل البريد الإلكتروني وحفظه.", "success", 3200);
     _closeModal();
@@ -373,6 +417,7 @@ const LoginSettingsPage = (() => {
 
     if (!_profile) _profile = {};
     _profile.phone = _pendingNewPhone;
+    _clearCachedProfile();
     _renderProfile();
     _showInlineAlert("تم تغيير رقم الجوال بنجاح. استخدم الرقم الجديد لتسجيل الدخول.", "success", 4000);
     _closeModal();
