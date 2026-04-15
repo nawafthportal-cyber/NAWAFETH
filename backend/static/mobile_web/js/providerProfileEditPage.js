@@ -255,6 +255,7 @@ var ProviderProfileEditPage = (function () {
     parseEntryQuery();
     applyEntryHeader();
     bindTabs();
+    bindAvatarUpload();
     loadProfile();
   }
 
@@ -957,6 +958,74 @@ var ProviderProfileEditPage = (function () {
     }
 
     card.style.display = "";
+  }
+
+  function bindAvatarUpload() {
+    var uploadBtn = document.getElementById("pe-avatar-upload-btn");
+    var fileInput = document.getElementById("pe-avatar-file");
+    if (!uploadBtn || !fileInput) return;
+
+    uploadBtn.addEventListener("click", function () {
+      fileInput.value = "";
+      fileInput.click();
+    });
+
+    fileInput.addEventListener("change", function () {
+      var file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      var maxSize = 20 * 1024 * 1024;
+      if (file.size > maxSize) {
+        alert("حجم الصورة يجب ألا يتجاوز 20 ميغابايت");
+        return;
+      }
+
+      var allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (allowedTypes.indexOf(file.type) === -1) {
+        alert("يجب أن تكون الصورة بصيغة JPEG أو PNG أو WebP");
+        return;
+      }
+
+      uploadBtn.style.opacity = "0.5";
+      uploadBtn.style.pointerEvents = "none";
+
+      var fd = new FormData();
+      fd.append("profile_image", file);
+
+      var RAW = (typeof ApiClient !== "undefined" && ApiClient && typeof ApiClient.request === "function") ? ApiClient : null;
+      var uploadPromise;
+      if (RAW) {
+        uploadPromise = RAW.request("/api/providers/me/profile/", { method: "PATCH", body: fd, formData: true });
+      } else {
+        uploadPromise = fetch(window.location.origin + "/api/providers/me/profile/", {
+          method: "PATCH",
+          headers: { "Authorization": "Bearer " + (sessionStorage.getItem("nw_access_token") || "") },
+          body: fd
+        }).then(function (res) {
+          return res.json().then(function (data) { return { ok: res.ok, data: data }; });
+        });
+      }
+
+      uploadPromise.then(function (resp) {
+        if (!resp || !resp.ok) {
+          throw new Error("فشل رفع الصورة");
+        }
+        var newUrl = (resp.data && resp.data.profile_image) || "";
+        var avatarImg = document.getElementById("pe-avatar-img");
+        var avatarFallback = document.getElementById("pe-avatar-fallback");
+        if (avatarImg && newUrl) {
+          avatarImg.src = newUrl;
+          avatarImg.classList.remove("hidden");
+          if (avatarFallback) avatarFallback.classList.add("hidden");
+        }
+        if (typeof NwToast !== "undefined") NwToast.success("تم تحديث الصورة بنجاح");
+      }).catch(function (err) {
+        alert((err && err.message) || "تعذر رفع الصورة، حاول مرة أخرى");
+      }).finally(function () {
+        uploadBtn.style.opacity = "";
+        uploadBtn.style.pointerEvents = "";
+      });
+    });
   }
 
   function isSectionFlowActive() {

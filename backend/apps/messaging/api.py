@@ -42,6 +42,7 @@ from .serializers import (
 
 from .views import (
 	_active_context_mode_from_request,
+	_validated_context_mode_from_request,
 	_can_access_request,
 	_thread_participant_users,
 	_unarchive_for_participants,
@@ -121,7 +122,7 @@ def _find_direct_thread_for_pair(*, user_a, user_b, user_a_mode: str, user_b_mod
 def _can_access_direct_thread_for_request(thread: Thread, request) -> bool:
 	if not thread.is_participant(request.user):
 		return False
-	return thread.mode_matches_user(request.user, _active_context_mode_from_request(request))
+	return thread.mode_matches_user(request.user, _validated_context_mode_from_request(request))
 
 
 def _reply_restricted_detail(thread: Thread) -> str:
@@ -263,7 +264,7 @@ class DirectThreadGetOrCreateView(APIView):
 
 		provider_user = provider_profile.user
 		me = request.user
-		active_mode = _active_context_mode_from_request(request)
+		active_mode = _validated_context_mode_from_request(request)
 		desired_mode = (
 			active_mode
 			if active_mode in {Thread.ContextMode.CLIENT, Thread.ContextMode.PROVIDER}
@@ -439,7 +440,7 @@ class MyDirectThreadsListView(APIView):
 	def get(self, request):
 		from django.db.models import Max
 		me = request.user
-		mode = _active_context_mode_from_request(request)
+		mode = _validated_context_mode_from_request(request)
 		threads = (
 			Thread.objects.filter(is_direct=True)
 			.filter(direct_thread_mode_q(user=me, mode=mode))
@@ -509,7 +510,7 @@ class DirectUnreadCountView(APIView):
 	permission_classes = [IsAtLeastPhoneOnly]
 
 	def get(self, request):
-		mode = request.query_params.get("mode")
+		mode = _validated_context_mode_from_request(request)
 		try:
 			payload = get_direct_messages_unread_payload(user=request.user, mode=mode)
 		except (OperationalError, DatabaseError):
@@ -536,7 +537,7 @@ class MyThreadStatesListView(APIView):
 	def get(self, request):
 		from django.db.models import Q
 		me = request.user
-		mode = _active_context_mode_from_request(request)
+		mode = _validated_context_mode_from_request(request)
 
 		q = Q()
 		if mode in {"client", "provider"}:

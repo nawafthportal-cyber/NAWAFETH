@@ -4894,6 +4894,40 @@ body.page-provider-profile-edit .pe-avatar-badge {
   white-space: nowrap;
 }
 
+body.page-provider-profile-edit .pe-avatar-upload-btn {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 24, 40, 0.55);
+  color: #fff;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+body.page-provider-profile-edit .pe-avatar-upload-btn:hover {
+  background: rgba(16, 24, 40, 0.72);
+}
+
+body.page-provider-profile-edit .pe-avatar-upload-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+body.page-provider-profile-edit .pe-avatar-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 body.page-provider-profile-edit .pe-identity-copy {
   flex: 1;
   min-width: 0;

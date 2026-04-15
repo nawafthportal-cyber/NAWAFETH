@@ -51,6 +51,7 @@ const HomePage = (() => {
   let _providersResumeTimer = null;
   let _providersPaused = false;
   let _providersBound = false;
+  let _categoriesWheelSnapTimer = null;
   let _sectionObserver = null;
   let _popupShown = false;       // only show popup once per session
   let _homeContent = {
@@ -757,36 +758,108 @@ const HomePage = (() => {
     var nextBtn = carousel.querySelector('.categories-arrow--next');
     if (!prevBtn || !nextBtn) return;
 
-    var scrollAmount = 320;
+    function getCards() {
+      return Array.prototype.slice.call($categoriesList.querySelectorAll('.cat-item'));
+    }
 
     function updateArrows() {
-      var sl = $categoriesList.scrollLeft;
-      var maxScroll = $categoriesList.scrollWidth - $categoriesList.clientWidth;
-      // RTL: scrollLeft is negative or 0
-      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
-      if (isRTL) {
-        // In RTL, scrollLeft is 0 at start (right), negative when scrolled left
-        prevBtn.disabled = sl >= -1;
-        nextBtn.disabled = Math.abs(sl) >= maxScroll - 1;
-      } else {
-        prevBtn.disabled = sl <= 1;
-        nextBtn.disabled = sl >= maxScroll - 1;
+      var cards = getCards();
+      var listRect = $categoriesList.getBoundingClientRect();
+      var tolerance = 6;
+      var hasLeftOverflow = false;
+      var hasRightOverflow = false;
+
+      cards.forEach(function(card) {
+        var rect = card.getBoundingClientRect();
+        if (rect.left < listRect.left - tolerance) {
+          hasLeftOverflow = true;
+        }
+        if (rect.right > listRect.right + tolerance) {
+          hasRightOverflow = true;
+        }
+      });
+
+      var isScrollable = ($categoriesList.scrollWidth - $categoriesList.clientWidth) > tolerance;
+      carousel.classList.toggle('is-scrollable', isScrollable);
+      prevBtn.disabled = !hasLeftOverflow;
+      nextBtn.disabled = !hasRightOverflow;
+    }
+
+    function scrollToHiddenCard(edge) {
+      var cards = getCards();
+      var listRect = $categoriesList.getBoundingClientRect();
+      var tolerance = 6;
+      var target = null;
+
+      if (edge === 'left') {
+        for (var index = cards.length - 1; index >= 0; index -= 1) {
+          if (cards[index].getBoundingClientRect().left < listRect.left - tolerance) {
+            target = cards[index];
+            break;
+          }
+        }
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+        }
+        return;
+      }
+
+      for (var itemIndex = 0; itemIndex < cards.length; itemIndex += 1) {
+        if (cards[itemIndex].getBoundingClientRect().right > listRect.right + tolerance) {
+          target = cards[itemIndex];
+          break;
+        }
+      }
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'end' });
       }
     }
 
-    prevBtn.addEventListener('click', function() {
-      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
-      $categoriesList.scrollBy({ left: isRTL ? scrollAmount : -scrollAmount, behavior: 'smooth' });
-    });
-    nextBtn.addEventListener('click', function() {
-      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
-      $categoriesList.scrollBy({ left: isRTL ? -scrollAmount : scrollAmount, behavior: 'smooth' });
-    });
+    carousel._updateCategoriesArrows = updateArrows;
 
-    $categoriesList.addEventListener('scroll', updateArrows, { passive: true });
-    updateArrows();
-    // Re-check after layout settles
-    setTimeout(updateArrows, 100);
+    if (!carousel.dataset.bound) {
+      prevBtn.addEventListener('click', function() {
+        scrollToHiddenCard('left');
+      });
+
+      nextBtn.addEventListener('click', function() {
+        scrollToHiddenCard('right');
+      });
+
+      $categoriesList.addEventListener('wheel', function(event) {
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+        if (($categoriesList.scrollWidth - $categoriesList.clientWidth) <= 4) return;
+        event.preventDefault();
+        $categoriesList.classList.add('is-wheel-scrolling');
+        $categoriesList.scrollBy({ left: event.deltaY, behavior: 'auto' });
+        window.clearTimeout(_categoriesWheelSnapTimer);
+        _categoriesWheelSnapTimer = window.setTimeout(function() {
+          $categoriesList.classList.remove('is-wheel-scrolling');
+          if (typeof carousel._updateCategoriesArrows === 'function') {
+            carousel._updateCategoriesArrows();
+          }
+        }, 140);
+      }, { passive: false });
+
+      $categoriesList.addEventListener('scroll', function() {
+        if (typeof carousel._updateCategoriesArrows === 'function') {
+          carousel._updateCategoriesArrows();
+        }
+      }, { passive: true });
+
+      carousel.dataset.bound = 'true';
+    }
+
+    window.requestAnimationFrame(function() {
+      if (typeof carousel._updateCategoriesArrows === 'function') {
+        carousel._updateCategoriesArrows();
+      }
+    });
+    window.setTimeout(function() {
+      if (typeof carousel._updateCategoriesArrows === 'function') {
+        carousel._updateCategoriesArrows();
+      }
+    }, 140);
   }
 
   function _renderCategoriesEmpty() {
@@ -968,6 +1041,7 @@ const HomePage = (() => {
   }
 
   function _syncDesktopHomeBehaviors() {
+    _initCategoriesCarousel();
     if (_isDesktopHomeGrid()) {
       _stopProvidersAutoRotate();
       return;

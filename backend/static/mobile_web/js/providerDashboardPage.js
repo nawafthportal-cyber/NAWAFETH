@@ -441,53 +441,80 @@ const ProviderDashboardPage = (() => {
 
   function _bindUploads() {
     // Cover upload
-    document.getElementById('cover-upload').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const fd = new FormData();
-      fd.append('cover_image', file);
-      const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
-      if (res.ok) {
-        document.getElementById('pd-cover').style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
-      }
-    });
+    var coverInput = document.getElementById('cover-upload');
+    if (coverInput) {
+      coverInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const fd = new FormData();
+        fd.append('cover_image', file);
+        try {
+          const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
+          if (res.ok) {
+            document.getElementById('pd-cover').style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
+            if (typeof NwToast !== 'undefined') NwToast.success('تم تحديث صورة الغلاف');
+          } else {
+            alert(_apiErrorMessage(res, 'تعذر رفع صورة الغلاف'));
+          }
+        } catch (_) {
+          alert('تعذر رفع صورة الغلاف، حاول مرة أخرى');
+        }
+      });
+    }
 
     // Avatar upload
-    document.getElementById('avatar-upload').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const fd = new FormData();
-      fd.append('profile_image', file);
-      const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
-      if (res.ok) {
-        document.getElementById('pd-avatar').style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
-      }
-    });
+    var avatarInput = document.getElementById('avatar-upload');
+    if (avatarInput) {
+      avatarInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 20 * 1024 * 1024) {
+          alert('حجم الصورة يجب ألا يتجاوز 20 ميغابايت');
+          return;
+        }
+        const fd = new FormData();
+        fd.append('profile_image', file);
+        try {
+          const res = await ApiClient.request('/api/providers/me/profile/', { method: 'PATCH', body: fd, formData: true });
+          if (res.ok) {
+            document.getElementById('pd-avatar').style.backgroundImage = `url('${URL.createObjectURL(file)}')`;
+            if (typeof NwToast !== 'undefined') NwToast.success('تم تحديث الصورة الشخصية');
+          } else {
+            alert(_apiErrorMessage(res, 'تعذر رفع الصورة الشخصية'));
+          }
+        } catch (_) {
+          alert('تعذر رفع الصورة الشخصية، حاول مرة أخرى');
+        }
+      });
+    }
 
     // Spotlight upload
-    document.getElementById('spotlight-upload').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const fileType = _spotlightFileType(file);
-      if (fileType !== 'video') {
-        alert('يمكن رفع فيديو فقط في قسم الريلز والأضواء.');
-        e.target.value = '';
-        return;
-      }
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('file_type', fileType);
-      const input = e.target;
-      input.disabled = true;
-      const res = await ApiClient.request('/api/providers/me/spotlights/', { method: 'POST', body: fd, formData: true });
-      input.disabled = false;
-      input.value = '';
-      if (res.ok) {
-        location.reload();
-        return;
-      }
-      alert(_apiErrorMessage(res, 'تعذر رفع الريلز الآن.'));
-    });
+    var spotlightInput = document.getElementById('spotlight-upload');
+    if (spotlightInput) {
+      spotlightInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const fileType = _spotlightFileType(file);
+        if (fileType !== 'video') {
+          alert('يمكن رفع فيديو فقط في قسم الريلز والأضواء.');
+          e.target.value = '';
+          return;
+        }
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('file_type', fileType);
+        const input = e.target;
+        input.disabled = true;
+        const res = await ApiClient.request('/api/providers/me/spotlights/', { method: 'POST', body: fd, formData: true });
+        input.disabled = false;
+        input.value = '';
+        if (res.ok) {
+          location.reload();
+          return;
+        }
+        alert(_apiErrorMessage(res, 'تعذر رفع الريلز الآن.'));
+      });
+    }
   }
 
   function _bindModeToggle() {

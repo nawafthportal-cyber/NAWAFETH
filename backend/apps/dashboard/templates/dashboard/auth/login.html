@@ -3,39 +3,16 @@
 {% block title %}دخول لوحة التحكم{% endblock %}
 {% block extra_head %}
   {{ block.super }}
-  <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
+  <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}?v=20260415">
 {% endblock %}
 {% block body %}
   <main class="nx-auth nx-auth-login">
-    <section class="nx-auth__grid">
-      <aside class="nx-auth__hero">
-        <span class="nx-auth__kicker">Nawafeth Operations Identity</span>
-        <h2>بوابة التشغيل الداخلية لنوافذ</h2>
-        <p>
-          واجهة دخول موحدة بصريًا ضمن هوية نوافذ، مخصصة لفرق التشغيل الداخلية
-          للوصول السريع والآمن إلى بيئات العمل الحساسة.
-        </p>
-        <div class="nx-auth__feature-grid">
-          <article>
-            <strong>Identity Unified</strong>
-            <span>تجربة دخول موحدة مع بقية شاشات التشغيل الداخلية.</span>
-          </article>
-          <article>
-            <strong>RBAC</strong>
-            <span>صلاحيات دقيقة حسب الدور واللوحة.</span>
-          </article>
-          <article>
-            <strong>Audit Trail</strong>
-            <span>سجل موثق للعمليات الحرجة.</span>
-          </article>
-        </div>
-      </aside>
-
-      <section class="nx-auth__card">
-        <header class="nx-auth__head">
-          <span class="nx-auth__pill">Operations Login</span>
-          <h1>تسجيل الدخول التشغيلي</h1>
-          <p>أدخل بيانات الحساب التشغيلي للانتقال إلى لوحة التحكم الداخلية.</p>
+    <section class="nx-auth__grid nx-auth__grid--centered">
+      <section class="nx-auth__card nx-auth__card--wide">
+        <header class="nx-auth__brand-header">
+          <div class="nx-auth__brand-mark">ن</div>
+          <h1>نوافذ</h1>
+          <span class="nx-auth__brand-scope">لوحة التحكم التشغيلية</span>
         </header>
 
         {% if messages %}
@@ -56,7 +33,6 @@
             <div class="nx-auth__input-wrap">
               {{ form.username }}
             </div>
-            <p class="field-hint">اسم المستخدم أو رقم الجوال المرتبط بالحساب التشغيلي.</p>
             {% if form.username.errors %}<small>{{ form.username.errors|striptags }}</small>{% endif %}
           </div>
 
@@ -71,11 +47,15 @@
             {% if form.password.errors %}<small>{{ form.password.errors|striptags }}</small>{% endif %}
           </div>
 
-          <div class="nx-auth__actions">
+          <div class="nx-auth__actions nx-auth__actions--stacked">
             <button type="submit" class="nx-auth__btn-primary">تسجيل الدخول</button>
             <a href="/" class="nx-auth__btn-ghost">العودة للموقع</a>
           </div>
         </form>
+
+        <footer class="nx-auth__footer">
+          <span>© نوافذ — بوابة التشغيل</span>
+        </footer>
       </section>
     </section>
   </main>

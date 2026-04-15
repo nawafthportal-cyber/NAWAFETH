@@ -17,7 +17,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
 from apps.accounts.permissions import ROLE_LEVELS, role_level
-from apps.accounts.role_context import get_active_role
+from apps.accounts.role_context import get_active_role, get_validated_role
 from apps.marketplace.models import ServiceRequest
 
 from .models import Message, Thread, ThreadUserState
@@ -31,6 +31,15 @@ def _active_context_mode_from_request(request) -> str:
 	an explicit mode still see all threads.
 	"""
 	return get_active_role(request, fallback="shared")
+
+
+def _validated_context_mode_from_request(request) -> str:
+	"""Return the active context mode, validated against user capability.
+
+	If the user requests ``provider`` mode but has no ProviderProfile,
+	this falls back to ``shared`` — preventing mode-spoofing.
+	"""
+	return get_validated_role(request, fallback="shared")
 
 
 logger = logging.getLogger(__name__)

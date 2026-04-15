@@ -28,3 +28,31 @@ def get_active_role(request, *, fallback: str = "client") -> str:
     )
     role = raw.strip().lower()
     return role if role in VALID_ROLES else fallback
+
+
+def get_validated_role(request, *, fallback: str = "client") -> str:
+    """Return the active role, but downgrade to *fallback* when the user
+    lacks the capability for the requested role.
+
+    • ``provider`` requires an actual ``provider_profile`` on the user.
+    • ``client`` is always valid for any authenticated user.
+
+    This prevents mode-spoofing where a client-only user sends
+    ``?mode=provider`` to access provider-scoped resources.
+    """
+    role = get_active_role(request, fallback=fallback)
+    if role == "provider":
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return fallback
+        if not _has_provider_profile(user):
+            return fallback
+    return role
+
+
+def _has_provider_profile(user) -> bool:
+    """Check if user has an actual ProviderProfile row."""
+    try:
+        return bool(getattr(user, "provider_profile", None))
+    except Exception:
+        return False

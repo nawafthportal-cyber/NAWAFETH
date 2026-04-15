@@ -28,7 +28,7 @@ from .serializers import (
 from .phone_validation import keep_digits as _keep_digits, normalize_phone_local05 as _normalize_phone_local05
 
 from .permissions import IsAtLeastPhoneOnly
-from .role_context import get_active_role
+from .role_context import get_active_role, get_validated_role
 from .otp import (
     accept_any_otp_code,
     generate_otp_code,
@@ -106,6 +106,7 @@ def _safe_media_url(field_file):
 
 def _me_payload(user: User, *, request=None) -> dict:
     active_role = get_active_role(request) if request is not None else UserRole.CLIENT
+    validated_role = get_validated_role(request) if request is not None else UserRole.CLIENT
 
     has_provider_profile = False
     try:
@@ -170,7 +171,7 @@ def _me_payload(user: User, *, request=None) -> dict:
     provider_likes_received_count = 0
     provider_rating_avg = None
     provider_rating_count = 0
-    if has_provider_profile:
+    if has_provider_profile and validated_role == UserRole.PROVIDER:
         try:
             pp = user.provider_profile
             provider_profile_id = pp.id
