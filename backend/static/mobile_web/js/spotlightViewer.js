@@ -337,6 +337,11 @@ const SpotlightViewer = (() => {
     if (sideEl) {
       sideEl.innerHTML = '';
 
+      const avatarBtn = _buildSideAvatar(item);
+      if (avatarBtn) {
+        sideEl.appendChild(avatarBtn);
+      }
+
       // Like button
       const likeBtn = _buildSideAction(
         item.is_liked ? 'heart-filled' : 'heart-outline',
@@ -386,6 +391,35 @@ const SpotlightViewer = (() => {
     wrap.appendChild(lbl);
 
     return wrap;
+  }
+
+  function _buildSideAvatar(item) {
+    const providerId = Number(item?.provider_id || 0);
+    const providerName = _getProviderDisplayName(item);
+    const providerAvatarUrl = _getProviderAvatarUrl(item);
+    if (!providerId && !providerName && !providerAvatarUrl) return null;
+
+    const avatar = document.createElement(providerId > 0 ? 'button' : 'div');
+    avatar.className = 'sv-side-avatar' + (providerId > 0 ? ' is-clickable' : '');
+    if (providerId > 0) {
+      avatar.setAttribute('type', 'button');
+      avatar.setAttribute('aria-label', 'فتح حساب ' + (providerName || 'صاحب اللمحة'));
+      avatar.addEventListener('click', (event) => {
+        event.stopPropagation();
+        window.location.href = '/provider/' + encodeURIComponent(String(providerId)) + '/';
+      });
+    }
+
+    if (providerAvatarUrl) {
+      const img = document.createElement('img');
+      img.src = providerAvatarUrl;
+      img.alt = providerName || 'صاحب اللمحة';
+      avatar.appendChild(img);
+      return avatar;
+    }
+
+    avatar.textContent = _getProviderInitial(providerName || 'ن');
+    return avatar;
   }
 
   /* ----------------------------------------------------------
@@ -575,6 +609,38 @@ const SpotlightViewer = (() => {
     }
 
     return '';
+  }
+
+  function _getProviderDisplayName(item) {
+    const candidates = [
+      item?.provider_display_name,
+      item?.provider_name,
+      item?.display_name,
+      item?.name,
+    ];
+    for (const candidate of candidates) {
+      const value = String(candidate || '').trim();
+      if (value) return value;
+    }
+    return '';
+  }
+
+  function _getProviderAvatarUrl(item) {
+    const candidates = [
+      item?.provider_profile_image,
+      item?.profile_image,
+      item?.provider_avatar,
+    ];
+    for (const candidate of candidates) {
+      const value = String(candidate || '').trim();
+      if (value) return _resolveUrl(value);
+    }
+    return '';
+  }
+
+  function _getProviderInitial(name) {
+    const value = String(name || '').trim();
+    return value ? value.charAt(0) : 'ن';
   }
 
   function _formatCount(count) {

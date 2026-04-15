@@ -6,7 +6,7 @@
 {% block body_class %}page-provider-detail page-provider-detail-premium{% endblock %}
 
 {% block extra_css %}
-<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}" />
+<link rel="stylesheet" href="{% static 'mobile_web/css/home-mobile-layout.css' %}?v=20260415-spotlight-avatar" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   @media (max-width: 1023px) {
@@ -440,6 +440,6 @@
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="{% static 'mobile_web/js/spotlightViewer.js' %}"></script>
+<script src="{% static 'mobile_web/js/spotlightViewer.js' %}?v=20260415-spotlight-avatar"></script>
   <script src="{% static 'mobile_web/js/providerDetailPage.js' %}?v=20260413-tabsrev1"></script>
 {% endblock %}
