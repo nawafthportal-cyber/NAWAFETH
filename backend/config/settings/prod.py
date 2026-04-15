@@ -5,6 +5,15 @@ import warnings
 
 DEBUG = False
 
+# WhiteNoise serves static assets through FileResponse. Under Django ASGI this
+# triggers a one-time runtime warning about synchronous iterators even though
+# static delivery remains successful.
+warnings.filterwarnings(
+	"ignore",
+	message=r"StreamingHttpResponse must consume synchronous iterators in order to serve them asynchronously\. Use an asynchronous iterator instead\.",
+	module=r"django\.core\.handlers\.asgi",
+)
+
 # ── Safety: warn when production runs without a dedicated secret key ─────
 if SECRET_KEY == "dev-secret-key-change-me":
     warnings.warn(
@@ -218,12 +227,20 @@ LOGGING = {
 		"exclude_unread_unauthorized": {
 			"()": "apps.core.logging_filters.ExcludeUnreadCountUnauthorizedFilter",
 		},
+		"exclude_public_suspicious_session": {
+			"()": "apps.core.logging_filters.ExcludePublicSuspiciousSessionFilter",
+		},
 	},
 	"handlers": {
 		"console": {
 			"class": "logging.StreamHandler",
 			"formatter": "standard",
-			"filters": ["request_context", "exclude_bot_scan_404", "exclude_unread_unauthorized"],
+			"filters": [
+				"request_context",
+				"exclude_bot_scan_404",
+				"exclude_unread_unauthorized",
+				"exclude_public_suspicious_session",
+			],
 		}
 	},
 	"root": {"handlers": ["console"], "level": _log_level},

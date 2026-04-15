@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../constants/colors.dart';
 import '../services/api_client.dart';
 import '../services/content_service.dart';
+import '../services/auth_service.dart';
 import '../services/onboarding_service.dart';
 import '../widgets/content_block_media.dart';
 
@@ -22,6 +23,7 @@ class OnboardItem {
   final String desc;
   final String? mediaUrl;
   final String mediaType;
+  final bool previewOnly;
 
   const OnboardItem({
     required this.key,
@@ -30,6 +32,7 @@ class OnboardItem {
     required this.desc,
     this.mediaUrl,
     this.mediaType = '',
+    this.previewOnly = false,
   });
 }
 
@@ -39,17 +42,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     'onboarding_intro',
     'onboarding_get_started',
   ];
+  static const String _appPreviewKey = 'app_intro_preview';
 
   final PageController _pageController = PageController();
 
   int _currentPage = 0;
+  bool _showAppPreview = false;
+  bool _isLoggedIn = false;
   bool _isLoading = true;
   String? _loadError;
   List<OnboardItem> _slides = const [];
+  OnboardItem? _appPreviewItem;
 
   @override
   void initState() {
     super.initState();
+    _primeAuthState();
     _loadContentFromApi();
   }
 
@@ -57,6 +65,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _primeAuthState() async {
+    final isLoggedIn = await AuthService.isLoggedIn();
+    if (!mounted) return;
+    setState(() => _isLoggedIn = isLoggedIn);
   }
 
   Future<void> _loadContentFromApi() async {
@@ -95,9 +109,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
       }
 
+      final previewBlock = blocks[_appPreviewKey];
+      OnboardItem? appPreviewItem;
+      if (previewBlock is Map<String, dynamic>) {
+        appPreviewItem = _buildAppPreviewItem(previewBlock);
+      }
+
       setState(() {
         _slides = slides;
+        _appPreviewItem = appPreviewItem;
         _currentPage = 0;
+        _showAppPreview = false;
         _isLoading = false;
         _loadError = slides.isEmpty
             ? 'محتوى شاشة البداية غير مُعد في لوحة التحكم.'
@@ -136,6 +158,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  OnboardItem? _buildAppPreviewItem(Map<String, dynamic> block) {
+    final mediaUrl = ApiClient.buildMediaUrl(block['media_url']?.toString());
+    final mediaType = (block['media_type'] as String?)?.trim() ?? '';
+    if ((mediaUrl ?? '').isEmpty) {
+      return null;
+    }
+
+    return OnboardItem(
+      key: _appPreviewKey,
+      icon: const SizedBox.shrink(),
+      title: '',
+      desc: '',
+      mediaUrl: mediaUrl,
+      mediaType: mediaType,
+      previewOnly: true,
+    );
+  }
+
   Widget _iconForIndex(int index) {
     switch (index) {
       case 0:
@@ -167,13 +207,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
       return;
     }
+    if (_appPreviewItem != null) {
+      setState(() => _showAppPreview = true);
+      return;
+    }
     _finishOnboarding();
   }
 
   Future<void> _finishOnboarding() async {
     await OnboardingService.markSeen();
+    final isLoggedIn = await AuthService.isLoggedIn();
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacementNamed(context, isLoggedIn ? '/home' : '/login');
   }
 
   @override
@@ -245,19 +290,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       children: [
         Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: _slides.length,
-            onPageChanged: (index) {
-              setState(() => _currentPage = index);
-            },
-            itemBuilder: (context, index) {
-              final item = _slides[index];
-              return _buildPage(item: item, isActive: index == _currentPage);
-            },
-          ),
+          child: _showAppPreview
+              ? _buildStandaloneAppPreview(_appPreviewItem!)
+              : PageView.builder(
+                  controller: _pageController,
+                  itemCount: _slides.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentPage = index);
+                  },
+                  itemBuilder: (context, index) {
+                    final item = _slides[index];
+                    return _buildPage(item: item, isActive: index == _currentPage);
+                  },
+                ),
         ),
-        _buildBottomControls(),
+        _showAppPreview ? _buildAppPreviewControls() : _buildBottomControls(),
       ],
     );
   }
@@ -381,13 +428,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           color: const Color(0xFFF5EEFF),
                           borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          '0${_currentPage + 1} / ${_slides.length}',
-                          style: const TextStyle(
-                            fontFamily: 'Cairo',
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.deepPurple,
+                        child: RichText(
+                          textDirection: TextDirection.ltr,
+                          text: TextSpan(
+                            style: const TextStyle(
+                              fontFamily: 'Cairo',
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.deepPurple,
+                            ),
+                            children: [
+                              TextSpan(text: (_currentPage + 1).toString().padLeft(2, '0')),
+                              const TextSpan(text: ' / '),
+                              TextSpan(text: _slides.length.toString()),
+                            ],
                           ),
                         ),
                       ),
@@ -463,6 +517,126 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildStandaloneAppPreview(OnboardItem item) {
+    final size = MediaQuery.sizeOf(context);
+    final sh = size.height;
+    final isSmall = sh < 700;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 560),
+        padding: EdgeInsets.all(isSmall ? 10.0 : 14.0),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.94),
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: const Color(0xFFE8DBFF)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1F6A3FB1),
+              blurRadius: 40,
+              offset: Offset(0, 24),
+            ),
+          ],
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return Column(
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5EEFF),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'بروفة التطبيق',
+                      style: TextStyle(
+                        fontFamily: 'Cairo',
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.deepPurple,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: ContentBlockMedia(
+                    mediaUrl: item.mediaUrl,
+                    mediaType: item.mediaType,
+                    isActive: true,
+                    borderRadius: 28,
+                    aspectRatio: 0.78,
+                    imageFit: BoxFit.contain,
+                    videoFit: BoxFit.contain,
+                    fallback: const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppPreviewControls() {
+    final size = MediaQuery.sizeOf(context);
+    final isSmall = size.height < 700;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(4, isSmall ? 10 : 18, 4, isSmall ? 6 : 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.deepPurple, Color(0xFF7E53C4)],
+              ),
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x336A3FB1),
+                  blurRadius: 18,
+                  offset: Offset(0, 10),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _finishOnboarding,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                foregroundColor: Colors.white,
+                minimumSize: Size(148, isSmall ? 48 : 54),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              icon: const Icon(Icons.arrow_forward_rounded),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'متابعة',
+                  style: TextStyle(
+                    fontFamily: 'Cairo',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

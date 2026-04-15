@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from apps.billing.models import Invoice
 from .models import ExtraPurchase
 from .services import activate_extra_after_payment, sync_bundle_request_payment_state_from_invoice
+
+logger = logging.getLogger(__name__)
 
 
 @receiver(post_save, sender=Invoice)
@@ -28,4 +32,8 @@ def activate_extra_on_paid(sender, instance: Invoice, created, **kwargs):
 
         sync_bundle_request_payment_state_from_invoice(invoice=instance)
     except Exception:
-        pass
+        logger.exception(
+            "extras signal activate_extra_on_paid failed for Invoice pk=%s reference_type=%s",
+            instance.pk,
+            instance.reference_type,
+        )

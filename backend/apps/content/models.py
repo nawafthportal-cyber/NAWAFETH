@@ -37,6 +37,7 @@ class ContentBlockKey(models.TextChoices):
     ONBOARDING_FIRST_TIME = "onboarding_first_time", "الدخول أول مرة"
     ONBOARDING_INTRO = "onboarding_intro", "صفحة التعريف"
     ONBOARDING_GET_STARTED = "onboarding_get_started", "صفحة الانطلاق"
+    APP_INTRO_PREVIEW = "app_intro_preview", "بروفة التعريف بالتطبيق"
     HOME_CATEGORIES_TITLE = "home_categories_title", "الرئيسية - عنوان التصنيفات"
     HOME_PROVIDERS_TITLE = "home_providers_title", "الرئيسية - عنوان مزودي الخدمة"
     HOME_BANNERS_TITLE = "home_banners_title", "الرئيسية - عنوان العروض الترويجية"

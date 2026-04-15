@@ -1,7 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OnboardingService {
-  static const String _seenKey = 'has_seen_onboarding';
+  static const String _seenKey = 'has_seen_onboarding_v2';
 
   static Future<bool> shouldShowOnboarding() async {
     final prefs = await SharedPreferences.getInstance();

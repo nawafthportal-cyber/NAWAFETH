@@ -406,10 +406,11 @@
 
                     <div class="extras-finance-options">
                       {% for option in finance_options %}
-                        <label class="extras-finance-option {% if option.key in bundle_selected_finance_options %}is-selected{% endif %}">
-                          <input type="checkbox" name="finance_options" value="{{ option.key }}" {% if option.key in bundle_selected_finance_options %}checked{% endif %}>
+                        <label class="extras-finance-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_finance_options %}is-selected{% endif %}">
+                          <input type="checkbox" name="finance_options" value="{{ option.key }}" {% if option.unavailable %}disabled{% elif option.key in bundle_selected_finance_options %}checked{% endif %}>
                           <span class="extras-finance-option__mark"></span>
                           <span class="extras-finance-option__label">{{ option.label }}</span>
+                          {% if option.unavailable %}<span class="extras-coming-soon-badge">قيد التطوير</span>{% endif %}
                         </label>
                       {% endfor %}
                     </div>
@@ -533,12 +534,14 @@
 
                     <div class="extras-client-options">
                       {% for option in client_options %}
-                        <label class="extras-client-option {% if option.key in bundle_selected_client_options %}is-selected{% endif %}">
-                          <input type="checkbox" name="clients_options" value="{{ option.key }}" {% if option.key in bundle_selected_client_options %}checked{% endif %}>
+                        <label class="extras-client-option {% if option.unavailable %}is-unavailable{% elif option.key in bundle_selected_client_options %}is-selected{% endif %}">
+                          <input type="checkbox" name="clients_options" value="{{ option.key }}" {% if option.unavailable %}disabled{% elif option.key in bundle_selected_client_options %}checked{% endif %}>
                           <span class="extras-client-option__mark"></span>
                           <span class="extras-client-option__content">
                             <strong>{{ option.label }}</strong>
-                            {% if option.key == 'bulk_messages' %}
+                            {% if option.unavailable %}
+                              <span class="extras-coming-soon-badge">قيد التطوير</span>
+                            {% elif option.key == 'bulk_messages' %}
                               <span>عند تفعيل هذا الخيار يمكن تحديد عدد الرسائل الجماعية المطلوب إرسالها.</span>
                             {% endif %}
                           </span>

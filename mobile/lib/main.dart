@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'services/auth_service.dart';
 import 'services/onboarding_service.dart';
 import 'services/account_mode_service.dart';
 import 'services/push_notification_service.dart';
@@ -49,13 +50,19 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PushNotificationService.initialize();
   final showOnboarding = await OnboardingService.shouldShowOnboarding();
-  runApp(NawafethApp(showOnboarding: showOnboarding));
+  final isLoggedIn = await AuthService.isLoggedIn();
+  runApp(NawafethApp(showOnboarding: showOnboarding, isLoggedIn: isLoggedIn));
 }
 
 class NawafethApp extends StatefulWidget {
   final bool showOnboarding;
+  final bool isLoggedIn;
 
-  const NawafethApp({super.key, required this.showOnboarding});
+  const NawafethApp({
+    super.key,
+    required this.showOnboarding,
+    required this.isLoggedIn,
+  });
 
   @override
   State<NawafethApp> createState() => _NawafethAppState();
@@ -130,7 +137,9 @@ class _NawafethAppState extends State<NawafethApp> {
         ],
 
         // ✅ المسارات
-        initialRoute: widget.showOnboarding ? '/onboarding' : '/home',
+        initialRoute: widget.showOnboarding
+          ? '/onboarding'
+          : (widget.isLoggedIn ? '/home' : '/login'),
         routes: {
           '/onboarding': (context) => const OnboardingScreen(),
           '/home': (context) => const HomeScreen(),

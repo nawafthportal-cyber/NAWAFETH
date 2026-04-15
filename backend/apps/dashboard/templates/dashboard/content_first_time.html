@@ -11,7 +11,7 @@
         </div>
         <div class="hero-stats">
           <span class="pill brand">وضع التحرير: {% if can_manage %}مفعّل{% else %}قراءة فقط{% endif %}</span>
-          <span class="pill accent">ملف التصميم: {{ design_specs }}</span>
+          <span class="pill accent">{{ slide_previews|length }} شرائح مستقلة قبل شاشة بروفة التطبيق</span>
         </div>
       </div>
     </header>
@@ -31,138 +31,240 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>تعديل النصوص للتصميم الحالي</h2>
+            <h2>معاينة تسلسل الدخول لأول مرة</h2>
+            <a class="ghost-btn" href="{% url 'dashboard:content_intro' %}">إدارة شاشة بروفة التطبيق</a>
           </div>
+          <p class="first-time-flow-note">
+            الترتيب النهائي على الموقع: 3 شرائح مستقلة تحتوي على صورة ونص محدود، ثم شاشة بروفة التعريف بالتطبيق، ثم صفحة تسجيل الدخول.
+          </p>
 
-          <div class="content-layout-grid">
-            <div class="mobile-preview app-screen-preview">
-              <h4>معاينة كشاشة تطبيق جوال</h4>
-              <div class="phone-shell">
-                <div class="phone-notch"></div>
-                <div class="phone-display">
-                  <div class="onboarding-card-preview">
-                    <div class="preview-slide-counter">01 / 03</div>
-                    {% if intro_block.media_file %}
-                      <div class="media-preview app-media-preview" id="contentFirstTimeAppMediaPreview">
-                        {% if intro_block.media_type == "video" %}
-                          <video controls preload="metadata" src="{{ intro_block.media_file.url }}"></video>
-                        {% else %}
-                          <img src="{{ intro_block.media_file.url }}" alt="معاينة التصميم">
+          <div class="first-time-preview-grid">
+            {% for slide in slide_previews %}
+              <article class="first-time-preview-card app-screen-preview">
+                <div class="phone-shell">
+                  <div class="phone-notch"></div>
+                  <div class="phone-display">
+                    <div class="onboarding-card-preview first-time-preview-shell">
+                      <div class="preview-slide-counter">{{ slide.code }} / 03</div>
+                      <div class="media-preview app-media-preview first-time-slide-media" id="contentFirstTime{{ slide.code }}MediaPreview" {% if not slide.media_file %}hidden{% endif %}>
+                        {% if slide.media_file %}
+                          {% if slide.media_type == "video" %}
+                            <video controls preload="metadata" src="{{ slide.media_file.url }}"></video>
+                          {% else %}
+                            <img src="{{ slide.media_file.url }}" alt="{{ slide.name }}">
+                          {% endif %}
                         {% endif %}
                       </div>
-                    {% else %}
-                      <div class="preview-placeholder" id="contentFirstTimeAppMediaPlaceholder">لا يوجد تصميم مرفوع حالياً.</div>
-                    {% endif %}
+                      <div class="preview-placeholder first-time-slide-placeholder" id="contentFirstTime{{ slide.code }}MediaPlaceholder" {% if slide.media_file %}hidden{% endif %}>لا توجد وسائط مرفوعة لهذه الشريحة.</div>
 
-                    <h5 id="previewIntroTitle">{{ text_form.intro_title.value|default:intro_block.title_ar }}</h5>
-                    <p id="previewIntroBody">{{ text_form.intro_body.value|default:intro_block.body_ar }}</p>
-
-                    <div class="preview-sections-grid">
-                      <div class="preview-section-box">
-                        <strong id="previewClientTitle">{{ text_form.client_title.value|default:client_block.title_ar }}</strong>
-                        <span id="previewClientBody">{{ text_form.client_body.value|default:client_block.body_ar }}</span>
-                      </div>
-                      <div class="preview-section-box">
-                        <strong id="previewProviderTitle">{{ text_form.provider_title.value|default:provider_block.title_ar }}</strong>
-                        <span id="previewProviderBody">{{ text_form.provider_body.value|default:provider_block.body_ar }}</span>
-                      </div>
+                      <h5 id="previewSlide{{ forloop.counter }}Title">{{ slide.title }}</h5>
+                      <p id="previewSlide{{ forloop.counter }}Body">{{ slide.body }}</p>
+                    </div>
+                    <div class="preview-dots" aria-hidden="true">
+                      <span {% if forloop.first %}class="active"{% endif %}></span>
+                      <span {% if forloop.counter == 2 %}class="active"{% endif %}></span>
+                      <span {% if forloop.counter == 3 %}class="active"{% endif %}></span>
+                    </div>
+                    <div class="phone-preview-actions">
+                      <span>تخطي</span>
+                      <button type="button">{% if forloop.last %}ابدأ الآن{% else %}التالي{% endif %}</button>
                     </div>
                   </div>
-                  <div class="preview-dots" aria-hidden="true">
-                    <span class="active"></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <div class="phone-preview-actions">
-                    <span>تخطي</span>
-                    <button type="button">التالي</button>
-                  </div>
                 </div>
-              </div>
-            </div>
-
-            <form method="post" class="form-shell" id="contentFirstTimeTextForm">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="save_text">
-              <h3>إدارة النصوص</h3>
-              <div class="form-grid">
-                <div class="field full">
-                  <label for="{{ text_form.intro_title.id_for_label }}">العنوان الرئيسي</label>
-                  {{ text_form.intro_title }}
+                <div class="first-time-preview-meta">
+                  <strong>{{ slide.name }}</strong>
+                  <span>عنوان مختصر + وصف محدود + وسائط مستقلة</span>
                 </div>
-                <div class="field full">
-                  <label for="{{ text_form.intro_body.id_for_label }}">النص التعريفي العام</label>
-                  {{ text_form.intro_body }}
-                </div>
-                <div class="field">
-                  <label for="{{ text_form.client_title.id_for_label }}">عنوان العميل</label>
-                  {{ text_form.client_title }}
-                </div>
-                <div class="field">
-                  <label for="{{ text_form.provider_title.id_for_label }}">عنوان مقدم الخدمة</label>
-                  {{ text_form.provider_title }}
-                </div>
-                <div class="field">
-                  <label for="{{ text_form.client_body.id_for_label }}">وصف العميل</label>
-                  {{ text_form.client_body }}
-                </div>
-                <div class="field">
-                  <label for="{{ text_form.provider_body.id_for_label }}">وصف مقدم الخدمة</label>
-                  {{ text_form.provider_body }}
-                </div>
-              </div>
-              <div class="actions">
-                {% if can_manage %}
-                  <button class="primary-btn" type="submit">حفظ</button>
-                  <a class="ghost-btn" href="{% url 'dashboard:content_dashboard_home' %}">إلغاء</a>
-                {% else %}
-                  <span class="pill danger">قراءة فقط</span>
-                {% endif %}
-              </div>
-            </form>
+              </article>
+            {% endfor %}
           </div>
         </section>
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>تغيير التصميم</h2>
+            <h2>إدارة نصوص الشرائح الثلاث</h2>
           </div>
-          <form method="post" enctype="multipart/form-data" class="form-shell" id="contentFirstTimeDesignForm">
+
+          <form method="post" class="form-shell" id="contentFirstTimeTextForm">
             {% csrf_token %}
-            <input type="hidden" name="action" value="upload_design">
-            <div class="content-layout-grid">
-              <div class="mobile-preview" id="contentFirstTimeDesignPreviewCard">
-                <h4>معاينة التصميم</h4>
-                <div class="media-preview" id="contentFirstTimeDesignPreview" {% if not intro_block.media_file %}hidden{% endif %}>
+            <input type="hidden" name="action" value="save_text">
+            <h3>تحرير العناوين والأوصاف</h3>
+            <div class="first-time-editor-grid">
+              <section class="first-time-editor-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">01</span>
+                  <div>
+                    <h4>الشريحة الأولى</h4>
+                    <p>رسالة تعريفية قصيرة مع صورة مستقلة.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ text_form.intro_title.id_for_label }}">{{ text_form.intro_title.label }}</label>
+                    {{ text_form.intro_title }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ text_form.intro_body.id_for_label }}">{{ text_form.intro_body.label }}</label>
+                    {{ text_form.intro_body }}
+                  </div>
+                </div>
+              </section>
+
+              <section class="first-time-editor-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">02</span>
+                  <div>
+                    <h4>الشريحة الثانية</h4>
+                    <p>استمرار الرحلة مع فكرة واحدة ونص محدود.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ text_form.client_title.id_for_label }}">{{ text_form.client_title.label }}</label>
+                    {{ text_form.client_title }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ text_form.client_body.id_for_label }}">{{ text_form.client_body.label }}</label>
+                    {{ text_form.client_body }}
+                  </div>
+                </div>
+              </section>
+
+              <section class="first-time-editor-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">03</span>
+                  <div>
+                    <h4>الشريحة الثالثة</h4>
+                    <p>الختام قبل الانتقال إلى شاشة بروفة التطبيق.</p>
+                  </div>
+                </div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ text_form.provider_title.id_for_label }}">{{ text_form.provider_title.label }}</label>
+                    {{ text_form.provider_title }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ text_form.provider_body.id_for_label }}">{{ text_form.provider_body.label }}</label>
+                    {{ text_form.provider_body }}
+                  </div>
+                </div>
+              </section>
+            </div>
+            <div class="actions">
+              {% if can_manage %}
+                <button class="primary-btn" type="submit">حفظ النصوص</button>
+                <a class="ghost-btn" href="{% url 'dashboard:content_dashboard_home' %}">إلغاء</a>
+              {% else %}
+                <span class="pill danger">قراءة فقط</span>
+              {% endif %}
+            </div>
+          </form>
+        </section>
+
+        <section class="section-panel slide-up">
+          <div class="title-row">
+            <h2>إدارة صور وفيديوهات الشرائح</h2>
+          </div>
+          <form method="post" enctype="multipart/form-data" class="form-shell" id="contentFirstTimeMediaForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="upload_media">
+            <div class="first-time-media-grid">
+              <section class="first-time-media-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">01</span>
+                  <div>
+                    <h4>وسائط الشريحة الأولى</h4>
+                    <p>صورة أو فيديو مستقل لهذه الشريحة فقط.</p>
+                  </div>
+                </div>
+                <div class="media-preview" id="contentFirstTimeSlide1UploadPreview" {% if not intro_block.media_file %}hidden{% endif %}>
                   {% if intro_block.media_file %}
                     {% if intro_block.media_type == "video" %}
                       <video controls preload="metadata" src="{{ intro_block.media_file.url }}"></video>
                     {% else %}
-                      <img src="{{ intro_block.media_file.url }}" alt="معاينة التصميم الحالي">
+                      <img src="{{ intro_block.media_file.url }}" alt="وسائط الشريحة الأولى">
                     {% endif %}
                   {% endif %}
                 </div>
-                <div class="preview-placeholder" id="contentFirstTimeDesignPlaceholder" {% if intro_block.media_file %}hidden{% endif %}>اختر ملفًا ثم اضغط معاينة لعرض التصميم قبل الحفظ.</div>
-              </div>
+                <div class="preview-placeholder" id="contentFirstTimeSlide1UploadPlaceholder" {% if intro_block.media_file %}hidden{% endif %}>اختر ملفًا للشريحة الأولى.</div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ media_form.intro_design_file.id_for_label }}">{{ media_form.intro_design_file.label }}</label>
+                    {{ media_form.intro_design_file }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ media_form.intro_file_specs.id_for_label }}">{{ media_form.intro_file_specs.label }}</label>
+                    {{ media_form.intro_file_specs }}
+                  </div>
+                </div>
+              </section>
 
-              <div class="form-grid">
-                <div class="field full">
-                  <label for="{{ design_form.design_file.id_for_label }}">رفع التصميم</label>
-                  {{ design_form.design_file }}
+              <section class="first-time-media-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">02</span>
+                  <div>
+                    <h4>وسائط الشريحة الثانية</h4>
+                    <p>تُعرض بعد الشريحة الأولى مباشرة داخل نفس التسلسل.</p>
+                  </div>
                 </div>
-                <div class="field full">
-                  <label for="{{ design_form.file_specs.id_for_label }}">مواصفات الملف المرفوع</label>
-                  {{ design_form.file_specs }}
+                <div class="media-preview" id="contentFirstTimeSlide2UploadPreview" {% if not client_block.media_file %}hidden{% endif %}>
+                  {% if client_block.media_file %}
+                    {% if client_block.media_type == "video" %}
+                      <video controls preload="metadata" src="{{ client_block.media_file.url }}"></video>
+                    {% else %}
+                      <img src="{{ client_block.media_file.url }}" alt="وسائط الشريحة الثانية">
+                    {% endif %}
+                  {% endif %}
                 </div>
-              </div>
+                <div class="preview-placeholder" id="contentFirstTimeSlide2UploadPlaceholder" {% if client_block.media_file %}hidden{% endif %}>اختر ملفًا للشريحة الثانية.</div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ media_form.client_design_file.id_for_label }}">{{ media_form.client_design_file.label }}</label>
+                    {{ media_form.client_design_file }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ media_form.client_file_specs.id_for_label }}">{{ media_form.client_file_specs.label }}</label>
+                    {{ media_form.client_file_specs }}
+                  </div>
+                </div>
+              </section>
+
+              <section class="first-time-media-card">
+                <div class="first-time-editor-head">
+                  <span class="first-time-editor-code">03</span>
+                  <div>
+                    <h4>وسائط الشريحة الثالثة</h4>
+                    <p>المرحلة الأخيرة قبل شاشة بروفة التطبيق.</p>
+                  </div>
+                </div>
+                <div class="media-preview" id="contentFirstTimeSlide3UploadPreview" {% if not provider_block.media_file %}hidden{% endif %}>
+                  {% if provider_block.media_file %}
+                    {% if provider_block.media_type == "video" %}
+                      <video controls preload="metadata" src="{{ provider_block.media_file.url }}"></video>
+                    {% else %}
+                      <img src="{{ provider_block.media_file.url }}" alt="وسائط الشريحة الثالثة">
+                    {% endif %}
+                  {% endif %}
+                </div>
+                <div class="preview-placeholder" id="contentFirstTimeSlide3UploadPlaceholder" {% if provider_block.media_file %}hidden{% endif %}>اختر ملفًا للشريحة الثالثة.</div>
+                <div class="form-grid">
+                  <div class="field full">
+                    <label for="{{ media_form.provider_design_file.id_for_label }}">{{ media_form.provider_design_file.label }}</label>
+                    {{ media_form.provider_design_file }}
+                  </div>
+                  <div class="field full">
+                    <label for="{{ media_form.provider_file_specs.id_for_label }}">{{ media_form.provider_file_specs.label }}</label>
+                    {{ media_form.provider_file_specs }}
+                  </div>
+                </div>
+              </section>
             </div>
             <div class="actions">
               {% if can_manage %}
-                <button class="ghost-btn" type="button" id="contentFirstTimePreviewBtn">معاينة</button>
-                <button class="primary-btn light" type="submit">حفظ</button>
+                <button class="primary-btn light" type="submit">حفظ الوسائط</button>
                 <a class="ghost-btn" href="{% url 'dashboard:content_first_time' %}">إلغاء</a>
               {% else %}
-                <span class="pill danger">رفع التصميم غير متاح لهذا الحساب</span>
+                <span class="pill danger">رفع الوسائط غير متاح لهذا الحساب</span>
               {% endif %}
             </div>
           </form>

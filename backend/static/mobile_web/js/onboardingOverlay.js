@@ -22,12 +22,21 @@ const OnboardingOverlay = (() => {
   /* State */
   let _overlay = null;
   let _slides = [];
-  let _introBlock = null;          /* raw intro block for promo screen */
+  let _introBlock = null;          /* dedicated app preview block shown after slides */
   let _index = 0;
   let _touchStartX = 0;
   let _phase = 'slides';          /* 'slides' | 'promo' | 'login' */
   let _otpCooldownTimer = null;
   let _otpCooldownEnd = 0;
+
+  function _normalizePhone05(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (/^05\d{8}$/.test(digits)) return digits;
+    if (/^5\d{8}$/.test(digits)) return '0' + digits;
+    if (/^9665\d{8}$/.test(digits)) return '0' + digits.slice(3);
+    if (/^009665\d{8}$/.test(digits)) return '0' + digits.slice(5);
+    return digits.slice(0, 10);
+  }
 
   /* ── public ── */
   function init() {
@@ -59,8 +68,8 @@ const OnboardingOverlay = (() => {
       .map(def => _mergeBlock(def, blocks[def.key]))
       .filter(s => s && s.title);
 
-    /* Save intro block for standalone promo screen */
-    const introRaw = blocks['onboarding_intro'];
+    /* Save standalone app preview block shown after the 3 onboarding slides */
+    const introRaw = blocks['app_intro_preview'];
     if (introRaw && introRaw.media_url) {
       _introBlock = {
         title:     String(introRaw.title_ar || '').trim(),
@@ -404,16 +413,6 @@ const OnboardingOverlay = (() => {
     const inputWrap = document.createElement('div');
     inputWrap.className = 'ob-login-input-wrap';
 
-    const flag = document.createElement('span');
-    flag.className = 'ob-login-flag';
-    flag.textContent = '🇸🇦';
-    inputWrap.appendChild(flag);
-
-    const prefix = document.createElement('span');
-    prefix.className = 'ob-login-prefix';
-    prefix.textContent = '+966';
-    inputWrap.appendChild(prefix);
-
     const input = document.createElement('input');
     input.type = 'tel';
     input.id = 'ob-phone-input';
@@ -468,6 +467,14 @@ const OnboardingOverlay = (() => {
     card.appendChild(guestBtn);
 
     /* Enter key */
+    input.addEventListener('input', () => {
+      const normalized = _normalizePhone05(input.value);
+      if (input.value !== normalized) {
+        input.value = normalized;
+      }
+      errorEl.textContent = '';
+    });
+
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') _handleSendOtp();
     });
@@ -485,8 +492,12 @@ const OnboardingOverlay = (() => {
     const submitBtn = document.getElementById('ob-login-submit');
     if (!input || !submitBtn) return;
 
-    const phone = input.value.replace(/\D/g, '');
+    const phone = _normalizePhone05(input.value);
     errorEl.textContent = '';
+
+    if (input.value !== phone) {
+      input.value = phone;
+    }
 
     /* Validate */
     if (!phone || !/^05\d{8}$/.test(phone)) {

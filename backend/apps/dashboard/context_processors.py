@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 MAIN_DASHBOARD_NAV = (
     ("admin_control", "إدارة الصلاحيات", "dashboard:admin_control_home"),
+    ("admin_control", "المالية والفواتير", "dashboard:finance_dashboard"),
     ("support", "لوحة الدعم والمساعدة", "dashboard:support_dashboard"),
     ("content", "لوحة إدارة المحتوى", "dashboard:content_dashboard_home"),
     ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard"),

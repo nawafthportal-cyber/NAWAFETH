@@ -13,7 +13,7 @@ from .models import SiteContentBlock, SiteLegalDocument, SiteLinks
 
 
 logger = logging.getLogger(__name__)
-_CACHE_VERSION = "v1"
+_CACHE_VERSION = "v2"
 _TEMPLATE_CACHE_KEY = f"content:{_CACHE_VERSION}:template_site_payload"
 _PUBLIC_CACHE_KEY = f"content:{_CACHE_VERSION}:public_content_payload"
 

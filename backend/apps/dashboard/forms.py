@@ -313,72 +313,72 @@ class SupportDashboardActionForm(forms.Form):
 
 class ContentFirstTimeForm(forms.Form):
     intro_title = forms.CharField(
-        label="العنوان الرئيسي",
+        label="عنوان الشريحة الأولى",
         max_length=120,
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "منصة مختص المنصة الأشمل...",
+                "placeholder": "عنوان قصير وواضح للشريحة الأولى",
                 "maxlength": 120,
             }
         ),
     )
     intro_body = forms.CharField(
-        label="النص التعريفي العام",
+        label="وصف الشريحة الأولى",
         max_length=300,
         required=False,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
-                "rows": 4,
+                "rows": 3,
                 "maxlength": 300,
-                "placeholder": "وصف موجز يظهر أعلى الصفحة (300 حرف).",
+                "placeholder": "نص محدود يظهر مع صورة الشريحة الأولى.",
             }
         ),
     )
     client_title = forms.CharField(
-        label="عنوان قسم العميل",
-        max_length=80,
+        label="عنوان الشريحة الثانية",
+        max_length=120,
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "كعميل",
-                "maxlength": 80,
+                "placeholder": "عنوان قصير للشريحة الثانية",
+                "maxlength": 120,
             }
         ),
     )
     client_body = forms.CharField(
-        label="وصف العميل",
+        label="وصف الشريحة الثانية",
         max_length=300,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
-                "rows": 4,
+                "rows": 3,
                 "maxlength": 300,
-                "placeholder": "وصف مخصص للعملاء (300 حرف).",
+                "placeholder": "نص محدود يظهر مع صورة الشريحة الثانية.",
             }
         ),
     )
     provider_title = forms.CharField(
-        label="عنوان قسم مقدم الخدمة",
-        max_length=80,
+        label="عنوان الشريحة الثالثة",
+        max_length=120,
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "كمقدم خدمة",
-                "maxlength": 80,
+                "placeholder": "عنوان قصير للشريحة الثالثة",
+                "maxlength": 120,
             }
         ),
     )
     provider_body = forms.CharField(
-        label="وصف مقدم الخدمة",
+        label="وصف الشريحة الثالثة",
         max_length=300,
         widget=forms.Textarea(
             attrs={
                 "class": "input-control",
-                "rows": 4,
+                "rows": 3,
                 "maxlength": 300,
-                "placeholder": "وصف مخصص لمقدمي الخدمات (300 حرف).",
+                "placeholder": "نص محدود يظهر مع صورة الشريحة الثالثة.",
             }
         ),
     )
@@ -423,6 +423,96 @@ class ContentDesignUploadForm(forms.Form):
 
     def clean_file_specs(self):
         return (self.cleaned_data.get("file_specs") or "").strip()[:180]
+
+
+class ContentFirstTimeMediaForm(forms.Form):
+    intro_design_file = forms.FileField(
+        label="صورة أو فيديو الشريحة الأولى",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "input-control"}),
+    )
+    intro_file_specs = forms.CharField(
+        label="مواصفات الشريحة الأولى",
+        max_length=180,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "يتم تعبئته تلقائيًا بعد اختيار الملف",
+                "maxlength": 180,
+                "readonly": "readonly",
+                "tabindex": "-1",
+            }
+        ),
+    )
+    client_design_file = forms.FileField(
+        label="صورة أو فيديو الشريحة الثانية",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "input-control"}),
+    )
+    client_file_specs = forms.CharField(
+        label="مواصفات الشريحة الثانية",
+        max_length=180,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "يتم تعبئته تلقائيًا بعد اختيار الملف",
+                "maxlength": 180,
+                "readonly": "readonly",
+                "tabindex": "-1",
+            }
+        ),
+    )
+    provider_design_file = forms.FileField(
+        label="صورة أو فيديو الشريحة الثالثة",
+        required=False,
+        widget=forms.ClearableFileInput(attrs={"class": "input-control"}),
+    )
+    provider_file_specs = forms.CharField(
+        label="مواصفات الشريحة الثالثة",
+        max_length=180,
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "يتم تعبئته تلقائيًا بعد اختيار الملف",
+                "maxlength": 180,
+                "readonly": "readonly",
+                "tabindex": "-1",
+            }
+        ),
+    )
+
+    def clean_intro_design_file(self):
+        uploaded = self.cleaned_data.get("intro_design_file")
+        if uploaded is None:
+            return uploaded
+        validate_content_block_media(uploaded)
+        return optimize_upload_for_storage(uploaded)
+
+    def clean_client_design_file(self):
+        uploaded = self.cleaned_data.get("client_design_file")
+        if uploaded is None:
+            return uploaded
+        validate_content_block_media(uploaded)
+        return optimize_upload_for_storage(uploaded)
+
+    def clean_provider_design_file(self):
+        uploaded = self.cleaned_data.get("provider_design_file")
+        if uploaded is None:
+            return uploaded
+        validate_content_block_media(uploaded)
+        return optimize_upload_for_storage(uploaded)
+
+    def clean_intro_file_specs(self):
+        return (self.cleaned_data.get("intro_file_specs") or "").strip()[:180]
+
+    def clean_client_file_specs(self):
+        return (self.cleaned_data.get("client_file_specs") or "").strip()[:180]
+
+    def clean_provider_file_specs(self):
+        return (self.cleaned_data.get("provider_file_specs") or "").strip()[:180]
 
 
 class ContentSettingsLegalForm(forms.Form):

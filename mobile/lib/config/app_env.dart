@@ -10,7 +10,7 @@ import 'package:flutter/foundation.dart';
 class AppEnv {
   static const String _apiTargetDefine = String.fromEnvironment(
     'API_TARGET',
-    defaultValue: 'render',
+    defaultValue: '',
   );
   static const String _apiBaseUrlDefine = String.fromEnvironment(
     'API_BASE_URL',
@@ -35,13 +35,20 @@ class AppEnv {
       return _renderBaseUrl;
     }
 
+    if (target == 'auto' || target.isEmpty) {
+      final explicit = _normalize(_apiBaseUrlDefine);
+      if (explicit != null) {
+        return explicit;
+      }
+      return kReleaseMode ? _renderBaseUrl : _localBaseUrl;
+    }
+
     final explicit = _normalize(_apiBaseUrlDefine);
     if (explicit != null) {
       return explicit;
     }
 
-    // auto: local defaults حسب المنصة
-    return _localBaseUrl;
+    return kReleaseMode ? _renderBaseUrl : _localBaseUrl;
   }
 
   static String get _localBaseUrl {

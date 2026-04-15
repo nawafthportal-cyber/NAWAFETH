@@ -1160,6 +1160,7 @@ def finalize_request_and_create_invoice(*, vr: VerificationRequest, by_user):
         invoice_preview = verification_invoice_preview_for_request(vr=vr)
         inv = Invoice.objects.create(
             user=vr.requester,
+            created_by=by_user,
             title="رسوم التوثيق",
             description="رسوم التوثيق السنوية",
             subtotal=Decimal("0.00"),

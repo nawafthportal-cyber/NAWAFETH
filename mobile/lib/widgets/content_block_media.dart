@@ -11,6 +11,8 @@ class ContentBlockMedia extends StatefulWidget {
   final double borderRadius;
   final bool autoplay;
   final bool isActive;
+  final BoxFit imageFit;
+  final BoxFit videoFit;
   final Widget? fallback;
 
   const ContentBlockMedia({
@@ -21,6 +23,8 @@ class ContentBlockMedia extends StatefulWidget {
     this.borderRadius = 24,
     this.autoplay = true,
     this.isActive = true,
+    this.imageFit = BoxFit.cover,
+    this.videoFit = BoxFit.cover,
     this.fallback,
   });
 
@@ -159,7 +163,7 @@ class _ContentBlockMediaState extends State<ContentBlockMedia> {
             ),
             CachedNetworkImage(
               imageUrl: url,
-              fit: BoxFit.cover,
+              fit: widget.imageFit,
               placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
               errorWidget: (_, __, ___) => _buildFallbackSurface(
                 icon: Icons.broken_image_outlined,
@@ -205,7 +209,7 @@ class _ContentBlockMediaState extends State<ContentBlockMedia> {
               const Center(child: CircularProgressIndicator(color: Colors.white))
             else
               FittedBox(
-                fit: BoxFit.cover,
+                fit: widget.videoFit,
                 clipBehavior: Clip.hardEdge,
                 child: SizedBox(
                   width: controller.value.size.width,

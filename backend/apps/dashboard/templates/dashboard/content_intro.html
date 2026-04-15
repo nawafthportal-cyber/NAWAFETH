@@ -31,7 +31,7 @@
 
         <section class="section-panel slide-up">
           <div class="title-row">
-            <h2>رفع التصميم</h2>
+            <h2>إدارة شاشة بروفة التطبيق</h2>
           </div>
           <div class="content-layout-grid">
             <div class="mobile-preview app-screen-preview">
@@ -39,8 +39,8 @@
               <div class="phone-shell">
                 <div class="phone-notch"></div>
                 <div class="phone-display">
-                  <div class="onboarding-card-preview">
-                    <div class="preview-slide-counter">02 / 03</div>
+                  <div class="onboarding-card-preview intro-image-only-preview">
+                    <div class="preview-slide-counter">بروفة التطبيق</div>
                     {% if intro_preview_block.media_file %}
                       <div class="media-preview app-media-preview" id="contentIntroAppMediaPreview">
                         {% if intro_preview_block.media_type == "video" %}
@@ -52,19 +52,8 @@
                     {% else %}
                       <div class="preview-placeholder" id="contentIntroAppMediaPlaceholder">لا يوجد ملف بروفة معتمد بعد.</div>
                     {% endif %}
-
-                    <h5>صفحة بروفة التعريف بالتطبيق</h5>
-                    <p>تظهر هذه الشريحة في منتصف تسلسل الشاشات التعريفية عند أول فتح للتطبيق.</p>
                   </div>
-                  <div class="preview-dots" aria-hidden="true">
-                    <span></span>
-                    <span class="active"></span>
-                    <span></span>
-                  </div>
-                  <div class="phone-preview-actions">
-                    <span>تخطي</span>
-                    <button type="button">التالي</button>
-                  </div>
+                  <div class="intro-preview-caption">تظهر هذه الشاشة بعد الشريحة الثالثة مباشرة وقبل صفحة تسجيل الدخول.</div>
                 </div>
               </div>
             </div>

@@ -32,7 +32,17 @@
         if (!form) {
           return;
         }
-        const specs = form.querySelector("input[name='file_specs']");
+        const inputName = String(input.name || "");
+        const specsName = inputName.includes("design_file")
+          ? inputName.replace("design_file", "file_specs")
+          : "file_specs";
+        let specs = form.querySelector("input[name='" + specsName + "']");
+        if (!specs) {
+          const card = input.closest(".first-time-media-card");
+          if (card) {
+            specs = card.querySelector("input[name$='file_specs']");
+          }
+        }
         if (!specs) {
           return;
         }
@@ -293,13 +303,84 @@
   }
 
   function setupFirstTimeDesignPreview() {
-    setupDesignPreview({
-      formId: "contentFirstTimeDesignForm",
-      previewBtnId: "contentFirstTimePreviewBtn",
-      previewWrapId: "contentFirstTimeDesignPreview",
-      placeholderId: "contentFirstTimeDesignPlaceholder",
-      appPreviewWrapId: "contentFirstTimeAppMediaPreview",
-      appPlaceholderId: "contentFirstTimeAppMediaPlaceholder",
+    const form = document.getElementById("contentFirstTimeMediaForm");
+    if (!form) {
+      return;
+    }
+
+    const entries = [
+      {
+        inputName: "intro_design_file",
+        uploadPreviewId: "contentFirstTimeSlide1UploadPreview",
+        uploadPlaceholderId: "contentFirstTimeSlide1UploadPlaceholder",
+        slidePreviewId: "contentFirstTime01MediaPreview",
+        slidePlaceholderId: "contentFirstTime01MediaPlaceholder",
+        alt: "وسائط الشريحة الأولى",
+      },
+      {
+        inputName: "client_design_file",
+        uploadPreviewId: "contentFirstTimeSlide2UploadPreview",
+        uploadPlaceholderId: "contentFirstTimeSlide2UploadPlaceholder",
+        slidePreviewId: "contentFirstTime02MediaPreview",
+        slidePlaceholderId: "contentFirstTime02MediaPlaceholder",
+        alt: "وسائط الشريحة الثانية",
+      },
+      {
+        inputName: "provider_design_file",
+        uploadPreviewId: "contentFirstTimeSlide3UploadPreview",
+        uploadPlaceholderId: "contentFirstTimeSlide3UploadPlaceholder",
+        slidePreviewId: "contentFirstTime03MediaPreview",
+        slidePlaceholderId: "contentFirstTime03MediaPlaceholder",
+        alt: "وسائط الشريحة الثالثة",
+      },
+    ];
+
+    function renderFile(target, file, alt) {
+      if (!target || !file) {
+        return false;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      target.innerHTML = "";
+      if (/^video\//i.test(file.type || "")) {
+        const video = document.createElement("video");
+        video.controls = true;
+        video.preload = "metadata";
+        video.src = objectUrl;
+        target.appendChild(video);
+      } else {
+        const image = document.createElement("img");
+        image.alt = alt;
+        image.src = objectUrl;
+        target.appendChild(image);
+      }
+      target.hidden = false;
+      return true;
+    }
+
+    entries.forEach((entry) => {
+      const input = form.querySelector("input[name='" + entry.inputName + "']");
+      const uploadPreview = document.getElementById(entry.uploadPreviewId);
+      const uploadPlaceholder = document.getElementById(entry.uploadPlaceholderId);
+      const slidePreview = document.getElementById(entry.slidePreviewId);
+      const slidePlaceholder = document.getElementById(entry.slidePlaceholderId);
+      if (!input) {
+        return;
+      }
+
+      input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        if (!file) {
+          return;
+        }
+
+        if (renderFile(uploadPreview, file, entry.alt) && uploadPlaceholder) {
+          uploadPlaceholder.hidden = true;
+        }
+        if (renderFile(slidePreview, file, entry.alt) && slidePlaceholder) {
+          slidePlaceholder.hidden = true;
+        }
+      });
     });
   }
 
@@ -316,12 +397,12 @@
 
   function setupFirstTimeTextLivePreview() {
     const bindings = [
-      { input: "intro_title", target: "previewIntroTitle" },
-      { input: "intro_body", target: "previewIntroBody" },
-      { input: "client_title", target: "previewClientTitle" },
-      { input: "client_body", target: "previewClientBody" },
-      { input: "provider_title", target: "previewProviderTitle" },
-      { input: "provider_body", target: "previewProviderBody" },
+      { input: "intro_title", target: "previewSlide1Title" },
+      { input: "intro_body", target: "previewSlide1Body" },
+      { input: "client_title", target: "previewSlide2Title" },
+      { input: "client_body", target: "previewSlide2Body" },
+      { input: "provider_title", target: "previewSlide3Title" },
+      { input: "provider_body", target: "previewSlide3Body" },
     ];
 
     bindings.forEach((entry) => {

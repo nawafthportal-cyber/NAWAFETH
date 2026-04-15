@@ -54,6 +54,15 @@ class Invoice(models.Model):
         related_name="invoices",
     )
 
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="invoices_created",
+        help_text="الموظف الذي أنشأ الفاتورة يدوياً",
+    )
+
     title = models.CharField(max_length=160, default="فاتورة")
     description = models.CharField(max_length=300, blank=True)
 

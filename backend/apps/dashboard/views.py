@@ -111,6 +111,7 @@ from apps.verification.models import (
 )
 from apps.verification.serializers import VerificationRequestDetailSerializer
 from apps.extras.models import ExtraPurchase, ExtraPurchaseStatus
+from apps.extras.option_catalog import UNAVAILABLE_CLIENT_OPTIONS, UNAVAILABLE_FINANCE_OPTIONS
 from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
 from apps.extras.services import (
     activate_bundle_portal_subscription_for_request,
@@ -171,6 +172,7 @@ from .forms import (
     AccessProfileForm,
     ContentDesignUploadForm,
     ContentFirstTimeForm,
+    ContentFirstTimeMediaForm,
     ContentReviewActionForm,
     ContentSettingsLegalForm,
     ContentSettingsLinksForm,
@@ -4908,8 +4910,8 @@ def extras_dashboard(request):
         "extras_vat_percent": _extras_vat_percent(),
         "report_options": [{"key": key, "label": label} for key, label in EXTRAS_REPORT_OPTIONS],
         "report_option_groups": _extras_report_option_groups(),
-        "client_options": [{"key": key, "label": label} for key, label in EXTRAS_CLIENT_OPTIONS],
-        "finance_options": [{"key": key, "label": label} for key, label in EXTRAS_FINANCE_OPTIONS],
+        "client_options": [{"key": key, "label": label, "unavailable": key in UNAVAILABLE_CLIENT_OPTIONS} for key, label in EXTRAS_CLIENT_OPTIONS],
+        "finance_options": [{"key": key, "label": label, "unavailable": key in UNAVAILABLE_FINANCE_OPTIONS} for key, label in EXTRAS_FINANCE_OPTIONS],
         "bundle_selected_report_options": list(bundle_draft.get("reports", {}).get("options", [])),
         "bundle_selected_client_options": list(bundle_draft.get("clients", {}).get("options", [])),
         "bundle_selected_finance_options": list(bundle_draft.get("finance", {}).get("options", [])),
@@ -8577,31 +8579,67 @@ def content_first_time(request):
 
     intro_block = _content_block_get_or_create(
         ContentBlockKey.ONBOARDING_FIRST_TIME,
-        default_title="منصة مختص",
-        default_body="المنصة الأشمل لربط مقدمي الخدمات المختلفة مع عملائهم.",
+        default_title="مرحبًا بك في نوافذ",
+        default_body="منصة موحدة لاكتشاف الخدمات باحترافية أعلى، مع تجربة أوضح منذ اللحظة الأولى.",
     )
     client_block = _content_block_get_or_create(
         ContentBlockKey.ONBOARDING_INTRO,
-        default_title="كعميل",
-        default_body="ابحث عن المختص المناسب لخدمتك وابدأ الطلب بثقة.",
+        default_title="للعملاء ومقدمي الخدمات",
+        default_body="ابحث، قارن، وابدأ الطلب بثقة عبر تجربة مرئية أوضح وأكثر ترتيبًا.",
     )
     provider_block = _content_block_get_or_create(
         ContentBlockKey.ONBOARDING_GET_STARTED,
-        default_title="كمقدم خدمة",
-        default_body="بوابة لتمكين المختصين من استثمار الخبرة والمهارة والتواصل مع العملاء.",
+        default_title="ابدأ الآن",
+        default_body="أنجز خطواتك الأولى بسرعة، ثم انتقل إلى بروفة التطبيق قبل تسجيل الدخول.",
     )
+
+    slide_blocks = [
+        {
+            "code": "01",
+            "name": "الشريحة الأولى",
+            "block": intro_block,
+            "title_field": "intro_title",
+            "body_field": "intro_body",
+            "file_field": "intro_design_file",
+            "spec_field": "intro_file_specs",
+        },
+        {
+            "code": "02",
+            "name": "الشريحة الثانية",
+            "block": client_block,
+            "title_field": "client_title",
+            "body_field": "client_body",
+            "file_field": "client_design_file",
+            "spec_field": "client_file_specs",
+        },
+        {
+            "code": "03",
+            "name": "الشريحة الثالثة",
+            "block": provider_block,
+            "title_field": "provider_title",
+            "body_field": "provider_body",
+            "file_field": "provider_design_file",
+            "spec_field": "provider_file_specs",
+        },
+    ]
 
     text_form = ContentFirstTimeForm(
         initial={
             "intro_title": intro_block.title_ar,
             "intro_body": intro_block.body_ar,
-            "client_title": client_block.title_ar or "كعميل",
+            "client_title": client_block.title_ar,
             "client_body": client_block.body_ar,
-            "provider_title": provider_block.title_ar or "كمقدم خدمة",
+            "provider_title": provider_block.title_ar,
             "provider_body": provider_block.body_ar,
         }
     )
-    design_form = ContentDesignUploadForm(initial={"file_specs": _content_media_specs(intro_block.media_file)})
+    media_form = ContentFirstTimeMediaForm(
+        initial={
+            "intro_file_specs": _content_media_specs(intro_block.media_file),
+            "client_file_specs": _content_media_specs(client_block.media_file),
+            "provider_file_specs": _content_media_specs(provider_block.media_file),
+        }
+    )
 
     if request.method == "POST":
         if not can_manage:
@@ -8636,37 +8674,57 @@ def content_first_time(request):
                 return redirect("dashboard:content_first_time")
             messages.error(request, "يرجى مراجعة حقول النصوص.")
 
-        elif action == "upload_design":
-            design_form = ContentDesignUploadForm(request.POST, request.FILES)
-            if design_form.is_valid():
-                design_file = design_form.cleaned_data.get("design_file")
-                if design_file is None:
-                    messages.error(request, "يرجى اختيار ملف التصميم قبل الحفظ.")
-                else:
+        elif action == "upload_media":
+            media_form = ContentFirstTimeMediaForm(request.POST, request.FILES)
+            if media_form.is_valid():
+                uploaded_any = False
+                for slide in slide_blocks:
+                    design_file = media_form.cleaned_data.get(slide["file_field"])
+                    if design_file is None:
+                        continue
                     _save_content_block(
-                        block=intro_block,
+                        block=slide["block"],
                         media_file=design_file,
                         actor=request.user,
                         request=request,
                     )
-                    messages.success(request, "تم رفع تصميم شاشة الدخول الأول بنجاح.")
+                    uploaded_any = True
+                if not uploaded_any:
+                    messages.error(request, "يرجى اختيار ملف واحد على الأقل قبل الحفظ.")
+                else:
+                    messages.success(request, "تم تحديث صور شرائح صفحة الدخول لأول مرة.")
                     return redirect("dashboard:content_first_time")
             else:
-                messages.error(request, "تعذّر رفع ملف التصميم. راجع مواصفات الملف.")
+                messages.error(request, "تعذّر رفع ملفات الشرائح. راجع مواصفات الملفات.")
+
+    slide_previews = []
+    for slide in slide_blocks:
+        field_name = slide["title_field"]
+        body_name = slide["body_field"]
+        slide_previews.append(
+            {
+                **slide,
+                "title": text_form[field_name].value() or slide["block"].title_ar,
+                "body": text_form[body_name].value() or slide["block"].body_ar,
+                "media_file": slide["block"].media_file,
+                "media_type": slide["block"].media_type,
+                "file_specs": _content_media_specs(slide["block"].media_file),
+            }
+        )
 
     context = _content_base_context("first_time")
     context.update(
         {
             "hero_title": "محتوى صفحة الدخول لأول مرة",
-            "hero_subtitle": "تعديل النصوص الأساسية وتحديث التصميم المعروض عند فتح التطبيق لأول مرة.",
+            "hero_subtitle": "إدارة 3 شرائح مستقلة، لكل شريحة نص مختصر وصورة أو فيديو، قبل شاشة بروفة التطبيق ثم تسجيل الدخول.",
             "text_form": text_form,
-            "design_form": design_form,
+            "media_form": media_form,
             "can_manage": can_manage,
             "can_write": can_write,
             "intro_block": intro_block,
             "client_block": client_block,
             "provider_block": provider_block,
-            "design_specs": _content_media_specs(intro_block.media_file),
+            "slide_previews": slide_previews,
         }
     )
     return render(request, "dashboard/content_first_time.html", context)
@@ -8680,9 +8738,9 @@ def content_intro(request):
     can_manage = bool(can_write and manage_policy.allowed)
 
     intro_preview_block = _content_block_get_or_create(
-        ContentBlockKey.ONBOARDING_INTRO,
+        ContentBlockKey.APP_INTRO_PREVIEW,
         default_title="بروفة التعريف بالتطبيق",
-        default_body="صفحة التعريف الأولى داخل التطبيق.",
+        default_body="",
     )
     upload_form = ContentDesignUploadForm(initial={"file_specs": _content_media_specs(intro_preview_block.media_file)})
 
@@ -8712,7 +8770,7 @@ def content_intro(request):
     context.update(
         {
             "hero_title": "محتوى صفحة بروفة التعريف بالتطبيق",
-            "hero_subtitle": "رفع التصميم، معاينته داخل إطار الجوال، واعتماد النسخة النهائية.",
+            "hero_subtitle": "رفع صورة أو فيديو شاشة البروفة التي تظهر بعد الشرائح الثلاث مباشرة وقبل صفحة تسجيل الدخول.",
             "upload_form": upload_form,
             "intro_preview_block": intro_preview_block,
             "can_manage": can_manage,
@@ -9752,3 +9810,172 @@ def resend_otp_view(request):
         messages.success(request, "تم إرسال رمز تحقق جديد.")
     _activate_otp_resend_cooldown(user.id)
     return redirect("dashboard:otp")
+
+
+# ---------------------------------------------------------------------------
+# المالية – Finance Dashboard
+# ---------------------------------------------------------------------------
+
+_FINANCE_REFERENCE_TYPE_LABELS = {
+    "subscription": "اشتراك",
+    "verify_request": "توثيق",
+    "promo_request": "ترويج",
+    "extra_purchase": "خدمات إضافية",
+    "extras_bundle_request": "حزمة إضافية",
+}
+
+_FINANCE_STATUS_LABELS = dict(InvoiceStatus.choices)
+
+
+def _finance_reference_label(ref_type: str) -> str:
+    return _FINANCE_REFERENCE_TYPE_LABELS.get(ref_type, ref_type or "غير مصنف")
+
+
+@dashboard_staff_required
+@require_dashboard_access("admin_control")
+def finance_dashboard(request):
+    """صفحة المالية – عرض جميع الفواتير مع فلترة وتصدير."""
+
+    # ── Filters ──
+    status_filter = (request.GET.get("status") or "").strip()
+    ref_type_filter = (request.GET.get("ref_type") or "").strip()
+    q_filter = (request.GET.get("q") or "").strip()
+    start_date, end_date = _date_range_from_request(request)
+    start_dt, end_dt = _to_aware_window(start_date, end_date)
+
+    qs = (
+        Invoice.objects
+        .select_related("user", "created_by")
+        .filter(created_at__range=(start_dt, end_dt))
+        .order_by("-created_at")
+    )
+
+    if status_filter and status_filter in InvoiceStatus.values:
+        qs = qs.filter(status=status_filter)
+    if ref_type_filter:
+        qs = qs.filter(reference_type=ref_type_filter)
+    if q_filter:
+        qs = qs.filter(
+            Q(code__icontains=q_filter)
+            | Q(title__icontains=q_filter)
+            | Q(user__username__icontains=q_filter)
+            | Q(user__phone__icontains=q_filter)
+            | Q(reference_id__icontains=q_filter)
+        )
+
+    # ── Stats ──
+    all_period_qs = Invoice.objects.filter(created_at__range=(start_dt, end_dt))
+    stats = {
+        "total": all_period_qs.count(),
+        "paid": all_period_qs.filter(status=InvoiceStatus.PAID).count(),
+        "pending": all_period_qs.filter(status=InvoiceStatus.PENDING).count(),
+        "draft": all_period_qs.filter(status=InvoiceStatus.DRAFT).count(),
+        "cancelled": all_period_qs.filter(status=InvoiceStatus.CANCELLED).count(),
+        "failed": all_period_qs.filter(status=InvoiceStatus.FAILED).count(),
+        "refunded": all_period_qs.filter(status=InvoiceStatus.REFUNDED).count(),
+    }
+    revenue = all_period_qs.filter(status=InvoiceStatus.PAID).aggregate(
+        revenue=Sum("total"), vat_collected=Sum("vat_amount"),
+    )
+    stats["revenue"] = float(revenue["revenue"] or 0)
+    stats["vat_collected"] = float(revenue["vat_collected"] or 0)
+
+    # ── By-type breakdown ──
+    by_type_rows = (
+        all_period_qs
+        .filter(status=InvoiceStatus.PAID)
+        .values("reference_type")
+        .annotate(count=Count("id"), amount=Sum("total"))
+        .order_by("-amount")
+    )
+    by_type = [
+        {
+            "label": _finance_reference_label(r["reference_type"]),
+            "count": r["count"],
+            "amount": float(r["amount"] or 0),
+        }
+        for r in by_type_rows
+    ]
+
+    invoices = list(qs[:500])
+
+    # ── CSV Export ──
+    if _want_csv(request):
+        headers = [
+            "رقم الفاتورة", "العميل", "نوع الخدمة", "المبلغ الفرعي",
+            "الضريبة", "الإجمالي", "الحالة", "تاريخ الإنشاء", "تاريخ الدفع", "المنشئ",
+        ]
+        rows = []
+        for inv in invoices:
+            rows.append([
+                inv.code,
+                getattr(inv.user, "username", "") or getattr(inv.user, "phone", ""),
+                _finance_reference_label(inv.reference_type),
+                str(inv.subtotal),
+                str(inv.vat_amount),
+                str(inv.total),
+                _FINANCE_STATUS_LABELS.get(inv.status, inv.status),
+                inv.created_at.strftime("%Y-%m-%d %H:%M") if inv.created_at else "",
+                inv.paid_at.strftime("%Y-%m-%d %H:%M") if inv.paid_at else "",
+                getattr(inv.created_by, "username", "") if inv.created_by else "تلقائي",
+            ])
+        return _csv_response("finance_invoices.csv", headers, rows)
+
+    # ── Invoice detail ──
+    selected_invoice = None
+    selected_lines = []
+    selected_attempts = []
+    detail_id = (request.GET.get("invoice") or "").strip()
+    if detail_id and detail_id.isdigit():
+        selected_invoice = Invoice.objects.select_related("user", "created_by").filter(pk=int(detail_id)).first()
+        if selected_invoice:
+            selected_lines = list(selected_invoice.lines.order_by("sort_order"))
+            selected_attempts = list(
+                PaymentAttempt.objects.filter(invoice=selected_invoice).order_by("-created_at")[:20]
+            )
+
+    # ── Template rows ──
+    invoice_rows = []
+    for inv in invoices:
+        invoice_rows.append({
+            "id": inv.id,
+            "code": inv.code,
+            "user_display": getattr(inv.user, "username", "") or getattr(inv.user, "phone", ""),
+            "reference_type": inv.reference_type,
+            "reference_label": _finance_reference_label(inv.reference_type),
+            "reference_id": inv.reference_id,
+            "subtotal": inv.subtotal,
+            "vat_amount": inv.vat_amount,
+            "total": inv.total,
+            "status": inv.status,
+            "status_label": _FINANCE_STATUS_LABELS.get(inv.status, inv.status),
+            "created_at": inv.created_at,
+            "paid_at": inv.paid_at,
+            "created_by_display": getattr(inv.created_by, "username", "") if inv.created_by else "",
+        })
+
+    filters = {
+        "status": status_filter,
+        "ref_type": ref_type_filter,
+        "q": q_filter,
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+    }
+
+    return render(request, "dashboard/finance_dashboard.html", {
+        "invoice_rows": invoice_rows,
+        "stats": stats,
+        "by_type": by_type,
+        "filters": filters,
+        "status_choices": InvoiceStatus.choices,
+        "ref_type_choices": [
+            ("subscription", "اشتراك"),
+            ("verify_request", "توثيق"),
+            ("promo_request", "ترويج"),
+            ("extra_purchase", "خدمات إضافية"),
+            ("extras_bundle_request", "حزمة إضافية"),
+        ],
+        "selected_invoice": selected_invoice,
+        "selected_lines": selected_lines,
+        "selected_attempts": selected_attempts,
+    })

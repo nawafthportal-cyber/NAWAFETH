@@ -12,6 +12,7 @@ urlpatterns = [
     path("otp/resend/", views.resend_otp_view, name="otp_resend"),
     path("logout/", views.logout_view, name="logout"),
     path("admin-control/", views.admin_control_home, name="admin_control_home"),
+    path("finance/", views.finance_dashboard, name="finance_dashboard"),
     path("support/", views.support_dashboard, name="support_dashboard"),
     path("support/<int:ticket_id>/", views.support_dashboard, name="support_ticket_detail"),
     path("subscriptions/", views.subscription_dashboard, name="subscription_dashboard"),

@@ -294,6 +294,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(minutes=1),
         "args": (200,),
     },
+    "extras-portal-expire-due-subscriptions": {
+        "task": "extras_portal.expire_due_subscriptions",
+        "schedule": timedelta(hours=6),
+        "args": (500,),
+    },
     "verification-expire-badges": {
         "task": "verification.expire_badges_and_sync",
         "schedule": timedelta(hours=1),

@@ -965,6 +965,7 @@ def create_manual_extras_invoice(
     if invoice is None:
         invoice = Invoice.objects.create(
             user=invoice_user,
+            created_by=by_user,
             title=resolved_title,
             description=resolved_description,
             currency=currency,

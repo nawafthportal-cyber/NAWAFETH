@@ -124,3 +124,25 @@ def process_due_scheduled_messages(*, now=None, limit: int | None = None) -> dic
             totals["failed"] += 1
 
     return totals
+
+
+def expire_due_portal_subscriptions(*, now=None, limit: int = 500) -> dict[str, int]:
+    """Mark ACTIVE subscriptions whose ends_at has passed as INACTIVE."""
+    from .models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
+
+    now = now or timezone.now()
+    expired_qs = (
+        ExtrasPortalSubscription.objects
+        .filter(
+            status=ExtrasPortalSubscriptionStatus.ACTIVE,
+            ends_at__isnull=False,
+            ends_at__lte=now,
+        )
+        .order_by("id")[:limit]
+    )
+    count = 0
+    for subscription in expired_qs:
+        subscription.status = ExtrasPortalSubscriptionStatus.INACTIVE
+        subscription.save(update_fields=["status", "updated_at"])
+        count += 1
+    return {"expired": count}

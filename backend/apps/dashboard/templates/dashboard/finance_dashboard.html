@@ -1,0 +1,321 @@
+{% extends 'dashboard/_base.html' %}
+{% load static %}
+
+{% block title %}المالية{% endblock %}
+
+{% block body %}
+  <div class="dashboard-layout">
+    <header class="dash-header">
+      <div class="hero-panel panel fade-in">
+        <div>
+          <h1>المالية والفواتير</h1>
+          <p class="subtitle">عرض وتصفّح جميع الفواتير والمدفوعات في المنصة.</p>
+        </div>
+        <div class="hero-stats">
+          <span class="pill brand">إجمالي: {{ stats.total }}</span>
+          <span class="pill mint">مدفوعة: {{ stats.paid }}</span>
+          <span class="pill accent">معلقة: {{ stats.pending }}</span>
+          <span class="pill danger">ملغاة: {{ stats.cancelled }}</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="dash-shell">
+      <section class="panel content-panel">
+
+        {# ── Stats strip ── #}
+        <div class="finance-stats-strip slide-up">
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.revenue|floatformat:2 }}</span>
+            <span class="finance-stat-label">إجمالي الإيرادات (ر.س)</span>
+          </div>
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.vat_collected|floatformat:2 }}</span>
+            <span class="finance-stat-label">الضريبة المحصّلة (ر.س)</span>
+          </div>
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.paid }}</span>
+            <span class="finance-stat-label">فواتير مدفوعة</span>
+          </div>
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.pending }}</span>
+            <span class="finance-stat-label">بانتظار الدفع</span>
+          </div>
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.draft }}</span>
+            <span class="finance-stat-label">مسودة</span>
+          </div>
+          <div class="finance-stat-card">
+            <span class="finance-stat-value">{{ stats.failed }}</span>
+            <span class="finance-stat-label">فشلت</span>
+          </div>
+        </div>
+
+        {# ── Filter toolbar ── #}
+        <section class="section-panel slide-up" id="financeInvoices">
+          <div class="title-row">
+            <h2>قائمة الفواتير</h2>
+            <div class="actions">
+              <a class="ghost-btn" href="{% url 'dashboard:finance_dashboard' %}?start={{ filters.start }}&end={{ filters.end }}&status={{ filters.status }}&ref_type={{ filters.ref_type }}&q={{ filters.q }}&export=csv" title="تصدير CSV">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                تصدير CSV
+              </a>
+            </div>
+          </div>
+
+          <form method="get" class="toolbar finance-toolbar">
+            <input class="input-control" type="search" name="q" value="{{ filters.q }}" placeholder="بحث برقم الفاتورة أو اسم العميل أو الهاتف...">
+            <select class="input-control" name="status">
+              <option value="">كل الحالات</option>
+              {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <select class="input-control" name="ref_type">
+              <option value="">كل الأنواع</option>
+              {% for value, label in ref_type_choices %}
+                <option value="{{ value }}" {% if filters.ref_type == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            <input class="input-control" type="date" name="start" value="{{ filters.start }}">
+            <input class="input-control" type="date" name="end" value="{{ filters.end }}">
+            <div class="actions">
+              <button class="primary-btn light" type="submit">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                تصفية
+              </button>
+              <a class="ghost-btn" href="{% url 'dashboard:finance_dashboard' %}">مسح</a>
+            </div>
+          </form>
+
+          {# ── Invoices table ── #}
+          <div class="table-wrap">
+            <table class="dash-table finance-table">
+              <thead>
+                <tr>
+                  <th>رقم الفاتورة</th>
+                  <th>العميل</th>
+                  <th>نوع الخدمة</th>
+                  <th>الإجمالي</th>
+                  <th>الضريبة</th>
+                  <th>الحالة</th>
+                  <th>تاريخ الإنشاء</th>
+                  <th>تاريخ الدفع</th>
+                  <th>المنشئ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in invoice_rows %}
+                  <tr class="{% if row.status == 'cancelled' or row.status == 'failed' %}row-muted{% endif %}">
+                    <td><strong>{{ row.code }}</strong></td>
+                    <td>{{ row.user_display }}</td>
+                    <td><span class="pill pill-sm finance-type-{{ row.reference_type }}">{{ row.reference_label }}</span></td>
+                    <td class="num-cell">{{ row.total|floatformat:2 }}</td>
+                    <td class="num-cell">{{ row.vat_amount|floatformat:2 }}</td>
+                    <td>
+                      <span class="pill pill-sm finance-status-{{ row.status }}">{{ row.status_label }}</span>
+                    </td>
+                    <td>{{ row.created_at|date:"Y/m/d H:i" }}</td>
+                    <td>{% if row.paid_at %}{{ row.paid_at|date:"Y/m/d H:i" }}{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                    <td>{% if row.created_by_display %}{{ row.created_by_display }}{% else %}<span class="text-muted">تلقائي</span>{% endif %}</td>
+                    <td>
+                      <a class="ghost-btn ghost-btn-xs" href="{% url 'dashboard:finance_dashboard' %}?invoice={{ row.id }}&start={{ filters.start }}&end={{ filters.end }}&status={{ filters.status }}&ref_type={{ filters.ref_type }}&q={{ filters.q }}">تفاصيل</a>
+                    </td>
+                  </tr>
+                {% empty %}
+                  <tr><td colspan="10" class="empty-cell">لا توجد فواتير مطابقة للبحث.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {# ── Invoice Detail Panel ── #}
+        {% if selected_invoice %}
+        <section class="section-panel slide-up finance-detail-panel" id="invoiceDetail">
+          <div class="title-row">
+            <h2>تفاصيل الفاتورة {{ selected_invoice.code }}</h2>
+            <div class="actions">
+              <span class="pill finance-status-{{ selected_invoice.status }}">{{ selected_invoice.get_status_display }}</span>
+            </div>
+          </div>
+
+          <div class="finance-detail-grid">
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">العميل</span>
+              <span class="finance-detail-value">{{ selected_invoice.user.username|default:selected_invoice.user.phone }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">العنوان</span>
+              <span class="finance-detail-value">{{ selected_invoice.title }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">الوصف</span>
+              <span class="finance-detail-value">{{ selected_invoice.description|default:"—" }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">نوع الخدمة</span>
+              <span class="finance-detail-value">{{ selected_invoice.reference_type|default:"غير مصنف" }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">رقم المرجع</span>
+              <span class="finance-detail-value">{{ selected_invoice.reference_id|default:"—" }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">العملة</span>
+              <span class="finance-detail-value">{{ selected_invoice.currency }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">المبلغ الفرعي</span>
+              <span class="finance-detail-value">{{ selected_invoice.subtotal|floatformat:2 }} ر.س</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">نسبة الضريبة</span>
+              <span class="finance-detail-value">{{ selected_invoice.vat_percent }}%</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">مبلغ الضريبة</span>
+              <span class="finance-detail-value">{{ selected_invoice.vat_amount|floatformat:2 }} ر.س</span>
+            </div>
+            <div class="finance-detail-item finance-detail-total">
+              <span class="finance-detail-label">الإجمالي</span>
+              <span class="finance-detail-value">{{ selected_invoice.total|floatformat:2 }} ر.س</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">تاريخ الإنشاء</span>
+              <span class="finance-detail-value">{{ selected_invoice.created_at|date:"Y/m/d H:i" }}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">تاريخ الدفع</span>
+              <span class="finance-detail-value">{% if selected_invoice.paid_at %}{{ selected_invoice.paid_at|date:"Y/m/d H:i" }}{% else %}—{% endif %}</span>
+            </div>
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">المنشئ</span>
+              <span class="finance-detail-value">{% if selected_invoice.created_by %}{{ selected_invoice.created_by.username }}{% else %}تلقائي{% endif %}</span>
+            </div>
+            {% if selected_invoice.payment_provider %}
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">مزود الدفع</span>
+              <span class="finance-detail-value">{{ selected_invoice.payment_provider }}</span>
+            </div>
+            {% endif %}
+            {% if selected_invoice.payment_reference %}
+            <div class="finance-detail-item">
+              <span class="finance-detail-label">مرجع الدفع</span>
+              <span class="finance-detail-value">{{ selected_invoice.payment_reference }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          {# ── Line Items ── #}
+          {% if selected_lines %}
+          <div class="finance-sub-section">
+            <h3>بنود الفاتورة</h3>
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>البند</th>
+                    <th>الكود</th>
+                    <th>المبلغ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for line in selected_lines %}
+                    <tr>
+                      <td>{{ line.sort_order }}</td>
+                      <td>{{ line.title }}</td>
+                      <td>{{ line.item_code|default:"—" }}</td>
+                      <td class="num-cell">{{ line.amount|floatformat:2 }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+
+          {# ── Payment Attempts ── #}
+          {% if selected_attempts %}
+          <div class="finance-sub-section">
+            <h3>محاولات الدفع</h3>
+            <div class="table-wrap">
+              <table class="dash-table">
+                <thead>
+                  <tr>
+                    <th>المزود</th>
+                    <th>الحالة</th>
+                    <th>المبلغ</th>
+                    <th>تاريخ المحاولة</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for attempt in selected_attempts %}
+                    <tr>
+                      <td>{{ attempt.provider }}</td>
+                      <td><span class="pill pill-sm">{{ attempt.get_status_display }}</span></td>
+                      <td class="num-cell">{{ attempt.amount|floatformat:2 }}</td>
+                      <td>{{ attempt.created_at|date:"Y/m/d H:i" }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endif %}
+        </section>
+        {% endif %}
+
+      </section>
+
+      <aside class="panel side-panel">
+        {% include 'dashboard/_sidebar_main_nav.html' %}
+
+        {# ── Revenue by type ── #}
+        {% if by_type %}
+        <div class="side-card">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            الإيرادات حسب الخدمة
+          </h4>
+          <div class="stack">
+            {% for item in by_type %}
+              <div class="stat-row">
+                <span class="stat-row-label">{{ item.label }}</span>
+                <span class="stat-row-value">{{ item.amount|floatformat:2 }} ر.س <small class="text-muted">({{ item.count }})</small></span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        {# ── Quick counts ── #}
+        <div class="side-card">
+          <h4>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            ملخص الحالات
+          </h4>
+          <div class="stack">
+            <div class="stat-row"><span class="stat-row-label">مدفوعة</span><span class="stat-row-value pill-sm finance-status-paid">{{ stats.paid }}</span></div>
+            <div class="stat-row"><span class="stat-row-label">بانتظار الدفع</span><span class="stat-row-value pill-sm finance-status-pending">{{ stats.pending }}</span></div>
+            <div class="stat-row"><span class="stat-row-label">مسودة</span><span class="stat-row-value pill-sm finance-status-draft">{{ stats.draft }}</span></div>
+            <div class="stat-row"><span class="stat-row-label">فشلت</span><span class="stat-row-value pill-sm finance-status-failed">{{ stats.failed }}</span></div>
+            <div class="stat-row"><span class="stat-row-label">ملغاة</span><span class="stat-row-value pill-sm finance-status-cancelled">{{ stats.cancelled }}</span></div>
+            <div class="stat-row"><span class="stat-row-label">مسترجعة</span><span class="stat-row-value pill-sm finance-status-refunded">{{ stats.refunded }}</span></div>
+          </div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  {% if selected_invoice %}
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      var el = document.getElementById("invoiceDetail");
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  </script>
+  {% endif %}
+{% endblock %}
