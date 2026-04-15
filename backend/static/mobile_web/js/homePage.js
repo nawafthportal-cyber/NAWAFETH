@@ -1299,6 +1299,8 @@ const HomePage = (() => {
   ---------------------------------------------------------- */
   function _renderBanners(banners) {
     if (!$carouselTrack || !$bannersSection) return;
+    var heroEl = document.getElementById('hero');
+    var heroSkel = document.getElementById('hero-skeleton');
     if (!banners.length) {
       $bannersSection.style.display = 'none';
       _carouselItems = [];
@@ -1308,9 +1310,13 @@ const HomePage = (() => {
       if ($carouselDots) $carouselDots.textContent = '';
       if ($carouselPrev) $carouselPrev.style.display = 'none';
       if ($carouselNext) $carouselNext.style.display = 'none';
+      if (heroEl) heroEl.classList.add('hero--no-banners');
+      if (heroSkel) heroSkel.style.display = 'none';
       return;
     }
     $bannersSection.style.display = '';
+    if (heroEl) heroEl.classList.remove('hero--no-banners');
+    if (heroSkel) heroSkel.style.display = 'none';
 
     _carouselItems = banners;
     _carouselIdx = 0;

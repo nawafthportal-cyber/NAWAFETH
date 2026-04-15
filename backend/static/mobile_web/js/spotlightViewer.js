@@ -325,126 +325,17 @@ const SpotlightViewer = (() => {
       }
     }
 
-    // Bottom info (provider + caption)
+    // Keep the spotlight media clean in web view.
     const bottomEl = document.getElementById('sv-bottom');
     if (bottomEl) {
       bottomEl.innerHTML = '';
-      const provName = (item.provider_display_name || '').trim();
-      const hideTextDetails = !!item.sponsored_badge_only;
-      const caption = hideTextDetails ? '' : (item.caption || '').trim();
-      const sectionTitle = (item.section_title || '').trim();
-      const mediaLabel = hideTextDetails ? '' : _resolveMediaLabel(item);
-      const provId = item.provider_id;
-
-      if (provName) {
-        const provRow = document.createElement('div');
-        provRow.className = 'sv-provider-row';
-        if (provId) provRow.style.cursor = 'pointer';
-
-        // Avatar
-        const avatar = document.createElement('div');
-        avatar.className = 'sv-provider-avatar';
-        const profileImg = _resolveUrl(item.provider_profile_image);
-        if (profileImg) {
-          const img = document.createElement('img');
-          img.src = profileImg;
-          img.alt = provName;
-          img.addEventListener('error', () => { img.style.display = 'none'; avatar.textContent = provName.charAt(0); });
-          avatar.appendChild(img);
-        } else {
-          avatar.textContent = provName.charAt(0) || '؟';
-        }
-        provRow.appendChild(avatar);
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'sv-provider-name';
-        nameSpan.textContent = provName;
-        provRow.appendChild(nameSpan);
-
-        if (provId) {
-          provRow.addEventListener('click', () => {
-            close();
-            window.location.href = '/provider/' + encodeURIComponent(String(provId)) + '/';
-          });
-        }
-        bottomEl.appendChild(provRow);
-      }
-
-      if (caption) {
-        if (sectionTitle || mediaLabel) {
-          const meta = document.createElement('div');
-          meta.className = 'sv-meta';
-
-          if (sectionTitle) {
-            const sectionChip = document.createElement('span');
-            sectionChip.className = 'sv-section-chip';
-            sectionChip.textContent = sectionTitle;
-            meta.appendChild(sectionChip);
-          }
-
-          if (mediaLabel) {
-            const titleEl = document.createElement('div');
-            titleEl.className = 'sv-media-title';
-            titleEl.textContent = mediaLabel;
-            meta.appendChild(titleEl);
-          }
-
-          bottomEl.appendChild(meta);
-        }
-
-        const cap = document.createElement('div');
-        cap.className = 'sv-caption';
-        cap.textContent = caption;
-        bottomEl.appendChild(cap);
-      } else if (sectionTitle || mediaLabel) {
-        const meta = document.createElement('div');
-        meta.className = 'sv-meta';
-
-        if (sectionTitle) {
-          const sectionChip = document.createElement('span');
-          sectionChip.className = 'sv-section-chip';
-          sectionChip.textContent = sectionTitle;
-          meta.appendChild(sectionChip);
-        }
-
-        if (mediaLabel) {
-          const titleEl = document.createElement('div');
-          titleEl.className = 'sv-media-title';
-          titleEl.textContent = mediaLabel;
-          meta.appendChild(titleEl);
-        }
-
-        bottomEl.appendChild(meta);
-      }
+      bottomEl.hidden = true;
     }
 
     // Side actions
     const sideEl = document.getElementById('sv-side');
     if (sideEl) {
       sideEl.innerHTML = '';
-
-      // Provider avatar (big)
-      const provId = item.provider_id;
-      const provImgUrl = _resolveUrl(item.provider_profile_image);
-      const provAvatar = document.createElement('div');
-      provAvatar.className = 'sv-side-avatar';
-      if (provId) provAvatar.style.cursor = 'pointer';
-      if (provImgUrl) {
-        const img = document.createElement('img');
-        img.src = provImgUrl;
-        img.alt = '';
-        img.addEventListener('error', () => { img.style.display = 'none'; });
-        provAvatar.appendChild(img);
-      } else {
-        provAvatar.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
-      }
-      if (provId) {
-        provAvatar.addEventListener('click', () => {
-          close();
-          window.location.href = '/provider/' + encodeURIComponent(String(provId)) + '/';
-        });
-      }
-      sideEl.appendChild(provAvatar);
 
       // Like button
       const likeBtn = _buildSideAction(

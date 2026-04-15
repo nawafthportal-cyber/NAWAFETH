@@ -255,12 +255,6 @@ const OnboardingOverlay = (() => {
     p.textContent = slide.desc;
     p.style.whiteSpace = 'pre-line';
     textWrap.appendChild(p);
-    if (idx === 0) {
-      const hint = document.createElement('div');
-      hint.className = 'ob-gesture-hint';
-      hint.textContent = 'مرر للتنقل أو اضغط التالي';
-      textWrap.appendChild(hint);
-    }
     el.appendChild(textWrap);
     return el;
   }

@@ -8096,10 +8096,10 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   pointer-events: none;
 }
 .service-action-card:hover { border-color: rgba(103, 58, 183, 0.3); box-shadow: 0 2px 10px rgba(0,0,0,0.06); transform: translateY(-1px); }
-.onboarding-stage { position: relative; min-height: 404px; }
+.onboarding-stage { position: relative; min-height: auto; }
 .onboard-slide {
   display: flex; flex-direction: column;
-  align-items: center; gap: 18px;
+  align-items: center; gap: 12px;
   padding: 6px 0 10px;
 }
 .onboard-slide.hidden { display: none; }
@@ -8143,16 +8143,16 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   text-align: center;
 }
 .onboard-copy-card {
-  width: min(100%, 356px);
-  padding: 18px 16px 16px;
-  border-radius: 22px;
+  width: min(100%, 320px);
+  padding: 14px 14px 12px;
+  border-radius: 20px;
   border: 1px solid rgba(122, 90, 170, .12);
   background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,243,255,.94));
-  box-shadow: 0 16px 32px rgba(52, 28, 92, .08);
+  box-shadow: 0 12px 24px rgba(52, 28, 92, .06);
 }
 .onboard-media {
   position: relative;
-  width: min(100%, 360px);
+  width: min(100%, 260px);
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 22px;
@@ -8306,7 +8306,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   }
 
   .onboarding-stage {
-    min-height: 372px;
+    min-height: auto;
   }
 
   .onboard-slide-meta {
@@ -8343,11 +8343,11 @@ body.page-order-detail .order-bottom-actions .btn-primary {
 
 @media (max-width: 360px) {
   .onboarding-stage {
-    min-height: 340px;
+    min-height: auto;
   }
 
   .onboard-media {
-    width: min(100%, 280px);
+    width: min(100%, 200px);
     border-radius: 18px;
   }
 
@@ -8458,7 +8458,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
     0 40px 80px rgba(26, 10, 56, .35),
     0 16px 32px rgba(103, 58, 183, .15),
     inset 0 1px 0 rgba(255,255,255,.9);
-  padding: 24px 22px 18px;
+  padding: 20px 16px 14px;
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-gutter: stable;
@@ -8480,7 +8480,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: .5px;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 /* ── Slide stage ── */
@@ -8498,7 +8498,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 12px;
   padding: 4px 0 8px;
   opacity: 0;
   transform: translateX(-60px);
@@ -8539,10 +8539,6 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   position: relative;
   visibility: visible;
   height: auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
 }
 .ob-slide--prev {
   opacity: 0;
@@ -8557,7 +8553,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
 .ob-media {
   position: relative;
   width: 100%;
-  max-width: 320px;
+  max-width: 220px;
   aspect-ratio: 4 / 3;
   border-radius: 20px;
   overflow: hidden;
@@ -8615,11 +8611,11 @@ body.page-order-detail .order-bottom-actions .btn-primary {
 }
 .ob-copy-card {
   width: 100%;
-  padding: 18px 16px 16px;
-  border-radius: 22px;
+  padding: 14px 12px 12px;
+  border-radius: 20px;
   border: 1px solid rgba(122, 90, 170, .12);
   background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,243,255,.94));
-  box-shadow: 0 16px 32px rgba(52, 28, 92, .08);
+  box-shadow: 0 12px 24px rgba(52, 28, 92, .06);
 }
 .ob-title {
   margin: 0;
@@ -8655,7 +8651,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin: 12px 0 2px;
+  margin: 8px 0 2px;
 }
 .ob-dot {
   width: 10px;
@@ -8677,9 +8673,9 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 10px;
   gap: 12px;
-  padding-top: 14px;
+  padding-top: 10px;
   border-top: 1px solid rgba(109, 78, 161, .12);
 }
 .ob-btn-skip {
@@ -9112,22 +9108,22 @@ video.ob-promo-asset {
     max-height: 98vh;
   }
   .ob-stage {
-    min-height: 344px;
+    min-height: auto;
   }
   .ob-slide-meta {
     flex-wrap: wrap;
     justify-content: center;
   }
   .ob-counter { font-size: 11px; padding: 4px 10px; margin-bottom: 4px; }
-  .ob-media { max-width: 220px; border-radius: 14px; aspect-ratio: 4/3; }
+  .ob-media { max-width: 180px; border-radius: 14px; aspect-ratio: 4/3; }
   .ob-media-asset { padding: 4px; }
   .ob-icon-circle { width: 64px; height: 64px; }
   .ob-icon-circle svg { width: 28px; height: 28px; }
   .ob-copy-card { padding: 14px 12px 12px; border-radius: 18px; }
   .ob-title { font-size: 16px; }
   .ob-desc { font-size: 12.5px; line-height: 1.8; }
-  .ob-slide { gap: 10px; }
-  .ob-dots { margin: 10px 0 2px; gap: 6px; }
+  .ob-slide { gap: 8px; }
+  .ob-dots { margin: 8px 0 2px; gap: 6px; }
   .ob-dot { width: 8px; height: 8px; }
   .ob-dot--active { width: 22px; }
   .ob-actions { margin-top: 10px; flex-wrap: wrap-reverse; }
@@ -9143,13 +9139,13 @@ video.ob-promo-asset {
     border-radius: 26px;
   }
   .ob-stage {
-    min-height: 388px;
+    min-height: auto;
   }
   .ob-slide-meta {
     flex-wrap: wrap;
     justify-content: center;
   }
-  .ob-media { max-width: 260px; border-radius: 18px; aspect-ratio: 4/3; }
+  .ob-media { max-width: 200px; border-radius: 18px; aspect-ratio: 4/3; }
   .ob-copy-card { padding: 16px 14px 14px; border-radius: 18px; }
   .ob-icon-circle { width: 84px; height: 84px; }
   .ob-icon-circle svg { width: 38px; height: 38px; }
@@ -9165,7 +9161,7 @@ video.ob-promo-asset {
     padding: 22px 20px 18px;
     border-radius: 30px;
   }
-  .ob-media { max-width: 280px; }
+  .ob-media { max-width: 220px; }
 }
 
 /* ── Responsive: short viewports (landscape phones / short screens) ── */
@@ -9189,7 +9185,7 @@ video.ob-promo-asset {
 }
 @media (min-height: 601px) and (max-height: 700px) {
   .ob-container { padding: 16px 16px 14px; }
-  .ob-media { max-width: 240px; }
+  .ob-media { max-width: 200px; }
   .ob-stage { min-height: auto; }
   .ob-slide { gap: 12px; }
   .ob-dots { margin: 10px 0 2px; }
