@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     MobileWebHomeView,
-    MobileWebLoginView,
+    MobileWebLegacyLoginRedirectView,
     MobileWebOnboardingView,
     MobileWebTwoFAView,
     MobileWebSignupView,
@@ -57,7 +57,7 @@ app_name = "mobile_web"
 
 urlpatterns = [
     path("", MobileWebHomeView.as_view(), name="home"),
-    path("login/", MobileWebLoginView.as_view(), name="login"),
+    path("login/", MobileWebLegacyLoginRedirectView.as_view(), name="login"),
     path("onboarding/", MobileWebOnboardingView.as_view(), name="onboarding"),
     path("twofa/", MobileWebTwoFAView.as_view(), name="twofa"),
     path("signup/", MobileWebSignupView.as_view(), name="signup"),

@@ -6,6 +6,7 @@ from apps.providers.models import ProviderProfile
 
 from .views import (
     MobileWebAdditionalServicesPaymentView,
+    MobileWebLegacyLoginRedirectView,
     MobileWebLegacyRequestRedirectView,
     MobileWebPromotionPaymentView,
     MobileWebSearchProvidersView,
@@ -55,6 +56,17 @@ class MobileWebRootRoutesTests(TestCase):
         match = resolve("/search-providers/")
 
         self.assertEqual(match.func.view_class, MobileWebSearchProvidersView)
+
+    def test_mobile_web_login_route_redirect_is_available(self):
+        match = resolve("/mobile-web/login/")
+
+        self.assertEqual(match.func.view_class, MobileWebLegacyLoginRedirectView)
+
+    def test_mobile_web_login_redirects_to_canonical_login_with_query_params(self):
+        response = self.client.get("/mobile-web/login/?next=/chats/&source=legacy")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/login/?next=/chats/&source=legacy")
 
     def test_search_providers_redirects_to_search_with_query_params(self):
         response = self.client.get("/search-providers/?q=plumber&city=riyadh&sort=rating")

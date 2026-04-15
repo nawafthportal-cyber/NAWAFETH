@@ -1,0 +1,27 @@
+<div id="{{ gate_id|default:'auth-gate' }}" class="auth-gate auth-gate-unified {{ extra_class|default:'' }} hidden">
+  {% if kicker %}
+    <p class="auth-gate-unified-kicker">{{ kicker }}</p>
+  {% endif %}
+
+  <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+      <path d="M12 3a4 4 0 00-4 4v2H7a2 2 0 00-2 2v7a2 2 0 002 2h10a2 2 0 002-2v-7a2 2 0 00-2-2h-1V7a4 4 0 00-4-4zm-2 6V7a2 2 0 114 0v2h-4z" fill="currentColor"></path>
+      <circle cx="12" cy="14" r="1.25" fill="#fff"></circle>
+      <path d="M12 15.25v1.75" stroke="#fff" stroke-width="1.4" stroke-linecap="round"></path>
+    </svg>
+  </div>
+
+  <h2 class="auth-gate-unified-title">{{ title|default:'سجّل دخولك للمتابعة' }}</h2>
+  <p class="auth-gate-unified-desc">{{ description|default:'يلزم تسجيل الدخول للوصول إلى هذه الصفحة.' }}</p>
+
+  <a
+    href="/login/?next={{ next_path|default:'/'|urlencode }}"
+    class="btn btn-primary auth-gate-unified-btn"
+  >
+    {{ button_label|default:'تسجيل الدخول' }}
+  </a>
+
+  {% if note %}
+    <p class="auth-gate-unified-note">{{ note }}</p>
+  {% endif %}
+</div>

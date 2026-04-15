@@ -7,6 +7,8 @@ OTP_DEV_BYPASS_ENABLED = True
 OTP_DEV_ACCEPT_ANY_4_DIGITS = True
 OTP_DEV_TEST_CODE = "0000"
 OTP_DEV_ACCEPT_ANY_CODE = True
+# Accept any 4-digit OTP code in dev (web + Flutter + extras_portal + dashboard)
+OTP_APP_BYPASS = True
 
 # Enable automatic home-banner video fitting in local development by default.
 PROMO_HOME_BANNER_VIDEO_AUTOFIT = env_bool("PROMO_HOME_BANNER_VIDEO_AUTOFIT", True)

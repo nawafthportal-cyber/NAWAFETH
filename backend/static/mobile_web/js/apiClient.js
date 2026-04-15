@@ -38,8 +38,8 @@ const ApiClient = (() => {
 
   async function _tryRefresh() {
     let refresh;
-    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch(_) { return { ok: false, terminal: false }; }
-    if (!refresh) return { ok: false, terminal: false };
+    try { refresh = sessionStorage.getItem('nw_refresh_token'); } catch(_) { return { ok: false, terminal: true }; }
+    if (!refresh) return { ok: false, terminal: true };
     try {
       const res = await fetch(BASE + '/api/accounts/token/refresh/', {
         method: 'POST',
@@ -119,9 +119,9 @@ const ApiClient = (() => {
         if (refreshResult.ok) {
           return request(path, Object.assign({}, opts, { _retried: true }));
         }
-        if (refreshResult.terminal) {
-          return request(path, Object.assign({}, opts, { _retried: true, omitAuth: true }));
-        }
+        // Public endpoints must still work even when stale credentials exist.
+        // Retry once without Authorization after any refresh failure.
+        return request(path, Object.assign({}, opts, { _retried: true, omitAuth: true }));
       }
 
       return _parseResponse(res);

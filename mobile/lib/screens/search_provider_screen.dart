@@ -787,30 +787,14 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'البحث عن مزود خدمة',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                          fontFamily: 'Cairo',
-                          color: isDark ? Colors.white : const Color(0xFF24182F),
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'ابحث بسرعة، بدقة، وبواجهة مناسبة لجميع شاشات الجوال.',
-                        style: TextStyle(
-                          fontSize: 10,
-                          height: 1.6,
-                          fontFamily: 'Cairo',
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? Colors.white60 : const Color(0xFF7A6B8B),
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'البحث عن مزود خدمة',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Cairo',
+                      color: isDark ? Colors.white : const Color(0xFF24182F),
+                    ),
                   ),
                 ),
                 if (widget.showDrawer)
@@ -1154,34 +1138,16 @@ class _SearchProviderScreenState extends State<SearchProviderScreen> {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'ترتيب النتائج',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                                fontFamily: 'Cairo',
-                                color: isDark
-                                    ? Colors.white
-                                    : const Color(0xFF24182F),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'اختر الطريقة الأنسب لعرض مزودي الخدمة على الجوال.',
-                              style: TextStyle(
-                                fontSize: 10,
-                                height: 1.5,
-                                fontFamily: 'Cairo',
-                                fontWeight: FontWeight.w600,
-                                color: isDark
-                                    ? Colors.white54
-                                    : const Color(0xFF7A6B8B),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          'ترتيب النتائج',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            fontFamily: 'Cairo',
+                            color: isDark
+                                ? Colors.white
+                                : const Color(0xFF24182F),
+                          ),
                         ),
                       ),
                     ],

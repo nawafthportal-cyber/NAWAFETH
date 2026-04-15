@@ -11,10 +11,11 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.accounts.models import UserRole
+from apps.notifications.models import Notification
 from apps.marketplace.models import RequestStatus, RequestType
 from apps.marketplace.models import RequestStatusLog, ServiceRequest
 from apps.marketplace.serializers import ServiceRequestListSerializer
-from apps.marketplace.services.dispatch import ensure_dispatch_windows_for_urgent_request
+from apps.marketplace.services.dispatch import dispatch_due_competitive_request_notifications, ensure_dispatch_windows_for_urgent_request
 from apps.marketplace.services.actions import execute_action
 from apps.marketplace.views import provider_requests
 from apps.providers.models import Category, ProviderCategory, ProviderProfile, SaudiCity, SaudiRegion, SubCategory
@@ -431,3 +432,96 @@ class MarketplaceLegacyHtmlFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "انتهت مهلة استقبال عروض الأسعار لهذا الطلب")
+
+
+class CompetitiveRequestNotificationDispatchTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.client_user = user_model.objects.create_user(
+            phone="0500001750",
+            password="secret",
+            role_state=UserRole.CLIENT,
+        )
+        self.provider_user = user_model.objects.create_user(
+            phone="0500001751",
+            password="secret",
+            role_state=UserRole.PROVIDER,
+        )
+        self.category = Category.objects.create(name="برمجة")
+        self.subcategory = SubCategory.objects.create(category=self.category, name="تطبيقات")
+        self.provider_profile = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود تنافسي",
+            bio="نبذة",
+            city="الرياض",
+        )
+        ProviderCategory.objects.create(provider=self.provider_profile, subcategory=self.subcategory)
+        self.api_client = APIClient()
+        self.api_client.force_authenticate(user=self.client_user)
+
+    def _activate_subscription(self, *, code: str, tier: str, title: str) -> None:
+        plan = SubscriptionPlan.objects.create(
+            code=code,
+            tier=tier,
+            title=title,
+            period=PlanPeriod.MONTH,
+            price="0.00",
+            notifications_enabled=True,
+            is_active=True,
+        )
+        Subscription.objects.create(
+            user=self.provider_user,
+            plan=plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=timezone.now() - timedelta(days=1),
+            end_at=timezone.now() + timedelta(days=30),
+        )
+
+    def test_competitive_request_creation_notifies_provider_when_access_is_immediate(self):
+        self._activate_subscription(code="marketplace_pro_competitive_notify", tier=PlanTier.PRO, title="احترافية")
+
+        response = self.api_client.post(
+            reverse("marketplace:request_create"),
+            {
+                "subcategory": self.subcategory.id,
+                "subcategory_ids": [self.subcategory.id],
+                "title": "طلب تنافسي فوري",
+                "description": "تفاصيل الطلب",
+                "request_type": RequestType.COMPETITIVE,
+                "city": "الرياض",
+                "quote_deadline": (timezone.localdate() + timedelta(days=2)).isoformat(),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+        self.assertIn("طلب عرض خدمة تنافسية", notification.title)
+
+    def test_competitive_request_notification_waits_until_provider_delay_window(self):
+        self._activate_subscription(code="marketplace_riyadi_competitive_notify", tier=PlanTier.RIYADI, title="ريادية")
+        request_obj = ServiceRequest.objects.create(
+            client=self.client_user,
+            subcategory=self.subcategory,
+            title="طلب تنافسي مؤجل",
+            description="تفاصيل الطلب",
+            request_type=RequestType.COMPETITIVE,
+            status=RequestStatus.NEW,
+            city="الرياض",
+            quote_deadline=timezone.localdate() + timedelta(days=3),
+        )
+        request_obj.subcategories.add(self.subcategory)
+
+        first_run = dispatch_due_competitive_request_notifications(now=timezone.now(), limit=50)
+        self.assertEqual(first_run["sent"], 0)
+
+        ServiceRequest.objects.filter(id=request_obj.id).update(created_at=timezone.now() - timedelta(hours=30))
+        second_run = dispatch_due_competitive_request_notifications(now=timezone.now(), limit=50)
+
+        self.assertEqual(second_run["sent"], 1)
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertIn("طلب تنافسي", notification.body)

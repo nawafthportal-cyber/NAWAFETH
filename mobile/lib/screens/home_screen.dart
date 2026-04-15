@@ -1021,7 +1021,7 @@ class _HomeScreenState extends State<HomeScreen> {
             'اكتشف المختص المناسب\nبواجهة أسرع للجوال',
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: 16,
               height: 1.35,
               fontFamily: 'Cairo',
               fontWeight: FontWeight.w900,
@@ -1428,7 +1428,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildSectionShell(
       kicker: 'لمحات حية',
       title: 'أحدث اللمحات',
-      note: 'محتوى قصير وسريع الاستكشاف مناسب للجوال.',
       isDark: isDark,
       margin: const EdgeInsets.fromLTRB(14, 2, 14, 4),
       child: _buildSectionAnimatedContent(
@@ -1692,7 +1691,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildSectionShell(
       kicker: 'رسالة مميزة',
       title: title,
-      note: 'إبراز مهني للمحتوى الدعائي داخل الصفحة الرئيسية دون إزعاج.',
       isDark: isDark,
       margin: const EdgeInsets.fromLTRB(14, 6, 14, 4),
       trailing: IconButton(
@@ -1881,7 +1879,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildSectionShell(
       kicker: 'اكتشف الخدمات',
       title: _content.categoriesTitle,
-      note: 'تصنيفات سريعة ومقروءة بحجم مناسب للشاشات الصغيرة.',
       isDark: isDark,
       trailing: _buildSectionMiniAction(
         label: 'عرض الكل',
@@ -2011,7 +2008,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildSectionShell(
       kicker: 'ترشيحات المنصة',
       title: title,
-      note: 'بطاقات مختصين مضبوطة بصريًا لتناسب شاشات الجوال الصغيرة.',
       isDark: isDark,
       child: _buildSectionAnimatedContent(
         stateKey: _isFeaturedLoading && visibleFeaturedSpecialists.isEmpty
@@ -2080,7 +2076,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return _buildSectionShell(
       kicker: 'أعمال وبنرات',
       title: 'شريط البنرات والمشاريع',
-      note: 'معرض بصري مضغوط وواضح يبرز الأعمال الترويجية والمشاريع المختارة.',
       isDark: isDark,
       child: SizedBox(
         height: 214,

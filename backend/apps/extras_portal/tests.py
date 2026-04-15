@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -10,8 +10,17 @@ from django.utils import timezone
 from apps.analytics.models import ProviderDailyStats
 from apps.billing.models import Invoice
 from apps.extras_portal.auth import SESSION_PORTAL_OTP_VERIFIED_KEY
-from apps.extras_portal.models import ExtrasPortalSubscription, ExtrasPortalSubscriptionStatus
+from apps.extras_portal.models import (
+    ExtrasPortalScheduledMessage,
+    ExtrasPortalScheduledMessageRecipient,
+    ExtrasPortalSubscription,
+    ExtrasPortalSubscriptionStatus,
+    ScheduledMessageStatus,
+)
+from apps.extras_portal.services import process_due_scheduled_messages
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
+from apps.messaging.models import Message
+from apps.notifications.models import Notification
 from apps.providers.models import (
     Category,
     ProviderFollow,
@@ -21,6 +30,7 @@ from apps.providers.models import (
     SubCategory,
 )
 from apps.reviews.models import Review
+from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestMetadata, UnifiedRequestType
 
 
@@ -604,3 +614,89 @@ class ExtrasPortalMultiRequestSectionsTests(TestCase):
         self.assertEqual(response.context["request_code"], self.reports_bundle_request.code)
         self.assertEqual(response.context["report_request_count"], 1)
         self.assertNotContains(response, unpaid_request.code)
+
+
+class ScheduledMessageReminderNotificationTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.provider_user = user_model.objects.create_user(
+            phone="0500001990",
+            username="portal_scheduler_provider",
+            password="secret",
+        )
+        self.provider_profile = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود رسائل مجدولة",
+            bio="نبذة",
+            years_experience=3,
+        )
+        self.client_user = user_model.objects.create_user(
+            phone="0500001991",
+            username="portal_scheduler_client",
+            password="secret",
+        )
+        plan = SubscriptionPlan.objects.create(
+            code="portal-scheduled-basic",
+            tier=PlanTier.BASIC,
+            title="أساسية",
+            period=PlanPeriod.MONTH,
+            price="0.00",
+            notifications_enabled=True,
+            is_active=True,
+        )
+        Subscription.objects.create(
+            user=self.provider_user,
+            plan=plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=timezone.now() - timedelta(days=1),
+            end_at=timezone.now() + timedelta(days=30),
+        )
+        ExtrasPortalSubscription.objects.create(
+            provider=self.provider_profile,
+            status=ExtrasPortalSubscriptionStatus.ACTIVE,
+            plan_title="إدارة العملاء",
+            started_at=timezone.now() - timedelta(days=1),
+            ends_at=timezone.now() + timedelta(days=30),
+        )
+
+    def test_due_scheduled_message_creates_provider_notification(self):
+        scheduled = ExtrasPortalScheduledMessage.objects.create(
+            provider=self.provider_profile,
+            body="رسالة متابعة مجدولة",
+            send_at=timezone.now() - timedelta(minutes=5),
+            status=ScheduledMessageStatus.PENDING,
+            created_by=self.provider_user,
+        )
+        ExtrasPortalScheduledMessageRecipient.objects.create(
+            scheduled_message=scheduled,
+            user=self.client_user,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            result = process_due_scheduled_messages(now=timezone.now())
+
+        scheduled.refresh_from_db()
+        self.assertEqual(result["sent"], 1)
+        self.assertEqual(scheduled.status, ScheduledMessageStatus.SENT)
+        self.assertEqual(Message.objects.filter(sender=self.provider_user).count(), 1)
+        notification = Notification.objects.get(user=self.provider_user)
+        self.assertIn("التذكير المجدول", notification.title)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+
+    def test_due_scheduled_message_without_recipients_is_cancelled_without_notification(self):
+        scheduled = ExtrasPortalScheduledMessage.objects.create(
+            provider=self.provider_profile,
+            body="رسالة بلا مستقبلين",
+            send_at=timezone.now() - timedelta(minutes=5),
+            status=ScheduledMessageStatus.PENDING,
+            created_by=self.provider_user,
+        )
+
+        with self.captureOnCommitCallbacks(execute=True):
+            result = process_due_scheduled_messages(now=timezone.now())
+
+        scheduled.refresh_from_db()
+        self.assertEqual(result["cancelled"], 1)
+        self.assertEqual(scheduled.status, ScheduledMessageStatus.CANCELLED)
+        self.assertFalse(Notification.objects.filter(user=self.provider_user).exists())

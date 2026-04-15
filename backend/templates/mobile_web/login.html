@@ -5,10 +5,14 @@
 {% block body_class %}page-login{% endblock %}
 
 {% block content %}
-<main class="auth-page">
-  <div class="container">
-    <div class="auth-card">
+<main class="auth-page auth-page-login">
+  <span class="auth-login-bg-shape auth-login-bg-shape-a" aria-hidden="true"></span>
+  <span class="auth-login-bg-shape auth-login-bg-shape-b" aria-hidden="true"></span>
+
+  <div class="container auth-login-container">
+    <div class="auth-card auth-card-login">
       <div class="auth-header">
+        <p class="auth-login-kicker">بوابة نوافذ الموحّدة</p>
         <div class="auth-logo">نوافــذ</div>
         <h1 class="auth-title" id="login-title">...</h1>
         <p class="auth-desc" id="login-desc">...</p>
@@ -30,21 +34,21 @@
         <div class="form-error hidden" id="phone-error"></div>
       </div>
 
-      <button class="btn-primary" id="btn-send-otp">
+      <button class="btn btn-primary" id="btn-send-otp" type="button">
         <span id="send-otp-text">...</span>
         <span class="spinner hidden" id="send-otp-spinner"></span>
       </button>
 
       <div id="faceid-login-section" class="hidden">
         <div class="auth-divider"><span>أو</span></div>
-        <button class="btn-faceid-login" id="btn-faceid-login">
+        <button class="btn btn-faceid-login" id="btn-faceid-login" type="button">
           <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="22" height="22" rx="6"/><circle cx="14" cy="11.5" r="3.5"/><path d="M8.5 23c0-3.5 2.5-6 5.5-6s5.5 2.5 5.5 6"/></svg>
           <span>الدخول بمعرف الوجه</span>
         </button>
       </div>
 
       <div class="auth-divider"><span>أو</span></div>
-      <button class="btn-secondary" id="btn-guest">...</button>
+      <button class="btn btn-secondary" id="btn-guest" type="button">...</button>
     </div>
   </div>
 </main>

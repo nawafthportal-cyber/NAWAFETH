@@ -446,7 +446,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.tune_rounded,
                     title: 'إعداد الطلب',
-                    description: 'حدد نوع الطلب والقسم والتصنيف الفرعي بدقة.',
                     child: Column(
                       children: [
                         _requestTypePicker(),
@@ -464,7 +463,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.place_outlined,
                     title: 'الموقع والعنوان',
-                    description: 'أضف المدينة والعنوان المختصر ليظهر الطلب بشكل أوضح.',
                     child: Column(
                       children: [
                         DropdownButtonFormField<String>(
@@ -524,7 +522,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.notes_rounded,
                     title: 'تفاصيل الطلب',
-                    description: 'اشرح المطلوب بدقة حتى تصل عروض مناسبة بشكل أسرع.',
                     child: TextFormField(
                       controller: _detailsController,
                       maxLength: 500,
@@ -547,7 +544,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.event_outlined,
                     title: 'موعد استقبال العروض',
-                    description: 'يمكنك تركه فارغًا أو تحديد تاريخ مناسب خلال 365 يومًا.',
                     child: _deadlineTile(),
                   ),
                 ),
@@ -557,7 +553,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.attach_file_rounded,
                     title: 'المرفقات',
-                    description: 'أضف صورًا أو فيديوهات أو ملفات توضيحية تدعم وصفك.',
                     child: Column(
                       children: [
                         _attachmentsPreview(),
@@ -595,7 +590,6 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                   _buildSectionCard(
                     icon: Icons.mic_none_rounded,
                     title: 'رسالة صوتية',
-                    description: 'أضف توضيحًا صوتيًا مختصرًا إذا كان الشرح الكتابي لا يكفي.',
                     child: _audioPart(),
                   ),
                 ),
@@ -1151,16 +1145,16 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
               Row(
                 children: [
                   Container(
-                    width: 56,
-                    height: 56,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: const Icon(
                       Icons.assignment_add,
                       color: Colors.white,
-                      size: 28,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1174,7 +1168,7 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
                               : 'طلب خدمة جديدة',
                           style: const TextStyle(
                             fontFamily: 'Cairo',
-                            fontSize: 21,
+                            fontSize: 16,
                             fontWeight: FontWeight.w900,
                             color: Colors.white,
                           ),
@@ -1226,21 +1220,21 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
   Widget _buildSectionCard({
     required IconData icon,
     required String title,
-    required String description,
+    String? description,
     required Widget child,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0x220E5E85)),
         boxShadow: [
           BoxShadow(
             color: const Color(0xFF0C223D).withValues(alpha: 0.06),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1250,45 +1244,27 @@ class _ServiceRequestFormScreenState extends State<ServiceRequestFormScreen>
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
                   color: _mainColor.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: _mainColor, size: 20),
+                child: Icon(icon, color: _mainColor, size: 18),
               ),
               const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: _inkColor,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: const TextStyle(
-                        fontFamily: 'Cairo',
-                        fontSize: 11,
-                        height: 1.8,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF667085),
-                      ),
-                    ),
-                  ],
+              Text(
+                title,
+                style: const TextStyle(
+                  fontFamily: 'Cairo',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w900,
+                  color: _inkColor,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
           child,
         ],
       ),

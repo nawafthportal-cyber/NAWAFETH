@@ -1,15 +1,21 @@
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
+from datetime import timedelta
 
 from apps.accounts.models import UserRole
 from apps.marketplace.models import RequestStatus, RequestType, ServiceRequest
+from apps.notifications.models import Notification
+from apps.subscriptions.models import PlanPeriod, PlanTier, Subscription, SubscriptionPlan, SubscriptionStatus
 
 from .location_formatter import format_city_display
 from .models import (
     Category,
+    ProviderContentComment,
     ProviderCategory,
+    ProviderPortfolioItem,
     ProviderProfile,
     ProviderSpotlightItem,
     SaudiCity,
@@ -199,3 +205,227 @@ class CityDisplayFormatterTests(TestCase):
             format_city_display("الدمام", region="المنطقة الشرقية"),
             "الشرقية - الدمام",
         )
+
+
+class ProviderInteractionNotificationTests(TestCase):
+    def setUp(self):
+        self.api_client = APIClient()
+        user_model = get_user_model()
+
+        self.provider_user = user_model.objects.create_user(
+            phone="0500000710",
+            password="secret",
+            role_state=UserRole.PROVIDER,
+        )
+        self.provider_profile = ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="مزود التفاعل",
+            bio="نبذة",
+            city="الرياض",
+        )
+        leading_plan = SubscriptionPlan.objects.create(
+            code="TEST-RIYADI-PROVIDER-INTERACTIONS",
+            tier=PlanTier.RIYADI,
+            title="باقة ريادية للاختبار",
+            period=PlanPeriod.MONTH,
+            price=0,
+            notifications_enabled=True,
+            is_active=True,
+        )
+        Subscription.objects.create(
+            user=self.provider_user,
+            plan=leading_plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=timezone.now(),
+            end_at=timezone.now() + timedelta(days=30),
+        )
+
+        self.client_user = user_model.objects.create_user(
+            phone="0500000711",
+            password="secret",
+            role_state=UserRole.CLIENT,
+        )
+        self.api_client.force_authenticate(user=self.client_user)
+
+        self.portfolio_item = ProviderPortfolioItem.objects.create(
+            provider=self.provider_profile,
+            file_type="image",
+            file=SimpleUploadedFile("portfolio.jpg", b"file-content", content_type="image/jpeg"),
+            caption="عمل جديد",
+        )
+        self.spotlight_item = ProviderSpotlightItem.objects.create(
+            provider=self.provider_profile,
+            file_type="image",
+            file=SimpleUploadedFile("spotlight.jpg", b"file-content", content_type="image/jpeg"),
+            caption="إضاءة جديدة",
+        )
+
+    def test_follow_provider_creates_notification_for_provider(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.api_client.post(f"/api/providers/{self.provider_profile.id}/follow/")
+
+        self.assertEqual(response.status_code, 200)
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+        self.assertIn("متابعة جديدة", notification.title)
+        self.assertEqual(notification.url, f"/provider/{self.provider_profile.id}/")
+
+    def test_like_provider_profile_creates_notification_for_provider(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.api_client.post(f"/api/providers/{self.provider_profile.id}/like/")
+
+        self.assertEqual(response.status_code, 200)
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+        self.assertIn("إعجاب جديد بملفك الشخصي", notification.title)
+
+    def test_like_portfolio_item_creates_service_like_notification(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.api_client.post(f"/api/providers/portfolio/{self.portfolio_item.id}/like/")
+
+        self.assertEqual(response.status_code, 200)
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+        self.assertIn("أحد أعمالك", notification.title)
+
+    def test_approved_content_comment_creates_comment_notification(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            ProviderContentComment.objects.create(
+                provider=self.provider_profile,
+                user=self.client_user,
+                portfolio_item=self.portfolio_item,
+                body="تعليق ممتاز على الخدمة",
+                is_approved=True,
+            )
+
+        notification = Notification.objects.filter(user=self.provider_user).order_by("-id").first()
+        self.assertIsNotNone(notification)
+        self.assertEqual(notification.audience_mode, Notification.AudienceMode.PROVIDER)
+        self.assertIn("تعليق جديد", notification.title)
+        self.assertIn("تعليق ممتاز", notification.body)
+
+
+class ProviderSameCategoryNotificationTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.category = Category.objects.create(name="تصميم", is_active=True)
+        self.shared_subcategory = SubCategory.objects.create(
+            category=self.category,
+            name="هوية بصرية",
+            is_active=True,
+        )
+        self.other_category = Category.objects.create(name="برمجة", is_active=True)
+        self.other_subcategory = SubCategory.objects.create(
+            category=self.other_category,
+            name="تطبيقات",
+            is_active=True,
+        )
+
+        self.recipient_user = user_model.objects.create_user(
+            phone="0500000720",
+            password="secret",
+            role_state=UserRole.PROVIDER,
+        )
+        self.recipient_profile = ProviderProfile.objects.create(
+            user=self.recipient_user,
+            provider_type="individual",
+            display_name="مزود متابع",
+            bio="نبذة",
+            city="الرياض",
+        )
+        ProviderCategory.objects.create(
+            provider=self.recipient_profile,
+            subcategory=self.shared_subcategory,
+        )
+
+        self.other_user = user_model.objects.create_user(
+            phone="0500000721",
+            password="secret",
+            role_state=UserRole.PROVIDER,
+        )
+        self.other_profile = ProviderProfile.objects.create(
+            user=self.other_user,
+            provider_type="individual",
+            display_name="مزود مختلف",
+            bio="نبذة",
+            city="الرياض",
+        )
+        ProviderCategory.objects.create(
+            provider=self.other_profile,
+            subcategory=self.other_subcategory,
+        )
+
+        professional_plan = SubscriptionPlan.objects.create(
+            code="TEST-PRO-SAME-CATEGORY-NOTIFY",
+            tier=PlanTier.PRO,
+            title="باقة احترافية للاختبار",
+            period=PlanPeriod.MONTH,
+            price=0,
+            notifications_enabled=True,
+            is_active=True,
+        )
+        Subscription.objects.create(
+            user=self.recipient_user,
+            plan=professional_plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=timezone.now(),
+            end_at=timezone.now() + timedelta(days=30),
+        )
+        Subscription.objects.create(
+            user=self.other_user,
+            plan=professional_plan,
+            status=SubscriptionStatus.ACTIVE,
+            start_at=timezone.now(),
+            end_at=timezone.now() + timedelta(days=30),
+        )
+
+        self.sender_user = user_model.objects.create_user(
+            phone="0500000722",
+            password="secret",
+            role_state=UserRole.PROVIDER,
+        )
+        self.sender_profile = ProviderProfile.objects.create(
+            user=self.sender_user,
+            provider_type="individual",
+            display_name="مزود جديد في الفئة",
+            bio="نبذة",
+            city="الرياض",
+        )
+
+    def test_new_provider_same_category_notifies_only_shared_category_providers(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            ProviderCategory.objects.create(
+                provider=self.sender_profile,
+                subcategory=self.shared_subcategory,
+            )
+
+        recipient_notification = Notification.objects.filter(user=self.recipient_user).order_by("-id").first()
+        self.assertIsNotNone(recipient_notification)
+        self.assertIn("مقدم خدمة جديد", recipient_notification.title)
+        self.assertIn("مزود جديد في الفئة", recipient_notification.body)
+        self.assertFalse(Notification.objects.filter(user=self.other_user).exists())
+
+    def test_highlight_same_category_notifies_only_shared_category_providers(self):
+        ProviderCategory.objects.create(
+            provider=self.sender_profile,
+            subcategory=self.shared_subcategory,
+        )
+        Notification.objects.all().delete()
+
+        with self.captureOnCommitCallbacks(execute=True):
+            ProviderSpotlightItem.objects.create(
+                provider=self.sender_profile,
+                file_type="image",
+                file=SimpleUploadedFile("same-category-spotlight.jpg", b"file-content", content_type="image/jpeg"),
+                caption="لمحة جديدة داخل التصنيف",
+            )
+
+        recipient_notification = Notification.objects.filter(user=self.recipient_user).order_by("-id").first()
+        self.assertIsNotNone(recipient_notification)
+        self.assertIn("لمحة جديدة", recipient_notification.title)
+        self.assertIn("داخل التصنيف", recipient_notification.body)
+        self.assertFalse(Notification.objects.filter(user=self.other_user).exists())

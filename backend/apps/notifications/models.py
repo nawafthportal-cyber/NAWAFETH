@@ -10,6 +10,11 @@ class EventType(models.TextChoices):
 	OFFER_SELECTED = "offer_selected", "تم اختيار عرضك"
 	STATUS_CHANGED = "status_changed", "تغيرت حالة الطلب"
 	MESSAGE_NEW = "message_new", "رسالة جديدة"
+	PAYMENT_RECEIVED = "payment_received", "تم تسجيل سداد"
+	AD_VISIT = "ad_visit", "تم تسجيل زيارة إعلان"
+	SCHEDULED_MESSAGE_SENT = "scheduled_message_sent", "تم تنفيذ رسالة مجدولة"
+	PROVIDER_JOINED_CATEGORY = "provider_joined_category", "انضم مزود جديد إلى الفئة"
+	CATEGORY_HIGHLIGHT_PUBLISHED = "category_highlight_published", "تم نشر لمحة ضمن الفئة"
 
 
 class EventLog(models.Model):

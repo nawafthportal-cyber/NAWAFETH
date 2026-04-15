@@ -298,26 +298,20 @@ class _InteractiveScreenState extends State<InteractiveScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: purple.withValues(alpha: 0.06),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.lock_outline_rounded, size: 44, color: Colors.grey.shade400),
+              child: Icon(Icons.lock_outline_rounded, size: 36, color: Colors.grey.shade400),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               'يجب تسجيل الدخول لعرض هذه الصفحة',
               textAlign: TextAlign.center,
               style: TextStyle(fontFamily: 'Cairo', fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white70 : Colors.black54),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'سجّل دخولك لمتابعة مزودي الخدمة وحفظ المفضلة',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontFamily: 'Cairo', fontSize: 11, color: isDark ? Colors.white38 : Colors.grey.shade500),
-            ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
             ElevatedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/login'),
               icon: const Icon(Icons.login_rounded, size: 16, color: Colors.white),

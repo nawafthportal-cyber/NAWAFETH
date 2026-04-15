@@ -22,20 +22,7 @@
 {% block content %}
 <main class="page-content">
   <div class="container orders-page-layout">
-    <!-- Auth gate -->
-    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
-      <div class="auth-gate-icon auth-gate-unified-icon" aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M5 7.5C5 6.12 6.12 5 7.5 5h9A2.5 2.5 0 0 1 19 7.5v5A2.5 2.5 0 0 1 16.5 15H9l-3.2 2.6c-.33.27-.8.03-.8-.4V7.5z" fill="#7C4FD4"></path>
-          <circle cx="9.5" cy="10" r="1" fill="#FFFFFF"></circle>
-          <circle cx="12" cy="10" r="1" fill="#FFFFFF"></circle>
-          <circle cx="14.5" cy="10" r="1" fill="#FFFFFF"></circle>
-        </svg>
-      </div>
-      <h2 class="auth-gate-unified-title">سجّل دخولك لعرض طلباتك</h2>
-      <p class="auth-gate-unified-desc">يمكنك متابعة حالة الطلبات والتفاصيل بعد تسجيل الدخول</p>
-      <a href="/login/?next=/orders/" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
-    </div>
+    {% include "mobile_web/_auth_gate_unified.html" with gate_id="auth-gate" kicker="طلباتك الشخصية" title="سجّل دخولك لعرض طلباتك" description="يمكنك متابعة حالة الطلبات والتفاصيل بعد تسجيل الدخول." next_path="/orders/" note="حسابك يفتح لك كل تفاصيل الطلب في مكان واحد." %}
 
     <!-- Content (visible when logged in) -->
     <div id="orders-content" class="hidden">

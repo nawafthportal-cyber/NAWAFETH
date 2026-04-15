@@ -24,8 +24,3 @@ emulator -list-avds
 python manage.py showmigrations
 python manage.py migrate
 python manage.py collectstatic --noinput
-
-
-ولو تريد جمع الملفات الثابتة بعد التحديث:
-python manage.py collectstatic --noinput
-

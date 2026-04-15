@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from django.contrib import messages
+from django.db.models import Prefetch, Q
 from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -11,7 +12,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.billing.models import PaymentAttempt
+from apps.billing.models import Invoice, InvoiceLineItem, PaymentAttempt
 from apps.unified_requests.models import UnifiedRequest, UnifiedRequestType
 from apps.unified_requests.services import upsert_unified_request
 
@@ -184,6 +185,59 @@ def _sections_from_bundle(bundle: dict) -> list[dict]:
     return build_summary_sections(reports=reports, clients=clients, finance=finance)
 
 
+def _bundle_request_payload(row) -> dict:
+    try:
+        meta_record = row.metadata_record
+    except UnifiedRequest.metadata_record.RelatedObjectDoesNotExist:
+        meta_record = None
+    if meta_record and isinstance(meta_record.payload, dict):
+        return meta_record.payload
+    return {}
+
+
+def _bundle_request_invoice_maps(rows: list[UnifiedRequest]) -> tuple[dict[int, dict], dict[int, Invoice], dict[str, Invoice]]:
+    payloads_by_request_id: dict[int, dict] = {}
+    invoice_ids: set[int] = set()
+    reference_codes: set[str] = set()
+
+    for row in rows:
+        payload = _bundle_request_payload(row)
+        payloads_by_request_id[row.id] = payload
+
+        raw_invoice_id = str(payload.get("invoice_id") or "").strip()
+        if raw_invoice_id.isdigit():
+            invoice_ids.add(int(raw_invoice_id))
+
+        request_code = str(getattr(row, "code", "") or "").strip()
+        if request_code:
+            reference_codes.add(request_code)
+
+    if not invoice_ids and not reference_codes:
+        return payloads_by_request_id, {}, {}
+
+    invoices = (
+        Invoice.objects.filter(
+            Q(id__in=invoice_ids)
+            | Q(reference_type=EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE, reference_id__in=reference_codes)
+        )
+        .prefetch_related(
+            Prefetch("lines", queryset=InvoiceLineItem.objects.order_by("sort_order", "id"))
+        )
+        .order_by("-id")
+    )
+
+    invoices_by_id: dict[int, Invoice] = {}
+    invoices_by_reference: dict[str, Invoice] = {}
+    for invoice in invoices:
+        invoices_by_id.setdefault(invoice.id, invoice)
+        if str(getattr(invoice, "reference_type", "") or "") == EXTRAS_BUNDLE_INVOICE_REFERENCE_TYPE:
+            reference_id = str(getattr(invoice, "reference_id", "") or "").strip()
+            if reference_id:
+                invoices_by_reference.setdefault(reference_id, invoice)
+
+    return payloads_by_request_id, invoices_by_id, invoices_by_reference
+
+
 class ExtrasCatalogView(APIView):
     """
     عرض كتالوج الإضافات
@@ -308,7 +362,7 @@ class MyExtrasBundleRequestsView(APIView):
     permission_classes = [IsOwnerOrBackofficeExtras]
 
     def get(self, request):
-        queryset = (
+        rows = list(
             UnifiedRequest.objects.filter(
                 requester=request.user,
                 request_type=UnifiedRequestType.EXTRAS,
@@ -319,18 +373,19 @@ class MyExtrasBundleRequestsView(APIView):
             .order_by("-id")[:30]
         )
 
+        payloads_by_request_id, invoices_by_id, invoices_by_reference = _bundle_request_invoice_maps(rows)
+
         results: list[dict] = []
-        for row in queryset:
-            payload = {}
-            try:
-                meta_record = row.metadata_record
-            except UnifiedRequest.metadata_record.RelatedObjectDoesNotExist:
-                meta_record = None
-            if meta_record and isinstance(meta_record.payload, dict):
-                payload = meta_record.payload
+        for row in rows:
+            payload = payloads_by_request_id.get(row.id) or {}
             bundle = payload.get("bundle") if isinstance(payload.get("bundle"), dict) else {}
             notes = str(bundle.get("notes") or "").strip()
-            invoice = extras_bundle_invoice_for_request(row)
+
+            raw_invoice_id = str(payload.get("invoice_id") or "").strip()
+            invoice = invoices_by_id.get(int(raw_invoice_id)) if raw_invoice_id.isdigit() else None
+            if invoice is None:
+                invoice = invoices_by_reference.get(str(getattr(row, "code", "") or "").strip())
+
             invoice_summary = None
             if invoice is not None:
                 invoice_summary = {
@@ -346,7 +401,7 @@ class MyExtrasBundleRequestsView(APIView):
                             "title": str(line.title or "").strip(),
                             "amount": str(line.amount),
                         }
-                        for line in invoice.lines.all().order_by("sort_order", "id")
+                        for line in invoice.lines.all()
                     ],
                 }
             results.append(

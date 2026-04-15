@@ -141,19 +141,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 0:
         return const Icon(
           Icons.widgets_rounded,
-          size: 78,
+          size: 56,
           color: AppColors.deepPurple,
         );
       case 1:
         return const FaIcon(
           FontAwesomeIcons.usersViewfinder,
-          size: 72,
+          size: 52,
           color: AppColors.deepPurple,
         );
       default:
         return const FaIcon(
           FontAwesomeIcons.rocket,
-          size: 72,
+          size: 52,
           color: AppColors.deepPurple,
         );
     }
@@ -308,7 +308,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontFamily: 'Cairo',
-                fontSize: 24,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF24163C),
               ),
@@ -340,12 +340,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final sw = size.width;
     final sh = size.height;
     final isSmall = sh < 700;
-    final double titleSize = (sw * 0.058).clamp(16.0, 22.0);
-    final double bodySize = (sw * 0.04).clamp(12.5, 15.0);
-    final double mediaBox = (sh * 0.22).clamp(120.0, 172.0);
-    final double cardPad = isSmall ? 14.0 : 20.0;
-    final double gapMedia = isSmall ? 10.0 : 20.0;
-    final double gapTitle = isSmall ? 6.0 : 12.0;
+    final double titleSize = (sw * 0.046).clamp(14.0, 18.0);
+    final double bodySize = (sw * 0.034).clamp(11.0, 13.0);
+    final double mediaBox = (sh * 0.18).clamp(90.0, 140.0);
+    final double cardPad = isSmall ? 10.0 : 14.0;
+    final double gapMedia = isSmall ? 8.0 : 14.0;
+    final double gapTitle = isSmall ? 4.0 : 8.0;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 4, vertical: isSmall ? 4 : 8),
@@ -544,7 +544,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         _currentPage == _slides.length - 1 ? 'ابدأ الآن' : 'التالي',
                         style: const TextStyle(
                           fontFamily: 'Cairo',
-                          fontSize: 16,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -578,7 +578,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         label,
         style: const TextStyle(
           fontFamily: 'Cairo',
-          fontSize: 15,
+          fontSize: 13,
           fontWeight: FontWeight.w700,
         ),
       ),

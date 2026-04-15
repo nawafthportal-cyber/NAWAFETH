@@ -284,6 +284,16 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(minutes=1),
         "args": (200,),
     },
+    "marketplace-dispatch-due-competitive": {
+        "task": "marketplace.dispatch_due_competitive_request_notifications",
+        "schedule": timedelta(minutes=1),
+        "args": (200,),
+    },
+    "extras-portal-send-due-scheduled-messages": {
+        "task": "extras_portal.send_due_scheduled_messages",
+        "schedule": timedelta(minutes=1),
+        "args": (200,),
+    },
     "verification-expire-badges": {
         "task": "verification.expire_badges_and_sync",
         "schedule": timedelta(hours=1),

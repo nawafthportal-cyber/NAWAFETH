@@ -494,9 +494,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Column(
                   children: [
-                    _buildEntrance(0, _buildShowcaseCard()),
-                    const SizedBox(height: 14),
-                    _buildEntrance(1, _buildVerificationCard()),
+                    _buildEntrance(0, _buildVerificationCard()),
                   ],
                 ),
               ),
@@ -648,7 +646,7 @@ class _TwoFAScreenState extends State<TwoFAScreen>
             'أدخل الرمز المرسل',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
               color: Color(0xFF1F1738),
             ),
@@ -666,12 +664,6 @@ class _TwoFAScreenState extends State<TwoFAScreen>
           ),
           const SizedBox(height: 14),
           _buildPhoneNoticePanel(),
-          const SizedBox(height: 14),
-          _buildSoftPanel(
-            icon: Icons.pin_outlined,
-            title: 'تنسيق الرمز',
-            body: 'الرمز يتكوّن من 4 أرقام. يمكنك إدخاله يدوياً أو لصقه دفعة واحدة من الحافظة.',
-          ),
           const SizedBox(height: 16),
           Directionality(
             textDirection: TextDirection.ltr,

@@ -60,6 +60,7 @@ from .serializers import (
 
 from .services.actions import execute_action
 from .services.dispatch import (
+	dispatch_due_competitive_request_notifications,
 	dispatch_ready_urgent_windows,
 	ensure_dispatch_windows_for_urgent_request,
 	provider_can_access_urgent_request,
@@ -90,6 +91,21 @@ def _dispatch_ready_urgent_windows_once(*, now=None, limit: int = 200) -> None:
 		# Cache degradation should not block request flow.
 		pass
 	dispatch_ready_urgent_windows(now=now, limit=limit)
+
+
+def _dispatch_due_competitive_requests_once(*, now=None, limit: int = 200) -> None:
+	now = now or timezone.now()
+	interval_seconds = max(
+		10,
+		int(getattr(settings, "COMPETITIVE_DISPATCH_INLINE_INTERVAL_SECONDS", 30) or 30),
+	)
+	cache_key = "marketplace:inline_dispatch:competitive_requests:tick"
+	try:
+		if not cache.add(cache_key, now.isoformat(), timeout=interval_seconds):
+			return
+	except Exception:
+		pass
+	dispatch_due_competitive_request_notifications(now=now, limit=limit)
 
 
 def _infer_attachment_type(uploaded_file) -> str:
@@ -178,6 +194,8 @@ class ServiceRequestCreateView(generics.CreateAPIView):
 		if is_urgent and dispatch_mode in {"all", "nearest"}:
 			ensure_dispatch_windows_for_urgent_request(service_request, now=now)
 			_dispatch_ready_urgent_windows_once(now=now, limit=200)
+		if request_type == RequestType.COMPETITIVE:
+			_dispatch_due_competitive_requests_once(now=now, limit=200)
 
 
 class MyClientRequestsView(generics.ListAPIView):

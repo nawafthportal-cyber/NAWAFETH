@@ -5,3 +5,6 @@ class ProvidersConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.providers"
     verbose_name = "مزودو الخدمات"
+
+    def ready(self):
+        from . import signals  # noqa: F401

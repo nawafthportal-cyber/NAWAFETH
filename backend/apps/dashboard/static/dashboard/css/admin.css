@@ -788,6 +788,10 @@ table.dash-table {
   text-decoration: line-through;
 }
 
+.row-muted td {
+  opacity: .45;
+}
+
 /* ── Status Dots ── */
 .status-dot {
   display: inline-block;

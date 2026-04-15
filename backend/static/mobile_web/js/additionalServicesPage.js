@@ -38,6 +38,7 @@ var AdditionalServicesPage = (function () {
   var state = {
     loading: true,
     loadingSilent: false,
+    bundleHistoryLoading: false,
     activeSection: "reports",
     catalogItems: [],
     myExtras: [],
@@ -692,6 +693,12 @@ var AdditionalServicesPage = (function () {
     var count = document.getElementById("as-bundle-history-count");
     if (!root) return;
 
+    if (state.bundleHistoryLoading) {
+      if (count) count.textContent = "";
+      root.innerHTML = '<div class="as-empty">جاري تحميل الطلبات...</div>';
+      return;
+    }
+
     if (count) count.textContent = state.bundleHistory.length + " طلب";
 
     if (!state.bundleHistory.length) {
@@ -719,7 +726,6 @@ var AdditionalServicesPage = (function () {
       var invoiceTotal = invoiceSummary ? formatPrice(invoiceSummary.total, invoiceSummary.currency) : "—";
       var canPay = !!paymentUrl && invoiceSummary && invoiceSummary.payment_effective !== true;
 
-      return [
       return [
         '<article class="as-card as-card-bundle" data-request-id="', escapeHtml(item && item.request_id), '">',
           '<div class="as-card-head">',
@@ -763,6 +769,18 @@ var AdditionalServicesPage = (function () {
     renderCatalog();
     renderPurchaseHistory();
     renderBundleHistory();
+  }
+
+  function shouldLoadCatalog() {
+    return !!document.getElementById("as-catalog-items");
+  }
+
+  function shouldLoadPurchaseHistory() {
+    return !!document.getElementById("as-my-items");
+  }
+
+  function shouldLoadBundleHistory() {
+    return !!document.getElementById("as-bundle-history");
   }
 
   function buildPayload() {
@@ -879,32 +897,53 @@ var AdditionalServicesPage = (function () {
   async function loadData(opts) {
     var options = opts || {};
     var silent = !!options.silent;
+    var needsCatalog = shouldLoadCatalog();
+    var needsPurchaseHistory = shouldLoadPurchaseHistory();
+    var needsBundleHistory = shouldLoadBundleHistory();
+
+    state.bundleHistoryLoading = needsBundleHistory;
     setLoading(true, silent);
     setError("");
+    if (silent && needsBundleHistory) {
+      renderBundleHistory();
+    }
 
     try {
-      var responses = await Promise.all([
-        ApiClient.get(endpoints.catalogUrl),
-        ApiClient.get(endpoints.myUrl),
-        ApiClient.get(endpoints.bundleMyUrl)
-      ]);
+      var requests = [];
+      if (needsCatalog) {
+        requests.push({ key: "catalog", promise: ApiClient.get(endpoints.catalogUrl) });
+      }
+      if (needsPurchaseHistory) {
+        requests.push({ key: "my", promise: ApiClient.get(endpoints.myUrl) });
+      }
+      if (needsBundleHistory) {
+        requests.push({ key: "bundle", promise: ApiClient.get(endpoints.bundleMyUrl) });
+      }
 
-      var catalogRes = responses[0];
-      var myRes = responses[1];
-      var bundleRes = responses[2];
+      var responses = await Promise.all(requests.map(function (entry) {
+        return entry.promise;
+      }));
+      var responsesByKey = {};
+      requests.forEach(function (entry, index) {
+        responsesByKey[entry.key] = responses[index];
+      });
 
-      state.catalogItems = catalogRes && catalogRes.ok ? asList(catalogRes.data) : [];
-      state.myExtras = myRes && myRes.ok ? asList(myRes.data) : [];
-      state.bundleHistory = bundleRes && bundleRes.ok ? asList(bundleRes.data) : [];
+      var catalogRes = responsesByKey.catalog;
+      var myRes = responsesByKey.my;
+      var bundleRes = responsesByKey.bundle;
+
+      state.catalogItems = needsCatalog && catalogRes && catalogRes.ok ? asList(catalogRes.data) : [];
+      state.myExtras = needsPurchaseHistory && myRes && myRes.ok ? asList(myRes.data) : [];
+      state.bundleHistory = needsBundleHistory && bundleRes && bundleRes.ok ? asList(bundleRes.data) : [];
 
       var errors = [];
-      if (!catalogRes || !catalogRes.ok) {
+      if (needsCatalog && (!catalogRes || !catalogRes.ok)) {
         errors.push(extractErrorMessage(catalogRes, "تعذر تحميل كتالوج الخدمات الإضافية"));
       }
-      if (!myRes || !myRes.ok) {
+      if (needsPurchaseHistory && (!myRes || !myRes.ok)) {
         errors.push(extractErrorMessage(myRes, "تعذر تحميل سجل المشتريات السابقة"));
       }
-      if (!bundleRes || !bundleRes.ok) {
+      if (needsBundleHistory && (!bundleRes || !bundleRes.ok)) {
         errors.push(extractErrorMessage(bundleRes, "تعذر تحميل سجل الطلبات التفصيلية"));
       }
 
@@ -913,11 +952,12 @@ var AdditionalServicesPage = (function () {
       maybeHandlePaymentReturn();
     } catch (_) {
       setError("تعذر تحميل البيانات حالياً");
-      state.catalogItems = [];
-      state.myExtras = [];
-      state.bundleHistory = [];
+      if (needsCatalog) state.catalogItems = [];
+      if (needsPurchaseHistory) state.myExtras = [];
+      if (needsBundleHistory) state.bundleHistory = [];
       render();
     } finally {
+      state.bundleHistoryLoading = false;
       setLoading(false, false);
     }
   }
@@ -1134,8 +1174,9 @@ var AdditionalServicesPage = (function () {
     bindGeneralEvents();
     bindCardsEvents();
     bindFormEvents();
-    renderWizard();
-    loadData();
+    render();
+    setLoading(false, false);
+    loadData({ silent: true });
   }
 
   document.addEventListener("DOMContentLoaded", function () {

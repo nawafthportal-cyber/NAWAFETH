@@ -14,8 +14,28 @@ from apps.uploads.validators import (
 
 
 class PortalLoginForm(forms.Form):
-    username = forms.CharField(label="اسم المستخدم", max_length=150)
-    password = forms.CharField(label="كلمة المرور", widget=forms.PasswordInput)
+    username = forms.CharField(
+        label="اسم المستخدم",
+        max_length=150,
+        widget=forms.TextInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "اسم المستخدم أو رقم الجوال",
+                "autocomplete": "username",
+                "autofocus": "autofocus",
+            }
+        ),
+    )
+    password = forms.CharField(
+        label="كلمة المرور",
+        widget=forms.PasswordInput(
+            attrs={
+                "class": "input-control",
+                "placeholder": "••••••••",
+                "autocomplete": "current-password",
+            }
+        ),
+    )
 
 
 class PortalOTPForm(forms.Form):

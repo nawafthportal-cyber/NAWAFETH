@@ -74,6 +74,7 @@ def get_extra_catalog() -> dict:
     return get_extras_catalog()
 
 
+
 def _platform_config():
     from apps.core.models import PlatformConfig
 
@@ -94,6 +95,7 @@ def sku_info(sku: str) -> dict:
 def infer_extra_type(sku: str) -> str:
     """
     تصنيف بسيط:
+
     - tickets_* => credits
     - غيره => time_based
     """
@@ -573,6 +575,58 @@ def extras_portal_reports_url() -> str:
         return reverse("extras_portal:reports")
     except Exception:
         return "/portal/extras/reports/"
+
+
+def extras_portal_section_url(section_key: str) -> str:
+    normalized = str(section_key or "").strip().lower()
+    route_map = {
+        "reports": ("extras_portal:reports", "/portal/extras/reports/"),
+        "clients": ("extras_portal:clients", "/portal/extras/clients/"),
+        "finance": ("extras_portal:finance", "/portal/extras/finance/"),
+    }
+    route_name, fallback = route_map.get(normalized, ("", "/additional-services/"))
+    if not route_name:
+        return fallback
+    try:
+        from django.urls import reverse
+
+        return reverse(route_name)
+    except Exception:
+        return fallback
+
+
+def _bundle_completion_notification_specs(bundle: dict | None) -> list[dict[str, str]]:
+    specs: list[dict[str, str]] = []
+    for section in extras_bundle_detail_sections(bundle):
+        section_key = str(section.get("key") or "").strip().lower()
+        if section_key == "reports":
+            specs.append(
+                {
+                    "pref_key": "report_completed",
+                    "title": "اكتمل تفعيل باقة التقارير",
+                    "body": "تم تفعيل باقة التقارير الخاصة بك بنجاح وأصبحت جاهزة للاستخدام.",
+                    "url": extras_portal_section_url("reports"),
+                }
+            )
+        elif section_key == "clients":
+            specs.append(
+                {
+                    "pref_key": "customer_service_package_completed",
+                    "title": "اكتمل تفعيل باقة خدمة العملاء",
+                    "body": "تم تفعيل باقة إدارة العملاء وخدمات المتابعة المجدولة بنجاح.",
+                    "url": extras_portal_section_url("clients"),
+                }
+            )
+        elif section_key == "finance":
+            specs.append(
+                {
+                    "pref_key": "finance_package_completed",
+                    "title": "اكتمل تفعيل باقة الإدارة المالية",
+                    "body": "تم تفعيل باقة الإدارة المالية الخاصة بك بنجاح.",
+                    "url": extras_portal_section_url("finance"),
+                }
+            )
+    return specs
 
 
 def _coerce_bundle_datetime(raw_value, *, end_of_day: bool = False):
@@ -1185,6 +1239,7 @@ def notify_bundle_completed(*, request_obj, actor) -> None:
     bundle = extras_bundle_payload_for_request(request_obj)
     service_lines = extras_bundle_requested_service_lines(bundle)
     portal_url = extras_portal_reports_url() if hasattr(getattr(primary_user, "provider_profile", None), "id") else ""
+    completion_specs = _bundle_completion_notification_specs(bundle)
     message_lines = [
         f"رسالة آلية من فريق إدارة الخدمات الإضافية بخصوص الطلب {request_code}.",
         "تهانينا، اكتملت عملية تفعيل الخدمات الإضافية المطلوبة بنجاح.",
@@ -1229,26 +1284,38 @@ def notify_bundle_completed(*, request_obj, actor) -> None:
         from apps.notifications.models import EventType
         from apps.notifications.services import create_notification
 
-        create_notification(
-            user=primary_user,
-            title="اكتمل تفعيل الخدمات الإضافية",
-            body=f"تهانينا، تم تفعيل طلب الخدمات الإضافية ({request_code}) بنجاح.",
-            kind="request_status_change",
-            url=portal_url or (f"/chat/{thread.id}/" if thread is not None else "/additional-services/"),
-            actor=actor,
-            event_type=EventType.STATUS_CHANGED,
-            request_id=request_obj.id,
-            meta={
-                "extras_request_id": request_obj.id,
-                "extras_request_code": request_code,
-                "thread_id": getattr(thread, "id", None),
-                "status": getattr(request_obj, "status", ""),
-                "completed": True,
-                "portal_url": portal_url,
-            },
-            pref_key="request_status_change",
-            audience_mode="provider",
-        )
+        if not completion_specs:
+            completion_specs = [
+                {
+                    "pref_key": "request_status_change",
+                    "title": "اكتمل تفعيل الخدمات الإضافية",
+                    "body": f"تهانينا، تم تفعيل طلب الخدمات الإضافية ({request_code}) بنجاح.",
+                    "url": portal_url or (f"/chat/{thread.id}/" if thread is not None else "/additional-services/"),
+                }
+            ]
+
+        for spec in completion_specs:
+            create_notification(
+                user=primary_user,
+                title=str(spec.get("title") or "اكتمل تفعيل الخدمات الإضافية"),
+                body=str(spec.get("body") or f"تهانينا، تم تفعيل طلب الخدمات الإضافية ({request_code}) بنجاح."),
+                kind="request_status_change",
+                url=str(spec.get("url") or "").strip() or (portal_url or (f"/chat/{thread.id}/" if thread is not None else "/additional-services/")),
+                actor=actor,
+                event_type=EventType.STATUS_CHANGED,
+                request_id=request_obj.id,
+                meta={
+                    "extras_request_id": request_obj.id,
+                    "extras_request_code": request_code,
+                    "thread_id": getattr(thread, "id", None),
+                    "status": getattr(request_obj, "status", ""),
+                    "completed": True,
+                    "portal_url": portal_url,
+                    "bundle_pref_key": str(spec.get("pref_key") or "request_status_change"),
+                },
+                pref_key=str(spec.get("pref_key") or "request_status_change"),
+                audience_mode="provider",
+            )
     except Exception:
         pass
 

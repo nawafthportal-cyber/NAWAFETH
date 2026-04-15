@@ -371,9 +371,7 @@ class _LoginScreenState extends State<LoginScreen>
               constraints: const BoxConstraints(maxWidth: 520),
               child: Column(
                 children: [
-                  _buildEntrance(0, _buildShowcaseCard()),
-                  const SizedBox(height: 14),
-                  _buildEntrance(1, _buildFormCard()),
+                  _buildEntrance(0, _buildFormCard()),
                 ],
               ),
             ),
@@ -504,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen>
             'ابدأ برقم الجوال',
             style: TextStyle(
               fontFamily: 'Cairo',
-              fontSize: 20,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
               color: Color(0xFF1F1738),
             ),
@@ -519,13 +517,6 @@ class _LoginScreenState extends State<LoginScreen>
               fontWeight: FontWeight.w700,
               color: Color(0xFF6F6987),
             ),
-          ),
-          const SizedBox(height: 14),
-          _buildSoftPanel(
-            icon: Icons.phone_iphone_rounded,
-            title: 'صيغة الهاتف المعتمدة',
-            body:
-                'نستخدم الصيغة المحلية `05XXXXXXXX` ليتطابق الإدخال مع خدمة OTP والباكند بدون أخطاء.',
           ),
           const SizedBox(height: 14),
           _buildPhoneField(),

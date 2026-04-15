@@ -28,7 +28,7 @@
     <strong class="as-provider-value">{{ additional_services_provider_display_name|default:"-" }}</strong>
   </section>
 
-  <div id="as-loading" class="as-loading-screen" aria-live="polite">
+  <div id="as-loading" class="as-loading-screen" aria-live="polite" hidden>
     <div class="as-loading-orb" aria-hidden="true"></div>
     <strong>جاري تجهيز لوحة الخدمات الإضافية</strong>
     <p>لحظات ونحمّل لك الخيارات والطلبات الأخيرة.</p>
@@ -40,7 +40,7 @@
   </div>
   <div id="as-error" class="detail-card as-error" hidden></div>
 
-  <div id="as-content" hidden>
+  <div id="as-content">
     <section class="detail-card as-wizard-card">
       <div class="as-wizard-head">
         <h3>الصفحة التفصيلية لاختيارات الخدمات الإضافية</h3>

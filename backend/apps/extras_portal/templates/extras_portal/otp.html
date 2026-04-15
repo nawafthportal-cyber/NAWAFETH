@@ -1,56 +1,11 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>رمز التحقق - بوابة الخدمات الإضافية</title>
+{% block title %}التحقق الثنائي - بوابة الخدمات الإضافية{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
   <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
-  <style>
-    .alert-list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 10px;
-    }
-    .alert {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border-radius: 12px;
-      padding: 12px 14px;
-      border: 1px solid rgba(15, 90, 215, 0.14);
-      background: #f8fbff;
-      color: #23426e;
-      font-size: 0.88rem;
-    }
-    .alert.error {
-      border-color: #fecaca;
-      background: #fef2f2;
-      color: #b91c1c;
-    }
-    .alert.success {
-      border-color: #bbf7d0;
-      background: #f0fdf4;
-      color: #166534;
-    }
-    .alert button {
-      border: 0;
-      background: transparent;
-      color: inherit;
-      font-size: 1.1rem;
-      cursor: pointer;
-    }
-    .nx-auth__field small {
-      color: #b91c1c;
-      font-size: 0.78rem;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
+{% endblock %}
+{% block body %}
   <main class="nx-auth nx-auth-otp">
     <section class="nx-auth__grid">
       <aside class="nx-auth__hero">
@@ -140,6 +95,5 @@
       </section>
     </section>
   </main>
-  <script src="{% static 'dashboard/js/auth.js' %}"></script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}<script src="{% static 'dashboard/js/auth.js' %}"></script>{% endblock %}

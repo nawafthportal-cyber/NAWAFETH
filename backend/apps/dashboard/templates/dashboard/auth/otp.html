@@ -1,6 +1,6 @@
 {% extends 'dashboard/_base.html' %}
 {% load static %}
-{% block title %}التحقق الثنائي{% endblock %}
+{% block title %}التحقق التشغيلي{% endblock %}
 {% block extra_head %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
@@ -9,24 +9,24 @@
   <main class="nx-auth nx-auth-otp">
     <section class="nx-auth__grid">
       <aside class="nx-auth__hero">
-        <span class="nx-auth__kicker">Secure Verification</span>
-        <h2>التحقق الثنائي للوصول الآمن</h2>
+        <span class="nx-auth__kicker">Nawafeth Operations Identity</span>
+        <h2>التحقق التشغيلي للوصول الداخلي الآمن</h2>
         <p>
           تم إرسال رمز تحقق إلى <strong dir="ltr">{{ phone }}</strong>.
-          أدخل الرمز لإكمال تسجيل الدخول إلى لوحة التحكم.
+          أكمل خطوة الأمان الأخيرة للدخول إلى بيئة التشغيل الداخلية في نوافذ.
         </p>
         <div class="nx-auth__steps">
           <div class="is-done">1. التحقق من بيانات الحساب</div>
-          <div class="is-active">2. إدخال رمز OTP</div>
-          <div>3. فتح لوحة التحكم</div>
+          <div class="is-active">2. التحقق الثنائي (OTP)</div>
+          <div>3. فتح لوحة التحكم الداخلية</div>
         </div>
       </aside>
 
       <section class="nx-auth__card">
         <header class="nx-auth__head">
-          <span class="nx-auth__pill">OTP Verification</span>
-          <h1>رمز التحقق</h1>
-          <p>أدخل الرمز المكون من 4 أرقام</p>
+          <span class="nx-auth__pill">Operations Verification</span>
+          <h1>رمز التحقق التشغيلي</h1>
+          <p>أدخل الرمز المكوّن من 4 أرقام لإكمال تسجيل الدخول التشغيلي.</p>
         </header>
 
         {% if messages %}
@@ -64,8 +64,8 @@
           </div>
 
           <div class="nx-auth__actions">
-            <button type="submit" class="nx-auth__btn-primary">تأكيد الرمز والمتابعة</button>
-            <a href="{% url 'dashboard:login' %}" class="nx-auth__btn-ghost">تعديل بيانات الدخول</a>
+            <button type="submit" class="nx-auth__btn-primary">تأكيد الرمز والدخول</button>
+            <a href="{% url 'dashboard:login' %}" class="nx-auth__btn-ghost">العودة لتعديل بيانات الدخول</a>
           </div>
         </form>
 

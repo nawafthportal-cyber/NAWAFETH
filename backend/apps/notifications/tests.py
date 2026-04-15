@@ -1,12 +1,17 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.test import TestCase
 from django.test import SimpleTestCase
 
+from apps.accounts.models import UserRole
 from apps.marketplace.models import OfferStatus
+from apps.providers.models import ProviderProfile
 
 from .models import EventType
 from .signals import notify_offer_selected
+from .services import get_or_create_notification_preferences
 
 
 def _offer_instance(*, status: str = OfferStatus.SELECTED):
@@ -74,3 +79,50 @@ class OfferSelectedNotificationSignalTests(SimpleTestCase):
 
         event_filter_mock.assert_not_called()
         create_notification_mock.assert_not_called()
+
+
+class NotificationPreferenceExposureTests(TestCase):
+    def setUp(self):
+        user_model = get_user_model()
+        self.provider_user = user_model.objects.create_user(
+            phone="+966500001111",
+            password="test-pass",
+            role_state=UserRole.PROVIDER,
+        )
+        ProviderProfile.objects.create(
+            user=self.provider_user,
+            provider_type="individual",
+            display_name="Provider",
+            bio="Provider bio",
+        )
+
+    def test_provider_preferences_hide_unimplemented_catalog_entries(self):
+        prefs = get_or_create_notification_preferences(
+            self.provider_user,
+            mode="provider",
+            exposed_only=True,
+        )
+
+        keys = {pref.key for pref in prefs}
+
+        self.assertIn("new_request", keys)
+        self.assertIn("request_status_change", keys)
+        self.assertIn("new_chat_message", keys)
+        self.assertIn("new_follow", keys)
+        self.assertIn("new_comment_services", keys)
+        self.assertIn("new_like_profile", keys)
+        self.assertIn("new_like_services", keys)
+        self.assertIn("competitive_offer_request", keys)
+        self.assertIn("ads_and_offers", keys)
+        self.assertIn("positive_review", keys)
+        self.assertIn("negative_review", keys)
+        self.assertIn("new_provider_same_category", keys)
+        self.assertIn("highlight_same_category", keys)
+        self.assertIn("new_payment", keys)
+        self.assertIn("new_ad_visit", keys)
+        self.assertIn("report_completed", keys)
+        self.assertIn("verification_completed", keys)
+        self.assertIn("paid_subscription_completed", keys)
+        self.assertIn("customer_service_package_completed", keys)
+        self.assertIn("finance_package_completed", keys)
+        self.assertIn("scheduled_ticket_reminder", keys)

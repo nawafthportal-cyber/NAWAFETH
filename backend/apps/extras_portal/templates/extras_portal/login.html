@@ -1,83 +1,32 @@
+{% extends 'dashboard/_base.html' %}
 {% load static %}
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>تسجيل الدخول - بوابة الخدمات الإضافية</title>
+{% block title %}دخول بوابة الخدمات الإضافية{% endblock %}
+{% block extra_head %}
+  {{ block.super }}
   <link rel="stylesheet" href="{% static 'dashboard/css/auth-pro-2026.css' %}">
-  <style>
-    .alert-list {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-      display: grid;
-      gap: 10px;
-    }
-    .alert {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      border-radius: 12px;
-      padding: 12px 14px;
-      border: 1px solid rgba(15, 90, 215, 0.14);
-      background: #f8fbff;
-      color: #23426e;
-      font-size: 0.88rem;
-    }
-    .alert.error {
-      border-color: #fecaca;
-      background: #fef2f2;
-      color: #b91c1c;
-    }
-    .alert.success {
-      border-color: #bbf7d0;
-      background: #f0fdf4;
-      color: #166534;
-    }
-    .alert button {
-      border: 0;
-      background: transparent;
-      color: inherit;
-      font-size: 1.1rem;
-      cursor: pointer;
-    }
-    .field-hint,
-    .nx-auth__field small {
-      margin: 0;
-      color: #667892;
-      font-size: 0.78rem;
-      line-height: 1.7;
-    }
-    .nx-auth__field small {
-      color: #b91c1c;
-      font-weight: 600;
-    }
-  </style>
-</head>
-<body>
+{% endblock %}
+{% block body %}
   <main class="nx-auth nx-auth-login">
     <section class="nx-auth__grid">
       <aside class="nx-auth__hero">
-        <span class="nx-auth__kicker">Client Access</span>
-        <h2>دخول بوابة العملاء للخدمات الإضافية</h2>
+        <span class="nx-auth__kicker">Nawafeth Operations Identity</span>
+        <h2>بوابة تشغيل الخدمات الإضافية</h2>
         <p>
-          مسار دخول مستقل للعملاء أو مزودي الخدمة المشتركين في خدمات إضافية محددة.
-          بعد التحقق من الحساب سيظهر فقط ما تم الاشتراك فيه فعليًا داخل الطلب المكتمل.
+          واجهة دخول تشغيلية موحدة ضمن هوية نوافذ، مخصصة للوصول إلى الأقسام
+          المفعلة في اشتراك الخدمات الإضافية فقط، بعد التحقق الآمن للحساب.
         </p>
         <div class="nx-auth__feature-grid">
           <article>
-            <strong>Isolated Access</strong>
-            <span>رابط مستقل عن الداشبورد مع تجربة دخول واضحة ومخصصة.</span>
+            <strong>Identity Unified</strong>
+            <span>تجربة دخول موحدة بصريًا مع لوحة التشغيل الأساسية.</span>
           </article>
           <article>
-            <strong>Subscribed Only</strong>
-            <span>إظهار الأقسام والبنود المشتركة فقط دون أي عناصر عامة غير مفعلة.</span>
+            <strong>Subscribed Scope</strong>
+            <span>عرض ما تم اشتراكه فقط لكل مزود خدمة دون أي عناصر غير مفعلة.</span>
           </article>
           <article>
             <strong>Secure OTP</strong>
-            <span>تأكيد ثنائي قبل الوصول إلى التقارير أو العملاء أو البيانات المالية.</span>
+            <span>تحقق ثنائي قبل الوصول إلى التقارير أو العملاء أو البيانات المالية.</span>
           </article>
         </div>
       </aside>
@@ -85,8 +34,8 @@
       <section class="nx-auth__card">
         <header class="nx-auth__head">
           <span class="nx-auth__pill">Extras Portal Login</span>
-          <h1>تسجيل الدخول</h1>
-          <p>أدخل اسم المستخدم أو رقم الجوال ثم كلمة المرور للمتابعة إلى البوابة المستقلة.</p>
+          <h1>تسجيل الدخول إلى البوابة</h1>
+          <p>أدخل بيانات الحساب التشغيلي للانتقال إلى بيئة الخدمات الإضافية.</p>
         </header>
 
         {% if messages %}
@@ -103,18 +52,18 @@
         <form method="post" class="nx-auth__form" id="loginForm" novalidate>
           {% csrf_token %}
           <div class="field nx-auth__field">
-            <label for="portalUsername">اسم المستخدم</label>
+            <label for="{{ form.username.id_for_label }}">اسم المستخدم</label>
             <div class="nx-auth__input-wrap">
-              <input id="portalUsername" name="username" value="{{ form.username.value|default:'' }}" class="input-control" placeholder="اسم المستخدم أو رقم الجوال">
+              {{ form.username }}
             </div>
-            <p class="field-hint">يمكنك تسجيل الدخول باسم المستخدم أو رقم الجوال المرتبط بالحساب.</p>
+            <p class="field-hint">اسم المستخدم أو رقم الجوال المرتبط بحسابك التشغيلي.</p>
             {% if form.username.errors %}<small>{{ form.username.errors|striptags }}</small>{% endif %}
           </div>
 
           <div class="field nx-auth__field">
-            <label for="portalPassword">كلمة المرور</label>
+            <label for="{{ form.password.id_for_label }}">كلمة المرور</label>
             <div class="nx-auth__password-wrap">
-              <input id="portalPassword" type="password" name="password" class="input-control" placeholder="••••••••">
+              {{ form.password }}
               <button type="button" class="nx-auth__toggle" data-password-toggle aria-label="إظهار أو إخفاء كلمة المرور">
                 <span data-password-toggle-text>إظهار</span>
               </button>
@@ -123,13 +72,12 @@
           </div>
 
           <div class="nx-auth__actions">
-            <button type="submit" class="nx-auth__btn-primary">دخول البوابة</button>
+            <button type="submit" class="nx-auth__btn-primary">تسجيل الدخول</button>
             <a href="/" class="nx-auth__btn-ghost">العودة للموقع</a>
           </div>
         </form>
       </section>
     </section>
   </main>
-  <script src="{% static 'dashboard/js/auth.js' %}"></script>
-</body>
-</html>
+{% endblock %}
+{% block scripts %}<script src="{% static 'dashboard/js/auth.js' %}"></script>{% endblock %}

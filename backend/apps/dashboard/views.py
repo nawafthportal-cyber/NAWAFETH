@@ -7264,6 +7264,9 @@ def _promo_module_rows(items: list[PromoRequestItem]) -> list[dict]:
                 "end_at": _format_dt(item.end_at or promo_request.end_at),
                 "send_at": _format_dt(item.send_at),
                 "status": promo_request.get_ops_status_display(),
+                "request_status": promo_request.get_status_display(),
+                "request_status_raw": promo_request.status,
+                "ops_status_raw": promo_request.ops_status,
                 "search_scope": item.get_search_scope_display() if item.search_scope else "-",
                 "search_position": item.get_search_position_display() if item.search_position else "-",
                 "channels": " + ".join(channels) if channels else "-",
@@ -8042,6 +8045,31 @@ def promo_module(request, module_key: str):
         else:
             messages.error(request, "يرجى مراجعة حقول نموذج وحدة الترويج.")
 
+    # Determine if the selected request is in an immutable (terminal) state
+    _terminal_statuses = {
+        PromoRequestStatus.ACTIVE,
+        PromoRequestStatus.COMPLETED,
+        PromoRequestStatus.EXPIRED,
+        PromoRequestStatus.CANCELLED,
+        PromoRequestStatus.REJECTED,
+    }
+    _terminal_ops = {PromoOpsStatus.IN_PROGRESS, PromoOpsStatus.COMPLETED}
+    selected_request_is_immutable = False
+    selected_request_immutable_reason = ""
+    if selected_request is not None:
+        if selected_request.status in _terminal_statuses:
+            selected_request_is_immutable = True
+            selected_request_immutable_reason = (
+                f"الطلب {selected_request.code or selected_request.id} بحالة "
+                f"«{selected_request.get_status_display()}» ولا يمكن التعديل عليه أو إضافة بنود جديدة."
+            )
+        elif selected_request.ops_status in _terminal_ops:
+            selected_request_is_immutable = True
+            selected_request_immutable_reason = (
+                f"الطلب {selected_request.code or selected_request.id} حالة تنفيذه "
+                f"«{selected_request.get_ops_status_display()}» ولا يمكن التعديل عليه."
+            )
+
     context = _promo_base_context(module_key)
     context.update(
         {
@@ -8053,6 +8081,8 @@ def promo_module(request, module_key: str):
             "can_write": can_write,
             "filters": {"q": query_filter},
             "selected_request": selected_request,
+            "selected_request_is_immutable": selected_request_is_immutable,
+            "selected_request_immutable_reason": selected_request_immutable_reason,
             "selected_requester_label": _promo_requester_label(selected_request.requester) if selected_request else "",
             "selected_request_item": selected_request_item,
             "selected_portfolio_item_data": selected_portfolio_item_data,

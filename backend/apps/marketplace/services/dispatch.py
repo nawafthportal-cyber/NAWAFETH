@@ -8,6 +8,7 @@ from django.utils import timezone
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
 from apps.providers.models import ProviderCategory, ProviderProfile
+from apps.subscriptions.capabilities import competitive_request_delay_for_user, competitive_requests_enabled_for_user
 from apps.subscriptions.services import get_effective_active_subscriptions_map, plan_to_tier, user_has_active_subscription
 from apps.subscriptions.tiering import CanonicalPlanTier
 
@@ -127,6 +128,96 @@ def _event_already_sent(*, user_id: int, request_id: int) -> bool:
         target_user_id=user_id,
         request_id=request_id,
     ).exists()
+
+
+def _eligible_competitive_providers(service_request: ServiceRequest):
+    subcategory_ids = service_request.selected_subcategory_ids()
+    if not subcategory_ids:
+        return ProviderProfile.objects.none()
+
+    provider_ids = ProviderCategory.objects.filter(
+        subcategory_id__in=subcategory_ids,
+    ).values_list("provider_id", flat=True)
+
+    providers = ProviderProfile.objects.select_related("user").filter(id__in=provider_ids)
+
+    city = (service_request.city or "").strip()
+    if city:
+        providers = providers.filter(city=city)
+
+    return providers.distinct()
+
+
+def _competitive_request_due_for_provider(*, provider: ProviderProfile, service_request: ServiceRequest, now=None) -> bool:
+    user = getattr(provider, "user", None)
+    if user is None or not getattr(provider, "user_id", None):
+        return False
+    if not user_has_active_subscription(user):
+        return False
+    if not competitive_requests_enabled_for_user(user):
+        return False
+
+    created_at = getattr(service_request, "created_at", None)
+    if created_at is None:
+        return False
+
+    delay = competitive_request_delay_for_user(user)
+    return created_at + delay <= (now or timezone.now())
+
+
+def dispatch_due_competitive_request_notifications(*, now=None, limit: int = 100) -> dict[str, int]:
+    now = now or timezone.now()
+    requests = list(
+        ServiceRequest.objects.select_related("client", "subcategory", "subcategory__category")
+        .prefetch_related("subcategories")
+        .filter(
+            request_type=RequestType.COMPETITIVE,
+            provider__isnull=True,
+            status=RequestStatus.NEW,
+        )
+        .order_by("created_at", "id")[:limit]
+    )
+
+    processed = 0
+    sent_count = 0
+    for request in requests:
+        if request.quote_deadline and timezone.localdate() > request.quote_deadline:
+            continue
+
+        processed += 1
+        for provider in _eligible_competitive_providers(request):
+            user_id = getattr(provider, "user_id", None)
+            if not user_id:
+                continue
+            if _event_already_sent(user_id=user_id, request_id=request.id):
+                continue
+            if not _competitive_request_due_for_provider(provider=provider, service_request=request, now=now):
+                continue
+
+            create_notification(
+                user=provider.user,
+                title="طلب عرض خدمة تنافسية جديد",
+                body=f"يوجد طلب تنافسي جديد يطابق تخصصك: {request.title}",
+                kind="request_created",
+                url=f"/requests/{request.id}",
+                actor=request.client,
+                event_type=EventType.REQUEST_CREATED,
+                pref_key="competitive_offer_request",
+                request_id=request.id,
+                audience_mode="provider",
+                meta={
+                    "request_type": request.request_type,
+                    "competitive": True,
+                    "provider_id": provider.id,
+                    "quote_deadline": request.quote_deadline.isoformat() if request.quote_deadline else None,
+                },
+            )
+            sent_count += 1
+
+    return {
+        "processed": processed,
+        "sent": sent_count,
+    }
 
 
 def _mark_ready_windows(*, now=None) -> int:

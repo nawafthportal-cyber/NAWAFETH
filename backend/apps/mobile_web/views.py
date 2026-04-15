@@ -128,6 +128,22 @@ class MobileWebLoginView(TemplateView):
     template_name = "mobile_web/login.html"
 
 
+class MobileWebLegacyLoginRedirectView(RedirectView):
+    """
+    Transitional route: keep handling legacy /mobile-web/login/ links by
+    redirecting to the canonical /login/ endpoint while preserving query params.
+    """
+
+    permanent = False
+
+    def get_redirect_url(self, *args, **kwargs):
+        target = reverse("login")
+        query_string = str(self.request.META.get("QUERY_STRING") or "").strip()
+        if query_string:
+            return f"{target}?{query_string}"
+        return target
+
+
 class MobileWebOnboardingView(TemplateView):
     template_name = "mobile_web/onboarding.html"
 
