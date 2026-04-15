@@ -56,6 +56,11 @@ else:
 
 STORAGES["staticfiles"] = {"BACKEND": STATICFILES_BACKEND}
 
+# Keep un-hashed copies alongside hashed files so that stale CDN-cached HTML
+# pages that still reference old hashes gracefully fall back to the un-hashed
+# version instead of hitting a 404 that returns text/html.
+WHITENOISE_KEEP_ONLY_HASHED_FILES = False
+
 
 def _unique_list(values):
 	items = []
