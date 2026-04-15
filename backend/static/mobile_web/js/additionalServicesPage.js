@@ -108,7 +108,7 @@ var AdditionalServicesPage = (function () {
         var key = asText(item && item.key);
         var label = asText(item && item.label);
         if (!key || !label) return null;
-        return { key: key, label: label };
+        return { key: key, label: label, unavailable: Boolean(item && item.unavailable) };
       })
       .filter(Boolean);
   }
@@ -735,11 +735,12 @@ var AdditionalServicesPage = (function () {
             '</div>',
             '<div class="as-card-head-side">',
               showPortalEntry
-                ? '<a class="as-portal-entry" href="' + escapeHtml(portalUrl) + '" title="فتح بوابة العميل" aria-label="فتح بوابة العميل لهذا الطلب المكتمل">'
-                    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-                      + '<path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"></path>'
-                      + '<path d="M10 17l5-5-5-5"></path>'
-                      + '<path d="M15 12H4"></path>'
+                ? '<a class="as-portal-entry" href="' + escapeHtml(portalUrl) + '" title="الانتقال إلى بوابة الخدمات الإضافية" aria-label="الانتقال إلى بوابة الخدمات الإضافية">'
+                    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                      + '<rect x="3" y="3" width="7" height="7" rx="1.5"></rect>'
+                      + '<rect x="14" y="3" width="7" height="7" rx="1.5"></rect>'
+                      + '<rect x="3" y="14" width="7" height="7" rx="1.5"></rect>'
+                      + '<rect x="14" y="14" width="7" height="7" rx="1.5"></rect>'
                     + '</svg>'
                   + '</a>'
                 : '',
@@ -948,6 +949,7 @@ var AdditionalServicesPage = (function () {
       }
 
       setError(errors.join(" • "));
+      state.bundleHistoryLoading = false;
       render();
       maybeHandlePaymentReturn();
     } catch (_) {
@@ -955,6 +957,7 @@ var AdditionalServicesPage = (function () {
       if (needsCatalog) state.catalogItems = [];
       if (needsPurchaseHistory) state.myExtras = [];
       if (needsBundleHistory) state.bundleHistory = [];
+      state.bundleHistoryLoading = false;
       render();
     } finally {
       state.bundleHistoryLoading = false;

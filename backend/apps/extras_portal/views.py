@@ -422,13 +422,13 @@ def portal_login(request: HttpRequest) -> HttpResponse:
             messages.error(request, "هذا الحساب ليس مزود خدمة")
             return render(request, "extras_portal/login.html", {"form": form})
 
-        request.session[SESSION_PORTAL_LOGIN_USER_ID_KEY] = user.id
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        request.session[SESSION_PORTAL_OTP_VERIFIED_KEY] = True
 
-        if not _portal_accept_any_otp_code():
-            create_otp(user.phone, request)
-            _portal_activate_otp_resend_cooldown(user.id)
-
-        return redirect("extras_portal:otp")
+        next_url = (request.session.pop(SESSION_PORTAL_NEXT_URL_KEY, "") or "").strip()
+        if is_safe_redirect_url(next_url):
+            return redirect(next_url)
+        return _portal_redirect_first_enabled_section(user.provider_profile)
 
     return render(
         request,
@@ -438,82 +438,19 @@ def portal_login(request: HttpRequest) -> HttpResponse:
 
 
 def portal_otp(request: HttpRequest) -> HttpResponse:
-    if bool(request.session.get(SESSION_PORTAL_OTP_VERIFIED_KEY)) and getattr(
-        getattr(request, "user", None), "is_authenticated", False
-    ):
+    """OTP is no longer required — redirect to login or home."""
+    if getattr(getattr(request, "user", None), "is_authenticated", False):
         try:
             provider = _get_provider_or_403(request)
         except PermissionError:
             return redirect("extras_portal:login")
         return _portal_redirect_first_enabled_section(provider)
-
-    user_id = request.session.get(SESSION_PORTAL_LOGIN_USER_ID_KEY)
-    if not user_id:
-        return redirect("extras_portal:login")
-
-    portal_user = User.objects.filter(id=user_id).first()
-    if not portal_user or not portal_user.is_active:
-        return redirect("extras_portal:login")
-
-    form = PortalOTPForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
-        code = form.cleaned_data["code"]
-
-        if not _portal_accept_any_otp_code():
-            if not verify_otp(portal_user.phone, code):
-                messages.error(request, "الكود غير صحيح أو منتهي")
-                return render(
-                    request,
-                    "extras_portal/otp.html",
-                    {
-                        "form": form,
-                        "phone": portal_user.phone,
-                        "dev_accept_any": False,
-                        "otp_resend_cooldown_seconds": _portal_otp_resend_remaining_seconds(portal_user.id),
-                        "otp_resend_default_cooldown_seconds": PORTAL_OTP_RESEND_COOLDOWN_SECONDS,
-                    },
-                )
-
-        login(request, portal_user, backend="django.contrib.auth.backends.ModelBackend")
-        request.session[SESSION_PORTAL_OTP_VERIFIED_KEY] = True
-
-        next_url = (request.session.pop(SESSION_PORTAL_NEXT_URL_KEY, "") or "").strip()
-        if is_safe_redirect_url(next_url):
-            return redirect(next_url)
-        provider = getattr(portal_user, "provider_profile", None)
-        if provider is not None:
-            return _portal_redirect_first_enabled_section(provider)
-        return redirect("extras_portal:reports")
-
-    return render(
-        request,
-        "extras_portal/otp.html",
-        {
-            "form": form,
-            "phone": portal_user.phone,
-            "dev_accept_any": _portal_accept_any_otp_code(),
-            "otp_resend_cooldown_seconds": _portal_otp_resend_remaining_seconds(portal_user.id),
-            "otp_resend_default_cooldown_seconds": PORTAL_OTP_RESEND_COOLDOWN_SECONDS,
-        },
-    )
+    return redirect("extras_portal:login")
 
 
 def portal_resend_otp(request: HttpRequest) -> HttpResponse:
-    user_id = request.session.get(SESSION_PORTAL_LOGIN_USER_ID_KEY)
-    if not user_id:
-        return redirect("extras_portal:login")
-
-    portal_user = User.objects.filter(id=user_id, is_active=True).first()
-    if portal_user is None:
-        return redirect("extras_portal:login")
-
-    if _portal_otp_resend_remaining_seconds(portal_user.id) > 0:
-        return redirect("extras_portal:otp")
-
-    if not _portal_accept_any_otp_code():
-        create_otp(portal_user.phone, request)
-    _portal_activate_otp_resend_cooldown(portal_user.id)
-    return redirect("extras_portal:otp")
+    """OTP is no longer required — redirect to login."""
+    return redirect("extras_portal:login")
 
 
 def portal_logout(request: HttpRequest) -> HttpResponse:

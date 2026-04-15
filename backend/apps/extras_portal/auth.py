@@ -29,13 +29,6 @@ def extras_portal_login_required(view_func):
                 pass
             return redirect("extras_portal:login")
 
-        if not is_portal_otp_verified(request):
-            try:
-                request.session[SESSION_PORTAL_NEXT_URL_KEY] = request.get_full_path()
-            except Exception:
-                pass
-            return redirect("extras_portal:otp")
-
         # Must be a provider user
         if not hasattr(user, "provider_profile"):
             return HttpResponse("غير مصرح", status=403)

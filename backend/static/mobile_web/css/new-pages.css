@@ -7492,28 +7492,28 @@ body.page-additional-services .page-content {
 .as-price { font-size: 13px; font-weight: 700; color: #0E7490; white-space: nowrap; }
 
 .as-portal-entry {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 12px;
-  border: 1px solid rgba(14, 116, 144, 0.16);
-  background: linear-gradient(135deg, rgba(240, 253, 250, 0.98), rgba(236, 254, 255, 0.98));
-  color: #0f766e;
-  box-shadow: 0 8px 18px rgba(14, 116, 144, 0.12);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  border-radius: 10px;
+  border: 1.5px solid rgba(14, 116, 144, 0.22);
+  background: linear-gradient(135deg, #ecfeff, #f0fdfa);
+  color: #0e7490;
+  box-shadow: 0 2px 8px rgba(14, 116, 144, 0.10);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 
 .as-portal-entry:hover {
-  transform: translateY(-1px);
-  border-color: rgba(14, 116, 144, 0.28);
-  box-shadow: 0 12px 24px rgba(14, 116, 144, 0.18);
+  transform: translateY(-2px);
+  background: linear-gradient(135deg, #cffafe, #ccfbf1);
+  box-shadow: 0 6px 16px rgba(14, 116, 144, 0.18);
 }
 
 .as-portal-entry svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
 }
 
 .as-card-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
