@@ -419,6 +419,7 @@ const OnboardingOverlay = (() => {
     input.className = 'ob-login-input';
     input.placeholder = '05XXXXXXXX';
     input.maxLength = 10;
+    input.pattern = '05[0-9]{8}';
     input.dir = 'ltr';
     input.autocomplete = 'tel';
     input.inputMode = 'numeric';

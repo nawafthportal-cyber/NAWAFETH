@@ -120,6 +120,7 @@
         var form = e.target;
         if (!form || form.tagName !== 'FORM') return;
         if (form.dataset.noAutoLoading === 'true') return;
+        if (e.defaultPrevented) return;
         var btns = form.querySelectorAll('button[type="submit"]');
         btns.forEach(function(b) { b.classList.add('is-loading'); });
       });
