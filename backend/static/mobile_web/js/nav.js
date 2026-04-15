@@ -268,7 +268,7 @@ const Nav = (() => {
     _setTopbarFace('brand');
     _topbarSponsorRotateTimer = window.setInterval(() => {
       _setTopbarFace(_topbarSponsorFace === 'brand' ? 'sponsor' : 'brand');
-    }, 2000);
+    }, 5000);
   }
 
   function _openTopbarSponsorDialog(payload) {
@@ -317,6 +317,8 @@ const Nav = (() => {
       link.removeAttribute('rel');
     }
 
+    modal.scrollTop = 0;
+    body.scrollTop = 0;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }

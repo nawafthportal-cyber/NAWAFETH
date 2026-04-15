@@ -44,15 +44,31 @@
   }
 
   .topbar-brand-wrap {
-    --topbar-center-pill-width: 80px;
-    --topbar-center-pill-height: 64px;
     max-width: calc(100% - 168px);
   }
 
   .topbar-brand-mark {
-    width: 48px;
-    height: 48px;
-    font-size: 22px;
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    font-size: 24px;
+  }
+
+  .topbar-sponsor-media {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+  }
+
+  .topbar-sponsor-media.is-wide,
+  .topbar-sponsor-media.is-tall,
+  .topbar-sponsor-media.is-square {
+    width: 56px;
+    height: 56px;
+  }
+
+  .topbar-sponsor-badge-label {
+    font-size: 10px;
   }
 
   .topbar-sponsor {
@@ -70,28 +86,6 @@
 
   .topbar-sponsor-copy {
     display: none;
-  }
-
-  .topbar-sponsor-media {
-    width: 48px;
-    height: 48px;
-    --topbar-sponsor-logo-width: 20px;
-    --topbar-sponsor-logo-height: 20px;
-  }
-
-  .topbar-sponsor-media.is-wide {
-    --topbar-sponsor-logo-width: 22px;
-    --topbar-sponsor-logo-height: 14px;
-  }
-
-  .topbar-sponsor-media.is-tall {
-    --topbar-sponsor-logo-width: 14px;
-    --topbar-sponsor-logo-height: 22px;
-  }
-
-  .topbar-sponsor-media.is-square {
-    --topbar-sponsor-logo-width: 20px;
-    --topbar-sponsor-logo-height: 20px;
   }
 
   .navbar-brand {

@@ -259,120 +259,58 @@ body.mobile-web-parity .chip.active:hover {
     max-width: calc(100% - 132px);
     min-height: auto;
     height: auto;
-    --topbar-center-pill-width: auto;
-    --topbar-center-pill-height: auto;
   }
 
   body.mobile-web-parity .topbar-brand-link {
-    width: auto;
-    height: auto;
-    min-height: 52px;
-    padding: 8px;
-    gap: 0;
-    border-radius: 20px;
-    justify-content: center;
-    transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
   }
 
-  body.mobile-web-parity .topbar-brand-link:hover {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.92),
-      0 18px 38px rgba(29, 21, 55, 0.13);
-    border-color: rgba(103, 58, 183, 0.2);
-    transform: translateY(-1px);
+  body.mobile-web-parity .topbar-brand-link:hover .topbar-brand-mark {
+    transform: scale(1.05);
   }
 
   body.mobile-web-parity .topbar-brand-mark {
-    width: 40px;
-    height: 40px;
-    border-radius: 13px;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
     background: linear-gradient(140deg, #5d2ab6 0%, #8456d0 100%);
-    box-shadow:
-      inset 0 1.5px 0 rgba(255, 255, 255, 0.28),
-      0 10px 24px rgba(91, 42, 160, 0.32);
+    box-shadow: 0 6px 20px rgba(91, 42, 160, 0.25);
   }
 
   body.mobile-web-parity .topbar-brand-copy {
     display: none;
   }
 
-  body.mobile-web-parity .topbar-brand-title {
-    font-size: 18px;
-    font-weight: 900;
-    color: #0f172a;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-  }
-
-  body.mobile-web-parity .topbar-brand-subtitle {
-    font-size: 11px;
-    font-weight: 700;
-    color: #7c6fa0;
-    line-height: 1.25;
-    letter-spacing: 0.01em;
-  }
-
   body.mobile-web-parity .topbar-sponsor {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 0;
-    width: auto;
-    min-height: 52px;
-    padding: 8px;
-    box-sizing: border-box;
-    border-radius: 20px;
     position: relative;
-    overflow: hidden;
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 244, 255, 0.92) 100%);
-    border: 1px solid rgba(103, 58, 183, 0.13);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.92),
-      0 12px 28px rgba(24, 17, 47, 0.09);
-    transition: box-shadow 0.22s ease, transform 0.22s ease, border-color 0.22s ease;
   }
 
-  body.mobile-web-parity .topbar-sponsor.is-link:hover {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.92),
-      0 18px 38px rgba(24, 17, 47, 0.13);
-    border-color: rgba(103, 58, 183, 0.2);
-    transform: translateY(-1px);
+  body.mobile-web-parity .topbar-sponsor.is-link:hover .topbar-sponsor-media {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(29, 21, 55, 0.12);
   }
 
   body.mobile-web-parity .topbar-sponsor-label {
-    display: block;
-    color: #7c6fa0;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
+    display: none;
   }
 
   body.mobile-web-parity .topbar-sponsor-name {
-    display: block;
-    color: #0f172a;
-    font-size: 16px;
-    font-weight: 800;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: none;
   }
 
   body.mobile-web-parity .topbar-sponsor-media {
-    width: 40px;
-    height: 40px;
-    flex: 0 0 40px;
-    padding: 0;
-    border-radius: 13px;
-    box-shadow:
-      inset 0 1.5px 0 rgba(255, 255, 255, 0.96),
-      0 6px 16px rgba(103, 58, 183, 0.11);
+    width: 48px;
+    height: 48px;
+    flex: 0 0 48px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 4px 16px rgba(29, 21, 55, 0.08);
   }
 
   body.mobile-web-parity .topbar-sponsor-media img {
@@ -380,16 +318,16 @@ body.mobile-web-parity .chip.active:hover {
     height: 100%;
     max-width: none;
     max-height: none;
-    object-fit: cover;
+    object-fit: contain;
     object-position: center;
   }
 
   body.mobile-web-parity .topbar-sponsor-media.is-wide,
   body.mobile-web-parity .topbar-sponsor-media.is-tall,
   body.mobile-web-parity .topbar-sponsor-media.is-square {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
+    width: 48px;
+    height: 48px;
+    flex-basis: 48px;
   }
 
   body.mobile-web-parity .topbar-sponsor-copy {

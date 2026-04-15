@@ -81,11 +81,6 @@ const SpotlightViewer = (() => {
     badge.className = 'sv-badge';
     badge.textContent = _options.label || 'لمحة';
 
-    const modeBadge = document.createElement('div');
-    modeBadge.className = 'sv-mode-badge';
-    modeBadge.id = 'sv-mode-badge';
-    modeBadge.textContent = 'وضع التفاعل: ' + _getModeLabel();
-
     // Counter
     const counter = document.createElement('div');
     counter.className = 'sv-counter';

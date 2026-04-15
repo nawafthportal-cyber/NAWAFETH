@@ -2338,12 +2338,9 @@ const ProviderDetailPage = (() => {
     if (!identity) return;
 
     let badge = document.getElementById('pd-mode-badge');
-    if (!badge) {
-      badge = UI.el('div', { className: 'pd-mode-badge', id: 'pd-mode-badge' });
-      identity.appendChild(badge);
+    if (badge) {
+      badge.remove();
     }
-    badge.textContent = 'وضع التفاعل الحالي: ' + _getModeLabel();
-    badge.dataset.mode = _mode || 'client';
   }
 
   function _getModeLabel() {

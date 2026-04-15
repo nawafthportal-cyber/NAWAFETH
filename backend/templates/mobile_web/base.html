@@ -222,12 +222,9 @@
     <div class="topbar-brand-wrap" id="topbar-brand-wrap">
       <a href="/" class="topbar-brand-link topbar-brand-face is-active" id="topbar-brand-face" aria-label="العودة إلى الرئيسية">
         <span class="topbar-brand-mark" id="topbar-brand-mark" data-default-mark="ن" aria-hidden="true">{% if site_public_content.brand.logo_url %}<img src="{{ site_public_content.brand.logo_url }}" alt="{{ site_public_content.brand.logo_alt }}">{% else %}ن{% endif %}</span>
-        <span class="topbar-brand-copy">
-          <span class="topbar-brand-title">{{ site_public_content.brand.topbar_title }}</span>
-          <span class="topbar-brand-subtitle">{{ site_public_content.brand.topbar_subtitle }}</span>
-        </span>
       </a>
-      <a class="topbar-sponsor topbar-brand-face topbar-brand-face-sponsor is-placeholder" id="topbar-sponsor" aria-label="الرعاية الحالية">
+      <a class="topbar-sponsor topbar-brand-face" id="topbar-sponsor" aria-label="الرعاية الحالية">
+        <span class="topbar-sponsor-badge-label">برعاية</span>
         <span class="topbar-sponsor-media" id="topbar-sponsor-media" aria-hidden="true">
           <span class="topbar-sponsor-placeholder">ر</span>
         </span>
