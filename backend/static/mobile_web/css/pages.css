@@ -8296,7 +8296,10 @@ body.page-order-detail .order-bottom-actions .btn-primary {
 .ob-stage {
   position: relative;
   width: 100%;
+  flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 .ob-slide {
   position: absolute;
@@ -8311,6 +8314,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   transition: opacity .45s cubic-bezier(.4,0,.2,1), transform .45s cubic-bezier(.4,0,.2,1);
   pointer-events: none;
   visibility: hidden;
+  overflow: hidden;
 }
 .ob-slide--active {
   opacity: 1;
@@ -8318,6 +8322,11 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   pointer-events: auto;
   position: relative;
   visibility: visible;
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 .ob-slide--prev {
   opacity: 0;
@@ -8382,6 +8391,7 @@ body.page-order-detail .order-bottom-actions .btn-primary {
   text-align: center;
   padding: 0 12px;
   width: 100%;
+  padding-bottom: 6px;
 }
 .ob-title {
   margin: 0;
