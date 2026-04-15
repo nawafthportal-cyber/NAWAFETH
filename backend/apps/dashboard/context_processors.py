@@ -12,14 +12,15 @@ logger = logging.getLogger(__name__)
 
 
 MAIN_DASHBOARD_NAV = (
-    ("admin_control", "إدارة الصلاحيات", "dashboard:admin_control_home"),
-    ("admin_control", "المالية والفواتير", "dashboard:finance_dashboard"),
-    ("support", "لوحة الدعم والمساعدة", "dashboard:support_dashboard"),
-    ("content", "لوحة إدارة المحتوى", "dashboard:content_dashboard_home"),
-    ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard"),
-    ("verify", "لوحة فريق التوثيق", "dashboard:verification_dashboard"),
-    ("subs", "لوحة فريق إدارة الاشتراكات", "dashboard:subscription_dashboard"),
-    ("extras", "لوحة فريق إدارة الخدمات الإضافية", "dashboard:extras_dashboard"),
+    # (access_code, label, route_name, superuser_only)
+    ("admin_control", "إدارة الصلاحيات", "dashboard:admin_control_home", False),
+    ("admin_control", "المالية والفواتير", "dashboard:finance_dashboard", True),
+    ("support", "لوحة الدعم والمساعدة", "dashboard:support_dashboard", False),
+    ("content", "لوحة إدارة المحتوى", "dashboard:content_dashboard_home", False),
+    ("promo", "لوحة إدارة الترويج", "dashboard:promo_dashboard", False),
+    ("verify", "لوحة فريق التوثيق", "dashboard:verification_dashboard", False),
+    ("subs", "لوحة فريق إدارة الاشتراكات", "dashboard:subscription_dashboard", False),
+    ("extras", "لوحة فريق إدارة الخدمات الإضافية", "dashboard:extras_dashboard", False),
 )
 
 
@@ -52,7 +53,10 @@ def dashboard_nav_access(request):
         }
 
         main_nav_items = []
-        for code, label, route_name in MAIN_DASHBOARD_NAV:
+        is_superuser = getattr(user, "is_superuser", False)
+        for code, label, route_name, superuser_only in MAIN_DASHBOARD_NAV:
+            if superuser_only and not is_superuser:
+                continue
             if not access.get(code):
                 continue
             url = reverse(route_name)

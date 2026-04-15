@@ -6,7 +6,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db.models import Count, Exists, F, Max, OuterRef, Q
+from django.db.models import Count, Exists, F, Max, OuterRef, Prefetch, Q
 from django.db.models.functions import Coalesce
 from django.db import transaction
 
@@ -262,9 +262,14 @@ class ProviderSubcategoriesPublicListView(generics.ListAPIView):
 		)
 
 
-@method_decorator(cache_page(60 * 60 * 24), name="dispatch")  # 24 hours
+@method_decorator(cache_page(60 * 60), name="dispatch")  # 1 hour
 class CategoryListView(generics.ListAPIView):
-	queryset = Category.objects.filter(is_active=True)
+	queryset = Category.objects.filter(is_active=True).prefetch_related(
+		Prefetch(
+			"subcategories",
+			queryset=SubCategory.objects.filter(is_active=True),
+		)
+	)
 	serializer_class = CategorySerializer
 	authentication_classes = []
 	permission_classes = [permissions.AllowAny]

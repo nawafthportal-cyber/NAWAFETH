@@ -743,6 +743,50 @@ const HomePage = (() => {
     });
     $categoriesList.textContent = '';
     $categoriesList.appendChild(frag);
+    _initCategoriesCarousel();
+  }
+
+  /* ----------------------------------------------------------
+     CAROUSEL: Categories arrow navigation (desktop)
+  ---------------------------------------------------------- */
+  function _initCategoriesCarousel() {
+    if (!$categoriesList) return;
+    var carousel = $categoriesList.closest('.categories-carousel');
+    if (!carousel) return;
+    var prevBtn = carousel.querySelector('.categories-arrow--prev');
+    var nextBtn = carousel.querySelector('.categories-arrow--next');
+    if (!prevBtn || !nextBtn) return;
+
+    var scrollAmount = 320;
+
+    function updateArrows() {
+      var sl = $categoriesList.scrollLeft;
+      var maxScroll = $categoriesList.scrollWidth - $categoriesList.clientWidth;
+      // RTL: scrollLeft is negative or 0
+      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
+      if (isRTL) {
+        // In RTL, scrollLeft is 0 at start (right), negative when scrolled left
+        prevBtn.disabled = sl >= -1;
+        nextBtn.disabled = Math.abs(sl) >= maxScroll - 1;
+      } else {
+        prevBtn.disabled = sl <= 1;
+        nextBtn.disabled = sl >= maxScroll - 1;
+      }
+    }
+
+    prevBtn.addEventListener('click', function() {
+      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
+      $categoriesList.scrollBy({ left: isRTL ? scrollAmount : -scrollAmount, behavior: 'smooth' });
+    });
+    nextBtn.addEventListener('click', function() {
+      var isRTL = getComputedStyle($categoriesList).direction === 'rtl';
+      $categoriesList.scrollBy({ left: isRTL ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    });
+
+    $categoriesList.addEventListener('scroll', updateArrows, { passive: true });
+    updateArrows();
+    // Re-check after layout settles
+    setTimeout(updateArrows, 100);
   }
 
   function _renderCategoriesEmpty() {

@@ -2,505 +2,301 @@
 
 {% block title %}إدارة العملاء{% endblock %}
 {% block header %}إدارة العملاء{% endblock %}
-{% block header_subtitle %}لوحة موحدة لاختيار العملاء المرتبطين بطلباتك، تشغيل الرسائل الفورية أو المجدولة، ومتابعة آخر الدُفعات المرسلة من نفس البوابة.{% endblock %}
-
-{% block extra_head %}
-  <style>
-    .clients-surface {
-      background:
-        radial-gradient(circle at top right, rgba(16, 185, 129, 0.14), transparent 26%),
-        radial-gradient(circle at bottom left, rgba(14, 165, 233, 0.12), transparent 30%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 251, 248, 0.96));
-    }
-    .clients-table-row {
-      transition: background-color 0.2s ease, transform 0.2s ease;
-    }
-    .clients-table-row:hover {
-      background-color: rgba(248, 250, 252, 0.9);
-    }
-  </style>
-{% endblock %}
+{% block header_subtitle %}اختيار العملاء وإرسال الرسائل الجماعية أو المجدولة{% endblock %}
 
 {% block content %}
-  <section class="clients-surface overflow-hidden rounded-[32px] border border-white/80 shadow-[0_30px_90px_rgba(15,23,42,0.08)]">
-    <div class="grid gap-6 p-5 sm:p-7 xl:grid-cols-[1.55fr,0.95fr]">
-      <div class="space-y-5">
-        <div class="flex flex-wrap items-center gap-3">
-          <span class="inline-flex rounded-full bg-emerald-100 px-4 py-2 text-sm font-bold text-emerald-700">قاعدة العملاء النشطة</span>
-          <span class="inline-flex rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white">{{ clients_total_count }} عميل</span>
-        </div>
-
-        <div>
-          <h2 class="text-2xl font-extrabold text-slate-900 sm:text-3xl">التواصل مع العملاء من نفس بوابة الخدمات الإضافية</h2>
-          <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-            اختر العملاء المرتبطين بطلباتك، جهز الرسالة أو المرفق، وحدد ما إذا كان الإرسال فوريًا أو مجدولًا. تعرض الصفحة أيضًا آخر العمليات المجدولة حتى تبقى الصورة التشغيلية واضحة.
-          </p>
-        </div>
-
-        <div class="rounded-[26px] border border-emerald-100 bg-gradient-to-r from-emerald-50 via-white to-cyan-50 p-5">
-          <div class="text-sm font-bold text-emerald-700">جاهزية التواصل</div>
-          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ clients_with_phone_count }} عميل لديهم رقم جوال صالح من أصل {{ clients_total_count }}</div>
-          <div class="mt-2 text-sm leading-7 text-slate-600">كل عميل بدون رقم جوال سيظل ظاهرًا في القائمة للمراجعة، لكنه لن يكون مثاليًا للإرسال المباشر حتى تكتمل بياناته.</div>
-        </div>
-
-        <div class="rounded-[24px] border border-amber-100 bg-amber-50/90 p-4 text-sm leading-7 text-slate-700">
-          <div class="font-bold text-amber-700">ملاحظة تشغيلية</div>
-          <div class="mt-2">عند إدخال وقت للإرسال سيتم إنشاء مهمة مجدولة. وعند تركه فارغًا سيتم تنفيذ الإرسال مباشرة على العملاء المحددين داخل نفس الجلسة.</div>
-        </div>
-      </div>
-
-      <aside class="space-y-4">
-        <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <div class="text-sm font-bold text-slate-500">تفاصيل التفعيل الحالي</div>
-          <div class="mt-4 grid gap-3">
-            <div class="rounded-2xl bg-slate-50 px-4 py-4">
-              <div class="text-xs font-bold text-slate-500">رقم طلب التفعيل</div>
-              <div class="mt-2 text-lg font-extrabold text-slate-900">{{ portal_current_request_obj.code|default:'-' }}</div>
-            </div>
-            <div class="grid grid-cols-2 gap-3">
-              <div class="rounded-2xl bg-slate-50 px-4 py-4">
-                <div class="text-xs font-bold text-slate-500">مدة التفعيل</div>
-                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ clients_subscription_years }} سنة</div>
-              </div>
-              <div class="rounded-2xl bg-slate-50 px-4 py-4">
-                <div class="text-xs font-bold text-slate-500">حد الرسائل</div>
-                <div class="mt-2 text-sm font-extrabold text-slate-900">{{ bulk_message_limit }} رسالة</div>
-              </div>
-            </div>
-            <div class="rounded-2xl bg-slate-50 px-4 py-4">
-              <div class="text-xs font-bold text-slate-500">البنود المفعلة في هذا القسم</div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                {% for opt in clients_option_labels %}
-                  {% if opt.unavailable %}
-                    <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">{{ opt.text }} – قيد التطوير</span>
-                  {% else %}
-                    <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{{ opt.text }}</span>
-                  {% endif %}
-                {% empty %}
-                  <span class="text-sm font-bold text-slate-500">لا توجد بنود ظاهرة.</span>
-                {% endfor %}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <div class="text-sm font-bold text-slate-500">ملخص الرسائل</div>
-          <div class="mt-4 grid gap-3">
-            <div class="rounded-2xl bg-slate-50 px-4 py-4">
-              <div class="text-xs font-bold text-slate-500">إجمالي الحملات</div>
-              <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ message_summary.total }}</div>
-            </div>
-            <div class="grid grid-cols-3 gap-3">
-              <div class="rounded-2xl bg-amber-50 px-4 py-4">
-                <div class="text-xs font-bold text-amber-700">قيد الانتظار</div>
-                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ message_summary.pending }}</div>
-              </div>
-              <div class="rounded-2xl bg-emerald-50 px-4 py-4">
-                <div class="text-xs font-bold text-emerald-700">تم الإرسال</div>
-                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ message_summary.sent }}</div>
-              </div>
-              <div class="rounded-2xl bg-rose-50 px-4 py-4">
-                <div class="text-xs font-bold text-rose-700">تعذر الإرسال</div>
-                <div class="mt-2 text-lg font-extrabold text-slate-900">{{ message_summary.failed }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-[28px] border border-slate-200 bg-white/95 p-5 shadow-sm">
-          <div class="text-sm font-bold text-slate-500">ضوابط سريعة</div>
-          <div class="mt-3 space-y-3 text-sm leading-7 text-slate-600">
-            <div class="rounded-2xl bg-slate-50 px-4 py-4">
-              اختر من القائمة حتى 500 عميل في الصفحة الحالية ثم أرسل دفعة واحدة.
-            </div>
-            <div class="rounded-2xl bg-slate-50 px-4 py-4">
-              يمكن إضافة مرفقات للرسائل التذكيرية أو التوعوية مع الاحتفاظ بنسخة مجدولة عند الحاجة.
-            </div>
-          </div>
-        </div>
-      </aside>
-    </div>
-  </section>
-
-  <section class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-    <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-      <div class="h-1.5 bg-gradient-to-r from-emerald-500 to-emerald-300"></div>
-      <div class="p-5">
-        <div class="text-sm font-bold text-slate-500">إجمالي العملاء</div>
-        <div class="mt-3 text-3xl font-extrabold text-slate-900">{{ clients_total_count }}</div>
+  {# ── Overview Cards ── #}
+  <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="h-1 bg-gradient-to-r from-emerald-500 to-emerald-300"></div>
+      <div class="px-4 py-4">
+        <div class="text-xs font-semibold text-slate-500">إجمالي العملاء</div>
+        <div class="mt-2 text-2xl font-bold text-slate-900">{{ clients_total_count }}</div>
       </div>
     </div>
-    <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-      <div class="h-1.5 bg-gradient-to-r from-cyan-500 to-sky-300"></div>
-      <div class="p-5">
-        <div class="text-sm font-bold text-slate-500">أرقام مكتملة</div>
-        <div class="mt-3 text-3xl font-extrabold text-slate-900">{{ clients_with_phone_count }}</div>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="h-1 bg-gradient-to-r from-cyan-500 to-sky-300"></div>
+      <div class="px-4 py-4">
+        <div class="text-xs font-semibold text-slate-500">أرقام مكتملة</div>
+        <div class="mt-2 text-2xl font-bold text-slate-900">{{ clients_with_phone_count }}</div>
       </div>
     </div>
-    <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-      <div class="h-1.5 bg-gradient-to-r from-amber-500 to-orange-300"></div>
-      <div class="p-5">
-        <div class="text-sm font-bold text-slate-500">رسائل قيد الانتظار</div>
-        <div class="mt-3 text-3xl font-extrabold text-slate-900">{{ message_summary.pending }}</div>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="h-1 bg-gradient-to-r from-amber-500 to-orange-300"></div>
+      <div class="px-4 py-4">
+        <div class="text-xs font-semibold text-slate-500">رسائل قيد الانتظار</div>
+        <div class="mt-2 text-2xl font-bold text-slate-900">{{ message_summary.pending }}</div>
       </div>
     </div>
-    <div class="overflow-hidden rounded-[28px] border border-white/70 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.05)]">
-      <div class="h-1.5 bg-gradient-to-r from-slate-900 to-slate-600"></div>
-      <div class="p-5">
-        <div class="text-sm font-bold text-slate-500">آخر الحملات المنفذة</div>
-        <div class="mt-3 text-3xl font-extrabold text-slate-900">{{ message_summary.sent }}</div>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="h-1 bg-gradient-to-r from-slate-900 to-slate-600"></div>
+      <div class="px-4 py-4">
+        <div class="text-xs font-semibold text-slate-500">تم الإرسال</div>
+        <div class="mt-2 text-2xl font-bold text-slate-900">{{ message_summary.sent }}</div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <form method="post" enctype="multipart/form-data" class="mt-8 grid grid-cols-1 gap-5 xl:grid-cols-[1.45fr,0.95fr]">
+  {# ── Active Options ── #}
+  {% if clients_option_labels %}
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      {% for opt in clients_option_labels %}
+        {% if opt.unavailable %}
+          <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-600">{{ opt.text }} – قيد التطوير</span>
+        {% else %}
+          <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">{{ opt.text }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# ── Client Table + Message Form ── #}
+  <form method="post" enctype="multipart/form-data" class="mt-6 grid gap-5 xl:grid-cols-[1.4fr,1fr]">
     {% csrf_token %}
 
-    <section class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">اختيار العملاء</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">القائمة التالية مبنية على الطلبات المرتبطة بمزود الخدمة الحالي. يمكن تحديد أي مجموعة ثم تمرير الرسالة إليها مباشرة.</p>
-        </div>
-        <div class="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700">المعروض الآن {{ clients|length }} عميل</div>
+    {# Client Selection Table #}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold text-slate-900">اختيار العملاء</h3>
+        <span class="text-sm text-slate-500">{{ clients|length }} عميل</span>
       </div>
 
       {% if form.non_field_errors %}
-        <div class="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{{ form.non_field_errors.0 }}</div>
+        <div class="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-bold text-rose-700">{{ form.non_field_errors.0 }}</div>
       {% endif %}
 
-      <div class="mt-5 overflow-x-auto">
-        <div class="max-h-[560px] overflow-auto rounded-[24px] border border-slate-200">
-          <table class="min-w-full text-sm">
-            <thead class="sticky top-0 bg-slate-50 text-slate-600">
-              <tr>
-                <th class="px-4 py-4 text-right font-bold">اختيار</th>
-                <th class="px-4 py-4 text-right font-bold">العميل</th>
-                <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
-                <th class="px-4 py-4 text-right font-bold">الجوال</th>
-                <th class="px-4 py-4 text-right font-bold">حالة البيانات</th>
+      <div class="mt-4 max-h-[520px] overflow-auto rounded-xl border border-slate-200">
+        <table class="min-w-full text-sm">
+          <thead class="sticky top-0 bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-3 py-3 text-right font-semibold"></th>
+              <th class="px-3 py-3 text-right font-semibold">العميل</th>
+              <th class="px-3 py-3 text-right font-semibold">الجوال</th>
+              <th class="px-3 py-3 text-right font-semibold">الحالة</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in clients %}
+              <tr class="border-t border-slate-100 transition hover:bg-slate-50/60">
+                <td class="px-3 py-3">
+                  <input type="checkbox" name="client_ids" value="{{ c.id }}" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                </td>
+                <td class="px-3 py-3 font-bold text-slate-800">
+                  {% if c.first_name or c.last_name %}{{ c.first_name|default:'' }} {{ c.last_name|default:'' }}{% elif c.username %}{{ c.username }}{% else %}—{% endif %}
+                </td>
+                <td class="px-3 py-3 text-slate-500">{{ c.phone|default:'—' }}</td>
+                <td class="px-3 py-3">
+                  {% if c.phone %}
+                    <span class="rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-600">جاهز</span>
+                  {% else %}
+                    <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-bold text-amber-600">بلا رقم</span>
+                  {% endif %}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {% for c in clients %}
-                <tr class="clients-table-row border-t border-slate-200 align-top">
-                  <td class="px-4 py-4">
-                    <input type="checkbox" name="client_ids" value="{{ c.id }}" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
-                  </td>
-                  <td class="px-4 py-4 font-extrabold text-slate-900">
-                    {% if c.first_name or c.last_name %}
-                      {{ c.first_name|default:'' }} {{ c.last_name|default:'' }}
-                    {% elif c.username %}
-                      {{ c.username }}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td class="px-4 py-4 text-slate-600">{{ c.username|default:'—' }}</td>
-                  <td class="px-4 py-4 text-slate-600">{{ c.phone|default:'—' }}</td>
-                  <td class="px-4 py-4">
-                    {% if c.phone %}
-                      <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">جاهز للتواصل</span>
-                    {% else %}
-                      <span class="inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-700">رقم الجوال غير مكتمل</span>
-                    {% endif %}
-                  </td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="5" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا يوجد عملاء مرتبطون بطلبات هذا الحساب بعد.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% empty %}
+              <tr><td colspan="4" class="px-4 py-10 text-center text-sm text-slate-400">لا يوجد عملاء مرتبطون بطلباتك بعد.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-    </section>
+    </div>
 
+    {# Message Form + Recent Messages #}
     <div class="space-y-5">
-      <section class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">صياغة الرسالة</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">استخدم هذه المساحة للتذكير أو الحملات الترويجية أو الرسائل التشغيلية، مع إمكانية الجدولة لوقت لاحق.</p>
-        </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 class="text-lg font-bold text-slate-900">صياغة الرسالة</h3>
 
         {% if clients_supports_bulk_messages %}
-          <div class="mt-5 space-y-4">
+          <div class="mt-4 space-y-4">
             <div>
-              <label class="mb-2 block text-sm font-bold text-slate-700">نص الرسالة</label>
-              <textarea name="body" rows="6" class="w-full rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="اكتب الرسالة التي ستصل إلى العملاء المحددين">{{ form.body.value|default:'' }}</textarea>
-              {% if form.body.errors %}
-                <div class="mt-2 text-sm font-bold text-rose-600">{{ form.body.errors.0 }}</div>
-              {% endif %}
+              <label class="mb-1.5 block text-sm font-bold text-slate-700">نص الرسالة</label>
+              <textarea name="body" rows="5" class="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100" placeholder="اكتب الرسالة هنا...">{{ form.body.value|default:'' }}</textarea>
+              {% if form.body.errors %}<div class="mt-1 text-sm text-rose-600">{{ form.body.errors.0 }}</div>{% endif %}
             </div>
-
-            <div class="grid gap-4 md:grid-cols-2">
+            <div class="grid gap-3 sm:grid-cols-2">
               <div>
-                <label class="mb-2 block text-sm font-bold text-slate-700">مرفق اختياري</label>
-                <input type="file" name="attachment" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-bold file:text-white">
-                {% if form.attachment.errors %}
-                  <div class="mt-2 text-sm font-bold text-rose-600">{{ form.attachment.errors.0 }}</div>
-                {% endif %}
+                <label class="mb-1.5 block text-sm font-bold text-slate-700">مرفق</label>
+                <input type="file" name="attachment" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 file:ml-3 file:rounded-full file:border-0 file:bg-slate-900 file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-white">
+                {% if form.attachment.errors %}<div class="mt-1 text-sm text-rose-600">{{ form.attachment.errors.0 }}</div>{% endif %}
               </div>
               <div>
-                <label class="mb-2 block text-sm font-bold text-slate-700">وقت الإرسال</label>
-                <input type="datetime-local" name="send_at" value="{{ form.send_at.value|default:'' }}" class="w-full rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100">
-                {% if form.send_at.errors %}
-                  <div class="mt-2 text-sm font-bold text-rose-600">{{ form.send_at.errors.0 }}</div>
-                {% endif %}
+                <label class="mb-1.5 block text-sm font-bold text-slate-700">وقت الإرسال <span class="font-normal text-slate-400">(اختياري)</span></label>
+                <input type="datetime-local" name="send_at" value="{{ form.send_at.value|default:'' }}" class="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-100">
+                {% if form.send_at.errors %}<div class="mt-1 text-sm text-rose-600">{{ form.send_at.errors.0 }}</div>{% endif %}
               </div>
             </div>
-
-            <div class="rounded-[24px] border border-slate-200 bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-              السعة المعتمدة في هذا الطلب هي {{ bulk_message_limit }} رسالة جماعية. عند تحديد وقت مستقبلي، سيظهر السجل ضمن قسم العمليات المجدولة في الأسفل. أما إذا تُرك الحقل فارغًا فسيتم التعامل معه كإرسال فوري.
-            </div>
-
-            <button class="inline-flex w-full items-center justify-center rounded-[20px] bg-emerald-600 px-5 py-4 text-sm font-bold text-white transition hover:bg-emerald-700">إرسال أو جدولة الرسالة</button>
+            <div class="text-xs text-slate-400">الحد الأقصى {{ bulk_message_limit }} رسالة • اترك وقت الإرسال فارغاً للإرسال فوراً</div>
+            <button class="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">إرسال الرسالة</button>
           </div>
         {% else %}
-          <div class="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-5 text-sm font-bold leading-7 text-amber-800">
-            إرسال الرسائل الجماعية غير مفعّل في طلب الخدمات الإضافية الحالي. يمكنك الاستفادة من البنود الأخرى المفعلة في قسم إدارة العملاء، بينما تظل ميزة الرسائل مرتبطة بطلب يفعّل بند «إرسال الرسائل الجماعية لعملائي».
-          </div>
+          <div class="mt-4 rounded-xl border border-dashed border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">الرسائل الجماعية غير مفعّلة في الطلب الحالي.</div>
         {% endif %}
-      </section>
+      </div>
 
-      <section class="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h3 class="text-xl font-extrabold text-slate-900">آخر العمليات المجدولة</h3>
-            <p class="mt-1 text-sm text-slate-600">تعرض أحدث الرسائل التي تم حفظها أو تنفيذها من البوابة.</p>
-          </div>
-        </div>
-
-        <div class="mt-5 space-y-3">
+      {# Recent Messages #}
+      <div class="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 class="text-base font-bold text-slate-900">آخر العمليات</h3>
+        <div class="mt-3 space-y-2">
           {% for row in recent_message_rows %}
-            <article class="rounded-[24px] border border-slate-200 bg-slate-50/80 p-4">
-              <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div class="text-sm font-extrabold text-slate-900">{{ row.body_preview|default:'رسالة بدون محتوى ظاهر' }}</div>
-                  <div class="mt-2 text-xs font-bold text-slate-500">{{ row.recipient_count }} مستلم{% if row.has_attachment %} • مع مرفق{% endif %}</div>
-                </div>
-                <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {% if row.status_key == 'sent' %}bg-emerald-100 text-emerald-700{% elif row.status_key == 'failed' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ row.status }}</span>
+            <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+              <div class="flex items-start justify-between gap-2">
+                <div class="text-sm font-bold text-slate-800">{{ row.body_preview|default:'رسالة بدون محتوى' }}</div>
+                <span class="shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold {% if row.status_key == 'sent' %}bg-emerald-50 text-emerald-600{% elif row.status_key == 'failed' %}bg-rose-50 text-rose-600{% else %}bg-amber-50 text-amber-600{% endif %}">{{ row.status }}</span>
               </div>
-              <div class="mt-3 grid gap-2 text-xs font-bold text-slate-500 sm:grid-cols-3">
-                <div>تاريخ الإنشاء {{ row.created_at|date:'Y-m-d H:i' }}</div>
-                <div>موعد التنفيذ {{ row.send_at|date:'Y-m-d H:i'|default:'فوري' }}</div>
-                <div>تم الإرسال {{ row.sent_at|date:'Y-m-d H:i'|default:'—' }}</div>
+              <div class="mt-2 flex flex-wrap gap-3 text-xs text-slate-400">
+                <span>{{ row.recipient_count }} مستلم{% if row.has_attachment %} • مرفق{% endif %}</span>
+                <span>{{ row.created_at|date:'Y-m-d H:i' }}</span>
+                {% if row.send_at %}<span>مجدول {{ row.send_at|date:'Y-m-d H:i' }}</span>{% endif %}
               </div>
-            </article>
+            </div>
           {% empty %}
-            <div class="rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-bold text-slate-500">لا توجد عمليات إرسال أو جدولة مسجلة حتى الآن.</div>
+            <div class="rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">لا توجد عمليات مسجلة.</div>
           {% endfor %}
         </div>
-      </section>
+      </div>
     </div>
   </form>
 
-  {# ───────── قائمة متابعي المختص ───────── #}
+  {# ── Followers ── #}
   {% if clients_supports_all_followers %}
-    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">قائمة متابعي المختص</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">جميع المستخدمين الذين يتابعون ملف مزود الخدمة الحالي.</p>
-        </div>
-        <div class="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">{{ followers_total_count }} متابع</div>
+    <div class="mt-8 rounded-2xl border border-slate-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold text-slate-900">المتابعون</h3>
+        <span class="rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">{{ followers_total_count }}</span>
       </div>
-
-      <div class="mt-5 overflow-x-auto">
-        <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
-          <table class="min-w-full text-sm">
-            <thead class="sticky top-0 bg-slate-50 text-slate-600">
-              <tr>
-                <th class="px-4 py-4 text-right font-bold">المتابع</th>
-                <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
-                <th class="px-4 py-4 text-right font-bold">الجوال</th>
-                <th class="px-4 py-4 text-right font-bold">تاريخ المتابعة</th>
+      <div class="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
+        <table class="min-w-full text-sm">
+          <thead class="sticky top-0 bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right font-semibold">المتابع</th>
+              <th class="px-4 py-3 text-right font-semibold">الجوال</th>
+              <th class="px-4 py-3 text-right font-semibold">التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in followers_list %}
+              <tr class="border-t border-slate-100">
+                <td class="px-4 py-3 font-bold text-slate-800">{% if f.user.first_name or f.user.last_name %}{{ f.user.first_name|default:'' }} {{ f.user.last_name|default:'' }}{% elif f.user.username %}{{ f.user.username }}{% else %}—{% endif %}</td>
+                <td class="px-4 py-3 text-slate-500">{{ f.user.phone|default:'—' }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ f.created_at|date:'Y-m-d' }}</td>
               </tr>
-            </thead>
-            <tbody>
-              {% for f in followers_list %}
-                <tr class="clients-table-row border-t border-slate-200 align-top">
-                  <td class="px-4 py-4 font-extrabold text-slate-900">
-                    {% if f.user.first_name or f.user.last_name %}
-                      {{ f.user.first_name|default:'' }} {{ f.user.last_name|default:'' }}
-                    {% elif f.user.username %}
-                      {{ f.user.username }}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td class="px-4 py-4 text-slate-600">{{ f.user.username|default:'—' }}</td>
-                  <td class="px-4 py-4 text-slate-600">{{ f.user.phone|default:'—' }}</td>
-                  <td class="px-4 py-4 text-slate-600">{{ f.created_at|date:'Y-m-d H:i' }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="4" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا يوجد متابعون مسجلون حالياً.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% empty %}
+              <tr><td colspan="3" class="px-4 py-8 text-center text-sm text-slate-400">لا يوجد متابعون.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-    </section>
+    </div>
   {% endif %}
 
-  {# ───────── العملاء المحتملون ───────── #}
+  {# ── Potential Clients ── #}
   {% if clients_supports_potential %}
-    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">العملاء المحتملون</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">قائمة بالعملاء الذين تم ترشيحهم كعملاء محتملين من قائمة التواصل أو يدوياً من خلال لوحة الإدارة.</p>
-        </div>
-        <div class="rounded-2xl bg-cyan-50 px-4 py-3 text-sm font-bold text-cyan-700">{{ potential_clients_total }} عميل محتمل</div>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold text-slate-900">العملاء المحتملون</h3>
+        <span class="rounded-full bg-cyan-50 px-3 py-1 text-sm font-bold text-cyan-600">{{ potential_clients_total }}</span>
       </div>
-
-      <div class="mt-5 overflow-x-auto">
-        <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
-          <table class="min-w-full text-sm">
-            <thead class="sticky top-0 bg-slate-50 text-slate-600">
-              <tr>
-                <th class="px-4 py-4 text-right font-bold">العميل</th>
-                <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
-                <th class="px-4 py-4 text-right font-bold">المصدر</th>
-                <th class="px-4 py-4 text-right font-bold">ملاحظات</th>
-                <th class="px-4 py-4 text-right font-bold">تاريخ الإضافة</th>
+      <div class="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
+        <table class="min-w-full text-sm">
+          <thead class="sticky top-0 bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-4 py-3 text-right font-semibold">العميل</th>
+              <th class="px-4 py-3 text-right font-semibold">المصدر</th>
+              <th class="px-4 py-3 text-right font-semibold">ملاحظات</th>
+              <th class="px-4 py-3 text-right font-semibold">التاريخ</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pc in potential_clients_list %}
+              <tr class="border-t border-slate-100">
+                <td class="px-4 py-3 font-bold text-slate-800">{% if pc.user.first_name or pc.user.last_name %}{{ pc.user.first_name|default:'' }} {{ pc.user.last_name|default:'' }}{% elif pc.user.username %}{{ pc.user.username }}{% else %}—{% endif %}</td>
+                <td class="px-4 py-3"><span class="rounded-full px-2.5 py-0.5 text-xs font-bold {% if pc.source == 'contact_list' %}bg-cyan-50 text-cyan-600{% elif pc.source == 'system' %}bg-blue-50 text-blue-600{% else %}bg-slate-100 text-slate-600{% endif %}">{{ pc.get_source_display }}</span></td>
+                <td class="px-4 py-3 text-slate-500">{{ pc.notes|default:'—' }}</td>
+                <td class="px-4 py-3 text-slate-500">{{ pc.created_at|date:'Y-m-d' }}</td>
               </tr>
-            </thead>
-            <tbody>
-              {% for pc in potential_clients_list %}
-                <tr class="clients-table-row border-t border-slate-200 align-top">
-                  <td class="px-4 py-4 font-extrabold text-slate-900">
-                    {% if pc.user.first_name or pc.user.last_name %}
-                      {{ pc.user.first_name|default:'' }} {{ pc.user.last_name|default:'' }}
-                    {% elif pc.user.username %}
-                      {{ pc.user.username }}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td class="px-4 py-4 text-slate-600">{{ pc.user.username|default:'—' }}</td>
-                  <td class="px-4 py-4">
-                    <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold {% if pc.source == 'contact_list' %}bg-cyan-100 text-cyan-700{% elif pc.source == 'system' %}bg-blue-100 text-blue-700{% else %}bg-slate-100 text-slate-700{% endif %}">{{ pc.get_source_display }}</span>
-                  </td>
-                  <td class="px-4 py-4 text-slate-600">{{ pc.notes|default:'—' }}</td>
-                  <td class="px-4 py-4 text-slate-600">{{ pc.created_at|date:'Y-m-d H:i' }}</td>
-                </tr>
-              {% empty %}
-                <tr>
-                  <td colspan="5" class="px-4 py-10 text-center text-sm font-bold text-slate-500">لا يوجد عملاء محتملون مسجلون حالياً. يمكن إضافتهم من لوحة الإدارة.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% empty %}
+              <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-slate-400">لا يوجد عملاء محتملون.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
-    </section>
+    </div>
   {% endif %}
 
-  {# ───────── برنامج الولاء ───────── #}
+  {# ── Loyalty Program ── #}
   {% if clients_supports_loyalty and loyalty_program %}
-    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">برنامج الولاء</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">إعدادات برنامج الولاء المرتبط بمزود الخدمة الحالي. يمنح العملاء نقاطاً عند إتمام الطلبات.</p>
-        </div>
-        <span class="inline-flex rounded-full px-4 py-2 text-sm font-bold {% if loyalty_program.is_active %}bg-emerald-100 text-emerald-700{% else %}bg-slate-100 text-slate-700{% endif %}">{% if loyalty_program.is_active %}نشط{% else %}معطّل{% endif %}</span>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold text-slate-900">برنامج الولاء</h3>
+        <span class="rounded-full px-3 py-1 text-xs font-bold {% if loyalty_program.is_active %}bg-emerald-50 text-emerald-600{% else %}bg-slate-100 text-slate-500{% endif %}">{% if loyalty_program.is_active %}نشط{% else %}معطّل{% endif %}</span>
       </div>
-
-      <div class="mt-5 grid gap-4 sm:grid-cols-3">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
-          <div class="text-xs font-bold text-slate-500">اسم البرنامج</div>
-          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.name }}</div>
+      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">البرنامج</div>
+          <div class="mt-1 text-base font-bold text-slate-900">{{ loyalty_program.name }}</div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
-          <div class="text-xs font-bold text-slate-500">النقاط لكل طلب مكتمل</div>
-          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.points_per_completed_request }} نقطة</div>
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">نقاط لكل طلب</div>
+          <div class="mt-1 text-base font-bold text-slate-900">{{ loyalty_program.points_per_completed_request }}</div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-5">
-          <div class="text-xs font-bold text-slate-500">تاريخ الإنشاء</div>
-          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ loyalty_program.created_at|date:'Y-m-d' }}</div>
+        <div class="rounded-xl bg-slate-50 px-4 py-3">
+          <div class="text-xs text-slate-500">تاريخ الإنشاء</div>
+          <div class="mt-1 text-base font-bold text-slate-900">{{ loyalty_program.created_at|date:'Y-m-d' }}</div>
         </div>
       </div>
-
-      <div class="mt-4 rounded-[24px] border border-amber-100 bg-amber-50/90 p-4 text-sm leading-7 text-slate-700">
-        <div class="font-bold text-amber-700">ملاحظة تشغيلية</div>
-        <div class="mt-2">يتم منح النقاط تلقائياً عند إتمام كل طلب خدمة مكتمل. يمكن تعديل إعدادات البرنامج من لوحة الإدارة.</div>
-      </div>
-    </section>
+    </div>
   {% endif %}
 
-  {# ───────── نظام نقاط العملاء ───────── #}
+  {# ── Points System ── #}
   {% if clients_supports_points %}
-    <section class="mt-8 rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.04)]">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h3 class="text-2xl font-extrabold text-slate-900">نظام نقاط العملاء</h3>
-          <p class="mt-2 text-sm leading-7 text-slate-600">متابعة أرصدة نقاط الولاء لكل عميل وإجمالي النقاط المكتسبة والمستبدلة.</p>
-        </div>
-        <div class="rounded-2xl bg-violet-50 px-4 py-3 text-sm font-bold text-violet-700">{{ loyalty_summary.members }} عضو</div>
+    <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="text-lg font-bold text-slate-900">نقاط العملاء</h3>
+        <span class="rounded-full bg-violet-50 px-3 py-1 text-sm font-bold text-violet-600">{{ loyalty_summary.members }} عضو</span>
       </div>
-
-      <div class="mt-5 grid gap-4 sm:grid-cols-3">
-        <div class="rounded-2xl border border-slate-200 bg-emerald-50 px-4 py-5">
-          <div class="text-xs font-bold text-emerald-700">إجمالي النقاط المكتسبة</div>
-          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.total_earned }}</div>
+      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-xl bg-emerald-50 px-4 py-3">
+          <div class="text-xs text-emerald-600">مكتسبة</div>
+          <div class="mt-1 text-xl font-bold text-slate-900">{{ loyalty_summary.total_earned }}</div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-amber-50 px-4 py-5">
-          <div class="text-xs font-bold text-amber-700">إجمالي النقاط المستبدلة</div>
-          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.total_redeemed }}</div>
+        <div class="rounded-xl bg-amber-50 px-4 py-3">
+          <div class="text-xs text-amber-600">مستبدلة</div>
+          <div class="mt-1 text-xl font-bold text-slate-900">{{ loyalty_summary.total_redeemed }}</div>
         </div>
-        <div class="rounded-2xl border border-slate-200 bg-violet-50 px-4 py-5">
-          <div class="text-xs font-bold text-violet-700">الأعضاء النشطون</div>
-          <div class="mt-2 text-2xl font-extrabold text-slate-900">{{ loyalty_summary.members }}</div>
+        <div class="rounded-xl bg-violet-50 px-4 py-3">
+          <div class="text-xs text-violet-600">أعضاء نشطون</div>
+          <div class="mt-1 text-xl font-bold text-slate-900">{{ loyalty_summary.members }}</div>
         </div>
       </div>
 
       {% if loyalty_memberships %}
-        <div class="mt-5 overflow-x-auto">
-          <div class="max-h-[400px] overflow-auto rounded-[24px] border border-slate-200">
-            <table class="min-w-full text-sm">
-              <thead class="sticky top-0 bg-slate-50 text-slate-600">
-                <tr>
-                  <th class="px-4 py-4 text-right font-bold">العميل</th>
-                  <th class="px-4 py-4 text-right font-bold">اسم المستخدم</th>
-                  <th class="px-4 py-4 text-right font-bold">الرصيد الحالي</th>
-                  <th class="px-4 py-4 text-right font-bold">مكتسب</th>
-                  <th class="px-4 py-4 text-right font-bold">مستبدل</th>
-                  <th class="px-4 py-4 text-right font-bold">تاريخ الانضمام</th>
+        <div class="mt-4 max-h-[360px] overflow-auto rounded-xl border border-slate-200">
+          <table class="min-w-full text-sm">
+            <thead class="sticky top-0 bg-slate-50 text-slate-500">
+              <tr>
+                <th class="px-4 py-3 text-right font-semibold">العميل</th>
+                <th class="px-4 py-3 text-right font-semibold">الرصيد</th>
+                <th class="px-4 py-3 text-right font-semibold">مكتسب</th>
+                <th class="px-4 py-3 text-right font-semibold">مستبدل</th>
+                <th class="px-4 py-3 text-right font-semibold">الانضمام</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in loyalty_memberships %}
+                <tr class="border-t border-slate-100">
+                  <td class="px-4 py-3 font-bold text-slate-800">{% if m.user.first_name or m.user.last_name %}{{ m.user.first_name|default:'' }} {{ m.user.last_name|default:'' }}{% elif m.user.username %}{{ m.user.username }}{% else %}—{% endif %}</td>
+                  <td class="px-4 py-3"><span class="rounded-full bg-violet-50 px-2.5 py-0.5 text-xs font-bold text-violet-600">{{ m.points_balance }}</span></td>
+                  <td class="px-4 py-3 font-bold text-emerald-600">{{ m.total_earned }}</td>
+                  <td class="px-4 py-3 font-bold text-amber-600">{{ m.total_redeemed }}</td>
+                  <td class="px-4 py-3 text-slate-500">{{ m.joined_at|date:'Y-m-d' }}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {% for m in loyalty_memberships %}
-                  <tr class="clients-table-row border-t border-slate-200 align-top">
-                    <td class="px-4 py-4 font-extrabold text-slate-900">
-                      {% if m.user.first_name or m.user.last_name %}
-                        {{ m.user.first_name|default:'' }} {{ m.user.last_name|default:'' }}
-                      {% elif m.user.username %}
-                        {{ m.user.username }}
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-                    <td class="px-4 py-4 text-slate-600">{{ m.user.username|default:'—' }}</td>
-                    <td class="px-4 py-4"><span class="inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-bold text-violet-700">{{ m.points_balance }} نقطة</span></td>
-                    <td class="px-4 py-4 text-emerald-700 font-bold">{{ m.total_earned }}</td>
-                    <td class="px-4 py-4 text-amber-700 font-bold">{{ m.total_redeemed }}</td>
-                    <td class="px-4 py-4 text-slate-600">{{ m.joined_at|date:'Y-m-d' }}</td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
       {% else %}
-        <div class="mt-5 rounded-[24px] border border-dashed border-slate-300 bg-white px-4 py-8 text-center text-sm font-bold text-slate-500">لا يوجد أعضاء في برنامج الولاء حالياً. سيتم إضافتهم تلقائياً عند إتمام طلبات الخدمة.</div>
+        <div class="mt-4 rounded-xl border border-dashed border-slate-200 py-6 text-center text-sm text-slate-400">لا يوجد أعضاء بعد.</div>
       {% endif %}
-    </section>
+    </div>
   {% endif %}
-
 {% endblock %}

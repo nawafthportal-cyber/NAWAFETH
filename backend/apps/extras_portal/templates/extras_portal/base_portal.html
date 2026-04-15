@@ -3,160 +3,80 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}بوابة الخدمات الإضافية{% endblock %}</title>
+  <title>{% block title %}الخدمات الإضافية{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --portal-ink: #10213b;
-      --portal-muted: #5c6c86;
-      --portal-line: rgba(25, 52, 92, 0.12);
-      --portal-brand: #0f5ad7;
-      --portal-brand-dark: #0a409d;
-      --portal-accent: #0a8da4;
-      --portal-bg: #eef4ff;
-      --portal-card: #ffffff;
-    }
-    * {
-      font-family: "IBM Plex Sans Arabic", "Outfit", sans-serif;
-    }
-    body {
-      background:
-        radial-gradient(circle at top right, rgba(15, 90, 215, 0.16), transparent 26%),
-        radial-gradient(circle at bottom left, rgba(10, 141, 164, 0.14), transparent 28%),
-        linear-gradient(180deg, #f6f9ff 0%, var(--portal-bg) 100%);
-      color: var(--portal-ink);
-    }
-    .portal-shell {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.96));
-      border: 1px solid rgba(255, 255, 255, 0.92);
-      box-shadow: 0 30px 80px rgba(16, 33, 59, 0.08);
-    }
-    .portal-sidebar {
-      background:
-        radial-gradient(circle at top right, rgba(15, 90, 215, 0.12), transparent 38%),
-        linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-    }
-    .portal-pill {
-      border: 1px solid rgba(15, 90, 215, 0.18);
-      background: rgba(15, 90, 215, 0.08);
-      color: var(--portal-brand);
-    }
-    .portal-nav-item.is-active {
-      background: linear-gradient(135deg, rgba(15, 90, 215, 0.11), rgba(10, 141, 164, 0.11));
-      border-color: rgba(15, 90, 215, 0.18);
-      transform: translateX(-2px);
-    }
-    .portal-nav-item {
-      transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
-    }
-    .portal-nav-item:hover {
-      transform: translateX(-2px);
-      border-color: rgba(15, 90, 215, 0.16);
-      background: rgba(255, 255, 255, 0.9);
-    }
+    *{font-family:"IBM Plex Sans Arabic",sans-serif}
+    body{background:linear-gradient(160deg,#f8fafc 0%,#eef2ff 50%,#f0f9ff 100%);color:#0f172a}
+    .shell{background:rgba(255,255,255,.92);border:1px solid rgba(226,232,240,.7);box-shadow:0 25px 60px rgba(15,23,42,.06)}
+    .sidebar{background:linear-gradient(180deg,#fff,#f8fafc)}
+    .nav-link{transition:all .2s ease}
+    .nav-link:hover,.nav-link.active{background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(14,165,233,.06));border-color:rgba(99,102,241,.2);transform:translateX(-2px)}
+    .nav-link.active{font-weight:700}
   </style>
   {% block extra_head %}{% endblock %}
 </head>
-<body class="min-h-screen p-3 sm:p-4 lg:p-6">
-  <div class="portal-shell mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1500px] overflow-hidden rounded-[30px] lg:min-h-[calc(100vh-3rem)]">
-    <aside class="portal-sidebar hidden w-80 shrink-0 border-l border-slate-200/80 lg:flex lg:flex-col">
-      <div class="border-b border-slate-200/80 px-6 py-6">
-        <span class="portal-pill inline-flex rounded-full px-3 py-1 text-xs font-bold">Extras Client Portal</span>
-        <h2 class="mt-4 text-2xl font-extrabold text-slate-900">بوابة الخدمات الإضافية</h2>
-        <p class="mt-2 text-sm leading-7 text-slate-600">واجهة مستقلة لعرض البنود المشتركة فقط، مع وصول منظم حسب الخدمات المفعلة على حساب مزود الخدمة.</p>
+<body class="min-h-screen p-3 sm:p-5">
+  <div class="shell mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1440px] overflow-hidden rounded-3xl">
+    {# ── Sidebar ── #}
+    <aside class="sidebar hidden w-72 shrink-0 border-l border-slate-200/60 lg:flex lg:flex-col">
+      <div class="border-b border-slate-100 px-6 py-6">
+        <h2 class="text-xl font-bold text-slate-900">الخدمات الإضافية</h2>
+        <p class="mt-1 text-sm text-slate-500">{{ provider.display_name|default:request.user.username }}</p>
+        <p class="mt-0.5 text-xs text-slate-400" dir="ltr">{{ request.user.phone|default:"" }}</p>
       </div>
 
-      <div class="px-6 py-5">
-        <div class="rounded-[24px] border border-slate-200 bg-white/90 p-5 shadow-sm">
-          <div class="text-xs font-bold text-slate-500">الحساب الحالي</div>
-          <div class="mt-2 text-lg font-extrabold text-slate-900">{{ provider.display_name|default:request.user.username }}</div>
-          <div class="mt-1 text-sm text-slate-500" dir="ltr">{{ request.user.phone|default:request.user.username }}</div>
-          {% if portal_current_request_obj %}
-            <div class="mt-4 grid gap-3">
-              <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                <div class="text-xs font-bold text-slate-500">رقم الطلب</div>
-                <div class="mt-1 text-sm font-extrabold text-slate-900">{{ portal_current_request_obj.code }}</div>
-              </div>
-              <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                <div class="text-xs font-bold text-slate-500">الأقسام المفعلة</div>
-                <div class="mt-1 text-sm font-extrabold text-slate-900">{{ portal_nav_items|length }} قسم</div>
-              </div>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-
-      <nav class="flex-1 space-y-3 overflow-y-auto px-6 pb-6">
+      <nav class="flex-1 space-y-2 overflow-y-auto px-4 py-4">
         {% for item in portal_nav_items %}
-          <a href="{% url item.url_name %}" class="portal-nav-item {% if item.active %}is-active{% endif %} flex items-center justify-between rounded-[22px] border border-slate-200 bg-white/80 px-4 py-4">
-            <div>
-              <div class="text-sm font-extrabold text-slate-900">{{ item.label }}</div>
-              <div class="mt-1 text-xs text-slate-500">{{ item.option_count }} بند مفعل داخل الاشتراك</div>
-            </div>
-            <span class="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">{% if item.active %}الحالي{% else %}عرض{% endif %}</span>
+          <a href="{% url item.url_name %}" class="nav-link {% if item.active %}active{% endif %} flex items-center justify-between rounded-2xl border border-transparent px-4 py-3.5">
+            <span class="text-sm {% if item.active %}text-indigo-700{% else %}text-slate-700{% endif %}">{{ item.label }}</span>
+            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">{{ item.option_count }}</span>
           </a>
         {% empty %}
-          <div class="rounded-[24px] border border-dashed border-slate-300 bg-white/75 px-4 py-5 text-sm leading-7 text-slate-600">
-            لا توجد أقسام مفعلة في آخر طلب مكتمل حاليًا. ستظهر الروابط هنا تلقائيًا بعد اعتماد الاشتراك.
-          </div>
+          <div class="rounded-2xl border border-dashed border-slate-200 px-4 py-5 text-center text-sm text-slate-400">لا توجد أقسام مفعلة</div>
         {% endfor %}
       </nav>
 
-      <div class="border-t border-slate-200/80 px-6 py-5">
-        <div class="mb-4 rounded-[22px] bg-slate-900 px-4 py-4 text-white">
-          <div class="text-xs font-bold text-white/70">حالة البوابة</div>
-          <div class="mt-2 text-sm font-extrabold">{% if portal_subscription_active %}الوصول نشط ومتاح{% else %}يعتمد الوصول على آخر طلب مكتمل{% endif %}</div>
-        </div>
-        <a href="{% url 'extras_portal:logout' %}" class="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-50">تسجيل الخروج</a>
+      <div class="border-t border-slate-100 px-5 py-4">
+        {% if portal_subscription_active %}
+          <div class="mb-3 flex items-center gap-2 rounded-xl bg-emerald-50 px-3 py-2">
+            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+            <span class="text-xs font-semibold text-emerald-700">الاشتراك نشط</span>
+          </div>
+        {% endif %}
+        <a href="{% url 'extras_portal:logout' %}" class="flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">تسجيل الخروج</a>
       </div>
     </aside>
 
+    {# ── Main ── #}
     <main class="flex-1 overflow-hidden">
-      <header class="border-b border-slate-200/80 bg-white/70 backdrop-blur">
-        <div class="px-4 py-5 sm:px-6 lg:px-8">
-          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <div class="flex flex-wrap items-center gap-2">
-                <span class="portal-pill inline-flex rounded-full px-3 py-1 text-xs font-bold">بوابة مستقلة</span>
-                {% if portal_current_request_obj %}
-                  <span class="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">{{ portal_current_request_obj.code }}</span>
-                {% endif %}
-              </div>
-              <h1 class="mt-3 text-2xl font-extrabold text-slate-900 sm:text-3xl">{% block header %}بوابة الخدمات الإضافية{% endblock %}</h1>
-              <p class="mt-2 max-w-3xl text-sm leading-7 text-slate-600">{% block header_subtitle %}يتم عرض المحتوى وفقًا للأقسام والبنود المعتمدة في آخر طلب خدمات إضافية مكتمل لهذا الحساب.{% endblock %}</p>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-2 lg:min-w-[320px]">
-              <div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
-                <div class="text-xs font-bold text-slate-500">اسم الحساب</div>
-                <div class="mt-1 text-sm font-extrabold text-slate-900">{{ provider.display_name|default:request.user.username }}</div>
-              </div>
-              <div class="rounded-[22px] border border-slate-200 bg-white px-4 py-4">
-                <div class="text-xs font-bold text-slate-500">حالة الوصول</div>
-                <div class="mt-1 text-sm font-extrabold {% if portal_subscription_active %}text-emerald-700{% else %}text-amber-700{% endif %}">{% if portal_subscription_active %}مفعل{% else %}مربوط بآخر طلب{% endif %}</div>
-              </div>
-            </div>
+      <header class="border-b border-slate-100 bg-white/60 px-5 py-4 backdrop-blur sm:px-7">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-slate-900 sm:text-2xl">{% block header %}الخدمات الإضافية{% endblock %}</h1>
+            <p class="mt-1 text-sm text-slate-500">{% block header_subtitle %}{% endblock %}</p>
           </div>
-
-          <div class="mt-5 flex gap-3 overflow-x-auto pb-1 lg:hidden">
-            {% for item in portal_nav_items %}
-              <a href="{% url item.url_name %}" class="whitespace-nowrap rounded-full border px-4 py-2 text-sm font-bold {% if item.active %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-slate-200 bg-white text-slate-700{% endif %}">{{ item.label }}</a>
-            {% endfor %}
-          </div>
+          {% if portal_current_request_obj %}
+            <span class="hidden rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white sm:inline-flex">{{ portal_current_request_obj.code }}</span>
+          {% endif %}
+        </div>
+        {# Mobile nav #}
+        <div class="mt-4 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+          {% for item in portal_nav_items %}
+            <a href="{% url item.url_name %}" class="whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-semibold {% if item.active %}border-indigo-200 bg-indigo-50 text-indigo-700{% else %}border-slate-200 bg-white text-slate-600{% endif %}">{{ item.label }}</a>
+          {% endfor %}
         </div>
       </header>
 
-      <div class="h-[calc(100vh-160px)] overflow-y-auto px-4 py-5 sm:px-6 lg:h-[calc(100vh-180px)] lg:px-8">
+      <div class="h-[calc(100vh-120px)] overflow-y-auto px-5 py-5 sm:px-7 lg:h-[calc(100vh-80px)]">
         {% if messages %}
-          <div class="mb-5 space-y-3">
+          <div class="mb-5 space-y-2">
             {% for message in messages %}
-              <div class="rounded-[20px] border px-4 py-3 text-sm font-medium {% if message.tags == 'success' %}border-emerald-200 bg-emerald-50 text-emerald-800{% elif message.tags == 'error' %}border-red-200 bg-red-50 text-red-800{% else %}border-slate-200 bg-white text-slate-800{% endif %}">
-                {{ message }}
-              </div>
+              <div class="rounded-xl px-4 py-3 text-sm font-medium {% if message.tags == 'success' %}border border-emerald-200 bg-emerald-50 text-emerald-800{% elif message.tags == 'error' %}border border-red-200 bg-red-50 text-red-800{% else %}border border-slate-200 bg-white text-slate-700{% endif %}">{{ message }}</div>
             {% endfor %}
           </div>
         {% endif %}
-
         {% block content %}{% endblock %}
       </div>
     </main>

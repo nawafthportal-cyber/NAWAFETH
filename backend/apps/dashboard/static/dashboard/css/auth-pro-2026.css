@@ -546,3 +546,53 @@
     min-height: 44px;
   }
 }
+
+/* ── Centered single-card layout ─────────────────────────────── */
+
+.nx-auth__grid--centered {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+
+.nx-auth__card--wide {
+  width: min(480px, 100%);
+  padding: 40px 36px;
+  gap: 20px;
+}
+
+.nx-auth__head--center {
+  text-align: center;
+  justify-items: center;
+}
+
+.nx-auth__logo-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.nx-auth__logo-mark svg {
+  filter: drop-shadow(0 6px 16px rgba(124, 58, 237, 0.3));
+}
+
+.nx-auth__actions--stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.nx-auth__btn-primary--full,
+.nx-auth__btn-ghost--full {
+  width: 100%;
+}
+
+.nx-auth__btn-primary--full {
+  min-height: 48px;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 560px) {
+  .nx-auth__card--wide {
+    padding: 28px 18px;
+  }
+}

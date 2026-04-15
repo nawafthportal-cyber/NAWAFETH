@@ -433,10 +433,7 @@ def portal_login(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "extras_portal/login.html",
-        {
-            "form": form,
-            "portal_panel_label": "فريق الخدمات الإضافية",
-        },
+        {"form": form},
     )
 
 
@@ -1298,7 +1295,12 @@ def portal_clients(request: HttpRequest) -> HttpResponse:
             messages.error(request, "اختر عميل واحد على الأقل")
             return redirect("extras_portal:clients")
 
-        recipients = list(User.objects.filter(id__in=recipient_ids))
+        recipients = list(
+            User.objects.filter(
+                id__in=recipient_ids,
+                requests__provider=provider,
+            ).distinct()
+        )
         if not recipients:
             messages.error(request, "لا يوجد عملاء صالحون")
             return redirect("extras_portal:clients")

@@ -164,11 +164,15 @@ class SubCategorySerializer(serializers.ModelSerializer):
 
 
 class CategorySerializer(serializers.ModelSerializer):
-    subcategories = SubCategorySerializer(many=True, read_only=True)
+    subcategories = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = ("id", "name", "subcategories")
+
+    def get_subcategories(self, obj):
+        active = obj.subcategories.filter(is_active=True)
+        return SubCategorySerializer(active, many=True).data
 
 
 class SaudiCitySerializer(serializers.ModelSerializer):

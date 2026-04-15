@@ -15,14 +15,16 @@ from apps.uploads.validators import (
 
 class PortalLoginForm(forms.Form):
     username = forms.CharField(
-        label="اسم المستخدم",
+        label="رقم الجوال",
         max_length=150,
         widget=forms.TextInput(
             attrs={
                 "class": "input-control",
-                "placeholder": "اسم المستخدم أو رقم الجوال",
-                "autocomplete": "username",
+                "placeholder": "05XXXXXXXX",
+                "autocomplete": "tel",
                 "autofocus": "autofocus",
+                "inputmode": "tel",
+                "dir": "ltr",
             }
         ),
     )

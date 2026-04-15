@@ -513,6 +513,11 @@ body.home-mobile-layout .reel-item:hover {
    Mirrors Flutter horizontal ListView for all sections.
    ================================================================ */
 
+/* ── Categories Carousel arrows (hidden on mobile, shown on desktop) ── */
+.categories-arrow {
+  display: none;
+}
+
 /* ── Categories Scroll (Flutter: 76px wide items, horizontal) ── */
 .categories-scroll {
   display: flex;
@@ -1061,7 +1066,8 @@ body.home-mobile-layout .reel-item:hover {
   line-height: 1.5;
   color: #5c6470;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+   -webkit-line-clamp: 2;
+   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1707,21 +1713,101 @@ body.home-mobile-layout .section-reels {
     box-shadow: 0 8px 20px rgba(20, 20, 38, 0.05);
   }
 
+  .categories-carousel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .categories-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    border: 1px solid rgba(103, 58, 183, 0.12);
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #673AB7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(103, 58, 183, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .categories-carousel:hover .categories-arrow:not([disabled]) {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .categories-arrow:hover {
+    background: #673AB7;
+    color: #fff;
+    box-shadow: 0 6px 24px rgba(103, 58, 183, 0.28);
+    transform: translateY(-50%) scale(1.08);
+  }
+
+  .categories-arrow:active {
+    transform: translateY(-50%) scale(0.96);
+  }
+
+  .categories-arrow[disabled] {
+    opacity: 0 !important;
+    pointer-events: none;
+  }
+
+  .categories-arrow--prev {
+    left: -18px;
+  }
+
+  .categories-arrow--next {
+    right: -18px;
+  }
+
   .categories-scroll {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    overflow: visible;
-    padding: 0;
-    gap: 18px;
-    scroll-snap-type: none;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    padding: 12px 8px 16px;
+    gap: 20px;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    mask-image: linear-gradient(to left, transparent 0%, #000 4%, #000 96%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to left, transparent 0%, #000 4%, #000 96%, transparent 100%);
+  }
+
+  .categories-scroll::-webkit-scrollbar {
+    display: none;
   }
 
   .categories-scroll .cat-item {
-    width: auto;
+    flex: 0 0 auto;
+    width: 110px;
     min-width: 0;
-    flex: none;
     padding: 18px 12px;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    scroll-snap-align: start;
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(103, 58, 183, 0.06);
+  }
+
+  .categories-scroll .cat-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(103, 58, 183, 0.14);
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(103, 58, 183, 0.12);
   }
 
   .providers-scroll {
@@ -1808,7 +1894,6 @@ body.home-mobile-layout .section-reels {
     box-shadow: 0 12px 28px rgba(41, 31, 66, 0.08);
   }
 
-  .categories-scroll .cat-item:hover,
   .featured-specialists-scroll .featured-specialist-card:hover,
   .showcase-card:hover,
   .sponsor-card:hover {
@@ -1827,8 +1912,8 @@ body.home-mobile-layout .section-reels {
     max-width: 1280px;
   }
 
-  .categories-scroll {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
+  .categories-scroll .cat-item {
+    width: 120px;
   }
 
   .providers-scroll {
@@ -2280,7 +2365,8 @@ body.home-mobile-layout .section-reels {
   max-height: 2.8em;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+   -webkit-line-clamp: 2;
+   line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 

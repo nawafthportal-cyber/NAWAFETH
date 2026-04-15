@@ -9835,6 +9835,8 @@ def _finance_reference_label(ref_type: str) -> str:
 @require_dashboard_access("admin_control")
 def finance_dashboard(request):
     """صفحة المالية – عرض جميع الفواتير مع فلترة وتصدير."""
+    if not request.user.is_superuser:
+        return HttpResponseForbidden("غير مصرح للوصول.")
 
     # ── Filters ──
     status_filter = (request.GET.get("status") or "").strip()
