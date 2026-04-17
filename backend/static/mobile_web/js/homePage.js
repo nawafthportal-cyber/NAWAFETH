@@ -1205,7 +1205,7 @@ const HomePage = (() => {
       $portfolioShowcaseList.appendChild(
         UI.el('div', {
           className: 'providers-empty',
-          textContent: 'لا توجد مشاريع أو بنرات ممولة حالياً',
+          textContent: 'لا توجد مشاريع أو بنرات حالياً',
         })
       );
       return;
