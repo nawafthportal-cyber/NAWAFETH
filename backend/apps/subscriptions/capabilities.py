@@ -143,6 +143,14 @@ def plan_capabilities_for_plan(plan: SubscriptionPlan | None) -> dict:
     visibility_delay_hours = int(
         resolved_plan_int(plan, template, "competitive_visibility_delay_hours", default=0) or 0
     )
+    urgent_visibility_delay_hours = int(
+        resolved_plan_int(
+            plan,
+            template,
+            "urgent_visibility_delay_hours",
+            default=visibility_delay_hours,
+        ) or 0
+    )
     banner_images_limit = int(
         resolved_plan_int(plan, template, "banner_images_limit", default=0) or 0
     )
@@ -182,6 +190,17 @@ def plan_capabilities_for_plan(plan: SubscriptionPlan | None) -> dict:
                 field_name="competitive_visibility_label",
                 derived_default=_visibility_label(visibility_delay_hours),
                 plan_overrides_source=_plan_has_value(plan, "competitive_visibility_delay_hours"),
+            ),
+        },
+        "urgent_requests": {
+            "enabled": True,
+            "visibility_delay_hours": urgent_visibility_delay_hours,
+            "visibility_label": _resolved_capability_label(
+                plan,
+                template,
+                field_name="urgent_visibility_label",
+                derived_default=_visibility_label(urgent_visibility_delay_hours),
+                plan_overrides_source=_plan_has_value(plan, "urgent_visibility_delay_hours"),
             ),
         },
         "banner_images": {
@@ -278,7 +297,9 @@ def provider_unsubscribed_capabilities() -> dict:
     }
     caps["urgent_requests"] = {
         "enabled": False,
+        "visibility_delay_hours": 0,
         "label": "غير متاحة قبل تفعيل الاشتراك",
+        "visibility_label": "غير متاحة قبل تفعيل الاشتراك",
     }
     caps["banner_images"] = {
         "limit": 0,
@@ -314,8 +335,9 @@ def plan_capabilities_for_user(user) -> dict:
         return plan_capabilities_for_tier(CanonicalPlanTier.BASIC)
     caps = plan_capabilities_for_plan(getattr(active_sub, "plan", None))
     caps["urgent_requests"] = {
+        **(caps.get("urgent_requests") or {}),
         "enabled": True,
-        "label": "متاحة حسب أولوية الباقة",
+        "label": (caps.get("urgent_requests") or {}).get("visibility_label") or "متاحة حسب أولوية الباقة",
     }
     caps["has_active_subscription"] = True
     caps["subscription_state"] = "active"
@@ -336,6 +358,16 @@ def urgent_requests_enabled_for_user(user) -> bool:
     if "enabled" in urgent:
         return bool(urgent.get("enabled"))
     return True
+
+
+def urgent_request_delay_hours_for_tier(value) -> int:
+    caps = plan_capabilities_for_tier(value)
+    urgent = caps.get("urgent_requests") or {}
+    return int(urgent.get("visibility_delay_hours") or 0)
+
+
+def urgent_request_delay_for_tier(value) -> timedelta:
+    return timedelta(hours=urgent_request_delay_hours_for_tier(value))
 
 
 def subscription_feature_flag_for_user(user, feature_key: str) -> bool | None:

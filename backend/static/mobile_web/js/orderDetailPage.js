@@ -312,7 +312,7 @@ const OrderDetailPage = (() => {
     if (!section || !grid || !note || !form || !_order) return;
 
     const hasInputs = (
-      _statusGroup(_order) === 'new' &&
+      _workflowStage(_order) === 'awaiting_client' &&
       (_order.expected_delivery_at || _order.estimated_service_amount !== null || _order.received_amount !== null || _order.remaining_amount !== null)
     );
 
@@ -396,8 +396,9 @@ const OrderDetailPage = (() => {
 
     body.innerHTML = '';
     const group = _statusGroup(_order);
+    const actions = _availableActions();
 
-    if (group === 'new') {
+    if (group === 'new' && actions.includes('cancel')) {
       const reasonLabel = UI.el('label', {
         className: 'order-form-label',
         for: 'order-cancel-reason',
@@ -595,6 +596,8 @@ const OrderDetailPage = (() => {
   function _statusLabelFromCode(raw) {
     const code = String(raw || '').trim().toLowerCase();
     if (code === 'new') return 'جديد';
+    if (code === 'provider_accepted') return 'تم قبول الطلب';
+    if (code === 'awaiting_client') return 'بانتظار اعتماد العميل للتفاصيل';
     if (code === 'in_progress') return 'تحت التنفيذ';
     if (code === 'completed') return 'مكتمل';
     if (code === 'cancelled' || code === 'canceled') return 'ملغي';
@@ -863,6 +866,10 @@ const OrderDetailPage = (() => {
     return 'new';
   }
 
+  function _workflowStage(order) {
+    return String(order && order.status || '').toLowerCase();
+  }
+
   function _isCompetitiveOrder(order) {
     return String(order && order.request_type || '').toLowerCase() === 'competitive';
   }
@@ -875,7 +882,11 @@ const OrderDetailPage = (() => {
   }
 
   function _canEdit() {
-    return _statusGroup(_order) === 'new';
+    return _workflowStage(_order) === 'new';
+  }
+
+  function _availableActions() {
+    return Array.isArray(_order && _order.available_actions) ? _order.available_actions : [];
   }
 
   function _applyEditableState() {
@@ -954,7 +965,7 @@ const OrderDetailPage = (() => {
   }
 
   async function _cancelOrder() {
-    if (!_order || _actionLoading || _statusGroup(_order) !== 'new') return;
+    if (!_order || _actionLoading || !_availableActions().includes('cancel')) return;
     const reason = String(document.getElementById('order-cancel-reason')?.value || '').trim();
     if (!reason) {
       _setActionFeedback('يرجى كتابة سبب الإلغاء', true);

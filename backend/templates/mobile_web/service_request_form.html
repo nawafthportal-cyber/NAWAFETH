@@ -2,89 +2,601 @@
 {% block title %}طلب خدمة — نوافــذ{% endblock %}
 {% block body_class %}page-service-request{% endblock %}
 
+{% block extra_css %}
+<style>
+  body.page-service-request {
+    background:
+      radial-gradient(1200px 420px at 50% -180px, rgba(103, 58, 183, 0.16), transparent 64%),
+      #f6f7fc;
+  }
+
+  .page-service-request .container {
+    max-width: 980px;
+  }
+
+  .page-service-request .sr-shell {
+    max-width: 760px;
+    margin-inline: auto;
+  }
+
+  .page-service-request .sr-header {
+    border-radius: 16px;
+    padding: 12px;
+    border: 1px solid #e6e5f1;
+    box-shadow: 0 4px 14px rgba(27, 25, 43, 0.06);
+  }
+
+  .page-service-request .sr-header h1 {
+    font-size: 16px;
+  }
+
+  .page-service-request .sr-subtitle {
+    margin-top: 10px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .page-service-request .sr-journey-card,
+  .page-service-request .sr-provider-note {
+    border-radius: 18px;
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .page-service-request .sr-journey-card {
+    border: 1px solid rgba(103, 58, 183, 0.18);
+    background: linear-gradient(135deg, rgba(103, 58, 183, 0.11) 0%, rgba(103, 58, 183, 0.04) 100%);
+  }
+
+  .page-service-request .sr-provider-note {
+    border: 1px solid rgba(241, 165, 89, 0.28);
+    background: linear-gradient(135deg, rgba(241, 165, 89, 0.18) 0%, rgba(241, 165, 89, 0.06) 100%);
+  }
+
+  .page-service-request .sr-provider-note h3,
+  .page-service-request .sr-summary-copy h2 {
+    margin: 0;
+    color: #2a2737;
+    font-size: 15px;
+    font-weight: 900;
+  }
+
+  .page-service-request .sr-provider-note p,
+  .page-service-request .sr-summary-copy p {
+    margin: 6px 0 0;
+    color: #59556b;
+    font-size: 11px;
+    line-height: 1.7;
+    font-weight: 700;
+  }
+
+  .page-service-request .sr-summary-chip,
+  .page-service-request .sr-provider-chip,
+  .page-service-request .sr-overview-item span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(103, 58, 183, 0.16);
+    color: var(--color-primary-dark);
+    font-size: 10px;
+    font-weight: 800;
+  }
+
+  .page-service-request .sr-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .page-service-request .sr-overview {
+    display: grid;
+    gap: 10px;
+  }
+
+  .page-service-request .sr-overview-item {
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid rgba(103, 58, 183, 0.12);
+    background: rgba(255, 255, 255, 0.74);
+  }
+
+  .page-service-request .sr-overview-item strong {
+    display: block;
+    margin-top: 8px;
+    color: #2b2740;
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .page-service-request .sr-overview-item p {
+    margin: 4px 0 0;
+    color: #66627a;
+    font-size: 10.5px;
+    line-height: 1.65;
+    font-weight: 700;
+  }
+
+  .page-service-request .sr-form {
+    border-radius: 20px;
+    padding: 16px;
+    border: 1px solid #e5e7f0;
+    box-shadow: 0 8px 24px rgba(24, 23, 36, 0.05);
+  }
+
+  .page-service-request .sr-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .page-service-request .sr-section {
+    border: 1px solid rgba(221, 224, 236, 0.92);
+    border-radius: 18px;
+    padding: 14px;
+    background: #fcfcff;
+  }
+
+  .page-service-request .sr-section-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .page-service-request .sr-section-step {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(103, 58, 183, 0.12);
+    color: var(--color-primary-dark);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 900;
+    flex: 0 0 auto;
+  }
+
+  .page-service-request .sr-section-head h2 {
+    margin: 0;
+    color: #2a2737;
+    font-size: 14px;
+    font-weight: 900;
+  }
+
+  .page-service-request .sr-section-head p {
+    margin: 4px 0 0;
+    color: #6b667b;
+    font-size: 10.5px;
+    line-height: 1.7;
+    font-weight: 700;
+  }
+
+  .page-service-request .sr-fields-grid {
+    display: grid;
+    gap: 12px;
+  }
+
+  .page-service-request .sr-fields-grid-two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .page-service-request .sr-group {
+    margin-bottom: 0;
+  }
+
+  .page-service-request .sr-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 7px;
+    color: #2a2737;
+    font-size: 12px;
+    font-weight: 800;
+  }
+
+  .page-service-request .sr-required {
+    color: #d92d20;
+  }
+
+  .page-service-request .sr-form .form-input,
+  .page-service-request .sr-form .form-select,
+  .page-service-request .sr-form .form-textarea {
+    width: 100%;
+    border: 1.5px solid #dde0ec;
+    border-radius: 13px;
+    background: #fcfcff;
+    color: #1f1c2c;
+    min-height: 48px;
+    padding: 11px 13px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 12.5px;
+    line-height: 1.5;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  }
+
+  .page-service-request .sr-form .form-textarea {
+    min-height: 148px;
+    resize: vertical;
+  }
+
+  .page-service-request .sr-form .form-input:focus,
+  .page-service-request .sr-form .form-select:focus,
+  .page-service-request .sr-form .form-textarea:focus {
+    border-color: var(--color-primary);
+    background: #fff;
+    box-shadow: 0 0 0 4px rgba(103, 58, 183, 0.12);
+    outline: none;
+  }
+
+  .page-service-request .sr-type-chips {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .page-service-request .sr-type-chips .chip {
+    min-height: 74px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(103, 58, 183, 0.16);
+    background: rgba(255, 255, 255, 0.88);
+    color: #3b3550;
+    text-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  }
+
+  .page-service-request .sr-type-chips .chip span {
+    color: #757089;
+    font-size: 10px;
+    line-height: 1.55;
+    font-weight: 700;
+  }
+
+  .page-service-request .sr-type-chips .chip.active {
+    border-color: rgba(103, 58, 183, 0.42);
+    background: linear-gradient(135deg, rgba(103, 58, 183, 0.18) 0%, rgba(103, 58, 183, 0.08) 100%);
+    box-shadow: 0 8px 20px rgba(103, 58, 183, 0.12);
+    color: var(--color-primary-dark);
+  }
+
+  .page-service-request .sr-type-chips .chip.active span {
+    color: #4c4670;
+  }
+
+  .page-service-request .sr-type-chips .chip:hover {
+    transform: translateY(-1px);
+  }
+
+  .page-service-request .sr-hint,
+  .page-service-request .sr-helper,
+  .page-service-request .char-count {
+    margin-top: 6px;
+    font-size: 10.5px;
+    line-height: 1.6;
+    color: #7a748f;
+    font-weight: 700;
+  }
+
+  .page-service-request .char-count {
+    display: block;
+    text-align: end;
+  }
+
+  .page-service-request .sr-attachments-wrap {
+    border: 1.5px dashed #cfd3e6;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fafaff 0%, #f4f5ff 100%);
+    padding: 12px;
+  }
+
+  .page-service-request .attachments-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .page-service-request .attach-btns {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .page-service-request .attach-btns .btn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .page-service-request .attach-item {
+    position: relative;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(103, 58, 183, 0.12);
+    box-shadow: 0 4px 14px rgba(103, 58, 183, 0.06);
+  }
+
+  .page-service-request .attach-item img {
+    width: 100%;
+    max-height: 180px;
+    object-fit: cover;
+  }
+
+  .page-service-request .attach-item.file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .page-service-request .attach-item.file-item span {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #3d3754;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .page-service-request .attach-remove {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    border: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 900;
+  }
+
+  .page-service-request .attach-item.file-item .attach-remove {
+    position: static;
+    flex: 0 0 auto;
+    background: rgba(220, 38, 38, 0.1);
+    color: #dc2626;
+  }
+
+  .page-service-request .sr-actions {
+    margin-top: 14px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .page-service-request .sr-actions .btn,
+  .page-service-request .sr-actions .btn-primary-lg {
+    min-height: 48px;
+    flex: 1 1 220px;
+  }
+
+  .page-service-request .sr-submit-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .page-service-request .sr-success-card {
+    max-width: 460px;
+    margin: 0 auto;
+  }
+
+  .page-service-request .sr-success-card p {
+    margin-bottom: 0;
+  }
+
+  @media (max-width: 768px) {
+    .page-service-request .sr-summary,
+    .page-service-request .sr-fields-grid-two,
+    .page-service-request .attach-btns,
+    .page-service-request .sr-type-chips {
+      grid-template-columns: 1fr;
+    }
+
+    .page-service-request .sr-actions {
+      flex-direction: column;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<main class="page-shell">
-  <div class="page-header">
-    <button class="btn-back" onclick="history.back()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
-    <h1 id="sr-title">طلب خدمة جديدة</h1>
-  </div>
+<main class="page-content">
+  <div class="container">
+    <div id="auth-gate" class="auth-gate auth-gate-unified hidden">
+      <div class="auth-gate-unified-icon" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2"></rect>
+          <path d="M7 11V7a5 5 0 0110 0v4"></path>
+        </svg>
+      </div>
+      <h2 class="auth-gate-unified-title">سجّل دخولك لإرسال الطلب</h2>
+      <p class="auth-gate-unified-desc">يتم حفظ الطلب وربطه بحسابك لتتمكن من متابعة حالته، الرسائل، واعتماد تفاصيل التنفيذ لاحقاً.</p>
+      <a href="/login/" id="sr-login-link" class="btn btn-primary auth-gate-unified-btn">تسجيل الدخول</a>
+    </div>
 
-  <form id="sr-form" class="detail-card" autocomplete="off">
-    <!-- Request Type -->
-    <div class="form-group">
-      <label class="form-label">نوع الطلب</label>
-      <div class="chip-group" id="sr-type-chips">
-        <button type="button" class="chip active" data-val="normal">عادي</button>
-        <button type="button" class="chip" data-val="competitive">تنافسي</button>
-        <button type="button" class="chip" data-val="urgent">عاجل</button>
+    <div id="form-content" class="hidden sr-shell">
+      <div class="mw-form-header sr-header">
+        <a href="javascript:history.back()" class="mw-form-back" aria-label="رجوع">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.41 7.41 14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+        </a>
+        <h1 id="sr-title">طلب خدمة جديدة</h1>
+        <span class="mw-form-head-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2z"/></svg>
+        </span>
+      </div>
+      <p class="mw-form-subtitle sr-subtitle">اختر مسار الطلب المناسب، حدّد التخصص، ثم أرسل وصفاً واضحاً ليبدأ التنفيذ أو استقبال العروض حسب نوع الطلب.</p>
+
+      <section class="sr-journey-card" aria-hidden="true">
+        <div class="sr-summary">
+          <div class="sr-summary-copy">
+            <span id="sr-request-kind-label" class="sr-summary-chip">المسار الحالي</span>
+            <h2 id="sr-request-kind-title">طلب مباشر إلى مزود محدد</h2>
+            <p id="sr-request-kind-text">استخدم هذا المسار عندما تريد إرسال الطلب مباشرة إلى مزود معيّن أو اختيار نوع الطلب الأنسب قبل المتابعة.</p>
+          </div>
+          <div class="sr-overview">
+            <div class="sr-overview-item">
+              <span>اختيار واضح</span>
+              <strong>حسب طبيعة الطلب</strong>
+              <p>حدد إن كان الطلب مباشراً، تنافسياً، أو عاجلاً قبل تعبئة التفاصيل.</p>
+            </div>
+            <div class="sr-overview-item">
+              <span>تفاصيل أدق</span>
+              <strong>رفع فرص الاستجابة</strong>
+              <p>العنوان الواضح والمرفقات المناسبة يساعدان على فهم الطلب بسرعة.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="sr-provider-note" class="sr-provider-note hidden">
+        <span class="sr-provider-chip">إرسال مباشر</span>
+        <h3>سيصل الطلب إلى المزود الذي اخترته فقط</h3>
+        <p>هذا المسار مناسب عندما تكون قد حددت المزود مسبقاً من صفحة البحث أو من ملفه الشخصي، ولن يتم نشر الطلب لبقية المزوّدين.</p>
+      </section>
+
+      <form id="sr-form" class="form-card mw-form-card sr-form" autocomplete="off">
+        <div class="sr-grid">
+          <section class="sr-section sr-section-span-full">
+            <div class="sr-section-head">
+              <span class="sr-section-step">1</span>
+              <div>
+                <h2>نوع الطلب</h2>
+                <p>اختر المسار التشغيلي المناسب. سيؤثر هذا على طريقة توجيه الطلب والحقول الإضافية المعروضة لك.</p>
+              </div>
+            </div>
+
+            <div class="chip-group sr-type-chips" id="sr-type-chips">
+              <button type="button" class="chip active" data-val="normal">طلب مباشر<span>إرسال الطلب إلى مزود محدد أو مسار مباشر دون منافسة.</span></button>
+              <button type="button" class="chip" data-val="competitive">طلب تنافسي<span>استقبال أكثر من عرض سعر خلال مدة تحددها أنت.</span></button>
+              <button type="button" class="chip" data-val="urgent">طلب عاجل<span>إرسال سريع للمزوّدين المؤهلين بحسب التخصص والمدينة.</span></button>
+            </div>
+          </section>
+
+          <section class="sr-section sr-section-span-full">
+            <div class="sr-section-head">
+              <span class="sr-section-step">2</span>
+              <div>
+                <h2>التصنيف والنطاق</h2>
+                <p>اختيار التخصص المناسب يضمن وصول الطلب إلى المسار الصحيح ويقلل وقت المراجعة أو الرد.</p>
+              </div>
+            </div>
+
+            <div class="sr-fields-grid sr-fields-grid-two">
+              <div class="form-group sr-group">
+                <label class="form-label sr-label" for="sr-category">القسم <span class="sr-required">*</span></label>
+                <select id="sr-category" class="form-select" required><option value="">اختر القسم</option></select>
+              </div>
+
+              <div class="form-group sr-group">
+                <label class="form-label sr-label" for="sr-subcategory">التصنيف الفرعي <span class="sr-required">*</span></label>
+                <select id="sr-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
+              </div>
+
+              <div class="form-group sr-group" id="sr-city-group">
+                <label class="form-label sr-label" for="sr-city">المدينة</label>
+                <select id="sr-city" class="form-select">
+                  <option value="">اختر المدينة (اختياري)</option>
+                </select>
+                <button type="button" id="sr-city-clear" class="city-clear-btn hidden">إلغاء اختيار المدينة</button>
+                <p class="sr-helper">أضف المدينة عندما تكون الخدمة مرتبطة بنطاق جغرافي أو تحتاج مزوداً قريباً.</p>
+              </div>
+
+              <div class="form-group sr-group hidden" id="sr-deadline-group">
+                <label class="form-label sr-label" id="sr-deadline-label" for="sr-deadline">آخر موعد لاستلام العروض (اختياري)</label>
+                <input id="sr-deadline" type="date" class="form-input">
+                <p class="sr-helper" id="sr-deadline-hint">يفيد هذا الحقل عندما يكون الطلب تنافسياً وتريد إيقاف استقبال العروض في تاريخ محدد.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="sr-section sr-section-span-full">
+            <div class="sr-section-head">
+              <span class="sr-section-step">3</span>
+              <div>
+                <h2>محتوى الطلب</h2>
+                <p>كلما كان العنوان والوصف أوضح، أصبحت المراجعة أسرع وقلت الحاجة للرجوع والاستفسار.</p>
+              </div>
+            </div>
+
+            <div class="form-group sr-group">
+              <label class="form-label sr-label" for="sr-req-title">عنوان الطلب <span class="sr-required">*</span></label>
+              <input id="sr-req-title" type="text" class="form-input" maxlength="50" placeholder="اكتب عنوان الطلب..." required>
+              <span class="char-count"><span id="sr-title-count">0</span>/50</span>
+            </div>
+
+            <div class="form-group sr-group">
+              <label class="form-label sr-label" for="sr-desc">تفاصيل الطلب <span class="sr-required">*</span></label>
+              <textarea id="sr-desc" class="form-textarea" rows="5" maxlength="500" placeholder="اكتب تفاصيل الطلب بشكل دقيق..." required></textarea>
+              <span class="char-count"><span id="sr-desc-count">0</span>/500</span>
+              <p class="sr-helper" id="sr-submit-helper">اذكر المتطلبات الرئيسية والنتيجة المتوقعة وأي تفاصيل خاصة بالتنفيذ.</p>
+            </div>
+          </section>
+
+          <section class="sr-section sr-section-span-full">
+            <div class="sr-section-head">
+              <span class="sr-section-step">4</span>
+              <div>
+                <h2>المرفقات الداعمة</h2>
+                <p>يمكنك إضافة صور أو فيديو أو ملفات توضح الاحتياج أو المرجعية المطلوبة قبل الإرسال.</p>
+              </div>
+            </div>
+
+            <div class="form-group sr-group">
+              <label class="form-label sr-label">المرفقات</label>
+              <div class="sr-attachments-wrap">
+                <div id="sr-attachments" class="attachments-preview"></div>
+                <div class="attach-btns">
+                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> صور<input type="file" id="sr-images" accept="image/*" multiple hidden></label>
+                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> فيديو<input type="file" id="sr-videos" accept="video/*" multiple hidden></label>
+                  <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ملفات<input type="file" id="sr-files" accept=".pdf,.doc,.docx,.txt,.xlsx,.xls" multiple hidden></label>
+                </div>
+              </div>
+              <p class="sr-helper">الملفات الداعمة تقلل التوضيحات اللاحقة وتمنح المزوّد أوضح صورة عن المطلوب.</p>
+            </div>
+          </section>
+        </div>
+
+        <div class="form-actions sr-actions">
+          <a href="javascript:history.back()" class="btn btn-outline btn-block">إلغاء</a>
+          <button type="submit" class="btn-primary-lg sr-submit-btn" id="sr-submit">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            <span id="sr-submit-text">إرسال الطلب</span>
+          </button>
+        </div>
+      </form>
+
+      <div id="sr-success" class="success-overlay hidden">
+        <div class="success-card sr-success-card">
+          <div class="success-icon">✅</div>
+          <h2 id="sr-success-title" class="success-title">تم إرسال الطلب</h2>
+          <p id="sr-success-message" class="success-msg">تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته وجميع التحديثات من صفحة الطلبات.</p>
+          <a href="/orders/" class="btn btn-primary" style="margin-top:16px">عرض طلباتي</a>
+          <a href="/" class="btn-link" style="margin-top:8px">العودة للرئيسية</a>
+        </div>
       </div>
     </div>
-
-    <!-- Category -->
-    <div class="form-group">
-      <label class="form-label">القسم</label>
-      <select id="sr-category" class="form-select" required><option value="">اختر القسم</option></select>
-    </div>
-
-    <!-- Subcategory -->
-    <div class="form-group">
-      <label class="form-label">التصنيف الفرعي</label>
-      <select id="sr-subcategory" class="form-select" required><option value="">اختر التصنيف</option></select>
-    </div>
-
-    <!-- City -->
-    <div class="form-group" id="sr-city-group">
-      <label class="form-label">المدينة</label>
-      <select id="sr-city" class="form-select">
-        <option value="">اختر المدينة (اختياري)</option>
-      </select>
-      <button type="button" id="sr-city-clear" class="city-clear-btn hidden">إلغاء اختيار المدينة</button>
-    </div>
-
-    <!-- Title -->
-    <div class="form-group">
-      <label class="form-label">عنوان الطلب</label>
-      <input id="sr-req-title" type="text" class="form-input" maxlength="50" placeholder="اكتب عنوان الطلب..." required>
-      <span class="char-count"><span id="sr-title-count">0</span>/50</span>
-    </div>
-
-    <!-- Description -->
-    <div class="form-group">
-      <label class="form-label">تفاصيل الطلب</label>
-      <textarea id="sr-desc" class="form-input" rows="5" maxlength="500" placeholder="اكتب تفاصيل الطلب بشكل دقيق..." required></textarea>
-      <span class="char-count"><span id="sr-desc-count">0</span>/500</span>
-    </div>
-
-    <!-- Deadline -->
-    <div class="form-group">
-      <label class="form-label">آخر موعد لاستلام العروض (اختياري)</label>
-      <input id="sr-deadline" type="date" class="form-input">
-    </div>
-
-    <!-- Attachments -->
-    <div class="form-group">
-      <label class="form-label">المرفقات</label>
-      <div id="sr-attachments" class="attachments-preview"></div>
-      <div class="attach-btns">
-        <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> صور<input type="file" id="sr-images" accept="image/*" multiple hidden></label>
-        <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> فيديو<input type="file" id="sr-videos" accept="video/*" multiple hidden></label>
-        <label class="btn btn-outline btn-sm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ملفات<input type="file" id="sr-files" accept=".pdf,.doc,.docx,.txt,.xlsx,.xls" multiple hidden></label>
-      </div>
-    </div>
-
-    <!-- Submit -->
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary btn-block" id="sr-submit">تقديم الطلب</button>
-      <button type="button" class="btn btn-outline btn-block" onclick="history.back()">إلغاء</button>
-    </div>
-  </form>
-
-  <!-- Success -->
-  <div id="sr-success" class="success-card" style="display:none">
-    <div class="success-icon">✓</div>
-    <h2>تم إرسال الطلب</h2>
-    <p>تم إرسال طلب الخدمة بنجاح. سيتم إشعارك عند استلام العروض من مقدمي الخدمات.</p>
-    <a href="/orders/" class="btn btn-primary">عرض طلباتي</a>
   </div>
 </main>
 {% endblock %}

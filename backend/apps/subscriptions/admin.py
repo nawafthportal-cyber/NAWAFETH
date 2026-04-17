@@ -20,6 +20,8 @@ FIELD_HELP_TEXTS = {
     "notifications_enabled": "تحدد ما إذا كانت التنبيهات الأساسية مفعلة ضمن الباقة.",
     "competitive_visibility_delay_hours": "عدد الساعات قبل ظهور الطلبات التنافسية لصاحب هذه الباقة.",
     "competitive_visibility_label": "النص الظاهر في الواجهة لوصف توقيت ظهور الطلبات التنافسية.",
+    "urgent_visibility_delay_hours": "عدد الساعات قبل وصول الطلبات العاجلة لصاحب هذه الباقة.",
+    "urgent_visibility_label": "النص الظاهر في الواجهة لوصف توقيت وصول الطلبات العاجلة.",
     "banner_images_limit": "عدد صور الـ Banner المتاحة ضمن الباقة.",
     "banner_images_label": "النص الظاهر للمستخدم لوصف عدد صور الـ Banner.",
     "direct_chat_quota": "الحد العددي للمحادثات المباشرة المتاحة.",
@@ -48,6 +50,7 @@ FIELD_PLACEHOLDERS = {
     "feature_bullets_text": "مثال:\nتشمل مزايا الأساسية والريادية مع كامل الصلاحيات الاحترافية.\nوصول لحظي للطلبات التنافسية ورسائل دعائية كاملة.",
     "reminder_schedule_hours_text": "مثال: 24, 120, 240",
     "competitive_visibility_label": "مثال: بعد 24 ساعة",
+    "urgent_visibility_label": "مثال: لحظياً",
     "banner_images_label": "مثال: 3 صور",
     "direct_chat_label": "مثال: 10 محادثات مباشرة",
     "reminder_policy_label": "مثال: أول تنبيه + إرسال ثاني تنبيه بعد اكتمال الطلب بـ 120 ساعة",
@@ -129,6 +132,16 @@ class SubscriptionPlanAdminForm(forms.ModelForm):
             "competitive_visibility_label",
             getattr(plan, "competitive_visibility_label", ""),
             capabilities["competitive_requests"]["visibility_label"],
+        )
+        self._set_initial_if_missing(
+            "urgent_visibility_delay_hours",
+            getattr(plan, "urgent_visibility_delay_hours", None),
+            capabilities["urgent_requests"]["visibility_delay_hours"],
+        )
+        self._set_initial_if_missing(
+            "urgent_visibility_label",
+            getattr(plan, "urgent_visibility_label", ""),
+            capabilities["urgent_requests"]["visibility_label"],
         )
         self._set_initial_if_missing(
             "banner_images_limit",
@@ -325,6 +338,7 @@ class SubscriptionPlanAdmin(admin.ModelAdmin):
             "fields": (
                 "notifications_enabled",
                 ("competitive_visibility_delay_hours", "competitive_visibility_label"),
+                ("urgent_visibility_delay_hours", "urgent_visibility_label"),
                 ("banner_images_limit", "banner_images_label"),
                 ("direct_chat_quota", "direct_chat_label"),
             ),

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import math
 
 from django.db import transaction
 from django.utils import timezone
@@ -8,11 +9,16 @@ from django.utils import timezone
 from apps.notifications.models import EventLog, EventType
 from apps.notifications.services import create_notification
 from apps.providers.models import ProviderCategory, ProviderProfile
-from apps.subscriptions.capabilities import competitive_request_delay_for_user, competitive_requests_enabled_for_user
+from apps.subscriptions.capabilities import (
+    competitive_request_delay_for_user,
+    competitive_requests_enabled_for_user,
+    urgent_request_delay_for_tier,
+)
 from apps.subscriptions.services import get_effective_active_subscriptions_map, plan_to_tier, user_has_active_subscription
 from apps.subscriptions.tiering import CanonicalPlanTier
 
 from ..models import (
+    DispatchMode,
     DispatchStatus,
     DispatchTier,
     RequestStatus,
@@ -22,18 +28,19 @@ from ..models import (
 )
 
 
-DISPATCH_DELAYS = {
-    DispatchTier.PRO: timedelta(hours=0),
-    DispatchTier.RIYADI: timedelta(hours=24),
-    DispatchTier.BASIC: timedelta(hours=72),
-}
-
-
 def _normalize_dispatch_tier(value: str) -> str:
     tier = (value or "").strip().lower()
     if tier in {DispatchTier.PRO, DispatchTier.RIYADI, DispatchTier.BASIC}:
         return tier
     return DispatchTier.BASIC
+
+
+def _dispatch_delays() -> dict[str, timedelta]:
+    return {
+        DispatchTier.PRO: urgent_request_delay_for_tier(DispatchTier.PRO),
+        DispatchTier.RIYADI: urgent_request_delay_for_tier(DispatchTier.RIYADI),
+        DispatchTier.BASIC: urgent_request_delay_for_tier(DispatchTier.BASIC),
+    }
 
 
 def _plan_tier_to_dispatch_tier(plan_tier: str) -> str:
@@ -72,6 +79,84 @@ def provider_dispatch_tier(provider: ProviderProfile) -> str:
     return _plan_tier_to_dispatch_tier(plan_tier)
 
 
+def _as_float(value) -> float | None:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(parsed):
+        return None
+    return parsed
+
+
+def _request_coordinates(service_request: ServiceRequest) -> tuple[float, float] | None:
+    lat = _as_float(getattr(service_request, "request_lat", None))
+    lng = _as_float(getattr(service_request, "request_lng", None))
+    if lat is None or lng is None:
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return (lat, lng)
+
+
+def _provider_coordinates(provider: ProviderProfile) -> tuple[float, float] | None:
+    lat = _as_float(getattr(provider, "lat", None))
+    lng = _as_float(getattr(provider, "lng", None))
+    if lat is None or lng is None:
+        return None
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return None
+    return (lat, lng)
+
+
+def _haversine_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    radius_km = 6371.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lng2 - lng1)
+    arc = (
+        math.sin(delta_phi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2) ** 2
+    )
+    return 2 * radius_km * math.atan2(math.sqrt(arc), math.sqrt(1 - arc))
+
+
+def provider_matches_nearest_urgent_request(provider: ProviderProfile, service_request: ServiceRequest) -> bool:
+    dispatch_mode = (getattr(service_request, "dispatch_mode", "") or "").strip().lower()
+    if dispatch_mode != DispatchMode.NEAREST:
+        return True
+
+    request_coords = _request_coordinates(service_request)
+    provider_coords = _provider_coordinates(provider)
+    if request_coords is None or provider_coords is None:
+        return False
+
+    distance_km = _haversine_km(
+        request_coords[0],
+        request_coords[1],
+        provider_coords[0],
+        provider_coords[1],
+    )
+    coverage_radius_km = _as_float(getattr(provider, "coverage_radius_km", None)) or 0.0
+    if coverage_radius_km > 0 and distance_km > coverage_radius_km:
+        return False
+    return True
+
+
+def _provider_distance_for_request(provider: ProviderProfile, service_request: ServiceRequest) -> float | None:
+    request_coords = _request_coordinates(service_request)
+    provider_coords = _provider_coordinates(provider)
+    if request_coords is None or provider_coords is None:
+        return None
+    return _haversine_km(
+        request_coords[0],
+        request_coords[1],
+        provider_coords[0],
+        provider_coords[1],
+    )
+
+
 def ensure_dispatch_windows_for_urgent_request(service_request: ServiceRequest, *, now=None) -> list[ServiceRequestDispatch]:
     if service_request.request_type != RequestType.URGENT:
         return []
@@ -79,7 +164,7 @@ def ensure_dispatch_windows_for_urgent_request(service_request: ServiceRequest, 
     now = now or timezone.now()
     windows: list[ServiceRequestDispatch] = []
 
-    for tier, delay in DISPATCH_DELAYS.items():
+    for tier, delay in _dispatch_delays().items():
         available_at = now + delay
         defaults = {
             "available_at": available_at,
@@ -100,7 +185,7 @@ def ensure_dispatch_windows_for_urgent_request(service_request: ServiceRequest, 
     return windows
 
 
-def _eligible_matching_providers(service_request: ServiceRequest):
+def _eligible_matching_providers_queryset(service_request: ServiceRequest):
     subcategory_ids = service_request.selected_subcategory_ids()
     if not subcategory_ids:
         return ProviderProfile.objects.none()
@@ -119,7 +204,26 @@ def _eligible_matching_providers(service_request: ServiceRequest):
     if city:
         providers = providers.filter(city=city)
 
-    return providers
+    return providers.distinct()
+
+
+def _eligible_matching_providers(service_request: ServiceRequest):
+    providers = list(_eligible_matching_providers_queryset(service_request))
+    dispatch_mode = (getattr(service_request, "dispatch_mode", "") or "").strip().lower()
+    if dispatch_mode != DispatchMode.NEAREST:
+        return providers
+
+    ranked: list[tuple[float, ProviderProfile]] = []
+    for provider in providers:
+        if not provider_matches_nearest_urgent_request(provider, service_request):
+            continue
+        distance_km = _provider_distance_for_request(provider, service_request)
+        if distance_km is None:
+            continue
+        ranked.append((distance_km, provider))
+
+    ranked.sort(key=lambda item: item[0])
+    return [provider for _, provider in ranked]
 
 
 def _event_already_sent(*, user_id: int, request_id: int) -> bool:
@@ -360,6 +464,9 @@ def provider_can_access_urgent_request(provider: ProviderProfile, service_reques
         return True
 
     now = now or timezone.now()
+
+    if not provider_matches_nearest_urgent_request(provider, service_request):
+        return False
 
     # Backward compatibility for legacy requests created before dispatch windows.
     if not ServiceRequestDispatch.objects.filter(request=service_request).exists():

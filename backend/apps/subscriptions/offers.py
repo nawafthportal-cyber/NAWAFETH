@@ -256,6 +256,11 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
         {"key": "verification_blue", "label": "التوثيق الأزرق", "value": _verification_label(blue_amount)},
         {"key": "verification_green", "label": "التوثيق الأخضر", "value": _verification_label(green_amount)},
         {
+            "key": "urgent_requests",
+            "label": "وقت استقبال الطلبات العاجلة",
+            "value": capabilities["urgent_requests"]["visibility_label"],
+        },
+        {
             "key": "competitive_requests",
             "label": "وقت استقبال الطلبات التنافسية",
             "value": capabilities["competitive_requests"]["visibility_label"],
@@ -305,7 +310,8 @@ def subscription_offer_for_plan(plan, *, user=None) -> dict[str, object]:
     payload = {
         **offer,
         "plan_name": offer["plan_name"],
-        "request_access_label": capabilities["competitive_requests"]["visibility_label"],
+        "request_access_label": capabilities["urgent_requests"]["visibility_label"],
+        "competitive_request_access_label": capabilities["competitive_requests"]["visibility_label"],
         "banner_images_limit": capabilities["banner_images"]["limit"],
         "banner_images_label": capabilities["banner_images"]["label"],
         "chats_quota": capabilities["messaging"]["direct_chat_quota"],

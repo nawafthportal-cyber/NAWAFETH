@@ -5,7 +5,14 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.utils import timezone
 
-from apps.marketplace.models import RequestStatus, RequestStatusLog, RequestType, ServiceRequest
+from apps.marketplace.models import (
+    PRE_EXECUTION_REQUEST_STATUSES,
+    RequestStatus,
+    RequestStatusLog,
+    RequestType,
+    ServiceRequest,
+    service_request_pre_execution_return_status,
+)
 from apps.providers.models import ProviderProfile
 
 logger = logging.getLogger(__name__)
@@ -54,15 +61,10 @@ def allowed_actions(user, sr: ServiceRequest, *, has_provider_profile: bool | No
             acts.append("send")
             if sr.provider_id is None or sr.request_type == RequestType.URGENT:
                 acts.append("cancel")
-            has_provider_inputs = any(
-                [
-                    sr.expected_delivery_at is not None,
-                    sr.estimated_service_amount is not None,
-                    sr.received_amount is not None,
-                ]
-            )
-            if has_provider_inputs and sr.provider_inputs_approved is None:
-                acts.extend(["approve_inputs", "reject_inputs"])
+        elif sr.request_type == RequestType.URGENT and sr.status in PRE_EXECUTION_REQUEST_STATUSES:
+            acts.append("cancel")
+        if sr.status == RequestStatus.AWAITING_CLIENT_APPROVAL and sr.provider_inputs_approved is None:
+            acts.extend(["approve_inputs", "reject_inputs"])
         if sr.status == RequestStatus.CANCELLED:
             acts.append("reopen")
         return acts
@@ -114,7 +116,7 @@ def execute_action(
             raise ValidationError("لا يمكن إرسال الطلب في هذه الحالة")
         return ActionResult(True, "تم إرسال الطلب", sr.status)
 
-    # cancel — client: NEW + no provider; provider: NEW+IN_PROGRESS; staff: NEW+IN_PROGRESS
+    # cancel — client: NEW + no provider (plus urgent pre-execution); provider/staff: pre-execution + in-progress
     if action == "cancel":
         if not (is_staff or is_provider or is_client):
             raise PermissionDenied("غير مصرح")
@@ -123,12 +125,16 @@ def execute_action(
         if is_client and not is_staff:
             urgent_pending_with_provider = bool(
                 sr.request_type == RequestType.URGENT
-                and sr.status == RequestStatus.NEW
+                and sr.status in PRE_EXECUTION_REQUEST_STATUSES
                 and sr.provider_id is not None
             )
             if sr.provider_id is not None and not urgent_pending_with_provider:
                 raise PermissionDenied("لا يمكن إلغاء الطلب بعد قبول مزود الخدمة")
-            sr.cancel(allowed_statuses=[RequestStatus.NEW])
+            client_allowed_statuses = list(PRE_EXECUTION_REQUEST_STATUSES) if urgent_pending_with_provider else [RequestStatus.NEW]
+            sr.cancel(allowed_statuses=client_allowed_statuses)
+            sr.canceled_at = timezone.now()
+            sr.cancel_reason = cleaned_note[:255]
+            sr.save(update_fields=["canceled_at", "cancel_reason"])
             if cleaned_note:
                 note = cleaned_note
             elif urgent_pending_with_provider:
@@ -136,7 +142,10 @@ def execute_action(
             else:
                 note = "إلغاء الطلب من العميل"
         else:
-            sr.cancel(allowed_statuses=[RequestStatus.NEW, RequestStatus.IN_PROGRESS])
+            sr.cancel(allowed_statuses=[*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS])
+            sr.canceled_at = timezone.now()
+            sr.cancel_reason = cleaned_note[:255]
+            sr.save(update_fields=["canceled_at", "cancel_reason"])
             if is_staff:
                 note = cleaned_note or "إلغاء الطلب من فريق الإدارة"
             elif is_provider:
@@ -162,7 +171,7 @@ def execute_action(
                 from_status=old,
                 note="قبول الطلب وإسناده لمزود الخدمة",
             )
-            return ActionResult(True, "تم بدء التنفيذ وإسناده", sr.status)
+            return ActionResult(True, "تم قبول الطلب وإسناده", sr.status)
 
         if not provider_profile:
             raise ValidationError("لا يوجد ملف مزود مرتبط بهذا الحساب")
@@ -172,9 +181,9 @@ def execute_action(
             sr=sr,
             actor=user,
             from_status=old,
-            note="قبول الطلب وبدء التنفيذ من مزود الخدمة",
+            note="قبول الطلب من مزود الخدمة",
         )
-        return ActionResult(True, "تم بدء التنفيذ", sr.status)
+        return ActionResult(True, "تم قبول الطلب", sr.status)
 
     # start
     if action == "start":
@@ -219,11 +228,11 @@ def execute_action(
         )
         return ActionResult(True, "تم إعادة فتح الطلب", sr.status)
 
-    # approve_inputs — client only, NEW + inputs not yet decided
+    # approve_inputs — client only, awaiting client approval + inputs not yet decided
     if action == "approve_inputs":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
-        if sr.status != RequestStatus.NEW:
+        if sr.status != RequestStatus.AWAITING_CLIENT_APPROVAL:
             raise ValidationError("لا يمكن اتخاذ قرار بشأن المدخلات في هذه الحالة")
         if sr.provider_inputs_approved is not None:
             raise ValidationError("تم اتخاذ قرار مسبقًا بشأن المدخلات")
@@ -241,21 +250,23 @@ def execute_action(
         )
         return ActionResult(True, "تم اعتماد المدخلات", sr.status)
 
-    # reject_inputs — client only, NEW + inputs not yet decided
+    # reject_inputs — client only, awaiting client approval + inputs not yet decided
     if action == "reject_inputs":
         if not (is_staff or is_client):
             raise PermissionDenied("غير مصرح")
-        if sr.status != RequestStatus.NEW:
+        if sr.status != RequestStatus.AWAITING_CLIENT_APPROVAL:
             raise ValidationError("لا يمكن اتخاذ قرار بشأن المدخلات في هذه الحالة")
         if sr.provider_inputs_approved is not None:
             raise ValidationError("تم اتخاذ قرار مسبقًا بشأن المدخلات")
+        old = sr.status
+        sr.status = service_request_pre_execution_return_status(sr)
         sr.provider_inputs_approved = False
         sr.provider_inputs_decided_at = timezone.now()
-        sr.save(update_fields=["provider_inputs_approved", "provider_inputs_decided_at"])
+        sr.save(update_fields=["status", "provider_inputs_approved", "provider_inputs_decided_at"])
         RequestStatusLog.objects.create(
             request=sr,
             actor=user,
-            from_status=sr.status,
+            from_status=old,
             to_status=sr.status,
             note="العميل رفض مدخلات المزود",
         )

@@ -264,6 +264,7 @@ const ProviderOrdersPage = (() => {
     const assigned = String(state.assignedOrders.length);
     const competitive = String(state.competitiveOrders.length);
     const urgent = String(state.urgentOrders.length);
+    const workflow = _assignedWorkflowCounts();
 
     setText('po-count-assigned', assigned);
     setText('po-count-competitive', competitive);
@@ -271,6 +272,21 @@ const ProviderOrdersPage = (() => {
     setText('po-kpi-assigned', assigned);
     setText('po-kpi-competitive', competitive);
     setText('po-kpi-urgent', urgent);
+    setText(
+      'po-workflow-count-label',
+      'بانتظار القبول: ' + String(workflow.awaiting_acceptance) + ' • بانتظار اعتماد العميل: ' + String(workflow.awaiting_client),
+    );
+  }
+
+  function _assignedWorkflowCounts() {
+    const counts = { awaiting_acceptance: 0, awaiting_client: 0 };
+    state.assignedOrders.forEach((order) => {
+      const stage = String(order && order.status || '').toLowerCase();
+      const type = String(order && order.request_type || '').toLowerCase();
+      if (type === 'normal' && stage === 'new') counts.awaiting_acceptance += 1;
+      if (stage === 'awaiting_client') counts.awaiting_client += 1;
+    });
+    return counts;
   }
 
   function _extractList(payload) {
@@ -578,7 +594,7 @@ const ProviderOrdersPage = (() => {
     const explicit = String(order.status_group || '').toLowerCase();
     if (['new', 'in_progress', 'completed', 'cancelled'].includes(explicit)) return explicit;
     const status = String(order.status || '').toLowerCase();
-    if (['pending', 'new', 'submitted'].includes(status)) return 'new';
+    if (['pending', 'new', 'submitted', 'provider_accepted', 'awaiting_client'].includes(status)) return 'new';
     if (['in_progress', 'accepted', 'started'].includes(status)) return 'in_progress';
     if (['completed', 'done', 'finished'].includes(status)) return 'completed';
     if (['cancelled', 'rejected', 'expired', 'canceled'].includes(status)) return 'cancelled';
@@ -590,6 +606,8 @@ const ProviderOrdersPage = (() => {
     if (label) return label;
     const map = {
       new: 'جديد',
+      provider_accepted: 'تم قبول الطلب',
+      awaiting_client: 'بانتظار اعتماد العميل للتفاصيل',
       in_progress: 'تحت التنفيذ',
       completed: 'مكتمل',
       cancelled: 'ملغي',

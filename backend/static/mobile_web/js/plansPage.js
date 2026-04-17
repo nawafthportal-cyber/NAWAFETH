@@ -21,6 +21,11 @@ const PlansPage = (() => {
       value: (plan) => _safeValue(_capabilities(plan).storage && _capabilities(plan).storage.label),
     },
     {
+      key: 'urgent_requests',
+      label: 'استقبال الطلبات العاجلة',
+      value: (plan) => _safeValue(_capabilities(plan).urgent_requests && _capabilities(plan).urgent_requests.visibility_label),
+    },
+    {
       key: 'competitive_requests',
       label: 'استقبال طلبات الخدمات التنافسية',
       value: (plan) => _safeValue(_capabilities(plan).competitive_requests && _capabilities(plan).competitive_requests.visibility_label),

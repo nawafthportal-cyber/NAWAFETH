@@ -33,6 +33,7 @@ from apps.subscriptions.services import user_has_active_subscription
 from apps.accounts.permissions import IsAtLeastClient
 
 from .models import (
+	PRE_EXECUTION_REQUEST_STATUSES,
 	DispatchStatus,
 	Offer,
 	OfferStatus,
@@ -265,6 +266,8 @@ class MyClientRequestDetailView(generics.RetrieveUpdateAPIView):
 		s.is_valid(raise_exception=True)
 
 		if obj.status in (
+			RequestStatus.PROVIDER_ACCEPTED,
+			RequestStatus.AWAITING_CLIENT_APPROVAL,
 			RequestStatus.IN_PROGRESS,
 			RequestStatus.COMPLETED,
 			RequestStatus.CANCELLED,
@@ -385,21 +388,7 @@ class UrgentRequestAcceptView(APIView):
 				)
 
 			old = service_request.status
-			service_request.provider = provider
-			# Keep urgent request in NEW until client approves provider inputs.
-			service_request.status = RequestStatus.NEW
-			service_request.provider_inputs_approved = None
-			service_request.provider_inputs_decided_at = None
-			service_request.provider_inputs_decision_note = ""
-			service_request.save(
-				update_fields=[
-					"provider",
-					"status",
-					"provider_inputs_approved",
-					"provider_inputs_decided_at",
-					"provider_inputs_decision_note",
-				]
-			)
+			service_request.accept(provider)
 			RequestStatusLog.objects.create(
 				request=service_request,
 				actor=request.user,
@@ -435,6 +424,8 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 			return ServiceRequest.objects.none()
 
 		provider_tier = provider_dispatch_tier(provider)
+		if not provider_tier:
+			return ServiceRequest.objects.none()
 
 		provider_subcats = ProviderCategory.objects.filter(provider=provider).values_list(
 			"subcategory_id",
@@ -467,7 +458,13 @@ class AvailableUrgentRequestsView(generics.ListAPIView):
 			available_at__lte=now,
 		).values_list("request_id", flat=True)
 
-		return qs.filter(Q(id__in=ready_request_ids) | Q(dispatch_windows__isnull=True)).distinct()
+		candidate_qs = qs.filter(Q(id__in=ready_request_ids) | Q(dispatch_windows__isnull=True)).distinct()
+		eligible_ids = [
+			request_row.id
+			for request_row in candidate_qs
+			if provider_can_access_urgent_request(provider, request_row, now=now)
+		]
+		return qs.filter(id__in=eligible_ids).distinct()
 
 
 class AvailableCompetitiveRequestsView(generics.ListAPIView):
@@ -620,6 +617,7 @@ class ProviderAssignedRequestAcceptView(APIView):
 					return Response({"detail": "لا يمكن قبول الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
 
 				old = sr.status
+				sr.accept(provider)
 				RequestStatusLog.objects.create(
 					request=sr,
 					actor=request.user,
@@ -666,7 +664,11 @@ class ProviderAssignedRequestRejectView(APIView):
 			if sr.request_type == RequestType.COMPETITIVE:
 				return Response({"detail": "هذا الطلب تنافسي ويتم التعامل معه عبر العروض"}, status=status.HTTP_400_BAD_REQUEST)
 
-			if sr.status != RequestStatus.NEW:
+			if sr.status not in (
+				RequestStatus.NEW,
+				RequestStatus.PROVIDER_ACCEPTED,
+				RequestStatus.AWAITING_CLIENT_APPROVAL,
+			):
 				return Response({"detail": "لا يمكن رفض الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
 
 			old = sr.status
@@ -750,12 +752,28 @@ class ProviderProgressUpdateView(APIView):
 			if sr.provider_id != provider.id:
 				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
-			if sr.status not in (RequestStatus.NEW, RequestStatus.IN_PROGRESS):
+			if sr.status not in (*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS):
 				return Response(
 					{"detail": "لا يمكن تحديث التنفيذ في هذه الحالة"},
 					status=status.HTTP_400_BAD_REQUEST,
 				)
 
+			if sr.status == RequestStatus.NEW and sr.request_type != RequestType.COMPETITIVE:
+				return Response(
+					{"detail": "يجب قبول الطلب أولاً قبل إرسال تفاصيل التنفيذ"},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+
+			if sr.status in PRE_EXECUTION_REQUEST_STATUSES and (
+				"expected_delivery_at" not in s.validated_data
+				or "estimated_service_amount" not in s.validated_data
+			):
+				return Response(
+					{"detail": "أدخل موعد التسليم والقيمة المقدرة والمبلغ المستلم قبل إرسال التفاصيل للعميل"},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+
+			old = sr.status
 			update_fields = []
 			if "expected_delivery_at" in s.validated_data:
 				sr.expected_delivery_at = s.validated_data["expected_delivery_at"]
@@ -773,7 +791,7 @@ class ProviderProgressUpdateView(APIView):
 					]
 				)
 
-			if sr.status == RequestStatus.NEW:
+			if sr.status in PRE_EXECUTION_REQUEST_STATUSES:
 				sr.provider_inputs_approved = None
 				sr.provider_inputs_decided_at = None
 				sr.provider_inputs_decision_note = ""
@@ -784,6 +802,9 @@ class ProviderProgressUpdateView(APIView):
 						"provider_inputs_decision_note",
 					]
 				)
+				if sr.status != RequestStatus.AWAITING_CLIENT_APPROVAL:
+					sr.status = RequestStatus.AWAITING_CLIENT_APPROVAL
+					update_fields.append("status")
 
 			if update_fields:
 				sr.save(update_fields=update_fields)
@@ -791,7 +812,7 @@ class ProviderProgressUpdateView(APIView):
 			RequestStatusLog.objects.create(
 				request=sr,
 				actor=request.user,
-				from_status=sr.status,
+				from_status=old,
 				to_status=sr.status,
 				note=note or "إرسال/تحديث مدخلات التنفيذ من مزود الخدمة",
 			)
@@ -831,6 +852,51 @@ class ProviderInputsDecisionView(APIView):
 			{"ok": True, "request_id": request_id, "approved": approved},
 			status=status.HTTP_200_OK,
 		)
+
+
+class ProviderRequestCancelView(APIView):
+	permission_classes = [permissions.IsAuthenticated, IsProviderPermission]
+
+	def post(self, request, request_id: int):
+		provider = request.user.provider_profile
+		s = ProviderRejectSerializer(data=request.data)
+		s.is_valid(raise_exception=True)
+		canceled_at = s.validated_data["canceled_at"]
+		cancel_reason = s.validated_data["cancel_reason"].strip()
+		note = (s.validated_data.get("note") or "").strip()
+
+		with transaction.atomic():
+			sr = (
+				ServiceRequest.objects.select_for_update()
+				.select_related("client")
+				.filter(id=request_id)
+				.first()
+			)
+
+			if not sr:
+				return Response({"detail": "الطلب غير موجود"}, status=status.HTTP_404_NOT_FOUND)
+
+			if sr.provider_id != provider.id:
+				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
+
+			if sr.status != RequestStatus.IN_PROGRESS:
+				return Response({"detail": "لا يمكن إلغاء الطلب في هذه الحالة"}, status=status.HTTP_400_BAD_REQUEST)
+
+			old = sr.status
+			sr.status = RequestStatus.CANCELLED
+			sr.canceled_at = canceled_at
+			sr.cancel_reason = cancel_reason
+			sr.save(update_fields=["status", "canceled_at", "cancel_reason"])
+
+			RequestStatusLog.objects.create(
+				request=sr,
+				actor=request.user,
+				from_status=old,
+				to_status=sr.status,
+				note=note or f"إلغاء من مزود الخدمة أثناء التنفيذ: {cancel_reason}",
+			)
+
+		return Response({"ok": True, "request_id": sr.id, "status": sr.status}, status=status.HTTP_200_OK)
 
 
 # ────────────────────────────────────────────────
@@ -943,7 +1009,18 @@ class AcceptOfferView(APIView):
 			old = service_request.status
 			service_request.provider = offer.provider
 			service_request.status = RequestStatus.NEW
-			service_request.save(update_fields=["provider", "status"])
+			service_request.provider_inputs_approved = None
+			service_request.provider_inputs_decided_at = None
+			service_request.provider_inputs_decision_note = ""
+			service_request.save(
+				update_fields=[
+					"provider",
+					"status",
+					"provider_inputs_approved",
+					"provider_inputs_decided_at",
+					"provider_inputs_decision_note",
+				]
+			)
 			RequestStatusLog.objects.create(
 				request=service_request,
 				actor=request.user,
@@ -992,13 +1069,20 @@ class RequestStartView(APIView):
 			if sr.provider_id != provider.id:
 				return Response({"detail": "غير مصرح"}, status=status.HTTP_403_FORBIDDEN)
 
-			if sr.status != RequestStatus.NEW:
+			if sr.status not in (RequestStatus.NEW, RequestStatus.PROVIDER_ACCEPTED):
 				return Response(
 					{"detail": "لا يمكن بدء التنفيذ في هذه الحالة"},
 					status=status.HTTP_400_BAD_REQUEST,
 				)
 
+			if sr.status == RequestStatus.NEW and sr.request_type != RequestType.COMPETITIVE:
+				return Response(
+					{"detail": "يجب قبول الطلب أولاً قبل إرسال تفاصيل التنفيذ"},
+					status=status.HTTP_400_BAD_REQUEST,
+				)
+
 			old = sr.status
+			sr.status = RequestStatus.AWAITING_CLIENT_APPROVAL
 			sr.expected_delivery_at = s.validated_data["expected_delivery_at"]
 			sr.estimated_service_amount = s.validated_data["estimated_service_amount"]
 			sr.received_amount = s.validated_data["received_amount"]
@@ -1008,6 +1092,7 @@ class RequestStartView(APIView):
 			sr.provider_inputs_decision_note = ""
 			sr.save(
 				update_fields=[
+					"status",
 					"expected_delivery_at",
 					"estimated_service_amount",
 					"received_amount",

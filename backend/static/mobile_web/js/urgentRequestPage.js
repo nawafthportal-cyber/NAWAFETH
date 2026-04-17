@@ -9,6 +9,8 @@ const UrgentRequestPage = (() => {
   let _videos = [];
   let _files = [];
   let _audio = null;
+  let _clientLocation = null;
+  let _clientLocationPromise = null;
   const _cities = [
     'أبها', 'الأحساء', 'الأفلاج', 'الباحة', 'البكيرية', 'البدائع', 'الجبيل', 'الجموم',
     'الحريق', 'الحوطة', 'الخبر', 'الخرج', 'الخفجي', 'الدرعية', 'الدلم', 'الدمام',
@@ -110,10 +112,58 @@ const UrgentRequestPage = (() => {
           node.classList.remove('active');
         });
         chip.classList.add('active');
+        if (input.checked && input.value === 'nearest') {
+          void _resolveClientLocation(false);
+        }
         _updateCityClearVisibility();
         _updateNearestCityHint();
       });
     });
+  }
+
+  function _safeNum(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  async function _resolveClientLocation(forcePrompt) {
+    if (_clientLocation) return _clientLocation;
+    if (!navigator.geolocation) return null;
+    if (_clientLocationPromise) return _clientLocationPromise;
+
+    if (forcePrompt === false) {
+      try {
+        const permission = await navigator.permissions?.query?.({ name: 'geolocation' });
+        if (permission && permission.state === 'denied') return null;
+      } catch (_) {
+        // Ignore permission API errors and fall back to the browser prompt.
+      }
+    }
+
+    _clientLocationPromise = new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = _safeNum(pos?.coords?.latitude);
+          const lng = _safeNum(pos?.coords?.longitude);
+          if (lat === null || lng === null) {
+            resolve(null);
+            return;
+          }
+          _clientLocation = { lat, lng };
+          resolve(_clientLocation);
+        },
+        () => resolve(null),
+        {
+          enableHighAccuracy: true,
+          timeout: 8000,
+          maximumAge: 120000,
+        }
+      );
+    });
+
+    const resolved = await _clientLocationPromise;
+    _clientLocationPromise = null;
+    return resolved;
   }
 
   function _updateNearestCityHint() {
@@ -134,7 +184,9 @@ const UrgentRequestPage = (() => {
       return;
     }
 
-    hintText.textContent = 'سيتم عرض المزوّدين الأقرب على الخريطة حسب مدينة ' + city + '.';
+    hintText.textContent = _clientLocation
+      ? ('سيتم توجيه الطلب إلى المزوّدين الأقرب لموقعك الحالي داخل ' + city + '.')
+      : ('سيتم طلب موقعك الحالي عند الإرسال لتوجيه الطلب إلى الأقرب داخل ' + city + '.');
     const params = new URLSearchParams();
     params.set('city', city);
     params.set('sort', 'nearest');
@@ -431,6 +483,16 @@ const UrgentRequestPage = (() => {
       return;
     }
 
+    let clientLocation = null;
+    if (dispatch === 'nearest') {
+      clientLocation = await _resolveClientLocation(true);
+      if (!clientLocation) {
+        _showError('فعّل خدمة الموقع للسماح بتوجيه الطلب إلى المزوّدين الأقرب');
+        _resetBtn(btn);
+        return;
+      }
+    }
+
     const fd = new FormData();
     fd.append('request_type', 'urgent');
     const categorySel = document.getElementById('ur-category');
@@ -442,6 +504,10 @@ const UrgentRequestPage = (() => {
     fd.append('subcategory', subcat);
     if (city) fd.append('city', city);
     fd.append('dispatch_mode', dispatch);
+    if (clientLocation) {
+      fd.append('request_lat', String(clientLocation.lat));
+      fd.append('request_lng', String(clientLocation.lng));
+    }
     _appendRequestFiles(fd);
 
     const res = await ApiClient.request('/api/marketplace/requests/create/', { method: 'POST', body: fd, formData: true });

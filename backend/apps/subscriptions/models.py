@@ -85,6 +85,8 @@ class SubscriptionPlan(models.Model):
 
     competitive_visibility_delay_hours = models.PositiveIntegerField(null=True, blank=True)
     competitive_visibility_label = models.CharField(max_length=80, blank=True)
+    urgent_visibility_delay_hours = models.PositiveIntegerField(null=True, blank=True)
+    urgent_visibility_label = models.CharField(max_length=80, blank=True)
 
     banner_images_limit = models.PositiveIntegerField(null=True, blank=True)
     banner_images_label = models.CharField(max_length=80, blank=True)
@@ -154,6 +156,9 @@ class SubscriptionPlan(models.Model):
             "competitive_visibility_label": _visibility_label(
                 int(self.competitive_visibility_delay_hours or 0)
             ),
+            "urgent_visibility_label": _visibility_label(
+                int(self.urgent_visibility_delay_hours or 0)
+            ),
             "banner_images_label": _banner_images_label(int(self.banner_images_limit or 0)),
             "direct_chat_label": _direct_chat_label(int(self.direct_chat_quota or 0)),
             "reminder_policy_label": _reminders_label(reminder_schedule),
@@ -168,6 +173,7 @@ class SubscriptionPlan(models.Model):
     def _label_source_snapshots(self) -> dict[str, tuple[object, ...]]:
         return {
             "competitive_visibility_label": (self.competitive_visibility_delay_hours,),
+            "urgent_visibility_label": (self.urgent_visibility_delay_hours,),
             "banner_images_label": (self.banner_images_limit,),
             "direct_chat_label": (self.direct_chat_quota,),
             "reminder_policy_label": tuple(self.reminder_schedule()),
@@ -188,6 +194,8 @@ class SubscriptionPlan(models.Model):
             previous = type(self).objects.filter(pk=self.pk).only(
                 "competitive_visibility_delay_hours",
                 "competitive_visibility_label",
+                "urgent_visibility_delay_hours",
+                "urgent_visibility_label",
                 "banner_images_limit",
                 "banner_images_label",
                 "direct_chat_quota",

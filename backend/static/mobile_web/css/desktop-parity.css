@@ -6,6 +6,11 @@
 
 /* ── Desktop: Enhanced Navigation ── */
 @media (min-width: 769px) {
+  :root {
+    --topbar-logo-shell-size: 56px;
+    --topbar-logo-shell-radius: 16px;
+  }
+
   body.mobile-web-parity #site-footer {
     display: block !important;
   }
@@ -48,27 +53,27 @@
   }
 
   .topbar-brand-mark {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: var(--topbar-logo-shell-size);
+    height: var(--topbar-logo-shell-size);
+    border-radius: var(--topbar-logo-shell-radius);
     font-size: 24px;
   }
 
   .topbar-sponsor-media {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: var(--topbar-logo-shell-size);
+    height: var(--topbar-logo-shell-size);
+    border-radius: var(--topbar-logo-shell-radius);
   }
 
   .topbar-sponsor-media.is-wide,
   .topbar-sponsor-media.is-tall,
   .topbar-sponsor-media.is-square {
-    width: 56px;
-    height: 56px;
+    width: var(--topbar-logo-shell-size);
+    height: var(--topbar-logo-shell-size);
   }
 
   .topbar-sponsor-badge-label {
-    font-size: 10px;
+    display: none;
   }
 
   .topbar-sponsor {

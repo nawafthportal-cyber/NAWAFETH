@@ -4,6 +4,7 @@
 'use strict';
 
 const OnboardingPage = (() => {
+  const PREVIEW_KEY = 'app_intro_preview';
   const SLIDE_DEFINITIONS = [
     {
       key: 'onboarding_first_time',
@@ -21,6 +22,8 @@ const OnboardingPage = (() => {
 
   let _index = 0;
   let _slidesData = [];
+  let _introBlock = null;
+  let _phase = 'slides';
 
   function init() {
     _bind();
@@ -53,6 +56,7 @@ const OnboardingPage = (() => {
     }
 
     const blocks = res.data.blocks || {};
+    _introBlock = _mergePreviewBlock(blocks[PREVIEW_KEY]);
     _slidesData = SLIDE_DEFINITIONS
       .map((slide) => _mergeSlideWithBlock(slide, blocks[slide.key]))
       .filter((slide) => slide && slide.title && slide.desc);
@@ -83,13 +87,42 @@ const OnboardingPage = (() => {
     };
   }
 
+  function _mergePreviewBlock(block) {
+    if (!block || typeof block !== 'object') return null;
+
+    const title = String(block.title_ar || '').trim();
+    const desc = String(block.body_ar || '').trim();
+    const mediaUrl = ApiClient.mediaUrl(block.media_url || '');
+    const mediaType = String(block.media_type || '').trim().toLowerCase();
+
+    if (!title && !desc && !mediaUrl) return null;
+
+    return {
+      key: PREVIEW_KEY,
+      icon: '📱',
+      title,
+      desc,
+      media_url: mediaUrl || '',
+      media_type: mediaType || '',
+    };
+  }
+
   function _setIndex(nextIdx) {
     _index = Math.max(0, Math.min(_slidesData.length - 1, nextIdx));
     _render();
   }
 
   function _next() {
+    if (_phase === 'preview') {
+      _finish();
+      return;
+    }
+
     if (_index >= _slidesData.length - 1) {
+      if (_introBlock) {
+        _renderPreview();
+        return;
+      }
       _finish();
       return;
     }
@@ -97,16 +130,22 @@ const OnboardingPage = (() => {
   }
 
   function _finish() {
-    window.location.href = '/';
+    window.location.href = '/login/';
   }
 
   function _renderSlides() {
+    _phase = 'slides';
     const stage = document.getElementById('onboarding-stage');
     const dots = document.getElementById('onboard-dots');
+    const nextBtn = document.getElementById('btn-onboard-next');
+    const skipBtn = document.getElementById('btn-onboard-skip');
     if (!stage || !dots) return;
 
     stage.innerHTML = '';
     dots.innerHTML = '';
+
+    if (skipBtn) skipBtn.textContent = 'تخطي';
+    if (nextBtn) nextBtn.textContent = 'التالي';
 
     _slidesData.forEach((slide, idx) => {
       stage.appendChild(_buildSlide(slide, idx));
@@ -124,7 +163,49 @@ const OnboardingPage = (() => {
     _render();
   }
 
+  function _renderPreview() {
+    const stage = document.getElementById('onboarding-stage');
+    const dots = document.getElementById('onboard-dots');
+    const nextBtn = document.getElementById('btn-onboard-next');
+    const skipBtn = document.getElementById('btn-onboard-skip');
+    if (!stage || !dots || !_introBlock) {
+      _finish();
+      return;
+    }
+
+    _phase = 'preview';
+    stage.innerHTML = '';
+    dots.innerHTML = '';
+
+    stage.appendChild(
+      UI.el('article', { className: 'onboard-slide active', 'data-index': 'preview' }, [
+        UI.el('div', { className: 'onboard-slide-meta' }, [
+          UI.el('span', {
+            className: 'onboard-step-chip',
+            textContent: 'بروفة التطبيق',
+          }),
+          UI.el('span', {
+            className: 'onboard-step-note',
+            textContent: 'آخر خطوة قبل تسجيل الدخول',
+          }),
+        ]),
+        _buildMedia(_introBlock),
+        UI.el('div', { className: 'onboard-copy-card' }, [
+          UI.el('h1', { textContent: _introBlock.title || 'تعرف على نوافذ' }),
+          UI.el('p', {
+            textContent: _introBlock.desc || 'واجهة سريعة وواضحة تساعدك تبدأ مباشرة من الويب.',
+            style: { whiteSpace: 'pre-line' },
+          }),
+        ]),
+      ]),
+    );
+
+    if (nextBtn) nextBtn.textContent = 'تسجيل الدخول';
+    if (skipBtn) skipBtn.textContent = 'تخطي';
+  }
+
   function _renderLoading() {
+    _phase = 'slides';
     _renderStatus('يتم جلب المحتوى مباشرة من لوحة التحكم.', false, true);
   }
 

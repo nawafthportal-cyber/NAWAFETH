@@ -163,7 +163,7 @@ const OrdersPage = (() => {
     if (['new', 'in_progress', 'completed', 'cancelled'].includes(explicit)) return explicit;
 
     const map = {
-      pending: 'new', submitted: 'new', waiting: 'new', new: 'new',
+      pending: 'new', submitted: 'new', waiting: 'new', new: 'new', provider_accepted: 'new', awaiting_client: 'new',
       accepted: 'in_progress', in_progress: 'in_progress', ongoing: 'in_progress',
       completed: 'completed', done: 'completed',
       cancelled: 'cancelled', rejected: 'cancelled', expired: 'cancelled'
@@ -179,7 +179,7 @@ const OrdersPage = (() => {
     ).toLowerCase();
 
     const labels = {
-      pending: 'جديد', submitted: 'مرسل', waiting: 'بانتظار',
+      pending: 'جديد', submitted: 'مرسل', waiting: 'بانتظار', provider_accepted: 'تم قبول الطلب', awaiting_client: 'بانتظار اعتماد العميل للتفاصيل',
       accepted: 'قيد التنفيذ', in_progress: 'قيد التنفيذ', ongoing: 'قيد التنفيذ',
       completed: 'مكتمل', done: 'مكتمل',
       cancelled: 'ملغى', rejected: 'مرفوض', expired: 'منتهي'
@@ -287,6 +287,8 @@ const OrdersPage = (() => {
     const counts = {
       all: items.length,
       new: 0,
+      provider_accepted: 0,
+      awaiting_client: 0,
       in_progress: 0,
       completed: 0,
       cancelled: 0
@@ -294,6 +296,9 @@ const OrdersPage = (() => {
     items.forEach((item) => {
       const group = _statusGroup(item);
       if (Object.prototype.hasOwnProperty.call(counts, group)) counts[group] += 1;
+      const stage = _workflowStage(item);
+      if (stage === 'provider_accepted') counts.provider_accepted += 1;
+      if (stage === 'awaiting_client') counts.awaiting_client += 1;
     });
     return counts;
   }
@@ -301,6 +306,10 @@ const OrdersPage = (() => {
   function _renderCounters(counts, filteredCount) {
     _setText('orders-total-count', String(counts.all || 0));
     _setText('orders-active-count', String((counts.new || 0) + (counts.in_progress || 0)));
+    _setText(
+      'orders-pre-execution-note',
+      'تم قبول الطلب: ' + String(counts.provider_accepted || 0) + ' • بانتظار اعتماد العميل: ' + String(counts.awaiting_client || 0),
+    );
     _setText('orders-results-count', String(filteredCount || 0));
 
     document.querySelectorAll('#status-tabs .orders-tab-count').forEach((node) => {
@@ -318,6 +327,10 @@ const OrdersPage = (() => {
     if (!source) return 0;
     const d = new Date(source);
     return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+
+  function _workflowStage(order) {
+    return String(order && order.status || '').toLowerCase();
   }
 
   function _formatDateTime(value) {

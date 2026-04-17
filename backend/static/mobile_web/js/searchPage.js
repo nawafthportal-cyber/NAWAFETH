@@ -675,6 +675,8 @@ const SearchPage = (() => {
     const city = UI.formatCityDisplay(provider.city_display || provider.city, provider.region || provider.region_name);
     const profileUrl = ApiClient.mediaUrl(provider.profile_image);
     const coverUrl = ApiClient.mediaUrl(provider.cover_image);
+    const providerProfileHref = '/provider/' + encodeURIComponent(String(provider.id || '')) + '/';
+    const directRequestHref = '/service-request/?provider_id=' + encodeURIComponent(String(provider.id || ''));
     const initial = displayName.charAt(0) || '؟';
     const distanceKm = _distanceKmByProviderId[provider.id];
     const rating = _safeNum(provider.rating_avg);
@@ -682,11 +684,13 @@ const SearchPage = (() => {
     const ratingCount = _safeInt(provider.rating_count);
     const completed = _completedCount(provider);
 
-    const card = UI.el('a', {
+    const card = UI.el('article', {
       className: 'provider-list-card',
-      href: '/provider/' + encodeURIComponent(String(provider.id || '')) + '/',
+      tabindex: '0',
+      role: 'link',
+      'aria-label': 'عرض ملف ' + displayName,
     });
-    card.addEventListener('click', () => {
+    const trackProfileClick = () => {
       if (typeof NwAnalytics === 'undefined') return;
       NwAnalytics.track('search.result_click', {
         surface: 'mobile_web.search.results',
@@ -699,6 +703,18 @@ const SearchPage = (() => {
           featured: _featuredProviderIds.has(String(provider.id)),
         },
       });
+    };
+    card.addEventListener('click', event => {
+      if (event.target.closest('.provider-list-direct-action')) return;
+      trackProfileClick();
+      window.location.href = providerProfileHref;
+    });
+    card.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      if (event.target.closest('.provider-list-direct-action')) return;
+      event.preventDefault();
+      trackProfileClick();
+      window.location.href = providerProfileHref;
     });
 
     const media = UI.el('div', { className: 'provider-list-media' });
@@ -795,10 +811,36 @@ const SearchPage = (() => {
     stats.appendChild(_statChip('done', String(completed), '#2E7D32', 'طلبات مكتملة'));
     body.appendChild(stats);
 
+    const actions = UI.el('div', { className: 'provider-list-actions' });
+    const requestAction = UI.el('a', {
+      className: 'provider-list-direct-action',
+      href: directRequestHref,
+      title: 'طلب خدمة مباشرة من ' + displayName,
+      'aria-label': 'طلب خدمة مباشرة من ' + displayName,
+    });
+    requestAction.addEventListener('click', event => {
+      event.stopPropagation();
+      if (typeof NwAnalytics === 'undefined') return;
+      NwAnalytics.track('search.direct_request_click', {
+        surface: 'mobile_web.search.results',
+        source_app: 'marketplace',
+        object_type: 'ProviderProfile',
+        object_id: String(provider.id || ''),
+        payload: {
+          query: (_input && _input.value ? _input.value.trim() : ''),
+          selected_category_id: _activeCat ? _safeInt(_activeCat) : null,
+        },
+      });
+    });
+    requestAction.appendChild(_tinyIcon('request', '#ffffff', 16));
+    requestAction.appendChild(UI.el('span', { textContent: 'اطلب مباشرة' }));
+    actions.appendChild(requestAction);
+    body.appendChild(actions);
+
     card.appendChild(body);
 
     const arrow = UI.el('div', { className: 'provider-list-arrow' });
-    arrow.appendChild(_tinyIcon('arrow', '#B0B0B8'));
+    arrow.appendChild(_tinyIcon('arrow', '#B0B0B8', 14));
     card.appendChild(arrow);
 
     return card;
@@ -821,16 +863,17 @@ const SearchPage = (() => {
     return chip;
   }
 
-  function _tinyIcon(name, color) {
+  function _tinyIcon(name, color, size) {
     const paths = {
       location: '<path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 6.5 12 6.5s2.5 1.12 2.5 2.5S13.38 11.5 12 11.5z"/>',
       near: '<path d="M12 2l4 9-4 2-4-2 4-9zm0 12c3.31 0 6 2.69 6 6h-2a4 4 0 00-8 0H6c0-3.31 2.69-6 6-6z"/>',
       done: '<path d="M12 2a10 10 0 100 20 10 10 0 000-20zm-1.2 13.2L7.6 12l1.4-1.4 1.8 1.8 4.2-4.2 1.4 1.4-5.6 5.6z"/>',
+      request: '<path d="M12 3a1 1 0 0 1 1 1v7.59l2.3-2.29a1 1 0 1 1 1.4 1.41l-4 3.99a1 1 0 0 1-1.4 0l-4-3.99a1 1 0 1 1 1.4-1.41L11 11.59V4a1 1 0 0 1 1-1zm-7 14a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1z"/>',
       arrow: '<path d="M15 18l-6-6 6-6"/>',
     };
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('width', '12');
-    svg.setAttribute('height', '12');
+    svg.setAttribute('width', String(size || 12));
+    svg.setAttribute('height', String(size || 12));
     svg.setAttribute('viewBox', '0 0 24 24');
     svg.setAttribute('fill', name === 'arrow' ? 'none' : (color || 'currentColor'));
     if (name === 'arrow') {

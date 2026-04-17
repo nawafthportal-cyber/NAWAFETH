@@ -12,7 +12,15 @@ const ProviderOrderDetailPage = (() => {
   };
   const TYPE_LABEL = { normal: 'عادي', competitive: 'تنافسي', urgent: 'عاجل' };
   const STATUS_COLOR = { new: '#A56800', in_progress: '#E67E22', completed: '#2E7D32', cancelled: '#C62828' };
-  const STATUS_LABEL_AR = { new: 'جديد', in_progress: 'تحت التنفيذ', completed: 'مكتمل', cancelled: 'ملغي', canceled: 'ملغي' };
+  const STATUS_LABEL_AR = {
+    new: 'جديد',
+    provider_accepted: 'تم قبول الطلب',
+    awaiting_client: 'بانتظار اعتماد العميل للتفاصيل',
+    in_progress: 'تحت التنفيذ',
+    completed: 'مكتمل',
+    cancelled: 'ملغي',
+    canceled: 'ملغي'
+  };
   const FILE_TYPE_LABEL_AR = { image: 'صورة', video: 'فيديو', audio: 'صوت', document: 'مستند' };
 
   function init() {
@@ -255,7 +263,9 @@ const ProviderOrderDetailPage = (() => {
     if (group === 'new') {
       if (isCompetitiveAvailable(o)) return renderCompetitiveOfferActions(root);
       if (isUrgentAvailable(o)) return renderUrgentAvailableActions(root);
-      if (isCompetitiveAssigned(o)) return renderCompetitiveAssignedNewActions(root, o);
+      if (isAwaitingProviderAcceptance(o)) return renderAwaitingAcceptanceActions(root, o);
+      if (isCompetitiveAssigned(o) && canSendExecutionDetails(o)) return renderCompetitiveAssignedNewActions(root, o);
+      if (canSendExecutionDetails(o)) return renderAssignedNewActions(root, o);
       return renderAssignedNewActions(root, o);
     }
     if (group === 'in_progress') return renderProgressActions(root, o);
@@ -264,9 +274,7 @@ const ProviderOrderDetailPage = (() => {
   }
 
   function renderAssignedNewActions(root, o) {
-    const showAccept = str(o.request_type).toLowerCase() !== 'urgent';
     root.innerHTML = `
-      ${showAccept ? '<button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>قبول الطلب</button>' : ''}
       <div class="pod-readonly-box" id="pod-client-rejection-box" style="display:none"><label>سبب رفض العميل للتفاصيل السابقة</label><p id="pod-client-rejection-note">-</p></div>
       <p class="pod-action-title" id="pod-progress-title"></p>
       <label class="pod-input-label" for="pod-expected-delivery">موعد التسليم المتوقع</label>
@@ -288,16 +296,36 @@ const ProviderOrderDetailPage = (() => {
     byId('pod-received-amount').value = str(o.received_amount);
     byId('pod-cancel-reason').value = str(o.cancel_reason);
     const rejected = o.provider_inputs_approved === false;
-    byId('pod-progress-title').textContent = rejected ? 'إعادة إرسال تفاصيل التنفيذ' : 'إرسال تفاصيل التنفيذ';
-    byId('pod-progress-btn').textContent = rejected ? 'إعادة إرسال التفاصيل' : 'إرسال التفاصيل للعميل';
+    const waitingClient = workflowStage(o) === 'awaiting_client' && !rejected;
+    byId('pod-progress-title').textContent = rejected
+      ? 'إعادة إرسال تفاصيل التنفيذ'
+      : (waitingClient ? 'تحديث تفاصيل التنفيذ المرسلة' : 'إرسال تفاصيل التنفيذ');
+    byId('pod-progress-btn').textContent = rejected
+      ? 'إعادة إرسال التفاصيل'
+      : (waitingClient ? 'تحديث التفاصيل المرسلة' : 'إرسال التفاصيل للعميل');
     const rbox = byId('pod-client-rejection-box');
     if (rejected) {
       rbox.style.display = '';
       setText('pod-client-rejection-note', val(o.provider_inputs_decision_note, '-'));
     } else rbox.style.display = 'none';
-    const acceptBtn = byId('pod-accept-btn');
-    if (acceptBtn) acceptBtn.addEventListener('click', acceptOrder);
     byId('pod-progress-btn').addEventListener('click', () => submitProgress(true));
+    byId('pod-reject-btn').addEventListener('click', rejectOrder);
+    setActionLoading(false);
+  }
+
+  function renderAwaitingAcceptanceActions(root) {
+    root.innerHTML = `
+      <div class="pod-readonly-box">
+        <label>بانتظار ردك على الطلب</label>
+        <p>بعد قبول الطلب ستتمكن من إدخال السعر وموعد التسليم وإرسالها للعميل لاعتمادها.</p>
+      </div>
+      <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-accept-btn" data-pod-action>قبول الطلب</button>
+      <div class="pod-divider"></div>
+      <p class="pod-action-title">رفض الطلب</p>
+      <label class="pod-input-label" for="pod-cancel-reason">سبب الرفض</label>
+      <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الرفض..."></textarea>
+      <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>رفض الطلب</button>`;
+    byId('pod-accept-btn').addEventListener('click', acceptOrder);
     byId('pod-reject-btn').addEventListener('click', rejectOrder);
     setActionLoading(false);
   }
@@ -390,7 +418,7 @@ const ProviderOrderDetailPage = (() => {
       <div id="pod-completion-files-list" class="pod-file-list"></div>
       <button type="button" class="pod-btn pod-btn-success pod-btn-block" id="pod-complete-btn" data-pod-action>إكمال الطلب</button>
       <div class="pod-divider"></div>
-      <p class="pod-action-title">رفض / إلغاء الطلب</p>
+      <p class="pod-action-title">إلغاء الطلب أثناء التنفيذ</p>
       <label class="pod-input-label" for="pod-cancel-reason">سبب الإلغاء</label>
       <textarea class="pod-textarea" id="pod-cancel-reason" rows="2" placeholder="سبب الإلغاء..."></textarea>
       <button type="button" class="pod-btn pod-btn-outline-danger pod-btn-block" id="pod-reject-btn" data-pod-action>إلغاء الطلب</button>`;
@@ -588,16 +616,21 @@ const ProviderOrderDetailPage = (() => {
 
   async function rejectOrder() {
     if (state.actionLoading) return;
+    const order = state.order;
+    if (!order) return;
     const reason = str(byId('pod-cancel-reason').value);
     if (!reason) return toast('الرجاء كتابة سبب الإلغاء');
     setActionLoading(true);
-    const res = await ApiClient.request('/api/marketplace/provider/requests/' + state.id + '/reject/', {
+    const endpoint = statusGroup(order) === 'in_progress'
+      ? '/api/marketplace/provider/requests/' + state.id + '/cancel/'
+      : '/api/marketplace/provider/requests/' + state.id + '/reject/';
+    const res = await ApiClient.request(endpoint, {
       method: 'POST',
       body: { canceled_at: new Date().toISOString(), cancel_reason: reason },
     });
     setActionLoading(false);
     if (!res.ok) return toast(extractError(res, 'فشلت العملية'));
-    toast('تم إلغاء الطلب');
+    toast(statusGroup(order) === 'in_progress' ? 'تم إلغاء الطلب' : 'تم رفض الطلب');
     loadDetail();
   }
 
@@ -743,6 +776,10 @@ const ProviderOrderDetailPage = (() => {
     return str(o && o.request_type).toLowerCase();
   }
 
+  function workflowStage(o) {
+    return str(o && o.status).toLowerCase();
+  }
+
   function hasAssignedProvider(o) {
     const provider = o && o.provider;
     if (provider === null || provider === undefined || provider === '') return false;
@@ -760,6 +797,16 @@ const ProviderOrderDetailPage = (() => {
 
   function isCompetitiveAssigned(o) {
     return requestType(o) === 'competitive' && hasAssignedProvider(o);
+  }
+
+  function isAwaitingProviderAcceptance(o) {
+    return requestType(o) === 'normal' && hasAssignedProvider(o) && workflowStage(o) === 'new';
+  }
+
+  function canSendExecutionDetails(o) {
+    const stage = workflowStage(o);
+    if (stage === 'provider_accepted' || stage === 'awaiting_client') return true;
+    return isCompetitiveAssigned(o) && stage === 'new';
   }
 
   function fmtDateTime(v) {

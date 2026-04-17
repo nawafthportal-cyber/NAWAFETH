@@ -387,6 +387,33 @@ const Nav = (() => {
     sponsorMedia.classList.add('is-square');
   }
 
+  function _resetTopbarBrandMediaSizing(markEl) {
+    if (!markEl) return;
+    markEl.classList.remove('is-wide', 'is-tall', 'is-square');
+    markEl.classList.add('is-square');
+  }
+
+  function _applyTopbarBrandMediaSizing(markEl, img) {
+    if (!markEl || !img) return;
+    const width = Number(img.naturalWidth || 0);
+    const height = Number(img.naturalHeight || 0);
+    markEl.classList.remove('is-wide', 'is-tall', 'is-square');
+    if (!width || !height) {
+      markEl.classList.add('is-square');
+      return;
+    }
+    const ratio = width / height;
+    if (ratio >= 1.55) {
+      markEl.classList.add('is-wide');
+      return;
+    }
+    if (ratio <= 0.82) {
+      markEl.classList.add('is-tall');
+      return;
+    }
+    markEl.classList.add('is-square');
+  }
+
   function _applyTopbarSponsor(payload) {
     const sponsor = document.getElementById('topbar-sponsor');
     const sponsorName = document.getElementById('topbar-sponsor-name');
@@ -453,6 +480,7 @@ const Nav = (() => {
   function _renderDefaultTopbarBrandMark(markEl, fallbackLabel) {
     if (!markEl) return;
     markEl.classList.remove('has-image');
+    markEl.classList.remove('is-wide', 'is-tall', 'is-square');
     markEl.textContent = fallbackLabel;
   }
 
@@ -469,14 +497,21 @@ const Nav = (() => {
     }
 
     markEl.classList.add('has-image');
+    _resetTopbarBrandMediaSizing(markEl);
     markEl.textContent = '';
     const img = document.createElement('img');
     img.src = assetUrl;
     img.alt = String(safePayload?.title || 'شعار المنصة').trim() || 'شعار المنصة';
+    img.addEventListener('load', () => {
+      _applyTopbarBrandMediaSizing(markEl, img);
+    }, { once: true });
     img.addEventListener('error', () => {
       _renderDefaultTopbarBrandMark(markEl, defaultMark);
     }, { once: true });
     markEl.appendChild(img);
+    if (img.complete) {
+      _applyTopbarBrandMediaSizing(markEl, img);
+    }
   }
 
   async function _initTopbarBrandLogo() {

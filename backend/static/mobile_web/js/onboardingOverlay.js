@@ -1,8 +1,8 @@
 /* ===================================================================
-   onboardingOverlay.js — Full-screen onboarding overlay for first-time visitors
-   Shows 3 CMS-driven slides over the home page, then a login screen.
-   Uses localStorage to remember the user has seen the onboarding.
-   =================================================================== */
+  onboardingOverlay.js — Full-screen onboarding overlay for first-time visitors
+  Shows 3 CMS-driven slides over the home page, then a login screen.
+  Uses localStorage to remember whether the onboarding was shown today.
+  =================================================================== */
 'use strict';
 
 const OnboardingOverlay = (() => {
@@ -29,6 +29,14 @@ const OnboardingOverlay = (() => {
   let _otpCooldownTimer = null;
   let _otpCooldownEnd = 0;
 
+  function _todayStamp() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   function _normalizePhone05(value) {
     const digits = String(value || '').replace(/\D/g, '');
     if (/^05\d{8}$/.test(digits)) return digits;
@@ -46,10 +54,10 @@ const OnboardingOverlay = (() => {
 
   /* ── storage ── */
   function _hasSeenOnboarding() {
-    try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch (_) { return false; }
+    try { return localStorage.getItem(STORAGE_KEY) === _todayStamp(); } catch (_) { return false; }
   }
   function _markSeen() {
-    try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_) {}
+    try { localStorage.setItem(STORAGE_KEY, _todayStamp()); } catch (_) {}
   }
 
   /* ── data ── */

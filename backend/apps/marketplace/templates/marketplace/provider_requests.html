@@ -3,100 +3,575 @@
 
 {% block title %}طلبات المزود{% endblock %}
 
+{% block extra_head %}
+<style>
+  .mpr-page {
+    display: grid;
+    gap: 1.5rem;
+  }
+
+  .mpr-hero {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: 1.25rem;
+    padding: 1.75rem;
+    border-radius: 1.75rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background:
+      radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 24%),
+      radial-gradient(circle at bottom right, rgba(14, 165, 233, 0.16), transparent 28%),
+      linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #155e75 100%);
+    color: #fff;
+    box-shadow: 0 22px 54px rgba(15, 23, 42, 0.18);
+  }
+
+  .mpr-hero-copy h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 3vw, 2.5rem);
+    line-height: 1.15;
+  }
+
+  .mpr-hero-copy p {
+    margin: 0.65rem 0 0;
+    max-width: 48rem;
+    color: rgba(255, 255, 255, 0.84);
+    line-height: 1.8;
+  }
+
+  .mpr-tab-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-top: 1rem;
+  }
+
+  .mpr-tab-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-weight: 700;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mpr-tab-link:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .mpr-tab-link.is-active {
+    background: #fff;
+    color: #0f172a;
+    border-color: transparent;
+  }
+
+  .mpr-tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.9rem;
+    min-height: 1.9rem;
+    padding: 0 0.45rem;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.12);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+
+  .mpr-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.85rem;
+  }
+
+  .mpr-stat {
+    padding: 1rem;
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(10px);
+  }
+
+  .mpr-stat span {
+    display: block;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .mpr-stat strong {
+    display: block;
+    margin-top: 0.45rem;
+    font-size: 1.65rem;
+    line-height: 1;
+  }
+
+  .mpr-workflow-note {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    align-items: center;
+    color: rgba(255, 255, 255, 0.84);
+    font-size: 0.85rem;
+  }
+
+  .mpr-filters,
+  .mpr-empty,
+  .mpr-pagination {
+    border-radius: 1.5rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+    box-shadow: 0 10px 26px rgba(15, 23, 42, 0.05);
+  }
+
+  .mpr-filters {
+    padding: 1rem;
+  }
+
+  .mpr-filter-form {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.85rem;
+    align-items: end;
+  }
+
+  .mpr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .mpr-field label {
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .mpr-input,
+  .mpr-select {
+    width: 100%;
+    min-height: 2.9rem;
+    padding: 0 0.9rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.36);
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .mpr-input:focus,
+  .mpr-select:focus {
+    outline: none;
+    border-color: rgba(37, 99, 235, 0.55);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    background: #fff;
+  }
+
+  .mpr-submit {
+    min-height: 2.9rem;
+    padding: 0 1.1rem;
+    border-radius: 1rem;
+    border: 0;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    color: #fff;
+    font-weight: 800;
+  }
+
+  .mpr-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .mpr-card {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: 1rem;
+    padding: 1.15rem;
+    border-radius: 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  }
+
+  .mpr-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 5px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.72);
+  }
+
+  .mpr-card.mpr-card-new::before { background: rgba(245, 158, 11, 0.85); }
+  .mpr-card.mpr-card-in_progress::before { background: rgba(37, 99, 235, 0.85); }
+  .mpr-card.mpr-card-completed::before { background: rgba(22, 163, 74, 0.85); }
+  .mpr-card.mpr-card-cancelled::before { background: rgba(220, 38, 38, 0.85); }
+
+  .mpr-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .mpr-card-top h2 {
+    margin: 0.55rem 0 0;
+    font-size: 1.1rem;
+    line-height: 1.5;
+    color: #0f172a;
+  }
+
+  .mpr-id-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .mpr-request-id,
+  .mpr-type-badge,
+  .mpr-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    min-height: 1.9rem;
+    padding: 0 0.8rem;
+    font-size: 0.77rem;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .mpr-request-id {
+    background: #eef2ff;
+    color: #3730a3;
+  }
+
+  .mpr-type-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  .mpr-status-badge {
+    border: 1px solid transparent;
+  }
+
+  .mpr-status-new {
+    background: #fffbeb;
+    border-color: #fcd34d;
+    color: #a16207;
+  }
+
+  .mpr-status-in_progress {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1d4ed8;
+  }
+
+  .mpr-status-completed {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #15803d;
+  }
+
+  .mpr-status-cancelled {
+    background: #fef2f2;
+    border-color: #fca5a5;
+    color: #b91c1c;
+  }
+
+  .mpr-desc {
+    margin: 0;
+    color: #475569;
+    line-height: 1.8;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .mpr-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .mpr-meta-item {
+    padding: 0.85rem 0.95rem;
+    border-radius: 1rem;
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+  }
+
+  .mpr-meta-item span {
+    display: block;
+    font-size: 0.74rem;
+    color: #64748b;
+  }
+
+  .mpr-meta-item strong {
+    display: block;
+    margin-top: 0.35rem;
+    color: #0f172a;
+    font-size: 0.93rem;
+    line-height: 1.6;
+  }
+
+  .mpr-note {
+    padding: 0.95rem 1rem;
+    border-radius: 1rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.07) 0%, rgba(14, 165, 233, 0.05) 100%);
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    color: #334155;
+    line-height: 1.8;
+  }
+
+  .mpr-card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mpr-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: #1d4ed8;
+    font-weight: 800;
+  }
+
+  .mpr-accept-form button {
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border-radius: 1rem;
+    border: 0;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: #fff;
+    font-weight: 800;
+  }
+
+  .mpr-empty {
+    padding: 2rem;
+    text-align: center;
+    color: #64748b;
+  }
+
+  .mpr-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .mpr-page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    color: #0f172a;
+    background: #fff;
+    font-weight: 700;
+  }
+
+  @media (max-width: 1200px) {
+    .mpr-stats,
+    .mpr-filter-form,
+    .mpr-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 768px) {
+    .mpr-hero,
+    .mpr-filters,
+    .mpr-card {
+      padding: 1rem;
+    }
+
+    .mpr-stats,
+    .mpr-filter-form,
+    .mpr-grid,
+    .mpr-meta-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .mpr-card-top,
+    .mpr-card-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="space-y-5">
+<div class="mpr-page">
+  <section class="mpr-hero">
+    <div class="mpr-hero-copy">
+      <h1>{{ current_tab_title }}</h1>
+      <p>{{ current_tab_description }}</p>
 
-  <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-    <div>
-      <h1 class="text-xl font-bold">طلبات المزود</h1>
-      <div class="text-sm text-gray-500">عرض الطلبات المتاحة والمسندة لك</div>
-    </div>
-
-    <div class="flex gap-2">
-      <a href="?tab=available" class="px-3 py-2 rounded-xl border {% if tab == 'available' %}bg-indigo-600 text-white border-indigo-600{% else %}border-gray-200{% endif %}">المتاحة</a>
-      <a href="?tab=assigned" class="px-3 py-2 rounded-xl border {% if tab == 'assigned' %}bg-indigo-600 text-white border-indigo-600{% else %}border-gray-200{% endif %}">المسندة لي</a>
-      {% if request.user.is_staff %}
-        <a href="?tab=all" class="px-3 py-2 rounded-xl border {% if tab == 'all' %}bg-indigo-600 text-white border-indigo-600{% else %}border-gray-200{% endif %}">الكل</a>
-      {% endif %}
-    </div>
-  </div>
-
-  <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-3">
-    <input type="hidden" name="tab" value="{{ tab }}">
-    <input name="q" value="{{ q }}" placeholder="بحث بالعنوان أو الوصف"
-           class="rounded-xl border border-gray-200 px-3 py-2" />
-    <input name="city" value="{{ city }}" placeholder="المدينة"
-           class="rounded-xl border border-gray-200 px-3 py-2" />
-    <select name="status" class="rounded-xl border border-gray-200 px-3 py-2">
-      <option value="">كل الحالات</option>
-      <option value="new" {% if status == 'new' %}selected{% endif %}>جديد</option>
-      <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>قيد التنفيذ</option>
-      <option value="completed" {% if status == 'completed' %}selected{% endif %}>مكتمل</option>
-      <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>ملغي</option>
-    </select>
-    <button class="rounded-xl bg-indigo-600 text-white px-4 py-2">تطبيق</button>
-  </form>
-
-  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-    {% for obj in page_obj.object_list %}
-      <div class="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
-        <div class="flex items-start justify-between gap-2">
-          <div>
-            <div class="font-semibold">{{ obj.title }}</div>
-            <div class="text-sm text-gray-500">{{ obj.city|city_display }}</div>
-          </div>
-          <span class="text-xs px-2 py-1 rounded-full border border-gray-200">
-            {{ obj.get_status_display }}
-          </span>
-        </div>
-
-        <div class="text-sm text-gray-700 line-clamp-3 whitespace-pre-line">
-          {{ obj.description|default:"" }}
-        </div>
-
-        <div class="flex items-center justify-between">
-          <a href="{% url 'marketplace:request_detail' obj.id %}"
-             class="text-indigo-700 hover:underline text-sm">
-            فتح التفاصيل
+      <div class="mpr-tab-row">
+        <a href="?tab=available" class="mpr-tab-link {% if tab == 'available' %}is-active{% endif %}">
+          <span>المتاحة</span>
+          <span class="mpr-tab-count">{{ summary.available_total }}</span>
+        </a>
+        <a href="?tab=assigned" class="mpr-tab-link {% if tab == 'assigned' %}is-active{% endif %}">
+          <span>المسندة لي</span>
+          <span class="mpr-tab-count">{{ summary.assigned_total }}</span>
+        </a>
+        {% if request.user.is_staff %}
+          <a href="?tab=all" class="mpr-tab-link {% if tab == 'all' %}is-active{% endif %}">
+            <span>الكل</span>
           </a>
-
-          {% if tab == 'available' and provider and obj.request_type == 'urgent' %}
-            <form method="post" action="{% url 'marketplace:request_action' obj.id %}">
-              {% csrf_token %}
-              <button name="action" value="accept" type="submit"
-                      class="px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">
-                قبول
-              </button>
-            </form>
-          {% endif %}
-        </div>
+        {% endif %}
       </div>
-    {% empty %}
-      <div class="rounded-2xl border border-gray-200 bg-white p-6 text-gray-500">
-        لا توجد طلبات.
-      </div>
-    {% endfor %}
-  </div>
+    </div>
 
-  {% if page_obj.paginator.num_pages > 1 %}
-    <div class="flex items-center justify-center gap-2">
-      {% if page_obj.has_previous %}
-        <a class="px-3 py-2 rounded-xl border border-gray-200"
-           href="?tab={{ tab }}&q={{ q }}&city={{ city }}&status={{ status }}&page={{ page_obj.previous_page_number }}">
-          السابق
-        </a>
-      {% endif %}
-      <span class="text-sm text-gray-600">
-        صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}
-      </span>
-      {% if page_obj.has_next %}
-        <a class="px-3 py-2 rounded-xl border border-gray-200"
-           href="?tab={{ tab }}&q={{ q }}&city={{ city }}&status={{ status }}&page={{ page_obj.next_page_number }}">
-          التالي
-        </a>
-      {% endif %}
+    <div class="mpr-stats">
+      <div class="mpr-stat">
+        <span>المتاحة الآن</span>
+        <strong>{{ summary.available_total }}</strong>
+      </div>
+      <div class="mpr-stat">
+        <span>المسندة إليك</span>
+        <strong>{{ summary.assigned_total }}</strong>
+      </div>
+      <div class="mpr-stat">
+        <span>تنافسية متاحة</span>
+        <strong>{{ summary.competitive_available }}</strong>
+      </div>
+      <div class="mpr-stat">
+        <span>عاجلة متاحة</span>
+        <strong>{{ summary.urgent_available }}</strong>
+      </div>
+      <div class="mpr-workflow-note">
+        <span>بانتظار القبول: {{ summary.awaiting_acceptance }}</span>
+        <span>بانتظار اعتماد العميل: {{ summary.awaiting_client }}</span>
+        <span>قيد التنفيذ: {{ summary.in_progress_total }}</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="mpr-filters">
+    <form method="get" class="mpr-filter-form">
+      <input type="hidden" name="tab" value="{{ tab }}">
+
+      <div class="mpr-field">
+        <label for="mpr-q">بحث</label>
+        <input id="mpr-q" name="q" value="{{ q }}" placeholder="العنوان أو الوصف" class="mpr-input">
+      </div>
+
+      <div class="mpr-field">
+        <label for="mpr-city">المدينة</label>
+        <input id="mpr-city" name="city" value="{{ city }}" placeholder="المدينة" class="mpr-input">
+      </div>
+
+      <div class="mpr-field">
+        <label for="mpr-type">نوع الطلب</label>
+        <select id="mpr-type" name="request_type" class="mpr-select">
+          <option value="">كل الأنواع</option>
+          <option value="normal" {% if request_type == 'normal' %}selected{% endif %}>مباشر</option>
+          <option value="competitive" {% if request_type == 'competitive' %}selected{% endif %}>تنافسي</option>
+          <option value="urgent" {% if request_type == 'urgent' %}selected{% endif %}>عاجل</option>
+        </select>
+      </div>
+
+      <div class="mpr-field">
+        <label for="mpr-status">المرحلة</label>
+        <select id="mpr-status" name="status" class="mpr-select">
+          <option value="">كل المراحل</option>
+          <option value="new" {% if status == 'new' %}selected{% endif %}>ما قبل التنفيذ</option>
+          <option value="in_progress" {% if status == 'in_progress' %}selected{% endif %}>تحت التنفيذ</option>
+          <option value="completed" {% if status == 'completed' %}selected{% endif %}>مكتمل</option>
+          <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>ملغي</option>
+        </select>
+      </div>
+
+      <button class="mpr-submit" type="submit">تطبيق الفلاتر</button>
+    </form>
+  </section>
+
+  {% if page_obj.object_list %}
+    <div class="mpr-grid">
+      {% for obj in page_obj.object_list %}
+        <article class="mpr-card mpr-card-{{ obj.status_group }}">
+          <div class="mpr-card-top">
+            <div>
+              <div class="mpr-id-row">
+                <span class="mpr-request-id">#{{ obj.id }}</span>
+                <span class="mpr-type-badge">{{ obj.type_label }}</span>
+              </div>
+              <h2>{{ obj.title }}</h2>
+            </div>
+            <span class="mpr-status-badge mpr-status-{{ obj.status_group }}">{{ obj.status_label }}</span>
+          </div>
+
+          <p class="mpr-desc">{{ obj.description|default:"" }}</p>
+
+          <div class="mpr-meta-grid">
+            <div class="mpr-meta-item">
+              <span>المدينة</span>
+              <strong>{{ obj.city|city_display|default:obj.city_label }}</strong>
+            </div>
+            <div class="mpr-meta-item">
+              <span>تاريخ الإنشاء</span>
+              <strong>{{ obj.created_at|date:"Y-m-d H:i" }}</strong>
+            </div>
+            <div class="mpr-meta-item">
+              <span>التصنيف</span>
+              <strong>{{ obj.subcategory.name|default:"—" }}</strong>
+            </div>
+            <div class="mpr-meta-item">
+              <span>المزوّد الحالي</span>
+              <strong>{% if obj.provider %}{{ obj.provider.display_name|default:obj.provider.user.username|default:"—" }}{% else %}غير مسند{% endif %}</strong>
+            </div>
+          </div>
+
+          <div class="mpr-note">{{ obj.workflow_note }}</div>
+
+          <div class="mpr-card-footer">
+            <a href="{% url 'marketplace:request_detail' obj.id %}" class="mpr-link">فتح التفاصيل</a>
+
+            {% if obj.can_accept_legacy %}
+              <form method="post" action="{% url 'marketplace:request_action' obj.id %}" class="mpr-accept-form">
+                {% csrf_token %}
+                <button name="action" value="accept" type="submit">قبول الطلب العاجل</button>
+              </form>
+            {% endif %}
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="mpr-empty">
+      لا توجد طلبات مطابقة للمعايير الحالية. جرّب تغيير التبويب أو الفلاتر أو نوع الطلب.
     </div>
   {% endif %}
 
+  {% if page_obj.paginator.num_pages > 1 %}
+    <div class="mpr-pagination">
+      {% if page_obj.has_previous %}
+        <a class="mpr-page-link" href="?tab={{ tab }}&q={{ q }}&city={{ city }}&status={{ status }}&request_type={{ request_type }}&page={{ page_obj.previous_page_number }}">السابق</a>
+      {% endif %}
+      <span>صفحة {{ page_obj.number }} من {{ page_obj.paginator.num_pages }}</span>
+      {% if page_obj.has_next %}
+        <a class="mpr-page-link" href="?tab={{ tab }}&q={{ q }}&city={{ city }}&status={{ status }}&request_type={{ request_type }}&page={{ page_obj.next_page_number }}">التالي</a>
+      {% endif %}
+    </div>
+  {% endif %}
 </div>
 {% endblock %}

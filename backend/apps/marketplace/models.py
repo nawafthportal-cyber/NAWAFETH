@@ -15,6 +15,8 @@ class RequestType(models.TextChoices):
 
 class RequestStatus(models.TextChoices):
 	NEW = "new", "جديد"
+	PROVIDER_ACCEPTED = "provider_accepted", "تم قبول الطلب"
+	AWAITING_CLIENT_APPROVAL = "awaiting_client", "بانتظار اعتماد العميل"
 	IN_PROGRESS = "in_progress", "تحت التنفيذ"
 	COMPLETED = "completed", "مكتمل"
 	CANCELLED = "cancelled", "ملغي"
@@ -22,7 +24,65 @@ class RequestStatus(models.TextChoices):
 
 # Backward compatibility for legacy status constants used in tests/older code.
 RequestStatus.SENT = RequestStatus.NEW
-RequestStatus.ACCEPTED = RequestStatus.IN_PROGRESS
+RequestStatus.ACCEPTED = RequestStatus.PROVIDER_ACCEPTED
+
+
+PRE_EXECUTION_REQUEST_STATUSES = (
+	RequestStatus.NEW,
+	RequestStatus.PROVIDER_ACCEPTED,
+	RequestStatus.AWAITING_CLIENT_APPROVAL,
+)
+
+
+def request_status_group_value(raw_status: str) -> str:
+	value = (raw_status or "").strip().lower()
+	if value in {status.value for status in PRE_EXECUTION_REQUEST_STATUSES}:
+		return "new"
+	if value == RequestStatus.IN_PROGRESS:
+		return "in_progress"
+	if value == RequestStatus.COMPLETED:
+		return "completed"
+	if value in (RequestStatus.CANCELLED, "canceled"):
+		return "cancelled"
+	return "new"
+
+
+def service_request_status_group(service_request) -> str:
+	return request_status_group_value(getattr(service_request, "status", ""))
+
+
+def service_request_status_label(service_request) -> str:
+	status = (getattr(service_request, "status", "") or "").strip().lower()
+	request_type = (getattr(service_request, "request_type", "") or "").strip().lower()
+	has_provider = bool(getattr(service_request, "provider_id", None) or getattr(service_request, "provider", None))
+
+	if status == RequestStatus.NEW:
+		if request_type == RequestType.NORMAL and has_provider:
+			return "بانتظار قبول المزود"
+		if request_type == RequestType.COMPETITIVE and has_provider:
+			return "بانتظار إرسال تفاصيل التنفيذ"
+		return "جديد"
+	if status == RequestStatus.PROVIDER_ACCEPTED:
+		return "تم قبول الطلب"
+	if status == RequestStatus.AWAITING_CLIENT_APPROVAL:
+		return "بانتظار اعتماد العميل للتفاصيل"
+	if status == RequestStatus.IN_PROGRESS:
+		return "تحت التنفيذ"
+	if status == RequestStatus.COMPLETED:
+		return "مكتمل"
+	if status in (RequestStatus.CANCELLED, "canceled"):
+		return "ملغي"
+	return "جديد"
+
+
+def service_request_pre_execution_return_status(service_request) -> str:
+	request_type = (getattr(service_request, "request_type", "") or "").strip().lower()
+	has_provider = bool(getattr(service_request, "provider_id", None) or getattr(service_request, "provider", None))
+	if request_type == RequestType.COMPETITIVE and has_provider:
+		return RequestStatus.NEW
+	if has_provider:
+		return RequestStatus.PROVIDER_ACCEPTED
+	return RequestStatus.NEW
 
 
 class DispatchMode(models.TextChoices):
@@ -85,6 +145,8 @@ class ServiceRequest(models.Model):
 	)
 
 	city = models.CharField(max_length=100)
+	request_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+	request_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
 	is_urgent = models.BooleanField(default=False)
 
 	created_at = models.DateTimeField(auto_now_add=True)
@@ -106,11 +168,22 @@ class ServiceRequest(models.Model):
 		if self.status != RequestStatus.NEW:
 			raise ValidationError("لا يمكن قبول الطلب الآن")
 		self.provider = provider
-		self.status = RequestStatus.IN_PROGRESS
-		self.save(update_fields=["provider", "status"])
+		self.status = RequestStatus.PROVIDER_ACCEPTED
+		self.provider_inputs_approved = None
+		self.provider_inputs_decided_at = None
+		self.provider_inputs_decision_note = ""
+		self.save(
+			update_fields=[
+				"provider",
+				"status",
+				"provider_inputs_approved",
+				"provider_inputs_decided_at",
+				"provider_inputs_decision_note",
+			]
+		)
 
 	def start(self) -> None:
-		if self.status not in (RequestStatus.NEW, RequestStatus.IN_PROGRESS):
+		if self.status not in (*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS):
 			raise ValidationError("لا يمكن بدء التنفيذ في هذه الحالة")
 		self.status = RequestStatus.IN_PROGRESS
 		self.save(update_fields=["status"])
@@ -125,7 +198,7 @@ class ServiceRequest(models.Model):
 		"""Cancel a request. ``allowed_statuses`` lets the service layer
 		restrict which statuses the caller may cancel from."""
 		if allowed_statuses is None:
-			allowed_statuses = [RequestStatus.NEW, RequestStatus.IN_PROGRESS]
+			allowed_statuses = [*PRE_EXECUTION_REQUEST_STATUSES, RequestStatus.IN_PROGRESS]
 		if self.status not in allowed_statuses:
 			raise ValidationError("لا يمكن إلغاء الطلب في هذه الحالة")
 		self.status = RequestStatus.CANCELLED
@@ -136,7 +209,9 @@ class ServiceRequest(models.Model):
 			raise ValidationError("لا يمكن إعادة فتح الطلب في هذه الحالة")
 		self.status = RequestStatus.NEW
 		self.provider = None
-		self.save(update_fields=["status", "provider"])
+		self.canceled_at = None
+		self.cancel_reason = ""
+		self.save(update_fields=["status", "provider", "canceled_at", "cancel_reason"])
 
 	def selected_subcategory_ids(self) -> list[int]:
 		prefetched = getattr(self, "_prefetched_objects_cache", {})

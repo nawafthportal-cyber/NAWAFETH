@@ -2,7 +2,14 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.providers.location_formatter import format_city_display
-from .models import Offer, RequestStatusLog, ServiceRequest, ServiceRequestAttachment
+from .models import (
+    Offer,
+    RequestStatusLog,
+    ServiceRequest,
+    ServiceRequestAttachment,
+    request_status_group_value,
+    service_request_status_label,
+)
 from apps.providers.models import ProviderCategory, ProviderProfile, SubCategory
 from apps.uploads.media_optimizer import optimize_upload_for_storage
 from apps.uploads.validators import (
@@ -18,6 +25,7 @@ from apps.uploads.validators import (
     VIDEO_MIME_TYPES,
     validate_secure_upload,
 )
+from .services.actions import allowed_actions
 
 
 class ServiceRequestCreateSerializer(serializers.ModelSerializer):
@@ -31,6 +39,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
+    request_lat = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, write_only=True)
+    request_lng = serializers.DecimalField(max_digits=9, decimal_places=6, required=False, write_only=True)
     provider = serializers.PrimaryKeyRelatedField(
         queryset=ProviderProfile.objects.all(),
         required=False,
@@ -65,6 +75,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
             "request_type",
             "city",
             "dispatch_mode",
+            "request_lat",
+            "request_lng",
             "images",
             "videos",
             "files",
@@ -82,6 +94,8 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         request_type = attrs.get("request_type")
         city = (attrs.get("city") or "").strip()
         dispatch_mode = (attrs.get("dispatch_mode") or "all").strip().lower()
+        request_lat = attrs.get("request_lat")
+        request_lng = attrs.get("request_lng")
         quote_deadline = attrs.get("quote_deadline")
         subcategory = attrs.get("subcategory")
         subcategory_ids = list(attrs.get("subcategory_ids") or [])
@@ -120,6 +134,21 @@ class ServiceRequestCreateSerializer(serializers.ModelSerializer):
         city_required = request_type == "urgent" and dispatch_mode == "nearest"
         if city_required and not city:
             raise serializers.ValidationError({"city": "المدينة مطلوبة"})
+
+        if request_lat is not None and not (-90 <= float(request_lat) <= 90):
+            raise serializers.ValidationError({"request_lat": "خط العرض غير صالح"})
+        if request_lng is not None and not (-180 <= float(request_lng) <= 180):
+            raise serializers.ValidationError({"request_lng": "خط الطول غير صالح"})
+
+        if request_type == "urgent" and dispatch_mode == "nearest":
+            if request_lat is None or request_lng is None:
+                raise serializers.ValidationError({
+                    "request_lat": "فعّل تحديد الموقع لاستخدام البحث عن الأقرب",
+                    "request_lng": "فعّل تحديد الموقع لاستخدام البحث عن الأقرب",
+                })
+        else:
+            attrs["request_lat"] = None
+            attrs["request_lng"] = None
 
         # Competitive/Urgent requests are broadcast to matching providers.
         # They must NOT be targeted to a single provider.
@@ -303,34 +332,13 @@ class ServiceRequestListSerializer(serializers.ModelSerializer):
     city_display = serializers.SerializerMethodField()
 
     def _status_group_value(self, raw: str) -> str:
-        s = (raw or "").strip().lower()
-        if s == "new":
-            return "new"
-        if s == "in_progress":
-            return "in_progress"
-        if s == "completed":
-            return "completed"
-        if s in ("cancelled", "canceled"):
-            return "cancelled"
-        return "new"
+        return request_status_group_value(raw)
 
     def get_status_group(self, obj):
         return self._status_group_value(getattr(obj, "status", ""))
 
     def get_status_label(self, obj):
-        if (
-            self.get_status_group(obj) == "new"
-            and str(getattr(obj, "request_type", "")).strip().lower() == "urgent"
-            and bool(getattr(obj, "provider_id", None) or getattr(obj, "provider", None))
-        ):
-            return "تم قبول الطلب"
-        group = self.get_status_group(obj)
-        return {
-            "new": "جديد",
-            "in_progress": "تحت التنفيذ",
-            "completed": "مكتمل",
-            "cancelled": "ملغي",
-        }.get(group, "جديد")
+        return service_request_status_label(obj)
 
     def get_client_name(self, obj):
         first = (getattr(obj.client, "first_name", "") or "").strip()
@@ -626,9 +634,18 @@ class RequestStatusLogSerializer(serializers.ModelSerializer):
 class ProviderRequestDetailSerializer(ServiceRequestListSerializer):
     attachments = ServiceRequestAttachmentSerializer(many=True, read_only=True)
     status_logs = RequestStatusLogSerializer(many=True, read_only=True)
+    available_actions = serializers.SerializerMethodField()
+
+    def get_available_actions(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not getattr(user, "is_authenticated", False):
+            return []
+        return allowed_actions(user, obj)
 
     class Meta(ServiceRequestListSerializer.Meta):
         fields = ServiceRequestListSerializer.Meta.fields + (
             "attachments",
             "status_logs",
+            "available_actions",
         )

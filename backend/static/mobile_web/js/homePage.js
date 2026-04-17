@@ -1199,8 +1199,15 @@ const HomePage = (() => {
       .map(_normalizePortfolioShowcaseItem)
       .filter(Boolean);
     if (!items.length) {
-      $portfolioShowcaseSection.style.display = 'none';
+      $portfolioShowcaseSection.style.display = '';
+      _notifySectionShown($portfolioShowcaseSection);
       $portfolioShowcaseList.textContent = '';
+      $portfolioShowcaseList.appendChild(
+        UI.el('div', {
+          className: 'providers-empty',
+          textContent: 'لا توجد مشاريع أو بنرات ممولة حالياً',
+        })
+      );
       return;
     }
     $portfolioShowcaseSection.style.display = '';
@@ -1292,6 +1299,17 @@ const HomePage = (() => {
     $promoMessageCard.appendChild(action);
   }
 
+  function _renderHeroBannerEmptyState() {
+    if (!$carouselTrack) return;
+    $carouselTrack.textContent = '';
+    $carouselTrack.appendChild(
+      UI.el('div', {
+        className: 'hero-banner-empty',
+        textContent: 'لا توجد بنرات نشطة حالياً',
+      })
+    );
+  }
+
   /* ----------------------------------------------------------
      RENDER: BANNERS CAROUSEL
      Full-width auto-rotating carousel with images & videos.
@@ -1302,11 +1320,11 @@ const HomePage = (() => {
     var heroEl = document.getElementById('hero');
     var heroSkel = document.getElementById('hero-skeleton');
     if (!banners.length) {
-      $bannersSection.style.display = 'none';
+      $bannersSection.style.display = '';
       _carouselItems = [];
       _carouselIdx = 0;
       _stopCarouselAutoRotate();
-      $carouselTrack.textContent = '';
+      _renderHeroBannerEmptyState();
       if ($carouselDots) $carouselDots.textContent = '';
       if ($carouselPrev) $carouselPrev.style.display = 'none';
       if ($carouselNext) $carouselNext.style.display = 'none';

@@ -10,6 +10,7 @@ from .api import (
     MyProviderRequestsView,
     ProviderRequestDetailView,
     ProviderAssignedRequestAcceptView,
+    ProviderRequestCancelView,
     ProviderAssignedRequestRejectView,
     ProviderProgressUpdateView,
     ProviderInputsDecisionView,
@@ -64,6 +65,11 @@ urlpatterns = [
         "provider/requests/<int:request_id>/reject/",
         ProviderAssignedRequestRejectView.as_view(),
         name="provider_request_reject",
+    ),
+    path(
+        "provider/requests/<int:request_id>/cancel/",
+        ProviderRequestCancelView.as_view(),
+        name="provider_request_cancel",
     ),
     path(
         "provider/requests/<int:request_id>/progress-update/",

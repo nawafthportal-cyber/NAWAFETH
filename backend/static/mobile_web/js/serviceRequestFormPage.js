@@ -8,6 +8,7 @@ var ServiceRequestFormPage = (function () {
   var allImages = [];
   var allVideos = [];
   var allFiles = [];
+  var isAuthenticated = false;
 
   /* Saudi cities */
   var CITIES = [
@@ -23,12 +24,17 @@ var ServiceRequestFormPage = (function () {
   ];
 
   function init() {
+    isAuthenticated = !!(window.Auth && typeof window.Auth.isLoggedIn === "function" && window.Auth.isLoggedIn());
+    _setAuthState(isAuthenticated);
+    _setLoginHref();
+    if (!isAuthenticated) return;
+
     var params = new URLSearchParams(location.search);
     providerId = params.get("provider_id");
     serviceId = params.get("service_id");
     if (providerId) {
       requestType = "normal";
-      document.getElementById("sr-title").textContent = "طلب خدمة";
+      document.getElementById("sr-title").textContent = "طلب مباشر إلى مزود الخدمة";
     }
 
     loadCategories();
@@ -37,6 +43,21 @@ var ServiceRequestFormPage = (function () {
     setProviderTypeMode();
     bindEvents();
     updateCityClearVisibility();
+    updateRequestTypePresentation();
+  }
+
+  function _setAuthState(loggedIn) {
+    var gate = document.getElementById("auth-gate");
+    var content = document.getElementById("form-content");
+    if (gate) gate.classList.toggle("hidden", loggedIn);
+    if (content) content.classList.toggle("hidden", !loggedIn);
+  }
+
+  function _setLoginHref() {
+    var loginLink = document.getElementById("sr-login-link");
+    if (!loginLink) return;
+    var next = window.location.pathname + window.location.search;
+    loginLink.href = "/login/?next=" + encodeURIComponent(next);
   }
 
   function loadCategories() {
@@ -67,6 +88,7 @@ var ServiceRequestFormPage = (function () {
       if (!chip || providerId) return;
       requestType = chip.dataset.val;
       this.querySelectorAll(".chip").forEach(function (c) { c.classList.toggle("active", c === chip); });
+      updateRequestTypePresentation();
     });
 
     // Category → subcategory
@@ -158,6 +180,82 @@ var ServiceRequestFormPage = (function () {
       chip.disabled = !isNormal;
       if (!isNormal) chip.classList.add("hidden");
     });
+    updateRequestTypePresentation();
+  }
+
+  function updateRequestTypePresentation() {
+    var mode = providerId ? "provider_direct" : requestType;
+    var variants = {
+      provider_direct: {
+        label: "إرسال مباشر",
+        title: "طلب مباشر إلى مزود محدد",
+        text: "سيصل الطلب إلى المزود الذي اخترته فقط، ما يجعل هذا المسار مناسباً عندما تكون قد حددت مقدم الخدمة مسبقاً.",
+        helper: "اكتب تفاصيل الطلب كما تريد أن تصل مباشرة إلى المزود، ثم أرفق أي ملفات توضيحية لازمة.",
+        submitText: "إرسال الطلب",
+        successTitle: "تم إرسال الطلب إلى المزود",
+        successMessage: "تم حفظ طلبك وإرساله مباشرة إلى مزود الخدمة. تابع الردود وتحديثات التنفيذ من صفحة الطلبات.",
+        showDeadline: false,
+        showProviderNote: true,
+      },
+      normal: {
+        label: "طلب مباشر",
+        title: "اختر مزوداً ثم أرسل الطلب مباشرة",
+        text: "هذا المسار المباشر يحتاج إلى مزود خدمة محدد. إذا لم تختر مزوداً بعد، استخدم البحث أو ملف المزود أولاً.",
+        helper: "الطلب المباشر مناسب عندما تكون قد حددت الجهة المنفذة وتريد بدء التواصل التنفيذي مباشرة.",
+        submitText: "إرسال الطلب",
+        successTitle: "تم حفظ الطلب",
+        successMessage: "تم حفظ طلبك بنجاح. ستتمكن من متابعة حالته من صفحة الطلبات.",
+        showDeadline: false,
+        showProviderNote: false,
+      },
+      competitive: {
+        label: "طلب تنافسي",
+        title: "استقبال عروض أسعار متعددة",
+        text: "سيتمكن المزوّدون المطابقون من إرسال عروضهم خلال الفترة التي تحددها، ثم تختار الأنسب لاحقاً.",
+        helper: "في الطلب التنافسي، حدّد وصفاً واضحاً وموعداً نهائياً مناسباً لإغلاق استقبال العروض.",
+        submitText: "إرسال الطلب التنافسي",
+        successTitle: "تم إرسال طلب عروض الأسعار",
+        successMessage: "تم فتح الطلب للمزوّدين المؤهلين. ستظهر لك العروض الواردة في صفحة الطلبات فور وصولها.",
+        showDeadline: true,
+        showProviderNote: false,
+      },
+      urgent: {
+        label: "طلب عاجل",
+        title: "مسار سريع للحالات العاجلة",
+        text: "سيُرسل الطلب إلى المزوّدين المؤهلين بحسب التخصص والمدينة، مع أولوية أعلى للمعالجة السريعة.",
+        helper: "اكتب وصفاً مباشراً ومختصراً للحالة العاجلة حتى يصل المطلوب بوضوح منذ اللحظة الأولى.",
+        submitText: "إرسال الطلب العاجل",
+        successTitle: "تم إرسال الطلب العاجل",
+        successMessage: "تم توجيه الطلب العاجل وفق المسار المتاح. تابع حالته من صفحة الطلبات وتحقق من الردود أولاً بأول.",
+        showDeadline: false,
+        showProviderNote: false,
+      },
+    };
+
+    var variant = variants[mode] || variants.normal;
+    setText("sr-request-kind-label", variant.label);
+    setText("sr-request-kind-title", variant.title);
+    setText("sr-request-kind-text", variant.text);
+    setText("sr-submit-helper", variant.helper);
+    setText("sr-submit-text", variant.submitText);
+    setText("sr-success-title", variant.successTitle);
+    setText("sr-success-message", variant.successMessage);
+
+    var providerNote = document.getElementById("sr-provider-note");
+    if (providerNote) providerNote.classList.toggle("hidden", !variant.showProviderNote);
+
+    var deadlineGroup = document.getElementById("sr-deadline-group");
+    if (deadlineGroup) {
+      deadlineGroup.classList.toggle("hidden", !variant.showDeadline);
+      if (!variant.showDeadline) {
+        document.getElementById("sr-deadline").value = "";
+      }
+    }
+  }
+
+  function setText(id, value) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = value;
   }
 
   function renderAttachments() {
@@ -214,7 +312,9 @@ var ServiceRequestFormPage = (function () {
     }
 
     var btn = document.getElementById("sr-submit");
-    btn.disabled = true; btn.textContent = "جاري الإرسال...";
+    var btnText = document.getElementById("sr-submit-text");
+    btn.disabled = true;
+    if (btnText) btnText.textContent = "جاري الإرسال...";
 
     var fd = new FormData();
     fd.append("title", title);
@@ -231,12 +331,13 @@ var ServiceRequestFormPage = (function () {
 
     API.upload("/api/marketplace/requests/create/", fd)
       .then(function () {
-        document.getElementById("sr-form").style.display = "none";
-        document.getElementById("sr-success").style.display = "";
+        document.getElementById("sr-form").classList.add("hidden");
+        document.getElementById("sr-success").classList.remove("hidden");
       })
       .catch(function (err) {
         alert(err.message || "فشل إرسال الطلب");
-        btn.disabled = false; btn.textContent = "تقديم الطلب";
+        btn.disabled = false;
+        updateRequestTypePresentation();
       });
   }
 

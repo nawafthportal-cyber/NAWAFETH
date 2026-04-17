@@ -27,11 +27,14 @@ from apps.subscriptions.services import user_has_active_subscription
 
 from .models import (
 	DispatchStatus,
+	PRE_EXECUTION_REQUEST_STATUSES,
 	RequestStatus,
 	RequestStatusLog,
 	RequestType,
 	ServiceRequest,
 	ServiceRequestDispatch,
+	request_status_group_value,
+	service_request_status_label,
 )
 
 from apps.marketplace.services.actions import allowed_actions, execute_action
@@ -50,6 +53,8 @@ def _normalize_status_group(value: str) -> Optional[str]:
 	# English codes
 	if v in {"new", "in_progress", "completed", "cancelled"}:
 		return v
+	if v in {status.value for status in PRE_EXECUTION_REQUEST_STATUSES}:
+		return "new"
 
 	# Common variants
 	if v in {"canceled", "cancel", "cancelled"}:
@@ -68,7 +73,7 @@ def _normalize_status_group(value: str) -> Optional[str]:
 def _status_group_to_statuses(group: str) -> list[str]:
 	# Map unified user-facing groups to internal statuses.
 	return {
-		"new": [RequestStatus.NEW],
+		"new": list(PRE_EXECUTION_REQUEST_STATUSES),
 		"in_progress": [RequestStatus.IN_PROGRESS],
 		"completed": [RequestStatus.COMPLETED],
 		"cancelled": [RequestStatus.CANCELLED],
@@ -170,11 +175,15 @@ def _provider_available_request_ids(provider: ProviderProfile, *, now=None) -> l
 				],
 				available_at__lte=now,
 			).values_list("request_id", flat=True)
-			urgent_ids = list(
+			urgent_rows = list(
 				base_qs.filter(request_type=RequestType.URGENT)
 				.filter(Q(id__in=ready_request_ids) | Q(dispatch_windows__isnull=True))
-				.values_list("id", flat=True)
 			)
+			urgent_ids = [
+				request_row.id
+				for request_row in urgent_rows
+				if provider_can_access_urgent_request(provider, request_row, now=now)
+			]
 
 	competitive_ids: list[int] = []
 	if competitive_requests_enabled_for_user(provider.user):
@@ -194,10 +203,12 @@ def _accept_provider_request_from_legacy_html(*, provider: ProviderProfile, acto
 		raise ValidationError("لا يمكن قبول الطلب في هذه الحالة")
 
 	if service_request.provider_id == provider.id:
+		old = service_request.status
+		service_request.accept(provider)
 		RequestStatusLog.objects.create(
 			request=service_request,
 			actor=actor,
-			from_status=service_request.status,
+			from_status=old,
 			to_status=service_request.status,
 			note="قبول من المزود بانتظار إرسال تفاصيل التنفيذ",
 		)
@@ -218,20 +229,7 @@ def _accept_provider_request_from_legacy_html(*, provider: ProviderProfile, acto
 	if not provider_can_access_urgent_request(provider, service_request, now=now):
 		raise ValidationError("هذا الطلب لم يصبح متاحًا لباقتك بعد")
 
-	service_request.provider = provider
-	service_request.status = RequestStatus.NEW
-	service_request.provider_inputs_approved = None
-	service_request.provider_inputs_decided_at = None
-	service_request.provider_inputs_decision_note = ""
-	service_request.save(
-		update_fields=[
-			"provider",
-			"status",
-			"provider_inputs_approved",
-			"provider_inputs_decided_at",
-			"provider_inputs_decision_note",
-		]
-	)
+	service_request.accept(provider)
 	RequestStatusLog.objects.create(
 		request=service_request,
 		actor=actor,
@@ -243,15 +241,58 @@ def _accept_provider_request_from_legacy_html(*, provider: ProviderProfile, acto
 
 
 def _status_label_ar(raw_status: str) -> str:
-	value = (raw_status or "").strip().lower()
-	labels = {
-		"new": "جديد",
-		"in_progress": "تحت التنفيذ",
-		"completed": "مكتمل",
-		"cancelled": "ملغي",
-		"canceled": "ملغي",
-	}
-	return labels.get(value, raw_status or "—")
+	class _StatusProxy:
+		status = raw_status
+		request_type = ""
+		provider_id = None
+		provider = None
+
+	return service_request_status_label(_StatusProxy())
+
+
+def _request_type_label(service_request: ServiceRequest) -> str:
+	try:
+		label = service_request.get_request_type_display()
+	except Exception:
+		label = ""
+	value = (label or getattr(service_request, "request_type", "") or "").strip()
+	return value or "طلب"
+
+
+def _request_workflow_note(service_request: ServiceRequest) -> str:
+	status = (getattr(service_request, "status", "") or "").strip().lower()
+	request_type = (getattr(service_request, "request_type", "") or "").strip().lower()
+	has_provider = bool(getattr(service_request, "provider_id", None) or getattr(service_request, "provider", None))
+
+	if status == RequestStatus.NEW:
+		if request_type == RequestType.NORMAL and has_provider:
+			return "الطلب محفوظ وموجّه للمزوّد المحدد بانتظار قبوله قبل إدخال تفاصيل التنفيذ."
+		if request_type == RequestType.COMPETITIVE:
+			return "الطلب مفتوح حالياً لاستقبال عروض الأسعار من المزوّدين المؤهلين حتى اختيار العرض المناسب."
+		if request_type == RequestType.URGENT:
+			return "الطلب متاح للمزوّدين المؤهلين وفق باقاتهم ونطاق التغطية، مع أولوية أعلى للظهور السريع."
+		return "الطلب جديد ولم يبدأ التنفيذ بعد."
+	if status == RequestStatus.PROVIDER_ACCEPTED:
+		return "تم قبول الطلب من المزوّد، والخطوة التالية هي إرسال تفاصيل التنفيذ المالية والزمنية إلى العميل."
+	if status == RequestStatus.AWAITING_CLIENT_APPROVAL:
+		return "تمت مشاركة تفاصيل التنفيذ، والطلب الآن بانتظار اعتماد العميل أو طلب التعديل قبل البدء."
+	if status == RequestStatus.IN_PROGRESS:
+		return "تم اعتماد التفاصيل وبدأ التنفيذ. استمر في متابعة المرفقات والتحديثات حتى التسليم."
+	if status == RequestStatus.COMPLETED:
+		return "أُغلق الطلب كمكتمل ويمكن الرجوع إلى المرفقات وسجل الحالة والتقييمات عند الحاجة."
+	if status == RequestStatus.CANCELLED:
+		return "تم إلغاء الطلب، ويمكن مراجعة سبب الإلغاء وسجل التغييرات لمعرفة ما حدث."
+	return "راجع سجل الحالة للتأكد من المرحلة الحالية لهذا الطلب."
+
+
+def _decorate_dashboard_request(service_request: ServiceRequest, *, can_accept_legacy: bool = False) -> ServiceRequest:
+	service_request.status_label = service_request_status_label(service_request)
+	service_request.status_group = request_status_group_value(getattr(service_request, "status", ""))
+	service_request.type_label = _request_type_label(service_request)
+	service_request.workflow_note = _request_workflow_note(service_request)
+	service_request.can_accept_legacy = can_accept_legacy
+	service_request.city_label = (getattr(service_request, "city", "") or "").strip() or "كل المدن"
+	return service_request
 
 
 def _attachment_type_label(raw_type: str) -> str:
@@ -404,11 +445,17 @@ def request_detail(request, request_id: int):
 
 	context = {
 		"obj": obj,
+		"can_send": "send" in acts,
 		"can_cancel": "cancel" in acts,
 		"can_accept": "accept" in acts,
 		"can_start": "start" in acts,
 		"can_complete": "complete" in acts,
 		"can_reopen": "reopen" in acts,
+		"status_label": service_request_status_label(obj),
+		"status_group": request_status_group_value(obj.status),
+		"request_type_label": _request_type_label(obj),
+		"workflow_note": _request_workflow_note(obj),
+		"attachment_total": len(request_attachments) + len(completion_attachments),
 		"request_attachments": [_attachment_vm(att) for att in request_attachments],
 		"completion_attachments": [_attachment_vm(att) for att in completion_attachments],
 		"status_log_rows": status_rows,
@@ -482,6 +529,7 @@ def provider_requests(request):
 	q = (request.GET.get("q") or "").strip()
 	city = (request.GET.get("city") or "").strip()
 	status = (request.GET.get("status") or "").strip().lower()
+	request_type = (request.GET.get("request_type") or "").strip().lower()
 	page = request.GET.get("page") or "1"
 
 	qs = (
@@ -514,20 +562,65 @@ def provider_requests(request):
 		qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
 	if city:
 		qs = qs.filter(city__icontains=city)
+	if request_type in {choice[0] for choice in RequestType.choices}:
+		qs = qs.filter(request_type=request_type)
 	if status:
-		valid = {c[0] for c in RequestStatus.choices}
-		if status in valid:
-			qs = qs.filter(status=status)
+		status_group = _normalize_status_group(status)
+		if status_group:
+			qs = qs.filter(status__in=_status_group_to_statuses(status_group))
+		else:
+			valid = {c[0] for c in RequestStatus.choices}
+			if status in valid:
+				qs = qs.filter(status=status)
 
 	paginator = Paginator(qs, 12)
 	page_obj = paginator.get_page(page)
+	page_obj.object_list = [
+		_decorate_dashboard_request(
+			obj,
+			can_accept_legacy=bool(tab == "available" and provider and obj.request_type == RequestType.URGENT),
+		)
+		for obj in page_obj.object_list
+	]
+
+	if provider:
+		available_base = ServiceRequest.objects.filter(id__in=_provider_available_request_ids(provider))
+		assigned_base = ServiceRequest.objects.filter(provider=provider)
+	else:
+		available_base = ServiceRequest.objects.filter(status=RequestStatus.NEW, provider__isnull=True).exclude(request_type=RequestType.NORMAL)
+		assigned_base = ServiceRequest.objects.filter(provider__isnull=False)
+
+	summary = {
+		"available_total": available_base.count(),
+		"assigned_total": assigned_base.count(),
+		"competitive_available": available_base.filter(request_type=RequestType.COMPETITIVE).count(),
+		"urgent_available": available_base.filter(request_type=RequestType.URGENT).count(),
+		"awaiting_acceptance": assigned_base.filter(status=RequestStatus.NEW, request_type=RequestType.NORMAL).count(),
+		"awaiting_client": assigned_base.filter(status=RequestStatus.AWAITING_CLIENT_APPROVAL).count(),
+		"in_progress_total": assigned_base.filter(status=RequestStatus.IN_PROGRESS).count(),
+	}
+
+	tab_titles = {
+		"available": "الطلبات المتاحة الآن",
+		"assigned": "الطلبات المسندة إليك",
+		"all": "عرض تشغيلي شامل",
+	}
+	tab_descriptions = {
+		"available": "يتضمن هذا العرض الطلبات التي يحق لك الاطلاع عليها حالياً بحسب الباقة، النطاق، ونوع الطلب.",
+		"assigned": "هنا تجد جميع الطلبات التي أُسنِدت إليك وتحتاج متابعة، اعتماد عميل، أو استكمال تنفيذ.",
+		"all": "عرض موحّد للمراجعة التشغيلية يشمل جميع الطلبات المتاحة والمسندة والمكتملة عند الحاجة.",
+	}
 
 	context = {
 		"tab": tab,
 		"q": q,
 		"city": city,
 		"status": status,
+		"request_type": request_type,
 		"page_obj": page_obj,
 		"provider": provider,
+		"summary": summary,
+		"current_tab_title": tab_titles.get(tab, tab_titles["available"]),
+		"current_tab_description": tab_descriptions.get(tab, tab_descriptions["available"]),
 	}
 	return render(request, "marketplace/provider_requests.html", context)

@@ -202,6 +202,13 @@ class BrandingContentBlock(SiteContentBlock):
         verbose_name_plural = "هوية المنصة"
 
 
+class PlatformLogoBlock(SiteContentBlock):
+    class Meta:
+        proxy = True
+        verbose_name = "شعار المنصة"
+        verbose_name_plural = "شعار المنصة"
+
+
 class HomePageFallbackBannerBlock(SiteContentBlock):
     class Meta:
         proxy = True
